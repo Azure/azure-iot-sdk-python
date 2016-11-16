@@ -32,7 +32,7 @@ setup(
     version=_version+'.0', # using version of actual c client release
     description='IoT Hub Client Library',
     license='Apache Software License',
-    url='https://github.com/Azure/azure-iot-sdks/tree/master/python/device',
+    url='https://github.com/Azure/azure-iot-sdk-python/tree/master/python/device',
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
     long_description='IoT Hub Client Library for Python 2.7 and 3.4 - iothub_client.pyd',

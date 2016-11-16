@@ -66,7 +66,7 @@ goto args-loop
 set cmake-output=cmake_%build-platform%
 
 REM -- C --
-cd %build-root%..\..\..\c\build_all\windows
+cd %build-root%..\..\c\build_all\windows
 call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config%
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%

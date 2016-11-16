@@ -5,7 +5,7 @@
 # This script updates a fresh Ubuntu installation with all the dependent
 # components necessary to use the IoT Client SDK for C and Python.
 
-build_root=$(cd "$(dirname "$0")/../../.." && pwd)
+build_root=$(cd "$(dirname "$0")/../.." && pwd)
 cd $build_root
 
 # instruct C setup to install all dependent libraries
