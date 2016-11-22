@@ -47,7 +47,7 @@ class HubManager(object):
     def __init__(
             self,
             connection_string,
-            protocol=IoTHubTransportProvider.AMQP):
+            protocol=IoTHubTransportProvider.MQTT):
         self.client_protocol = protocol
         self.client = IoTHubClient(connection_string, protocol)
         if protocol == IoTHubTransportProvider.HTTP:

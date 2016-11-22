@@ -34,7 +34,7 @@ received_count = 0
 receive_callbacks = 0
 send_callbacks = 0
 
-protocol = IoTHubTransportProvider.HTTP
+protocol = IoTHubTransportProvider.MQTT
 
 # String containing Hostname, Device Id in the format:
 # "HostName=<host_name>;DeviceId=<device_id>;x509=true"

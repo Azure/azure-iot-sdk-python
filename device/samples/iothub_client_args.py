@@ -18,7 +18,7 @@ class OptionError(Exception):
 def get_iothub_opt(
         argv,
         connection_string,
-        protocol=IoTHubTransportProvider.AMQP):
+        protocol=IoTHubTransportProvider.MQTT):
     if len(argv) > 0:
         try:
             opts, args = getopt.getopt(

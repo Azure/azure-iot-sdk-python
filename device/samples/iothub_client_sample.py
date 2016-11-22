@@ -36,7 +36,7 @@ send_callbacks = 0
 blob_callbacks = 0
 
 # chose HTTP, AMQP or MQTT as transport protocol
-protocol = IoTHubTransportProvider.AMQP
+protocol = IoTHubTransportProvider.MQTT
 
 # String containing Hostname, Device Id & Device Key in the format:
 # "HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<device_key>"
