@@ -971,6 +971,7 @@ DeviceMethodCallback(
     return retVal;
 }
 
+#ifndef DONT_USE_UPLOADTOBLOB
 typedef struct
 {
     boost::python::object blobUploadCallback;
@@ -1001,6 +1002,7 @@ BlobUploadConfirmationCallback(
     }
     delete blobUploadContext;
 }
+#endif
 
 class IoTHubClient
 {
@@ -1363,6 +1365,7 @@ public:
         }
     }
 
+#ifndef DONT_USE_UPLOADTOBLOB
     void UploadToBlobAsync(
         std::string destinationFileName,
         std::string source,
@@ -1391,6 +1394,8 @@ public:
             throw IoTHubClientError(__func__, result);
         }
     }
+#endif
+
 #ifdef SUPPORT___STR__
     std::string str() const
     {
@@ -1577,7 +1582,9 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("set_option", &IoTHubClient::SetOption)
         .def("get_send_status", &IoTHubClient::GetSendStatus)
         .def("get_last_message_receive_time", &IoTHubClient::GetLastMessageReceiveTime)
+#ifndef DONT_USE_UPLOADTOBLOB
         .def("upload_blob_async", &IoTHubClient::UploadToBlobAsync)
+#endif
         // attributes
         .def_readonly("protocol", &IoTHubClient::protocol)
         // Python helpers

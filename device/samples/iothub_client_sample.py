@@ -170,13 +170,6 @@ def iothub_client_sample_run():
 
         iotHubClient = iothub_client_init()
 
-        filename= "hello_python_blob.txt"
-        content = "Hello World from Python Blob APi"
-
-        print("IoTHubClient is uploading blob to storage")
-        iotHubClient.upload_blob_async(filename, content, len(content), blob_upload_confirmation_callback, 1001)
-        print("IoTHubClient.upload_blob_async accepted the blob to upload to IoT Hub.")
-
         if iotHubClient.protocol == IoTHubTransportProvider.MQTT:
             print("IoTHubClient is reporting state")
             reportedState = "{\"newState\":\"standBy\"}"

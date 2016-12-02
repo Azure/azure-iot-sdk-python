@@ -1,8 +1,6 @@
 #Copyright (c) Microsoft. All rights reserved.
 #Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#this is CMakeLists.txt for iothub_client_python\src
-
 set(iothub_client_python_c_files
     ./iothub_client_python.cpp
 )
@@ -28,36 +26,53 @@ IF(WIN32)
     SET_TARGET_PROPERTIES(iothub_client_python PROPERTIES SUFFIX ".pyd")
 ENDIF(WIN32)
 
-if(${use_wsio})
-    target_link_libraries(
-        iothub_client_python
-        iothub_client_http_transport
-        iothub_client_amqp_transport
-        iothub_client_amqp_ws_transport
-        iothub_client_mqtt_transport
-        iothub_client_mqtt_ws_transport
-        iothub_client
-        uamqp
-        ${Boost_LIBRARIES}
-        ${PYTHON_LIBRARIES}
-    )
-else()
-    target_link_libraries(
-        iothub_client_python
-        iothub_client_http_transport
-        iothub_client_amqp_transport
-        iothub_client_mqtt_transport
-        iothub_client
-        uamqp
-        ${Boost_LIBRARIES}
-        ${PYTHON_LIBRARIES}
-    )
+target_link_libraries(  
+    iothub_client_python
+    iothub_client 
+)
+
+if(${use_mqtt})
+	target_link_libraries(  
+		iothub_client_python
+		iothub_client_mqtt_transport
+	)
+    if(${use_wsio})
+	    target_link_libraries(  
+		    iothub_client_python
+		    iothub_client_mqtt_ws_transport
+	    )
+    endif()
 endif()
+if(${use_amqp})
+	target_link_libraries(  
+		iothub_client_python
+		iothub_client_amqp_transport
+	)
+    if(${use_wsio})
+	    target_link_libraries(  
+		    iothub_client_python
+		    iothub_client_amqp_ws_transport
+	    )
+    endif()
+	linkUAMQP(iothub_client_python)
+endif()
+if(${use_http})
+	target_link_libraries(  
+		iothub_client_python
+		iothub_client_http_transport
+	)
+endif()
+
+target_link_libraries(  
+	iothub_client_python
+	${Boost_LIBRARIES}
+        ${PYTHON_LIBRARIES}
+)
 
 if(${use_wsio} AND WIN32)
     file(COPY $ENV{OpenSSLDir}/bin/libeay32.dll DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../samples)
     file(COPY $ENV{OpenSSLDir}/bin/ssleay32.dll DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../samples)
 endif()
 
+
 linkSharedUtil(iothub_client_python)
-linkUAMQP(iothub_client_python)

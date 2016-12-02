@@ -3,16 +3,6 @@
 
 #this is CMakeLists.txt for iothub_client_python
 
-if(NOT ${use_mqtt})
-    message(FATAL_ERROR "iothub_client_python needs mqtt support")
-endif()
-if(NOT ${use_amqp})
-    message(FATAL_ERROR "iothub_client_python needs amqp support")
-endif()
-if(NOT ${use_http})
-    message(FATAL_ERROR "iothub_client_python needs http support")
-endif()
-
 compileAsC99()
 
 # get boost
@@ -34,11 +24,11 @@ if(WIN32)
 else()
     # older boost-python libs didn't support versions
     if (${build_python} STREQUAL "2.7")
-        find_package(Boost COMPONENTS python REQUIRED)
+        find_package(Boost COMPONENTS python)
     else()
         # Remove the period from python version for boost component
         string(REPLACE "." "" boost_python ${build_python})
-        find_package(Boost COMPONENTS "python-py${boost_python}" REQUIRED)
+        find_package(Boost COMPONENTS "python-py${boost_python}")
     endif()
 endif()
 
@@ -58,7 +48,7 @@ endif()
 # some versions of cmake shipped with Linux
 # can't find the Python version unless given a hint
 set(Python_ADDITIONAL_VERSIONS ${build_python})
-find_package(PythonLibs ${build_python} REQUIRED)
+find_package(PythonLibs ${build_python})
 include_directories(${PYTHON_INCLUDE_DIRS})
 link_directories(${PYTHON_LIBRARIES})
 
