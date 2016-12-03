@@ -21,13 +21,20 @@
 #include "iothub_client.h"
 #include "iothub_client_version.h"
 #include "iothub_message.h"
+#if USE_HTTP
 #include "iothubtransporthttp.h"
+#endif
+#if USE_AMQP
 #include "iothubtransportamqp.h"
-#include "iothubtransportmqtt.h"
-
 #ifdef USE_WEBSOCKETS
 #include "iothubtransportamqp_websockets.h"
+#endif
+#endif
+#if USE_MQTT
+#include "iothubtransportmqtt.h"
+#ifdef USE_WEBSOCKETS
 #include "iothubtransportmqtt_websockets.h"
+#endif
 #endif
 
 #ifndef IMPORT_NAME
@@ -93,12 +100,34 @@ private:
 #ifdef USE_WEBSOCKETS
     enum IOTHUB_TRANSPORT_PROVIDER
     {
-        HTTP, AMQP, MQTT, AMQP_WS, MQTT_WS
+#if USE_HTTP
+        HTTP,
+#endif
+#if USE_AMQP
+		AMQP,
+#endif		
+#if USE_MQTT
+		MQTT,
+#endif		
+#if USE_AMQP
+		AMQP_WS,
+#endif
+#if USE_MQTT
+		MQTT_WS
+#endif
     };
 #else
     enum IOTHUB_TRANSPORT_PROVIDER
     {
-        HTTP, AMQP, MQTT
+#if USE_HTTP
+        HTTP,
+#endif
+#if USE_AMQP
+		AMQP,
+#endif
+#if USE_MQTT
+		MQTT
+#endif
     };
 #endif
 
@@ -1013,22 +1042,32 @@ class IoTHubClient
         IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol = NULL;
         switch (_protocol)
         {
+#ifdef USE_HTTP
         case HTTP:
             protocol = HTTP_Protocol;
             break;
+#endif
+#ifdef USE_AMQP
         case AMQP:
             protocol = AMQP_Protocol;
             break;
+#endif
+#ifdef USE_MQTT
         case MQTT:
             protocol = MQTT_Protocol;
             break;
+#endif
 #ifdef USE_WEBSOCKETS
+#ifdef USE_HTTP
         case AMQP_WS:
             protocol = AMQP_Protocol_over_WebSocketsTls;
             break;
+#endif
+#ifdef USE_HTTP
         case MQTT_WS:
             protocol = MQTT_WebSocket_Protocol;
             break;
+#endif
 #endif
         default:
             PyErr_SetString(PyExc_TypeError, "IoTHubTransportProvider set to unknown protocol");
@@ -1515,12 +1554,22 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         ;
 
     enum_<IOTHUB_TRANSPORT_PROVIDER>("IoTHubTransportProvider")
+#ifdef USE_HTTP
         .value("HTTP", HTTP)
+#endif
+#ifdef USE_AMQP
         .value("AMQP", AMQP)
+#endif
+#ifdef USE_MQTT
         .value("MQTT", MQTT)
+#endif
 #ifdef USE_WEBSOCKETS
+#ifdef USE_AMQP
         .value("AMQP_WS", AMQP_WS)
+#endif
+#ifdef USE_MQTT
         .value("MQTT_WS", MQTT_WS)
+#endif
 #endif
         ;
 

@@ -66,7 +66,7 @@ endif()
 target_link_libraries(  
 	iothub_client_python
 	${Boost_LIBRARIES}
-        ${PYTHON_LIBRARIES}
+    ${PYTHON_LIBRARIES}
 )
 
 if(${use_wsio} AND WIN32)

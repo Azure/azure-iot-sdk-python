@@ -3,6 +3,19 @@
 
 #this is CMakeLists.txt for iothub_client_python
 
+#These defines exist so that code that depends on a specific transport can be enabled/disabled with #ifdef
+if(${use_amqp})
+    add_definitions(-DUSE_AMQP)
+endif()
+
+if(${use_mqtt})
+    add_definitions(-DUSE_MQTT)
+endif()
+
+if(${use_http})
+    add_definitions(-DUSE_HTTP)
+endif()
+
 compileAsC99()
 
 # get boost
