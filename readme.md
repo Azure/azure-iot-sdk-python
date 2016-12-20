@@ -25,7 +25,7 @@ To run the samples, you can follow [these instructions][run-samples]
 
 * [Simple Sample](device/samples/iothub_client_sample.py): shows how to connect to IoT Hub and send and receive messages using the AMQP, MQTT or HTTP protocol.
 * [Class Sample using AMQP](device/samples/iothub_client_sample_class.py): shows how to connect to IoT Hub with a HubManager class to send and receive messages using the AMQP protocol.
-
+* [Simple Sample X-509](device/samples/iothub_client_sample_x509.py):  shows how to authenticate a device using X-509 certs and send and receive messages.
 
 ## Contribution, feedback and issues
 
