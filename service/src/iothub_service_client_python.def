@@ -1,0 +1,60 @@
+; Copyright(c) Microsoft.All rights reserved.
+; Licensed under the MIT license.See LICENSE file in the project root for full license information.
+; IotHub_Service_Client_Python.def : Declares the module parameters.
+; LIBRARY      "IotHub_Service_Client.PYD"
+
+EXPORTS
+;   iothub_sc_version.h
+    IoTHubServiceClient_GetVersionString
+;   iothub_service_client_auth.h
+    IoTHubServiceClientAuth_CreateFromConnectionString
+    IoTHubServiceClientAuth_Destroy
+;   iothub_registrymanager.h
+    IoTHubRegistryManager_Create
+    IoTHubRegistryManager_Destroy
+    IoTHubRegistryManager_GetDevice
+    IoTHubRegistryManager_UpdateDevice
+    IoTHubRegistryManager_DeleteDevice
+    IoTHubRegistryManager_GetDeviceList
+    IoTHubRegistryManager_GetStatistics
+;   iothub_messaging.h
+    IoTHubMessaging_Create
+    IoTHubMessaging_Destroy
+    IoTHubMessaging_Open
+    IoTHubMessaging_Close
+    IoTHubMessaging_SendAsync
+    IoTHubMessaging_SetFeedbackMessageCallback
+;   iothub_messaging_ll.h
+    IoTHubMessaging_LL_Create
+    IoTHubMessaging_LL_Destroy
+    IoTHubMessaging_LL_Open
+    IoTHubMessaging_LL_Close
+    IoTHubMessaging_LL_Send
+    IoTHubMessaging_LL_SetFeedbackMessageCallback
+;   iothub_devicemethod.h
+    IoTHubDeviceMethod_Create
+    IoTHubDeviceMethod_Destroy
+    IoTHubDeviceMethod_Invoke
+;   iothub_devicetwin.h
+    IoTHubDeviceTwin_Create
+    IoTHubDeviceTwin_Destroy
+    IoTHubDeviceTwin_GetTwin
+    IoTHubDeviceTwin_UpdateTwin
+;   iothubtransporthttp.h
+    HTTP_Protocol
+;   iothubtransportamqp.h
+    AMQP_Protocol
+;   map.h (c-utility)
+    Map_Create
+    Map_Destroy
+    Map_Clone
+    Map_Add
+    Map_AddOrUpdate
+    Map_Delete
+    Map_ContainsKey
+    Map_ContainsValue
+    Map_GetValueFromKey
+    Map_GetInternals
+;   platform.h
+    platform_init
+    platform_deinit

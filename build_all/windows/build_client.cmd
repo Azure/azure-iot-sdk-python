@@ -77,9 +77,9 @@ REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
 if %use-websockets% == ON (
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --use-websockets --skip-unittests
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --use-websockets
 ) else (
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --skip-unittests
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config%
 )
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
@@ -92,12 +92,27 @@ if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 copy %USERPROFILE%\%cmake-output%\python\test\%build-config%\iothub_client_mock.pyd ..\..\device\tests
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
+copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\service\samples
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pyd ..\..\service\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+
 cd ..\..\device\tests
 @Echo python iothub_client_ut.py
 python iothub_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 @Echo python iothub_client_map_test.py
 python iothub_client_map_test.py
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+echo Python unit test PASSED
+cd %build-root%
+
+cd ..\..\service\tests
+@Echo python iothub_service_client_ut.py
+python iothub_service_client_ut.py
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+@Echo python iothub_service_client_map_test.py
+python iothub_service_client_map_test.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
@@ -111,7 +126,7 @@ if "%build-platform%"=="x64" (
 )
 
 if %wheel%==1 (
-    echo Copy iothub_client.pyd to %build-root%\build_all\windows\iothub_client for Python wheel generation
+    echo Copy iothub_client.pyd to %build-root%\build_all\windows\iothub_client for IoTHub Device Client Python wheel generation
     copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pyd ..\..\build_all\windows\iothub_client
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     cd %build-root%\build_all\windows
@@ -122,7 +137,20 @@ if %wheel%==1 (
     python setup.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
-    echo Yet another Python wheel done
+    echo IoTHub Device Client Python wheel done
+
+    echo Copy iothub_service_client.pyd to %build-root%\build_all\windows\iothub_service_client for IoTHub Service Client Python wheel generation
+    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_service_client.pyd ..\..\build_all\windows\iothub_service_client
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    cd %build-root%\build_all\windows
+    echo update Python packages
+    python -m pip install -U pip setuptools wheel twine
+    echo create Python wheel: 
+    echo "python setup.py bdist_wheel --plat-name %platname%"
+    python setup_service_client.py bdist_wheel --plat-name "%platname%"
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    dir dist
+    echo IoTHub Service Client Python wheel done
 )
 goto :eof
 
