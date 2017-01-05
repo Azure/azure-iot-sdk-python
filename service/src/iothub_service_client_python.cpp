@@ -798,17 +798,6 @@ struct DEVICE_CREATE
     std::string secondaryKey;
 };
 
-// template class to convert vector to python list
-template<class T>
-boost::python::list std_vector_to_py_list(const std::vector<T>& v)
-{
-  boost::python::list l;
-  typename std::vector<T>::const_iterator it;
-  for (it = v.begin(); it != v.end(); ++it)
-    l.append(*it);   
-  return l;  
-}
-
 class IoTHubRegistryManager
 {
     IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle = NULL;
@@ -975,17 +964,13 @@ public:
 
         if (deviceList != NULL)
         {
-            std::vector<IOTHUB_DEVICE> deviceVector;
-
             LIST_ITEM_HANDLE next_device = singlylinkedlist_get_head_item(deviceList);
             while (next_device != NULL)
             {
                 IOTHUB_DEVICE* device = (IOTHUB_DEVICE*)singlylinkedlist_item_get_value(next_device);
                 next_device = singlylinkedlist_get_next_item(next_device);
-                deviceVector.push_back(*device);
+                retVal.append(*device);
             }
-
-            retVal = std_vector_to_py_list(deviceVector);
             singlylinkedlist_destroy(deviceList);
         }
         return retVal;
