@@ -22,21 +22,21 @@ except PlatformError as e:
     sys.exit(e.value)
 
 try:
-    from iothub_client import iothub_client
-    _version = iothub_client.__version__
+    from iothub_service_client import iothub_service_client
+    _version = iothub_service_client.__version__
 except Exception as e:
     sys.exit(e)
 
 setup(
-    name='iothub_client',
+    name='iothub_service_client',
     version=_version+'.0', # using version of actual c client release
-    description='IoT Hub Client Library',
+    description='IoT Hub Service Client Library',
     license='Apache Software License',
-    url='https://github.com/Azure/azure-iot-sdk-python/tree/master/python/device',
+    url='https://github.com/Azure/azure-iot-sdk-python/tree/master/python/service',
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
-    long_description='IoT Hub Client Library for Python 2.7 and 3.4 - iothub_client.pyd',
-    packages=['iothub_client'],
+    long_description='IoT Hub Service Client Library for Python 2.7 and 3.4 - iothub_service_client.pyd',
+    packages=['iothub_service_client'],
     classifiers=[
         'Environment :: Win32 (MS Windows)',
         'Development Status :: 3 - Alpha',
@@ -49,7 +49,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5'],
     package_data={
-        'iothub_client': ['__init__.py','iothub_client.pyd'],
+        'iothub_service_client': ['__init__.py','iothub_service_client.pyd'],
     },
     distclass=BinaryDistribution
 ) 

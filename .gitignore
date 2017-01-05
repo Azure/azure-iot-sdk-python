@@ -204,3 +204,6 @@ c/build_all/windows/nuget.exe
 
 /c/cmake
 /c/build
+*.so
+build_all/windows/nuget.exe
+build_all/windows/pyenv.bat

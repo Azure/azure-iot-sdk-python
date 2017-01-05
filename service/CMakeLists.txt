@@ -1,11 +1,11 @@
 #Copyright (c) Microsoft. All rights reserved.
 #Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#this is CMakeLists.txt for iothub_client_python
+#this is CMakeLists.txt for iothub_service_client_python
 
 #These defines exist so that code that depends on a specific transport can be enabled/disabled with #ifdef
 if(${use_amqp})
-    add_definitions(-DUSE_AMQP)
+add_definitions(-DUSE_AMQP)
 endif()
 
 if(${use_mqtt})
@@ -65,9 +65,9 @@ find_package(PythonLibs ${build_python})
 include_directories(${PYTHON_INCLUDE_DIRS})
 link_directories(${PYTHON_LIBRARIES})
 
-# get iothub_client and protocols
+# get iothub_service_client and protocols
 include_directories(${SHARED_UTIL_INC_FOLDER})
-include_directories(${IOTHUB_CLIENT_INC_FOLDER})
+include_directories(${IOTHUB_SERVICE_CLIENT_INC_FOLDER})
 if(${use_http})
     include_directories(${IOTHUB_CLIENT_HTTP_TRANSPORT_INC_FOLDER})
 endif()
@@ -83,4 +83,5 @@ if(${use_wsio})
 endif()
 
 add_subdirectory(src)
-add_subdirectory(test)
+add_subdirectory(tests)
+

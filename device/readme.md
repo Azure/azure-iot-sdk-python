@@ -38,7 +38,7 @@ Device SDK subfolders under **device**:
 
 ### /iothub_client_python
 
-C Source of the Python extension module. This module wraps the IoT Hub C SDK as extension module for Python. The C extension interface is specific to CPython and it does not work on other implementations.
+C Source of the Python extension module. This module wraps the IoT Hub C SDK as extension module for Python. The C extension interface is specific to Boost Python and it does not work on other implementations.
 
 ### /samples
 
