@@ -30,7 +30,7 @@ rem ----------------------------------------------------------------------------
 REM target may be set to 64 bit build if a Python x64 detected
 set build-config=Release
 set wheel=0
-set platname=Win32
+set platname=win32
 set use-websockets=OFF
 
 goto :args-loop
