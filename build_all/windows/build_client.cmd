@@ -33,7 +33,6 @@ set wheel=0
 set platname=win32
 set use-websockets=OFF
 
-@Echo Using Python found in: %PYTHON_PATH%, building Python %build-python% %build-platform% extension
 goto :args-loop
 
 :NeedPython
@@ -46,6 +45,7 @@ if "%1" equ "" goto args-done
 if "%1" equ "--config" goto arg-build-config
 if "%1" equ "--wheel" goto arg-build-wheel
 if "%1" equ "--use-websockets" goto arg-use-websockets
+if "%1" equ "--platform" goto arg-build-platform
 
 call :usage && exit /b 1
 
@@ -63,6 +63,12 @@ goto args-continue
 set use-websockets=ON
 goto args-continue
 
+:arg-build-platform
+shift
+if "%1" equ "" call :usage && exit /b 1
+set build-platform=%1
+goto args-continue
+
 :args-continue
 shift
 goto args-loop
@@ -70,6 +76,8 @@ goto args-loop
 :args-done
 
 :build
+
+@Echo Using Python found in: %PYTHON_PATH%, building Python %build-python% %build-platform% extension
 
 set cmake-output=cmake_%build-platform%
 
@@ -140,7 +148,7 @@ if %wheel%==1 (
     echo IoTHub Device Client Python wheel done
 
     echo Copy iothub_service_client.pyd to %build-root%\build_all\windows\iothub_service_client for IoTHub Service Client Python wheel generation
-    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_service_client.pyd ..\..\build_all\windows\iothub_service_client
+    copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\build_all\windows\iothub_service_client
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     cd %build-root%\build_all\windows
     echo update Python packages
