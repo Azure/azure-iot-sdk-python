@@ -20,7 +20,7 @@ git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git
 
 If you have downloaded the zip instead of cloning the repository, you will need to run the following command to restore submodules:
 ```
-git submodule update --recursive
+git submodule update --init --recursive
 ```
 
 ## How to use the Azure IoT SDKs for Python
