@@ -10,6 +10,19 @@ To find SDKs in other languages for Azure IoT, please refer to the [azure-iot-sd
 
 Visit [Azure IoT Dev Center][iot-dev-center] to learn more about developing applications for Azure IoT.
 
+## How to clone the repository
+
+The repository is using [GitHub Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for its dependencies. In order to automatically clone these submodules, you need to use the --recursive option as described here:
+
+```
+git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
+```
+
+If you have downloaded the zip instead of cloning the repository, you will need to run the following command to restore submodules:
+```
+git submodule update --recursive
+```
+
 ## How to use the Azure IoT SDKs for Python
 Devices and data sources in an IoT solution can range from a simple network-connected sensor to a powerful, standalone computing device. Devices may have limited processing capability, memory, communication bandwidth, and communication protocol support. The IoT device SDKs enable you to implement client applications for a wide variety of devices.
 
