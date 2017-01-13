@@ -35,7 +35,7 @@ setup(
     url='https://github.com/Azure/azure-iot-sdk-python/tree/master/python/service',
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
-    long_description='IoT Hub Service Client Library for Python 2.7 and 3.4 - iothub_service_client.pyd',
+    long_description='IoT Hub Service Client Library for Python 2.7 and 3.6 - iothub_service_client.pyd',
     packages=['iothub_service_client'],
     classifiers=[
         'Environment :: Win32 (MS Windows)',
@@ -47,7 +47,8 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5'],
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6'],
     package_data={
         'iothub_service_client': ['__init__.py','iothub_service_client.pyd'],
     },

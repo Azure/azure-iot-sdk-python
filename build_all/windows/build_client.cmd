@@ -134,31 +134,36 @@ if "%build-platform%"=="x64" (
 )
 
 if %wheel%==1 (
+    cd %build-root%
+
     echo Copy iothub_client.pyd to %build-root%\build_all\windows\iothub_client for IoTHub Device Client Python wheel generation
-    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pyd ..\..\build_all\windows\iothub_client
+    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pyd ..\..\build_all\windows\release_device_client\iothub_client
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
-    cd %build-root%\build_all\windows
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
-    echo create Python wheel: 
-    echo "python setup.py bdist_wheel --plat-name %platname%"
-    python setup.py bdist_wheel --plat-name "%platname%"
+    echo create Python wheel:
+    echo "python setup_device_client.py bdist_wheel --plat-name %platname%"
+    cd release_device_client
+    python setup_device_client.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Device Client Python wheel done
 
+    cd %build-root%
     echo Copy iothub_service_client.pyd to %build-root%\build_all\windows\iothub_service_client for IoTHub Service Client Python wheel generation
-    copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\build_all\windows\iothub_service_client
+    copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\build_all\windows\release_service_client\iothub_service_client
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
-    cd %build-root%\build_all\windows
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
     echo create Python wheel: 
-    echo "python setup.py bdist_wheel --plat-name %platname%"
+    echo "python setup_service_client.py bdist_wheel --plat-name %platname%"
+    cd release_service_client
     python setup_service_client.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Service Client Python wheel done
+
+    cd %build-root%
 )
 goto :eof
 
