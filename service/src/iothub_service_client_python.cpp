@@ -869,7 +869,8 @@ public:
     IOTHUB_DEVICE CreateDevice(
         std::string deviceId,
         std::string primaryKey,
-        std::string secondaryKey
+        std::string secondaryKey,
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
         )
     {
         IOTHUB_DEVICE iothubDevice;
@@ -879,6 +880,7 @@ public:
         deviceCreate.deviceId = deviceId.c_str();
         deviceCreate.primaryKey = primaryKey.c_str();
         deviceCreate.secondaryKey = secondaryKey.c_str();
+        deviceCreate.authMethod = authMethod;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_CreateDevice(_iothubRegistryManagerHandle, &deviceCreate, &iothubDevice);
@@ -911,7 +913,8 @@ public:
         std::string deviceId,
         std::string primaryKey,
         std::string secondaryKey,
-        IOTHUB_DEVICE_STATUS status
+        IOTHUB_DEVICE_STATUS status,
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
         )
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
@@ -921,6 +924,7 @@ public:
         deviceUpdate.primaryKey = primaryKey.c_str();
         deviceUpdate.secondaryKey = secondaryKey.c_str();
         deviceUpdate.status = status;
+        deviceUpdate.authMethod = authMethod;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_UpdateDevice(_iothubRegistryManagerHandle, &deviceUpdate);
@@ -1772,6 +1776,11 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .value("CALLBACK_NOT_SET", IOTHUB_REGISTRYMANAGER_CALLBACK_NOT_SET)
         ;
 
+    enum_<IOTHUB_REGISTRYMANAGER_AUTH_METHOD>("IoTHubRegistryManagerAuthMethod")
+        .value("SHARED_PRIVATE_KEY", IOTHUB_REGISTRYMANAGER_AUTH_SPK)
+        .value("X509_THUMBPRINT", IOTHUB_REGISTRYMANAGER_AUTH_X509_THUMBPRINT)
+        ;
+
     enum_<IOTHUB_MESSAGING_RESULT>("IoTHubMessagingResult")
         .value("OK", IOTHUB_MESSAGING_OK)
         .value("INVALID_ARG", IOTHUB_MESSAGING_INVALID_ARG)
@@ -1849,6 +1858,12 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("statusReason", &IOTHUB_DEVICE::statusReason)
         .add_property("statusUpdatedTime", &IOTHUB_DEVICE::statusUpdatedTime)
         .add_property("lastActivityTime", &IOTHUB_DEVICE::lastActivityTime)
+        .add_property("cloudToDeviceMessageCount", &IOTHUB_DEVICE::cloudToDeviceMessageCount)
+        .add_property("isManaged", &IOTHUB_DEVICE::isManaged)
+        .add_property("configuration", &IOTHUB_DEVICE::configuration)
+        .add_property("deviceProperties", &IOTHUB_DEVICE::deviceProperties)
+        .add_property("serviceProperties", &IOTHUB_DEVICE::serviceProperties)
+        .add_property("authMethod", &IOTHUB_DEVICE::authMethod)
         ;
 
     class_<IOTHUB_REGISTRY_STATISTICS>("IoTHubRegistryStatistics", no_init)

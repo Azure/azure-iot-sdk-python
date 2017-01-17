@@ -621,6 +621,7 @@ class TestClassDefinitions(unittest.TestCase):
         deviceId = "deviceId"
         primaryKey = "primaryKey"
         secondaryKey = "secondaryKey"
+        authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
         with self.assertRaises(AttributeError):
             regManClient.CreateDevice()
         with self.assertRaises(Exception):
@@ -629,7 +630,9 @@ class TestClassDefinitions(unittest.TestCase):
             regManClient.create_device(deviceId)
         with self.assertRaises(Exception):
             regManClient.create_device(deviceId, primaryKey)
-        result = regManClient.create_device(deviceId, primaryKey, secondaryKey)
+        with self.assertRaises(Exception):
+            regManClient.create_device(deviceId, primaryKey, secondaryKey)
+        result = regManClient.create_device(deviceId, primaryKey, secondaryKey, authMethod)
         self.assertIsInstance(result, IoTHubDevice)
 
         # get_device
@@ -646,6 +649,7 @@ class TestClassDefinitions(unittest.TestCase):
         primaryKey = "primaryKey"
         secondaryKey = "secondaryKey"
         status = IoTHubDeviceStatus.ENABLED
+        authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
         with self.assertRaises(AttributeError):
             regManClient.UpdateDevice()
         with self.assertRaises(Exception):
@@ -656,7 +660,9 @@ class TestClassDefinitions(unittest.TestCase):
             regManClient.update_device(deviceId, primaryKey)
         with self.assertRaises(Exception):
             regManClient.update_device(deviceId, primaryKey, secondaryKey)
-        regManClient.update_device(deviceId, primaryKey, secondaryKey, status)
+        with self.assertRaises(Exception):
+            regManClient.create_device(deviceId, primaryKey, secondaryKey, status)
+        regManClient.update_device(deviceId, primaryKey, secondaryKey, status, authMethod)
 
         # delete_device
         deviceId = "deviceId"

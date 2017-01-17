@@ -27,6 +27,12 @@ def printDeviceInfo(title, iothubDevice):
     print("iothubDevice.statusReason                = {0}".format(iothubDevice.statusReason))
     print("iothubDevice.statusUpdatedTime           = {0}".format(iothubDevice.statusUpdatedTime))
     print("iothubDevice.lastActivityTime            = {0}".format(iothubDevice.lastActivityTime))
+    print("iothubDevice.cloudToDeviceMessageCount   = {0}".format(iothubDevice.cloudToDeviceMessageCount))
+    print("iothubDevice.isManaged                   = {0}".format(iothubDevice.isManaged))
+    print("iothubDevice.configuration               = {0}".format(iothubDevice.configuration))
+    print("iothubDevice.deviceProperties            = {0}".format(iothubDevice.deviceProperties))
+    print("iothubDevice.serviceProperties           = {0}".format(iothubDevice.serviceProperties))
+    print("iothubDevice.authMethod                  = {0}".format(iothubDevice.authMethod))
     print("")
 
 def iothub_registrymanager_sample_run():
@@ -38,7 +44,8 @@ def iothub_registrymanager_sample_run():
         # CreateDevice
         primaryKey = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
         secondaryKey = "111222333444555666777888999000aaabbbcccdddee"
-        newDevice = iothubRegistryManager.create_device(device_id, primaryKey, secondaryKey)
+        authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
+        newDevice = iothubRegistryManager.create_device(device_id, primaryKey, secondaryKey, authMethod)
         printDeviceInfo("CreateDevice", newDevice)
 
         # GetDevice
@@ -49,7 +56,8 @@ def iothub_registrymanager_sample_run():
         primaryKey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         secondaryKey = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
         status = IoTHubDeviceStatus.DISABLED
-        iothubRegistryManager.update_device(device_id, primaryKey, secondaryKey, status)
+        authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
+        iothubRegistryManager.update_device(device_id, primaryKey, secondaryKey, status, authMethod)
         updatedDevice = iothubRegistryManager.get_device(device_id)
         printDeviceInfo("UpdateDevice", updatedDevice)
 
