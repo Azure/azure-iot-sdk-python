@@ -5,15 +5,16 @@ Build service clients that communicate with Azure IoT Hub.
 ## Features
 
 Use the service SDK to:
-* Managing the device identity registry (CRUD operations for devices).
-* Sending messages to devices (C2D messages)
+* Manage the device identity registry (CRUD operations for devices).
+* Send messages to devices (C2D messages)
+* interact with Device Twins and Invoke Device Direct Methods
 
-## Application development guides
-For more information on how to use this library refer to the documents below:
-- [Prepare your Python development environment](../doc/get_started/python-devbox-setup.md)
-- [Setup IoT Hub](../doc/setup_iothub.md)
-- [Provision devices](../doc/manage_iot_hub.md)
-- [Run a Python sample application](../doc/get_started/python-run-sample.md)
+## How to use the Azure IoT device SDK for Python
+
+* [Check out the simple samples provided in this repository][samples]
+
+## Samples
+Whithin the repository, you can find various types of [simple samples][samples] that can help you get started.
 
 ## Directory structure
 
@@ -30,3 +31,5 @@ C Source of the Python extension module. This module wraps the IoT Hub C Service
 ### /tests
 
 Python C extension module unit tests. The unit tests exercise a mocked Python extension module to test the Python interface. 
+
+[samples]: samples/
