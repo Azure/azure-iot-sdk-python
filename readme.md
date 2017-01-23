@@ -7,6 +7,10 @@ This repository contains the following:
 
 To find SDKs in other languages for Azure IoT, please refer to the [azure-iot-sdks][azure-iot-sdks] repository.
 
+To create and manage an instance of IoT Hub in your Azure subscription using Python, you can use the [Azure IoT Hub management library for Python][azure-iot-mgmt-lib]. Read more [here][azure-iot-mgmt-lib-doc].
+
+To manage all your Azure resources using Python, you can leverate the [Azure CLI v2][azure-cli-v2].
+
 ## Developing applications for Azure IoT
 Visit [Azure IoT Dev Center][iot-dev-center] to learn more about developing applications for Azure IoT.
 
@@ -58,3 +62,6 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 [devbox-setup]: doc/python-devbox-setup.md
 [device-samples]: device/samples/
 [service-samples]: service/samples/
+[azure-iot-mgmt-lib]: https://pypi.python.org/pypi/azure-mgmt-iothub
+[azure-iot-mgmt-lib-doc]: http://azure-sdk-for-python.readthedocs.io/en/latest/sample_azure-mgmt-iothub.html
+[azure-cli-v2]: https://github.com/Azure/azure-cli
