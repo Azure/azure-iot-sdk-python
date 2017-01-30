@@ -190,10 +190,13 @@ def iothub_client_sample_run():
                 # optional: assign ids
                 message.message_id = "message_%d" % i
                 message.correlation_id = "correlation_%d" % i
+                
                 # optional: assign properties
                 prop_map = message.properties()
                 prop_text = "PropMsg_%d" % i
                 prop_map.add("Property", prop_text)
+                message.properties(prop_map)
+
                 iotHubClient.send_event_async(message, send_confirmation_callback, i)
                 print(
                     "IoTHubClient.send_event_async accepted message [%d]"
