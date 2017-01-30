@@ -154,7 +154,7 @@ class HubManager(object):
 
     def send_reported_state(self, reportedState, size, user_context):
         self.client.send_reported_state(
-            reportedState, size
+            reportedState, size,
             self._send_reported_state_callback, user_context)
 
 
