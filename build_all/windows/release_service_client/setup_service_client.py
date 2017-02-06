@@ -29,7 +29,7 @@ except Exception as e:
 
 setup(
     name='azure_iothub_service_client',
-    version=_version+'.0', # using version of actual c client release
+    version=_version, # using version of actual c service client release plus minor release for Python
     description='IoT Hub Service Client Library',
     license='Apache Software License',
     url='https://github.com/Azure/azure-iot-sdk-python/tree/master/service',

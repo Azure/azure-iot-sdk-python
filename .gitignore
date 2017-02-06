@@ -209,3 +209,5 @@ build_all/windows/nuget.exe
 build_all/windows/pyenv.bat
 build_all/windows/build/lib/iothub_client/__init__.py
 build_all/windows/build/lib/iothub_service_client/__init__.py
+build_all/windows/release_device_client/build
+build_all/windows/release_service_client/build

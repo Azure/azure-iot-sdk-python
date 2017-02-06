@@ -33,6 +33,9 @@
 #define IMPORT_NAME iothub_service_client
 #endif
 
+#define IOTHUB_PYTHON_SERVICE_SDK_VERSION "0"
+#define VERSION_STRING IOTHUB_SERVICE_CLIENT_VERSION "." IOTHUB_PYTHON_SERVICE_SDK_VERSION
+
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
 #endif
@@ -1675,7 +1678,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     bool show_cpp_signatures = false;
     docstring_options doc_options(show_user_defined, show_py_signatures, show_cpp_signatures);
     scope().attr("__doc__") = iothub_service_client_docstring;
-    scope().attr("__version__") = IOTHUB_SERVICE_CLIENT_VERSION;
+    scope().attr("__version__") = VERSION_STRING;
 
     // exception handlers
     class_<IoTHubMapError>IoTHubMapErrorClass("IoTHubMapErrorArg", init<std::string, MAP_RESULT>());
