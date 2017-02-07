@@ -105,6 +105,18 @@ if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pyd ..\..\service\tests
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
+if "%build-config%"=="Debug" (
+    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pdb ..\..\device\samples
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\python\test\%build-config%\iothub_client_mock.pdb ..\..\device\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+
+    copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pdb ..\..\service\samples
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pdb ..\..\service\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+)
+
 cd ..\..\device\tests
 @Echo python iothub_client_ut.py
 python iothub_client_ut.py

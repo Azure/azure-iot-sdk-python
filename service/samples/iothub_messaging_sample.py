@@ -3,76 +3,68 @@
 # full license information.
 
 import random
-import time
 import sys
 import iothub_service_client
-from iothub_service_client import *
-from iothub_service_client_args import *
+from iothub_service_client import IoTHubMessaging, IoTHubMessage, IoTHubError
+from iothub_service_client_args import get_iothub_opt, OptionError
 
-open_context = 0
-feedback_context = 1
+OPEN_CONTEXT = 0
+FEEDBACK_CONTEXT = 1
 
-message_count = 10
+MESSAGE_COUNT = 10
 
 # String containing Hostname, SharedAccessKeyName & SharedAccessKey in the format:
 # "HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>"
-connection_string = "[IoTHub Connection String]";
-device_id = "[Device Id]";
+CONNECTION_STRING = "[IoTHub Connection String]"
+DEVICE_ID = "[Device Id]"
 
-avg_wind_speed = 10.0
-msg_txt0 = "{\"service client sent a message\"}"
-msg_txt = "{\"service client sent a message\": %.2f}"
 
-def open_complete_callback(
-        context
-        ):
-    print('open_complete_callback called with context: {0}'.format(context));
+AVG_WIND_SPEED = 10.0
+MSG_TXT = "{\"service client sent a message\": %.2f}"
 
-def send_complete_callback(
-        context,
-        messagingResult
-        ):
+
+def open_complete_callback(context):
+    print 'open_complete_callback called with context: {0}'.format(context)
+
+
+def send_complete_callback(context, messaging_result):
     context = 0
-    print('send_complete_callback called with context : {0}'.format(context));
-    print('messagingResult : {0}'.format(messagingResult));
+    print 'send_complete_callback called with context : {0}'.format(context)
+    print 'messagingResult : {0}'.format(messaging_result)
 
-def feedback_received_callback(
-        context,
-        batchUserId,
-        batchLockToken,
-        feedbackRecords
-        ):
-    print('feedback_received_callback called with context: {0}'.format(context));
-    print('Batch userId                 : {0}'.format(batchUserId));
-    print('Batch lockToken              : {0}'.format(batchLockToken));
 
-    if feedbackRecords:
-        numberOfFeedbackRecords = len(feedbackRecords)
-        print('Number of feedback records   : {0}'.format(numberOfFeedbackRecords))
+def feedback_received_callback(context, batch_user_id, batch_lock_token, feedback_records):
+    print 'feedback_received_callback called with context: {0}'.format(context)
+    print 'Batch userId                 : {0}'.format(batch_user_id)
+    print 'Batch lockToken              : {0}'.format(batch_lock_token)
 
-        for x in range(0, numberOfFeedbackRecords):
-            print('Feedback record {0}'.format(x));
-            print('    statusCode               : {0}'.format(feedbackRecords[x]["statusCode"]));
-            print('    description              : {0}'.format(feedbackRecords[x]["description"]));
-            print('    deviceId                 : {0}'.format(feedbackRecords[x]["deviceId"]));
-            print('    generationId             : {0}'.format(feedbackRecords[x]["generationId"]));
-            print('    correlationId            : {0}'.format(feedbackRecords[x]["correlationId"]));
-            print('    enqueuedTimeUtc          : {0}'.format(feedbackRecords[x]["enqueuedTimeUtc"]));
-            print('    originalMessageId        : {0}'.format(feedbackRecords[x]["originalMessageId"]));
+    if feedback_records:
+        number_of_feedback_records = len(feedback_records)
+        print 'Number of feedback records   : {0}'.format(number_of_feedback_records)
+
+        for feedback_index in range(0, number_of_feedback_records):
+            print 'Feedback record {0}'.format(feedback_index)
+            print '    statusCode               : {0}'.format(feedback_records[feedback_index]["statusCode"])
+            print '    description              : {0}'.format(feedback_records[feedback_index]["description"])
+            print '    deviceId                 : {0}'.format(feedback_records[feedback_index]["deviceId"])
+            print '    generationId             : {0}'.format(feedback_records[feedback_index]["generationId"])
+            print '    correlationId            : {0}'.format(feedback_records[feedback_index]["correlationId"])
+            print '    enqueuedTimeUtc          : {0}'.format(feedback_records[feedback_index]["enqueuedTimeUtc"])
+            print '    originalMessageId        : {0}'.format(feedback_records[feedback_index]["originalMessageId"])
+
 
 def iothub_messaging_sample_run():
     try:
-        iothubMessaging = IoTHubMessaging(connection_string)
-        iothubMessaging.set_feedback_message_callback(feedback_received_callback, feedback_context)
+        iothub_messaging = IoTHubMessaging(CONNECTION_STRING)
+        iothub_messaging.set_feedback_message_callback(feedback_received_callback, FEEDBACK_CONTEXT)
 
-        iothubMessaging.open(open_complete_callback, open_context)
+        iothub_messaging.open(open_complete_callback, OPEN_CONTEXT)
 
-        for i in range(0, message_count):
-            print('Sending message: {0}'.format(i))
-            msg_txt_formatted = msg_txt % (
-                avg_wind_speed + (random.random() * 4 + 2))
+        for i in range(0, MESSAGE_COUNT):
+            print 'Sending message: {0}'.format(i)
+            msg_txt_formatted = MSG_TXT % (
+                AVG_WIND_SPEED + (random.random() * 4 + 2))
             message = IoTHubMessage(bytearray(msg_txt_formatted, 'utf8'))
-            message = IoTHubMessage(bytearray(msg_txt0, 'utf8'))
 
             # optional: assign ids
             message.message_id = "message_%d" % i
@@ -82,38 +74,40 @@ def iothub_messaging_sample_run():
             prop_text = "PropMsg_%d" % i
             prop_map.add("Property", prop_text)
 
-            iothubMessaging.send_async(device_id, message, send_complete_callback, i)
+            iothub_messaging.send_async(DEVICE_ID, message, send_complete_callback, i)
 
         raw_input("Press Enter to continue...\n")
 
-        iothubMessaging.close()
+        iothub_messaging.close()
 
-    except IoTHubError as e:
-        print("Unexpected error {0}" % e)
+    except IoTHubError as iothub_error:
+        print "Unexpected error {0}" % iothub_error
         return
     except KeyboardInterrupt:
-        print("IoTHubMessaging sample stopped")
+        print "IoTHubMessaging sample stopped"
+
 
 def usage():
-    print("Usage: iothub_messaging_sample.py -c <connectionstring>")
-    print("    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>")
-    print("    deviceid        : <Existing device ID to to send a message to>")
+    print "Usage: iothub_messaging_sample.py -c <connectionstring>"
+    print "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>"
+    print "    deviceid        : <Existing device ID to to send a message to>"
+
 
 if __name__ == '__main__':
-    print("")
-    print("Python {0}".format(sys.version))
-    print("IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__))
-    print("")
+    print ""
+    print "Python {0}".format(sys.version)
+    print "IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__)
+    print ""
 
     try:
-        (connection_string, device_id) = get_iothub_opt(sys.argv[1:], connection_string, device_id)
-    except OptionError as o:
-        print(o)
+        (CONNECTION_STRING, DEVICE_ID) = get_iothub_opt(sys.argv[1:], CONNECTION_STRING, DEVICE_ID)
+    except OptionError as option_error:
+        print option_error
         usage()
         sys.exit(1)
 
-    print("Starting the IoT Hub Service Client Messaging Python sample...")
-    print("    Connection string = {0}".format(connection_string))
-    print("    Device ID         = {0}".format(device_id))
+    print "Starting the IoT Hub Service Client Messaging Python sample..."
+    print "    Connection string = {0}".format(CONNECTION_STRING)
+    print "    Device ID         = {0}".format(DEVICE_ID)
 
     iothub_messaging_sample_run()

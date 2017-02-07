@@ -24,33 +24,33 @@ def get_iothub_opt(
             opts, args = getopt.getopt(
                 argv, "hp:c:", [
                     "protocol=", "connectionstring="])
-        except getopt.GetoptError as e:
-            raise OptionError("Error: %s" % e.msg)
+        except getopt.GetoptError as opt_error:
+            raise OptionError("Error: %s" % opt_error.msg)
         for opt, arg in opts:
             if opt == '-h':
                 raise OptionError("Help:")
             elif opt in ("-p", "--protocol"):
                 protocol_string = arg.lower()
 
-                if (protocol_string == "http"):
+                if protocol_string == "http":
                     if hasattr(IoTHubTransportProvider, "HTTP"):
                         protocol = IoTHubTransportProvider.HTTP
                     else:
                         raise OptionError("Error: HTTP protocol is not supported")
 
-                elif (protocol_string == "amqp"):
+                elif protocol_string == "amqp":
                     if hasattr(IoTHubTransportProvider, "AMQP"):
                         protocol = IoTHubTransportProvider.AMQP
                     else:
                         raise OptionError("Error: AMQP protocol is not supported")
 
-                elif (protocol_string == "amqp_ws"):
+                elif protocol_string == "amqp_ws":
                     if hasattr(IoTHubTransportProvider, "AMQP_WS"):
                         protocol = IoTHubTransportProvider.AMQP_WS
                     else:
                         raise OptionError("Error: AMQP_WS protocol is not supported")
 
-                elif (protocol_string == "mqtt"):
+                elif protocol_string == "mqtt":
                     if hasattr(IoTHubTransportProvider, "MQTT"):
                         protocol = IoTHubTransportProvider.MQTT
                     else:
@@ -68,7 +68,7 @@ def get_iothub_opt(
             elif opt in ("-c", "--connectionstring"):
                 connection_string = arg
 
-    if (connection_string.find("HostName") < 0):
+    if connection_string.find("HostName") < 0:
         raise OptionError(
             "Error: Hostname not found, not a valid connection string")
 

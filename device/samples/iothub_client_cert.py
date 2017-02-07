@@ -4,7 +4,7 @@
 
 # This file contains certs needed to communicate with Azure (IoT)
 
-certificates = (
+CERTIFICATES = (
     # Baltimore
     "-----BEGIN CERTIFICATE-----\r\n"
     "MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ\r\n"
