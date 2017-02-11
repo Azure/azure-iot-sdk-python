@@ -15,25 +15,25 @@ DEVICE_ID = "[New Device Id]"
 
 
 def print_device_info(title, iothub_device):
-    print title + ":"
-    print "iothubDevice.deviceId                    = {0}".format(iothub_device.deviceId)
-    print "iothubDevice.primaryKey                  = {0}".format(iothub_device.primaryKey)
-    print "iothubDevice.secondaryKey                = {0}".format(iothub_device.secondaryKey)
-    print "iothubDevice.generationId                = {0}".format(iothub_device.generationId)
-    print "iothubDevice.eTag                        = {0}".format(iothub_device.eTag)
-    print "iothubDevice.connectionState             = {0}".format(iothub_device.connectionState)
-    print "iothubDevice.connectionStateUpdatedTime  = {0}".format(iothub_device.connectionStateUpdatedTime)
-    print "iothubDevice.status                      = {0}".format(iothub_device.status)
-    print "iothubDevice.statusReason                = {0}".format(iothub_device.statusReason)
-    print "iothubDevice.statusUpdatedTime           = {0}".format(iothub_device.statusUpdatedTime)
-    print "iothubDevice.lastActivityTime            = {0}".format(iothub_device.lastActivityTime)
-    print "iothubDevice.cloudToDeviceMessageCount   = {0}".format(iothub_device.cloudToDeviceMessageCount)
-    print "iothubDevice.isManaged                   = {0}".format(iothub_device.isManaged)
-    print "iothubDevice.configuration               = {0}".format(iothub_device.configuration)
-    print "iothubDevice.deviceProperties            = {0}".format(iothub_device.deviceProperties)
-    print "iothubDevice.serviceProperties           = {0}".format(iothub_device.serviceProperties)
-    print "iothubDevice.authMethod                  = {0}".format(iothub_device.authMethod)
-    print ""
+    print ( title + ":" )
+    print ( "iothubDevice.deviceId                    = {0}".format(iothub_device.deviceId) )
+    print ( "iothubDevice.primaryKey                  = {0}".format(iothub_device.primaryKey) )
+    print ( "iothubDevice.secondaryKey                = {0}".format(iothub_device.secondaryKey) )
+    print ( "iothubDevice.generationId                = {0}".format(iothub_device.generationId) )
+    print ( "iothubDevice.eTag                        = {0}".format(iothub_device.eTag) )
+    print ( "iothubDevice.connectionState             = {0}".format(iothub_device.connectionState) )
+    print ( "iothubDevice.connectionStateUpdatedTime  = {0}".format(iothub_device.connectionStateUpdatedTime) )
+    print ( "iothubDevice.status                      = {0}".format(iothub_device.status) )
+    print ( "iothubDevice.statusReason                = {0}".format(iothub_device.statusReason) )
+    print ( "iothubDevice.statusUpdatedTime           = {0}".format(iothub_device.statusUpdatedTime) )
+    print ( "iothubDevice.lastActivityTime            = {0}".format(iothub_device.lastActivityTime) )
+    print ( "iothubDevice.cloudToDeviceMessageCount   = {0}".format(iothub_device.cloudToDeviceMessageCount) )
+    print ( "iothubDevice.isManaged                   = {0}".format(iothub_device.isManaged) )
+    print ( "iothubDevice.configuration               = {0}".format(iothub_device.configuration) )
+    print ( "iothubDevice.deviceProperties            = {0}".format(iothub_device.deviceProperties) )
+    print ( "iothubDevice.serviceProperties           = {0}".format(iothub_device.serviceProperties) )
+    print ( "iothubDevice.authMethod                  = {0}".format(iothub_device.authMethod) )
+    print ( "" )
 
 
 def iothub_registrymanager_sample_run():
@@ -62,60 +62,60 @@ def iothub_registrymanager_sample_run():
         print_device_info("UpdateDevice", updated_device)
 
         # DeleteDevice
-        print "DeleteDevice"
+        print ( "DeleteDevice" )
         iothub_registry_manager.delete_device(DEVICE_ID)
-        print ""
+        print ( "" )
 
         # GetDeviceList
-        print "GetDeviceList"
+        print ( "GetDeviceList" )
         number_of_devices = 3
         dev_list = iothub_registry_manager.get_device_list(number_of_devices)
 
         number_of_devices = len(dev_list)
-        print "Number of devices                        : {0}".format(number_of_devices)
+        print ( "Number of devices                        : {0}".format(number_of_devices) )
 
         for device in range(0, number_of_devices):
             title = "Device " + str(device)
             print_device_info(title, dev_list[device])
-        print ""
+        print ( "" )
 
         # GetStatistics
         iothub_registry_statistics = iothub_registry_manager.get_statistics()
-        print "GetStatistics"
-        print "Total device count                       : {0}".format(iothub_registry_statistics.totalDeviceCount)
-        print "Enabled device count                     : {0}".format(iothub_registry_statistics.enabledDeviceCount)
-        print "Disabled device count                    : {0}".format(iothub_registry_statistics.disabledDeviceCount)
-        print ""
+        print ( "GetStatistics" )
+        print ( "Total device count                       : {0}".format(iothub_registry_statistics.totalDeviceCount) )
+        print ( "Enabled device count                     : {0}".format(iothub_registry_statistics.enabledDeviceCount) )
+        print ( "Disabled device count                    : {0}".format(iothub_registry_statistics.disabledDeviceCount) )
+        print ( "" )
 
     except IoTHubError as iothub_error:
-        print "Unexpected error {0}".format(iothub_error)
+        print ( "Unexpected error {0}".format(iothub_error) )
         return
     except KeyboardInterrupt:
-        print "IoTHubRegistryManager sample stopped"
+        print ( "IoTHubRegistryManager sample stopped" )
 
 
 def usage():
-    print "Usage: iothub_registrymanager_sample.py -c <connection_string> -d <device_id>"
-    print "  connectionstring: <HostName=<host_name>;SharedAccessKeyName=<shared_access_key_name>;" \
-          "SharedAccessKey=<shared_access_key>> "
-    print "  deviceid        : <New device ID for CRUD operations>"
+    print ( "Usage: iothub_registrymanager_sample.py -c <connection_string> -d <device_id>" )
+    print ( "  connectionstring: <HostName=<host_name>;SharedAccessKeyName=<shared_access_key_name>;" \
+          "SharedAccessKey=<shared_access_key>> " )
+    print ( "  deviceid        : <New device ID for CRUD operations>" )
 
 
 if __name__ == '__main__':
-    print ""
-    print "Python {0}".format(sys.version)
-    print "IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__)
-    print ""
+    print ( "" )
+    print ( "Python {0}".format(sys.version) )
+    print ( "IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__) )
+    print ( "" )
 
     try:
         (CONNECTION_STRING, DEVICE_ID) = get_iothub_opt(sys.argv[1:], CONNECTION_STRING, DEVICE_ID)
     except OptionError as option_error:
-        print option_error
+        print ( option_error )
         usage()
         sys.exit(1)
 
-    print "Starting the IoT Hub Service Client Registry Manager Python sample..."
-    print "    Connection string = {0}".format(CONNECTION_STRING)
-    print "    Device ID         = {0}".format(DEVICE_ID)
+    print ( "Starting the IoT Hub Service Client Registry Manager Python sample..." )
+    print ( "    Connection string = {0}".format(CONNECTION_STRING) )
+    print ( "    Device ID         = {0}".format(DEVICE_ID) )
 
     iothub_registrymanager_sample_run()

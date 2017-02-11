@@ -24,46 +24,46 @@ def iothub_devicemethod_sample_run():
 
         response = iothub_device_method.invoke(DEVICE_ID, METHOD_NAME, METHOD_PAYLOAD, TIMEOUT)
 
-        print ""
-        print "Device Method called"
-        print "Device Method name       : {0}".format(METHOD_NAME)
-        print "Device Method payload    : {0}".format(METHOD_PAYLOAD)
-        print ""
-        print "Response status          : {0}".format(response.status)
-        print "Response payload         : {0}".format(response.payload)
+        print ( "" )
+        print ( "Device Method called" )
+        print ( "Device Method name       : {0}".format(METHOD_NAME) )
+        print ( "Device Method payload    : {0}".format(METHOD_PAYLOAD) )
+        print ( "" )
+        print ( "Response status          : {0}".format(response.status) )
+        print ( "Response payload         : {0}".format(response.payload) )
 
         raw_input("Press Enter to continue...\n")
 
     except IoTHubError as iothub_error:
-        print ""
-        print "Unexpected error {0}".format(iothub_error)
+        print ( "" )
+        print ( "Unexpected error {0}".format(iothub_error) )
         return
     except KeyboardInterrupt:
-        print ""
-        print "IoTHubDeviceMethod sample stopped"
+        print ( "" )
+        print ( "IoTHubDeviceMethod sample stopped" )
 
 
 def usage():
-    print "Usage: iothub_devicemethod_sample.py -c <connectionstring>"
-    print "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>"
-    print "    deviceid        : <Existing device ID to call a method on>"
+    print ( "Usage: iothub_devicemethod_sample.py -c <connectionstring>" )
+    print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
+    print ( "    deviceid        : <Existing device ID to call a method on>" )
 
 
 if __name__ == '__main__':
-    print ""
-    print "Python {0}".format(sys.version)
-    print "IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__)
-    print ""
+    print ( "" )
+    print ( "Python {0}".format(sys.version) )
+    print ( "IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__) )
+    print ( "" )
 
     try:
         (CONNECTION_STRING, DEVICE_ID) = get_iothub_opt(sys.argv[1:], CONNECTION_STRING, DEVICE_ID)
     except OptionError as option_error:
-        print option_error
+        print ( option_error )
         usage()
         sys.exit(1)
 
-    print "Starting the IoT Hub Service Client DeviceMethod Python sample..."
-    print "    Connection string = {0}".format(CONNECTION_STRING)
-    print "    Device ID         = {0}".format(DEVICE_ID)
+    print ( "Starting the IoT Hub Service Client DeviceMethod Python sample..." )
+    print ( "    Connection string = {0}".format(CONNECTION_STRING) )
+    print ( "    Device ID         = {0}".format(DEVICE_ID) )
 
     iothub_devicemethod_sample_run()
