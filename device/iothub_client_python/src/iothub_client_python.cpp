@@ -968,7 +968,7 @@ DeviceMethodCallback(
     boost::python::object userContext = deviceMethodContext->userContext;
     boost::python::object deviceMethodCallback = deviceMethodContext->deviceMethodCallback;
 
-    std::string method_name_std_string(method_name, sizeof(method_name));
+    std::string method_name_std_string(method_name);
     std::string payload_std_string(reinterpret_cast<const char *>(payLoad), size);
 
     ScopedGILAcquire acquire;
