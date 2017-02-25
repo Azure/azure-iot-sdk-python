@@ -12,6 +12,7 @@ EXPORTS
 ;   iothub_registrymanager.h
     IoTHubRegistryManager_Create
     IoTHubRegistryManager_Destroy
+    IoTHubRegistryManager_CreateDevice
     IoTHubRegistryManager_GetDevice
     IoTHubRegistryManager_UpdateDevice
     IoTHubRegistryManager_DeleteDevice
