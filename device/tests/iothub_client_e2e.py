@@ -9,8 +9,9 @@ import string
 import random
 import time
 import threading
+import types
 
-from __builtin__ import isinstance
+sys.path.append(os.path.realpath('..\samples'))
 
 from iothub_service_client import IoTHubRegistryManager, IoTHubRegistryManagerAuthMethod
 from iothub_service_client import IoTHubMessaging

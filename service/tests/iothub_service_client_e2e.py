@@ -9,8 +9,7 @@ import string
 import random
 import time
 import threading
-
-from __builtin__ import isinstance
+import types
 
 from iothub_service_client import IoTHubRegistryManager, IoTHubRegistryManagerAuthMethod
 from iothub_service_client import IoTHubMessaging
