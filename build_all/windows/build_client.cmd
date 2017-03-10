@@ -46,7 +46,6 @@ if "%1" equ "--config" goto arg-build-config
 if "%1" equ "--wheel" goto arg-build-wheel
 if "%1" equ "--use-websockets" goto arg-use-websockets
 if "%1" equ "--platform" goto arg-build-platform
-
 call :usage && exit /b 1
 
 :arg-build-config
@@ -85,9 +84,9 @@ REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
 if %use-websockets% == ON (
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --use-websockets
+    call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --use-websockets
 ) else (
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config%
+    call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config%
 )
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
@@ -97,23 +96,39 @@ cd %build-root%
 
 copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pyd ..\..\device\samples
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pyd ..\..\device\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 copy %USERPROFILE%\%cmake-output%\python\test\%build-config%\iothub_client_mock.pyd ..\..\device\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pyd ..\..\service\tests
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
 copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\service\samples
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\service\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pyd ..\..\service\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\device\tests
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
 if "%build-config%"=="Debug" (
     copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pdb ..\..\device\samples
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pdb ..\..\device\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     copy %USERPROFILE%\%cmake-output%\python\test\%build-config%\iothub_client_mock.pdb ..\..\device\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pdb ..\..\service\tests
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
     copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pdb ..\..\service\samples
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pdb ..\..\service\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pdb ..\..\service\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pdb ..\..\device\tests
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 )
 

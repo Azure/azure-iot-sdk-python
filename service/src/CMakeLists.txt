@@ -33,6 +33,11 @@ target_link_libraries(
     ${PYTHON_LIBRARIES}
 )
 
+if(${use_wsio} AND WIN32)
+    file(COPY $ENV{OpenSSLDir}/bin/libeay32.dll DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../tests)
+    file(COPY $ENV{OpenSSLDir}/bin/ssleay32.dll DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../tests)
+endif()
+
 linkSharedUtil(iothub_service_client_python)
 linkUAMQP(iothub_service_client_python)
 

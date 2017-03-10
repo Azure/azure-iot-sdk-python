@@ -13,7 +13,7 @@ CONNECTION_STRING = "[IoTHub Connection String]"
 DEVICE_ID = "[Device Id]"
 
 METHOD_NAME = "MethodName"
-METHOD_PAYLOAD = "MethodPayload"
+METHOD_PAYLOAD = "{\"method_number\":\"42\"}"
 TIMEOUT = 60
 
 
