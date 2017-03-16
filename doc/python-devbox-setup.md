@@ -22,7 +22,8 @@ Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run
 1. Open a command-prompt window.
 2. To install the Azure IoT Hub device client module (**iothub\_client** package), type the following command: `pip install azure-iothub-device-client`
 2. To install the Azure IoT Hub service client module (**iothub\_service\_client** package), type the following command: `pip install azure-iothub-service-client`
-3. Now Python is ready to run your application. 
+3. Make sure the Visual C++ Redistributable for Visual Studio 2015 package is installed from here: https://www.microsoft.com/en-us/download/details.aspx?id=48145 (Visual Studio 2015 installation includes it) 
+4. Now Python is ready to run your application. 
 
 > Note: If Pip cannot install the package for the specific version of Python installed on your machine, use one of the following options to build the **iothub_client** module.
 
