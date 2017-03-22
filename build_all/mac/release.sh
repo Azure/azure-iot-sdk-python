@@ -36,14 +36,14 @@ process_args $*
 cd $build_root
 
 echo copy iothub_client library to samples folder
-cp $build_folder/python/src/iothub_client.dylib ./device/samples/iothub_client.dylib
+cp $build_folder/python/src/iothub_client.so ./device/samples/iothub_client.so
 echo copy iothub_client_mock library to tests folder
-cp $build_folder/python/test/iothub_client_mock.dylib ./device/tests/iothub_client_mock.dylib
+cp $build_folder/python/test/iothub_client_mock.so ./device/tests/iothub_client_mock.so
 
 echo copy iothub_service_client library to samples folder
-cp $build_folder/python_service_client/src/iothub_service_client.dylib ./service/samples/iothub_service_client.dylib
+cp $build_folder/python_service_client/src/iothub_service_client.so ./service/samples/iothub_service_client.so
 echo copy iothub_service_client_mock library to tests folder
-cp $build_folder/python_service_client/tests/iothub_service_client_mock.dylib ./service/tests/iothub_service_client_mock.dylib
+cp $build_folder/python_service_client/tests/iothub_service_client_mock.so ./service/tests/iothub_service_client_mock.so
 
 cd $build_root/device/tests/
 echo "python${PYTHON_VERSION}" iothub_client_ut.py
@@ -64,12 +64,12 @@ echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
 cd $build_root
 
 cd ./build_all/mac/release_device_client
-cp $build_folder/python/src/iothub_client.dylib iothub_client/iothub_client.dylib
+cp $build_folder/python/src/iothub_client.so iothub_client/iothub_client.so
 "python${PYTHON_VERSION}" setup_device_client.py bdist_wheel
 cd $build_root
 
 cd ./build_all/mac/release_service_client
-cp $build_folder/python_service_client/src/iothub_service_client.dylib iothub_service_client/iothub_service_client.dylib
+cp $build_folder/python_service_client/src/iothub_service_client.so iothub_service_client/iothub_service_client.so
 "python${PYTHON_VERSION}" setup_service_client.py bdist_wheel
 
 cd $build_root
