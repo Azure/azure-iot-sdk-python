@@ -47,6 +47,32 @@
     printf("Object: %s\n", object_classname.c_str());\
 }
 
+class PlatformCallHandler
+{
+private:
+    static int init_call_count;
+public:
+    static void Platform_Init()
+    {
+        if (init_call_count == 0)
+        {
+            platform_init();
+        }
+        init_call_count++;
+    }
+
+    static void Platform_DeInit()
+    {
+        if (init_call_count == 1)
+        {
+            platform_deinit();
+        }
+        init_call_count--;
+    }
+};
+
+int PlatformCallHandler::init_call_count = 0;
+
 typedef struct LIST_ITEM_INSTANCE_TAG
 {
     const void* item;
@@ -812,6 +838,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
         if (_iothubServiceClientAuthHandle == NULL)
@@ -831,6 +858,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = iothubAuth.GetHandle();
         if (_iothubServiceClientAuthHandle == NULL)
@@ -847,6 +875,7 @@ public:
 
     ~IoTHubRegistryManager()
     {
+        PlatformCallHandler::Platform_DeInit();
         Destroy();
     }
 
@@ -1225,6 +1254,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
         if (_iothubServiceClientAuthHandle == NULL)
@@ -1245,6 +1275,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = iothubAuth.GetHandle();
         if (_iothubServiceClientAuthHandle == NULL)
@@ -1262,6 +1293,7 @@ public:
 
     ~IoTHubMessaging()
     {
+        PlatformCallHandler::Platform_DeInit();
         Destroy();
     }
 
@@ -1418,6 +1450,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
         if (_iothubServiceClientAuthHandle == NULL)
@@ -1437,6 +1470,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = iothubAuth.GetHandle();
         if (_iothubServiceClientAuthHandle == NULL)
@@ -1453,6 +1487,7 @@ public:
 
     ~IoTHubDeviceMethod()
     {
+        PlatformCallHandler::Platform_DeInit();
         Destroy();
     }
 
@@ -1560,6 +1595,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
         if (_iothubServiceClientAuthHandle == NULL)
@@ -1579,6 +1615,7 @@ public:
         )
     {
         ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
         _iothubServiceClientAuthHandle = iothubAuth.GetHandle();
         if (_iothubServiceClientAuthHandle == NULL)
@@ -1595,6 +1632,7 @@ public:
 
     ~IoTHubDeviceTwin()
     {
+        PlatformCallHandler::Platform_DeInit();
         Destroy();
     }
 
@@ -1670,7 +1708,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 {
     // init threads for callbacks
     PyEval_InitThreads();
-    platform_init();
+    PlatformCallHandler::Platform_Init();
 
     // by default enable user, py docstring options, disable c++ signatures
     bool show_user_defined = true;

@@ -57,6 +57,32 @@
     printf("Object: %s\n", object_classname.c_str());\
 }
 
+class PlatformCallHandler
+{
+private:
+    static int init_call_count;
+public:
+    static void Platform_Init()
+    {
+        if (init_call_count == 0)
+        {
+            platform_init();
+        }
+        init_call_count++;
+    }
+
+    static void Platform_DeInit()
+    {
+        if (init_call_count == 1)
+        {
+            platform_deinit();
+        }
+        init_call_count--;
+    }
+};
+
+int PlatformCallHandler::init_call_count = 0;
+
 //
 // note: all new allocations throw a std::bad_alloc exception which trigger a MemoryError in Python
 //
@@ -1038,7 +1064,6 @@ BlobUploadConfirmationCallback(
 
 class IoTHubClient
 {
-
     static IOTHUB_CLIENT_TRANSPORT_PROVIDER
         GetProtocol(IOTHUB_TRANSPORT_PROVIDER _protocol)
     {
@@ -1113,6 +1138,8 @@ public:
     {
         {
             ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
             iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
         }
         if (iotHubClientHandle == NULL)
@@ -1135,6 +1162,8 @@ public:
         protocol = _config.protocol;
         {
             ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
             iotHubClientHandle = IoTHubClient_Create(&config);
         }
         if (iotHubClientHandle == NULL)
@@ -1145,6 +1174,7 @@ public:
 
     ~IoTHubClient()
     {
+        PlatformCallHandler::Platform_DeInit();
         Destroy();
     }
 
@@ -1355,15 +1385,7 @@ public:
     {
         IOTHUB_CLIENT_RESULT result = IOTHUB_CLIENT_OK;
 #ifdef IS_PY3
-        if (PyUnicode_Check(option.ptr()))
-        {
-            std::string stringValue = boost::python::extract<std::string>(option);
-            {
-                ScopedGILRelease release;
-                result = IoTHubClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
-            }
-        }
-        else if (PyLong_Check(option.ptr()))
+        if (PyLong_Check(option.ptr()))
         {
             // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
             uint64_t value = (uint64_t)boost::python::extract<long>(option);
@@ -1374,8 +1396,11 @@ public:
         }
         else
         {
-            PyErr_SetString(PyExc_TypeError, "set_option expected type long or unicode");
-            boost::python::throw_error_already_set();
+            std::string stringValue = boost::python::extract<std::string>(option);
+            {
+                ScopedGILRelease release;
+                result = IoTHubClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
+            }
         }
 #else
         if (PyString_Check(option.ptr()))
@@ -1403,7 +1428,7 @@ public:
 #endif
         if (result != IOTHUB_CLIENT_OK)
         {
-            throw IoTHubClientError(__func__, result);
+            printf("SetOption failed with result: %d", result);
         }
     }
 
@@ -1463,7 +1488,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 {
     // init threads for callbacks
     PyEval_InitThreads();
-    platform_init();
+    PlatformCallHandler::Platform_Init();
 
     // by default enable user, py docstring options, disable c++ signatures
     bool show_user_defined = true;

@@ -12,10 +12,19 @@ REM -- Python --
 cd %build-root%\build_all\windows
 if "%1" equ "--use-cmake" (
    echo Building client using cmake
-   call build_client.cmd %2 %3
+   call build_client.cmd --use-websockets %2 %3
 ) else (
   echo Building client using Nuget packages
   call build.cmd --run-ut
 )
 if errorlevel 1 exit /b 1
+
+cd %build-root%\device\tests
+call python iothub_client_e2e.py
+if errorlevel 1 exit /b 1
+
+cd %build-root%\service\tests
+call python iothub_service_client_e2e.py
+if errorlevel 1 exit /b 1
+
 cd %build-root%

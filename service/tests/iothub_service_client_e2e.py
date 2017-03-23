@@ -10,6 +10,7 @@ import random
 import time
 import threading
 import types
+import base64
 
 from iothub_service_client import IoTHubRegistryManager, IoTHubRegistryManagerAuthMethod
 from iothub_service_client import IoTHubMessaging
@@ -21,12 +22,6 @@ from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvid
 from iothub_client import IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
 
 IOTHUB_CONNECTION_STRING = ""
-IOTHUB_DEVICE_LONGHAUL_DURATION_SECONDS = ""
-IOTHUB_E2E_X509_CERT = ""
-IOTHUB_E2E_X509_PRIVATE_KEY = ""
-IOTHUB_E2E_X509_THUMBPRINT = ""
-IOTHUB_EVENTHUB_CONNECTION_STRING = ""
-IOTHUB_PARTITION_COUNT = ""
 
 DEVICE_CLIENT_RESPONSE = ""
 DEVICE_MESSAGE_TIMEOUT = 10000
@@ -69,37 +64,21 @@ def print_device_info(title, iothub_device):
     print ( "iothubDevice.authMethod                  = {0}".format(iothub_device.authMethod) )
     print ( "" )
 
+
 def read_environment_vars():
     global IOTHUB_CONNECTION_STRING
-    global IOTHUB_DEVICE_LONGHAUL_DURATION_SECONDS
-    global IOTHUB_E2E_X509_CERT
-    global IOTHUB_E2E_X509_PRIVATE_KEY
-    global IOTHUB_E2E_X509_THUMBPRINT
-    global IOTHUB_EVENTHUB_CONNECTION_STRING
-    global IOTHUB_PARTITION_COUNT
 
     try:
         IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_CONNECTION_STRING"]
-        IOTHUB_DEVICE_LONGHAUL_DURATION_SECONDS = os.environ["IOTHUB_DEVICE_LONGHAUL_DURATION_SECONDS"]
-        IOTHUB_E2E_X509_CERT = os.environ["IOTHUB_E2E_X509_CERT"]
-        IOTHUB_E2E_X509_PRIVATE_KEY = os.environ["IOTHUB_E2E_X509_PRIVATE_KEY"]
-        IOTHUB_E2E_X509_THUMBPRINT = os.environ["IOTHUB_E2E_X509_THUMBPRINT"]
-        IOTHUB_EVENTHUB_CONNECTION_STRING = os.environ["IOTHUB_EVENTHUB_CONNECTION_STRING"]
-        IOTHUB_PARTITION_COUNT = os.environ["IOTHUB_PARTITION_COUNT"]
-
         print ("IOTHUB_CONNECTION_STRING: {0}".format(IOTHUB_CONNECTION_STRING))
-        print ("IOTHUB_DEVICE_LONGHAUL_DURATION_SECONDS: {0}".format(IOTHUB_DEVICE_LONGHAUL_DURATION_SECONDS))
-        print ("IOTHUB_E2E_X509_CERT: {0}".format(IOTHUB_E2E_X509_CERT))
-        print ("IOTHUB_E2E_X509_PRIVATE_KEY: {0}".format(IOTHUB_E2E_X509_PRIVATE_KEY))
-        print ("IOTHUB_E2E_X509_THUMBPRINT: {0}".format(IOTHUB_E2E_X509_THUMBPRINT))
-        print ("IOTHUB_EVENTHUB_CONNECTION_STRING: {0}".format(IOTHUB_EVENTHUB_CONNECTION_STRING))
-        print ("IOTHUB_PARTITION_COUNT: {0}".format(IOTHUB_PARTITION_COUNT))
     except:
-        print ("Could not get environment variables...")
+        print ("Could not get all the environment variables...")
+
 
 def generate_device_name():
     postfix = ''.join([random.choice(string.ascii_letters) for n in range(12)])
     return "python_e2e_test_device-{0}".format(postfix)
+
 
 def get_device_connection_string(iothub_registry_manager, iothub_connection_string, device_id):
     iothub_device = iothub_registry_manager.get_device(device_id)
@@ -113,6 +92,7 @@ def get_device_connection_string(iothub_registry_manager, iothub_connection_stri
     host_name = iothub_connection_string[host_name_start:host_name_end + 1]
 
     return host_name + "DeviceId=" + device_id + ";" + "SharedAccessKey=" + primaryKey
+
 
 def device_method_callback(method_name, payload, user_context):
     global DEVICE_METHOD_USER_CONTEXT
@@ -134,14 +114,17 @@ def device_method_callback(method_name, payload, user_context):
 
     return device_method_return_value
 
+
 def open_complete_callback(context):
     print ( 'open_complete_callback called with context: {0}'.format(context) )
     print ( "" )
+
 
 def send_complete_callback(context, messaging_result):
     context = 0
     print ( 'send_complete_callback called with context : {0}'.format(context) )
     print ( 'messagingResult : {0}'.format(messaging_result) )
+
 
 def receive_message_callback(message, counter):
     global RECEIVE_CALLBACKS
@@ -542,13 +525,14 @@ def run_e2e_messaging(iothub_connection_string):
         retval = 1
     finally:
         # clean-up
+        iothub_messaging.close()
         iothub_registry_manager.delete_device(device_id)
     
     return retval
 
 
-if __name__ == '__main__':
-    print ("iothub_service_client E2E tests started!")
+def main():
+    print ("********************* iothub_service_client E2E tests started!")
 
     read_environment_vars()
    
@@ -557,6 +541,12 @@ if __name__ == '__main__':
         assert run_e2e_devicetwin(IOTHUB_CONNECTION_STRING) == 0
         assert run_e2e_devicemethod(IOTHUB_CONNECTION_STRING) == 0
         assert run_e2e_messaging(IOTHUB_CONNECTION_STRING) == 0
-        print ("iothub_service_client E2E tests passed!")
+        print ("********************* iothub_service_client E2E tests passed!")
+        return 0
     except:
-        print ("iothub_service_client E2E tests failed!")
+        print ("********************* iothub_service_client E2E tests failed!")
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
