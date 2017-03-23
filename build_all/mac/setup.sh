@@ -8,11 +8,6 @@
 build_root=$(cd "$(dirname "$0")/../.." && pwd)
 cd $build_root
 
-# instruct C setup to install all dependent libraries
-
-./c/build_all/mac/setup.sh 
-[ $? -eq 0 ] || exit $?
-
 PYTHON_VERSION=2.7
 
 process_args()
@@ -24,10 +19,15 @@ process_args()
       if [ $save_next_arg == 1 ]
       then
         PYTHON_VERSION="$arg"
+        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+        then
+          echo "Supported python versions are 2.7, 3.4 or 3.5"
+          exit 1
+        fi 
         save_next_arg=0
       else
         case "$arg" in
-          "--python-version" ) save_next_arg=1;;
+          "--build-python" ) save_next_arg=1;;
           * ) ;;
         esac
       fi
@@ -36,12 +36,22 @@ process_args()
 
 process_args $*
 
+# instruct C setup to install all dependent libraries
+./c/build_all/mac/setup.sh
+[ $? -eq 0 ] || exit $?
+
 scriptdir=$(cd "$(dirname "$0")" && pwd)
-deps="python${PYTHON_VERSION}-dev libboost-python-dev"
+
+if [ $PYTHON_VERSION == "3.4" ] || [ $PYTHON_VERSION == "3.5" ] || [ $PYTHON_VERSION == "3.6" ]
+then
+	deps="boost-python --with-python3"
+else
+	deps="boost-python"
+fi 
 
 deps_install ()
 {
-	brew install boost
+	brew install $deps
 }
 
 deps_install
