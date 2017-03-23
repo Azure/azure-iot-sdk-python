@@ -35,8 +35,13 @@ if(WIN32)
         message(FATAL_ERROR "iothub_client_python needs Boost library")
     endif()
 elseif(APPLE)
-    # mac boost-python libs didn't support versions
-    find_package(Boost COMPONENTS python)
+    if (${build_python} STREQUAL "2.7")
+        find_package(Boost COMPONENTS python)
+    else()
+        find_package(Boost COMPONENTS python)
+        # mac boost-python libs don't support versions
+        string(REPLACE "libboost_python-mt.dylib" "libboost_python3-mt.dylib" Boost_LIBRARIES ${Boost_LIBRARIES})
+    endif()
 else()
     # older boost-python libs didn't support versions
     if (${build_python} STREQUAL "2.7")
