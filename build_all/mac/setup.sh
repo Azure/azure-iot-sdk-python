@@ -53,7 +53,10 @@ fi
 
 deps_install ()
 {
-	brew uninstall boost-python
+	if brew list boost-python >/dev/null 2>&1; then
+		echo "Reinstall boost-python"
+		brew uninstall boost-python
+	fi
 	brew install $deps
 }
 
