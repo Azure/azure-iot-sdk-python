@@ -6,7 +6,7 @@ build_root=$(cd "$(dirname "$0")/.." && pwd)
 cd $build_root
 
 # -- Python C wrapper --
-./build_all/linux/build.sh --use-websockets $*
+./build_all/linux/build.sh $*
 [ $? -eq 0 ] || exit $?
 
 python2 ./device/tests/iothub_client_e2e.py
