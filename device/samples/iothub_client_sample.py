@@ -137,7 +137,7 @@ def iothub_client_init():
         client.set_option("logtrace", 0)
     client.set_message_callback(
         receive_message_callback, RECEIVE_CONTEXT)
-    if client.protocol == IoTHubTransportProvider.MQTT:
+    if client.protocol == IoTHubTransportProvider.MQTT or client.protocol == IoTHubTransportProvider.MQTT_WS:
         client.set_device_twin_callback(
             device_twin_callback, TWIN_CONTEXT)
         client.set_device_method_callback(
