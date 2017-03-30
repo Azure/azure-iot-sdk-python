@@ -53,6 +53,7 @@ fi
 
 deps_install ()
 {
+	brew install boost openssl cmake
 	if brew list boost-python >/dev/null 2>&1; then
 		echo "Reinstall boost-python"
 		brew uninstall boost-python
