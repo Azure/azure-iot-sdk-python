@@ -33,8 +33,25 @@ Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run
 ### Installs needed to compile the SDKs for Python from souce code
 Because the Azure IoT SDKs for Python are wrappers on top of the [SDKs for C][azure-iot-sdk-c], you will need to compile the C libraries if you want or need to generate the Python libraries from source code.
 You will notice that the C SDKs are brought in as submodules to the current repository.
-In order to setup your development environment to build the C binaries, you need to follow the instructions [here][c-devbox-setup]:
-* On Linux you will need gcc, cmake and git
+In order to setup your development environment to build the C binaries make sure all dependencies are installed before building the SDK. 
+
+- For Ubuntu, you can use apt-get to install the right packages:
+  ```
+  sudo apt-get update
+  sudo apt-get install -y git cmake build-essential curl libcurl4-openssl-dev libssl-dev uuid-dev
+  ```
+
+- Verify that CMake is at least version **2.8.12**:
+  ```
+  cmake --version
+  ```
+  > For information about how to upgrade your version of CMake to 3.x on Ubuntu 14.04, read [How to install CMake 3.2 on Ubuntu 14.04?](http://askubuntu.com/questions/610291/how-to-install-cmake-3-2-on-ubuntu-14-04).
+
+- Verify that gcc is at least version **4.4.7**:
+  ```
+  gcc --version
+  ```
+  > For information about how to upgrade your version of gcc on Ubuntu 14.04, read [How do I use the latest GCC 4.9 on Ubuntu 14.04?](http://askubuntu.com/questions/466651/how-do-i-use-the-latest-gcc-4-9-on-ubuntu-14-04).
 
 ### Compile the Python modules
 The Python iothub_client and iothub_service_client modules support python versions 2.7.x, 3.4.x or 3.5.x. Know the appropriate version you would like to build the library with for the following instructions.
