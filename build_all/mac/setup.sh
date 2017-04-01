@@ -36,10 +36,6 @@ process_args()
 
 process_args $*
 
-# instruct C setup to install all dependent libraries
-./c/build_all/mac/setup.sh
-[ $? -eq 0 ] || exit $?
-
 scriptdir=$(cd "$(dirname "$0")" && pwd)
 
 if [ $PYTHON_VERSION == "3.4" ] || [ $PYTHON_VERSION == "3.5" ] || [ $PYTHON_VERSION == "3.6" ]
@@ -53,7 +49,9 @@ fi
 
 deps_install ()
 {
+	# install all dependent libraries for azure-iot-sdk-c
 	brew install boost openssl cmake
+
 	if brew list boost-python >/dev/null 2>&1; then
 		echo "Reinstall boost-python"
 		brew uninstall boost-python
