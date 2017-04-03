@@ -5,6 +5,7 @@ This document describes how to prepare your development environment to use the *
 - [Setup your development environment](#devenv)
 - [Install on Windows using PyPI wheels](#windows-wheels)
 - [Build the samples on Linux](#linux)
+- [Build the samples on Mac](#mac)
 - [Build the samples on Windows using nuget packages](#windows)
 - [Build the samples on Windows using cmake and boost libraries](#windows-cmake)
 - [Sample applications](#samplecode)
@@ -75,6 +76,32 @@ The Python iothub_client and iothub_service_client modules support python versio
 If you run into this issue, check the **memory consumption** of the device using `free -m command` in another terminal window during that time. If you are running out of memory while compiling iothub_client_python.cpp file, you may have to temporarily increase the **swap space** to get more available memory to successfully build the Python client side device SDK library.
 
 2.) CentOS7: Only Python 2.7 is supported due to a missing boost-python3 library package
+
+<a name="mac"></a>
+## Build the Azure IoT Hub SDKs for Python on Mac OS
+
+### Installs needed to compile the SDKs for Python from souce code
+Because the Azure IoT SDKs for Python are wrappers on top of the [SDKs for C][azure-iot-sdk-c], you will need to compile the C libraries if you want or need to generate the Python libraries from source code.
+You will notice that the C SDKs are brought in as submodules to the current repository.
+In order to setup your development environment to build the C binaries, you need to follow the instructions [here][c-devbox-setup]:
+* On Mac OS you will need XCode and install the Commandline Utils
+
+### Compile the Python modules
+The Python iothub_client and iothub_service_client modules support python versions 2.7.x, 3.4.x or 3.5.x. Know the appropriate version you would like to build the library with for the following instructions.
+
+1. Ensure that the desired Python version (2.7.x, 3.4 or 3.5.x) is installed and active. Run `python --version` or `python3 --version` at the command line to check the version.
+2. Open a shell and navigate to the folder **build_all/mac** in your local copy of the repository.
+3. Run the `./setup.sh` script to install the prerequisite packages and the dependent libraries.
+    * Setup will default to python 2.7
+    * To setup dependencies for python 3.4 or 3.5, run `./setup.sh --python-version 3.4` or `./setup.sh --python-version 3.5` respectively
+4. Run the `./build.sh` script.
+    * Build will default to python 2.7
+    * To build with python 3.4 or 3.5, run `./build.sh --build-python 3.4` or `./build.sh --build-python 3.5` respectively 
+5. After a successful build, the `iothub_client.so` Python extension module is copied to the [**device/samples**][device-samples] and [**service/samples**][service-samples] folders. Visit these folders for instructions on how to run the samples.
+
+###Known build issues: 
+
+none so far.
 
 <a name="windows"></a>
 ## Build the Python device and service client modules on Windows using Nuget packages (recommended)
