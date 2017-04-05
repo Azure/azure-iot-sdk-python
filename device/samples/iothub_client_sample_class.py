@@ -28,6 +28,8 @@ MESSAGE_TIMEOUT = 10000
 
 RECEIVE_CONTEXT = 0
 AVG_WIND_SPEED = 10.0
+MIN_TEMPERATURE = 20.0
+MIN_HUMIDITY = 60.0
 MESSAGE_COUNT = 5
 RECEIVED_COUNT = 0
 TWIN_CONTEXT = 0
@@ -48,7 +50,7 @@ PROTOCOL = IoTHubTransportProvider.MQTT
 # "HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<device_key>"
 CONNECTION_STRING = "[Device Connection String]"
 
-MSG_TXT = "{\"deviceId\": \"myPythonDevice\",\"windSpeed\": %.2f}"
+MSG_TXT = "{\"deviceId\": \"myPythonDevice\",\"windSpeed\": %.2f,\"temperature\": %.2f,\"humidity\": %.2f}"
 
 
 def send_confirmation_callback(message, result, user_context):
@@ -179,10 +181,15 @@ def main(connection_string, protocol):
             print ( "IoTHubClient sending %d messages" % MESSAGE_COUNT )
 
             for message_counter in range(0, MESSAGE_COUNT):
+                temperature = MIN_TEMPERATURE + (random.random() * 10)
+                humidity = MIN_HUMIDITY + (random.random() * 20)
                 msg_txt_formatted = MSG_TXT % (
-                    AVG_WIND_SPEED + (random.random() * 4 + 2))
+                    AVG_WIND_SPEED + (random.random() * 4 + 2),
+                    temperature,
+                    humidity)
+
                 msg_properties = {
-                    "Property": "PropMsg_%d" % message_counter
+                    "temperatureAlert": 'true' if temperature > 28 else 'false'
                 }
                 hub_manager.send_event(msg_txt_formatted, msg_properties, message_counter)
                 print ( "IoTHubClient.send_event_async accepted message [%d] for transmission to IoT Hub." % message_counter )
