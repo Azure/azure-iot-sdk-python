@@ -52,7 +52,7 @@ def usage():
 if __name__ == '__main__':
     print ( "" )
     print ( "Python {0}".format(sys.version) )
-    print ( "IoT Hub Service Client for Python SDK Version: {0}".format(iothub_service_client.__version__) )
+    print ( "IoT Hub Service Client for Python" )
     print ( "" )
 
     try:

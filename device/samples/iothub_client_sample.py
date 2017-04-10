@@ -223,7 +223,7 @@ def usage():
 
 if __name__ == '__main__':
     print ( "\nPython %s" % sys.version )
-    print ( "IoT Hub for Python SDK Version: %s" % iothub_client.__version__ )
+    print ( "IoT Hub Client for Python" )
 
     try:
         (CONNECTION_STRING, PROTOCOL) = get_iothub_opt(sys.argv[1:], CONNECTION_STRING, PROTOCOL)

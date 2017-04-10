@@ -163,7 +163,7 @@ class HubManager(object):
 def main(connection_string, protocol):
     try:
         print ( "\nPython %s\n" % sys.version )
-        print ( "IoT Hub for Python SDK Version: %s\n" % iothub_client.__version__ )
+        print ( "IoT Hub Client for Python" )
 
         hub_manager = HubManager(connection_string, protocol)
 
