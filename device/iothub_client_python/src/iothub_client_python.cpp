@@ -1086,12 +1086,12 @@ class IoTHubClient
             break;
 #endif
 #ifdef USE_WEBSOCKETS
-#ifdef USE_HTTP
+#ifdef USE_AMQP
         case AMQP_WS:
             protocol = AMQP_Protocol_over_WebSocketsTls;
             break;
 #endif
-#ifdef USE_HTTP
+#ifdef USE_MQTT
         case MQTT_WS:
             protocol = MQTT_WebSocket_Protocol;
             break;
