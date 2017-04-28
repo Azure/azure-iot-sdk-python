@@ -27,7 +27,7 @@ process_args()
         save_next_arg=0
       else
         case "$arg" in
-          "--build-python" ) save_next_arg=1;;
+          "--python-version" ) save_next_arg=1;;
           * ) ;;
         esac
       fi
