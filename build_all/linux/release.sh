@@ -30,6 +30,14 @@ process_args()
 
 process_args $*
 
+# identify processor architecture
+if uname -m == "x86_64" ; then
+    # 64 bit
+    PLAT_ARCH="linux64"
+else
+    PLAT_ARCH="linux32"
+fi
+
 # instruct C builder to include python library and to skip tests
 ./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $*
 [ $? -eq 0 ] || exit $?
@@ -65,11 +73,11 @@ cd $build_root
 
 cd ./build_all/linux/release_device_client
 cp $build_folder/python/src/iothub_client.so iothub_client/iothub_client.so
-"python${PYTHON_VERSION}" setup_device_client.py bdist_wheel
+"python${PYTHON_VERSION}" setup_device_client.py bdist_wheel --plat-name $PLAT_ARCH
 cd $build_root
 
 cd ./build_all/linux/release_service_client
 cp $build_folder/python_service_client/src/iothub_service_client.so iothub_service_client/iothub_service_client.so
-"python${PYTHON_VERSION}" setup_service_client.py bdist_wheel
+"python${PYTHON_VERSION}" setup_service_client.py bdist_wheel --plat-name $PLAT_ARCH
 
 cd $build_root
