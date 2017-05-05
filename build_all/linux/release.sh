@@ -31,12 +31,12 @@ process_args()
 process_args $*
 
 # identify processor architecture
-if uname -m == "x86_64" ; then
-    # 64 bit
+if [[ "$(uname -m)" = "x86_64" ]] ; then
     PLAT_ARCH="linux64"
 else
     PLAT_ARCH="linux32"
 fi
+
 
 # instruct C builder to include python library and to skip tests
 ./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $*
