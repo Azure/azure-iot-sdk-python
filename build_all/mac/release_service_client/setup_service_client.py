@@ -38,7 +38,7 @@ setup(
     long_description='IoT Hub Service Client Library for Python 2.7 and 3.6 - iothub_service_client.so',
     packages=['iothub_service_client'],
     classifiers=[
-        'Environment :: Linux',
+        'Operating System :: MacOS',
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
