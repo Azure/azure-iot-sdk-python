@@ -34,11 +34,11 @@ process_args $*
 PLAT_NAME="$(uname -m)"
 
 if [[ $PLAT_NAME = "x86_64" ]] ; then
-    PLAT_ARCH="linux64"
+    PLAT_ARCH="manylinux1_x86_64"
 elif [[ $PLAT_NAME = "armv7l" ]] ; then
-    PLAT_ARCH=$PLAT_NAME
+    PLAT_ARCH="linux_armv7l"
 else
-    PLAT_ARCH="linux32"
+    PLAT_ARCH="manylinux1_i686"
 fi
 
 
