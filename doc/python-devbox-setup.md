@@ -58,7 +58,7 @@ In order to setup your development environment to build the C binaries make sure
 The Python iothub_client and iothub_service_client modules support python versions 2.7.x, 3.4.x or 3.5.x. Know the appropriate version you would like to build the library with for the following instructions.
 
 1. Ensure that the desired Python version (2.7.x, 3.4 or 3.5.x) is installed and active. Run `python --version` or `python3 --version` at the command line to check the version.
-2. Open a shell and navigate to the folder **build_all/linux** in your local copy of the repository.
+2. Open a shell and navigate to the folder **build_all/linux** in your local copy of the repository. Use `git clone --recursive` command to clone all recursive repositories.
 3. Run the `./setup.sh` script to install the prerequisite packages and the dependent libraries.
     * Setup will default to python 2.7
     * To setup dependencies for python 3.4 or 3.5, run `./setup.sh --python-version 3.4` or `./setup.sh --python-version 3.5` respectively
