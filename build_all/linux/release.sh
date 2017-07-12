@@ -31,11 +31,16 @@ process_args()
 process_args $*
 
 # identify processor architecture
-if [[ "$(uname -m)" = "x86_64" ]] ; then
-    PLAT_ARCH="linux64"
+PLAT_NAME="$(uname -m)"
+
+if [[ $PLAT_NAME = "x86_64" ]] ; then
+    PLAT_ARCH="manylinux1_x86_64"
+elif [[ $PLAT_NAME = "armv7l" ]] ; then
+    PLAT_ARCH="linux_armv7l"
 else
-    PLAT_ARCH="linux32"
+    PLAT_ARCH="manylinux1_i686"
 fi
+
 
 
 # instruct C builder to include python library and to skip tests
