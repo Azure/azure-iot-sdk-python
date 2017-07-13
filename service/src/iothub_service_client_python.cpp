@@ -731,12 +731,12 @@ void iothubServiceClientAuthError(const IoTHubServiceClientAuthError& x)
 
 class IoTHubServiceClientAuth
 {
-    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle = NULL;
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
 public:
 
     IoTHubServiceClientAuth(
         std::string connectionString
-        )
+        ) : _iothubServiceClientAuthHandle(NULL)
     {
         ScopedGILRelease release;
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
@@ -829,13 +829,13 @@ struct DEVICE_CREATE
 
 class IoTHubRegistryManager
 {
-    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle = NULL;
-    IOTHUB_REGISTRYMANAGER_HANDLE _iothubRegistryManagerHandle = NULL;
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
+    IOTHUB_REGISTRYMANAGER_HANDLE _iothubRegistryManagerHandle;
 public:
 
     IoTHubRegistryManager(
         std::string connectionString
-        )
+        ) : _iothubServiceClientAuthHandle(NULL), _iothubRegistryManagerHandle(NULL)
     {
         ScopedGILRelease release;
         PlatformCallHandler::Platform_Init();
@@ -1217,11 +1217,11 @@ FeedbackMessageReceivedCallback(
 
 class IoTHubMessaging
 {
-    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle = NULL;
-    IOTHUB_MESSAGING_CLIENT_HANDLE _iothubMessagingHandle = NULL;
-    OpenCompleteContext *openCompleteContext = NULL;
-    SendCompleteContext *sendCompleteContext = NULL;
-    FeedbackMessageReceivedContext *feedbackMessageContext = NULL;
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
+    IOTHUB_MESSAGING_CLIENT_HANDLE _iothubMessagingHandle;
+    OpenCompleteContext *openCompleteContext;
+    SendCompleteContext *sendCompleteContext;
+    FeedbackMessageReceivedContext *feedbackMessageContext;
 
     void CreateContexts()
     {
@@ -1251,7 +1251,11 @@ class IoTHubMessaging
 public:
     IoTHubMessaging(
         std::string connectionString
-        )
+        ) : _iothubServiceClientAuthHandle(NULL),
+			_iothubMessagingHandle(NULL),
+			openCompleteContext(NULL),
+			sendCompleteContext(NULL),
+			feedbackMessageContext(NULL)
     {
         ScopedGILRelease release;
         PlatformCallHandler::Platform_Init();
@@ -1442,12 +1446,13 @@ struct IoTHubDeviceMethodResponse
 
 class IoTHubDeviceMethod
 {
-    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle = NULL;
-    IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE _iothubDeviceMethodHandle = NULL;
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle; 
+    IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE _iothubDeviceMethodHandle;
 public:
     IoTHubDeviceMethod(
         std::string connectionString
-        )
+        ) : _iothubServiceClientAuthHandle(NULL),
+			_iothubDeviceMethodHandle(NULL)
     {
         ScopedGILRelease release;
         PlatformCallHandler::Platform_Init();
@@ -1587,12 +1592,13 @@ void iothubDeviceTwinError(const IoTHubDeviceTwinError& x)
 
 class IoTHubDeviceTwin
 {
-    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle = NULL;
-    IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE _iothubDeviceTwinHandle = NULL;
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
+    IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE _iothubDeviceTwinHandle;
 public:
     IoTHubDeviceTwin(
         std::string connectionString
-        )
+        ) : _iothubServiceClientAuthHandle(NULL),
+			_iothubDeviceTwinHandle(NULL)
     {
         ScopedGILRelease release;
         PlatformCallHandler::Platform_Init();
