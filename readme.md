@@ -28,7 +28,7 @@ git submodule update --init --recursive
 
 ## How to use the Azure IoT SDKs for Python
 Devices and data sources in an IoT solution can range from a simple network-connected sensor to a powerful, standalone computing device. Devices may have limited processing capability, memory, communication bandwidth, and communication protocol support. The IoT device SDKs enable you to implement client applications for a wide variety of devices.
-* **Using PyPI package on Windows (coming soon for Linux)**: the simplest way to use the Azure IoT SDK for Python to develop device apps on Windows is to leverage the PyPI package which you can install following these [instructions][PyPI-install-instructions]
+* **Using PyPI package on Windows, Linux (Ubuntu) or Raspberry Pi**: the simplest way to use the Azure IoT SDK for Python to develop device apps on Windows is to leverage the PyPI package which you can install following these [instructions][PyPI-install-instructions]
 * **Building the libraries and working with the SDK code**: follow [these instructions][devbox-setup].
 
 ## Samples
