@@ -78,3 +78,14 @@ endif()
 
 
 linkSharedUtil(iothub_client_python)
+
+
+set(install_libs
+	iothub_client_python
+)
+
+install(TARGETS ${install_libs} 
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
