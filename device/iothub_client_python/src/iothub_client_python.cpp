@@ -25,6 +25,7 @@
 #include "iothubtransporthttp.h"
 #endif
 #if USE_AMQP
+#include "iothubtransport.h"
 #include "iothubtransportamqp.h"
 #ifdef USE_WEBSOCKETS
 #include "iothubtransportamqp_websockets.h"
@@ -813,16 +814,32 @@ void iothubClientError(const IoTHubClientError& x)
 
 // class exposed to py used as parameter for Create
 
-struct IOTHUB_CONFIG
+class IoTHubConfig
 {
-    IOTHUB_CONFIG(IOTHUB_TRANSPORT_PROVIDER _protocol) :
-        protocol(_protocol)
+public:
+    IoTHubConfig(
+        IOTHUB_TRANSPORT_PROVIDER _protocol,
+        std::string _deviceId,
+        std::string _deviceKey,
+        std::string _deviceSasToken,
+        std::string _iotHubName,
+        std::string _iotHubSuffix,
+        std::string _protocolGatewayHostName
+        ) :
+        protocol(_protocol),
+        deviceId(_deviceId),
+        deviceKey(_deviceKey),
+        deviceSasToken(_deviceSasToken),
+        iotHubName(_iotHubName),
+        iotHubSuffix(_iotHubSuffix),
+        protocolGatewayHostName(_protocolGatewayHostName)
     {
     }
 
     IOTHUB_TRANSPORT_PROVIDER protocol;
     std::string deviceId;
     std::string deviceKey;
+    std::string deviceSasToken;
     std::string iotHubName;
     std::string iotHubSuffix;
     std::string protocolGatewayHostName;
@@ -896,6 +913,37 @@ ReceiveMessageCallback(
     }
     delete message;
     return boost::python::extract<IOTHUBMESSAGE_DISPOSITION_RESULT>(returnObject);
+}
+
+typedef struct
+{
+    boost::python::object connectionStatusCallback;
+    boost::python::object userContext;
+} ConnectionStatusContext;
+
+extern "C"
+void
+ConnectionStatusCallback(
+    IOTHUB_CLIENT_CONNECTION_STATUS result,
+    IOTHUB_CLIENT_CONNECTION_STATUS_REASON reason,
+    void* userContextCallback
+)
+{
+    ConnectionStatusContext *connectionStatusContext = (ConnectionStatusContext *)userContextCallback;
+    boost::python::object userContext = connectionStatusContext->userContext;
+    boost::python::object connectionStatusCallback = connectionStatusContext->connectionStatusCallback;
+
+    ScopedGILAcquire acquire;
+    try
+    {
+        connectionStatusCallback(result, reason, userContext);
+    }
+    catch (const boost::python::error_already_set)
+    {
+        // Catch and ignore exception that is thrown in Python callback.
+        // There is nothing we can do about it here.
+        PyErr_Print();
+    }
 }
 
 typedef struct
@@ -1006,9 +1054,6 @@ DeviceMethodCallback(
 
         retVal = user_response_value.status;
 
-        printf("Response: %s", user_response_value.response.c_str());
-        printf("Status: %d", user_response_value.status);
-
         *resp_size = strlen(user_response_value.response.c_str());
         if ((*response = (unsigned char*)malloc(*resp_size)) == NULL)
         {
@@ -1018,6 +1063,44 @@ DeviceMethodCallback(
         {
             memcpy(*response, user_response_value.response.c_str(), *resp_size);
         }
+    }
+    catch (const boost::python::error_already_set)
+    {
+        // Catch and ignore exception that is thrown in Python callback.
+        // There is nothing we can do about it here.
+        PyErr_Print();
+    }
+
+    return retVal;
+}
+
+extern "C"
+int
+InboundDeviceMethodCallback(
+    const char* method_name,
+    const unsigned char* payLoad,
+    size_t size,
+    METHOD_HANDLE method_id,
+    void* userContextCallback
+)
+{
+    int retVal = -1;
+
+    DeviceMethodContext *deviceMethodContext = (DeviceMethodContext *)userContextCallback;
+    boost::python::object userContext = deviceMethodContext->userContext;
+    boost::python::object deviceMethodCallback = deviceMethodContext->deviceMethodCallback;
+
+    std::string method_name_std_string(method_name);
+    std::string payload_std_string(reinterpret_cast<const char *>(payLoad), size);
+
+    ScopedGILAcquire acquire;
+    try
+    {
+        boost::python::object user_response_obj = deviceMethodCallback(method_name_std_string, payload_std_string, method_id, userContext);
+
+        DeviceMethodReturnValue user_response_value = boost::python::extract<DeviceMethodReturnValue>(user_response_obj)();
+
+        retVal = user_response_value.status;
     }
     catch (const boost::python::error_already_set)
     {
@@ -1061,6 +1144,97 @@ BlobUploadConfirmationCallback(
     delete blobUploadContext;
 }
 #endif
+
+typedef struct
+{
+    IOTHUB_CLIENT_RETRY_POLICY retryPolicy;
+    size_t retryTimeoutLimitInSeconds;
+} GetRetryPolicyReturnValue;
+
+class IoTHubTransport
+{
+    static IOTHUB_CLIENT_TRANSPORT_PROVIDER
+        GetProtocol(IOTHUB_TRANSPORT_PROVIDER _protocol)
+    {
+        IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol = NULL;
+        switch (_protocol)
+        {
+#ifdef USE_HTTP
+        case HTTP:
+            protocol = HTTP_Protocol;
+            break;
+#endif
+#ifdef USE_AMQP
+        case AMQP:
+            protocol = AMQP_Protocol;
+            break;
+#endif
+#ifdef USE_MQTT
+        case MQTT:
+            protocol = MQTT_Protocol;
+            break;
+#endif
+#ifdef USE_WEBSOCKETS
+#ifdef USE_AMQP
+        case AMQP_WS:
+            protocol = AMQP_Protocol_over_WebSocketsTls;
+            break;
+#endif
+#ifdef USE_MQTT
+        case MQTT_WS:
+            protocol = MQTT_WebSocket_Protocol;
+            break;
+#endif
+#endif
+        default:
+            PyErr_SetString(PyExc_TypeError, "IoTHubTransportProvider set to unknown protocol");
+            boost::python::throw_error_already_set();
+            break;
+        }
+        return protocol;
+    }
+
+public:
+
+    TRANSPORT_HANDLE iotHubTransportHandle;
+    IOTHUB_TRANSPORT_PROVIDER protocol;
+
+    IoTHubTransport(const IoTHubTransport& transport)
+    {
+        (void)transport;
+        throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+    }
+
+    IoTHubTransport(
+        IOTHUB_TRANSPORT_PROVIDER _protocol,
+        std::string iotHubNameString,
+        std::string iotHUbSuffixString
+    ) : protocol(_protocol)
+    {
+        {
+            ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
+            iotHubTransportHandle = IoTHubTransport_Create(GetProtocol(_protocol), iotHubNameString.c_str(), iotHUbSuffixString.c_str());
+        }
+        if (iotHubTransportHandle == NULL)
+        {
+            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+    }
+
+    void Destroy()
+    {
+        if (iotHubTransportHandle != NULL)
+        {
+            {
+                ScopedGILRelease release;
+                IoTHubTransport_Destroy(iotHubTransportHandle);
+            }
+            iotHubTransportHandle = NULL;
+        }
+    }
+};
 
 class IoTHubClient
 {
@@ -1131,6 +1305,82 @@ public:
     }
 
     IoTHubClient(
+        IoTHubTransport* _transportHandle,
+        IoTHubConfig* _config
+    )
+    {
+        IOTHUB_CLIENT_CONFIG config;
+        config.protocol = GetProtocol(_config->protocol);
+
+        config.deviceId = _config->deviceId.c_str();
+        if (_config->deviceId == "")
+        {
+            config.deviceId = NULL;
+        }
+        else
+        {
+            config.deviceId = _config->deviceId.c_str();
+        }
+
+        if (_config->deviceKey == "")
+        {
+            config.deviceKey = NULL;
+        }
+        else
+        {
+            config.deviceKey = _config->deviceKey.c_str();
+        }
+
+        if (_config->deviceSasToken == "")
+        {
+            config.deviceSasToken = NULL;
+        }
+        else
+        {
+            config.deviceSasToken = _config->deviceSasToken.c_str();
+        }
+
+        if (_config->iotHubName == "")
+        {
+            config.iotHubName = NULL;
+        }
+        else
+        {
+            config.iotHubName = _config->iotHubName.c_str();
+        }
+
+        if (_config->iotHubSuffix == "")
+        {
+            config.iotHubSuffix = NULL;
+        }
+        else
+        {
+            config.iotHubSuffix = _config->iotHubSuffix.c_str();
+        }
+
+        if (_config->protocolGatewayHostName == "")
+        {
+            config.protocolGatewayHostName = NULL;
+        }
+        else
+        {
+            config.protocolGatewayHostName = _config->protocolGatewayHostName.c_str();
+        }
+
+        protocol = _config->protocol;
+        {
+            ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
+            iotHubClientHandle = IoTHubClient_CreateWithTransport(_transportHandle->iotHubTransportHandle, &config);
+        }
+        if (iotHubClientHandle == NULL)
+        {
+            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+    }
+
+    IoTHubClient(
         std::string connectionString,
         IOTHUB_TRANSPORT_PROVIDER _protocol
         ) :
@@ -1149,13 +1399,14 @@ public:
     }
 
     IoTHubClient(
-        const IOTHUB_CONFIG &_config
+        const IoTHubConfig &_config
         )
     {
         IOTHUB_CLIENT_CONFIG config;
         config.protocol = GetProtocol(_config.protocol);
         config.deviceId = _config.deviceId.c_str();
         config.deviceKey = _config.deviceKey.c_str();
+        config.deviceSasToken = _config.deviceSasToken.c_str();
         config.iotHubName = _config.iotHubName.c_str();
         config.iotHubSuffix = _config.iotHubSuffix.c_str();
         config.protocolGatewayHostName = _config.protocolGatewayHostName.c_str();
@@ -1190,13 +1441,14 @@ public:
     }
 
     static IoTHubClient const *Create(
-        const IOTHUB_CONFIG* _config
+        const IoTHubConfig* _config
         )
     {
         IOTHUB_CLIENT_CONFIG config;
         config.protocol = GetProtocol(_config->protocol);
         config.deviceId = _config->deviceId.c_str();
         config.deviceKey = _config->deviceKey.c_str();
+        config.deviceSasToken = _config->deviceSasToken.c_str();
         config.iotHubName = _config->iotHubName.c_str();
         config.iotHubSuffix = _config->iotHubSuffix.c_str();
         config.protocolGatewayHostName = _config->protocolGatewayHostName.c_str();
@@ -1285,6 +1537,68 @@ public:
         }
     }
 
+    void SetConnectionStatusCallback(
+        boost::python::object& connectionStatusCallback,
+        boost::python::object& userContext
+    )
+    {
+        if (!PyCallable_Check(connectionStatusCallback.ptr()))
+        {
+            PyErr_SetString(PyExc_TypeError, "set_connection_status_callback expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+        ReceiveContext *receiveContext = new ReceiveContext();
+        receiveContext->messageCallback = connectionStatusCallback;
+        receiveContext->userContext = userContext;
+        IOTHUB_CLIENT_RESULT result;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_SetConnectionStatusCallback(iotHubClientHandle, ConnectionStatusCallback, receiveContext);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+    }
+
+    void SetRetryPolicy(
+        IOTHUB_CLIENT_RETRY_POLICY retryPolicy,
+        size_t retryTimeoutLimitInSeconds
+    )
+    {
+        IOTHUB_CLIENT_RESULT result;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_SetRetryPolicy(iotHubClientHandle, retryPolicy, retryTimeoutLimitInSeconds);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+    }
+
+    GetRetryPolicyReturnValue GetRetryPolicy()
+    {
+        IOTHUB_CLIENT_RETRY_POLICY iotHubClientRetryPolicy;
+        size_t retryTimeoutLimitInSeconds;
+        IOTHUB_CLIENT_RESULT result = IOTHUB_CLIENT_OK;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_GetRetryPolicy(iotHubClientHandle, &iotHubClientRetryPolicy, &retryTimeoutLimitInSeconds);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+
+        GetRetryPolicyReturnValue returnValue;
+        returnValue.retryPolicy = iotHubClientRetryPolicy;
+        returnValue.retryTimeoutLimitInSeconds = retryTimeoutLimitInSeconds;
+
+        return returnValue;
+    }
+
     void SetDeviceTwinCallback(
         boost::python::object& deviceTwinCallback,
         boost::python::object& userContext
@@ -1356,6 +1670,49 @@ public:
         {
             ScopedGILRelease release;
             result = IoTHubClient_SetDeviceMethodCallback(iotHubClientHandle, DeviceMethodCallback, deviceMethodContext);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+    }
+
+    void SetDeviceMethodCallbackEx(
+        boost::python::object& inboundDeviceMethodCallback,
+        boost::python::object& userContext
+    )
+    {
+        if (!PyCallable_Check(inboundDeviceMethodCallback.ptr()))
+        {
+            PyErr_SetString(PyExc_TypeError, "set_device_method_callback expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+        DeviceMethodContext *deviceMethodContext = new DeviceMethodContext();
+        deviceMethodContext->deviceMethodCallback = inboundDeviceMethodCallback;
+        deviceMethodContext->userContext = userContext;
+        IOTHUB_CLIENT_RESULT result;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_SetDeviceMethodCallback_Ex(iotHubClientHandle, InboundDeviceMethodCallback, deviceMethodContext);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+    }
+    
+    void DeviceMethodResponse(
+        METHOD_HANDLE method_id,
+        std::string response,
+        size_t size,
+        size_t statusCode
+    )
+    {
+        IOTHUB_CLIENT_RESULT result;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_DeviceMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode);
         }
         if (result != IOTHUB_CLIENT_OK)
         {
@@ -1576,6 +1933,31 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .value("UNKNOWN", IOTHUBMESSAGE_UNKNOWN)
         ;
 
+    enum_<IOTHUB_CLIENT_CONNECTION_STATUS>("IoTHubConnectionStatus")
+        .value("AUTHENTICATED", IOTHUB_CLIENT_CONNECTION_AUTHENTICATED)
+        .value("UNAUTHENTICATED", IOTHUB_CLIENT_CONNECTION_UNAUTHENTICATED)
+        ;
+
+    enum_<IOTHUB_CLIENT_CONNECTION_STATUS_REASON>("IoTHubClientConnectionStatusReason")
+        .value("EXPIRED_SAS_TOKEN", IOTHUB_CLIENT_CONNECTION_EXPIRED_SAS_TOKEN)
+        .value("DEVICE_DISABLED", IOTHUB_CLIENT_CONNECTION_DEVICE_DISABLED)
+        .value("BAD_CREDENTIAL", IOTHUB_CLIENT_CONNECTION_BAD_CREDENTIAL)
+        .value("RETRY_EXPIRED", IOTHUB_CLIENT_CONNECTION_RETRY_EXPIRED)
+        .value("NO_NETWORK", IOTHUB_CLIENT_CONNECTION_NO_NETWORK)
+        .value("COMMUNICATION_ERROR", IOTHUB_CLIENT_CONNECTION_COMMUNICATION_ERROR)
+        .value("CONNECTION_OK", IOTHUB_CLIENT_CONNECTION_OK)
+        ;
+
+    enum_<IOTHUB_CLIENT_RETRY_POLICY>("IoTHubClientRetryPolicy")
+        .value("RETRY_NONE", IOTHUB_CLIENT_RETRY_NONE)
+        .value("RETRY_IMMEDIATE", IOTHUB_CLIENT_RETRY_IMMEDIATE)
+        .value("RETRY_INTERVAL", IOTHUB_CLIENT_RETRY_INTERVAL)
+        .value("RETRY_LINEAR_BACKOFF", IOTHUB_CLIENT_RETRY_LINEAR_BACKOFF)
+        .value("RETRY_EXPONENTIAL_BACKOFF", IOTHUB_CLIENT_RETRY_EXPONENTIAL_BACKOFF)
+        .value("RETRY_EXPONENTIAL_BACKOFF_WITH_JITTER", IOTHUB_CLIENT_RETRY_EXPONENTIAL_BACKOFF_WITH_JITTER)
+        .value("RETRY_RANDOM", IOTHUB_CLIENT_RETRY_RANDOM)
+        ;
+
     enum_<DEVICE_TWIN_UPDATE_STATE>("IoTHubTwinUpdateState")
         .value("COMPLETE", DEVICE_TWIN_UPDATE_COMPLETE)
         .value("PARTIAL", DEVICE_TWIN_UPDATE_PARTIAL)
@@ -1604,6 +1986,16 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     enum_<IOTHUB_CLIENT_FILE_UPLOAD_RESULT>("IoTHubClientFileUploadResult")
         .value("OK", FILE_UPLOAD_OK)
         .value("ERROR", FILE_UPLOAD_ERROR)
+        ;
+
+    class_<GetRetryPolicyReturnValue>("GetRetryPolicyReturnValue")
+        .def_readonly("retryPolicy", &GetRetryPolicyReturnValue::retryPolicy)
+        .def_readonly("retryTimeoutLimitInSeconds", &GetRetryPolicyReturnValue::retryTimeoutLimitInSeconds)
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubMap::str)
+        .def("__repr__", &IoTHubMap::repr)
+#endif
         ;
 
     // classes
@@ -1649,13 +2041,39 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #endif
         ;
 
+    class_<IoTHubConfig, boost::noncopyable>("IoTHubConfig", no_init)
+        .def(init<IOTHUB_TRANSPORT_PROVIDER, std::string, std::string, std::string, std::string, std::string, std::string>())
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubConfig::str)
+        .def("__repr__", &IoTHubConfig::repr)
+#endif
+        ;
+
+    class_<IoTHubTransport, boost::noncopyable>("IoTHubTransport", no_init)
+        .def(init<IOTHUB_TRANSPORT_PROVIDER, std::string, std::string>())
+        // attributes
+        .def_readonly("iotHubTransportHandle", &IoTHubTransport::iotHubTransportHandle)
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubTransport::str)
+        .def("__repr__", &IoTHubTransport::repr)
+#endif
+        ;
+
     class_<IoTHubClient, boost::noncopyable>("IoTHubClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
+        .def(init<IoTHubTransport*, IoTHubConfig*>())
         .def("send_event_async", &IoTHubClient::SendEventAsync)
         .def("set_message_callback", &IoTHubClient::SetMessageCallback)
+        .def("set_connection_status_callback", &IoTHubClient::SetConnectionStatusCallback)
+        .def("set_retry_policy", &IoTHubClient::SetRetryPolicy)
+        .def("get_retry_policy", &IoTHubClient::GetRetryPolicy)
         .def("set_device_twin_callback", &IoTHubClient::SetDeviceTwinCallback)
         .def("send_reported_state", &IoTHubClient::SendReportedState)
         .def("set_device_method_callback", &IoTHubClient::SetDeviceMethodCallback)
+        .def("set_device_method_callback_ex", &IoTHubClient::SetDeviceMethodCallbackEx)
+        .def("device_method_response", &IoTHubClient::DeviceMethodResponse)
         .def("set_option", &IoTHubClient::SetOption)
         .def("get_send_status", &IoTHubClient::GetSendStatus)
         .def("get_last_message_receive_time", &IoTHubClient::GetLastMessageReceiveTime)

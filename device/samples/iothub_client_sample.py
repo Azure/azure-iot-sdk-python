@@ -10,6 +10,7 @@ import sys
 import iothub_client
 from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
 from iothub_client import IoTHubMessage, IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
+from iothub_client import IoTHubClientRetryPolicy, GetRetryPolicyReturnValue
 from iothub_client_args import get_iothub_opt, OptionError
 
 # HTTP options
@@ -32,6 +33,7 @@ MIN_TEMPERATURE = 20.0
 MIN_HUMIDITY = 60.0
 MESSAGE_COUNT = 5
 RECEIVED_COUNT = 0
+CONNECTION_STATUS_CONTEXT = 0
 TWIN_CONTEXT = 0
 SEND_REPORTED_STATE_CONTEXT = 0
 METHOD_CONTEXT = 0
@@ -40,11 +42,12 @@ METHOD_CONTEXT = 0
 RECEIVE_CALLBACKS = 0
 SEND_CALLBACKS = 0
 BLOB_CALLBACKS = 0
+CONNECTION_STATUS_CALLBACKS = 0
 TWIN_CALLBACKS = 0
 SEND_REPORTED_STATE_CALLBACKS = 0
 METHOD_CALLBACKS = 0
 
-# chose HTTP, AMQP or MQTT as transport protocol
+# chose HTTP, AMQP, AMQP_WS or MQTT as transport protocol
 PROTOCOL = IoTHubTransportProvider.MQTT
 
 # String containing Hostname, Device Id & Device Key in the format:
@@ -92,16 +95,30 @@ def send_confirmation_callback(message, result, user_context):
     print ( "    Total calls confirmed: %d" % SEND_CALLBACKS )
 
 
+def connection_status_callback(result, reason, user_context):
+    global CONNECTION_STATUS_CALLBACKS
+    print ( "Connection status changed[%d] with:" % (user_context) )
+    print ( "    reason: %d" % reason )
+    print ( "    result: %s" % result )
+    CONNECTION_STATUS_CALLBACKS += 1
+    print ( "    Total calls confirmed: %d" % CONNECTION_STATUS_CALLBACKS )
+
+
 def device_twin_callback(update_state, payload, user_context):
     global TWIN_CALLBACKS
-    print ( "\nTwin callback called with:\nupdateStatus = %s\npayload = %s\ncontext = %s" % (update_state, payload, user_context) )
+    print ( "")
+    print ( "Twin callback called with:")
+    print ( "updateStatus: %s" % update_state )
+    print ( "context: %s" % user_context )
+    print ( "payload: %s" % payload )
     TWIN_CALLBACKS += 1
     print ( "Total calls confirmed: %d\n" % TWIN_CALLBACKS )
 
 
 def send_reported_state_callback(status_code, user_context):
     global SEND_REPORTED_STATE_CALLBACKS
-    print ( "Confirmation for reported state received with:\nstatus_code = [%d]\ncontext = %s" % (status_code, user_context) )
+    print ( "Confirmation[%d] for reported state received with:" % (user_context) )
+    print ( "    status_code: %d" % status_code )
     SEND_REPORTED_STATE_CALLBACKS += 1
     print ( "    Total calls confirmed: %d" % SEND_REPORTED_STATE_CALLBACKS )
 
@@ -144,6 +161,19 @@ def iothub_client_init():
             device_twin_callback, TWIN_CONTEXT)
         client.set_device_method_callback(
             device_method_callback, METHOD_CONTEXT)
+    if client.protocol == IoTHubTransportProvider.AMQP or client.protocol == IoTHubTransportProvider.AMQP_WS:
+        client.set_connection_status_callback(
+            connection_status_callback, CONNECTION_STATUS_CONTEXT)
+
+    retryPolicy = IoTHubClientRetryPolicy.RETRY_INTERVAL
+    retryInterval = 100
+    client.set_retry_policy(retryPolicy, retryInterval)
+    print ( "SetRetryPolicy to: retryPolicy = %d" %  retryPolicy)
+    print ( "SetRetryPolicy to: retryTimeoutLimitInSeconds = %d" %  retryInterval)
+    retryPolicyReturn = client.get_retry_policy()
+    print ( "GetRetryPolicy returned: retryPolicy = %d" %  retryPolicyReturn.retryPolicy)
+    print ( "GetRetryPolicy returned: retryTimeoutLimitInSeconds = %d" %  retryPolicyReturn.retryTimeoutLimitInSeconds)
+
     return client
 
 

@@ -20,6 +20,7 @@ from iothub_service_client import IoTHubMessage, IoTHubDevice, IoTHubDeviceStatu
 
 from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
 from iothub_client import IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
+from iothub_client import IoTHubTransport, IoTHubConfig, IoTHubClientRetryPolicy
 
 from iothub_client_e2e_cert import CERTIFICATES
 
@@ -45,6 +46,9 @@ MESSAGING_MESSAGE = ""
 MESSAGING_CONTEXT = 34
 MESSAGE_RECEIVE_EVENT = threading.Event()
 MESSAGE_RECEIVE_CALLBACK_COUNTER = 0
+
+CONNECTION_STATUS_CONTEXT = 12
+CONNECTION_STATUS_CALLBACKS = 0
 
 REPORTED_STATE_CONTEXT = 0
 REPORTED_STATE_STATUS = -1
@@ -165,6 +169,14 @@ def receive_message_callback(message, counter):
     MESSAGE_RECEIVE_EVENT.set()
 
     return IoTHubMessageDispositionResult.ACCEPTED
+
+def connection_status_callback(result, reason, user_context):
+    global CONNECTION_STATUS_CALLBACKS
+    print ( "Connection status changed[%d] with:" % (user_context) )
+    print ( "    reason: %d" % reason )
+    print ( "    result: %s" % result )
+    CONNECTION_STATUS_CALLBACKS += 1
+    print ( "    Total calls confirmed: %d" % CONNECTION_STATUS_CALLBACKS )
 
 def device_twin_callback(update_state, payload, user_context):
     global TWIN_CALLBACK_COUNTER
@@ -291,10 +303,10 @@ def sc_delete_device(iothub_registry_manager, device_id):
 ###########################################################################
 # E2E tests
 ###########################################################################
-
 def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method, iothub_device_twin, device_id, device_connection_string, protocol, authMethod):
     global IOTHUB_E2E_X509_CERT
     global IOTHUB_E2E_X509_THUMBPRINT
+    global IOTHUB_E2E_X509_PRIVATE_KEY
     global CERTIFICATES
     global MESSAGING_CONTEXT
 
@@ -336,6 +348,15 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     # prepare
     # act
     device_client.set_message_callback(receive_message_callback, MESSAGING_CONTEXT)
+    ###########################################################################
+
+    ###########################################################################
+    # set_connection_status_callback
+    
+    # prepare
+    # act
+    device_client.set_connection_status_callback(connection_status_callback, CONNECTION_STATUS_CONTEXT)
+    ###########################################################################
 
     # verify
     ###########################################################################
@@ -422,6 +443,23 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         assert REPORTED_STATE_CALLBACK_COUNTER > 0, "Error: send_reported_state_callback has not been called"
         ###########################################################################
 
+    ###########################################################################
+    # set_retry_policy
+    # get_retry_policy
+   
+    # prepare
+    # act
+    retryPolicy = IoTHubClientRetryPolicy.RETRY_INTERVAL
+    retryInterval = 100
+    device_client.set_retry_policy(retryPolicy, retryInterval)
+    print ( "SetRetryPolicy to: retryPolicy = %d" %  retryPolicy)
+    print ( "SetRetryPolicy to: retryTimeoutLimitInSeconds = %d" %  retryInterval)
+    # verify
+    retryPolicyReturn = device_client.get_retry_policy()
+    assert retryPolicyReturn.retryPolicy == IoTHubClientRetryPolicy.RETRY_INTERVAL, "Error: set_retry_policy/get_retry_policy failed"
+    assert retryPolicyReturn.retryTimeoutLimitInSeconds == 100, "Error: set_retry_policy/get_retry_policy failed"
+    print ( "GetRetryPolicy returned: retryPolicy = %d" %  retryPolicyReturn.retryPolicy)
+    print ( "GetRetryPolicy returned: retryTimeoutLimitInSeconds = %d" %  retryPolicyReturn.retryTimeoutLimitInSeconds)
 
     ###########################################################################
     # send_event_async
@@ -443,7 +481,6 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     # verify
     assert MESSAGE_RECEIVE_CALLBACK_COUNTER > 0, "Error: message has not been received"
     ###########################################################################
-
 
     ###########################################################################
     # get_send_status
@@ -524,6 +561,98 @@ def run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_dev
     return retval
 
 
+def run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, protocol, authMethod):
+    global IOTHUB_CONNECTION_STRING
+    global IOTHUB_E2E_X509_CERT
+    global IOTHUB_E2E_X509_THUMBPRINT
+    global IOTHUB_E2E_X509_PRIVATE_KEY
+    global CERTIFICATES
+    global DEVICE_MESSAGE_TIMEOUT
+    global MESSAGING_MESSAGE
+    global MESSAGE_RECEIVE_EVENT
+    global MESSAGE_RECEIVE_CALLBACK_COUNTER
+
+    print ("********************* run_e2e({0}, {1}) E2E test with shared transport started".format(protocol, authMethod))
+    try:
+        # Process connection string
+        host_name_start = IOTHUB_CONNECTION_STRING.find("HostName")
+        host_name_end = IOTHUB_CONNECTION_STRING.find(";", host_name_start)
+        host_name_equal_sign = IOTHUB_CONNECTION_STRING.find("=", host_name_start)
+        host_name_suffix_separator = IOTHUB_CONNECTION_STRING.find(".", host_name_equal_sign)
+
+        iothub_name = IOTHUB_CONNECTION_STRING[host_name_equal_sign+1:host_name_suffix_separator]
+        iothub_suffix = IOTHUB_CONNECTION_STRING[host_name_suffix_separator+1:host_name_end]
+
+        # Create transport
+        transport = IoTHubTransport(protocol, iothub_name, iothub_suffix)
+
+        # Create first device
+        device_id1 = generate_device_name()
+        device = sc_create_device(iothub_registry_manager, device_id1, authMethod)
+        iothub_device1 = iothub_registry_manager.get_device(device_id1)
+        assert isinstance(iothub_device1, IoTHubDevice), 'Invalid type returned!'
+        assert iothub_device1 != None, "iothub_device is NULL"
+        device_key1 = iothub_device1.primaryKey
+        device_sas_token1 = ""
+        protocol_gateway_host_name1 = ""
+        config1 = IoTHubConfig(protocol, device_id1, device_key1, device_sas_token1, iothub_name, iothub_suffix, protocol_gateway_host_name1)
+
+        # Create second device
+        device_id2 = generate_device_name()
+        device = sc_create_device(iothub_registry_manager, device_id2, authMethod)
+        iothub_device2 = iothub_registry_manager.get_device(device_id2)
+        assert isinstance(iothub_device2, IoTHubDevice), 'Invalid type returned!'
+        assert iothub_device2 != None, "iothub_device is NULL"
+        device_key2 = iothub_device2.primaryKey
+        device_sas_token2 = ""
+        protocol_gateway_host_name3 = ""
+        config2 = IoTHubConfig(protocol, device_id2, device_key2, device_sas_token2, iothub_name, iothub_suffix, protocol_gateway_host_name3)
+
+        device_client1 = IoTHubClient(transport, config1)
+        device_client2 = IoTHubClient(transport, config2)
+
+        device_client1.set_option("messageTimeout", DEVICE_MESSAGE_TIMEOUT)
+        device_client2.set_option("messageTimeout", DEVICE_MESSAGE_TIMEOUT)
+
+        device_client1.set_message_callback(receive_message_callback, MESSAGING_CONTEXT)
+        device_client2.set_message_callback(receive_message_callback, MESSAGING_CONTEXT)
+
+        device_client1.set_connection_status_callback(connection_status_callback, CONNECTION_STATUS_CONTEXT)
+        device_client2.set_connection_status_callback(connection_status_callback, CONNECTION_STATUS_CONTEXT)
+
+        ###########################################################################
+        # send_event_async
+
+        # prepare
+        MESSAGING_MESSAGE = ''.join([random.choice(string.ascii_letters) for n in range(12)])
+        message = IoTHubMessage(bytearray(MESSAGING_MESSAGE, 'utf8'))
+        MESSAGE_RECEIVE_EVENT.clear()
+        MESSAGE_RECEIVE_CALLBACK_COUNTER = 0
+
+        # act
+        sc_send_message(iothub_service_client_messaging, device_id1, message)
+        MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
+
+        MESSAGE_RECEIVE_EVENT.clear()
+        sc_send_message(iothub_service_client_messaging, device_id2, message)
+        MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
+
+        # verify
+        assert MESSAGE_RECEIVE_CALLBACK_COUNTER > 1, "Error: message has not been received"
+        ###########################################################################
+
+        retval = 0
+    except Exception as e:
+        print ("(********************* run_e2e({0}, {1}) E2E test with shared transport failed with exception: {2}".format(protocol, authMethod, e))
+        retval = 1
+    finally:
+        sc_delete_device(iothub_registry_manager, device_id1)
+        sc_delete_device(iothub_registry_manager, device_id2)
+
+    print ("********************* run_e2e({0}, {1}) E2E test with shared transport finished".format(protocol, authMethod))
+    return retval
+
+
 def main():
     print ("********************* iothub_device_client E2E tests started!")
 
@@ -542,8 +671,14 @@ def main():
         assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
         assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
 
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
+
         assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.HTTP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
         assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.HTTP, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
+
+        assert run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
+        assert run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
 
         print ("********************* iothub_device_client E2E tests passed!")
         tests_passed = True

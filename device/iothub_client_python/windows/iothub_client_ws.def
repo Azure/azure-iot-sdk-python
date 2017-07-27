@@ -9,15 +9,21 @@ EXPORTS
 ;   iothub_client.h
     IoTHubClient_CreateFromConnectionString
     IoTHubClient_Create
+    IoTHubClient_CreateWithTransport
     IoTHubClient_Destroy
     IoTHubClient_SendEventAsync
     IoTHubClient_GetSendStatus
     IoTHubClient_SetMessageCallback
+    IoTHubClient_SetConnectionStatusCallback
+    IoTHubClient_SetRetryPolicy
+    IoTHubClient_GetRetryPolicy
     IoTHubClient_GetLastMessageReceiveTime
     IoTHubClient_SetOption
     IoTHubClient_SetDeviceTwinCallback
     IoTHubClient_SendReportedState
     IoTHubClient_SetDeviceMethodCallback
+    IoTHubClient_SetDeviceMethodCallback_Ex
+    IoTHubClient_DeviceMethodResponse
     IoTHubClient_UploadToBlobAsync
 ;   iothub_client_ll.h
     IoTHubClient_LL_CreateFromConnectionString

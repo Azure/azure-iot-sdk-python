@@ -37,23 +37,31 @@ def receive_message_callback(message, counter):
     return IoTHubMessageDispositionResult.ACCEPTED
 
 
-def send_confirmation_callback(message, result, userContext):
+def send_confirmation_callback(message, result, user_context):
     return
 
 
-def device_twin_callback(updateState, payLoad, user_context):
+def device_twin_callback(update_state, payLoad, user_context):
     return
 
 
-def send_reported_state_callback(status_code, userContext):
+def send_reported_state_callback(status_code, user_context):
     return
 
 
-def device_method_callback(updateState, payLoad, user_context):
+def device_method_callback(method_name, payLoad, size, response, response_size, user_context):
+    return
+
+
+def device_method_callback_ex(method_name, payLoad, size, method_id, user_context):
     return
 
 
 def blob_upload_callback(result, userContext):
+    return
+
+
+def connection_status_callback(result, reason, user_context):
     return
 
 
@@ -236,6 +244,46 @@ class TestEnumDefinitions(unittest.TestCase):
         self.assertEqual(len(dispositionResult.names), lastEnum)
         self.assertEqual(len(dispositionResult.values), lastEnum)
 
+    def test_IoTHubConnectionStatus(self):
+        self.assertEqual(IoTHubConnectionStatus.AUTHENTICATED, 0)
+        self.assertEqual(IoTHubConnectionStatus.UNAUTHENTICATED, 1)
+        lastEnum = IoTHubConnectionStatus.UNAUTHENTICATED + 1
+        with self.assertRaises(AttributeError):
+            self.assertEqual(IoTHubConnectionStatus.ANY, 0)
+        dispositionResult = IoTHubConnectionStatus()
+        self.assertEqual(dispositionResult, 0)
+        self.assertEqual(len(dispositionResult.names), lastEnum)
+
+    def test_IoTHubClientConnectionStatusReason(self):
+        self.assertEqual(IoTHubClientConnectionStatusReason.EXPIRED_SAS_TOKEN, 0)
+        self.assertEqual(IoTHubClientConnectionStatusReason.DEVICE_DISABLED, 1)
+        self.assertEqual(IoTHubClientConnectionStatusReason.BAD_CREDENTIAL, 2)
+        self.assertEqual(IoTHubClientConnectionStatusReason.RETRY_EXPIRED, 3)
+        self.assertEqual(IoTHubClientConnectionStatusReason.NO_NETWORK, 4)
+        self.assertEqual(IoTHubClientConnectionStatusReason.COMMUNICATION_ERROR, 5)
+        self.assertEqual(IoTHubClientConnectionStatusReason.CONNECTION_OK, 6)
+        lastEnum = IoTHubClientConnectionStatusReason.CONNECTION_OK + 1
+        with self.assertRaises(AttributeError):
+            self.assertEqual(IoTHubClientConnectionStatusReason.ANY, 0)
+        dispositionResult = IoTHubClientConnectionStatusReason()
+        self.assertEqual(dispositionResult, 0)
+        self.assertEqual(len(dispositionResult.names), lastEnum)
+
+    def test_IoTHubClientRetryPolicy(self):
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_NONE, 0)
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_IMMEDIATE, 1)
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_INTERVAL, 2)
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_LINEAR_BACKOFF, 3)
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_EXPONENTIAL_BACKOFF, 4)
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_EXPONENTIAL_BACKOFF_WITH_JITTER, 5)
+        self.assertEqual(IoTHubClientRetryPolicy.RETRY_RANDOM, 6)
+        lastEnum = IoTHubClientRetryPolicy.RETRY_RANDOM + 1
+        with self.assertRaises(AttributeError):
+            self.assertEqual(IoTHubClientRetryPolicy.ANY, 0)
+        dispositionResult = IoTHubClientRetryPolicy()
+        self.assertEqual(dispositionResult, 0)
+        self.assertEqual(len(dispositionResult.names), lastEnum)
+
     def test_IoTHubTransportProvider(self):
         if hasattr(IoTHubTransportProvider, "MQTT_WS"):
             self.assertEqual(IoTHubTransportProvider.HTTP, 0)
@@ -255,6 +303,11 @@ class TestEnumDefinitions(unittest.TestCase):
                 self.assertEqual(IoTHubTransportProvider.ANY, 0)
 
 class TestClassDefinitions(unittest.TestCase):
+
+    def test_GetRetryPolicyReturnValue(self):
+        # constructor
+        getRetryPolicyReturnValue = GetRetryPolicyReturnValue()
+        self.assertIsInstance(getRetryPolicyReturnValue, GetRetryPolicyReturnValue)
 
     def test_IoTHubMap(self):
         # constructor
@@ -498,6 +551,21 @@ class TestClassDefinitions(unittest.TestCase):
         result = message.correlation_id
         self.assertEqual(result, "xyz")
 
+    def test_DeviceMethodReturnValue(self):
+        # constructor
+        deviceMethodReturnValue = DeviceMethodReturnValue()
+        self.assertIsInstance(deviceMethodReturnValue, DeviceMethodReturnValue)
+
+    def test_IoTHubConfig(self):
+        # constructor
+        ioTHubConfig = IoTHubConfig(IoTHubTransportProvider.AMQP, "aaa", "bbb", "ccc", "ddd", "eee", "fff")
+        self.assertIsInstance(ioTHubConfig, IoTHubConfig)
+
+    def test_IoTHubTransport(self):
+        # constructor
+        ioTHubTransport = IoTHubTransport(IoTHubTransportProvider.AMQP, "aaa", "bbb")
+        self.assertIsInstance(ioTHubTransport, IoTHubTransport)
+
     def test_IoTHubClient(self):
         # constructor
         with self.assertRaises(Exception):
@@ -508,6 +576,13 @@ class TestClassDefinitions(unittest.TestCase):
             client = IoTHubClient(connectionString)
         with self.assertRaises(Exception):
             client = IoTHubClient(connectionString, 1)
+
+        ioTHubTransport = IoTHubTransport(IoTHubTransportProvider.AMQP, "aaa", "bbb")
+        self.assertIsInstance(ioTHubTransport, IoTHubTransport)
+        ioTHubConfig = IoTHubConfig(IoTHubTransportProvider.AMQP, "aaa", "bbb", "ccc", "ddd", "eee", "fff")
+        self.assertIsInstance(ioTHubConfig, IoTHubConfig)
+        client = IoTHubClient(ioTHubTransport, ioTHubConfig)
+        self.assertIsInstance(client, IoTHubClient)
 
         if hasattr(IoTHubTransportProvider, "HTTP"):
             client = IoTHubClient(connectionString, IoTHubTransportProvider.HTTP)
@@ -685,6 +760,97 @@ class TestClassDefinitions(unittest.TestCase):
         result = client.set_device_method_callback(device_method_callback, counter)
         self.assertIsNone(result)
         result = client.set_device_method_callback(device_method_callback, context)
+        self.assertIsNone(result)
+
+        # set_device_method_callback_ex
+        counter = 1
+        context = {"a": "b"}
+        with self.assertRaises(AttributeError):
+            client.SetDeviceMethodCallbackEx()
+        with self.assertRaises(Exception):
+            client.set_device_method_callback_ex()
+        with self.assertRaises(Exception):
+            client.set_device_method_callback_ex(device_method_callback)
+        with self.assertRaises(Exception):
+            client.set_device_method_callback_ex(counter, device_method_callback)
+        with self.assertRaises(Exception):
+            client.set_device_method_callback_ex(
+                device_method_callback, counter, context)
+        result = client.set_device_method_callback_ex(device_method_callback_ex, counter)
+        self.assertIsNone(result)
+        result = client.set_device_method_callback_ex(device_method_callback_ex, context)
+        self.assertIsNone(result)
+
+        # device_method_response
+        method_id = None
+        response = "{}"
+        size = 2
+        statusCode = 0
+        with self.assertRaises(AttributeError):
+            client.DeviceMethodResponse()
+        with self.assertRaises(Exception):
+            client.device_method_response()
+        with self.assertRaises(Exception):
+            client.device_method_response(method_id)
+        with self.assertRaises(Exception):
+            client.device_method_response(method_id, response)
+        with self.assertRaises(Exception):
+            client.device_method_response(method_id, size)
+        with self.assertRaises(Exception):
+            client.device_method_response(method_id, response, size)
+        with self.assertRaises(Exception):
+            client.device_method_response(response)
+        with self.assertRaises(Exception):
+            client.device_method_response(response, size)
+        with self.assertRaises(Exception):
+            client.device_method_response(response, statusCode)
+        with self.assertRaises(Exception):
+            client.device_method_response(response, size, statusCode)
+        result = client.device_method_response(method_id, response, size, statusCode)
+        self.assertIsNone(result)
+
+        # set_connection_status_callback
+        counter = 1
+        context = {"a": "b"}
+        with self.assertRaises(AttributeError):
+            client.SetConnectionStatusCallback()
+        with self.assertRaises(Exception):
+            client.set_connection_status_callback()
+        with self.assertRaises(Exception):
+            client.set_connection_status_callback(connection_status_callback)
+        with self.assertRaises(Exception):
+            client.set_connection_status_callback(counter, connection_status_callback)
+        with self.assertRaises(Exception):
+            client.set_connection_status_callback(
+                set_connection_status_callback, counter, context)
+        result = client.set_connection_status_callback(connection_status_callback, counter)
+        self.assertIsNone(result)
+        result = client.set_connection_status_callback(connection_status_callback, context)
+
+        # set_retry_policy
+        timeout = 241000
+        with self.assertRaises(AttributeError):
+            client.SetRetryPolicy()
+        with self.assertRaises(Exception):
+            client.set_retry_policy(1)
+        with self.assertRaises(Exception):
+            client.set_retry_policy(timeout)
+        with self.assertRaises(TypeError):
+            client.set_retry_policy("timeout", bytearray("241000"))
+        with self.assertRaises(TypeError):
+            client.set_retry_policy("timeout", timeout)
+        with self.assertRaises(TypeError):
+            client.set_retry_policy(IoTHubClientRetryPolicy.RETRY_IMMEDIATE, "241000")
+        result = client.set_retry_policy(IoTHubClientRetryPolicy.RETRY_IMMEDIATE, timeout)
+        self.assertIsNone(result)
+
+        # get_retry_policy
+        timeout = 241000
+        with self.assertRaises(AttributeError):
+            client.GetRetryPolicy()
+        with self.assertRaises(Exception):
+            client.get_retry_policy(1)
+        retryPolicyReturn = client.get_retry_policy()
         self.assertIsNone(result)
 
         # upload_blob_async
