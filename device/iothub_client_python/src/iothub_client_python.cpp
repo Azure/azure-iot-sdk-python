@@ -1703,7 +1703,7 @@ public:
     }
     
     void DeviceMethodResponse(
-        void* method_id,
+        METHOD_HANDLE method_id,
         std::string response,
         size_t size,
         size_t statusCode
@@ -1712,7 +1712,7 @@ public:
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
-            result = IoTHubClient_DeviceMethodResponse(iotHubClientHandle, (METHOD_HANDLE)method_id, (const unsigned char*)response.c_str(), size, statusCode);
+            result = IoTHubClient_DeviceMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode);
         }
         if (result != IOTHUB_CLIENT_OK)
         {
