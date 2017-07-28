@@ -34,15 +34,15 @@ SEND_REPORTED_STATE_CALLBACKS = 0
 # for trasnport sharing chose AMQP or AMQP_WS as transport protocol
 PROTOCOL = IoTHubTransportProvider.AMQP_WS
 
-# String containing Hostname, Device Id & Device Key in the format:
-# "HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<device_key>"
-#CONNECTION_STRING = "HostName=z-test.azure-devices.net;DeviceId=z-001;SharedAccessKey=+oqBkTMhuaG9yew2pIZoRCIde6GKq88wSEXer2MV/Ic="
+# Strings containing IoTHubName, IoTHubSuffix, Device Id & Device Key for two devices:
 IOTHUBNAME = "[IoTHub Name]";
 IOTHUBSUFFIX = "[IoTHub Suffix]";
 DEVICE_NAME1 = "[Device Name 1]";
 DEVICE_NAME2 = "[Device Name 2]";
 DEVICE_KEY1 = "[Device Key 1]";
 DEVICE_KEY2 = "[Device Key 2]";
+
+MSG_TXT = "{\"deviceId\": \"myPythonDevice\",\"windSpeed\": %.2f,\"temperature\": %.2f,\"humidity\": %.2f}"
 
 # some embedded platforms need certificate information
 

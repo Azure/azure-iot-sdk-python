@@ -1196,8 +1196,8 @@ class IoTHubTransport
 
 public:
 
-    TRANSPORT_HANDLE iotHubTransportHandle;
-    IOTHUB_TRANSPORT_PROVIDER protocol;
+    void* iotHubTransportHandle;
+    IOTHUB_TRANSPORT_PROVIDER iotHubTransportProvider;
 
     IoTHubTransport(const IoTHubTransport& transport)
     {
@@ -1206,16 +1206,16 @@ public:
     }
 
     IoTHubTransport(
-        IOTHUB_TRANSPORT_PROVIDER _protocol,
+        IOTHUB_TRANSPORT_PROVIDER _iotHubTransportProvider,
         std::string iotHubNameString,
         std::string iotHUbSuffixString
-    ) : protocol(_protocol)
+    ) : iotHubTransportProvider(_iotHubTransportProvider)
     {
         {
             ScopedGILRelease release;
             PlatformCallHandler::Platform_Init();
 
-            iotHubTransportHandle = IoTHubTransport_Create(GetProtocol(_protocol), iotHubNameString.c_str(), iotHUbSuffixString.c_str());
+            iotHubTransportHandle = (void*)IoTHubTransport_Create(GetProtocol(_iotHubTransportProvider), iotHubNameString.c_str(), iotHUbSuffixString.c_str());
         }
         if (iotHubTransportHandle == NULL)
         {
@@ -1229,7 +1229,7 @@ public:
         {
             {
                 ScopedGILRelease release;
-                IoTHubTransport_Destroy(iotHubTransportHandle);
+                IoTHubTransport_Destroy((TRANSPORT_HANDLE)iotHubTransportHandle);
             }
             iotHubTransportHandle = NULL;
         }
@@ -1305,74 +1305,74 @@ public:
     }
 
     IoTHubClient(
-        IoTHubTransport* _transportHandle,
-        IoTHubConfig* _config
+        IoTHubTransport* _iotHubTransport,
+        IoTHubConfig* _iotHubConfig
     )
     {
         IOTHUB_CLIENT_CONFIG config;
-        config.protocol = GetProtocol(_config->protocol);
+        config.protocol = GetProtocol(_iotHubConfig->protocol);
 
-        config.deviceId = _config->deviceId.c_str();
-        if (_config->deviceId == "")
+        config.deviceId = _iotHubConfig->deviceId.c_str();
+        if (_iotHubConfig->deviceId == "")
         {
             config.deviceId = NULL;
         }
         else
         {
-            config.deviceId = _config->deviceId.c_str();
+            config.deviceId = _iotHubConfig->deviceId.c_str();
         }
 
-        if (_config->deviceKey == "")
+        if (_iotHubConfig->deviceKey == "")
         {
             config.deviceKey = NULL;
         }
         else
         {
-            config.deviceKey = _config->deviceKey.c_str();
+            config.deviceKey = _iotHubConfig->deviceKey.c_str();
         }
 
-        if (_config->deviceSasToken == "")
+        if (_iotHubConfig->deviceSasToken == "")
         {
             config.deviceSasToken = NULL;
         }
         else
         {
-            config.deviceSasToken = _config->deviceSasToken.c_str();
+            config.deviceSasToken = _iotHubConfig->deviceSasToken.c_str();
         }
 
-        if (_config->iotHubName == "")
+        if (_iotHubConfig->iotHubName == "")
         {
             config.iotHubName = NULL;
         }
         else
         {
-            config.iotHubName = _config->iotHubName.c_str();
+            config.iotHubName = _iotHubConfig->iotHubName.c_str();
         }
 
-        if (_config->iotHubSuffix == "")
+        if (_iotHubConfig->iotHubSuffix == "")
         {
             config.iotHubSuffix = NULL;
         }
         else
         {
-            config.iotHubSuffix = _config->iotHubSuffix.c_str();
+            config.iotHubSuffix = _iotHubConfig->iotHubSuffix.c_str();
         }
 
-        if (_config->protocolGatewayHostName == "")
+        if (_iotHubConfig->protocolGatewayHostName == "")
         {
             config.protocolGatewayHostName = NULL;
         }
         else
         {
-            config.protocolGatewayHostName = _config->protocolGatewayHostName.c_str();
+            config.protocolGatewayHostName = _iotHubConfig->protocolGatewayHostName.c_str();
         }
 
-        protocol = _config->protocol;
+        protocol = _iotHubConfig->protocol;
         {
             ScopedGILRelease release;
             PlatformCallHandler::Platform_Init();
 
-            iotHubClientHandle = IoTHubClient_CreateWithTransport(_transportHandle->iotHubTransportHandle, &config);
+            iotHubClientHandle = IoTHubClient_CreateWithTransport((TRANSPORT_HANDLE)_iotHubTransport->iotHubTransportHandle, &config);
         }
         if (iotHubClientHandle == NULL)
         {
@@ -1703,7 +1703,7 @@ public:
     }
     
     void DeviceMethodResponse(
-        METHOD_HANDLE method_id,
+        void* method_id,
         std::string response,
         size_t size,
         size_t statusCode
@@ -1712,7 +1712,7 @@ public:
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
-            result = IoTHubClient_DeviceMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode);
+            result = IoTHubClient_DeviceMethodResponse(iotHubClientHandle, (METHOD_HANDLE)method_id, (const unsigned char*)response.c_str(), size, statusCode);
         }
         if (result != IOTHUB_CLIENT_OK)
         {
@@ -2052,8 +2052,6 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 
     class_<IoTHubTransport, boost::noncopyable>("IoTHubTransport", no_init)
         .def(init<IOTHUB_TRANSPORT_PROVIDER, std::string, std::string>())
-        // attributes
-        .def_readonly("iotHubTransportHandle", &IoTHubTransport::iotHubTransportHandle)
         // Python helpers
 #ifdef SUPPORT___STR__
         .def("__str__", &IoTHubTransport::str)
