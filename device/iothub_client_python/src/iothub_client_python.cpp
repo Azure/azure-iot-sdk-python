@@ -1706,7 +1706,7 @@ public:
         METHOD_HANDLE method_id,
         std::string response,
         size_t size,
-        size_t statusCode
+        int statusCode
     )
     {
         IOTHUB_CLIENT_RESULT result;
