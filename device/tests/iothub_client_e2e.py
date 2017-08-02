@@ -421,9 +421,10 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         assert DEVICE_METHOD_CALLBACK_COUNTER > 0, "Error: device_twin_callback callback has not been called"
         ###########################################################################
 
-    if protocol != IoTHubTransportProvider.AMQP \
-       and protocol != IoTHubTransportProvider.AMQP_WS \
-       and protocol != IoTHubTransportProvider.HTTP:
+    if protocol == IoTHubTransportProvider.AMQP \
+       or protocol == IoTHubTransportProvider.AMQP_WS \
+       or protocol == IoTHubTransportProvider.MQTT \
+       or protocol == IoTHubTransportProvider.MQTT_WS:
         ###########################################################################
         # send_reported_state
     
