@@ -338,6 +338,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         device_client.set_option("MinimumPollingTime", HTTP_MINIMUM_POLLING_TIME)
 
     device_client.set_option("TrustedCerts", CERTIFICATES)
+    device_client.set_option("logtrace", True)
 
     # verify
     ###########################################################################
