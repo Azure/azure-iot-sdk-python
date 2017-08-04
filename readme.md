@@ -33,8 +33,8 @@ Devices and data sources in an IoT solution can range from a simple network-conn
 
 ## Samples
 This repository contains various Python sample applications that illustrate how to use the Microsoft Azure IoT SDKs for Python.
-* [Samples showing how to use the Azure IoT Hub device client][device-samples]
-* [Samples showing how to use the Azure IoT Hub service client][service-samples]
+* [Device SDK samples][device-samples]
+* [Service SDK samples][service-samples]
 
 ## Contribution, feedback and issues
 If you encounter any bugs, have suggestions for new features or if you would like to become an active contributor to this project please follow the instructions provided in the [contribution guidelines](.github/CONTRIBUTING.md).

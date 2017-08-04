@@ -32,7 +32,7 @@
     <ProjectGuid>{F8F17825-644E-4EC3-AA57-75C5CFFFD0F2}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>iothub_client_python_http</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
     <ProjectName>iothub_client</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
