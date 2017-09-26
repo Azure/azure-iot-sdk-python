@@ -94,7 +94,7 @@ def iothub_messaging_sample_run():
 
 
 def usage():
-    print ( "Usage: iothub_messaging_sample.py -c <connectionstring>" )
+    print ( "Usage: iothub_messaging_sample.py -c <connectionstring> -d <device_id>" )
     print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
     print ( "    deviceid        : <Existing device ID to to send a message to>" )
 

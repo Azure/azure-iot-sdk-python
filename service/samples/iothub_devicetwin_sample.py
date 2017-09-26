@@ -39,7 +39,7 @@ def iothub_devicetwin_sample_run():
 
 
 def usage():
-    print ( "Usage: iothub_devicetwin_sample.py -c <connectionstring>" )
+    print ( "Usage: iothub_devicetwin_sample.py -c <connectionstring> -d <device_id>" )
     print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
     print ( "    deviceid        : <Existing device ID to get and update the TWIN>" )
 

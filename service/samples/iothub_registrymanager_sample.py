@@ -96,9 +96,8 @@ def iothub_registrymanager_sample_run():
 
 def usage():
     print ( "Usage: iothub_registrymanager_sample.py -c <connection_string> -d <device_id>" )
-    print ( "  connectionstring: <HostName=<host_name>;SharedAccessKeyName=<shared_access_key_name>;" \
-          "SharedAccessKey=<shared_access_key>> " )
-    print ( "  deviceid        : <New device ID for CRUD operations>" )
+    print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
+    print ( "    deviceid        : <New device ID for CRUD operations>" )
 
 
 if __name__ == '__main__':
