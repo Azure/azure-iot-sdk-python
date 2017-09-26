@@ -32,7 +32,13 @@ def iothub_devicemethod_sample_run():
         print ( "Response status          : {0}".format(response.status) )
         print ( "Response payload         : {0}".format(response.payload) )
 
-        raw_input("Press Enter to continue...\n")
+        try:
+            # Try Python 2.xx first
+            raw_input("Press Enter to continue...\n")
+        except:
+            pass
+            # Use Python 3.xx in the case of exception
+            input("Press Enter to continue...\n")
 
     except IoTHubError as iothub_error:
         print ( "" )
@@ -44,7 +50,7 @@ def iothub_devicemethod_sample_run():
 
 
 def usage():
-    print ( "Usage: iothub_devicemethod_sample.py -c <connectionstring>" )
+    print ( "Usage: iothub_devicemethod_sample.py -c <connectionstring> -d <device_id>" )
     print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
     print ( "    deviceid        : <Existing device ID to call a method on>" )
 
