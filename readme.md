@@ -33,18 +33,6 @@ Visit [Azure IoT Dev Center][iot-dev-center] to learn more about developing appl
 | SDK Options                                           | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Set SDK options for proxy settings, client version string, polling time, specify TrustedCert for IoT hub, Network interface selection, C2D keep alive.                                                                                                                                                                                                                                             |
 | Device Provisioning Service                           | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: |                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-## How to clone the repository
-The repository is using [GitHub Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for its dependencies. In order to automatically clone these submodules, you need to use the --recursive option as described here:
-
-```
-git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
-```
-
-If you have downloaded the zip instead of cloning the repository, you will need to run the following command to restore submodules:
-```
-git submodule update --init --recursive
-```
-
 ## How to use the Azure IoT SDKs for Python
 Devices and data sources in an IoT solution can range from a simple network-connected sensor to a powerful, standalone computing device. Devices may have limited processing capability, memory, communication bandwidth, and communication protocol support. The IoT device SDKs enable you to implement client applications for a wide variety of devices.
 * **Using PyPI package on Windows, Linux (Ubuntu) or Raspberry Pi**: the simplest way to use the Azure IoT SDK for Python to develop device apps on Windows is to leverage the PyPI package which you can install following these [instructions][PyPI-install-instructions].
@@ -99,7 +87,7 @@ Here is what you can expect Microsoft Support to be able to help with:
 * [Setup IoT Hub][setup-iothub]
 
 ## SDK folder structure
-[ATTN:CONTENT REQUIRED - please provide descriptions and check those provided (they were largely based on the descriptions in the c SDK)]
+[ATTN:CONTENT REQUIRED - please provide descriptions and check those provided (they were largely based on the descriptions in the c SDK) ]
 
 ### /build_all
 
@@ -108,10 +96,6 @@ This folder contains platform-specific build scripts for the client libraries an
 ### /device
 
 Contains Azure IoT Hub client components that provide the raw messaging capabilities of the library. Refer to the API documentation and samples for information on how to use it.
-
-   * iothub_client_python: contains C source of the Python extension module. This module wraps the IoT Hub C SDK as extension module for Python. The C extension interface is specific to Boost Python and it does not work on other implementations.
-   * samples: contains simple sample Python applications excercising basic features using AMQP, MQTT and HTTP.
-   * tests: contains Python C extension module unit tests. The unit tests exercise a mocked Python extension module to test the Python interface.
 
 ### /doc
 
