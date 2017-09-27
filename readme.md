@@ -1,18 +1,37 @@
 # Microsoft Azure IoT SDKs for Python
 
 This repository contains the following:
-
 * **Azure IoT Hub Device SDK for Python**: to connect client devices to Azure IoT Hub
 * **Azure IoT Hub Service SDK for Python**: enables developing back-end applications for Azure IoT
-
-To find SDKs in other languages for Azure IoT, please refer to the [azure-iot-sdks][azure-iot-sdks] repository.
 
 To create and manage an instance of IoT Hub in your Azure subscription using Python, you can use the [Azure IoT Hub management library for Python][azure-iot-mgmt-lib]. Read more [here][azure-iot-mgmt-lib-doc].
 
 To manage all your Azure resources using Python, you can leverate the [Azure CLI v2][azure-cli-v2].
 
+To find SDKs in other languages for Azure IoT, please refer to the [azure-iot-sdks][azure-iot-sdks] repository.
+
 ## Developing applications for Azure IoT
 Visit [Azure IoT Dev Center][iot-dev-center] to learn more about developing applications for Azure IoT.
+
+## Key features and roadmap
+
+:white_check_mark: feature available  :large_blue_diamond: feature in-progress  :large_orange_diamond: feature planned  :x: no support planned
+
+| Feature                                               | https                  | mqtt                   | mqtt-ws                | amqp                   | amqp-ws                | Description                                                                                                                                                                                                                                                                                                                                                                                        |
+|-------------------------------------------------------|------------------------|------------------------|------------------------|------------------------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Authentication                                        | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | Connect your device to IoT Hub securely with [supported authentication](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-security-deployment), including private key, SASToken, X-509 Self Signed and Certificate Authority (CA) Signed.  X-509 (CA) Signed is not supported on .NET SDK yet.                                                                                                |
+| Retry policies                                        | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | Retry policy for unsuccessful device-to-cloud messages have three options: no try, exponential backoff with jitter (default) and custom.                                                                                                                                                                                                                                                           |
+| Connection status reporting                           | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     |                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Devices multiplexing over single connection           | :white_check_mark:     | :x:                    | :x:                    | :white_check_mark:     | :white_check_mark:     |                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Connection Pooling - Specifying number of connections | :white_check_mark:     | :x:                    | :x:                    | :white_check_mark:     | :white_check_mark:     | Send device-to-cloud messages to IoT Hub with custom properties.  You can also choose to batch send at most 256 KBs (not available over MQTT and AMQP).  Send device-to-cloud messages with system properties in backlog.  Click [here](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-d2c) for detailed information on the IoT Hub features.                            |
+| Send D2C message                                      | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: |                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Receive C2D messages                                  | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | Receive cloud-to-device messages and read associated custom and system properties from IoT Hub, with the option to complete/reject/abandon C2D messages (not available over MQTT and MQTT-websocket).  Click [here](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-c2d) for detailed information on the IoT Hub features.                                                |
+| Upload file to Blob                                   | :white_check_mark:     | :x:                    | :x:                    | :x:                    | :x:                    | A device can initiate a file upload and notifies IoT Hub when the upload is complete.  Click [here](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-file-upload) for detailed information on the IoT Hub features.                                                                                                                                                                 |
+| Device Twins                                          | :x:                    | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | IoT Hub persists a device twin for each device that you connect to IoT Hub.  The device can perform operations like get twin tags, subscribe to desired properties.  Send reported properties version and desired properties version are in backlog.  Click [here](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-device-twins) for detailed information on the IoT Hub features. |
+| Direct Methods                                        | :x:                    | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | IoT Hub gives you the ability to invoke direct methods on devices from the cloud.  The SDK supports handler for method specific and generic operation.  Click [here](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-direct-methods) for detailed information on the IoT Hub features.                                                                                             |
+| Error reporting (TBD)                                 | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Error reporting for exceeding quota, authentication error, throttling error, and device not found error.                                                                                                                                                                                                                                                                                           |
+| SDK Options                                           | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Set SDK options for proxy settings, client version string, polling time, specify TrustedCert for IoT hub, Network interface selection, C2D keep alive.                                                                                                                                                                                                                                             |
+| Device Provisioning Service                           | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: |                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## How to clone the repository
 The repository is using [GitHub Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for its dependencies. In order to automatically clone these submodules, you need to use the --recursive option as described here:
@@ -28,13 +47,38 @@ git submodule update --init --recursive
 
 ## How to use the Azure IoT SDKs for Python
 Devices and data sources in an IoT solution can range from a simple network-connected sensor to a powerful, standalone computing device. Devices may have limited processing capability, memory, communication bandwidth, and communication protocol support. The IoT device SDKs enable you to implement client applications for a wide variety of devices.
-* **Using PyPI package on Windows, Linux (Ubuntu) or Raspberry Pi**: the simplest way to use the Azure IoT SDK for Python to develop device apps on Windows is to leverage the PyPI package which you can install following these [instructions][PyPI-install-instructions]
+* **Using PyPI package on Windows, Linux (Ubuntu) or Raspberry Pi**: the simplest way to use the Azure IoT SDK for Python to develop device apps on Windows is to leverage the PyPI package which you can install following these [instructions][PyPI-install-instructions].
+* **Clone the repository**: The repository is using [GitHub Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for its dependencies. In order to automatically clone these submodules, you need to use the --recursive option as described here:
+```
+git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
+```
+If you have downloaded the zip instead of cloning the repository, you will need to run the following command to restore submodules:
+```
+git submodule update --init --recursive
+```
+
 * **Building the libraries and working with the SDK code**: follow [these instructions][devbox-setup].
 
 ## Samples
 This repository contains various Python sample applications that illustrate how to use the Microsoft Azure IoT SDKs for Python.
 * [Device SDK samples][device-samples]
 * [Service SDK samples][service-samples]
+
+## OS platforms and hardware compatibility
+[ATTN:CONTENT REQUIRED - this whole section is copied from the C SDK, please check requirements.]
+
+The IoT Hub device SDK for Python can be used with a broad range of OS platforms and devices:
+[INCLUDE A LIST OF PLATFORMS SUPPORTED BY Python OUT OF BOX]
+
+The minimum requirements are for the device platform to support the following:
+
+- **Being capable of establishing an IP connection**: only IP-capable devices can communicate directly with Azure IoT Hub.
+- **Support TLS**: required to establish a secure communication channel with Azure IoT Hub.
+- **Support SHA-256** (optional): necessary to generate the secure token for authenticating the device with the service. Different authentication methods are available and not all require SHA-256.
+- **Have a Real Time Clock or implement code to connect to an NTP server**: necessary for both establishing the TLS connection and generating the secure token for authentication.
+- **Having at least 64KB of RAM**: the memory footprint of the SDK depends on the SDK and protocol used as well as the platform targeted. The smallest footprint is achieved targeting microcontrollers.
+
+You can find an exhaustive list of the OS platforms the various SDKs have been tested against in the [Azure Certified for IoT device catalog](https://catalog.azureiotsuite.com/). Note that you might still be able to use the SDKs on OS and hardware platforms that are not listed on this page: all the SDKs are open sourced and designed to be portable. If you have suggestions, feedback or issues to report, refer to the Contribution and Support sections below.
 
 ## Contribution, feedback and issues
 If you encounter any bugs, have suggestions for new features or if you would like to become an active contributor to this project please follow the instructions provided in the [contribution guidelines](.github/CONTRIBUTING.md).
@@ -51,6 +95,33 @@ Here is what you can expect Microsoft Support to be able to help with:
 
 ## Read more
 * [Azure IoT Hub documentation][iot-hub-documentation]
+* [Prepare your development environment to use the Azure IoT device SDK for C][devbox-setup]
+* [Setup IoT Hub][setup-iothub]
+
+## SDK folder structure
+[ATTN:CONTENT REQUIRED - please provide descriptions and check those provided (they were largely based on the descriptions in the c SDK)]
+
+### /build_all
+
+This folder contains platform-specific build scripts for the client libraries and dependent components.
+
+### /device
+
+Contains Azure IoT Hub client components that provide the raw messaging capabilities of the library. Refer to the API documentation and samples for information on how to use it.
+
+   * iothub_client_python: contains C source of the Python extension module. This module wraps the IoT Hub C SDK as extension module for Python. The C extension interface is specific to Boost Python and it does not work on other implementations.
+   * samples: contains simple sample Python applications excercising basic features using AMQP, MQTT and HTTP.
+   * tests: contains Python C extension module unit tests. The unit tests exercise a mocked Python extension module to test the Python interface.
+
+### /doc
+
+This folder contains application development guides and device setup instructions.
+
+### /jenkins
+
+### /service
+
+Contains libraries that enable interactions with the IoT Hub service to perform operations such as sending messages to devices and managing the device identity registry.
 
 # Long Term Support
 
@@ -85,6 +156,7 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 [iot-hub-documentation]: https://docs.microsoft.com/en-us/azure/iot-hub/
 [azure-iot-sdks]: http://github.com/azure/azure-iot-sdks
 [PyPI-install-instructions]: doc/python-devbox-setup.md#windows-wheels
+[setup-iothub]: https://aka.ms/howtocreateazureiothub
 [devbox-setup]: doc/python-devbox-setup.md
 [device-samples]: device/samples/
 [service-samples]: service/samples/
