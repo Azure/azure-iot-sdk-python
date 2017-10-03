@@ -29,13 +29,12 @@ Other required software:
 - g++ – the C++ compiler
 - cmake – application used to generate build files
 - git – used to clone repositories from GitHub.com
-- curl - library is referenced by the SDK
-- openssl - libraries are referenced by the SDK
 
 Install these packages with:
 ```
 sudo apt-get install cmake git build-essential curl libcurl4-openssl-dev libssl-dev uuid-dev
 ```
+Your toolchain will also need to include the developer versions of OpenSSL, curl, and uuid.
 ### Editing Files
 
 You will need to create two files and modify one file during the course of this procedure. If you are using Ubuntu, then the simplest editor to use is nano. For example, if you wish to create a new file in your current directory simply type:
@@ -195,7 +194,7 @@ SET (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 
 SET (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 ```
-<div style="text-align: center; font-size: smaller">Figure 2: CMake toolchain file</div>
+Figure 2: CMake toolchain file
 
 Create a second file called _mlinuxenv.sh_ and into it enter the following:
 ```bash
@@ -207,20 +206,27 @@ export PATH=${ML_HOSTTOOLS}/bin:${ML_HOSTTOOLS}/bin/arm-mlinux-linux-gnueabi:$PA
 
 cmake -DCMAKE_INSTALL_PREFIX=~/mlinux-out -DCMAKE_TOOLCHAIN_FILE=../build_all/linux/toolchain-mlinux.cmake ..
 ```
-<div style="text-align: center; font-size: smaller">Figure 3: Build Generator Script</div>
+Figure 3: Build Generator Script
 
 Having created the two files, we are now ready to build the SDK. Enter the following commands:
-```
+```bash
 chmod a+x mlinuxenv.sh
 cd ../../cmake
 ../build_all/linux/mlinuxenv.sh
 make install
 ```
 This will build the SDK and create the Python library. To check that the binary Python library has been built correctly enter:
-```
+```bash
 file ~/mlinux-out/lib/*.so
 ```
 This should result in two lines of output, one for _iothub\_client.so_ and one for _iothub\_service\_client.so_. The details should say that they are _ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked_ which is the appropriate architecture for your target machine.
+
+## Testing Your Binaries
+You simply need to copy the appropriate .so file found in the last step to your device. If your device is intended to send device to cloud messages then you will need to copy _iothub\_client.so_ to your device. If you wish to send cloud to device messages or view and manipulate the device registry then you will need to copy _iothub\_service\_client.so_ to your device. 
+
+There are sample Python scripts in the Azure IoT SDK. The device versions can be found at _\<Root of SDK\>/device/samples_ and the service versions at _\<Root of SDK\>/service/samples_.
+
+One caveat that one should be aware of, one may occasionally encounter Python builds that **do not support** binary imports.
 
 ## Conclusion
 
