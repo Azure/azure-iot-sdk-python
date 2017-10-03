@@ -1,7 +1,7 @@
 # Cross Compiling Azure IoT SDK for Python Example
 ## Overview
 
-The goal of this document is to describe the steps required to cross compile the Azure IoT SDK for Python in order to allow the user to use Python to send and receive messages between the device and one&#39;s Azure IoT Hub. For this example, the target device will be the [MultiTech device](https://catalog.azureiotsuite.com/details?title=MultiConnect-Conduit&amp;source=home-page). It will describe how to install the toolchain for the this device, build the required prerequisite software and finally cross compile the Azure IoT SDK for Python library. The procedure for other Linux based target devices should be very similar.
+The goal of this document is to describe the steps required to cross compile the Azure IoT SDK for Python in order to allow the user to use Python to send and receive messages between the device and one&#39;s Azure IoT Hub. For this example, the target device will be the [MultiTech device](https://catalog.azureiotsuite.com/details?title=MultiConnect-Conduit&amp;source=home-page). It will describe how to install the compiler toolchain for the this device, build the required prerequisite software and finally cross compile the Azure IoT SDK for Python library. The procedure for other Linux based target devices should be very similar.
 
 This process will consist of three tasks:
 
@@ -13,8 +13,6 @@ All commands will assume that you are starting with your current directory at yo
 ```
 cd ~
 ```
-Please note that, due to width restrictions of this document, some of the entered commands may wrap on the page. They should be entered as a single line on the console.
-
 ### Assumptions
 
 You are building the software on an Ubuntu distribution. For the purposes of testing this document I used Ubuntu 16.04 64-bit.
@@ -23,7 +21,7 @@ You are a member of the sudo user group. You will only need to use sudo to insta
 
 ### Prerequisites
 
-You will require a working Python before starting this process. Typically, most Linux distributions have Python installed out of the box.
+You will require a working Python installation before starting this process. Typically, most Linux distributions have Python installed out of the box.
 
 Other required software:
 
@@ -31,6 +29,8 @@ Other required software:
 - g++ – the C++ compiler
 - cmake – application used to generate build files
 - git – used to clone repositories from GitHub.com
+- curl - library is referenced by the SDK
+- openssl - libraries are referenced by the SDK
 
 Install these packages with:
 ```
@@ -46,13 +46,13 @@ When you have completed your edits, press ctrl-o, press enter to save with the o
 
 ## Step 1: Install the MultiTech toolchain
 
-The required toolchain can be found at MultiTech&#39;s website [here](http://www.multitech.net/developer/software/mlinux/mlinux-software-development/mlinux-c-toolchain/). We will need to download and install this toolchain to use it in later steps. The webpage contains detailed instructions on how to do that but, for convenience, I will document them here too.
+The required toolchain can be found at MultiTech&#39;s website [here](http://www.multitech.net/developer/software/mlinux/mlinux-software-development/mlinux-c-toolchain/). We will need to download and install this toolchain to use it in later steps. The webpage contains detailed instructions on how to do that but, for convenience, we will document them here too.
 ```
 curl http://www.multitech.net/mlinux/sdk/3.3.6/mlinux-eglibc-x86\_64-mlinux-factory-image-arm926ejste-toolchain-3.3.6.sh &gt; mlinux-toolchain-install.sh
 ```
-The SDK is around 420Mb so will take a while to download.
+The SDK is around 420Mb so it will take a while to download.
 
-Now modify the downloaded file to be a Linux executable and run it to install the toolchain. In this instance I am overriding the default install location with the -d option to a directory in my home directory. I&#39;ve also added the -y flag to have it automatically reply yes to any questions. This will take a few minutes.
+Now modify the downloaded file to be a Linux executable and run it to install the toolchain. In this instance we are overriding the default install location with the -d option to a directory in our home directory. We&#39;ve also added the -y flag to have it automatically reply yes to any questions. This will take a few minutes.
 ```
 chmod +x mlinux-toolchain-install.sh
 
