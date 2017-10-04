@@ -32,7 +32,7 @@ Other required software:
 
 Install these packages with:
 ```
-sudo apt-get install cmake git build-essential curl libcurl4-openssl-dev libssl-dev uuid-dev
+sudo apt-get install cmake git build-essential 
 ```
 Your toolchain will also need to include the developer versions of OpenSSL, curl, and uuid.
 ### Editing Files
