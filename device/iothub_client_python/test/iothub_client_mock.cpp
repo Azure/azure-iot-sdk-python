@@ -302,6 +302,19 @@ IOTHUB_CLIENT_RESULT IoTHubClient_UploadToBlobAsync(IOTHUB_CLIENT_HANDLE iotHubC
     return IOTHUB_CLIENT_OK;
 }
 
+IOTHUB_CLIENT_RESULT IoTHubClient_SendEventToOutputAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_MESSAGE_HANDLE eventMessageHandle, const char* outputName, IOTHUB_CLIENT_EVENT_CONFIRMATION_CALLBACK eventConfirmationCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle, eventMessageHandle, outputName, eventConfirmationCallback, userContextCallback;
+    return IOTHUB_CLIENT_OK;
+} 
+
+IOTHUB_CLIENT_RESULT IoTHubClient_SetInputMessageCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* inputName, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC eventHandlerCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle, inputName, eventHandlerCallback, userContextCallback;
+    return IOTHUB_CLIENT_OK;    
+}
+
+
 // "iothub_client_version.h"
 
 const char* IoTHubClient_GetVersionString(void)
@@ -316,6 +329,12 @@ IOTHUB_MESSAGE_HANDLE mockMessageHandle = (IOTHUB_MESSAGE_HANDLE)0x12345678;
 char mockBuffer[MOCKMESSAGESIZE] = { 0 };
 char mockMessageId[MOCKMESSAGESIZE] = { 0 };
 char mockCorrelationId[MOCKMESSAGESIZE] = { 0 };
+// Setter functions for mock values below are not plumbed up to Python layer, so hard-code data.
+const char* mockInputName = "python-testmockInput";
+const char* mockOutputName = "python-testmockOutput";
+const char* mockConnectionModuleId = "python-testmockConnectionModuleId";
+const char* mockConnectionDeviceId = "python-testmockConnectionDeviceId";
+
 size_t mockSize = 0;
 bool mockString = false;
 
@@ -406,6 +425,30 @@ IOTHUB_MESSAGE_RESULT IoTHubMessage_SetCorrelationId(IOTHUB_MESSAGE_HANDLE iotHu
     (void)iotHubMessageHandle;
     (void)strncpy(mockCorrelationId, correlationId, MOCKMESSAGESIZE);
     return IOTHUB_MESSAGE_OK;
+}
+
+const char* IoTHubMessage_GetOutputName(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockOutputName;
+}
+
+const char* IoTHubMessage_GetInputName(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockInputName;
+}
+
+const char* IoTHubMessage_GetConnectionModuleId(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockConnectionModuleId;
+}
+
+const char* IoTHubMessage_GetConnectionDeviceId(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockConnectionDeviceId;
 }
 
 void IoTHubMessage_Destroy(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)

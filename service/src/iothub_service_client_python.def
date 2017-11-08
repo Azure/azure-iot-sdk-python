@@ -18,6 +18,11 @@ EXPORTS
     IoTHubRegistryManager_DeleteDevice
     IoTHubRegistryManager_GetDeviceList
     IoTHubRegistryManager_GetStatistics
+    IoTHubRegistryManager_CreateModule
+    IoTHubRegistryManager_GetModule
+    IoTHubRegistryManager_UpdateModule
+    IoTHubRegistryManager_DeleteModule
+    IoTHubRegistryManager_GetModuleList
 ;   iothub_messaging.h
     IoTHubMessaging_Create
     IoTHubMessaging_Destroy
@@ -41,6 +46,8 @@ EXPORTS
     IoTHubDeviceTwin_Destroy
     IoTHubDeviceTwin_GetTwin
     IoTHubDeviceTwin_UpdateTwin
+    IoTHubDeviceTwin_GetModuleTwin
+    IoTHubDeviceTwin_UpdateModuleTwin
 ;   iothubtransporthttp.h
     HTTP_Protocol
 ;   iothubtransportamqp.h

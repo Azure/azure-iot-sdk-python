@@ -38,3 +38,34 @@ def get_iothub_opt(
             "Error: Hostname not found, not a valid connection string")
 
     return connection_string, device_id
+
+def get_iothub_opt_with_module(
+        argv,
+        connection_string,
+        device_id,
+        module_id):
+    if len(argv) > 0:
+        try:
+            opts, args = getopt.getopt(
+                argv, "hd:c:m:", [
+                    "connectionstring=", "deviceid=", "moduleid="])
+        except getopt.GetoptError as get_opt_error:
+            raise OptionError("Error: %s" % get_opt_error.msg)
+        for opt, arg in opts:
+            if opt == '-h':
+                raise OptionError("Help:")
+            elif opt in ("-c", "--connectionstring"):
+                connection_string = arg
+            elif opt in ("-d", "--deviceid"):
+                device_id = arg
+            elif opt in ("-m", "--moduleid"):
+                module_id = arg
+
+
+    if connection_string.find("HostName") < 0:
+        raise OptionError(
+            "Error: Hostname not found, not a valid connection string")
+
+    return connection_string, device_id, module_id
+
+    

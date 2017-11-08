@@ -25,6 +25,8 @@ EXPORTS
     IoTHubClient_SetDeviceMethodCallback_Ex
     IoTHubClient_DeviceMethodResponse
     IoTHubClient_UploadToBlobAsync
+    IoTHubClient_SendEventToOutputAsync
+    IoTHubClient_SetInputMessageCallback
 ;   iothub_client_ll.h
     IoTHubClient_LL_CreateFromConnectionString
     IoTHubClient_LL_Create
@@ -47,6 +49,10 @@ EXPORTS
     IoTHubMessage_SetMessageId
     IoTHubMessage_GetCorrelationId
     IoTHubMessage_SetCorrelationId
+    IoTHubMessage_GetOutputName
+    IoTHubMessage_GetInputName
+    IoTHubMessage_GetConnectionModuleId
+    IoTHubMessage_GetConnectionDeviceId
     IoTHubMessage_Destroy
 ;   iothubtransporthttp.h
     HTTP_Protocol

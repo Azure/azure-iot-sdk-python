@@ -33,8 +33,11 @@
 #define IMPORT_NAME iothub_service_client
 #endif
 
-#define IOTHUB_PYTHON_SERVICE_SDK_VERSION "19"
-#define VERSION_STRING IOTHUB_SERVICE_CLIENT_VERSION "." IOTHUB_PYTHON_SERVICE_SDK_VERSION
+// These lines will come back when time for actual release of Python SDK with modules.  Pre-release needs special case string creation.
+// #define IOTHUB_PYTHON_SERVICE_SDK_VERSION "0"
+// #define VERSION_STRING IOTHUB_SERVICE_CLIENT_VERSION "." IOTHUB_PYTHON_SERVICE_SDK_VERSION
+#define VERSION_STRING "1.2.0.0b0"
+
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -827,6 +830,29 @@ struct DEVICE_CREATE
     std::string secondaryKey;
 };
 
+class IoTHubDeviceCapabilities
+{
+    bool iotEdge;
+
+public:
+    IoTHubDeviceCapabilities() : 
+        iotEdge(false)
+    {
+        ;
+    }
+
+    bool GetIotEdge()
+    {
+        return iotEdge;
+    }
+
+    void SetIotEdge(bool _iotEdge)
+    {
+        iotEdge = _iotEdge;
+    }
+};
+
+
 class IoTHubRegistryManager
 {
     IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
@@ -903,7 +929,8 @@ public:
         std::string deviceId,
         std::string primaryKey,
         std::string secondaryKey,
-        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod,
+        IoTHubDeviceCapabilities *deviceCapabilities=NULL
         )
     {
         IOTHUB_DEVICE iothubDevice;
@@ -914,6 +941,14 @@ public:
         deviceCreate.primaryKey = primaryKey.c_str();
         deviceCreate.secondaryKey = secondaryKey.c_str();
         deviceCreate.authMethod = authMethod;
+        if (deviceCapabilities != NULL)
+        {
+            deviceCreate.iotEdge_capable = deviceCapabilities->GetIotEdge();
+        }
+        else
+        {
+            deviceCreate.iotEdge_capable = false;
+        }
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_CreateDevice(_iothubRegistryManagerHandle, &deviceCreate, &iothubDevice);
@@ -947,7 +982,8 @@ public:
         std::string primaryKey,
         std::string secondaryKey,
         IOTHUB_DEVICE_STATUS status,
-        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod,
+        IoTHubDeviceCapabilities *deviceCapabilities=NULL
         )
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
@@ -958,6 +994,14 @@ public:
         deviceUpdate.secondaryKey = secondaryKey.c_str();
         deviceUpdate.status = status;
         deviceUpdate.authMethod = authMethod;
+        if (deviceCapabilities != NULL)
+        {
+            deviceUpdate.iotEdge_capable = deviceCapabilities->GetIotEdge();
+        }
+        else
+        {
+            deviceUpdate.iotEdge_capable = false;
+        }
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_UpdateDevice(_iothubRegistryManagerHandle, &deviceUpdate);
@@ -1028,7 +1072,130 @@ public:
         }
         return registryStatistics;
     }
+
+    IOTHUB_MODULE CreateModule(
+        std::string deviceId,
+        std::string primaryKey,
+        std::string secondaryKey,
+        std::string moduleId,
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
+        )
+    {
+        IOTHUB_MODULE iothubModule;
+        IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
+
+        IOTHUB_REGISTRY_MODULE_CREATE moduleCreate;
+        moduleCreate.deviceId = deviceId.c_str();
+        moduleCreate.primaryKey = primaryKey.c_str();
+        moduleCreate.secondaryKey = secondaryKey.c_str();
+        moduleCreate.moduleId = moduleId.c_str();
+        moduleCreate.authMethod = authMethod;
+        moduleCreate.iotEdge_capable = false;
+
+        ScopedGILRelease release;
+        result = IoTHubRegistryManager_CreateModule(_iothubRegistryManagerHandle, &moduleCreate, &iothubModule);
+
+        if (result != IOTHUB_REGISTRYMANAGER_OK)
+        {
+            throw IoTHubRegistryManagerError(__func__, result);
+        }
+        return iothubModule;
+    }
+
+    void UpdateModule(
+        std::string deviceId,
+        std::string primaryKey,
+        std::string secondaryKey,
+        std::string moduleId,
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
+        )
+    {
+        IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
+
+        IOTHUB_REGISTRY_MODULE_UPDATE moduleUpdate;
+        moduleUpdate.deviceId = deviceId.c_str();
+        moduleUpdate.primaryKey = primaryKey.c_str();
+        moduleUpdate.secondaryKey = secondaryKey.c_str();
+        moduleUpdate.moduleId = moduleId.c_str();
+        moduleUpdate.authMethod = authMethod;
+        moduleUpdate.iotEdge_capable = false;
+
+        ScopedGILRelease release;
+        result = IoTHubRegistryManager_UpdateModule(_iothubRegistryManagerHandle, &moduleUpdate);
+
+        if (result != IOTHUB_REGISTRYMANAGER_OK)
+        {
+            throw IoTHubRegistryManagerError(__func__, result);
+        }
+    }
+
+    IOTHUB_MODULE GetModule(
+        std::string deviceId,
+        std::string moduleId
+        )
+    {
+        IOTHUB_MODULE iothubModule;
+        IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
+
+        ScopedGILRelease release;
+        result = IoTHubRegistryManager_GetModule(_iothubRegistryManagerHandle, deviceId.c_str(), moduleId.c_str(), &iothubModule);
+
+        if (result != IOTHUB_REGISTRYMANAGER_OK)
+        {
+            throw IoTHubRegistryManagerError(__func__, result);
+        }
+        return iothubModule;
+    }
+
+    boost::python::list GetModuleList(
+        std::string deviceId
+        )
+    {
+        boost::python::list retVal;
+        SINGLYLINKEDLIST_HANDLE moduleList = singlylinkedlist_create();
+        IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
+
+        ScopedGILRelease release;
+        result = IoTHubRegistryManager_GetModuleList(_iothubRegistryManagerHandle, deviceId.c_str(), moduleList);
+
+        if (result != IOTHUB_REGISTRYMANAGER_OK)
+        {
+            throw IoTHubRegistryManagerError(__func__, result);
+        }
+
+        if (moduleList != NULL)
+        {
+            LIST_ITEM_HANDLE next_module = singlylinkedlist_get_head_item(moduleList);
+            while (next_module != NULL)
+            {
+                IOTHUB_MODULE* module = (IOTHUB_MODULE*)singlylinkedlist_item_get_value(next_module);
+                next_module = singlylinkedlist_get_next_item(next_module);
+                retVal.append(*module);
+            }
+            singlylinkedlist_destroy(moduleList);
+        }
+        return retVal;
+    }
+
+    void DeleteModule(
+        std::string deviceId,
+        std::string moduleId
+        )
+    {
+        IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
+
+        ScopedGILRelease release;
+        result = IoTHubRegistryManager_DeleteModule(_iothubRegistryManagerHandle, deviceId.c_str(), moduleId.c_str());
+
+        if (result != IOTHUB_REGISTRYMANAGER_OK)
+        {
+            throw IoTHubRegistryManagerError(__func__, result);
+        }
+    }
 };
+
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads, CreateDevice, 4, 5)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads2, UpdateDevice, 5, 6)
 
 //
 //  iothub_messaging.h
@@ -1163,7 +1330,6 @@ FeedbackMessageReceivedCallback(
 
     if (feedbackMessageReceivedCallbackContext != NULL)
     {
-        printf("FeedbackMessageReceivedCallback called!\n");
         FeedbackMessageReceivedContext *feedbackMessageReceivedContext = (FeedbackMessageReceivedContext *)feedbackMessageReceivedCallbackContext;
         boost::python::object feedbackMessageReceivedCallback = feedbackMessageReceivedContext->feedbackMessageReceivedCallback;
         boost::python::object userContext = feedbackMessageReceivedContext->userContext;
@@ -1710,6 +1876,53 @@ public:
         }
         return result;
     }
+
+    std::string GetModuleTwin(
+        std::string deviceId,
+        std::string moduleId
+    )
+    {
+        std::string result;
+        char* moduleTwinInfo = NULL;
+
+        ScopedGILRelease release;
+        moduleTwinInfo = IoTHubDeviceTwin_GetModuleTwin(_iothubDeviceTwinHandle, deviceId.c_str(), moduleId.c_str());
+
+        if (moduleTwinInfo != NULL)
+        {
+            result.append(moduleTwinInfo);
+        }
+
+        if (moduleTwinInfo == NULL)
+        {
+            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+        }
+        return result;
+    }
+
+    std::string UpdateModuleTwin(
+        std::string deviceId,
+        std::string moduleId,
+        std::string moduleTwinJson
+    )
+    {
+        std::string result;
+        char* moduleTwinInfo = NULL;
+
+        ScopedGILRelease release;
+        moduleTwinInfo = IoTHubDeviceTwin_UpdateModuleTwin(_iothubDeviceTwinHandle, deviceId.c_str(), moduleId.c_str(), moduleTwinJson.c_str());
+
+        if (moduleTwinInfo != NULL)
+        {
+            result.append(moduleTwinInfo);
+        }
+
+        if (moduleTwinInfo == NULL)
+        {
+            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+        }
+        return result;
+    }
 };
 
 using namespace boost::python;
@@ -1901,6 +2114,11 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("correlation_id", &IoTHubMessage::GetCorrelationId, &IoTHubMessage::SetCorrelationId)
         ;
 
+    class_<IoTHubDeviceCapabilities>("IoTHubDeviceCapabilities", no_init)
+        .def(init<>())
+        .add_property("iot_edge", &IoTHubDeviceCapabilities::GetIotEdge, &IoTHubDeviceCapabilities::SetIotEdge)
+        ;
+
     class_<IOTHUB_DEVICE>("IoTHubDevice", no_init)
         .add_property("deviceId", &IOTHUB_DEVICE::deviceId)
         .add_property("primaryKey", &IOTHUB_DEVICE::primaryKey)
@@ -1918,7 +2136,21 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("configuration", &IOTHUB_DEVICE::configuration)
         .add_property("deviceProperties", &IOTHUB_DEVICE::deviceProperties)
         .add_property("serviceProperties", &IOTHUB_DEVICE::serviceProperties)
-        .add_property("authMethod", &IOTHUB_DEVICE::authMethod)
+        .add_property("authMethod", &IOTHUB_DEVICE::authMethod)      
+        ;
+
+    class_<IOTHUB_MODULE>("IoTHubModule", no_init)
+        .add_property("moduleId", &IOTHUB_MODULE::moduleId)
+        .add_property("deviceId", &IOTHUB_MODULE::deviceId)
+        .add_property("primaryKey", &IOTHUB_MODULE::primaryKey)
+        .add_property("secondaryKey", &IOTHUB_MODULE::secondaryKey)
+        .add_property("generationId", &IOTHUB_MODULE::generationId)
+        .add_property("eTag", &IOTHUB_MODULE::eTag)
+        .add_property("connectionState", &IOTHUB_MODULE::connectionState)
+        .add_property("connectionStateUpdatedTime", &IOTHUB_MODULE::connectionStateUpdatedTime)
+        .add_property("lastActivityTime", &IOTHUB_MODULE::lastActivityTime)
+        .add_property("cloudToDeviceMessageCount", &IOTHUB_MODULE::cloudToDeviceMessageCount)
+        .add_property("authMethod", &IOTHUB_MODULE::authMethod)
         ;
 
     class_<IOTHUB_REGISTRY_STATISTICS>("IoTHubRegistryStatistics", no_init)
@@ -1955,12 +2187,17 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubRegistryManager, boost::noncopyable>("IoTHubRegistryManager", no_init)
         .def(init<std::string>())
         .def(init<IoTHubServiceClientAuth>())
-        .def("create_device", &IoTHubRegistryManager::CreateDevice)
+        .def("create_device", &IoTHubRegistryManager::CreateDevice, IoTHubRegistryManager_overloads())
         .def("get_device", &IoTHubRegistryManager::GetDevice)
-        .def("update_device", &IoTHubRegistryManager::UpdateDevice)
+        .def("update_device", &IoTHubRegistryManager::UpdateDevice, IoTHubRegistryManager_overloads2())
         .def("delete_device", &IoTHubRegistryManager::DeleteDevice)
         .def("get_device_list", &IoTHubRegistryManager::GetDeviceList)
         .def("get_statistics", &IoTHubRegistryManager::GetStatistics)
+        .def("create_module", &IoTHubRegistryManager::CreateModule)
+        .def("update_module", &IoTHubRegistryManager::UpdateModule)
+        .def("get_module", &IoTHubRegistryManager::GetModule)
+        .def("get_module_list", &IoTHubRegistryManager::GetModuleList)
+        .def("delete_module", &IoTHubRegistryManager::DeleteModule)
         ;
 
     class_<IoTHubMessaging, boost::noncopyable>("IoTHubMessaging", no_init)
@@ -1983,5 +2220,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def(init<IoTHubServiceClientAuth>())
         .def("get_twin", &IoTHubDeviceTwin::GetTwin)
         .def("update_twin", &IoTHubDeviceTwin::UpdateTwin)
+        .def("get_module_twin", &IoTHubDeviceTwin::GetModuleTwin)
+        .def("update_module_twin", &IoTHubDeviceTwin::UpdateModuleTwin)
         ;
 };

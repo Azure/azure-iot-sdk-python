@@ -341,7 +341,7 @@ void IoTHubRegistryManager_Destroy(IOTHUB_REGISTRYMANAGER_HANDLE registryManager
 {
     (void)registryManagerHandle;
 }
- 
+
  
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateDevice(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const IOTHUB_REGISTRY_DEVICE_CREATE* deviceCreate, IOTHUB_DEVICE* device)
 {
@@ -378,6 +378,36 @@ IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetStatistics(IOTHUB_REGISTR
 {
     (void)registryManagerHandle;
     registryStatistics = NULL;
+    return IOTHUB_REGISTRYMANAGER_OK;
+}
+
+IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const IOTHUB_REGISTRY_MODULE_CREATE* moduleCreate, IOTHUB_MODULE* module)
+{
+    (void)registryManagerHandle, moduleCreate, module;
+    return IOTHUB_REGISTRYMANAGER_OK;
+}
+
+IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, const char* moduleId, IOTHUB_MODULE* module)
+{
+    (void)registryManagerHandle, deviceId, moduleId, module;
+    return IOTHUB_REGISTRYMANAGER_OK;
+}
+
+IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_UpdateModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, IOTHUB_REGISTRY_MODULE_UPDATE* moduleUpdate)
+{
+    (void)registryManagerHandle, moduleUpdate;
+    return IOTHUB_REGISTRYMANAGER_OK;
+}
+
+IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_DeleteModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, const char* moduleId)
+{
+    (void)registryManagerHandle, deviceId, moduleId;
+    return IOTHUB_REGISTRYMANAGER_OK;
+}
+
+IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetModuleList(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, SINGLYLINKEDLIST_HANDLE moduleList)
+{
+    (void)registryManagerHandle, deviceId, moduleList;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
@@ -464,6 +494,18 @@ char*  IoTHubDeviceTwin_GetTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE service
 char*  IoTHubDeviceTwin_UpdateTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId, const char* deviceTwinJson)
 {
     (void)serviceClientDeviceTwinHandle, deviceId, deviceTwinJson;
+    return (char*)"";
+}
+
+char*  IoTHubDeviceTwin_GetModuleTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId, const char* moduleId)
+{
+    (void)serviceClientDeviceTwinHandle, deviceId, moduleId;
+    return (char*)"";
+}
+
+char*  IoTHubDeviceTwin_UpdateModuleTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId, const char* moduleId, const char* moduleTwinJson)
+{
+    (void)serviceClientDeviceTwinHandle, deviceId, moduleId, moduleTwinJson;
     return (char*)"";
 }
 

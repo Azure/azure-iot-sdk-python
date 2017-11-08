@@ -42,8 +42,11 @@
 #define IMPORT_NAME iothub_client
 #endif
 
-#define IOTHUB_PYTHON_DEVICE_SDK_VERSION "0"
-#define VERSION_STRING IOTHUB_SDK_VERSION "." IOTHUB_PYTHON_DEVICE_SDK_VERSION
+// These lines will come back when time for actual release of Python SDK with modules.  Pre-release needs special case string creation.
+// #define IOTHUB_PYTHON_DEVICE_SDK_VERSION "0"
+// #define VERSION_STRING IOTHUB_SDK_VERSION "." IOTHUB_PYTHON_DEVICE_SDK_VERSION
+#define VERSION_STRING "1.2.0.0b0"
+
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -732,6 +735,26 @@ public:
         {
             throw IoTHubMessageError(__func__, result);
         }
+    }
+
+    const char *GetInputName()
+    {
+        return IoTHubMessage_GetInputName(iotHubMessageHandle);
+    }
+
+    const char *GetOutputName()
+    {
+        return IoTHubMessage_GetOutputName(iotHubMessageHandle);
+    }
+
+    const char *GetConnectionModuleId()
+    {
+        return IoTHubMessage_GetConnectionModuleId(iotHubMessageHandle);
+    }
+
+    const char *GetConnectionDeviceId()
+    {
+        return IoTHubMessage_GetConnectionDeviceId(iotHubMessageHandle);
     }
 
     void Destroy()
@@ -1537,6 +1560,33 @@ public:
         }
     }
 
+    void SetInputMessageCallback(
+        std::string inputName,
+        boost::python::object& messageCallback,
+        boost::python::object& userContext
+        )
+    {
+        if (!PyCallable_Check(messageCallback.ptr()))
+        {
+            PyErr_SetString(PyExc_TypeError, "set_message_callback expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+        ReceiveContext *receiveContext = new ReceiveContext();
+        receiveContext->messageCallback = messageCallback;
+        receiveContext->userContext = userContext;
+        IOTHUB_CLIENT_RESULT result;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_SetInputMessageCallback(iotHubClientHandle, inputName.c_str(),  ReceiveMessageCallback, receiveContext);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+    }
+
+
     void SetConnectionStatusCallback(
         boost::python::object& connectionStatusCallback,
         boost::python::object& userContext
@@ -1820,6 +1870,34 @@ public:
     }
 #endif
 
+    void SendEventToOutputAsync(
+        std::string outputName,
+        IoTHubMessage &eventMessage,
+        boost::python::object& messageCallback,
+        boost::python::object& userContext
+        )
+    {
+        if (!PyCallable_Check(messageCallback.ptr()))
+        {
+            PyErr_SetString(PyExc_TypeError, "send_event_async expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+        IOTHUB_CLIENT_RESULT result;
+        SendContext *sendContext = new SendContext();
+        sendContext->messageCallback = messageCallback;
+        sendContext->userContext = userContext;
+        sendContext->eventMessage = eventMessage.Clone();
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_SendEventToOutputAsync(iotHubClientHandle, eventMessage.Handle(), outputName.c_str(), SendConfirmationCallback, sendContext);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
+    } 
+
 #ifdef SUPPORT___STR__
     std::string str() const
     {
@@ -2025,6 +2103,10 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("properties", &IoTHubMessage::Properties, return_internal_reference<1>())
         .add_property("message_id", &IoTHubMessage::GetMessageId, &IoTHubMessage::SetMessageId)
         .add_property("correlation_id", &IoTHubMessage::GetCorrelationId, &IoTHubMessage::SetCorrelationId)
+        .add_property("input_name", &IoTHubMessage::GetInputName)
+        .add_property("output_name", &IoTHubMessage::GetOutputName)
+        .add_property("connection_device_id", &IoTHubMessage::GetConnectionDeviceId)
+        .add_property("connection_module_id", &IoTHubMessage::GetConnectionModuleId)
         // Python helpers
 #ifdef SUPPORT___STR__
         .def("__str__", &IoTHubMessage::str)
@@ -2078,6 +2160,8 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #ifndef DONT_USE_UPLOADTOBLOB
         .def("upload_blob_async", &IoTHubClient::UploadToBlobAsync)
 #endif
+        .def("send_event_async", &IoTHubClient::SendEventToOutputAsync)
+        .def("set_message_callback", &IoTHubClient::SetInputMessageCallback)
         // attributes
         .def_readonly("protocol", &IoTHubClient::protocol)
         // Python helpers
