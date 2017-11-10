@@ -6,11 +6,7 @@ set(iothub_client_python_c_files
 )
 
 if(WIN32)
-    if(${use_wsio})
-        set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/dllmain.c ../windows/iothub_client_ws.def)
-    else()
-        set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/dllmain.c ../windows/iothub_client.def)
-    endif()
+    set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/dllmain.c ../windows/iothub_client_ws.def ../windows/iothub_client.def)
 endif()
 
 include_directories(.)

@@ -1294,11 +1294,54 @@ public:
     IoTHubClient(
         IOTHUB_CLIENT_HANDLE _iotHubClientHandle,
         IOTHUB_TRANSPORT_PROVIDER _protocol
-        ) :
+    ) :
         iotHubClientHandle(_iotHubClientHandle),
         protocol(_protocol)
     {
         if (_iotHubClientHandle == NULL)
+        {
+            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+    }
+
+    IoTHubClient(
+        std::string connectionString,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+        protocol(_protocol)
+    {
+        {
+            ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
+            iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
+        }
+        if (iotHubClientHandle == NULL)
+        {
+            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+    }
+
+    IoTHubClient(
+        const IoTHubConfig &_config
+    )
+    {
+        IOTHUB_CLIENT_CONFIG config;
+        config.protocol = GetProtocol(_config.protocol);
+        config.deviceId = _config.deviceId.c_str();
+        config.deviceKey = _config.deviceKey.c_str();
+        config.deviceSasToken = _config.deviceSasToken.c_str();
+        config.iotHubName = _config.iotHubName.c_str();
+        config.iotHubSuffix = _config.iotHubSuffix.c_str();
+        config.protocolGatewayHostName = _config.protocolGatewayHostName.c_str();
+        protocol = _config.protocol;
+        {
+            ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
+            iotHubClientHandle = IoTHubClient_Create(&config);
+        }
+        if (iotHubClientHandle == NULL)
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
@@ -1381,41 +1424,17 @@ public:
     }
 
     IoTHubClient(
-        std::string connectionString,
+        std::string iothub_uri,
+        std::string device_id,
         IOTHUB_TRANSPORT_PROVIDER _protocol
-        ) :
+    ) :
         protocol(_protocol)
     {
         {
             ScopedGILRelease release;
             PlatformCallHandler::Platform_Init();
 
-            iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
-        }
-        if (iotHubClientHandle == NULL)
-        {
-            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
-        }
-    }
-
-    IoTHubClient(
-        const IoTHubConfig &_config
-        )
-    {
-        IOTHUB_CLIENT_CONFIG config;
-        config.protocol = GetProtocol(_config.protocol);
-        config.deviceId = _config.deviceId.c_str();
-        config.deviceKey = _config.deviceKey.c_str();
-        config.deviceSasToken = _config.deviceSasToken.c_str();
-        config.iotHubName = _config.iotHubName.c_str();
-        config.iotHubSuffix = _config.iotHubSuffix.c_str();
-        config.protocolGatewayHostName = _config.protocolGatewayHostName.c_str();
-        protocol = _config.protocol;
-        {
-            ScopedGILRelease release;
-            PlatformCallHandler::Platform_Init();
-
-            iotHubClientHandle = IoTHubClient_Create(&config);
+            iotHubClientHandle = IoTHubClient_CreateFromDeviceAuth(iothub_uri.c_str(), device_id.c_str(), GetProtocol(_protocol));
         }
         if (iotHubClientHandle == NULL)
         {
@@ -1426,40 +1445,6 @@ public:
     ~IoTHubClient()
     {
         PlatformCallHandler::Platform_DeInit();
-        Destroy();
-    }
-
-    static IoTHubClient const *CreateFromConnectionString(
-        std::string connectionString,
-        IOTHUB_TRANSPORT_PROVIDER _protocol
-        )
-    {
-        {
-            ScopedGILRelease release;
-            return new IoTHubClient(IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol)), _protocol);
-        }
-    }
-
-    static IoTHubClient const *Create(
-        const IoTHubConfig* _config
-        )
-    {
-        IOTHUB_CLIENT_CONFIG config;
-        config.protocol = GetProtocol(_config->protocol);
-        config.deviceId = _config->deviceId.c_str();
-        config.deviceKey = _config->deviceKey.c_str();
-        config.deviceSasToken = _config->deviceSasToken.c_str();
-        config.iotHubName = _config->iotHubName.c_str();
-        config.iotHubSuffix = _config->iotHubSuffix.c_str();
-        config.protocolGatewayHostName = _config->protocolGatewayHostName.c_str();
-        {
-            ScopedGILRelease release;
-            return new IoTHubClient(IoTHubClient_Create(&config), _config->protocol);
-        }
-    }
-
-    void Destroy()
-    {
         if (iotHubClientHandle != NULL)
         {
             {
@@ -2062,6 +2047,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubClient, boost::noncopyable>("IoTHubClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def(init<IoTHubTransport*, IoTHubConfig*>())
+        .def(init<std::string, std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def("send_event_async", &IoTHubClient::SendEventAsync)
         .def("set_message_callback", &IoTHubClient::SetMessageCallback)
         .def("set_connection_status_callback", &IoTHubClient::SetConnectionStatusCallback)
