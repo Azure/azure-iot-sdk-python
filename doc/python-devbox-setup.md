@@ -39,46 +39,63 @@ Because the Azure IoT SDKs for Python are wrappers on top of the [SDKs for C][az
 You will notice that the C SDKs are brought in as submodules to the current repository.
 In order to setup your development environment to build the C binaries make sure all dependencies are installed before building the SDK. 
 
-- For Ubuntu, you can use apt-get to install the right packages:
-  ```
-  sudo apt-get update
-  sudo apt-get install -y git cmake build-essential curl libcurl4-openssl-dev libssl-dev uuid-dev
-  ```
+1. Clone the Azure IoT Python SDK Repository
 
-- Verify that CMake is at least version **2.8.12**:
-  ```
-  cmake --version
-  ```
-  > For information about how to upgrade your version of CMake to 3.x on Ubuntu 14.04, read [How to install CMake 3.2 on Ubuntu 14.04?](http://askubuntu.com/questions/610291/how-to-install-cmake-3-2-on-ubuntu-14-04).
+    ```
+    git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
+    ```
 
-- Verify that gcc is at least version **4.4.7**:
-  ```
-  gcc --version
-  ```
-  > For information about how to upgrade your version of gcc on Ubuntu 14.04, read [How do I use the latest GCC 4.9 on Ubuntu 14.04?](http://askubuntu.com/questions/466651/how-do-i-use-the-latest-gcc-4-9-on-ubuntu-14-04).
+2. For Ubuntu, you can use apt-get to install the right packages:
+  
+    ```
+    sudo apt-get update
+    sudo apt-get install -y git cmake build-essential curl libcurl4-openssl-dev libssl-dev uuid-dev
+    ```
+
+3. Verify that CMake is at least version **2.8.12**:
+  
+    ```
+    cmake --version
+    ```
+  
+    > For information about how to upgrade your version of CMake to 3.x on Ubuntu 14.04, read [How to install CMake 3.2 on Ubuntu 14.04?](http://askubuntu.com/questions/610291/how-to-install-cmake-3-2-on-ubuntu-14-04).
+
+4. Verify that gcc is at least version **4.4.7**:
+  
+    ```
+    gcc --version
+    ```
+  
+    > For information about how to upgrade your version of gcc on Ubuntu 14.04, read [How do I use the latest GCC 4.9 on Ubuntu 14.04?](http://askubuntu.com/questions/466651/how-do-i-use-the-latest-gcc-4-9-on-ubuntu-14-04).
 
 ### Compile the Python modules
 The Python iothub_client and iothub_service_client modules support python versions 2.7.x, 3.4.x, 3.5.x or 3.6.x. Know the appropriate version you would like to build the library with for the following instructions.
 
-1. Ensure that the desired Python version (2.7.x, 3.4.x, 3.5.x or 3.6.x) is installed and active. Run `python --version` or `python3 --version` at the command line to check the version.
-2. Open a shell and navigate to the folder **build_all/linux** in your local copy of the repository.
-3. Run the `./setup.sh` script to install the prerequisite packages and the dependent libraries.
+1. Clone the Azure IoT Python SDK Repository
+  
+    ```
+    git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
+    ```
+
+2. Ensure that the desired Python version (2.7.x, 3.4.x, 3.5.x or 3.6.x) is installed and active. Run `python --version` or `python3 --version` at the command line to check the version.
+3. Open a shell and navigate to the folder **build_all/linux** in your local copy of the repository.
+4. Run the `./setup.sh` script to install the prerequisite packages and the dependent libraries.
     * Setup will default to python 2.7
     * To setup dependencies for python version greater than 3, run `./setup.sh --python-version X.Y` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6)
-4. Run the `./build.sh` script.
+5. Run the `./build.sh` script.
     * Build will default to python 2.7
     * To build with python version greater than 3, run `./build.sh --build-python X.X` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6)
-5. After a successful build, the `iothub_client.so` Python extension module is copied to the [**device/samples**][device-samples] and [**service/samples**][service-samples] folders. Visit these folders for instructions on how to run the samples.
+6. After a successful build, the `iothub_client.so` Python extension module is copied to the [**device/samples**][device-samples] and [**service/samples**][service-samples] folders. Visit these folders for instructions on how to run the samples.
 
-###Known build issues: 
+### Known build issues: 
 
-1.) On building the Python client library (`iothub_client.so`) on Linux devices that have less than **1GB** RAM, you may see build getting **stuck** at **98%** while building `iothub_client_python.cpp` as shown below
+1. When building the Python client library (`iothub_client.so`) on Linux devices that have less than **1GB** RAM, you may see build getting **stuck** at **98%** while building `iothub_client_python.cpp` as shown below
 
 ``[ 98%] Building CXX object python/src/CMakeFiles/iothub_client_python.dir/iothub_client_python.cpp.o``
 
 If you run into this issue, check the **memory consumption** of the device using `free -m command` in another terminal window during that time. If you are running out of memory while compiling iothub_client_python.cpp file, you may have to temporarily increase the **swap space** to get more available memory to successfully build the Python client side device SDK library.
 
-2.) CentOS7: Only Python 2.7 is supported due to a missing boost-python3 library package
+1. CentOS7: Only Python 2.7 is supported due to a missing boost-python3 library package
 
 <a name="mac"></a>
 ## Build the Azure IoT Hub SDKs for Python on Mac OS
@@ -92,19 +109,25 @@ In order to setup your development environment to build the C binaries, you need
 ### Compile the Python modules
 The Python iothub_client and iothub_service_client modules support python versions 2.7.x, 3.4.x, 3.5.x or 3.6.x. Know the appropriate version you would like to build the library with for the following instructions.
 
-1. Ensure that the desired Python version (2.7.x, 3.4.x, 3.5.x or 3.6.x) is installed and active. Run `python --version` or `python3 --version` at the command line to check the version.
-2. Open a shell and navigate to the folder **build_all/mac** in your local copy of the repository.
-3. Run the `./setup.sh` script to install the prerequisite packages and the dependent libraries.
+1. Clone the Azure IoT Python SDK Repository
+  
+    ```
+    git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
+    ```
+
+2. Ensure that the desired Python version (2.7.x, 3.4.x, 3.5.x or 3.6.x) is installed and active. Run `python --version` or `python3 --version` at the command line to check the version.
+3. Open a shell and navigate to the folder **build_all/mac** in your local copy of the repository.
+4. Run the `./setup.sh` script to install the prerequisite packages and the dependent libraries.
     * Setup will default to python 2.7
     * To setup dependencies for python version greater than 3, run `./setup.sh --python-version X.Y` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6)
-4. Run the `./build.sh` script.
+5. Run the `./build.sh` script.
     * Build will default to python 2.7
     * To build with python version greater than 3, run `./build.sh --build-python X.X` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6) 
-5. After a successful build, the `iothub_client.so` Python extension module is copied to the [**device/samples**][device-samples] and [**service/samples**][service-samples] folders. Visit these folders for instructions on how to run the samples.
+6. After a successful build, the `iothub_client.so` Python extension module is copied to the [**device/samples**][device-samples] and [**service/samples**][service-samples] folders. Visit these folders for instructions on how to run the samples.
 
-###Known build issues: 
+### Known build issues: 
 
-none so far.
+None
 
 <a name="windows"></a>
 ## Build the Python device and service client modules on Windows using Nuget packages (recommended)
