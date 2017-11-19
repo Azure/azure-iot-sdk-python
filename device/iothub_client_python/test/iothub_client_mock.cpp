@@ -213,6 +213,12 @@ IOTHUB_CLIENT_HANDLE IoTHubClient_CreateWithTransport(TRANSPORT_HANDLE transport
     return mockClientHandle;
 }
 
+IOTHUB_CLIENT_HANDLE IoTHubClient_CreateFromDeviceAuth(const char* iothub_uri, const char* device_id, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
+{
+    (void)iothub_uri, device_id, protocol;
+    return mockClientHandle;
+}
+
 void IoTHubClient_Destroy(IOTHUB_CLIENT_HANDLE iotHubClientHandle)
 {
     (void)iotHubClientHandle;
@@ -413,9 +419,10 @@ void IoTHubMessage_Destroy(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
     (void)iotHubMessageHandle;
 }
 
-// "iothubtransporthttp.h"
 TRANSPORT_PROVIDER *mockProtocol = (TRANSPORT_PROVIDER *)0x12345678;
-extern "C" {
+extern "C" 
+{
+    // "iothubtransporthttp.h"
     const TRANSPORT_PROVIDER* HTTP_Protocol(void)
     {
         return mockProtocol;

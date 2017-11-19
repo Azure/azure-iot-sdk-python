@@ -77,7 +77,7 @@ set cmake-output=cmake_%build-platform%
 REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config%
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%
@@ -102,6 +102,13 @@ if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\device\tests
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
+copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pyd ..\..\provisioning_device_client\samples
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pyd ..\..\provisioning_device_client\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\tests\%build-config%\provisioning_device_client_mock.pyd ..\..\provisioning_device_client\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+
 if "%build-config%"=="Debug" (
     copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pdb ..\..\device\samples
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
@@ -119,6 +126,13 @@ if "%build-config%"=="Debug" (
     copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pdb ..\..\service\tests
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pdb ..\..\device\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pdb ..\..\provisioning_device_client\samples
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pdb ..\..\provisioning_device_client\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\tests\%build-config%\provisioning_device_client_mock.pdb ..\..\provisioning_device_client\tests
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 )
 
@@ -138,6 +152,13 @@ python iothub_service_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 @Echo python iothub_service_client_map_test.py
 python iothub_service_client_map_test.py
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+echo Python unit test PASSED
+cd %build-root%
+
+cd ..\..\provisioning_device_client\tests
+@Echo python provisioning_device_client_ut.py
+python provisioning_device_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%

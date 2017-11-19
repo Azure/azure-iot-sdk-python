@@ -1,0 +1,11 @@
+; Copyright(c) Microsoft.All rights reserved.
+; Licensed under the MIT license.See LICENSE file in the project root for full license information.
+; IotHub_Service_Client_Python.def : Declares the module parameters.
+; LIBRARY      "Provisioning_Device_Client.PYD"
+
+EXPORTS
+    Prov_Device_Create
+    Prov_Device_Destroy
+    Prov_Device_Register_Device
+    Prov_Device_SetOption
+    Prov_Device_GetVersionString
