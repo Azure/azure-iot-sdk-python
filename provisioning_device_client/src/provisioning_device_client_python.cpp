@@ -539,7 +539,7 @@ public:
 
         if (option_name == OPTION_TRUSTED_CERT)
         {
-            if (PyString_Check(option_value.ptr()))
+            if (PyUnicode_Check(option_value.ptr()))
             {
                 std::string value = (std::string)boost::python::extract<std::string>(option_value);
 
