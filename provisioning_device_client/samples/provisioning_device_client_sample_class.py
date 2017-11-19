@@ -96,9 +96,9 @@ def main(global_prov_uri, id_scope, security_device_type, protocol):
 
 
 def usage():
-    print ( "Usage: provisioning_device_client_sample.py -p <protocol> -i <scope_id> -s <security_device_type>" )
-    print ( "    scope_id             : <scope ID for provisioning>" )
-    print ( "    security_device_type : <scope ID for provisioning>" )
+    print ( "Usage: provisioning_device_client_sample.py -i <id_scope> -s <security_device_type> -p <protocol>" )
+    print ( "    id_scope             : <scope ID for provisioning>" )
+    print ( "    security_device_type : <TPM or X509>" )
     print ( "    protocol             : <http, mqtt, mqtt_ws, amqp, amqp_ws>" )
 
 if __name__ == '__main__':

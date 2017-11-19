@@ -20,11 +20,12 @@ def get_prov_client_opt(
         id_scope,
         sec_type=ProvisioningSecurityDeviceType.X509,
         protocol=ProvisioningTransportProvider.HTTP):
-    if len(argv) > 0:
+    lgt = len(argv)
+    if lgt > 0:
         try:
             opts, args = getopt.getopt(
-                argv, "hp:c:", [
-                    "security_device_type", "id_scope=", "protocol="])
+                argv, "hi:s:p:", [
+                    "id_scope=", "security_device_type=", "protocol="])
         except getopt.GetoptError as opt_error:
             raise OptionError("Error: %s" % opt_error.msg)
         for opt, arg in opts:
@@ -34,17 +35,17 @@ def get_prov_client_opt(
             elif opt in ("-i", "--id_scope"):
                 id_scope = arg
 
-            elif opt in ("-s", "--sec_type"):
+            elif opt in ("-s", "--security_device_type"):
                 sec_dev_str = arg.lower()
 
                 if sec_dev_str == "tpm":
-                    if hasattr(SecurityDeviceType, "TPM"):
-                        sec_type = SecurityDeviceType.TPM
+                    if hasattr(ProvisioningSecurityDeviceType, "TPM"):
+                        sec_type = ProvisioningSecurityDeviceType.TPM
                     else:
                         raise OptionError("Error: TPM security device type is not supported")
                 elif sec_dev_str == "x509":
-                    if hasattr(SecurityDeviceType, "X509"):
-                        sec_type = SecurityDeviceType.X509
+                    if hasattr(ProvisioningSecurityDeviceType, "X509"):
+                        sec_type = ProvisioningSecurityDeviceType.X509
                     else:
                         raise OptionError("Error: X509 security device type is not supported")
                 else:

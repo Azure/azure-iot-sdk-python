@@ -15,7 +15,7 @@ import base64
 from provisioning_device_client import ProvisioningDeviceClient, ProvisioningTransportProvider, ProvisioningSecurityDeviceType, ProvisioningError
 
 GLOBAL_PROV_URI = "global.azure-devices-provisioning.net"
-ID_SCOPE = "0ne00001028"
+ID_SCOPE = ""
 
 STATUS_CALLBACKS = 0
 DEVICE_CALLBACKS = 0
