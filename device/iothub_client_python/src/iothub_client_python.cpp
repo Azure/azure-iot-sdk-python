@@ -20,6 +20,8 @@
 #include "azure_c_shared_utility/platform.h"
 #include "iothub_client.h"
 #include "iothub_client_version.h"
+#include "azure_prov_client/iothub_security_factory.h"
+
 #include "iothub_message.h"
 #if USE_HTTP
 #include "iothubtransporthttp.h"
@@ -121,6 +123,13 @@ public:
     }
 private:
     PyThreadState * thread_state;
+};
+
+enum SECURITY_TYPE
+{
+    UNKNOWN,
+    SAS,
+    X509
 };
 
 //
@@ -1423,20 +1432,49 @@ public:
         }
     }
 
+    static IOTHUB_SECURITY_TYPE
+        GetSecurityType(SECURITY_TYPE _security_type)
+    {
+        IOTHUB_SECURITY_TYPE security_type = IOTHUB_SECURITY_TYPE_UNKNOWN;
+        switch (_security_type)
+        {
+        case UNKNOWN:
+            security_type = IOTHUB_SECURITY_TYPE_UNKNOWN;
+            break;
+        case SAS:
+            security_type = IOTHUB_SECURITY_TYPE_SAS;
+            break;
+        case X509:
+            security_type = IOTHUB_SECURITY_TYPE_X509;
+            break;
+        default:
+            PyErr_SetString(PyExc_TypeError, "Provisioning Security Type set to unknown type");
+            boost::python::throw_error_already_set();
+            break;
+        }
+        return security_type;
+    }
+
     IoTHubClient(
         std::string iothub_uri,
         std::string device_id,
+        SECURITY_TYPE security_type,
         IOTHUB_TRANSPORT_PROVIDER _protocol
     ) :
         protocol(_protocol)
     {
-        {
-            ScopedGILRelease release;
-            PlatformCallHandler::Platform_Init();
+        ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
+        if (iothub_security_init(GetSecurityType(security_type)) == 0)
+        {
             iotHubClientHandle = IoTHubClient_CreateFromDeviceAuth(iothub_uri.c_str(), device_id.c_str(), GetProtocol(_protocol));
+            if (iotHubClientHandle == NULL)
+            {
+                throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+            }
         }
-        if (iotHubClientHandle == NULL)
+        else
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
@@ -1444,7 +1482,6 @@ public:
 
     ~IoTHubClient()
     {
-        PlatformCallHandler::Platform_DeInit();
         if (iotHubClientHandle != NULL)
         {
             {
@@ -1453,6 +1490,10 @@ public:
             }
             iotHubClientHandle = NULL;
         }
+
+        iothub_security_deinit();
+
+        PlatformCallHandler::Platform_DeInit();
     }
 
     void SendEventAsync(
@@ -1973,6 +2014,12 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .value("ERROR", FILE_UPLOAD_ERROR)
         ;
 
+    enum_<SECURITY_TYPE>("IoTHubSecurityType")
+        .value("UNKNOWN", UNKNOWN)
+        .value("SAS", SAS)
+        .value("X509", X509)
+        ;
+
     class_<GetRetryPolicyReturnValue>("GetRetryPolicyReturnValue")
         .def_readonly("retryPolicy", &GetRetryPolicyReturnValue::retryPolicy)
         .def_readonly("retryTimeoutLimitInSeconds", &GetRetryPolicyReturnValue::retryTimeoutLimitInSeconds)
@@ -2047,7 +2094,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubClient, boost::noncopyable>("IoTHubClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def(init<IoTHubTransport*, IoTHubConfig*>())
-        .def(init<std::string, std::string, IOTHUB_TRANSPORT_PROVIDER>())
+        .def(init<std::string, std::string, SECURITY_TYPE, IOTHUB_TRANSPORT_PROVIDER>())
         .def("send_event_async", &IoTHubClient::SendEventAsync)
         .def("set_message_callback", &IoTHubClient::SetMessageCallback)
         .def("set_connection_status_callback", &IoTHubClient::SetConnectionStatusCallback)

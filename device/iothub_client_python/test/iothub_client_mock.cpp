@@ -20,6 +20,8 @@
 #include <list>
 
 #include "azure_c_shared_utility/platform.h"
+#include "azure_prov_client/iothub_security_factory.h"
+
 #include "iothub_client.h"
 #include "iothub_client_version.h"
 #include "iothub_message.h"
@@ -43,6 +45,16 @@ int platform_init(void)
 }
 
 void platform_deinit(void)
+{
+}
+
+int iothub_security_init(IOTHUB_SECURITY_TYPE sec_type)
+{
+    (void*)sec_type;
+    return 0;
+}
+
+void iothub_security_deinit(void)
 {
 }
 

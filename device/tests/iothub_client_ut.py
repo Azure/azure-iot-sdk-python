@@ -597,7 +597,7 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
-            client = IoTHubClient(uri_str, device_id, IoTHubTransportProvider.HTTP)
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.HTTP)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.HTTP)
             with self.assertRaises(AttributeError):
@@ -610,8 +610,20 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
         if hasattr(IoTHubTransportProvider, "MQTT"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.MQTT)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT)
             with self.assertRaises(AttributeError):
@@ -624,8 +636,20 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP_WS)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP_WS)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
         if hasattr(IoTHubTransportProvider, "MQTT_WS"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.MQTT_WS)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT_WS)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT_WS)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT_WS)
             with self.assertRaises(AttributeError):

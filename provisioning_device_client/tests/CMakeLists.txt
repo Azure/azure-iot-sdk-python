@@ -17,6 +17,7 @@ if(WIN32)
 endif()
 
 include_directories(../src)
+include_directories(${DEV_AUTH_MODULES_CLIENT_INC_FOLDER})
 
 add_library( provisioning_device_client_mock SHARED
     ${provisioning_device_client_mock_c_files} 

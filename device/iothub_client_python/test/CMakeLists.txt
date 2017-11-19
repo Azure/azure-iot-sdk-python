@@ -16,6 +16,7 @@ if(WIN32)
 endif()
 
 include_directories(../src)
+include_directories(${DEV_AUTH_MODULES_CLIENT_INC_FOLDER})
 
 add_library( iothub_client_mock SHARED
     ${iothub_client_mock_c_files} 
