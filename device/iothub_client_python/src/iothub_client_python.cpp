@@ -585,6 +585,24 @@ public:
 
 };
 
+// class exposed to py used as parameter diagnostic data
+
+class IoTHubMessageDiagnosticPropertyData
+{
+public:
+    IoTHubMessageDiagnosticPropertyData(
+        std::string _diagnosticId,
+        std::string _diagnosticCreationTimeUtc
+    ) :
+        diagnosticId(_diagnosticId),
+        diagnosticCreationTimeUtc(_diagnosticCreationTimeUtc)
+    {
+    }
+
+    std::string diagnosticId;
+    std::string diagnosticCreationTimeUtc;
+};
+
 void iothubMessageError(const IoTHubMessageError& x)
 {
     boost::python::object pythonExceptionInstance(x);
@@ -704,6 +722,45 @@ public:
     IOTHUBMESSAGE_CONTENT_TYPE GetContentType()
     {
         return IoTHubMessage_GetContentType(iotHubMessageHandle);
+    }
+
+    const char *GetContentTypeSystemProperty()
+    {
+        return IoTHubMessage_GetContentTypeSystemProperty(iotHubMessageHandle);
+    }
+
+    IOTHUB_MESSAGE_RESULT SetContentTypeSystemProperty(std::string contentType)
+    {
+        return IoTHubMessage_SetContentTypeSystemProperty(iotHubMessageHandle, contentType.c_str());
+    }
+
+    const char *GetContentEncodingSystemProperty()
+    {
+        return IoTHubMessage_GetContentEncodingSystemProperty(iotHubMessageHandle);
+    }
+
+    IOTHUB_MESSAGE_RESULT SetContentEncodingSystemProperty(std::string contentEncoding)
+    {
+        return IoTHubMessage_SetContentEncodingSystemProperty(iotHubMessageHandle, contentEncoding.c_str());
+    }
+
+    IoTHubMessageDiagnosticPropertyData *GetDiagnosticPropertyData()
+    {
+        const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* data = IoTHubMessage_GetDiagnosticPropertyData(iotHubMessageHandle);
+        if (data != NULL)
+        {
+            return new IoTHubMessageDiagnosticPropertyData(data->diagnosticId, data->diagnosticCreationTimeUtc);
+        }
+        return NULL;
+    }
+
+    IOTHUB_MESSAGE_RESULT SetDiagnosticPropertyData(IoTHubMessageDiagnosticPropertyData *ioTHubMessageDiagnosticPropertyData)
+    {
+        IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA data;
+        data.diagnosticId = (char*)ioTHubMessageDiagnosticPropertyData->diagnosticId.c_str();
+        data.diagnosticCreationTimeUtc = (char*)ioTHubMessageDiagnosticPropertyData->diagnosticCreationTimeUtc.c_str();
+
+        return IoTHubMessage_SetDiagnosticPropertyData(iotHubMessageHandle, &data);
     }
 
     IoTHubMap *Properties()
@@ -2048,12 +2105,27 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #endif
         ;
 
+    class_<IoTHubMessageDiagnosticPropertyData, boost::noncopyable>("IoTHubMessageDiagnosticPropertyData", no_init)
+        .def(init<std::string, std::string>())
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubMessageDiagnosticPropertyData::str)
+        .def("__repr__", &IoTHubMessageDiagnosticPropertyData::repr)
+#endif
+        ;
+
     class_<IoTHubMessage>("IoTHubMessage", no_init)
         .def(init<PyObject *>())
         .def(init<std::string>())
         .def("get_bytearray", &IoTHubMessage::GetBytearray)
         .def("get_string", &IoTHubMessage::GetString)
         .def("get_content_type", &IoTHubMessage::GetContentType)
+        .def("get_content_type_system_property", &IoTHubMessage::GetContentTypeSystemProperty)
+        .def("set_content_type_system_property", &IoTHubMessage::SetContentTypeSystemProperty)
+        .def("get_content_encoding_system_property", &IoTHubMessage::GetContentEncodingSystemProperty)
+        .def("set_content_encoding_system_property", &IoTHubMessage::SetContentEncodingSystemProperty)
+        .def("get_diagnostic_property_data", &IoTHubMessage::GetDiagnosticPropertyData, return_internal_reference<1>())
+        .def("set_diagnostic_property_data", &IoTHubMessage::SetDiagnosticPropertyData)
         .def("properties", &IoTHubMessage::Properties, return_internal_reference<1>())
         .add_property("message_id", &IoTHubMessage::GetMessageId, &IoTHubMessage::SetMessageId)
         .add_property("correlation_id", &IoTHubMessage::GetCorrelationId, &IoTHubMessage::SetCorrelationId)

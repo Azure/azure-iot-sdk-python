@@ -386,6 +386,55 @@ IOTHUBMESSAGE_CONTENT_TYPE IoTHubMessage_GetContentType(IOTHUB_MESSAGE_HANDLE io
     return mockString ? IOTHUBMESSAGE_STRING : IOTHUBMESSAGE_BYTEARRAY;
 }
 
+
+IOTHUB_MESSAGE_RESULT IoTHubMessage_SetContentTypeSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle, const char* contentType)
+{
+    (void)iotHubMessageHandle;
+    (void)contentType;
+    return IOTHUB_MESSAGE_OK;
+}
+
+const char* IoTHubMessage_GetContentTypeSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    if (!mockString)
+    {
+        return NULL;
+    }
+    return mockBuffer;
+}
+
+
+IOTHUB_MESSAGE_RESULT IoTHubMessage_SetContentEncodingSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle, const char* contentEncoding)
+{
+    (void)iotHubMessageHandle;
+    (void)contentEncoding;
+    return IOTHUB_MESSAGE_OK;
+}
+
+const char* IoTHubMessage_GetContentEncodingSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    if (!mockString)
+    {
+        return NULL;
+    }
+    return mockBuffer;
+}
+
+const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* IoTHubMessage_GetDiagnosticPropertyData(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return (IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA*)0x1234;
+}
+
+IOTHUB_MESSAGE_RESULT IoTHubMessage_SetDiagnosticPropertyData(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle, const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* diagnosticData)
+{
+    (void)iotHubMessageHandle;
+    (void)diagnosticData;
+    return IOTHUB_MESSAGE_OK;
+}
+
 MAP_HANDLE IoTHubMessage_Properties(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
 {
     (void)iotHubMessageHandle;

@@ -48,6 +48,12 @@ EXPORTS
     IoTHubMessage_SetMessageId
     IoTHubMessage_GetCorrelationId
     IoTHubMessage_SetCorrelationId
+    IoTHubMessage_SetContentTypeSystemProperty
+    IoTHubMessage_GetContentTypeSystemProperty
+    IoTHubMessage_SetContentEncodingSystemProperty
+    IoTHubMessage_GetContentEncodingSystemProperty
+    IoTHubMessage_GetDiagnosticPropertyData
+    IoTHubMessage_SetDiagnosticPropertyData
     IoTHubMessage_Destroy
 ;   iothubtransporthttp.h
     HTTP_Protocol
