@@ -535,19 +535,12 @@ public:
 
         PROV_DEVICE_RESULT result;
 
-        ScopedGILRelease release;
-
         if (option_name == OPTION_TRUSTED_CERT)
         {
-            if (PyUnicode_Check(option_value.ptr()))
+            std::string value = (std::string)boost::python::extract<std::string>(option_value);
             {
-                std::string value = (std::string)boost::python::extract<std::string>(option_value);
-
+                ScopedGILRelease release;
                 result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), value.c_str());
-            }
-            else
-            {
-                result = PROV_DEVICE_RESULT_ERROR;
             }
         }
         else if (option_name == OPTION_LOG_TRACE)
@@ -555,8 +548,10 @@ public:
             if (PyBool_Check(option_value.ptr()))
             {
                 bool value = (bool)boost::python::extract<bool>(option_value);
-
-                result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
+                {
+                    ScopedGILRelease release;
+                    result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
+                }
             }
             else
             {
@@ -572,8 +567,10 @@ public:
             value.port = http_proxy_options.port;
             value.username = http_proxy_options.username.c_str();
             value.password = http_proxy_options.password.c_str();
-
-            result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
+            {
+                ScopedGILRelease release;
+                result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
+            }
         }
         else
         {
@@ -583,7 +580,7 @@ public:
 
         if (result != PROV_DEVICE_RESULT_OK)
         {
-            printf("SetOption failed with result: %d", result);
+            printf("Provisioning Device Client SetOption failed with result: %d", result);
         }
     }
 

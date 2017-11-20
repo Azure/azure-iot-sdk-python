@@ -486,6 +486,69 @@ class TestClassDefinitions(unittest.TestCase):
         message = IoTHubMessage(bytearray(messageString, "utf8"))
         result = message.get_content_type()
         self.assertEqual(result, IoTHubMessageContent.BYTEARRAY)
+
+        # get_content_type_system_property
+        with self.assertRaises(AttributeError):
+            message.GetContentTypeSystemProperty()
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property(1)
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property("key")
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property(["key", "value"])
+        message = IoTHubMessage(messageString)
+        result = message.get_content_type_system_property()
+        self.assertEqual(result, "myMessage")
+
+        # set_content_type_system_property
+        with self.assertRaises(AttributeError):
+            message.SetContentTypeSystemProperty()
+        with self.assertRaises(Exception):
+            message.set_content_type_system_property()
+        result = message.set_content_type_system_property("property")
+        self.assertEqual(result, 0)
+
+        # get_content_encoding_system_property
+        with self.assertRaises(AttributeError):
+            message.GetContentEncodingSystemProperty()
+        with self.assertRaises(Exception):
+            message.get_content_encoding_system_property(1)
+        result = message.get_content_encoding_system_property()
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property(["key", "value"])
+        message = IoTHubMessage(messageString)
+        result = message.get_content_type_system_property()
+        self.assertEqual(result, "myMessage")
+        
+        # set_content_encoding_system_property
+        with self.assertRaises(AttributeError):
+            message.SetContentEncodingSystemProperty()
+        with self.assertRaises(Exception):
+            message.set_content_encoding_system_property()
+        result = message.set_content_type_system_property("property")
+        self.assertEqual(result, 0)
+
+        # get_diagnostic_property_data
+        with self.assertRaises(AttributeError):
+            message.GetDiagnosticPropertyData()
+        with self.assertRaises(Exception):
+            message.get_diagnostic_property_data(1)
+        result = message.get_content_encoding_system_property()
+        message = IoTHubMessage(messageString)
+        result = message.get_diagnostic_property_data()
+        self.assertIsNone(result)
+
+        # set_diagnostic_property_data
+        with self.assertRaises(AttributeError):
+            message.SetDiagnosticPropertyData()
+        with self.assertRaises(Exception):
+            message.set_diagnostic_property_data()
+        with self.assertRaises(Exception):
+            message.set_diagnostic_property_data("data")
+        data = IoTHubMessageDiagnosticPropertyData("diagId", "diagTime")
+        result = message.set_diagnostic_property_data(data)
+        self.assertEqual(result, 0)
+
         # properties
         with self.assertRaises(AttributeError):
             message.Properties()

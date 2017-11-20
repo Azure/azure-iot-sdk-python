@@ -589,6 +589,8 @@ public:
 
 class IoTHubMessageDiagnosticPropertyData
 {
+    std::string diagnosticId;
+    std::string diagnosticCreationTimeUtc;
 public:
     IoTHubMessageDiagnosticPropertyData(
         std::string _diagnosticId,
@@ -599,8 +601,15 @@ public:
     {
     }
 
-    std::string diagnosticId;
-    std::string diagnosticCreationTimeUtc;
+    const char *GetDiagnosticId()
+    {
+        return diagnosticId.c_str();
+    }
+
+    const char *GetDiagnosticCreationTimeUtc()
+    {
+        return diagnosticCreationTimeUtc.c_str();
+    }
 };
 
 void iothubMessageError(const IoTHubMessageError& x)
@@ -749,7 +758,9 @@ public:
         const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* data = IoTHubMessage_GetDiagnosticPropertyData(iotHubMessageHandle);
         if (data != NULL)
         {
-            return new IoTHubMessageDiagnosticPropertyData(data->diagnosticId, data->diagnosticCreationTimeUtc);
+            std::string diagnosticId(data->diagnosticId);
+            std::string diagnosticCreationTimeUtc(data->diagnosticCreationTimeUtc);
+            return new IoTHubMessageDiagnosticPropertyData(diagnosticId, diagnosticCreationTimeUtc);
         }
         return NULL;
     }
@@ -757,8 +768,8 @@ public:
     IOTHUB_MESSAGE_RESULT SetDiagnosticPropertyData(IoTHubMessageDiagnosticPropertyData *ioTHubMessageDiagnosticPropertyData)
     {
         IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA data;
-        data.diagnosticId = (char*)ioTHubMessageDiagnosticPropertyData->diagnosticId.c_str();
-        data.diagnosticCreationTimeUtc = (char*)ioTHubMessageDiagnosticPropertyData->diagnosticCreationTimeUtc.c_str();
+        data.diagnosticId = (char*)ioTHubMessageDiagnosticPropertyData->GetDiagnosticId();
+        data.diagnosticCreationTimeUtc = (char*)ioTHubMessageDiagnosticPropertyData->GetDiagnosticCreationTimeUtc();
 
         return IoTHubMessage_SetDiagnosticPropertyData(iotHubMessageHandle, &data);
     }
@@ -1868,7 +1879,7 @@ public:
 #endif
         if (result != IOTHUB_CLIENT_OK)
         {
-            printf("SetOption failed with result: %d", result);
+            printf("IoTHub Client SetOption failed with result: %d", result);
         }
     }
 
@@ -2107,6 +2118,8 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 
     class_<IoTHubMessageDiagnosticPropertyData, boost::noncopyable>("IoTHubMessageDiagnosticPropertyData", no_init)
         .def(init<std::string, std::string>())
+        .def("get_diagnostic_id", &IoTHubMessageDiagnosticPropertyData::GetDiagnosticId)
+        .def("get_diagnostic_time_utc", &IoTHubMessageDiagnosticPropertyData::GetDiagnosticCreationTimeUtc)
         // Python helpers
 #ifdef SUPPORT___STR__
         .def("__str__", &IoTHubMessageDiagnosticPropertyData::str)
