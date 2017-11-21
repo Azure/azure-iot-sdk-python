@@ -4,7 +4,7 @@ This folder contains simple samples showing how to use the various features of t
 
 ## List of samples
 
-* [Simple Sample](provisioning_device_client_sample.py): shows how to connect to IoT Hub and provvision a device.
+* [Simple Sample](provisioning_device_client_sample.py): shows how to connect to IoT Hub and provision a device.
 * [Class Sample using AMQP](provisioning_device_client_sample_class.py): shows how to connect to IoT Hub with a ProvisioningManager class and provision a device.
 
 ## How to run the samples
@@ -20,7 +20,7 @@ Once you have a device identity for your sample,
    * if you are using the azure-iothub-provisioning-device-client module installed with pip, download the samples folder content to your target.
 * Run the sample application using the following command to run the simple sample (replacing `<id_scope>` with provisioning scope):
     ```
-	provisioning_device_client_sample.py -i < id_scope > -s < TSM|X509 > -p < mqtt|http|amqp >
+	provisioning_device_client_sample.py -i < id_scope > -s < TPM|X509 > -p < mqtt|http|amqp >
     ```
 > You can get details on the options for the sample command line typing:
 > `python provisioning_device_client_sample.py -h`
