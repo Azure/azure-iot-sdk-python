@@ -1,3 +1,5 @@
+
+
 # Prepare your development environment
 
 This document describes how to prepare your development environment to use the *Microsoft Azure IoT SDKs for Python*.
