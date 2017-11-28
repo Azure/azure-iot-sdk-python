@@ -16,7 +16,7 @@ In order to run the device samples you will first need the following prerequisit
 * [Setup your development environment][devbox-setup]
 > Note: On Windows, it is recommended to install the **iothub-client** module package using pip (see link above).
 * [Create an Azure IoT Hub instance][lnk-setup-iot-hub]
-* [Create a device identity for your device][lnk-manage-iot-hub] and retreive the primary connection string for this device
+* [Create a device identity for your device][lnk-manage-iot-hub] and retrieve the primary connection string for this device
 
 Once you have a device identity for your sample,
 * Get the sample files:
