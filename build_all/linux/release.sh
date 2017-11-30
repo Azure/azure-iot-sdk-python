@@ -77,6 +77,12 @@ echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
 [ $? -eq 0 ] || exit $?
 cd $build_root
 
+cd $build_root/provisioning_device_client/tests/
+echo "python${PYTHON_VERSION}" provisioning_device_client_ut.py
+"python${PYTHON_VERSION}" provisioning_device_client_ut.py
+[ $? -eq 0 ] || exit $?
+cd $build_root
+
 cd ./build_all/linux/release_device_client
 cp $build_folder/python/src/iothub_client.so iothub_client/iothub_client.so
 "python${PYTHON_VERSION}" setup_device_client.py bdist_wheel --plat-name $PLAT_ARCH
@@ -85,5 +91,9 @@ cd $build_root
 cd ./build_all/linux/release_service_client
 cp $build_folder/python_service_client/src/iothub_service_client.so iothub_service_client/iothub_service_client.so
 "python${PYTHON_VERSION}" setup_service_client.py bdist_wheel --plat-name $PLAT_ARCH
+
+cd ./build_all/linux/release_provisioning_device_client
+cp $build_folder/provisioning_device_client_python/src/provisioning_device_client.so provisioning_device_client/provisioning_device_client.so
+"python${PYTHON_VERSION}" setup_provisioning_device_client.py bdist_wheel --plat-name $PLAT_ARCH
 
 cd $build_root

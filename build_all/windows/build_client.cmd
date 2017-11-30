@@ -168,6 +168,7 @@ python provisioning_device_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
+)
 
 rem -----------------------------------------------------------------------------
 rem -- create PyPi wheel
@@ -199,13 +200,27 @@ if %wheel%==1 (
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
-    echo create Python wheel: 
+    echo create Python wheel:
     echo "python setup_service_client.py bdist_wheel --plat-name %platname%"
     cd release_service_client
     python setup_service_client.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Service Client Python wheel done
+
+    cd %build-root%
+    echo Copy provisioning_device_client.pyd to %build-root%\build_all\windows\provisioning_device_client for IoT Provisiomomg Device Client Python wheel generation
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pyd ..\..\build_all\windows\release_provisioning_device_client\provisioning_device_client
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    echo update Python packages
+    python -m pip install -U pip setuptools wheel twine
+    echo create Python wheel: 
+    echo "python provisioning_device_client.py bdist_wheel --plat-name %platname%"
+    cd release_provisioning_device_client
+    python setup_provisioning_device_client.py bdist_wheel --plat-name "%platname%"
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    dir dist
+    echo IoT Provisioning Device Client Python wheel done
 
     cd %build-root%
 )
