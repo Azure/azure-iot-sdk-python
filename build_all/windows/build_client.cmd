@@ -31,6 +31,7 @@ REM target may be set to 64 bit build if a Python x64 detected
 set build-config=Release
 set wheel=0
 set platname=win32
+set use_tpm_simulator=
 
 goto :args-loop
 
@@ -44,6 +45,7 @@ if "%1" equ "" goto args-done
 if "%1" equ "--config" goto arg-build-config
 if "%1" equ "--wheel" goto arg-build-wheel
 if "%1" equ "--platform" goto arg-build-platform
+if "%1" equ "--use-tpm-simulator" goto arg-use-tpm-simulator
 call :usage && exit /b 1
 
 :arg-build-config
@@ -62,6 +64,10 @@ if "%1" equ "" call :usage && exit /b 1
 set build-platform=%1
 goto args-continue
 
+:arg-use-tpm-simulator
+set use_tpm_simulator=--use-tpm-simulator
+goto args-continue
+
 :args-continue
 shift
 goto args-loop
@@ -77,7 +83,7 @@ set cmake-output=cmake_%build-platform%
 REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator%
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%
@@ -212,4 +218,5 @@ echo  --config ^<value^>         [Debug] build configuration (e.g. Debug, Releas
 echo  --platform ^<value^>       [Win32] build platform (e.g. Win32, x64, ...)
 echo  --buildpython ^<value^>    [2.7]   build python extension (e.g. 2.7, 3.4, ...)
 echo  --no-logging               Disable logging
+echo  --use-tpm-simulator        Build TPM simulator
 goto :eof

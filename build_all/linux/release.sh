@@ -44,7 +44,8 @@ fi
 
 
 # instruct C builder to include python library and to skip tests
-./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $*
+
+./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $* --provisioning
 [ $? -eq 0 ] || exit $?
 cd $build_root
 
