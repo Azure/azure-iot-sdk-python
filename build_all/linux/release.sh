@@ -59,6 +59,11 @@ cp $build_folder/python_service_client/src/iothub_service_client.so ./service/sa
 echo copy iothub_service_client_mock library to tests folder
 cp $build_folder/python_service_client/tests/iothub_service_client_mock.so ./service/tests/iothub_service_client_mock.so
 
+echo copy provisioning_device_client library to samples folder
+cp $build_folder/provisioning_device_client_python/src/provisioning_device_client.so ./provisioning_device_client/samples/provisioning_device_client.so
+echo copy provisioning_device_client_mock library to tests folder
+cp $build_folder/provisioning_device_client_python/tests/provisioning_device_client_mock.so ./provisioning_device_client/tests/provisioning_device_client_mock.so
+
 cd $build_root/device/tests/
 echo "python${PYTHON_VERSION}" iothub_client_ut.py
 "python${PYTHON_VERSION}" iothub_client_ut.py
