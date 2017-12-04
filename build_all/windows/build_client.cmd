@@ -31,6 +31,7 @@ REM target may be set to 64 bit build if a Python x64 detected
 set build-config=Release
 set wheel=0
 set platname=win32
+set use_tpm_simulator=
 
 goto :args-loop
 
@@ -44,6 +45,7 @@ if "%1" equ "" goto args-done
 if "%1" equ "--config" goto arg-build-config
 if "%1" equ "--wheel" goto arg-build-wheel
 if "%1" equ "--platform" goto arg-build-platform
+if "%1" equ "--use-tpm-simulator" goto arg-use-tpm-simulator
 call :usage && exit /b 1
 
 :arg-build-config
@@ -62,6 +64,10 @@ if "%1" equ "" call :usage && exit /b 1
 set build-platform=%1
 goto args-continue
 
+:arg-use-tpm-simulator
+set use_tpm_simulator=--use-tpm-simulator
+goto args-continue
+
 :args-continue
 shift
 goto args-loop
@@ -77,7 +83,7 @@ set cmake-output=cmake_%build-platform%
 REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config%
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator%
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%
@@ -102,6 +108,13 @@ if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pyd ..\..\device\tests
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 
+copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pyd ..\..\provisioning_device_client\samples
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pyd ..\..\provisioning_device_client\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\tests\%build-config%\provisioning_device_client_mock.pyd ..\..\provisioning_device_client\tests
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+
 if "%build-config%"=="Debug" (
     copy %USERPROFILE%\%cmake-output%\python\src\%build-config%\iothub_client.pdb ..\..\device\samples
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
@@ -119,6 +132,13 @@ if "%build-config%"=="Debug" (
     copy %USERPROFILE%\%cmake-output%\python_service_client\tests\%build-config%\iothub_service_client_mock.pdb ..\..\service\tests
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     copy %USERPROFILE%\%cmake-output%\python_service_client\src\%build-config%\iothub_service_client.pdb ..\..\device\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pdb ..\..\provisioning_device_client\samples
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pdb ..\..\provisioning_device_client\tests
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\tests\%build-config%\provisioning_device_client_mock.pdb ..\..\provisioning_device_client\tests
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 )
 
@@ -141,6 +161,14 @@ python iothub_service_client_map_test.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
+
+cd ..\..\provisioning_device_client\tests
+@Echo python provisioning_device_client_ut.py
+python provisioning_device_client_ut.py
+if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+echo Python unit test PASSED
+cd %build-root%
+)
 
 rem -----------------------------------------------------------------------------
 rem -- create PyPi wheel
@@ -172,13 +200,27 @@ if %wheel%==1 (
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
-    echo create Python wheel: 
+    echo create Python wheel:
     echo "python setup_service_client.py bdist_wheel --plat-name %platname%"
     cd release_service_client
     python setup_service_client.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Service Client Python wheel done
+
+    cd %build-root%
+    echo Copy provisioning_device_client.pyd to %build-root%\build_all\windows\provisioning_device_client for IoT Provisiomomg Device Client Python wheel generation
+    copy %USERPROFILE%\%cmake-output%\provisioning_device_client_python\src\%build-config%\provisioning_device_client.pyd ..\..\build_all\windows\release_provisioning_device_client\provisioning_device_client
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    echo update Python packages
+    python -m pip install -U pip setuptools wheel twine
+    echo create Python wheel: 
+    echo "python provisioning_device_client.py bdist_wheel --plat-name %platname%"
+    cd release_provisioning_device_client
+    python setup_provisioning_device_client.py bdist_wheel --plat-name "%platname%"
+    if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
+    dir dist
+    echo IoT Provisioning Device Client Python wheel done
 
     cd %build-root%
 )
@@ -191,4 +233,5 @@ echo  --config ^<value^>         [Debug] build configuration (e.g. Debug, Releas
 echo  --platform ^<value^>       [Win32] build platform (e.g. Win32, x64, ...)
 echo  --buildpython ^<value^>    [2.7]   build python extension (e.g. 2.7, 3.4, ...)
 echo  --no-logging               Disable logging
+echo  --use-tpm-simulator        Build TPM simulator
 goto :eof

@@ -20,6 +20,8 @@
 #include "azure_c_shared_utility/platform.h"
 #include "iothub_client.h"
 #include "iothub_client_version.h"
+#include "azure_prov_client/iothub_security_factory.h"
+
 #include "iothub_message.h"
 #if USE_HTTP
 #include "iothubtransporthttp.h"
@@ -124,6 +126,13 @@ public:
     }
 private:
     PyThreadState * thread_state;
+};
+
+enum SECURITY_TYPE
+{
+    UNKNOWN,
+    SAS,
+    X509
 };
 
 //
@@ -579,6 +588,33 @@ public:
 
 };
 
+// class exposed to py used as parameter diagnostic data
+
+class IoTHubMessageDiagnosticPropertyData
+{
+    std::string diagnosticId;
+    std::string diagnosticCreationTimeUtc;
+public:
+    IoTHubMessageDiagnosticPropertyData(
+        std::string _diagnosticId,
+        std::string _diagnosticCreationTimeUtc
+    ) :
+        diagnosticId(_diagnosticId),
+        diagnosticCreationTimeUtc(_diagnosticCreationTimeUtc)
+    {
+    }
+
+    const char *GetDiagnosticId()
+    {
+        return diagnosticId.c_str();
+    }
+
+    const char *GetDiagnosticCreationTimeUtc()
+    {
+        return diagnosticCreationTimeUtc.c_str();
+    }
+};
+
 void iothubMessageError(const IoTHubMessageError& x)
 {
     boost::python::object pythonExceptionInstance(x);
@@ -698,6 +734,47 @@ public:
     IOTHUBMESSAGE_CONTENT_TYPE GetContentType()
     {
         return IoTHubMessage_GetContentType(iotHubMessageHandle);
+    }
+
+    const char *GetContentTypeSystemProperty()
+    {
+        return IoTHubMessage_GetContentTypeSystemProperty(iotHubMessageHandle);
+    }
+
+    IOTHUB_MESSAGE_RESULT SetContentTypeSystemProperty(std::string contentType)
+    {
+        return IoTHubMessage_SetContentTypeSystemProperty(iotHubMessageHandle, contentType.c_str());
+    }
+
+    const char *GetContentEncodingSystemProperty()
+    {
+        return IoTHubMessage_GetContentEncodingSystemProperty(iotHubMessageHandle);
+    }
+
+    IOTHUB_MESSAGE_RESULT SetContentEncodingSystemProperty(std::string contentEncoding)
+    {
+        return IoTHubMessage_SetContentEncodingSystemProperty(iotHubMessageHandle, contentEncoding.c_str());
+    }
+
+    IoTHubMessageDiagnosticPropertyData *GetDiagnosticPropertyData()
+    {
+        const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* data = IoTHubMessage_GetDiagnosticPropertyData(iotHubMessageHandle);
+        if (data != NULL)
+        {
+            std::string diagnosticId(data->diagnosticId);
+            std::string diagnosticCreationTimeUtc(data->diagnosticCreationTimeUtc);
+            return new IoTHubMessageDiagnosticPropertyData(diagnosticId, diagnosticCreationTimeUtc);
+        }
+        return NULL;
+    }
+
+    IOTHUB_MESSAGE_RESULT SetDiagnosticPropertyData(IoTHubMessageDiagnosticPropertyData *ioTHubMessageDiagnosticPropertyData)
+    {
+        IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA data;
+        data.diagnosticId = (char*)ioTHubMessageDiagnosticPropertyData->GetDiagnosticId();
+        data.diagnosticCreationTimeUtc = (char*)ioTHubMessageDiagnosticPropertyData->GetDiagnosticCreationTimeUtc();
+
+        return IoTHubMessage_SetDiagnosticPropertyData(iotHubMessageHandle, &data);
     }
 
     IoTHubMap *Properties()
@@ -1317,11 +1394,54 @@ public:
     IoTHubClient(
         IOTHUB_CLIENT_HANDLE _iotHubClientHandle,
         IOTHUB_TRANSPORT_PROVIDER _protocol
-        ) :
+    ) :
         iotHubClientHandle(_iotHubClientHandle),
         protocol(_protocol)
     {
         if (_iotHubClientHandle == NULL)
+        {
+            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+    }
+
+    IoTHubClient(
+        std::string connectionString,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+        protocol(_protocol)
+    {
+        {
+            ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
+            iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
+        }
+        if (iotHubClientHandle == NULL)
+        {
+            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+    }
+
+    IoTHubClient(
+        const IoTHubConfig &_config
+    )
+    {
+        IOTHUB_CLIENT_CONFIG config;
+        config.protocol = GetProtocol(_config.protocol);
+        config.deviceId = _config.deviceId.c_str();
+        config.deviceKey = _config.deviceKey.c_str();
+        config.deviceSasToken = _config.deviceSasToken.c_str();
+        config.iotHubName = _config.iotHubName.c_str();
+        config.iotHubSuffix = _config.iotHubSuffix.c_str();
+        config.protocolGatewayHostName = _config.protocolGatewayHostName.c_str();
+        protocol = _config.protocol;
+        {
+            ScopedGILRelease release;
+            PlatformCallHandler::Platform_Init();
+
+            iotHubClientHandle = IoTHubClient_Create(&config);
+        }
+        if (iotHubClientHandle == NULL)
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
@@ -1403,85 +1523,55 @@ public:
         }
     }
 
-    IoTHubClient(
-        std::string connectionString,
-        IOTHUB_TRANSPORT_PROVIDER _protocol
-        ) :
-        protocol(_protocol)
+    static IOTHUB_SECURITY_TYPE
+        GetSecurityType(SECURITY_TYPE _security_type)
     {
+        IOTHUB_SECURITY_TYPE security_type = IOTHUB_SECURITY_TYPE_UNKNOWN;
+        switch (_security_type)
         {
-            ScopedGILRelease release;
-            PlatformCallHandler::Platform_Init();
-
-            iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
+        case UNKNOWN:
+            security_type = IOTHUB_SECURITY_TYPE_UNKNOWN;
+            break;
+        case SAS:
+            security_type = IOTHUB_SECURITY_TYPE_SAS;
+            break;
+        case X509:
+            security_type = IOTHUB_SECURITY_TYPE_X509;
+            break;
+        default:
+            PyErr_SetString(PyExc_TypeError, "Provisioning Security Type set to unknown type");
+            boost::python::throw_error_already_set();
+            break;
         }
-        if (iotHubClientHandle == NULL)
-        {
-            throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
-        }
+        return security_type;
     }
 
     IoTHubClient(
-        const IoTHubConfig &_config
-        )
+        std::string iothub_uri,
+        std::string device_id,
+        SECURITY_TYPE security_type,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+        protocol(_protocol)
     {
-        IOTHUB_CLIENT_CONFIG config;
-        config.protocol = GetProtocol(_config.protocol);
-        config.deviceId = _config.deviceId.c_str();
-        config.deviceKey = _config.deviceKey.c_str();
-        config.deviceSasToken = _config.deviceSasToken.c_str();
-        config.iotHubName = _config.iotHubName.c_str();
-        config.iotHubSuffix = _config.iotHubSuffix.c_str();
-        config.protocolGatewayHostName = _config.protocolGatewayHostName.c_str();
-        protocol = _config.protocol;
-        {
-            ScopedGILRelease release;
-            PlatformCallHandler::Platform_Init();
+        ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
 
-            iotHubClientHandle = IoTHubClient_Create(&config);
+        if (iothub_security_init(GetSecurityType(security_type)) == 0)
+        {
+            iotHubClientHandle = IoTHubClient_CreateFromDeviceAuth(iothub_uri.c_str(), device_id.c_str(), GetProtocol(_protocol));
+            if (iotHubClientHandle == NULL)
+            {
+                throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+            }
         }
-        if (iotHubClientHandle == NULL)
+        else
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
     }
 
     ~IoTHubClient()
-    {
-        PlatformCallHandler::Platform_DeInit();
-        Destroy();
-    }
-
-    static IoTHubClient const *CreateFromConnectionString(
-        std::string connectionString,
-        IOTHUB_TRANSPORT_PROVIDER _protocol
-        )
-    {
-        {
-            ScopedGILRelease release;
-            return new IoTHubClient(IoTHubClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol)), _protocol);
-        }
-    }
-
-    static IoTHubClient const *Create(
-        const IoTHubConfig* _config
-        )
-    {
-        IOTHUB_CLIENT_CONFIG config;
-        config.protocol = GetProtocol(_config->protocol);
-        config.deviceId = _config->deviceId.c_str();
-        config.deviceKey = _config->deviceKey.c_str();
-        config.deviceSasToken = _config->deviceSasToken.c_str();
-        config.iotHubName = _config->iotHubName.c_str();
-        config.iotHubSuffix = _config->iotHubSuffix.c_str();
-        config.protocolGatewayHostName = _config->protocolGatewayHostName.c_str();
-        {
-            ScopedGILRelease release;
-            return new IoTHubClient(IoTHubClient_Create(&config), _config->protocol);
-        }
-    }
-
-    void Destroy()
     {
         if (iotHubClientHandle != NULL)
         {
@@ -1491,6 +1581,10 @@ public:
             }
             iotHubClientHandle = NULL;
         }
+
+        iothub_security_deinit();
+
+        PlatformCallHandler::Platform_DeInit();
     }
 
     void SendEventAsync(
@@ -1835,7 +1929,7 @@ public:
 #endif
         if (result != IOTHUB_CLIENT_OK)
         {
-            printf("SetOption failed with result: %d", result);
+            printf("IoTHub Client SetOption failed with result: %d", result);
         }
     }
 
@@ -2066,6 +2160,12 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .value("ERROR", FILE_UPLOAD_ERROR)
         ;
 
+    enum_<SECURITY_TYPE>("IoTHubSecurityType")
+        .value("UNKNOWN", UNKNOWN)
+        .value("SAS", SAS)
+        .value("X509", X509)
+        ;
+
     class_<GetRetryPolicyReturnValue>("GetRetryPolicyReturnValue")
         .def_readonly("retryPolicy", &GetRetryPolicyReturnValue::retryPolicy)
         .def_readonly("retryTimeoutLimitInSeconds", &GetRetryPolicyReturnValue::retryTimeoutLimitInSeconds)
@@ -2094,12 +2194,29 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #endif
         ;
 
+    class_<IoTHubMessageDiagnosticPropertyData, boost::noncopyable>("IoTHubMessageDiagnosticPropertyData", no_init)
+        .def(init<std::string, std::string>())
+        .def("get_diagnostic_id", &IoTHubMessageDiagnosticPropertyData::GetDiagnosticId)
+        .def("get_diagnostic_time_utc", &IoTHubMessageDiagnosticPropertyData::GetDiagnosticCreationTimeUtc)
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubMessageDiagnosticPropertyData::str)
+        .def("__repr__", &IoTHubMessageDiagnosticPropertyData::repr)
+#endif
+        ;
+
     class_<IoTHubMessage>("IoTHubMessage", no_init)
         .def(init<PyObject *>())
         .def(init<std::string>())
         .def("get_bytearray", &IoTHubMessage::GetBytearray)
         .def("get_string", &IoTHubMessage::GetString)
         .def("get_content_type", &IoTHubMessage::GetContentType)
+        .def("get_content_type_system_property", &IoTHubMessage::GetContentTypeSystemProperty)
+        .def("set_content_type_system_property", &IoTHubMessage::SetContentTypeSystemProperty)
+        .def("get_content_encoding_system_property", &IoTHubMessage::GetContentEncodingSystemProperty)
+        .def("set_content_encoding_system_property", &IoTHubMessage::SetContentEncodingSystemProperty)
+        .def("get_diagnostic_property_data", &IoTHubMessage::GetDiagnosticPropertyData, return_internal_reference<1>())
+        .def("set_diagnostic_property_data", &IoTHubMessage::SetDiagnosticPropertyData)
         .def("properties", &IoTHubMessage::Properties, return_internal_reference<1>())
         .add_property("message_id", &IoTHubMessage::GetMessageId, &IoTHubMessage::SetMessageId)
         .add_property("correlation_id", &IoTHubMessage::GetCorrelationId, &IoTHubMessage::SetCorrelationId)
@@ -2144,6 +2261,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubClient, boost::noncopyable>("IoTHubClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def(init<IoTHubTransport*, IoTHubConfig*>())
+        .def(init<std::string, std::string, SECURITY_TYPE, IOTHUB_TRANSPORT_PROVIDER>())
         .def("send_event_async", &IoTHubClient::SendEventAsync)
         .def("set_message_callback", &IoTHubClient::SetMessageCallback)
         .def("set_connection_status_callback", &IoTHubClient::SetConnectionStatusCallback)

@@ -24,9 +24,6 @@ ENDIF(WIN32)
 
 target_link_libraries(
     iothub_service_client_python
-    iothub_client_http_transport
-    iothub_client_amqp_transport
-    iothub_client_mqtt_transport
     iothub_service_client
     uamqp
     ${Boost_LIBRARIES}

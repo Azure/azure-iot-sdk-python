@@ -10,6 +10,7 @@ EXPORTS
     IoTHubClient_CreateFromConnectionString
     IoTHubClient_Create
     IoTHubClient_CreateWithTransport
+    IoTHubClient_CreateFromDeviceAuth
     IoTHubClient_Destroy
     IoTHubClient_SendEventAsync
     IoTHubClient_GetSendStatus
@@ -53,6 +54,12 @@ EXPORTS
     IoTHubMessage_GetInputName
     IoTHubMessage_GetConnectionModuleId
     IoTHubMessage_GetConnectionDeviceId
+    IoTHubMessage_SetContentTypeSystemProperty
+    IoTHubMessage_GetContentTypeSystemProperty
+    IoTHubMessage_SetContentEncodingSystemProperty
+    IoTHubMessage_GetContentEncodingSystemProperty
+    IoTHubMessage_GetDiagnosticPropertyData
+    IoTHubMessage_SetDiagnosticPropertyData
     IoTHubMessage_Destroy
 ;   iothubtransporthttp.h
     HTTP_Protocol

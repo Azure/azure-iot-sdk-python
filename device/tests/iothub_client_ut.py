@@ -10,7 +10,9 @@ import iothub_client_mock
 from iothub_client_mock import *
 
 # connnection strings for mock testing
-connectionString = "HostName=mockhub.mock-devices.net;DeviceId=mockdevice;SharedAccessKey=1234567890123456789012345678901234567890ABCD"
+connection_str = "HostName=mockhub.mock-devices.net;DeviceId=mockdevice;SharedAccessKey=1234567890123456789012345678901234567890ABCD"
+uri_str = "aaa.bbb.ccc"
+device_id = "device-id"
 
 callback_key = ""
 callback_value = ""
@@ -484,6 +486,69 @@ class TestClassDefinitions(unittest.TestCase):
         message = IoTHubMessage(bytearray(messageString, "utf8"))
         result = message.get_content_type()
         self.assertEqual(result, IoTHubMessageContent.BYTEARRAY)
+
+        # get_content_type_system_property
+        with self.assertRaises(AttributeError):
+            message.GetContentTypeSystemProperty()
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property(1)
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property("key")
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property(["key", "value"])
+        message = IoTHubMessage(messageString)
+        result = message.get_content_type_system_property()
+        self.assertEqual(result, "myMessage")
+
+        # set_content_type_system_property
+        with self.assertRaises(AttributeError):
+            message.SetContentTypeSystemProperty()
+        with self.assertRaises(Exception):
+            message.set_content_type_system_property()
+        result = message.set_content_type_system_property("property")
+        self.assertEqual(result, 0)
+
+        # get_content_encoding_system_property
+        with self.assertRaises(AttributeError):
+            message.GetContentEncodingSystemProperty()
+        with self.assertRaises(Exception):
+            message.get_content_encoding_system_property(1)
+        result = message.get_content_encoding_system_property()
+        with self.assertRaises(Exception):
+            message.get_content_type_system_property(["key", "value"])
+        message = IoTHubMessage(messageString)
+        result = message.get_content_type_system_property()
+        self.assertEqual(result, "myMessage")
+        
+        # set_content_encoding_system_property
+        with self.assertRaises(AttributeError):
+            message.SetContentEncodingSystemProperty()
+        with self.assertRaises(Exception):
+            message.set_content_encoding_system_property()
+        result = message.set_content_type_system_property("property")
+        self.assertEqual(result, 0)
+
+        # get_diagnostic_property_data
+        with self.assertRaises(AttributeError):
+            message.GetDiagnosticPropertyData()
+        with self.assertRaises(Exception):
+            message.get_diagnostic_property_data(1)
+        result = message.get_content_encoding_system_property()
+        message = IoTHubMessage(messageString)
+        result = message.get_diagnostic_property_data()
+        self.assertIsNone(result)
+
+        # set_diagnostic_property_data
+        with self.assertRaises(AttributeError):
+            message.SetDiagnosticPropertyData()
+        with self.assertRaises(Exception):
+            message.set_diagnostic_property_data()
+        with self.assertRaises(Exception):
+            message.set_diagnostic_property_data("data")
+        data = IoTHubMessageDiagnosticPropertyData("diagId", "diagTime")
+        result = message.set_diagnostic_property_data(data)
+        self.assertEqual(result, 0)
+
         # properties
         with self.assertRaises(AttributeError):
             message.Properties()
@@ -583,9 +648,13 @@ class TestClassDefinitions(unittest.TestCase):
         with self.assertRaises(Exception):
             client = IoTHubClient(1)
         with self.assertRaises(Exception):
-            client = IoTHubClient(connectionString)
+            client = IoTHubClient(connection_str)
         with self.assertRaises(Exception):
-            client = IoTHubClient(connectionString, 1)
+            client = IoTHubClient(connection_str, 1)
+        with self.assertRaises(Exception):
+            client = IoTHubClient(uri_str, uri_str)
+        with self.assertRaises(Exception):
+            client = IoTHubClient(uri_str, uri_str, 1)
 
         ioTHubTransport = IoTHubTransport(IoTHubTransportProvider.AMQP, "aaa", "bbb")
         self.assertIsInstance(ioTHubTransport, IoTHubTransport)
@@ -595,35 +664,65 @@ class TestClassDefinitions(unittest.TestCase):
         self.assertIsInstance(client, IoTHubClient)
 
         if hasattr(IoTHubTransportProvider, "HTTP"):
-            client = IoTHubClient(connectionString, IoTHubTransportProvider.HTTP)
+            client = IoTHubClient(connection_str, IoTHubTransportProvider.HTTP)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.HTTP)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.HTTP)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.HTTP)
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "AMQP"):
-            client = IoTHubClient(connectionString, IoTHubTransportProvider.AMQP)
+            client = IoTHubClient(connection_str, IoTHubTransportProvider.AMQP)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP)
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "MQTT"):
-            client = IoTHubClient(connectionString, IoTHubTransportProvider.MQTT)
+            client = IoTHubClient(connection_str, IoTHubTransportProvider.MQTT)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT)
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "AMQP_WS"):
-            client = IoTHubClient(connectionString, IoTHubTransportProvider.AMQP_WS)
+            client = IoTHubClient(connection_str, IoTHubTransportProvider.AMQP_WS)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP_WS)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP_WS)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP_WS)
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "MQTT_WS"):
-            client = IoTHubClient(connectionString, IoTHubTransportProvider.MQTT_WS)
+            client = IoTHubClient(connection_str, IoTHubTransportProvider.MQTT_WS)
+            self.assertIsInstance(client, IoTHubClient)
+            self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT_WS)
+            with self.assertRaises(AttributeError):
+                client.protocol = IoTHubTransportProvider.AMQP
+
+            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT_WS)
             self.assertIsInstance(client, IoTHubClient)
             self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT_WS)
             with self.assertRaises(AttributeError):

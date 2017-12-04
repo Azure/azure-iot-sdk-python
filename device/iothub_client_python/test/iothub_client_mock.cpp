@@ -20,6 +20,8 @@
 #include <list>
 
 #include "azure_c_shared_utility/platform.h"
+#include "azure_prov_client/iothub_security_factory.h"
+
 #include "iothub_client.h"
 #include "iothub_client_version.h"
 #include "iothub_message.h"
@@ -43,6 +45,16 @@ int platform_init(void)
 }
 
 void platform_deinit(void)
+{
+}
+
+int iothub_security_init(IOTHUB_SECURITY_TYPE sec_type)
+{
+    (void*)sec_type;
+    return 0;
+}
+
+void iothub_security_deinit(void)
 {
 }
 
@@ -210,6 +222,12 @@ IOTHUB_CLIENT_HANDLE IoTHubClient_Create(const IOTHUB_CLIENT_CONFIG* config)
 IOTHUB_CLIENT_HANDLE IoTHubClient_CreateWithTransport(TRANSPORT_HANDLE transportHandle, const IOTHUB_CLIENT_CONFIG* config)
 {
     (void)transportHandle, config;
+    return mockClientHandle;
+}
+
+IOTHUB_CLIENT_HANDLE IoTHubClient_CreateFromDeviceAuth(const char* iothub_uri, const char* device_id, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
+{
+    (void)iothub_uri, device_id, protocol;
     return mockClientHandle;
 }
 
@@ -387,6 +405,55 @@ IOTHUBMESSAGE_CONTENT_TYPE IoTHubMessage_GetContentType(IOTHUB_MESSAGE_HANDLE io
     return mockString ? IOTHUBMESSAGE_STRING : IOTHUBMESSAGE_BYTEARRAY;
 }
 
+
+IOTHUB_MESSAGE_RESULT IoTHubMessage_SetContentTypeSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle, const char* contentType)
+{
+    (void)iotHubMessageHandle;
+    (void)contentType;
+    return IOTHUB_MESSAGE_OK;
+}
+
+const char* IoTHubMessage_GetContentTypeSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    if (!mockString)
+    {
+        return NULL;
+    }
+    return mockBuffer;
+}
+
+
+IOTHUB_MESSAGE_RESULT IoTHubMessage_SetContentEncodingSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle, const char* contentEncoding)
+{
+    (void)iotHubMessageHandle;
+    (void)contentEncoding;
+    return IOTHUB_MESSAGE_OK;
+}
+
+const char* IoTHubMessage_GetContentEncodingSystemProperty(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    if (!mockString)
+    {
+        return NULL;
+    }
+    return mockBuffer;
+}
+
+const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* IoTHubMessage_GetDiagnosticPropertyData(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return NULL;
+}
+
+IOTHUB_MESSAGE_RESULT IoTHubMessage_SetDiagnosticPropertyData(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle, const IOTHUB_MESSAGE_DIAGNOSTIC_PROPERTY_DATA* diagnosticData)
+{
+    (void)iotHubMessageHandle;
+    (void)diagnosticData;
+    return IOTHUB_MESSAGE_OK;
+}
+
 MAP_HANDLE IoTHubMessage_Properties(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
 {
     (void)iotHubMessageHandle;
@@ -456,9 +523,10 @@ void IoTHubMessage_Destroy(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
     (void)iotHubMessageHandle;
 }
 
-// "iothubtransporthttp.h"
 TRANSPORT_PROVIDER *mockProtocol = (TRANSPORT_PROVIDER *)0x12345678;
-extern "C" {
+extern "C" 
+{
+    // "iothubtransporthttp.h"
     const TRANSPORT_PROVIDER* HTTP_Protocol(void)
     {
         return mockProtocol;
