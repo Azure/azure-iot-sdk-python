@@ -48,10 +48,6 @@ EXPORTS
     IoTHubDeviceTwin_UpdateTwin
     IoTHubDeviceTwin_GetModuleTwin
     IoTHubDeviceTwin_UpdateModuleTwin
-;   iothubtransporthttp.h
-    HTTP_Protocol
-;   iothubtransportamqp.h
-    AMQP_Protocol
 ;   map.h (c-utility)
     Map_Create
     Map_Destroy
