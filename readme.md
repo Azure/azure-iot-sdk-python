@@ -61,7 +61,7 @@ git submodule update --init --recursive
 | [File Upload](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-file-upload)                    | :x:                | Set up your backend app to send file upload notification receiver.                                                                 |
 
 ### Provisioning client SDK
-This repository contains [provisioning device client SDK](./provisioning_device_client) for the [Device Provisioning Service](https://docs.microsoft.com/en-us/azure/iot-dps/).  Provisioning service SDK for Python is work in progress.  Please see provisoning service SDK in [Node.js](https://github.com/Azure/azure-iot-sdk-node) and [Java](https://github.com/Azure/azure-iot-sdk-java) in the meantime.
+This repository contains [provisioning device client SDK](./provisioning_device_client) for the [Device Provisioning Service](https://docs.microsoft.com/en-us/azure/iot-dps/).  Provisioning service SDK for Python is work in progress.  Please see provisoning service SDK in [Node.js](https://github.com/Azure/azure-iot-sdk-node), [Java](https://github.com/Azure/azure-iot-sdk-java) and [.NET](https://github.com/Azure/azure-iot-sdk-csharp) in the meantime.
 
 :heavy_check_mark: feature available  :heavy_multiplication_x: feature planned but not supported  :heavy_minus_sign: no support planned
 
