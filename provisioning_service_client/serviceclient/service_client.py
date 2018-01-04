@@ -191,16 +191,49 @@ class ProvisioningServiceClient(object):
         custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
         return self._runtime_client.device_enrollment.bulk_operation(bulk_op, VERSION, custom_headers)
 
-    def create_individual_enrollment_query(self, query_spec, page_size=10):
+    def create_individual_enrollment_query(self, query_spec, page_size=None):
         """
         Create a Query object to access results of a Provisioning Service query
+        for IndividualEnrollments
 
         Parameters:
         query_spec (QuerySpecification): The specification for the query
-        page_size (int)[default 10]: Results per page
+        page_size (int)[optional]: Max results per page
 
         Returns:
         Query object that can iterate through results of the query
         """
         query_fn = self._runtime_client.device_enrollment.query
-        return Query(query_spec, query_fn, self._sastoken_factory, page_size, VERSION)
+        return Query(query_spec, query_fn, self._sastoken_factory, VERSION, page_size)
+
+    def create_enrollment_group_query(self, query_spec, page_size=None):
+        """
+        Create a Query object to access results of a Provisioning Service query
+        for EnrollmentGroups
+
+        Parameters:
+        query_spec (QuerySpecification): The specification for the query
+        page_size (int)[optional]: Max results per page
+
+        Returns:
+        Query object that can iterate through results of the query
+        """
+        query_fn = self._runtime_client.device_enrollment_group.query
+        return Query(query_spec, query_fn, self._sastoken_factory, VERSION, page_size)
+
+    def create_registration_state_query(self, query_spec, page_size=None):
+        """
+        Create a Query object to access results of a Provisioning Service query
+        for DeviceRegistrationStates
+
+        Parameters:
+        query_spec (QuerySpecification): The specification for the query
+        page_size (int)[optional]: Max results per page
+
+        Returns:
+        Query object that can iterate through results of the query
+        """
+        raise NotImplementedError("Query Registration State currently unsupported")
+        #query_fn = self._runtime_client.registration_status.query_registration_state
+        #return Query(query_spec, query_fn, self._sastoken_factory, VERSION, page_size)
+

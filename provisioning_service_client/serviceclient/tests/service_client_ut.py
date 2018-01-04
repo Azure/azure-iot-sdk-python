@@ -230,7 +230,7 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
         self.assertEqual(ret._query_spec, qs)
         self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment.query)
         self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
-        self.assertEqual(ret.page_size, 10)
+        self.assertEqual(ret.page_size, None)
         self.assertEqual(ret._api_version, VERSION)
 
     def test_create_individual_enrollment_query_custom_page(self):
@@ -243,6 +243,33 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
         self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
         self.assertEqual(ret.page_size, page_size)
         self.assertEqual(ret._api_version, VERSION)
+
+    def test_create_enrollment_group_query_default_page(self):
+        qs = QuerySpecification("*")
+        ret = self.psc.create_enrollment_group_query(qs)
+        self.assertIsInstance(ret, Query)
+        self.assertEqual(ret._query_spec, qs)
+        self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment_group.query)
+        self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
+        self.assertEqual(ret.page_size, None)
+        self.assertEqual(ret._api_version, VERSION)
+
+    def test_create_enrollment_group_query_custom_page(self):
+        qs = QuerySpecification("*")
+        page_size = 50
+        ret = self.psc.create_enrollment_group_query(qs, page_size)
+        self.assertIsInstance(ret, Query)
+        self.assertEqual(ret._query_spec, qs)
+        self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment_group.query)
+        self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
+        self.assertEqual(ret.page_size, page_size)
+        self.assertEqual(ret._api_version, VERSION)
+
+    def test_create_registration_state_query_default_page(self):
+        pass
+
+    def test_create_registration_state_query_custom_page(self):
+        pass
 
 
 class TestProvisioningServiceCleintWithBadInputs(TestValidProvisioningServiceClient):

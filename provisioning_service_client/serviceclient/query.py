@@ -4,10 +4,10 @@
 
 from service import VERSION
 from models import IndividualEnrollment, EnrollmentGroup, DeviceRegistrationState
-from serviceclient.service.operations import  DeviceEnrollmentOperations
+from serviceclient.service.operations import DeviceEnrollmentOperations
 
 
-class Query:
+class Query(object):
     """
     Query object that can be used to iterate over Provisioning Service data
     corresponding to a given QuerySpecification.
@@ -16,16 +16,17 @@ class Query:
     ProvisioningServiceClient instance, not directly constructed.
 
     Data Attributes:
-    page_size (int): Number of results returned at once
+    page_size (int): Max number of results returned per page
     has_next (bool): Indicates if the Query has more results to return
     continuation_token (str): Token indicating current position in list of results
     """
 
     page_size_header = "x-ms-max-item-count"
     continuation_token_header = "x-ms-continuation"
+    item_type_header = "x-ms-item-type"
     authorization_header = "Authorization"
 
-    def __init__(self, query_spec, query_fn, sastoken_factory, page_size, api_version):
+    def __init__(self, query_spec, query_fn, sastoken_factory, api_version, page_size=None):
         """
         Constructor for internal use only
 
@@ -36,7 +37,7 @@ class Query:
             query_fn(qs: QuerySpecification, api_version: str, cust_headers: dict, raw_resp: bool)
             and return a ClientRawResponse when raw_resp == True
         sastoken_factory (SasTokenFactory): A factory that generates SasToken objects
-        page_size (int): Desired results per page
+        page_size (int)[optional]: Max results per page
         api_version (str): version of the Provisioning Service API to use
         """
         self._query_spec = query_spec
@@ -54,6 +55,17 @@ class Query:
     def __next__(self):
         return self.next()
 
+    @property
+    def page_size(self):
+        return self.__page_size
+
+    @page_size.setter
+    def page_size(self, value):
+        if value is None or value > 0:
+            self.__page_size = value
+        else:
+            raise ValueError("Page size must be a positive number")
+
     def next(self, continuation_token=None):
         """
         Get the next page of results
@@ -68,13 +80,18 @@ class Query:
         if not self.has_next:
             raise StopIteration("No more results")
 
-        if continuation_token == None:
+        if not continuation_token:
             continuation_token = self.continuation_token
+
+        if self.page_size is not None:
+            page_size = str(self.__page_size)
+        else:
+            page_size = self.__page_size
 
         custom_headers = {}
         custom_headers[Query.authorization_header] = str(self._sastoken_factory.generate_sastoken())
         custom_headers[Query.continuation_token_header] = continuation_token
-        custom_headers[Query.page_size_header] = str(self.page_size)
+        custom_headers[Query.page_size_header] = page_size
 
         raw_resp = self._query_fn(self._query_spec, self._api_version, custom_headers, True)
         if not raw_resp.output:
