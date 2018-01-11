@@ -3,6 +3,9 @@
 
 ## Getting Started
 To build the DPS Service Client, simply install AutoRest in Node.js via `npm` (`npm install -g autorest`) and then run:
+> `autorest serviceswagger-generator.md`
+
+To see additional help and options, run:
 > `autorest --help`
 
 For other options on installation see [Installing Autorest](https://aka.ms/autorest/install) on the AutoRest GitHub page
