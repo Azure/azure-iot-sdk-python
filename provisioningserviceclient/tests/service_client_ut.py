@@ -13,7 +13,7 @@ from provisioningserviceclient.service_client import ProvisioningServiceClient, 
 from utils.sastoken import SasTokenFactory
 from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState, AttestationMechanism, DeviceRegistrationState
-from provisioningserviceclient import Query, QuerySpecification
+import provisioningserviceclient
 from serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
 from serviceswagger.operations import DeviceEnrollmentOperations, \
     DeviceEnrollmentGroupOperations, RegistrationStateOperations
@@ -507,23 +507,45 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         mock_bulk_op.assert_called_with(self.bulkop, self.expected_headers(), True)
 
 
+class Class:
+    def method(self):
+        pass
 
 class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceClient):
 
+    #def test_patch(self):
+    #    with mock.patch('Class') as MockClass:
+    #        instance = MockClass.return_value
+    #        instance.method.return_value = "foo"
+    #        assert Class() is instance
+    #        assert Class().method() == "foo"
+
+    @mock.patch('provisioningserviceclient.Query', autospec=True)
     def test_create_individual_enrollment_query_default_page(self, mock_query):
 
-        qs = QuerySpecification("*")
+        #q = provisioningserviceclient.Query("","","")
+        #r = mock_query.called
+
+        qs = provisioningserviceclient.QuerySpecification("*")
+        #with mock.patch('provisioningserviceclient.query.Query') as mock_query:
+        #    instance = mock_query.return_value
+        #    assert Query("","","") is instance
+
+        #q = Query(qs, "", "")
+
         ret = self.psc.create_individual_enrollment_query(qs)
+        r = mock_query.called
+        print r
         #mock_query.assert_called_with(qs, self.psc._runtime_client.device_enrollment.query, \
         #    self.psc._sastoken_factory, None)
         #self.assertIs(ret, mock_query.return_value)
 
-        self.assertIsInstance(ret, Query)
-        self.assertEqual(ret._query_spec, qs)
-        self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment.query)
-        self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
-        self.assertEqual(ret.page_size, None)
-        self.assertEqual(ret._api_version, VERSION)
+        #self.assertIsInstance(ret, Query)
+        #self.assertEqual(ret._query_spec, qs)
+        #self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment.query)
+        #self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
+        #self.assertEqual(ret.page_size, None)
+        #self.assertEqual(ret._api_version, VERSION)
 
     def test_create_individual_enrollment_query_custom_page(self):
         qs = QuerySpecification("*")

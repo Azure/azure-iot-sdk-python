@@ -9,6 +9,7 @@ import provisioningserviceclient.models as models
 from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState
 from provisioningserviceclient.query import Query
+import provisioningserviceclient
 
 
 def _is_successful(status_code):
@@ -103,7 +104,7 @@ class ProvisioningServiceClient(object):
         custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
 
         try:
-            raw_resp = operation(id, model, model.etag, custom_headers, True)
+            raw_resp = operation(id, model._internal, model.etag, custom_headers, True)
         except genmodels.ProvisioningServiceErrorDetailsException as e:
             raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
 
@@ -111,8 +112,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        models._convert_to_wrapper(result)
-        return result
+        return models._wrap_internal_model(result)
 
     def get_individual_enrollment(self, reg_id):
         """
@@ -136,8 +136,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        models._convert_to_wrapper(result)
-        return result
+        return IndividualEnrollment(result)
 
     def get_enrollment_group(self, grp_id):
         """
@@ -162,8 +161,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        models._convert_to_wrapper(result)
-        return result
+        return EnrollmentGroup(result)
 
     def get_registration_state(self, reg_id):
         """
@@ -187,8 +185,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        models._convert_to_wrapper(result)
-        return result
+        return DeviceRegistrationState(result)
 
     def delete(self, model):
         """
@@ -283,6 +280,9 @@ class ProvisioningServiceClient(object):
         custom_headers = {}
         custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
 
+        for i in range(len(bulk_op.enrollments)):
+            bulk_op[i] = bulk_op[i]._internal
+
         try:
             raw_resp = self._runtime_client.device_enrollment.bulk_operation(bulk_op, custom_headers, True)
         except genmodels.ProvisioningServiceErrorDetailsException as e:
@@ -308,7 +308,7 @@ class ProvisioningServiceClient(object):
         Query object that can iterate through results of the query
         """
         query_fn = self._runtime_client.device_enrollment.query
-        return Query(query_spec, query_fn, self._sastoken_factory, page_size)
+        return provisioningserviceclient.Query(query_spec, query_fn, self._sastoken_factory, page_size)
 
     def create_enrollment_group_query(self, query_spec, page_size=None):
         """
