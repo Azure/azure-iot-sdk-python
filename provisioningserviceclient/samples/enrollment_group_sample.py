@@ -2,8 +2,9 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-import context #only needed in this directory
+import six
 
+import context #only needed in this directory
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification
 from provisioningserviceclient.models import EnrollmentGroup, AttestationMechanism
 
@@ -21,11 +22,11 @@ if __name__ == '__main__':
 
     #create EnrollmentGroup on the Provisioning Service
     eg = psc.create_or_update(eg)
-    print eg
+    six.print_(eg)
 
     #get EnrollmentGroup from the Provisioning Service (note: this step is useless here, as eg is already up to date)
     eg = psc.get_enrollment_group(group_id)
-    print(eg)
+    six.print_(eg)
 
     #make a Provisioning Service query
     qs = QuerySpecification("*")
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     results = []
     for page in query:
         results += page
-    print results
+    six.print_(results)
     #alternatively, call query.next() to get a new page
 
     #delete EnrollmentGroup from the Provisioning Service

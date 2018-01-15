@@ -29,12 +29,12 @@ class Query(object):
     item_type_header = "x-ms-item-type"
     authorization_header = "Authorization"
 
-    def __init__(self, query_spec, query_fn, sastoken_factory, page_size=None):
+    def __init__(self, query_spec_or_id, query_fn, sastoken_factory, page_size=None):
         """
         Constructor for internal use only
 
         Parameters:
-        query_spec (QuerySpecification): The specification of the desired query
+        query_spec_or_id (QuerySpecification or str): The specification of the desired query
         query_fn (function/method): A function/method to make a query to the
             Provisioning Service. Note well that query_fn must take args in the format
             query_fn(qs: QuerySpecification, api_version: str, cust_headers: dict, raw_resp: bool)
@@ -42,7 +42,7 @@ class Query(object):
         sastoken_factory (SasTokenFactory): A factory that generates SasToken objects
         page_size (int)[optional]: Max results per page
         """
-        self._query_spec = query_spec
+        self._query_spec_or_id = query_spec_or_id
         self._query_fn = query_fn
         self.page_size = page_size
         self._sastoken_factory = sastoken_factory
@@ -94,8 +94,7 @@ class Query(object):
         custom_headers[Query.continuation_token_header] = continuation_token
         custom_headers[Query.page_size_header] = page_size
 
-        #raw_resp = self._query_fn(self._query_spec, self._api_version, custom_headers, True)
-        raw_resp = self._query_fn(self._query_spec, custom_headers, True)
+        raw_resp = self._query_fn(self._query_spec_or_id, custom_headers, True)
         if not raw_resp.output:
             raise StopIteration("No more results")
 
@@ -103,7 +102,8 @@ class Query(object):
         self.has_next = self.continuation_token != None
 
         #convert results to wrapper class
+        output = []
         for item in raw_resp.output:
-            models._convert_to_wrapper(item)
+            output.append(models._wrap_internal_model(item))
 
-        return raw_resp.output
+        return output

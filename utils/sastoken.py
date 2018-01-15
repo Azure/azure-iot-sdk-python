@@ -107,5 +107,5 @@ class SasToken(object):
             signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
             signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
             return self._token_format.format(self._uri, signature, str(self.__expiry_time), self._key_name)
-        except TypeError as e:
+        except (TypeError, base64.binascii.Error) as e:
             raise SasTokenError("Unable to build SasToken from given values", e)

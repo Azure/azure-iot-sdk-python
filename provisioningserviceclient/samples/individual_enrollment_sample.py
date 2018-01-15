@@ -2,8 +2,9 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-import context #only needed in this directory
+import six
 
+import context #only needed in this directory
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification, \
     BulkEnrollmentOperation
 from provisioningserviceclient.models import IndividualEnrollment, AttestationMechanism
@@ -19,13 +20,15 @@ if __name__ == '__main__':
     #build IndividualEnrollment model
 
     att = AttestationMechanism.create_with_tpm(endorsement_key)
-    ie = IndividualEnrollment(registration_id, att)
+    ie = IndividualEnrollment.create(registration_id, att)
 
     #create IndividualEnrollment on the Provisioning Service
     ie = psc.create_or_update(ie)
+    six._print(ie)
 
     #get IndividualEnrollment from the Provisioning Service (note: this step is useless here, as ie is already up to date)
     ie = psc.get_individual_enrollment(registration_id)
+    six._print(ie)
 
     #delete IndividualEnrollment from the Provisioning Service
     psc.delete(ie)
@@ -34,7 +37,7 @@ if __name__ == '__main__':
     #bulk create IndividualEnrollments
     enrollments = []
     for i in range(5):
-        enrollments.append(IndividualEnrollment(registration_id + str(i + 1), att))
+        enrollments.append(IndividualEnrollment.create(registration_id + str(i + 1), att))
     bulk_op = BulkEnrollmentOperation("create", enrollments)
     
     results = psc.run_bulk_operation(bulk_op)
@@ -48,3 +51,4 @@ if __name__ == '__main__':
     for page in query:
         results += page
     #alternatively, call query.next() to get a new page
+    six._print(results)

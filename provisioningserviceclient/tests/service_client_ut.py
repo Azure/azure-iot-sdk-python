@@ -4,54 +4,47 @@
 
 import copy
 import unittest
-import mock
 
+from six import add_move, MovedModule
+add_move(MovedModule('mock', 'mock', 'unittest.mock'))
+from six.moves import mock
 from msrest.pipeline import ClientRawResponse
 
-from provisioningserviceclient.service_client import ProvisioningServiceClient, \
-    BulkEnrollmentOperation, BulkEnrollmentOperationResult, ProvisioningServiceError
 from utils.sastoken import SasTokenFactory
+from provisioningserviceclient.service_client import ProvisioningServiceClient, \
+    BulkEnrollmentOperation, BulkEnrollmentOperationResult, ProvisioningServiceError, \
+    _is_successful, _copy_and_unwrap_bulkop
 from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState, AttestationMechanism, DeviceRegistrationState
-import provisioningserviceclient
+from provisioningserviceclient.query import QuerySpecification, Query
 from serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
 from serviceswagger.operations import DeviceEnrollmentOperations, \
     DeviceEnrollmentGroupOperations, RegistrationStateOperations
 import serviceswagger.models as genmodels
 
-def make_drs():
-    DRS = DeviceRegistrationState("reg-id", "assigned")
-    return DRS
-
-def make_ie_bulk_op():
-    enrollments = []
-    for i in range(5):
-        #ie = make_ie_tpm()
-        #ie.registration_id = "reg-id" + str(i)
-        #enrollments.append(ie)
-        pass
-    bulk_op = BulkEnrollmentOperation("create", enrollments)
 
 SAS = "dummy_token"
 RESP_MSG = "message"
+REG_ID = "reg-id"
 SUCCESS = 200
 SUCCESS_DEL = 204
 FAIL = 400
 UNEXPECTED_FAIL = 793
 
-IE_BULK_OP = make_ie_bulk_op()
-DRS = make_drs()
 
 def dummy(arg1, arg2):
     pass
+
 
 def create_raw_response(body, status, message):
     resp = Response(status, message)
     return ClientRawResponse(body, resp)
 
+
 def create_PSED_Exception(status, message):
     resp = Response(status, message)
     return genmodels.ProvisioningServiceErrorDetailsException(dummy, resp)
+
 
 class Response(object):
     def __init__(self, status_code, message):
@@ -60,6 +53,7 @@ class Response(object):
 
     def raise_for_status(arg1):
         pass
+
 
 class TestCreationProvisioningServiceClient(unittest.TestCase):
 
@@ -126,22 +120,20 @@ class TestProvisioningServiceClientWithIndividualEnrollment(TestValidProvisionin
 
     def setUp(self):
         tpm_am = AttestationMechanism.create_with_tpm("my-ek")
-        self.ie = IndividualEnrollment("reg-id", tpm_am)
+        self.ie = IndividualEnrollment.create("reg-id", tpm_am)
 
-        self.ret_ie = copy.deepcopy(self.ie)
+        self.ret_ie = copy.deepcopy(self.ie._internal)
         self.ret_ie.created_updated_time_utc = 1000
         self.ret_ie.last_updated_time_utc = 1000
-        self.ret_ie.__class__ = genmodels.IndividualEnrollment
-        self.ret_ie.attestation.__class__ = genmodels.AttestationMechanism
 
     @mock.patch.object(DeviceEnrollmentOperations, 'create_or_update')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_create_or_update_ie_success(self, mock_sas, mock_create):
         mock_create.return_value = create_raw_response(self.ret_ie, SUCCESS, RESP_MSG)
         ret = self.psc.create_or_update(self.ie)
-        self.assertIs(ret, self.ret_ie)
+        self.assertIs(ret._internal, self.ret_ie)
         self.assertIsInstance(ret, IndividualEnrollment)
-        mock_create.assert_called_with(self.ie.registration_id, self.ie, self.ie.etag, \
+        mock_create.assert_called_with(self.ie.registration_id, self.ie._internal, self.ie.etag, \
             self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'create_or_update')
@@ -153,7 +145,7 @@ class TestProvisioningServiceClientWithIndividualEnrollment(TestValidProvisionin
         e = cm.exception
         self.assertEqual(RESP_MSG, str(e))
         self.assertIsNone(e.cause)
-        mock_create.assert_called_with(self.ie.registration_id, self.ie, self.ie.etag, \
+        mock_create.assert_called_with(self.ie.registration_id, self.ie._internal, self.ie.etag, \
             self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'create_or_update')
@@ -166,7 +158,7 @@ class TestProvisioningServiceClientWithIndividualEnrollment(TestValidProvisionin
         e = cm.exception
         self.assertEqual(self.psc.err_msg_unexpected.format(UNEXPECTED_FAIL), str(e))
         self.assertIs(e.cause, mock_ex)
-        mock_create.assert_called_with(self.ie.registration_id, self.ie, self.ie.etag, \
+        mock_create.assert_called_with(self.ie.registration_id, self.ie._internal, self.ie.etag, \
             self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'get')
@@ -174,7 +166,7 @@ class TestProvisioningServiceClientWithIndividualEnrollment(TestValidProvisionin
     def test_get_individual_enrollment(self, mock_sas, mock_get):
         mock_get.return_value = create_raw_response(self.ret_ie, SUCCESS, RESP_MSG)
         ret = self.psc.get_individual_enrollment(self.ie.registration_id)
-        self.assertIs(ret, self.ret_ie)
+        self.assertIs(ret._internal, self.ret_ie)
         self.assertIsInstance(ret, IndividualEnrollment)
         mock_get.assert_called_with(self.ie.registration_id, self.expected_headers(), True)
 
@@ -250,22 +242,20 @@ class TestProvisioningServiceClientWithEnrollmentGroup(TestValidProvisioningServ
 
     def setUp(self):
         x509_am = AttestationMechanism.create_with_x509_signing_certs("test-cert")
-        self.eg = EnrollmentGroup("grp-id", x509_am)
+        self.eg = EnrollmentGroup.create("grp-id", x509_am)
 
         self.ret_eg = copy.deepcopy(self.eg)
         self.ret_eg.created_updated_time_utc = 1000
         self.ret_eg.last_updated_time_utc = 1000
-        self.ret_eg.__class__ = genmodels.EnrollmentGroup
-        self.ret_eg.attestation.__class__ = genmodels.AttestationMechanism
 
     @mock.patch.object(DeviceEnrollmentGroupOperations, 'create_or_update')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_create_or_update_eg(self, mock_sas, mock_create):
         mock_create.return_value = create_raw_response(self.ret_eg, SUCCESS, RESP_MSG)
         ret = self.psc.create_or_update(self.eg)
-        self.assertIs(ret, self.ret_eg)
+        self.assertIs(ret._internal, self.ret_eg)
         self.assertIsInstance(ret, EnrollmentGroup)
-        mock_create.assert_called_with(self.eg.enrollment_group_id, self.eg, self.eg.etag, \
+        mock_create.assert_called_with(self.eg.enrollment_group_id, self.eg._internal, self.eg.etag, \
             self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentGroupOperations, 'create_or_update')
@@ -277,7 +267,7 @@ class TestProvisioningServiceClientWithEnrollmentGroup(TestValidProvisioningServ
         e = cm.exception
         self.assertEqual(RESP_MSG, str(e))
         self.assertIsNone(e.cause)
-        mock_create.assert_called_with(self.eg.enrollment_group_id, self.eg, self.eg.etag, \
+        mock_create.assert_called_with(self.eg.enrollment_group_id, self.eg._internal, self.eg.etag, \
             self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentGroupOperations, 'create_or_update')
@@ -290,7 +280,7 @@ class TestProvisioningServiceClientWithEnrollmentGroup(TestValidProvisioningServ
         e = cm.exception
         self.assertEqual(self.psc.err_msg_unexpected.format(UNEXPECTED_FAIL), str(e))
         self.assertIs(e.cause, mock_ex)
-        mock_create.assert_called_with(self.eg.enrollment_group_id, self.eg, self.eg.etag, \
+        mock_create.assert_called_with(self.eg.enrollment_group_id, self.eg._internal, self.eg.etag, \
             self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentGroupOperations, 'get')
@@ -298,7 +288,7 @@ class TestProvisioningServiceClientWithEnrollmentGroup(TestValidProvisioningServ
     def test_get_enrollment_group(self, mock_sas, mock_get):
         mock_get.return_value = create_raw_response(self.ret_eg, SUCCESS, RESP_MSG)
         ret = self.psc.get_enrollment_group(self.eg.enrollment_group_id)
-        self.assertIs(ret, self.ret_eg)
+        self.assertIs(ret._internal, self.ret_eg)
         self.assertIsInstance(ret, EnrollmentGroup)
         mock_get.assert_called_with(self.eg.enrollment_group_id, self.expected_headers(), True)
 
@@ -373,25 +363,24 @@ class TestProvisioningServiceClientWithEnrollmentGroup(TestValidProvisioningServ
 class TestProvisioningServiceClientWithRegistrationState(TestValidProvisioningServiceClient):
 
     def setUp(self):
-        self.drs = DeviceRegistrationState("reg-id", "assigned")
+        self.drs = DeviceRegistrationState(genmodels.DeviceRegistrationState("reg-id", "assigned"))
 
-        self.ret_drs = copy.deepcopy(self.drs)
+        self.ret_drs = copy.deepcopy(self.drs._internal)
         self.ret_drs.created_updated_time_utc = 1000
         self.ret_drs.last_updated_time_utc = 1000
-        self.ret_drs.__class__ = genmodels.DeviceRegistrationState
 
     @mock.patch.object(RegistrationStateOperations, 'get_registration_state')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_get_registration_state(self, mock_sas, mock_get):
         mock_get.return_value = create_raw_response(self.ret_drs, SUCCESS, RESP_MSG)
         ret = self.psc.get_registration_state(self.drs.registration_id)
-        self.assertIs(ret, self.ret_drs)
+        self.assertIs(ret._internal, self.ret_drs)
         self.assertIsInstance(ret, DeviceRegistrationState)
         mock_get.assert_called_with(self.drs.registration_id, self.expected_headers(), True)
 
     @mock.patch.object(RegistrationStateOperations, 'get_registration_state')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
-    def test_get_registration_state(self, mock_sas, mock_get):
+    def test_get_registration_state_fail(self, mock_sas, mock_get):
         mock_get.return_value = create_raw_response(self.ret_drs, FAIL, RESP_MSG)
         with self.assertRaises(ProvisioningServiceError) as cm:
             ret = self.psc.get_registration_state(self.drs.registration_id)
@@ -402,7 +391,7 @@ class TestProvisioningServiceClientWithRegistrationState(TestValidProvisioningSe
 
     @mock.patch.object(RegistrationStateOperations, 'get_registration_state')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
-    def test_get_registration_state(self, mock_sas, mock_get):
+    def test_get_registration_state_service_fail(self, mock_sas, mock_get):
         mock_ex = create_PSED_Exception(UNEXPECTED_FAIL, RESP_MSG)
         mock_get.side_effect = mock_ex
         with self.assertRaises(ProvisioningServiceError) as cm:
@@ -458,45 +447,57 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         enrollments = []
         for i in range(5):
             att = AttestationMechanism.create_with_tpm("test-ek")
-            enrollments.append(IndividualEnrollment("reg-id" + str(i), att))
+            enrollments.append(IndividualEnrollment.create("reg-id" + str(i), att))
         self.bulkop = BulkEnrollmentOperation("create", enrollments)
 
-        self.bulkop_resp = BulkEnrollmentOperationResult("True")
-        self.bulkop_resp.__class__ = genmodels.BulkEnrollmentOperationResult
+        internal = []
+        for enrollment in self.bulkop.enrollments:
+            internal.append(enrollment._internal)
+        self.internal_bulkop = BulkEnrollmentOperation("create", internal)
+
+        self.bulkop_resp = BulkEnrollmentOperationResult(True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
+    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
-    def test_run_bulk_operation_op_success(self, mock_sas, mock_bulk_op):
+    def test_run_bulk_operation_op_success(self, mock_sas, mock_unwrap, mock_bulk_op):
         mock_bulk_op.return_value = create_raw_response(self.bulkop_resp, SUCCESS, RESP_MSG)
+        mock_unwrap.return_value = self.internal_bulkop
         ret = self.psc.run_bulk_operation(self.bulkop)
         self.assertEqual(ret, self.bulkop_resp)
-        self.assertIsInstance(ret, BulkEnrollmentOperation)
-        mock_bulk_op.assert_called_with(self.bulkop, self.expected_headers(), True)
+        self.assertIsInstance(ret, BulkEnrollmentOperationResult)
+        mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
+    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
-    def test_run_bulk_operation_op_fail(self, mock_sas, mock_bulk_op):
+    def test_run_bulk_operation_op_fail(self, mock_sas, mock_unwrap, mock_bulk_op):
         self.bulkop_resp.is_successful = False
         mock_bulk_op.return_value = create_raw_response(self.bulkop_resp, SUCCESS, RESP_MSG)
+        mock_unwrap.return_value = self.internal_bulkop
         ret = self.psc.run_bulk_operation(self.bulkop)
         self.assertEqual(ret, self.bulkop_resp)
-        self.assertIsInstance(ret, BulkEnrollmentOperation)
-        mock_bulk_op.assert_called_with(self.bulkop, self.expected_headers(), True)
+        self.assertIsInstance(ret, BulkEnrollmentOperationResult)
+        mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
+    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
-    def test_run_bulk_operation_fail_response(self, mock_sas, mock_bulk_op):
+    def test_run_bulk_operation_fail_response(self, mock_sas, mock_unwrap, mock_bulk_op):
         mock_bulk_op.return_value = create_raw_response(None, FAIL, RESP_MSG)
+        mock_unwrap.return_value = self.internal_bulkop
         with self.assertRaises(ProvisioningServiceError) as cm:
             ret = self.psc.run_bulk_operation(self.bulkop)
         e = cm.exception
         self.assertEqual(str(e), RESP_MSG)
         self.assertIsNone(e.cause)
-        mock_bulk_op.assert_called_with(self.bulkop, self.expected_headers(), True)
+        mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
+    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
-    def test_run_bulk_operation_service_exception(self, mock_sas, mock_bulk_op):
+    def test_run_bulk_operation_service_exception(self, mock_sas, mock_unwrap, mock_bulk_op):
+        mock_unwrap.return_value = self.internal_bulkop
         mock_ex = create_PSED_Exception(UNEXPECTED_FAIL, RESP_MSG)
         mock_bulk_op.side_effect = mock_ex
         with self.assertRaises(ProvisioningServiceError) as cm:
@@ -504,86 +505,62 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         e = cm.exception
         self.assertEqual(str(e), self.psc.err_msg_unexpected.format(UNEXPECTED_FAIL))
         self.assertIs(e.cause, mock_ex)
-        mock_bulk_op.assert_called_with(self.bulkop, self.expected_headers(), True)
+        mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
-
-class Class:
-    def method(self):
-        pass
 
 class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceClient):
 
-    #def test_patch(self):
-    #    with mock.patch('Class') as MockClass:
-    #        instance = MockClass.return_value
-    #        instance.method.return_value = "foo"
-    #        assert Class() is instance
-    #        assert Class().method() == "foo"
-
-    @mock.patch('provisioningserviceclient.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
     def test_create_individual_enrollment_query_default_page(self, mock_query):
 
-        #q = provisioningserviceclient.Query("","","")
-        #r = mock_query.called
-
-        qs = provisioningserviceclient.QuerySpecification("*")
-        #with mock.patch('provisioningserviceclient.query.Query') as mock_query:
-        #    instance = mock_query.return_value
-        #    assert Query("","","") is instance
-
-        #q = Query(qs, "", "")
-
+        qs = QuerySpecification("*")
         ret = self.psc.create_individual_enrollment_query(qs)
-        r = mock_query.called
-        print r
-        #mock_query.assert_called_with(qs, self.psc._runtime_client.device_enrollment.query, \
-        #    self.psc._sastoken_factory, None)
-        #self.assertIs(ret, mock_query.return_value)
+        mock_query.assert_called_with(qs, self.psc._runtime_client.device_enrollment.query, \
+            self.psc._sastoken_factory, None)
+        self.assertIs(ret, mock_query.return_value)
 
-        #self.assertIsInstance(ret, Query)
-        #self.assertEqual(ret._query_spec, qs)
-        #self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment.query)
-        #self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
-        #self.assertEqual(ret.page_size, None)
-        #self.assertEqual(ret._api_version, VERSION)
-
-    def test_create_individual_enrollment_query_custom_page(self):
+    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    def test_create_individual_enrollment_query_custom_page(self, mock_query):
         qs = QuerySpecification("*")
         page_size = 50
         ret = self.psc.create_individual_enrollment_query(qs, page_size)
-        self.assertIsInstance(ret, Query)
-        self.assertEqual(ret._query_spec, qs)
-        self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment.query)
-        self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
-        self.assertEqual(ret.page_size, page_size)
-        self.assertEqual(ret._api_version, VERSION)
+        mock_query.assert_called_with(qs, self.psc._runtime_client.device_enrollment.query, \
+            self.psc._sastoken_factory, page_size)
+        self.assertIs(ret, mock_query.return_value)
 
-    def test_create_enrollment_group_query_default_page(self):
+    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    def test_create_enrollment_group_query_default_page(self, mock_query):
         qs = QuerySpecification("*")
         ret = self.psc.create_enrollment_group_query(qs)
-        self.assertIsInstance(ret, Query)
-        self.assertEqual(ret._query_spec, qs)
-        self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment_group.query)
-        self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
-        self.assertEqual(ret.page_size, None)
-        self.assertEqual(ret._api_version, VERSION)
+        mock_query.assert_called_with(qs, self.psc._runtime_client.device_enrollment_group.query, \
+            self.psc._sastoken_factory, None)
+        self.assertIs(ret, mock_query.return_value)
 
-    def test_create_enrollment_group_query_custom_page(self):
+    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    def test_create_enrollment_group_query_custom_page(self, mock_query):
         qs = QuerySpecification("*")
         page_size = 50
         ret = self.psc.create_enrollment_group_query(qs, page_size)
-        self.assertIsInstance(ret, Query)
-        self.assertEqual(ret._query_spec, qs)
-        self.assertEqual(ret._query_fn, self.psc._runtime_client.device_enrollment_group.query)
-        self.assertEqual(ret._sastoken_factory, self.psc._sastoken_factory)
-        self.assertEqual(ret.page_size, page_size)
-        self.assertEqual(ret._api_version, VERSION)
+        mock_query.assert_called_with(qs, self.psc._runtime_client.device_enrollment_group.query, \
+            self.psc._sastoken_factory, page_size)
+        self.assertIs(ret, mock_query.return_value)
 
-    def test_create_registration_state_query_default_page(self):
-        pass
+    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    def test_create_registration_state_query_default_page(self, mock_query):
+        id = REG_ID
+        ret = self.psc.create_registration_state_query(id)
+        mock_query.assert_called_with(id, self.psc._runtime_client.registration_state.query_registration_state, \
+            self.psc._sastoken_factory, None)
+        self.assertIs(ret, mock_query.return_value)
 
-    def test_create_registration_state_query_custom_page(self):
-        pass
+    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    def test_create_registration_state_query_custom_page(self, mock_query):
+        id = REG_ID
+        page_size = 50
+        ret = self.psc.create_registration_state_query(id, page_size)
+        mock_query.assert_called_with(id, self.psc._runtime_client.registration_state.query_registration_state, \
+            self.psc._sastoken_factory, page_size)
+        self.assertIs(ret, mock_query.return_value)
 
 
 class TestProvisioningServiceCleintWithBadInputs(TestValidProvisioningServiceClient):
@@ -596,6 +573,30 @@ class TestProvisioningServiceCleintWithBadInputs(TestValidProvisioningServiceCli
         with self.assertRaises(TypeError):
             self.psc.delete(object())
 
+
+class TestHelperFunctions(unittest.TestCase):
+
+    def test_is_successful(self):
+        for i in range(999):
+            ret = _is_successful(i)
+
+            if i == 200 or i == 204:
+                self.assertTrue(ret)
+            else:
+                self.assertFalse(ret)
+
+    def test_copy_and_unwrap_bulkop(self):
+        enrollments = []
+        for i in range(5):
+            att = AttestationMechanism.create_with_tpm("test-ek")
+            enrollments.append(IndividualEnrollment.create("reg-id" + str(i), att))
+        bulkop = BulkEnrollmentOperation("create", enrollments)
+
+        res = _copy_and_unwrap_bulkop(bulkop)
+
+        for i in range(len(res.enrollments)):
+            self.assertIs(res.enrollments[i], bulkop.enrollments[i]._internal)
+        
 
 if __name__ == '__main__':
     unittest.main()

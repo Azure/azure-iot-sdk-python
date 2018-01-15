@@ -4,6 +4,10 @@
 
 import unittest
 
+from six import add_move, MovedModule
+add_move(MovedModule('mock', 'mock', 'unittest.mock'))
+from six.moves import mock
+
 from provisioningserviceclient.models import AttestationMechanism, IndividualEnrollment, \
     EnrollmentGroup, DeviceRegistrationState, InitialTwin
 import serviceswagger.models as genmodels
@@ -28,11 +32,8 @@ TEST_ERR_CODE = 9000
 TEST_ERR_MSG = "test-error"
 TEST_TAGS = {"tag_key" : "tag_val"}
 TEST_PROPERTIES = {"property_key" : "property_val"}
-
-
 NEWVAL = "newval"
 NEWDICT = {"new":"value"}
-
 REG_STATUS_ASSIGNED = "assigned"
 PROV_STATUS_ENABLED = "enabled"
 
@@ -602,6 +603,7 @@ class TestInitialTwinAttributes(unittest.TestCase):
     def test_ts_set_desired_properties(self):
         self.twin.desired_properties = NEWDICT
         self.assertIs(self.twin._internal.properties.desired.additional_properties, NEWDICT)
+
 
 if __name__ == '__main__':
     unittest.main()

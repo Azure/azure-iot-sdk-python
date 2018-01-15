@@ -23,14 +23,24 @@ def _is_successful(status_code):
     return result
 
 
+def _copy_and_unwrap_bulkop(bulk_op):
+    new_enrollments= []
+    for i in range(len(bulk_op.enrollments)):
+        new_enrollments.append(bulk_op.enrollments[i]._internal)
+    return BulkEnrollmentOperation(bulk_op.mode, new_enrollments)
+
+
 class BulkEnrollmentOperation(genmodels.BulkEnrollmentOperation):
     pass
+
 
 class BulkEnrollmentOperationResult(genmodels.BulkEnrollmentOperationResult):
     pass
 
+
 class BulkEnrollmentOperationError(genmodels.BulkEnrollmentOperationError):
     pass
+
 
 class ProvisioningServiceError(Exception):
     def __init__(self, message, cause=None):
@@ -280,11 +290,10 @@ class ProvisioningServiceClient(object):
         custom_headers = {}
         custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
 
-        for i in range(len(bulk_op.enrollments)):
-            bulk_op[i] = bulk_op[i]._internal
+        internal_bulkop = _copy_and_unwrap_bulkop(bulk_op)
 
         try:
-            raw_resp = self._runtime_client.device_enrollment.bulk_operation(bulk_op, custom_headers, True)
+            raw_resp = self._runtime_client.device_enrollment.bulk_operation(internal_bulkop, custom_headers, True)
         except genmodels.ProvisioningServiceErrorDetailsException as e:
             raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
 
@@ -308,7 +317,7 @@ class ProvisioningServiceClient(object):
         Query object that can iterate through results of the query
         """
         query_fn = self._runtime_client.device_enrollment.query
-        return provisioningserviceclient.Query(query_spec, query_fn, self._sastoken_factory, page_size)
+        return Query(query_spec, query_fn, self._sastoken_factory, page_size)
 
     def create_enrollment_group_query(self, query_spec, page_size=None):
         """
@@ -325,19 +334,18 @@ class ProvisioningServiceClient(object):
         query_fn = self._runtime_client.device_enrollment_group.query
         return Query(query_spec, query_fn, self._sastoken_factory, page_size)
 
-    def create_registration_state_query(self, query_spec, page_size=None):
+    def create_registration_state_query(self, reg_id, page_size=None):
         """
         Create a Query object to access results of a Provisioning Service query
         for DeviceRegistrationStates
 
         Parameters:
-        query_spec (QuerySpecification): The specification for the query
+        reg_id (str): Registration ID
         page_size (int)[optional]: Max results per page
 
         Returns:
         Query object that can iterate through results of the query
         """
-        raise NotImplementedError("Query Registration State currently unsupported")
-        #query_fn = self._runtime_client.registration_state.query_registration_state
-        #return Query(query_spec, query_fn, self._sastoken_factory, VERSION, page_size)
+        query_fn = self._runtime_client.registration_state.query_registration_state
+        return Query(reg_id, query_fn, self._sastoken_factory, page_size)
 
