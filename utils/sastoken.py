@@ -76,12 +76,12 @@ class SasToken(object):
         self.refresh(ttl)
 
     def __repr__(self):
-        return self.__token
+        return self._token
 
     @property
     def expiry_time(self):
         """Get the expiry time, in UTC (since epoch)"""
-        return self.__expiry_time
+        return self._expiry_time
 
     def refresh(self, new_ttl=None):
         """
@@ -91,9 +91,9 @@ class SasToken(object):
         new_ttl (int)[optional]: New time to live for the token in seconds
         """
         if new_ttl:
-            self.__ttl = new_ttl
-        self.__expiry_time = int(time.time() + self.__ttl)
-        self.__token = self._build_token()
+            self._ttl = new_ttl
+        self._expiry_time = int(time.time() + self._ttl)
+        self._token = self._build_token()
 
     def _build_token(self):
         """Buid SasToken representation
@@ -102,10 +102,10 @@ class SasToken(object):
         String representation of the token
         """
         try:
-            message = (self._uri + '\n' + str(self.__expiry_time)).encode(self._encoding_type)
+            message = (self._uri + '\n' + str(self._expiry_time)).encode(self._encoding_type)
             signing_key = base64.b64decode(self._key.encode(self._encoding_type))
             signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
             signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
-            return self._token_format.format(self._uri, signature, str(self.__expiry_time), self._key_name)
+            return self._token_format.format(self._uri, signature, str(self._expiry_time), self._key_name)
         except (TypeError, base64.binascii.Error) as e:
             raise SasTokenError("Unable to build SasToken from given values", e)

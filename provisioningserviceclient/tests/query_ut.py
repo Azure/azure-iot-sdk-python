@@ -12,7 +12,7 @@ from utils.sastoken import SasTokenFactory
 from serviceswagger.operations.device_enrollment_operations import ClientRawResponse
 import serviceswagger.models as genmodels
 import provisioningserviceclient.models as models
-from provisioningserviceclient.query import Query, QuerySpecification
+from provisioningserviceclient.client import Query, QuerySpecification
 
 
 # Please note that continuation tokens are represented as string representations of ints (or None)
