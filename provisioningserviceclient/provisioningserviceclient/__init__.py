@@ -3,14 +3,16 @@
 # full license information.
 
 import provisioningserviceclient.models as models
-from provisioningserviceclient.service_client import ProvisioningServiceClient, BulkEnrollmentOperation, BulkEnrollmentOperationResult
-from provisioningserviceclient.query import Query, QuerySpecification
+from provisioningserviceclient.client import ProvisioningServiceClient, BulkEnrollmentOperation, \
+    BulkEnrollmentOperationResult, ProvisioningServiceError, Query, QuerySpecification
 
 
 __all__ = [
     'ProvisioningServiceClient',
+    'ProvisioningServiceError',
     'Query',
     'QuerySpecification',
     'BulkEnrollmentOperation',
     'BulkEnrollmentOperationResult',
+    'models'
 ]

@@ -15,7 +15,7 @@ if __name__ == '__main__':
     registration_id = "[Registration ID]"
     
     #set up the provisioning service client
-    psc = ProvisioningServiceClient(connection_string)
+    psc = ProvisioningServiceClient.create_from_connection_string(connection_string)
 
     #build IndividualEnrollment model
 

@@ -14,7 +14,7 @@ if __name__ == '__main__':
     group_id = "[Group ID]"
     
     #set up the provisioning service client
-    psc = ProvisioningServiceClient(connection_string)
+    psc = ProvisioningServiceClient.create_from_connection_string(connection_string)
 
     #build EnrollmentGroup model
     att = AttestationMechanism.create_with_x509_signing_certs(signing_cert)

@@ -11,12 +11,12 @@ from six.moves import mock
 from msrest.pipeline import ClientRawResponse
 
 from utils.sastoken import SasTokenFactory
-from provisioningserviceclient.service_client import ProvisioningServiceClient, \
+from provisioningserviceclient.client import ProvisioningServiceClient, \
     BulkEnrollmentOperation, BulkEnrollmentOperationResult, ProvisioningServiceError, \
     _is_successful, _copy_and_unwrap_bulkop
 from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState, AttestationMechanism, DeviceRegistrationState
-from provisioningserviceclient.query import QuerySpecification, Query
+from provisioningserviceclient import QuerySpecification, Query
 from serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
 from serviceswagger.operations import DeviceEnrollmentOperations, \
     DeviceEnrollmentGroupOperations, RegistrationStateOperations
@@ -59,7 +59,7 @@ class TestCreationProvisioningServiceClient(unittest.TestCase):
 
     def test_basic(self):
         cs = "HostName=test-uri.azure-devices-provisioning.net;SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu"
-        psc = ProvisioningServiceClient(cs)
+        psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
         self.assertEqual(psc.host_name, "test-uri.azure-devices-provisioning.net")
         self.assertEqual(psc.shared_access_key_name, "provisioningserviceowner")
@@ -67,7 +67,7 @@ class TestCreationProvisioningServiceClient(unittest.TestCase):
 
     def test_reordered_cs_args(self):
         cs = "SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu;HostName=test-uri.azure-devices-provisioning.net;SharedAccessKeyName=provisioningserviceowner"
-        psc = ProvisioningServiceClient(cs)
+        psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
         self.assertEqual(psc.host_name, "test-uri.azure-devices-provisioning.net")
         self.assertEqual(psc.shared_access_key_name, "provisioningserviceowner")
@@ -77,30 +77,30 @@ class TestCreationProvisioningServiceClient(unittest.TestCase):
         #ExtraVal additional cs val
         cs = "ExtraVal=testingValue;HostName=test-uri.azure-devices-provisioning.net;SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu"
         with self.assertRaises(ValueError):
-            psc = ProvisioningServiceClient(cs)
+            psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
     def test_fail_missing_cs_args(self):
         #HostName is missing
         cs = "SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu"
         with self.assertRaises(ValueError):
-            psc = ProvisioningServiceClient(cs)
+            psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
     def test_fail_replaced_cs_args(self):
         #ExtraVal replaces HostName in cs
         cs = "ExtraVal=testingValue;SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu"
         with self.assertRaises(ValueError):
-            psc = ProvisioningServiceClient(cs)
+            psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
     def test_fail_duplicate_cs_args(self):
         #SharedAccessKeyName defined twice
         cs = "SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu;SharedAccessKeyName=duplicatevalue"
-        with self.assertRaises(AttributeError):
-            psc = ProvisioningServiceClient(cs)
+        with self.assertRaises(UnboundLocalError):
+            psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
     def test_fail_invalid_cs(self):
         cs = "not_a_connection_string"
         with self.assertRaises(ValueError):
-            psc = ProvisioningServiceClient(cs)
+            psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
 
 class TestValidProvisioningServiceClient(unittest.TestCase):
@@ -108,7 +108,7 @@ class TestValidProvisioningServiceClient(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cs = "HostName=test-uri.azure-devices-provisioning.net;SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu"
-        cls.psc = ProvisioningServiceClient(cs)
+        cls.psc = ProvisioningServiceClient.create_from_connection_string(cs)
 
     def expected_headers(self):
         headers = {}
@@ -244,7 +244,7 @@ class TestProvisioningServiceClientWithEnrollmentGroup(TestValidProvisioningServ
         x509_am = AttestationMechanism.create_with_x509_signing_certs("test-cert")
         self.eg = EnrollmentGroup.create("grp-id", x509_am)
 
-        self.ret_eg = copy.deepcopy(self.eg)
+        self.ret_eg = copy.deepcopy(self.eg._internal)
         self.ret_eg.created_updated_time_utc = 1000
         self.ret_eg.last_updated_time_utc = 1000
 
@@ -458,7 +458,7 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         self.bulkop_resp = BulkEnrollmentOperationResult(True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
-    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
+    @mock.patch('provisioningserviceclient.client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_run_bulk_operation_op_success(self, mock_sas, mock_unwrap, mock_bulk_op):
         mock_bulk_op.return_value = create_raw_response(self.bulkop_resp, SUCCESS, RESP_MSG)
@@ -469,7 +469,7 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
-    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
+    @mock.patch('provisioningserviceclient.client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_run_bulk_operation_op_fail(self, mock_sas, mock_unwrap, mock_bulk_op):
         self.bulkop_resp.is_successful = False
@@ -481,7 +481,7 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
-    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
+    @mock.patch('provisioningserviceclient.client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_run_bulk_operation_fail_response(self, mock_sas, mock_unwrap, mock_bulk_op):
         mock_bulk_op.return_value = create_raw_response(None, FAIL, RESP_MSG)
@@ -494,7 +494,7 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
         mock_bulk_op.assert_called_with(self.internal_bulkop, self.expected_headers(), True)
 
     @mock.patch.object(DeviceEnrollmentOperations, 'bulk_operation')
-    @mock.patch('provisioningserviceclient.service_client._copy_and_unwrap_bulkop')
+    @mock.patch('provisioningserviceclient.client._copy_and_unwrap_bulkop')
     @mock.patch.object(SasTokenFactory, 'generate_sastoken', return_value=SAS)
     def test_run_bulk_operation_service_exception(self, mock_sas, mock_unwrap, mock_bulk_op):
         mock_unwrap.return_value = self.internal_bulkop
@@ -510,7 +510,7 @@ class TestProvisioningServiceClientBulkOperation(TestValidProvisioningServiceCli
 
 class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceClient):
 
-    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.client.Query', autospec=True)
     def test_create_individual_enrollment_query_default_page(self, mock_query):
 
         qs = QuerySpecification("*")
@@ -519,7 +519,7 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
             self.psc._sastoken_factory, None)
         self.assertIs(ret, mock_query.return_value)
 
-    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.client.Query', autospec=True)
     def test_create_individual_enrollment_query_custom_page(self, mock_query):
         qs = QuerySpecification("*")
         page_size = 50
@@ -528,7 +528,7 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
             self.psc._sastoken_factory, page_size)
         self.assertIs(ret, mock_query.return_value)
 
-    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.client.Query', autospec=True)
     def test_create_enrollment_group_query_default_page(self, mock_query):
         qs = QuerySpecification("*")
         ret = self.psc.create_enrollment_group_query(qs)
@@ -536,7 +536,7 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
             self.psc._sastoken_factory, None)
         self.assertIs(ret, mock_query.return_value)
 
-    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.client.Query', autospec=True)
     def test_create_enrollment_group_query_custom_page(self, mock_query):
         qs = QuerySpecification("*")
         page_size = 50
@@ -545,7 +545,7 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
             self.psc._sastoken_factory, page_size)
         self.assertIs(ret, mock_query.return_value)
 
-    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.client.Query', autospec=True)
     def test_create_registration_state_query_default_page(self, mock_query):
         id = REG_ID
         ret = self.psc.create_registration_state_query(id)
@@ -553,7 +553,7 @@ class TestProvisioningServiceClientOtherOperations(TestValidProvisioningServiceC
             self.psc._sastoken_factory, None)
         self.assertIs(ret, mock_query.return_value)
 
-    @mock.patch('provisioningserviceclient.service_client.Query', autospec=True)
+    @mock.patch('provisioningserviceclient.client.Query', autospec=True)
     def test_create_registration_state_query_custom_page(self, mock_query):
         id = REG_ID
         page_size = 50
