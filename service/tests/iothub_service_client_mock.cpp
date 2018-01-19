@@ -296,6 +296,13 @@ void singlylinkedlist_destroy(SINGLYLINKEDLIST_HANDLE list)
     list = NULL;
 }
 
+int singlylinkedlist_remove(SINGLYLINKEDLIST_HANDLE list, LIST_ITEM_HANDLE item)
+{
+    (void)list;
+    (void)item;
+    return 0;
+}
+
 LIST_ITEM_HANDLE singlylinkedlist_get_head_item(SINGLYLINKEDLIST_HANDLE list)
 {
     (void)list;
