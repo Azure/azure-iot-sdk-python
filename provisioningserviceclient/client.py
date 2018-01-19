@@ -570,7 +570,13 @@ class Query(object):
         custom_headers[Query.continuation_token_header] = continuation_token
         custom_headers[Query.page_size_header] = page_size
 
-        raw_resp = self._query_fn(self._query_spec_or_id, custom_headers, True)
+        try:
+            raw_resp = self._query_fn(self._query_spec_or_id, custom_headers, True)
+        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
+
+        if not _is_successful(raw_resp.response.status_code):
+            raise ProvisioningServiceError(raw_resp.response.reason)
 
         if not raw_resp.output:
             raise StopIteration("No more results")
