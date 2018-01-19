@@ -1048,8 +1048,9 @@ public:
             while (next_device != NULL)
             {
                 IOTHUB_DEVICE* device = (IOTHUB_DEVICE*)singlylinkedlist_item_get_value(next_device);
-                next_device = singlylinkedlist_get_next_item(next_device);
                 retVal.append(*device);
+                singlylinkedlist_remove(deviceList, next_device);
+                next_device = singlylinkedlist_get_head_item(deviceList);
             }
             singlylinkedlist_destroy(deviceList);
         }
