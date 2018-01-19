@@ -3,6 +3,7 @@
 # full license information.
 
 import sys
+import os
 
 import six
 
@@ -23,6 +24,19 @@ DESIRED_PROPERTIES = {"dp1": "val1", "dp2": {"dp3": "val2"}}
 CREATE = "create"
 DELETE = "delete"
 BULK_SIZE = 10
+
+
+def read_environment_vars():
+    global CONNECTION_STRING
+    global ENDORSEMENT_KEY
+    global SIGNING_CERTIFICATE
+
+    CONNECTION_STRING = os.environ["CONNECTION_STRING"]
+    six.print_("CONNECTION_STRING: {}".format(CONNECTION_STRING))
+    ENDORSEMENT_KEY = os.environ["ENDORSEMENT_KEY"]
+    six.print_("ENDORSEMENT_KEY: {}".format(ENDORSEMENT_KEY))
+    SIGNING_CERTIFICATE = os.environ["SIGNING_CERTIFICATE"]
+    six.print_("SIGNING_CERTIFICATE: {}".format(SIGNING_CERTIFICATE))
 
 
 def run_scenario_individual_enrollment():
@@ -117,21 +131,27 @@ def run_scenario_enrollment_group():
         raise AssertionError
 
 
-
 def main():
-    six.print_("Provisioning Service Client E2E Test Started!")
-    six.print_("---------------------------------------------")
+    six.print_("Provisioning Service Client E2E Tests Started!")
+    six.print_("----------------------------------------------")
 
     try:
+        six.print_("Reading environment variables...")
+        read_environment_vars()
+        six.print_("SUCCESS")
         six.print_("Running Individual Enrollment Scenario...")
         run_scenario_individual_enrollment()
         six.print_("PASSED")
         six.print_("Running Enrollment Group Scenario...")
         run_scenario_enrollment_group()
         six.print_("PASSED")
+        six.print_("Provisioning Service Client E2E Tests OK!")
+        six.print_("-----------------------------------------")
         return 0
-    except Exception as e:
+    except Exception:
         six.print_("FAILED")
+        six.print_("Provisioning Service Client E2E Tests FAILED!")
+        six.print_("---------------------------------------------")
         return 1
 
 
