@@ -51,13 +51,21 @@ class Response(object):
         self.status_code = status_code
         self.reason = message
 
-    def raise_for_status(arg1):
+    def raise_for_status(self):
         pass
 
 
 class TestCreationProvisioningServiceClient(unittest.TestCase):
 
-    def test_basic(self):
+    def test_create_w_params(self):
+        psc = ProvisioningServiceClient("test-uri.azure-devices-provisioning.net", \
+            "provisioningserviceowner", "dGVzdGluZyBhIHNhc3Rva2Vu")
+
+        self.assertEqual(psc.host_name, "test-uri.azure-devices-provisioning.net")
+        self.assertEqual(psc.shared_access_key_name, "provisioningserviceowner")
+        self.assertEqual(psc.shared_access_key, "dGVzdGluZyBhIHNhc3Rva2Vu")
+
+    def test_basic_cs(self):
         cs = "HostName=test-uri.azure-devices-provisioning.net;SharedAccessKeyName=provisioningserviceowner;SharedAccessKey=dGVzdGluZyBhIHNhc3Rva2Vu"
         psc = ProvisioningServiceClient.create_from_connection_string(cs)
 

@@ -12,7 +12,7 @@ from utils.sastoken import SasTokenFactory
 from serviceswagger.operations.device_enrollment_operations import ClientRawResponse
 import serviceswagger.models as genmodels
 import provisioningserviceclient.models as models
-from provisioningserviceclient.client import Query, QuerySpecification
+from provisioningserviceclient.client import Query, QuerySpecification, ProvisioningServiceError
 
 
 # Please note that continuation tokens are represented as string representations of ints (or None)
@@ -33,6 +33,10 @@ def setup_results():
 SAS = "dummy-token"
 DUMMY_LIST = ["dummy", "list"]
 RESULTS = setup_results()
+MESSAGE = "message"
+SUCCESS = 200
+FAIL = 400
+UNEXPECTED_FAIL = 793
 
 
 def get_result(cont_token, pg_size):
@@ -87,11 +91,36 @@ def mock_query_op(query_specification, custom_headers, raw):
         else:
             ret_token = str(ret_token)
 
-    cr = ClientRawResponse(page, None)
-    cr.headers = {Query.page_size_header: None, 
+    response = Response(SUCCESS, MESSAGE)
+    cr = ClientRawResponse(page, response)
+    cr.headers = {Query.page_size_header: None,
                   Query.continuation_token_header: ret_token,
                   Query.item_type_header: u'Enrollment'}
     return cr
+
+
+def query_custom_response(status_code, message):
+    response = Response(status_code, message)
+    cr = ClientRawResponse(None, response)
+    return cr
+
+
+def dummy(arg1, arg2):
+    pass
+
+
+def create_PSED_Exception(status, message):
+    resp = Response(status, message)
+    return genmodels.ProvisioningServiceErrorDetailsException(dummy, resp)
+
+
+class Response(object):
+    def __init__(self, status_code, message):
+        self.status_code = status_code
+        self.reason = message
+
+    def raise_for_status(self):
+        pass
 
 
 class TestCaseQueryConstruction(unittest.TestCase):
@@ -264,6 +293,32 @@ class TestCaseQueryCustomPageSize(unittest.TestCase):
     def test_set_page_size_none(self):
         self.query.page_size = None
         self.assertEqual(self.query.page_size, None)
+
+
+class TestCaseQueryFail(unittest.TestCase):
+
+    def setUp(self):
+        qs = QuerySpecification("*")
+        self.querymock = mock.MagicMock()
+        sasfactory = SasTokenFactory("dummy", "values", "only")
+        self.query = Query(qs, self.querymock, sasfactory, page_size=10)
+
+    def test_exepcted_fail(self):
+        self.querymock.return_value = query_custom_response(FAIL, MESSAGE)
+        with self.assertRaises(ProvisioningServiceError) as cm:
+            self.query.next()
+        e = cm.exception
+        self.assertEqual(str(e), MESSAGE)
+        self.assertIsNone(e.cause)
+
+    def test_unexpected_fail(self):
+        mock_ex = create_PSED_Exception(UNEXPECTED_FAIL, MESSAGE)
+        self.querymock.side_effect = mock_ex
+        with self.assertRaises(ProvisioningServiceError) as cm:
+            self.query.next()
+        e = cm.exception
+        self.assertEqual(str(e), self.query.err_msg_unexpected.format(UNEXPECTED_FAIL))
+        self.assertIs(e.cause, mock_ex)
 
 
 if __name__ == '__main__':

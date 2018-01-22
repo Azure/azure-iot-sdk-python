@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     #build EnrollmentGroup model
     att = AttestationMechanism.create_with_x509_signing_certs(signing_cert)
-    eg = EnrollmentGroup(group_id, att)
+    eg = EnrollmentGroup.create(group_id, att)
 
     #create EnrollmentGroup on the Provisioning Service
     eg = psc.create_or_update(eg)
