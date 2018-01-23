@@ -8,11 +8,12 @@ import context #only needed in this directory
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification
 from provisioningserviceclient.models import EnrollmentGroup, AttestationMechanism
 
-if __name__ == '__main__':
+
+def main():
     connection_string = "[Connection String]"
     signing_cert = "[Signing Cert]"
     group_id = "[Group ID]"
-    
+
     #set up the provisioning service client
     psc = ProvisioningServiceClient.create_from_connection_string(connection_string)
 
@@ -42,3 +43,7 @@ if __name__ == '__main__':
     #delete EnrollmentGroup from the Provisioning Service
     psc.delete(eg)
     #could also use psc.delete_enrollment_group_by_param(eg.group_id, eg.etag)
+
+
+if __name__ == '__main__':
+    main()

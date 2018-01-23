@@ -9,11 +9,12 @@ from provisioningserviceclient import ProvisioningServiceClient, QuerySpecificat
     BulkEnrollmentOperation
 from provisioningserviceclient.models import IndividualEnrollment, AttestationMechanism
 
-if __name__ == '__main__':
+
+def main():
     connection_string = "[Connection String]"
     endorsement_key = "[Endorsement Key]"
     registration_id = "[Registration ID]"
-    
+
     #set up the provisioning service client
     psc = ProvisioningServiceClient.create_from_connection_string(connection_string)
 
@@ -24,11 +25,11 @@ if __name__ == '__main__':
 
     #create IndividualEnrollment on the Provisioning Service
     ie = psc.create_or_update(ie)
-    six._print(ie)
+    six.print_(ie)
 
     #get IndividualEnrollment from the Provisioning Service (note: this step is useless here, as ie is already up to date)
     ie = psc.get_individual_enrollment(registration_id)
-    six._print(ie)
+    six.print_(ie)
 
     #delete IndividualEnrollment from the Provisioning Service
     psc.delete(ie)
@@ -39,8 +40,9 @@ if __name__ == '__main__':
     for i in range(5):
         enrollments.append(IndividualEnrollment.create(registration_id + str(i + 1), att))
     bulk_op = BulkEnrollmentOperation("create", enrollments)
-    
+
     results = psc.run_bulk_operation(bulk_op)
+    six.print_(ie)
 
     #make a Provisioning Service query
     qs = QuerySpecification("*")
@@ -51,4 +53,12 @@ if __name__ == '__main__':
     for page in query:
         results += page
     #alternatively, call query.next() to get a new page
-    six._print(results)
+    six.print_(results)
+
+    #delete the bulk created enrollments
+    bulk_op.mode = "delete"
+    psc.run_bulk_operation(bulk_op)
+
+
+if __name__ == '__main__':
+    main()
