@@ -3,8 +3,6 @@
 # full license information.
 
 import six
-
-import context #only needed in this directory
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification
 from provisioningserviceclient.models import EnrollmentGroup, AttestationMechanism
 

@@ -8,9 +8,10 @@ from six import add_move, MovedModule
 add_move(MovedModule('mock', 'mock', 'unittest.mock'))
 from six.moves import mock
 
-from utils.sastoken import SasTokenFactory
-from serviceswagger.operations.device_enrollment_operations import ClientRawResponse
-import serviceswagger.models as genmodels
+import context
+from provisioningserviceclient.utils.sastoken import SasTokenFactory
+from provisioningserviceclient.serviceswagger.operations.device_enrollment_operations import ClientRawResponse
+import provisioningserviceclient.serviceswagger.models as genmodels
 import provisioningserviceclient.models as models
 from provisioningserviceclient.client import Query, QuerySpecification, ProvisioningServiceError
 

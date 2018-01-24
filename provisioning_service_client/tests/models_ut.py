@@ -3,14 +3,14 @@
 # full license information.
 
 import unittest
-
 from six import add_move, MovedModule
 add_move(MovedModule('mock', 'mock', 'unittest.mock'))
 from six.moves import mock
 
+import context
 from provisioningserviceclient.models import AttestationMechanism, IndividualEnrollment, \
     EnrollmentGroup, DeviceRegistrationState, InitialTwin
-import serviceswagger.models as genmodels
+import provisioningserviceclient.serviceswagger.models as genmodels
 
 
 TPM_LABEL = "tpm"

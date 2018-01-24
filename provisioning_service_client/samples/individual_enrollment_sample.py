@@ -3,8 +3,6 @@
 # full license information.
 
 import six
-
-import context #only needed in this directory
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification, \
     BulkEnrollmentOperation
 from provisioningserviceclient.models import IndividualEnrollment, AttestationMechanism
@@ -19,7 +17,6 @@ def main():
     psc = ProvisioningServiceClient.create_from_connection_string(connection_string)
 
     #build IndividualEnrollment model
-
     att = AttestationMechanism.create_with_tpm(endorsement_key)
     ie = IndividualEnrollment.create(registration_id, att)
 

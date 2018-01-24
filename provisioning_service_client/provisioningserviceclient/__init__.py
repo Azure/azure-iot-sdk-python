@@ -2,9 +2,10 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-import provisioningserviceclient.models as models
-from provisioningserviceclient.client import ProvisioningServiceClient, BulkEnrollmentOperation, \
-    BulkEnrollmentOperationResult, ProvisioningServiceError, Query, QuerySpecification
+import provisioningserviceclient.models
+from .client import (ProvisioningServiceClient, BulkEnrollmentOperation,
+                     BulkEnrollmentOperationResult, ProvisioningServiceError, Query,
+                     QuerySpecification)
 
 
 __all__ = [
