@@ -211,3 +211,4 @@ build_all/windows/build/lib/iothub_client/__init__.py
 build_all/windows/build/lib/iothub_service_client/__init__.py
 build_all/windows/release_device_client/build
 build_all/windows/release_service_client/build
+provisioning_service_client/build
