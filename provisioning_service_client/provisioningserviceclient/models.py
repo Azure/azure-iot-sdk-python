@@ -2,32 +2,7 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-import serviceswagger.models as genmodels
-
-
-def _wrap_internal_model(model):
-    """
-    Wrap an internal provisioning service model
-
-    :param model: Provisining service model to be wrapped
-    :type model: :class:`IndividualEnrollment<serviceswagger.models.IndividualEnrollment>`
-     or :class:`EnrollmentGroup<serviceswagger.models.EnrollmentGroup>`
-     or :class:`DeviceRegistrationState<serviceswagger.models.DeviceRegistrationState>`
-    :returns: Wrapped model of corresponding class
-    :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
-     or :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
-     or :class:`DeviceRegistrationState<provisioningserviceclient.models.DeviceRegistrationState>`
-    :raises: TypeError if model of invalid type
-    """
-    if isinstance(model, genmodels.IndividualEnrollment):
-        wrapped = IndividualEnrollment(model)
-    elif isinstance(model, genmodels.EnrollmentGroup):
-        wrapped = EnrollmentGroup(model)
-    elif isinstance(model, genmodels.DeviceRegistrationState):
-        wrapped = DeviceRegistrationState(model)
-    else:
-        raise TypeError("Can't wrap this model")
-    return wrapped
+from .serviceswagger import models as genmodels
 
 
 class IndividualEnrollment(object):

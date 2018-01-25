@@ -2,13 +2,17 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-from utils import sastoken
-from serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
-import serviceswagger.models as genmodels
-import provisioningserviceclient.models as models
-from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
-    DeviceRegistrationState
-import provisioningserviceclient
+from .utils import sastoken
+from .serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
+from .serviceswagger import models as genmodels
+from . import models
+
+
+CS_DELIMITER = ";"
+CS_VAL_SEPARATOR = "="
+HOST_NAME_LABEL = "HostName"
+SHARED_ACCESS_KEY_NAME_LABEL = "SharedAccessKeyName"
+SHARED_ACCESS_KEY_LABEL = "SharedAccessKey"
 
 
 def _is_successful(status_code):
@@ -45,6 +49,31 @@ def _copy_and_unwrap_bulkop(bulk_op):
     for i in range(len(bulk_op.enrollments)):
         new_enrollments.append(bulk_op.enrollments[i]._internal)
     return BulkEnrollmentOperation(bulk_op.mode, new_enrollments)
+
+
+def _wrap_internal_model(model):
+    """
+    Wrap an internal provisioning service model
+
+    :param model: Provisining service model to be wrapped
+    :type model: :class:`IndividualEnrollment<serviceswagger.models.IndividualEnrollment>`
+     or :class:`EnrollmentGroup<serviceswagger.models.EnrollmentGroup>`
+     or :class:`DeviceRegistrationState<serviceswagger.models.DeviceRegistrationState>`
+    :returns: Wrapped model of corresponding class
+    :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
+     or :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
+     or :class:`DeviceRegistrationState<provisioningserviceclient.models.DeviceRegistrationState>`
+    :raises: TypeError if model of invalid type
+    """
+    if isinstance(model, genmodels.IndividualEnrollment):
+        wrapped = models.IndividualEnrollment(model)
+    elif isinstance(model, genmodels.EnrollmentGroup):
+        wrapped = models.EnrollmentGroup(model)
+    elif isinstance(model, genmodels.DeviceRegistrationState):
+        wrapped = models.DeviceRegistrationState(model)
+    else:
+        raise TypeError("Can't wrap this model")
+    return wrapped
 
 
 class BulkEnrollmentOperation(genmodels.BulkEnrollmentOperation):
@@ -136,30 +165,21 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceClient>`
         :raises: ValueError if connection string is invalid
         """
-        cs_delimiter = ";"
-        cs_val_separator = "="
-        host_name_label = "HostName"
-        shared_access_key_name_label = "SharedAccessKeyName"
-        shared_access_key_label = "SharedAccessKey"
-
-        cs_args = connection_string.split(cs_delimiter)
+        cs_args = connection_string.split(CS_DELIMITER)
 
         if len(cs_args) != 3:
             raise ValueError("Too many or too few values in the connection string")
         if len(cs_args) > len(set(cs_args)):
             raise ValueError("Duplicate label in connection string")
 
-        #host_name = None
-        #shared_access_key = None
-        #shared_access_key_name = None
         for arg in cs_args:
-            tokens = arg.split(cs_val_separator, 1)
+            tokens = arg.split(CS_VAL_SEPARATOR, 1)
 
-            if tokens[0] == host_name_label:
+            if tokens[0] == HOST_NAME_LABEL:
                 host_name = tokens[1]
-            elif tokens[0] == shared_access_key_name_label:
+            elif tokens[0] == SHARED_ACCESS_KEY_NAME_LABEL:
                 shared_access_key_name = tokens[1]
-            elif tokens[0] == shared_access_key_label:
+            elif tokens[0] == SHARED_ACCESS_KEY_LABEL:
                 shared_access_key = tokens[1]
             else:
                 raise ValueError("Connection string contains incorrect values")
@@ -192,10 +212,10 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        if isinstance(provisioning_model, IndividualEnrollment):
+        if isinstance(provisioning_model, models.IndividualEnrollment):
             operation = self._runtime_client.device_enrollment.create_or_update
             id = provisioning_model.registration_id
-        elif isinstance(provisioning_model, EnrollmentGroup):
+        elif isinstance(provisioning_model, models.EnrollmentGroup):
             operation = self._runtime_client.device_enrollment_group.create_or_update
             id = provisioning_model.enrollment_group_id
         else:
@@ -215,7 +235,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        return models._wrap_internal_model(result)
+        return _wrap_internal_model(result)
 
     def get_individual_enrollment(self, registration_id):
         """
@@ -243,7 +263,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        return IndividualEnrollment(result)
+        return models.IndividualEnrollment(result)
 
     def get_enrollment_group(self, group_id):
         """
@@ -271,7 +291,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        return EnrollmentGroup(result)
+        return models.EnrollmentGroup(result)
 
     def get_registration_state(self, registration_id):
         """
@@ -300,7 +320,7 @@ class ProvisioningServiceClient(object):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
         result = raw_resp.output
-        return DeviceRegistrationState(result)
+        return models.DeviceRegistrationState(result)
 
     def delete(self, provisioning_model):
         """
@@ -315,13 +335,13 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        if isinstance(provisioning_model, IndividualEnrollment):
+        if isinstance(provisioning_model, models.IndividualEnrollment):
             self.delete_individual_enrollment_by_param(provisioning_model.registration_id, \
                 provisioning_model.etag)
-        elif isinstance(provisioning_model, EnrollmentGroup):
+        elif isinstance(provisioning_model, models.EnrollmentGroup):
             self.delete_enrollment_group_by_param(provisioning_model.enrollment_group_id, \
                 provisioning_model.etag)
-        elif isinstance(provisioning_model, DeviceRegistrationState):
+        elif isinstance(provisioning_model, models.DeviceRegistrationState):
             self.delete_registration_state_by_param(provisioning_model.registration_id, \
             provisioning_model.etag)
         else:
@@ -485,6 +505,7 @@ class QuerySpecification(genmodels.QuerySpecification):
     """
     pass
 
+
 class Query(object):
     """
     Query object that can be used to iterate over Provisioning Service data.
@@ -587,6 +608,6 @@ class Query(object):
         #convert results to wrapper class
         output = []
         for item in raw_resp.output:
-            output.append(models._wrap_internal_model(item))
+            output.append(_wrap_internal_model(item))
 
         return output

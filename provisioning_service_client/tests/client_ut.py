@@ -10,17 +10,18 @@ add_move(MovedModule('mock', 'mock', 'unittest.mock'))
 from six.moves import mock
 from msrest.pipeline import ClientRawResponse
 
-from utils.sastoken import SasTokenFactory
+import context
+from provisioningserviceclient.utils.sastoken import SasTokenFactory
 from provisioningserviceclient.client import ProvisioningServiceClient, \
     BulkEnrollmentOperation, BulkEnrollmentOperationResult, ProvisioningServiceError, \
     _is_successful, _copy_and_unwrap_bulkop
 from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState, AttestationMechanism, DeviceRegistrationState
 from provisioningserviceclient import QuerySpecification, Query
-from serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
-from serviceswagger.operations import DeviceEnrollmentOperations, \
+from provisioningserviceclient.serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
+from provisioningserviceclient.serviceswagger.operations import DeviceEnrollmentOperations, \
     DeviceEnrollmentGroupOperations, RegistrationStateOperations
-import serviceswagger.models as genmodels
+import provisioningserviceclient.serviceswagger.models as genmodels
 
 
 SAS = "dummy_token"
