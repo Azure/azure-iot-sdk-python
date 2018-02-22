@@ -137,7 +137,8 @@ Below is a table showing the mapping of the LTS branches to the packages release
 
 | PIP Package   | Github Branch | LTS Status | LTS Start Date | Maintenance End Date | Removed Date |
 | :-----------: | :-----------: | :--------: | :------------: | :------------------: | :----------: |
-| 1.x.x         | lts_07_2017   | Active     | 2017-07-01     | 2017-12-31           | 2018-06-30   |
+| azure-iothub-device-client: 1.2.3<br/> azure-iothub-service-client: 1.2.3<br/>  azure-iothub-provisioningserviceclient: 1.0.0         | lts_01_2018   | Active     | 2018-01-01     | 2018-06-30           | 2018-12-31   |
+| 1.x.x         | lts_07_2017   | Deprecated | 2017-07-01     | 2017-12-31           | 2018-06-30   |
 
 * <sup>1</sup> All scheduled dates are subject to change by the Azure IoT SDK team.
 
