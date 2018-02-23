@@ -36,7 +36,7 @@
 // These lines will come back when time for actual release of Python SDK with modules.  Pre-release needs special case string creation.
 // #define IOTHUB_PYTHON_SERVICE_SDK_VERSION "0"
 // #define VERSION_STRING IOTHUB_SERVICE_CLIENT_VERSION "." IOTHUB_PYTHON_SERVICE_SDK_VERSION
-#define VERSION_STRING "1.2.0.0b0"
+#define VERSION_STRING "1.3.0.0b0"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
