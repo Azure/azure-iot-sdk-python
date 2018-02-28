@@ -134,13 +134,6 @@ def device_method_callback(method_name, payload, user_context):
     return device_method_return_value
 
 
-def blob_upload_conf_callback(result, user_context):
-    global BLOB_CALLBACKS
-    print ( "Blob upload confirmation[%d] received for message with result = %s" % (user_context, result) )
-    BLOB_CALLBACKS += 1
-    print ( "    Total calls confirmed: %d" % BLOB_CALLBACKS )
-
-
 def iothub_client_init():
     # prepare iothub client
     client = IoTHubClient(CONNECTION_STRING, PROTOCOL)
