@@ -1,4 +1,4 @@
-# Microsoft Azure IoT SDKs for Python  
+# Microsoft Azure IoT SDKs for Python
 
 This repository contains the following:
 * **Azure IoT Hub Device SDK for Python**: to connect client devices to Azure IoT Hub
