@@ -30,6 +30,7 @@ Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run
 > - On Windows make sure the Visual C++ Redistributable for Visual Studio 2015 package is installed from here: https://www.microsoft.com/en-us/download/details.aspx?id=48145 (Note: Visual Studio 2015 installation includes it) 
 > - On other platforms make sure the Pip tool is upgraded to the latest version. (> 9)
 > - If Pip cannot install the package for the specific version of Python installed on your machine, use one of the following options to build the **iothub_client** module.
+> - If Pip cannot be found, see https://pip.pypa.io/en/stable/installing/
 
 <a name="linux"></a>
 ## Build the Azure IoT Hub SDKs for Python on Linux
