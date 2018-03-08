@@ -1197,7 +1197,6 @@ public:
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads, CreateDevice, 4, 5)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads2, UpdateDevice, 5, 6)
 
-
 //
 //  iothub_messaging.h
 //
@@ -1542,7 +1541,6 @@ public:
         }
     }
 
-
     void SendModuleAsync(
         std::string deviceId,
         std::string moduleId,
@@ -1566,7 +1564,6 @@ public:
             throw IoTHubMessagingError(__func__, result);
         }
     }
-
 
     void SetFeedbackMessageCallback(
         boost::python::object& feedbackMessageReceivedCallback, 
@@ -1774,7 +1771,6 @@ public:
         return response;
     }
 
-    
 };
 
 //
@@ -1901,7 +1897,6 @@ public:
         char* twinInfo = NULL;
 
         ScopedGILRelease release;
-
         twinInfo = IoTHubDeviceTwin_GetTwin(_iothubDeviceTwinHandle, deviceId.c_str());
 
         if (twinInfo != NULL)
