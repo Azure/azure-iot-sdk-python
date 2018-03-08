@@ -1197,6 +1197,7 @@ public:
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads, CreateDevice, 4, 5)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads2, UpdateDevice, 5, 6)
 
+
 //
 //  iothub_messaging.h
 //
@@ -1541,6 +1542,32 @@ public:
         }
     }
 
+
+    void SendModuleAsync(
+        std::string deviceId,
+        std::string moduleId,
+        IoTHubMessage &message,
+        boost::python::object& sendCompleteCallback, 
+        boost::python::object& userContextCallback
+        )
+    {
+        IOTHUB_MESSAGING_RESULT result = IOTHUB_MESSAGING_OK;
+        if (sendCompleteContext != NULL)
+        {
+            sendCompleteContext->sendCompleteCallback = sendCompleteCallback;
+            sendCompleteContext->userContext = userContextCallback;
+        }
+
+        ScopedGILRelease release;
+        result = IoTHubMessaging_SendAsyncModule(_iothubMessagingHandle, deviceId.c_str(), moduleId.c_str(), message.Handle(), SendCompleteCallback, sendCompleteContext);
+
+        if (result != IOTHUB_MESSAGING_OK)
+        {
+            throw IoTHubMessagingError(__func__, result);
+        }
+    }
+
+
     void SetFeedbackMessageCallback(
         boost::python::object& feedbackMessageReceivedCallback, 
         boost::python::object& userContextCallback
@@ -1714,6 +1741,40 @@ public:
         }
         return response;
     }
+
+    IoTHubDeviceMethodResponse InvokeModule(
+        std::string deviceId,
+        std::string moduleId,
+        std::string methodName,
+        std::string methodPayload,
+        unsigned int timeout
+    )
+    {
+        IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
+        IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
+
+        ScopedGILRelease release;
+        int responseStatus;
+        unsigned char* responsePayload;
+        size_t responsePayloadSize;
+       
+        result = IoTHubDeviceMethod_InvokeModule(_iothubDeviceMethodHandle, deviceId.c_str(), moduleId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
+
+        if (result == IOTHUB_DEVICE_METHOD_OK)
+        {
+            response.status = responseStatus;
+            std::string payload(&responsePayload[0], &responsePayload[0] + responsePayloadSize);
+            response.payload = payload;
+        }
+
+        if (result != IOTHUB_DEVICE_METHOD_OK)
+        {
+            throw IoTHubDeviceMethodError(__func__, result);
+        }
+        return response;
+    }
+
+    
 };
 
 //
@@ -1840,6 +1901,7 @@ public:
         char* twinInfo = NULL;
 
         ScopedGILRelease release;
+
         twinInfo = IoTHubDeviceTwin_GetTwin(_iothubDeviceTwinHandle, deviceId.c_str());
 
         if (twinInfo != NULL)
@@ -2206,6 +2268,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("open", &IoTHubMessaging::Open)
         .def("close", &IoTHubMessaging::Close)
         .def("send_async", &IoTHubMessaging::SendAsync)
+        .def("send_async", &IoTHubMessaging::SendModuleAsync)
         .def("set_feedback_message_callback", &IoTHubMessaging::SetFeedbackMessageCallback)
         ;
 
@@ -2213,14 +2276,15 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def(init<std::string>())
         .def(init<IoTHubServiceClientAuth>())
         .def("invoke", &IoTHubDeviceMethod::Invoke)
+        .def("invoke", &IoTHubDeviceMethod::InvokeModule)
         ;
 
     class_<IoTHubDeviceTwin, boost::noncopyable>("IoTHubDeviceTwin", no_init)
         .def(init<std::string>())
         .def(init<IoTHubServiceClientAuth>())
         .def("get_twin", &IoTHubDeviceTwin::GetTwin)
+        .def("get_twin", &IoTHubDeviceTwin::GetModuleTwin)
         .def("update_twin", &IoTHubDeviceTwin::UpdateTwin)
-        .def("get_module_twin", &IoTHubDeviceTwin::GetModuleTwin)
-        .def("update_module_twin", &IoTHubDeviceTwin::UpdateModuleTwin)
+        .def("update_twin", &IoTHubDeviceTwin::UpdateModuleTwin)
         ;
 };

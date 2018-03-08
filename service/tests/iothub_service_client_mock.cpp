@@ -449,6 +449,12 @@ IOTHUB_MESSAGING_RESULT IoTHubMessaging_SendAsync(IOTHUB_MESSAGING_CLIENT_HANDLE
     return IOTHUB_MESSAGING_OK;
 }
 
+IOTHUB_MESSAGING_RESULT IoTHubMessaging_SendAsyncModule(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, const char* deviceId, const char* moduleId, IOTHUB_MESSAGE_HANDLE message, IOTHUB_SEND_COMPLETE_CALLBACK sendCompleteCallback, void* userContextCallback)
+{
+    (void)messagingClientHandle, moduleId, deviceId, message, sendCompleteCallback, userContextCallback;
+    return IOTHUB_MESSAGING_OK;
+}
+
 IOTHUB_MESSAGING_RESULT IoTHubMessaging_SetFeedbackMessageCallback(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, IOTHUB_FEEDBACK_MESSAGE_RECEIVED_CALLBACK feedbackMessageReceivedCallback, void* userContextCallback)
 {
     (void)messagingClientHandle, feedbackMessageReceivedCallback, userContextCallback;
@@ -472,6 +478,15 @@ void  IoTHubDeviceMethod_Destroy(IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE serv
 IOTHUB_DEVICE_METHOD_RESULT IoTHubDeviceMethod_Invoke(IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE serviceClientDeviceMethodHandle, const char* deviceId, const char* methodName, const char* methodPayload, unsigned int timeout, int* responseStatus, unsigned char** responsePayload, size_t* responsePayloadSize)
 {
     (void)serviceClientDeviceMethodHandle, deviceId, methodName, methodPayload, timeout;
+    *responseStatus = 42;
+    *responsePayload = (unsigned char *)"RESPONSE";
+    *responsePayloadSize = 8;
+    return IOTHUB_DEVICE_METHOD_OK;
+}
+
+IOTHUB_DEVICE_METHOD_RESULT IoTHubDeviceMethod_InvokeModule(IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE serviceClientDeviceMethodHandle, const char* deviceId, const char* moduleId,  const char* methodName, const char* methodPayload, unsigned int timeout, int* responseStatus, unsigned char** responsePayload, size_t* responsePayloadSize)
+{
+    (void)serviceClientDeviceMethodHandle, deviceId, moduleId, methodName, methodPayload, timeout;
     *responseStatus = 42;
     *responsePayload = (unsigned char *)"RESPONSE";
     *responsePayloadSize = 8;

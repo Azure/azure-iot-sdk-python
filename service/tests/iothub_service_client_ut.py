@@ -806,6 +806,7 @@ class TestClassDefinitions(unittest.TestCase):
 
         # send_async
         deviceId = "deviceId"
+        moduleId = "moduleId"
         message = IoTHubMessage(bytearray("Hello", 'utf8'))
         with self.assertRaises(AttributeError):
             messagingClient.SendAsync()
@@ -821,7 +822,12 @@ class TestClassDefinitions(unittest.TestCase):
             messagingClient.send_async(deviceId, message, "")
         with self.assertRaises(Exception):
             messagingClient.send_async(deviceId, message, send_complete_callback)
+        with self.assertRaises(Exception):
+            messagingClient.send_async(deviceId, moduleId, message, send_complete_callback, None, "extraParam")
+        # Success case with message to device
         messagingClient.send_async(deviceId, message, send_complete_callback, None)
+        # Success case with message to module
+        messagingClient.send_async(deviceId, moduleId, message, send_complete_callback, None)
 
         # set_feedback_message_callback
         with self.assertRaises(AttributeError):
@@ -853,6 +859,7 @@ class TestClassDefinitions(unittest.TestCase):
 
         # invoke
         deviceId = "deviceId"
+        moduleId = "moduleId"
         methodName = "methodName"
         methodPayload = "methodPayload"
         timeout = 42
@@ -870,7 +877,13 @@ class TestClassDefinitions(unittest.TestCase):
             deviceMethodClient.invoke(deviceId, methodName, 1)
         with self.assertRaises(Exception):
             deviceMethodClient.invoke(deviceId, methodName, methodPayload)
+        with self.assertRaises(Exception):
+            deviceMethodClient.invoke(deviceId, moduleId, methodName, methodPayload, timeout, "extraParameter")
+        # Test success on invoke method on a device
         response = deviceMethodClient.invoke(deviceId, methodName, methodPayload, timeout)
+        self.assertIsInstance(response, IoTHubDeviceMethodResponse)
+        # Test success on invoke method on a module
+        response = deviceMethodClient.invoke(deviceId, moduleId, methodName, methodPayload, timeout)
         self.assertIsInstance(response, IoTHubDeviceMethodResponse)
 
     def test_IoTHubDeviceTwin(self):
@@ -892,14 +905,21 @@ class TestClassDefinitions(unittest.TestCase):
 
         # get_twin
         deviceId = "deviceId"
+        moduleId = "moduleId"
         with self.assertRaises(Exception):
             deviceTwinClient.get_twin()
         with self.assertRaises(Exception):
             deviceTwinClient.get_twin(1)
+        with self.assertRaises(Exception):
+            deviceTwinClient.get_twin(deviceId, moduleId, 1)
+        # Test success on get twin on device
         deviceTwinClient.get_twin(deviceId)
+        # Test success on get twin on module
+        deviceTwinClient.get_twin(deviceId, moduleId)
 
         # update_twin
         deviceId = "deviceId"
+        moduleId = "moduleId"
         deviceTwinJson = "deviceTwinJson"
         with self.assertRaises(Exception):
             deviceTwinClient.update_twin()
@@ -909,32 +929,12 @@ class TestClassDefinitions(unittest.TestCase):
             deviceTwinClient.update_twin(deviceId)
         with self.assertRaises(Exception):
             deviceTwinClient.update_twin(deviceId, 1)
+        with self.assertRaises(Exception):
+            deviceTwinClient.update_twin(deviceId, moduleId, 1)
+        # Test success on update twin on device
         deviceTwinClient.update_twin(deviceId, deviceTwinJson)
-
-        # get_module_twin
-        deviceId = "deviceId"
-        moduleId = "moduleId"
-        with self.assertRaises(Exception):
-            deviceTwinClient.get_module_twin()
-        with self.assertRaises(Exception):
-            deviceTwinClient.get_module_twin(deviceId)
-        with self.assertRaises(Exception):
-            deviceTwinClient.get_module_twin(deviceId, 1)
-        deviceTwinClient.get_module_twin(deviceId, moduleId)
-
-        # update_module_twin
-        deviceId = "deviceId"
-        moduleId = "moduleId"
-        moduleTwinJson = "moduleTwinJson"
-        with self.assertRaises(Exception):
-            deviceTwinClient.update_module_twin()
-        with self.assertRaises(Exception):
-            deviceTwinClient.update_module_twin(1)
-        with self.assertRaises(Exception):
-            deviceTwinClient.update_module_twin(deviceId)
-        with self.assertRaises(Exception):
-            deviceTwinClient.update_module_twin(deviceId, moduleId, 1)
-        deviceTwinClient.update_module_twin(deviceId, moduleId, moduleTwinJson)
+        # Test success on update twin on module
+        deviceTwinClient.update_twin(deviceId, moduleId, deviceTwinJson)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

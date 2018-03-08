@@ -21,12 +21,12 @@ def iothub_moduletwin_sample_run():
 
     try:
         iothub_twin_method = IoTHubDeviceTwin(CONNECTION_STRING)
-        twin_info = iothub_twin_method.get_module_twin(DEVICE_ID, MODULE_ID)
+        twin_info = iothub_twin_method.get_twin(DEVICE_ID, MODULE_ID)
         print ( "" )
         print ( "Module Twin before update    :" )
         print ( "{0}".format(twin_info) )
 
-        twin_info = iothub_twin_method.update_module_twin(DEVICE_ID, MODULE_ID, UPDATE_JSON)
+        twin_info = iothub_twin_method.update_twin(DEVICE_ID, MODULE_ID, UPDATE_JSON)
         print ( "" )
         print ( "Module Twin after update     :" )
         print ( "{0}".format(twin_info) )

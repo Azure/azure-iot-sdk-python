@@ -29,6 +29,7 @@ EXPORTS
     IoTHubMessaging_Open
     IoTHubMessaging_Close
     IoTHubMessaging_SendAsync
+    IoTHubMessaging_SendAsyncModule
     IoTHubMessaging_SetFeedbackMessageCallback
 ;   iothub_messaging_ll.h
     IoTHubMessaging_LL_Create
@@ -41,6 +42,7 @@ EXPORTS
     IoTHubDeviceMethod_Create
     IoTHubDeviceMethod_Destroy
     IoTHubDeviceMethod_Invoke
+    IoTHubDeviceMethod_InvokeModule
 ;   iothub_devicetwin.h
     IoTHubDeviceTwin_Create
     IoTHubDeviceTwin_Destroy
