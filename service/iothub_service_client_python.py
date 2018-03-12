@@ -727,6 +727,64 @@ class IoTHubRegistryManager:
         """
         pass
 
+    def create_module(self, device_id, primary_key, secondary_key, module_id, auth_method):
+        """Creates a module on IoTHub using the given parameters.
+        
+        :param device_id: The name of the device associated with module_id
+        :type device_id: str
+        :param primary_key: The primary key of the device
+        :type primary_key: str
+        :param secondary_key: The secondary key of the device
+        :type secondary_key: str
+        :param auth_method: The authentication method used to authenticate the device client
+        :type auth_method: IoTHubRegistryManagerAuthMethod(Enum)
+        :param module_id: The name of the module to create
+        :type module_id: str
+        :return: The device client instance
+        :rtype: IoTHubDevice
+        """
+        pass
+
+    def get_module(self, device_id, module_id):
+        """Gets the device instance by device name (id) and module name (id).
+        
+        :param device_id: The name (id) of the device associated with the module
+        :type device_id: str
+        :param module_id: The name (id) of the module to get
+        :type module_id: str
+        :return: The device client object
+        :rtype: IoTHubDevice
+        """
+        pass
+
+    def update_module(self, device_id, primary_key, secondary_key, module_id, auth_method):
+        """Updates device attributes on the given device. All attributes need to be provided.
+        
+        :param device_id: The name (id) of the device associated with the module
+        :type device_id: str
+        :param primary_key: The new primary key of the device
+        :type primary_key: str
+        :param secondary_key: The new secondary key of the device
+        :type secondary_key: str
+        :param device_id: The name (id) of the module to update
+        :type device_id: str
+        :param auth_method: The new authetication method used to authenticate the device client
+        :type auth_method: IoTHubRegistryManagerAuthMethod(Enum)
+        :raises: IoTHubRegistryManagerError if the update operation is failed
+        """
+        pass
+
+    def delete_module(self, device_id, module_id):
+        """Deletes the given module from IoTHub.
+        
+        :param device_id: The device name (id) associated with the module
+        :type device_id: str
+        :param module_id: The module name (id) to delete
+        :type module_id: str
+        :raises: IoTHubRegistryManagerError if the delete operation is failed
+        """
+        pass
+
 
 class IoTHubMessaging:
     """IoTHubMessaging instance is used to send messages from IoTHub to devices.
@@ -779,6 +837,24 @@ class IoTHubMessaging:
         """
         pass
 
+    def send_async(self, device_id, module_id, message, send_complete_callback, user_context):
+        """
+        
+        :param device_id: The device name (id) associated with module_id
+        :type device_id: str
+        :param module_id: The module name (id) to send the message to
+        :type module_id: str
+        :param message: The IoTHubMessage instance to send
+        :type message: IoTHubMessage
+        :param send_complete_callback: The callback will be called if send operation completed
+        :type send_complete_callback: Callable Python function
+        :param user_context: The user context object used in the sendCompleteCallback
+        :type user_context: any
+        :raises: IoTHubMessagingError if send operation failed
+        """
+        pass
+
+
     def set_feedback_message_callback(self, feedback_message_received_callback, user_context):
         """
         
@@ -828,6 +904,25 @@ class IoTHubDeviceMethod:
         """
         pass
 
+    def invoke(self, device_id, module_id, method_name, method_payload, timeout):
+        """Invokes the given method on the given module with the given payload
+
+        :param device_id: The name (id) of the device associated with module_id
+        :type device_id: str
+        :param module_id: The name (id) of the module 
+        :type module_id: str
+        :param method_name: The name of the method to invoke
+        :type method_name: str
+        :param method_payload: The payload to use in the method
+        :type method_payload: str
+        :param timeout: The timeout to use to wait for the method return
+        :type timeout: int
+        :return: IoTHubDeviceMethodResponse instance
+        :rtype: IoTHubDeviceMethodResponse
+        :raises: IoTHubDeviceMethodError if invoking the method failed
+        """
+        pass
+
 
 class IoTHubDeviceTwin:
     """IoTHubDeviceTwin instance is used to get and update device twin data from the IoTHub.
@@ -859,8 +954,22 @@ class IoTHubDeviceTwin:
         """
         pass
 
+    def get_twin(self, device_id, module_id):
+        """Gets the twin representation of the given module.
+        
+        :param device_id: The name (id) of the device associated with module_id
+        :type device_id: str
+        :param module_id: The name (id) of the module
+        :type module_id: str
+        :return: The twin representation of the module
+        :rtype: str (Json)
+        :raises: IoTHubDeviceTwinError if getting the twin failed
+        """
+        pass
+
+
     def update_twin(self, device_id, device_twin_json):
-        """Updates the twin representation of the given device
+        """Updates the twin representation of the given device.
 
         :param device_id:  The name (id) of the device
         :type device_id: str
@@ -871,4 +980,20 @@ class IoTHubDeviceTwin:
         :raises: IoTHubDeviceTwinError if the update failed
         """
         pass
+
+    def update_twin(self, device_id, module_id, module_twin_json):
+        """Updates the twin representation of the given module.
+    
+        :param device_id:  The name (id) of the device associated with module_id
+        :type device_id: str
+        :param module_id: The name (id) of the module
+        :type module_id: str
+        :param module_twin_json: The twin representation of the module
+        :type module_twin_json: str (Json)
+        :return: The updated twin representation of the module
+        :rtype: str (Json)
+        :raises: IoTHubDeviceTwinError if the update failed
+        """
+        pass
+
 

@@ -378,6 +378,42 @@ class IoTHubMessage:
         """
         pass
 
+    @property
+    def input_name(self):
+        """Public attribute for input_name.  Read-only.
+
+        :return: The input name on which the message was sent, if there was one.
+        :rtype: str
+        """
+        pass
+
+    @property
+    def output_name(self):
+        """Public attribute for output_name.  Read-only.
+
+        :return: The output name on which the message will be sent, if there was one.
+        :rtype: str
+        """
+        pass
+
+    @property
+    def connection_device_id(self):
+        """Public attribute for connection device id.  Read-only.
+
+        :return: The the device Id from which this message was sent, if there is one.
+        :rtype: str
+        """
+        pass
+
+    @property
+    def connection_device_id(self):
+        """Public attribute for connection module id.  Read-only.
+
+        :return: The the module Id from which this message was sent, if there is one.
+        :rtype: str
+        """
+        pass
+
 
 class DeviceMethodReturnValue:
     """Data structure to hold the return value for device method call.
@@ -507,6 +543,22 @@ class IoTHubClient:
         """
         pass
 
+    def send_event_async(self, output_name, message, message_callback, user_context):
+        """Asynchronous call to send the message to IoTHub to specific output.
+
+        :param output_name: output to put the message on
+        :type output_name: str
+        :param message: IoTHubMessage 
+        :type message: IoTHubMessage class
+        :param message_callback: Callable Python function
+        :type message_callback: f(IoTHubMessage, IoTHubMessageResult, any)
+        :param user_context: User specified context that will be provided to the callback
+        :type user_context: any
+        :raises: IoTHubClientError if the operation failed
+        """
+        pass
+
+
     def set_message_callback(self, message_callback, user_context):
         """Sets up a callback function to be invoked when the device client received a message from IoTHub.
 
@@ -517,6 +569,20 @@ class IoTHubClient:
         :raises: IoTHubClientError if the operation failed
         """
         pass
+
+    def set_message_callback(self, input_name, message_callback, user_context):
+        """Sets up a callback function to be invoked when the device client received a message from IoTHub.
+
+        :param input_name: input to receive the message on
+        :type input_name: str
+        :param message_callback: Callable Python function
+        :type message_callback: f(IoTHubMessage, any)
+        :param user_context: User specified context that will be provided to the callback
+        :type user_context: any
+        :raises: IoTHubClientError if the operation failed
+        """
+        pass
+
 
     def set_connection_status_callback(self, connection_status_callback, user_context):
         """Sets up a callback function to be invoked representing the status of the connection to IOTHub.
