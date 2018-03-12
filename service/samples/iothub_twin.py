@@ -10,25 +10,35 @@ from iothub_service_client_args import get_iothub_opt_with_module, OptionError
 # String containing Hostname, SharedAccessKeyName & SharedAccessKey in the format:
 # "HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>"
 CONNECTION_STRING = "[IoTHub Connection String]"
-DEVICE_ID = "[Device Id]"
-MODULE_ID = "[Module Id]"
+DEVICE_ID = None
+MODULE_ID = None
 
 
 UPDATE_JSON = "{\"properties\":{\"desired\":{\"telemetryInterval\":120}}}"
 
 
-def iothub_moduletwin_sample_run():
+def iothub_twin_sample_run():
 
     try:
         iothub_twin_method = IoTHubDeviceTwin(CONNECTION_STRING)
-        twin_info = iothub_twin_method.get_twin(DEVICE_ID, MODULE_ID)
+        if (MODULE_ID is None):
+            # Query for device twin
+            twin_info = iothub_twin_method.get_twin(DEVICE_ID)
+        else:
+            # Query for module twin
+            twin_info = iothub_twin_method.get_twin(DEVICE_ID, MODULE_ID)
         print ( "" )
-        print ( "Module Twin before update    :" )
+        print ( "Twin before update    :" )
         print ( "{0}".format(twin_info) )
 
-        twin_info = iothub_twin_method.update_twin(DEVICE_ID, MODULE_ID, UPDATE_JSON)
+        if (MODULE_ID is None):
+            # Update device twin
+            twin_info = iothub_twin_method.update_twin(DEVICE_ID, UPDATE_JSON)
+        else:
+            # Update module twin
+            twin_info = iothub_twin_method.update_twin(DEVICE_ID, MODULE_ID, UPDATE_JSON)
         print ( "" )
-        print ( "Module Twin after update     :" )
+        print ( "Twin after update     :" )
         print ( "{0}".format(twin_info) )
 
     except IoTHubError as iothub_error:
@@ -41,10 +51,11 @@ def iothub_moduletwin_sample_run():
 
 
 def usage():
-    print ( "Usage: iothub_devicetwin_sample.py -c <connectionstring> -d <device_id>" )
+    print ( "Usage: iothub_twin_sample.py -c <connectionstring> -d <device_id> [-m <module_id>]" )
     print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
     print ( "    deviceid        : <*EXISTING* device ID to perform module operations on>" )
-    print ( "    moduleid        : <New module ID for CRUD operations>" )
+    print ( "    moduleid        : <OPTIONAL> <EXISTING Module ID for CRUD operations>" )
+    print ("                     : If moduleid is not set, sample will use device instead of module twin.")
 
 if __name__ == '__main__':
     print ( "" )
@@ -62,7 +73,9 @@ if __name__ == '__main__':
     print ( "Starting the IoT Hub Service Client ModuleTwin Python sample..." )
     print ( "    Connection string = {0}".format(CONNECTION_STRING) )
     print ( "    Device ID         = {0}".format(DEVICE_ID) )
-    print ( "    Module ID         = {0}".format(MODULE_ID) )
+    if (MODULE_ID is not None):
+        print ( "    Module ID         = {0}".format(MODULE_ID) )
 
 
-    iothub_moduletwin_sample_run()
+    iothub_twin_sample_run()
+    print ( "Sample ran successfully!")
