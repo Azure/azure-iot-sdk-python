@@ -68,6 +68,8 @@ HTTP_MINIMUM_POLLING_TIME = 9
 CALLBACK_TIMEOUT = 60
 SLEEP_BEFORE_DEVICE_ACTION = 10
 
+TEST_MODULE_ID = "TestModuleId"
+
 ###########################################################################
 # Helper functions
 ###########################################################################
@@ -108,7 +110,7 @@ def generate_device_name():
     postfix = ''.join([random.choice(string.ascii_letters) for n in range(12)])
     return "python_e2e_test_device-{0}".format(postfix)
 
-def get_device_connection_string(iothub_registry_manager, iothub_connection_string, device_id, authMethod):
+def get_device_or_module_connection_string(iothub_registry_manager, iothub_connection_string, device_id, authMethod, testing_modules):
     iothub_device = iothub_registry_manager.get_device(device_id)
     assert isinstance(iothub_device, IoTHubDevice), 'Invalid type returned!'
     assert iothub_device != None, "iothub_device is NULL"
@@ -119,10 +121,15 @@ def get_device_connection_string(iothub_registry_manager, iothub_connection_stri
     host_name_end = iothub_connection_string.find(";", host_name_start)
     host_name = iothub_connection_string[host_name_start:host_name_end]
 
-    if authMethod == IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT:
-        return host_name + ";DeviceId=" + device_id + ";" + "x509=true"
+    if (testing_modules):
+        device_and_module_id_string = ";DeviceId=" + device_id + ";ModuleId=" + TEST_MODULE_ID
     else:
-        return host_name + ";DeviceId=" + device_id + ";" + "SharedAccessKey=" + primaryKey
+        device_and_module_id_string = ";DeviceId=" + device_id
+
+    if authMethod == IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT:
+        return host_name + device_and_module_id_string + ";" + "x509=true"
+    else:
+        return host_name + device_and_module_id_string + ";" + "SharedAccessKey=" + primaryKey
 
 def open_complete_callback(context):
     print ( 'open_complete_callback called with context: {0}'.format(context) )
@@ -239,7 +246,7 @@ def sc_create_registrymanager(iothub_connection_string):
     assert iothub_registry_manager != None, "RegistryManager creation failed"
     return iothub_registry_manager
 
-def sc_create_device(iothub_registry_manager, device_id, auth_method):
+def sc_create_device_and_module_if_needed(iothub_registry_manager, device_id, auth_method, testing_modules):
     global IOTHUB_E2E_X509_THUMBPRINT
 
     if auth_method == IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT:
@@ -250,7 +257,10 @@ def sc_create_device(iothub_registry_manager, device_id, auth_method):
     secondary_key = ""
     new_device = iothub_registry_manager.create_device(device_id, primary_key, secondary_key, auth_method)
     assert new_device != None, "Device creation failed"
-    return new_device
+
+    if (testing_modules):
+        new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
+        assert new_module != None, "Device creation failed"
 
 def sc_create_messaging(iothub_connection_string):
     iothub_messaging = IoTHubMessaging(iothub_connection_string)
@@ -261,8 +271,11 @@ def sc_messaging_open(iothub_messaging):
     time.sleep(SLEEP_BEFORE_DEVICE_ACTION)
     iothub_messaging.open(open_complete_callback, MESSAGING_CONTEXT)
 
-def sc_send_message(iothub_messaging, device_id, message):
-    iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
+def sc_send_message(iothub_messaging, device_id, message, testing_modules):
+    if (testing_modules):
+        iothub_messaging.send_async(device_id, TEST_MODULE_ID, message, send_complete_callback, MESSAGING_CONTEXT)
+    else:
+        iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
 
 def sc_messaging_close(iothub_messaging):
     iothub_messaging.close()
@@ -272,16 +285,22 @@ def sc_create_twin(iothub_connection_string):
     assert iothub_device_twin != None, "iothub_device_twin is NULL"
     return iothub_device_twin
 
-def sc_get_twin(iothub_device_twin, device_id):
-    twin_info = iothub_device_twin.get_twin(device_id)
+def sc_get_twin(iothub_device_twin, device_id, testing_modules):
+    if (testing_modules):
+        twin_info = iothub_device_twin.get_twin(device_id, TEST_MODULE_ID)
+    else:
+        twin_info = iothub_device_twin.get_twin(device_id)
     assert twin_info != None, "twin_info is NULL"
     return twin_info
 
-def sc_update_twin(iothub_device_twin, device_id):
+def sc_update_twin(iothub_device_twin, device_id, testing_modules):
     new_property_name = "telemetryInterval"
     new_property_value = "42"
     UPDATE_JSON = "{\"properties\":{\"desired\":{\"" + new_property_name + "\":" + new_property_value + "}}}"
-    twin_info = iothub_device_twin.update_twin(device_id, UPDATE_JSON)
+    if (testing_modules):
+        twin_info = iothub_device_twin.update_twin(device_id, TEST_MODULE_ID, UPDATE_JSON)
+    else:
+        twin_info = iothub_device_twin.update_twin(device_id, UPDATE_JSON)
     assert twin_info != None, "twin_info is NULL"
     return twin_info
 
@@ -290,9 +309,12 @@ def sc_create_device_method(iothub_connection_string):
     assert iothub_device_method != None, "iothub_device_method is NULL"
     return iothub_device_method
 
-def sc_invoke_device_method(iothub_device_method, device_id, method_name, method_payload):
+def sc_invoke_device_method(iothub_device_method, device_id, method_name, method_payload, testing_modules):
     DEVICE_METHOD_TIMEOUT = 60
-    response = iothub_device_method.invoke(device_id, method_name, method_payload, DEVICE_METHOD_TIMEOUT)
+    if (testing_modules):
+        response = iothub_device_method.invoke(device_id, TEST_MODULE_ID, method_name, method_payload, DEVICE_METHOD_TIMEOUT)
+    else:
+        response = iothub_device_method.invoke(device_id, method_name, method_payload, DEVICE_METHOD_TIMEOUT)
     assert response != None, "response is NULL"
     return response
 
@@ -303,7 +325,7 @@ def sc_delete_device(iothub_registry_manager, device_id):
 ###########################################################################
 # E2E tests
 ###########################################################################
-def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method, iothub_device_twin, device_id, device_connection_string, protocol, authMethod):
+def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method, iothub_device_twin, device_id, device_or_module_connection_string, protocol, authMethod, testing_modules):
     global IOTHUB_E2E_X509_CERT
     global IOTHUB_E2E_X509_THUMBPRINT
     global IOTHUB_E2E_X509_PRIVATE_KEY
@@ -315,7 +337,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
 
     # prepare
     # act
-    device_client = IoTHubClient(device_connection_string, protocol)
+    device_client = IoTHubClient(device_or_module_connection_string, protocol)
 
     # verify
     assert isinstance(device_client, IoTHubClient), 'Error: Invalid type returned!'
@@ -362,7 +384,10 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     # verify
     ###########################################################################
 
-    if protocol == IoTHubTransportProvider.MQTT or protocol == IoTHubTransportProvider.MQTT_WS:
+    if protocol == IoTHubTransportProvider.AMQP \
+       or protocol == IoTHubTransportProvider.AMQP_WS \
+       or protocol == IoTHubTransportProvider.MQTT \
+       or protocol == IoTHubTransportProvider.MQTT_WS:
         ###########################################################################
         # set_device_twin_callback
     
@@ -394,7 +419,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         TWIN_CALLBACK_COUNTER = 0
 
         # act
-        sc_update_twin(iothub_device_twin, device_id)
+        sc_update_twin(iothub_device_twin, device_id, testing_modules)
         TWIN_CALLBACK_EVENT.wait(CALLBACK_TIMEOUT)
 
         # verify
@@ -415,17 +440,14 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         payload_json = "{\"method_number\":\"42\"}"
 
         # act
-        sc_invoke_device_method(iothub_device_method, device_id, method_name, payload_json)
+        sc_invoke_device_method(iothub_device_method, device_id, method_name, payload_json, testing_modules)
         DEVICE_METHOD_EVENT.wait(CALLBACK_TIMEOUT)
 
         # verify
         assert DEVICE_METHOD_CALLBACK_COUNTER > 0, "Error: device_twin_callback callback has not been called"
         ###########################################################################
 
-    if protocol == IoTHubTransportProvider.AMQP \
-       or protocol == IoTHubTransportProvider.AMQP_WS \
-       or protocol == IoTHubTransportProvider.MQTT \
-       or protocol == IoTHubTransportProvider.MQTT_WS:
+
         ###########################################################################
         # send_reported_state
     
@@ -477,7 +499,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     MESSAGE_RECEIVE_CALLBACK_COUNTER = 0
 
     # act
-    sc_send_message(iothub_service_client_messaging, device_id, message)
+    sc_send_message(iothub_service_client_messaging, device_id, message, testing_modules)
     MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
 
     # verify
@@ -540,26 +562,26 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     ###########################################################################
 
 
-def run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, protocol, authMethod):
+def run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, protocol, authMethod, testing_modules):
     global IOTHUB_CONNECTION_STRING
 
     print ("********************* run_e2e({0}, {1}) E2E test started".format(protocol, authMethod))
     try:
         device_id = generate_device_name()
 
-        device = sc_create_device(iothub_registry_manager, device_id, authMethod)
-        device_connection_string = get_device_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, authMethod)
+        sc_create_device_and_module_if_needed(iothub_registry_manager, device_id, authMethod, testing_modules)
+        device_or_module_connection_string = get_device_or_module_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, authMethod, testing_modules)
 
-        run_e2e_device_client(iothub_service_client_messaging, iothub_device_method, iothub_device_twin, device_id, device_connection_string, protocol, authMethod)
+        run_e2e_device_client(iothub_service_client_messaging, iothub_device_method, iothub_device_twin, device_id, device_or_module_connection_string, protocol, authMethod, testing_modules)
 
         retval = 0
     except Exception as e:
-        print ("(********************* run_e2e({0}, {1}) E2E test failed with exception: {2}".format(protocol, authMethod, e))
+        print ("(********************* run_e2e({0}, {1}, testing_modules={2}) E2E test failed with exception: {3}".format(protocol, authMethod, testing_modules, e))
         retval = 1
     finally:
         sc_delete_device(iothub_registry_manager, device_id)
 
-    print ("********************* run_e2e({0}, {1}) E2E test finished".format(protocol, authMethod))
+    print ("********************* run_e2e({0}, {1}, testing_modules={2}) E2E test finished".format(protocol, authMethod, testing_modules))
     return retval
 
 
@@ -590,7 +612,7 @@ def run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_mess
 
         # Create first device
         device_id1 = generate_device_name()
-        device = sc_create_device(iothub_registry_manager, device_id1, authMethod)
+        sc_create_device_and_module_if_needed(iothub_registry_manager, device_id1, authMethod, False)
         iothub_device1 = iothub_registry_manager.get_device(device_id1)
         assert isinstance(iothub_device1, IoTHubDevice), 'Invalid type returned!'
         assert iothub_device1 != None, "iothub_device is NULL"
@@ -601,7 +623,7 @@ def run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_mess
 
         # Create second device
         device_id2 = generate_device_name()
-        device = sc_create_device(iothub_registry_manager, device_id2, authMethod)
+        sc_create_device_and_module_if_needed(iothub_registry_manager, device_id2, authMethod, False)
         iothub_device2 = iothub_registry_manager.get_device(device_id2)
         assert isinstance(iothub_device2, IoTHubDevice), 'Invalid type returned!'
         assert iothub_device2 != None, "iothub_device is NULL"
@@ -632,11 +654,11 @@ def run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_mess
         MESSAGE_RECEIVE_CALLBACK_COUNTER = 0
 
         # act
-        sc_send_message(iothub_service_client_messaging, device_id1, message)
+        sc_send_message(iothub_service_client_messaging, device_id1, message, False)
         MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
 
         MESSAGE_RECEIVE_EVENT.clear()
-        sc_send_message(iothub_service_client_messaging, device_id2, message)
+        sc_send_message(iothub_service_client_messaging, device_id2, message, False)
         MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
 
         # verify
@@ -667,17 +689,20 @@ def main():
     sc_messaging_open(iothub_service_client_messaging)
 
     try:
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.MQTT, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.MQTT, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.MQTT, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY, False) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.MQTT, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT, False) == 0
 
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY, False) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT, False) == 0
 
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY, False) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT, False) == 0
 
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.HTTP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
-        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.HTTP, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.HTTP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY, False) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.HTTP, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT, False) == 0
+
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY, True) == 0
+        assert run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY, True) == 0
 
         assert run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
         assert run_e2e_shared_transport(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, IoTHubTransportProvider.AMQP_WS, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY) == 0
