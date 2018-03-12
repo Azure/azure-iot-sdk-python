@@ -16,7 +16,7 @@ from iothub_service_client import IoTHubRegistryManager, IoTHubRegistryManagerAu
 from iothub_service_client import IoTHubMessaging
 from iothub_service_client import IoTHubDeviceTwin
 from iothub_service_client import IoTHubDeviceMethod
-from iothub_service_client import IoTHubMessage, IoTHubDevice, IoTHubDeviceStatus, IoTHubDeviceMethodResponse
+from iothub_service_client import IoTHubMessage, IoTHubDevice, IoTHubDeviceStatus, IoTHubDeviceMethodResponse, IoTHubModule
 
 from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
 from iothub_client import IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
@@ -32,6 +32,7 @@ DEVICE_METHOD_PAYLOAD = "\"I'm a happy little string for python E2E test\""
 DEVICE_METHOD_RESPONSE_PREFIX = "e2e_test_response-"
 DEVICE_METHOD_EVENT = threading.Event()
 DEVICE_METHOD_CALLBACK_TIMEOUT = 30
+TEST_MODULE_ID = "TestModuleId"
 
 RECEIVE_CALLBACKS = 0
 MESSAGING_MESSAGE = ""
@@ -44,24 +45,31 @@ SLEEP_BEFORE_DEVICE_ACTION = 10
 ###########################################################################
 # Helper functions
 ###########################################################################
+def sleep_before_device_action():
+    print ( "Sleeping for {0} seconds to give time for operation to complete".format(SLEEP_BEFORE_DEVICE_ACTION))
+    time.sleep(SLEEP_BEFORE_DEVICE_ACTION)
 
-def print_device_info(title, iothub_device):
+
+def print_device_or_module_info(title, iothub_device_or_module, testing_modules):
     print ( title + ":" )
-    print ( "iothubDevice.deviceId                    = {0}".format(iothub_device.deviceId) )
-    print ( "iothubDevice.generationId                = {0}".format(iothub_device.generationId) )
-    print ( "iothubDevice.eTag                        = {0}".format(iothub_device.eTag) )
-    print ( "iothubDevice.connectionState             = {0}".format(iothub_device.connectionState) )
-    print ( "iothubDevice.connectionStateUpdatedTime  = {0}".format(iothub_device.connectionStateUpdatedTime) )
-    print ( "iothubDevice.status                      = {0}".format(iothub_device.status) )
-    print ( "iothubDevice.statusReason                = {0}".format(iothub_device.statusReason) )
-    print ( "iothubDevice.statusUpdatedTime           = {0}".format(iothub_device.statusUpdatedTime) )
-    print ( "iothubDevice.lastActivityTime            = {0}".format(iothub_device.lastActivityTime) )
-    print ( "iothubDevice.cloudToDeviceMessageCount   = {0}".format(iothub_device.cloudToDeviceMessageCount) )
-    print ( "iothubDevice.isManaged                   = {0}".format(iothub_device.isManaged) )
-    print ( "iothubDevice.configuration               = {0}".format(iothub_device.configuration) )
-    print ( "iothubDevice.deviceProperties            = {0}".format(iothub_device.deviceProperties) )
-    print ( "iothubDevice.serviceProperties           = {0}".format(iothub_device.serviceProperties) )
-    print ( "iothubDevice.authMethod                  = {0}".format(iothub_device.authMethod) )
+    print ( "  deviceId                    = {0}".format(iothub_device_or_module.deviceId) )
+    if (testing_modules):
+        print ( "  moduleId                  = {0}".format(iothub_device_or_module.moduleId) )
+    print ( "  generationId                = {0}".format(iothub_device_or_module.generationId) )
+    print ( "  eTag                        = {0}".format(iothub_device_or_module.eTag) )
+    print ( "  connectionState             = {0}".format(iothub_device_or_module.connectionState) )
+    print ( "  connectionStateUpdatedTime  = {0}".format(iothub_device_or_module.connectionStateUpdatedTime) )
+    if (testing_modules == False):
+        print ( "  status                      = {0}".format(iothub_device_or_module.status) )
+        print ( "  statusReason                = {0}".format(iothub_device_or_module.statusReason) )
+        print ( "  statusUpdatedTime           = {0}".format(iothub_device_or_module.statusUpdatedTime) )
+        print ( "  isManaged                   = {0}".format(iothub_device_or_module.isManaged) )
+        print ( "  configuration               = {0}".format(iothub_device_or_module.configuration) )
+        print ( "  deviceProperties            = {0}".format(iothub_device_or_module.deviceProperties) )
+        print ( "  serviceProperties           = {0}".format(iothub_device_or_module.serviceProperties) )
+    print ( "  lastActivityTime            = {0}".format(iothub_device_or_module.lastActivityTime) )
+    print ( "  cloudToDeviceMessageCount   = {0}".format(iothub_device_or_module.cloudToDeviceMessageCount) )
+    print ( "  authMethod                  = {0}".format(iothub_device_or_module.authMethod) )
     print ( "" )
 
 
@@ -80,18 +88,27 @@ def generate_device_name():
     return "python_e2e_test_device-{0}".format(postfix)
 
 
-def get_device_connection_string(iothub_registry_manager, iothub_connection_string, device_id):
-    iothub_device = iothub_registry_manager.get_device(device_id)
-    assert isinstance(iothub_device, IoTHubDevice), 'Invalid type returned!'
-    assert iothub_device != None, "iothub_device is NULL"
+def get_connection_string(iothub_registry_manager, iothub_connection_string, device_id, testing_modules):
+    if (testing_modules):
+        iothub_device_or_module = iothub_registry_manager.get_module(device_id, TEST_MODULE_ID)
+        assert isinstance(iothub_device_or_module, IoTHubModule), 'Invalid type returned!'
+    else:
+        iothub_device_or_module = iothub_registry_manager.get_device(device_id)
+        assert isinstance(iothub_device_or_module, IoTHubDevice), 'Invalid type returned!'
+    assert iothub_device_or_module != None, "iothub_device_or_module is NULL"
 
-    primaryKey = iothub_device.primaryKey
+    primaryKey = iothub_device_or_module.primaryKey
 
     host_name_start = iothub_connection_string.find("HostName")
     host_name_end = iothub_connection_string.find(";", host_name_start)
     host_name = iothub_connection_string[host_name_start:host_name_end + 1]
 
-    return host_name + "DeviceId=" + device_id + ";" + "SharedAccessKey=" + primaryKey
+    connection_string = host_name + "DeviceId=" + device_id + ";" + "SharedAccessKey=" + primaryKey
+
+    if (testing_modules):
+        connection_string += ";ModuleId=" + TEST_MODULE_ID
+
+    return connection_string
 
 
 def device_method_callback(method_name, payload, user_context):
@@ -144,6 +161,39 @@ def receive_message_callback(message, counter):
 
     return IoTHubMessageDispositionResult.ACCEPTED
 
+def get_device_info_and_verify(title, iothub_registry_manager, device_id):
+    # prepare
+    # act
+    iothub_device = iothub_registry_manager.get_device(device_id)
+
+    # verify
+    assert isinstance(iothub_device, IoTHubDevice), 'Invalid type returned!'
+    assert iothub_device != None, "iothub_device is NULL"
+    assert iothub_device.primaryKey != None, "iothub_device.primaryKey is NULL"
+    assert iothub_device.primaryKey != "", "iothub_device.primaryKey is empty"
+    assert iothub_device.secondaryKey != None, "iothub_device.secondaryKey is NULL"
+    assert iothub_device.secondaryKey != "", "iothub_device.secondaryKey is empty"
+    ###########################################################################
+
+    print_device_or_module_info(title, iothub_device, False)
+
+def get_module_info_and_verify(title, iothub_registry_manager, device_id):
+    # prepare
+    # act
+    iothub_module = iothub_registry_manager.get_module(device_id, TEST_MODULE_ID)
+
+    # verify
+    assert isinstance(iothub_module, IoTHubModule), 'Invalid type returned!'
+    assert iothub_module != None, "iothub_module is NULL"
+    assert iothub_module.primaryKey != None, "iothub_module.primaryKey is NULL"
+    assert iothub_module.primaryKey != "", "iothub_module.primaryKey is empty"
+    assert iothub_module.secondaryKey != None, "iothub_module.secondaryKey is NULL"
+    assert iothub_module.secondaryKey != "", "iothub_module.secondaryKey is empty"
+    ###########################################################################
+
+    print_device_or_module_info(title, iothub_module, True)
+
+
 ###########################################################################
 # E2E tests
 ###########################################################################
@@ -188,25 +238,40 @@ def run_e2e_registrymanager(iothub_connection_string):
         assert new_device.secondaryKey != "", "new_device.secondaryKey is empty"
         ###########################################################################
 
-        print_device_info("CreateDevice", new_device)
+        print_device_or_module_info("CreateDevice", new_device, False)
+
+
+        ###########################################################################
+        # create_module_device
+
+        # prepare
+        primary_key = ""
+        secondary_key = ""
+        auth_method = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY
+
+        # act
+        new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
+
+        # verify
+        assert isinstance(new_module, IoTHubModule), 'Invalid type returned!'
+        assert new_module != None, "new_module is NULL"
+        assert new_module.primaryKey != None, "new_module.primaryKey is NULL"
+        assert new_module.primaryKey != "", "new_module.primaryKey is empty"
+        assert new_module.secondaryKey != None, "new_module.secondaryKey is NULL"
+        assert new_module.secondaryKey != "", "new_module.secondaryKey is empty"
+        ###########################################################################
+
+        print_device_or_module_info("CreateModule", new_module, True)
+        
 
         ###########################################################################
         # get_device
+        get_device_info_and_verify("GetDevice", iothub_registry_manager, device_id)
 
-        # prepare
-        # act
-        iothub_device = iothub_registry_manager.get_device(device_id)
-  
-        # verify
-        assert isinstance(iothub_device, IoTHubDevice), 'Invalid type returned!'
-        assert iothub_device != None, "iothub_device is NULL"
-        assert iothub_device.primaryKey != None, "iothub_device.primaryKey is NULL"
-        assert iothub_device.primaryKey != "", "iothub_device.primaryKey is empty"
-        assert iothub_device.secondaryKey != None, "iothub_device.secondaryKey is NULL"
-        assert iothub_device.secondaryKey != "", "iothub_device.secondaryKey is empty"
         ###########################################################################
+        # get_module
+        get_module_info_and_verify("GetModule", iothub_registry_manager, device_id)
 
-        print_device_info("GetDevice", iothub_device)
 
         ###########################################################################
         # update_device
@@ -219,18 +284,27 @@ def run_e2e_registrymanager(iothub_connection_string):
 
         # act
         iothub_registry_manager.update_device(device_id, primary_key, secondary_key, status, auth_method)
-        updated_device = iothub_registry_manager.get_device(device_id)
     
         # verify
-        assert isinstance(updated_device, IoTHubDevice), 'Invalid type returned!'
-        assert updated_device != None, "updated_device is NULL"
-        assert updated_device.primaryKey == primary_key, "updated_device.primaryKey is not updated"
-        assert updated_device.secondaryKey == secondary_key, "updated_device.secondaryKey is not updated"
-        assert updated_device.authMethod == auth_method, "updated_device.authMethod is not updated"
-        assert updated_device.status == status, "updated_device.status is not updated"
-        ###########################################################################
+        get_device_info_and_verify("UpdateDevice", iothub_registry_manager, device_id)
 
-        print_device_info("UpdateDevice", updated_device)
+
+        ###########################################################################
+        # update_module
+
+        # prepare
+        primary_key = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(44)])
+        secondary_key = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(44)])
+        status = IoTHubDeviceStatus.DISABLED
+        auth_method = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY
+
+        # act
+        iothub_registry_manager.update_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
+        
+        # verify
+        get_module_info_and_verify("UpdateModule", iothub_registry_manager, device_id)
+
+        
 
         ###########################################################################
         # get_device_list
@@ -271,9 +345,16 @@ def run_e2e_registrymanager(iothub_connection_string):
         retval = 0
     except Exception as e:
         print ( "" )
-        print ("run_e2e_devicetwin() failed with exception: {0}".format(e))
+        print ("run_e2e_registrymanager() failed with exception: {0}".format(e))
         retval = 1
     finally:
+        ###########################################################################
+        # delete_module
+        # prepare
+        # act
+        iothub_registry_manager.delete_module(device_id, TEST_MODULE_ID)
+        # verify
+
         ###########################################################################
         # delete_device
  
@@ -286,7 +367,7 @@ def run_e2e_registrymanager(iothub_connection_string):
     return retval
 
 
-def run_e2e_devicetwin(iothub_connection_string):
+def run_e2e_twin(iothub_connection_string, testing_modules):
     try:
         # prepare
         device_id = generate_device_name()
@@ -298,6 +379,9 @@ def run_e2e_devicetwin(iothub_connection_string):
 
         iothub_registry_manager = IoTHubRegistryManager(iothub_connection_string)
         new_device = iothub_registry_manager.create_device(device_id, primary_key, secondary_key, auth_method)
+
+        if testing_modules == True:
+            new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
 
         ###########################################################################
         # IoTHubDeviceTwin
@@ -312,13 +396,16 @@ def run_e2e_devicetwin(iothub_connection_string):
         ###########################################################################
 
         # Wait before get twin...
-        time.sleep(SLEEP_BEFORE_DEVICE_ACTION)
+        sleep_before_device_action()
 
         ###########################################################################
         # get_twin
 
         # act
-        twin_info = iothub_device_twin.get_twin(device_id)
+        if testing_modules == True:
+            twin_info = iothub_device_twin.get_twin(device_id, TEST_MODULE_ID)
+        else:
+            twin_info = iothub_device_twin.get_twin(device_id)
 
         # verify
         assert twin_info != None, "twin_info is NULL"
@@ -327,6 +414,10 @@ def run_e2e_devicetwin(iothub_connection_string):
         json_ok = twin_info.find(device_id)
         assert json_ok > 0, "twin_info does not contain the correct device id"
 
+        if testing_modules == True:
+            json_ok = twin_info.find("moduleId")
+            assert json_ok > 0, "twin_info does not contain moduleId tag"
+
         json_ok = twin_info.find("etag")
         assert json_ok > 0, "twin_info does not contain etag tag"
         json_ok = twin_info.find("properties")
@@ -334,7 +425,7 @@ def run_e2e_devicetwin(iothub_connection_string):
         ###########################################################################
 
         print ( "" )
-        print ( "Device Twin before update:" )
+        print ( "Twin before update:" )
         print ( "{0}".format(twin_info) )
 
         ###########################################################################
@@ -346,7 +437,10 @@ def run_e2e_devicetwin(iothub_connection_string):
         UPDATE_JSON = "{\"properties\":{\"desired\":{\"" + new_property_name + "\":" + new_property_value + "}}}"
 
         # act
-        twin_info = iothub_device_twin.update_twin(device_id, UPDATE_JSON)
+        if testing_modules == True:
+            twin_info = iothub_device_twin.update_twin(device_id, TEST_MODULE_ID, UPDATE_JSON)
+        else:
+            twin_info = iothub_device_twin.update_twin(device_id, UPDATE_JSON)
 
         # verify
         assert twin_info != None, "twin_info is NULL"
@@ -373,16 +467,19 @@ def run_e2e_devicetwin(iothub_connection_string):
         retval = 0
     except Exception as e:
         print ( "" )
-        print ("run_e2e_devicetwin() failed with exception: {0}".format(e))
+        print ("run_e2e_twin() failed with exception: {0}".format(e))
         retval = 1
     finally:
         # clean-up
+        if testing_modules == True:
+            iothub_registry_manager.delete_module(device_id, TEST_MODULE_ID)
+
         iothub_registry_manager.delete_device(device_id)
 
     return retval
 
 
-def run_e2e_devicemethod(iothub_connection_string):
+def run_e2e_method(iothub_connection_string, testing_modules):
     global DEVICE_METHOD_USER_CONTEXT
     global DEVICE_METHOD_NAME
     global DEVICE_METHOD_PAYLOAD
@@ -400,10 +497,15 @@ def run_e2e_devicemethod(iothub_connection_string):
         iothub_registry_manager = IoTHubRegistryManager(iothub_connection_string)
         new_device = iothub_registry_manager.create_device(device_id, primary_key, secondary_key, auth_method)
 
-        device_connection_string = get_device_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id)
+        if testing_modules == True:
+            new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
+            protocol = IoTHubTransportProvider.AMQP
+        else:
+            protocol = IoTHubTransportProvider.MQTT
 
+        connection_string = get_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, testing_modules)
 
-        device_client = IoTHubClient(device_connection_string, IoTHubTransportProvider.MQTT)
+        device_client = IoTHubClient(connection_string, protocol)
         assert isinstance(device_client, IoTHubClient), 'Invalid type returned!'
         assert device_client != None, "device_client is NULL"
 
@@ -423,14 +525,18 @@ def run_e2e_devicemethod(iothub_connection_string):
         ###########################################################################
 
         # Wait before invoke...
-        time.sleep(SLEEP_BEFORE_DEVICE_ACTION)
+        sleep_before_device_action()
 
         ############################################################################
         # invoke
         
         # prepare
         # act
-        response = iothub_device_method.invoke(device_id, DEVICE_METHOD_NAME, DEVICE_METHOD_PAYLOAD, DEVICE_METHOD_TIMEOUT)
+        if testing_modules == True:
+            response = iothub_device_method.invoke(device_id, TEST_MODULE_ID, DEVICE_METHOD_NAME, DEVICE_METHOD_PAYLOAD, DEVICE_METHOD_TIMEOUT)
+        else:
+            response = iothub_device_method.invoke(device_id, DEVICE_METHOD_NAME, DEVICE_METHOD_PAYLOAD, DEVICE_METHOD_TIMEOUT)
+
         assert response != None, "response is NULL"
         assert isinstance(response, IoTHubDeviceMethodResponse), 'Invalid type returned!'
 
@@ -446,7 +552,7 @@ def run_e2e_devicemethod(iothub_connection_string):
         retval = 0
     except Exception as e:
         print ( "" )
-        print ("run_e2e_devicemethod() failed with exception: {0}".format(e))
+        print ("run_e2e_method() failed with exception: {0}".format(e))
         retval = 1
     finally:
         # clean-up
@@ -455,7 +561,7 @@ def run_e2e_devicemethod(iothub_connection_string):
     return retval
 
 
-def run_e2e_messaging(iothub_connection_string):
+def run_e2e_messaging(iothub_connection_string, testing_modules):
     global RECEIVE_CALLBACKS
     global MESSAGING_MESSAGE
 
@@ -471,9 +577,15 @@ def run_e2e_messaging(iothub_connection_string):
         iothub_registry_manager = IoTHubRegistryManager(iothub_connection_string)
         new_device = iothub_registry_manager.create_device(device_id, primary_key, secondary_key, auth_method)
 
-        device_connection_string = get_device_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id)
+        if testing_modules == True:
+            new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
+            protocol = IoTHubTransportProvider.AMQP
+        else:
+            protocol = IoTHubTransportProvider.MQTT
 
-        device_client = IoTHubClient(device_connection_string, IoTHubTransportProvider.MQTT)
+        connection_string = get_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, testing_modules)
+
+        device_client = IoTHubClient(connection_string, protocol)
         assert isinstance(device_client, IoTHubClient), 'Invalid type returned!'
         assert device_client != None, "device_client is NULL"
 
@@ -493,7 +605,7 @@ def run_e2e_messaging(iothub_connection_string):
         ###########################################################################
 
         # Wait before open...
-        time.sleep(SLEEP_BEFORE_DEVICE_ACTION)
+        sleep_before_device_action()
 
         ############################################################################
         # open
@@ -510,7 +622,10 @@ def run_e2e_messaging(iothub_connection_string):
         message = IoTHubMessage(bytearray(MESSAGING_MESSAGE, 'utf8'))
 
         # act
-        iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
+        if testing_modules == True:
+            iothub_messaging.send_async(device_id, TEST_MODULE_ID, message, send_complete_callback, MESSAGING_CONTEXT)
+        else:
+            iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
         MESSAGE_RECEIVED_EVENT.wait(MESSAGE_RECEIVE_CALLBACK_TIMEOUT)
 
         # verify
@@ -538,13 +653,17 @@ def main():
    
     try:
         assert run_e2e_registrymanager(IOTHUB_CONNECTION_STRING) == 0
-        assert run_e2e_devicetwin(IOTHUB_CONNECTION_STRING) == 0
-        assert run_e2e_devicemethod(IOTHUB_CONNECTION_STRING) == 0
-        assert run_e2e_messaging(IOTHUB_CONNECTION_STRING) == 0
+        assert run_e2e_twin(IOTHUB_CONNECTION_STRING, False) == 0
+        assert run_e2e_twin(IOTHUB_CONNECTION_STRING, True) == 0
+        assert run_e2e_method(IOTHUB_CONNECTION_STRING, False) == 0
+        assert run_e2e_method(IOTHUB_CONNECTION_STRING, True) == 0
+        assert run_e2e_messaging(IOTHUB_CONNECTION_STRING, False) == 0
+        assert run_e2e_messaging(IOTHUB_CONNECTION_STRING, True) == 0
         print ("********************* iothub_service_client E2E tests passed!")
         return 0
-    except:
+    except Exception as e:
         print ("********************* iothub_service_client E2E tests failed!")
+        print ("Exception = {0}".format(e))
         return 1
 
 
