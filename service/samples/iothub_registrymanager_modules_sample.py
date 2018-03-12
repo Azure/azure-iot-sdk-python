@@ -84,7 +84,7 @@ def iothub_registrymanager_modules_sample_run():
 
 
 def usage():
-    print ( "Usage: iothub_registrymanager_sample.py -c <connection_string> -d <device_id> -m <module_id>" )
+    print ( "Usage: iothub_registrymanager_modules_sample.py -c <connection_string> -d <device_id> -m <module_id>" )
     print ( "    connectionString::                                                                                                  " )     
     print ( "    * When using the device's connection string (gives the application access to this device's modules                    " )
     print ( "        connectionstring: <HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<SharedAccessKey>>                   " )
