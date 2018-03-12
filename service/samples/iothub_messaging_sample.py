@@ -6,7 +6,7 @@ import random
 import sys
 import iothub_service_client
 from iothub_service_client import IoTHubMessaging, IoTHubMessage, IoTHubError
-from iothub_service_client_args import get_iothub_opt, OptionError
+from iothub_service_client_args import get_iothub_opt_with_module, OptionError
 
 OPEN_CONTEXT = 0
 FEEDBACK_CONTEXT = 1
@@ -16,7 +16,8 @@ MESSAGE_COUNT = 10
 # String containing Hostname, SharedAccessKeyName & SharedAccessKey in the format:
 # "HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>"
 CONNECTION_STRING = "[IoTHub Connection String]"
-DEVICE_ID = "[Device Id]"
+DEVICE_ID = None
+MODULE_ID = None
 
 
 AVG_WIND_SPEED = 10.0
@@ -74,7 +75,10 @@ def iothub_messaging_sample_run():
             prop_text = "PropMsg_%d" % i
             prop_map.add("Property", prop_text)
 
-            iothub_messaging.send_async(DEVICE_ID, message, send_complete_callback, i)
+            if (MODULE_ID is None):
+                iothub_messaging.send_async(DEVICE_ID, message, send_complete_callback, i)
+            else:
+                iothub_messaging.send_async(DEVICE_ID, MODULE_ID, message, send_complete_callback, i)
 
         try:
             # Try Python 2.xx first
@@ -94,9 +98,11 @@ def iothub_messaging_sample_run():
 
 
 def usage():
-    print ( "Usage: iothub_messaging_sample.py -c <connectionstring> -d <device_id>" )
+    print ( "Usage: iothub_messaging_sample.py -c <connectionstring> -d <device_id> [-m <module_id>]" )
     print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
-    print ( "    deviceid        : <Existing device ID to to send a message to>" )
+    print ( "    deviceid        : <Existing device ID to send a message to>" )
+    print ( "    moduleid        : <OPTIONAL> <*EXISTING* module ID to send a message to>" )
+    print ("                     : If moduleid is not set, sample will use device instead.")
 
 
 if __name__ == '__main__':
@@ -106,7 +112,7 @@ if __name__ == '__main__':
     print ( "" )
 
     try:
-        (CONNECTION_STRING, DEVICE_ID) = get_iothub_opt(sys.argv[1:], CONNECTION_STRING, DEVICE_ID)
+        (CONNECTION_STRING, DEVICE_ID, MODULE_ID) = get_iothub_opt_with_module(sys.argv[1:], CONNECTION_STRING, DEVICE_ID, MODULE_ID)
     except OptionError as option_error:
         print ( option_error )
         usage()
@@ -115,5 +121,8 @@ if __name__ == '__main__':
     print ( "Starting the IoT Hub Service Client Messaging Python sample..." )
     print ( "    Connection string = {0}".format(CONNECTION_STRING) )
     print ( "    Device ID         = {0}".format(DEVICE_ID) )
+    if (MODULE_ID is not None):
+        print ( "    Module ID         = {0}".format(MODULE_ID) )
+
 
     iothub_messaging_sample_run()
