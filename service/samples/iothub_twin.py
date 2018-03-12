@@ -54,7 +54,7 @@ def usage():
     print ( "Usage: iothub_twin_sample.py -c <connectionstring> -d <device_id> [-m <module_id>]" )
     print ( "    connectionstring: <HostName=<host_name>;SharedAccessKeyName=<SharedAccessKeyName>;SharedAccessKey=<SharedAccessKey>>" )
     print ( "    deviceid        : <*EXISTING* device ID to perform module operations on>" )
-    print ( "    moduleid        : <OPTIONAL> <EXISTING Module ID for CRUD operations>" )
+    print ( "    moduleid        : <OPTIONAL> <*EXISTING* Module ID for CRUD operations>" )
     print ("                     : If moduleid is not set, sample will use device instead of module twin.")
 
 if __name__ == '__main__':
