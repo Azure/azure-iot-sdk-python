@@ -571,7 +571,7 @@ class IoTHubClient:
         pass
 
     def set_message_callback(self, input_name, message_callback, user_context):
-        """Sets up a callback function to be invoked when the device client received a message from IoTHub.
+        """Sets up a callback function to be invoked when the device client received a message from IoTHub on specified input.
 
         :param input_name: input to receive the message on
         :type input_name: str

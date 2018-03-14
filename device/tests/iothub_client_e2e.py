@@ -122,14 +122,14 @@ def get_device_or_module_connection_string(iothub_registry_manager, iothub_conne
     host_name = iothub_connection_string[host_name_start:host_name_end]
 
     if (testing_modules):
-        device_and_module_id_string = ";DeviceId=" + device_id + ";ModuleId=" + TEST_MODULE_ID
+        device_or_module_id_string = ";DeviceId=" + device_id + ";ModuleId=" + TEST_MODULE_ID
     else:
-        device_and_module_id_string = ";DeviceId=" + device_id
+        device_or_module_id_string = ";DeviceId=" + device_id
 
     if authMethod == IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT:
-        return host_name + device_and_module_id_string + ";" + "x509=true"
+        return host_name + device_or_module_id_string + ";" + "x509=true"
     else:
-        return host_name + device_and_module_id_string + ";" + "SharedAccessKey=" + primaryKey
+        return host_name + device_or_module_id_string + ";" + "SharedAccessKey=" + primaryKey
 
 def open_complete_callback(context):
     print ( 'open_complete_callback called with context: {0}'.format(context) )
