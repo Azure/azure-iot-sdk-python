@@ -41,7 +41,7 @@
 #define IMPORT_NAME provisioning_device_client
 #endif
 
-#define VERSION_STRING "1.2.3"
+#define VERSION_STRING "1.3.0"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
