@@ -44,7 +44,7 @@
 #define IMPORT_NAME iothub_client
 #endif
 
-#define VERSION_STRING "1.3.1"
+#define VERSION_STRING "1.3.2"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
