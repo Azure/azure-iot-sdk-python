@@ -102,8 +102,3 @@ echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
 [ $? -eq 0 ] || exit $?
 cd $build_root
 
-cd $build_root/provisioning_device_client/tests/
-echo "python${PYTHON_VERSION}" provisioning_device_client_ut.py
-"python${PYTHON_VERSION}" provisioning_device_client_ut.py
-[ $? -eq 0 ] || exit $?
-cd $build_root
