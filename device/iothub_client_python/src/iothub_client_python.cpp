@@ -20,7 +20,7 @@
 #include "azure_c_shared_utility/platform.h"
 #include "iothub_client.h"
 #include "iothub_client_version.h"
-#ifdef MACOSX
+#ifndef MACOSX
 #include "azure_prov_client/iothub_security_factory.h"
 #endif
 
@@ -1501,7 +1501,7 @@ public:
         }
     }
 
-#ifdef MACOSX
+#ifndef MACOSX
     static IOTHUB_SECURITY_TYPE
         GetSecurityType(SECURITY_TYPE _security_type)
     {
@@ -1526,7 +1526,7 @@ public:
     }
 #endif
 
-#ifdef MACOSX
+#ifndef MACOSX
     IoTHubClient(
         std::string iothub_uri,
         std::string device_id,
@@ -1564,7 +1564,7 @@ public:
             iotHubClientHandle = NULL;
         }
 
-#ifdef MACOSX
+#ifndef MACOSX
         iothub_security_deinit();
 #endif
 
@@ -2186,7 +2186,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubClient, boost::noncopyable>("IoTHubClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def(init<IoTHubTransport*, IoTHubConfig*>())
-#ifdef MACOSX
+#ifndef MACOSX
         .def(init<std::string, std::string, SECURITY_TYPE, IOTHUB_TRANSPORT_PROVIDER>())
 #endif
         .def("send_event_async", &IoTHubClient::SendEventAsync)
