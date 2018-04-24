@@ -91,14 +91,7 @@ echo copy provisioning_device_client_mock library to tests folder
 cp $build_folder/provisioning_device_client_python/tests/provisioning_device_client_mock.dylib ./provisioning_device_client/tests/provisioning_device_client_mock.so
 cp $build_folder/provisioning_device_client_python/src/provisioning_device_client.dylib ./provisioning_device_client/tests/provisioning_device_client.so
 
-cd $build_root/device/tests/
-echo "python${PYTHON_VERSION}" iothub_client_ut.py
-"python${PYTHON_VERSION}" iothub_client_ut.py
-[ $? -eq 0 ] || exit $?
-echo "python${PYTHON_VERSION}" iothub_client_map_test.py
-"python${PYTHON_VERSION}" iothub_client_map_test.py
-[ $? -eq 0 ] || exit $?
-cd $build_root
+
 
 cd $build_root/service/tests/
 echo "python${PYTHON_VERSION}" iothub_service_client_ut.py
