@@ -20,7 +20,9 @@
 #include "azure_c_shared_utility/platform.h"
 #include "iothub_client.h"
 #include "iothub_client_version.h"
+#ifdef MACOSX
 #include "azure_prov_client/iothub_security_factory.h"
+#endif
 
 #include "iothub_message.h"
 #if USE_HTTP
@@ -1499,6 +1501,7 @@ public:
         }
     }
 
+#ifdef MACOSX
     static IOTHUB_SECURITY_TYPE
         GetSecurityType(SECURITY_TYPE _security_type)
     {
@@ -1521,7 +1524,9 @@ public:
         }
         return security_type;
     }
+#endif
 
+#ifdef MACOSX
     IoTHubClient(
         std::string iothub_uri,
         std::string device_id,
@@ -1546,6 +1551,7 @@ public:
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
     }
+#endif
 
     ~IoTHubClient()
     {
@@ -1558,7 +1564,9 @@ public:
             iotHubClientHandle = NULL;
         }
 
+#ifdef MACOSX
         iothub_security_deinit();
+#endif
 
         PlatformCallHandler::Platform_DeInit();
     }
@@ -2178,7 +2186,9 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubClient, boost::noncopyable>("IoTHubClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def(init<IoTHubTransport*, IoTHubConfig*>())
+#ifdef MACOSX
         .def(init<std::string, std::string, SECURITY_TYPE, IOTHUB_TRANSPORT_PROVIDER>())
+#endif
         .def("send_event_async", &IoTHubClient::SendEventAsync)
         .def("set_message_callback", &IoTHubClient::SetMessageCallback)
         .def("set_connection_status_callback", &IoTHubClient::SetConnectionStatusCallback)

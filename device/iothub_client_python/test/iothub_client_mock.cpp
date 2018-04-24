@@ -20,7 +20,9 @@
 #include <list>
 
 #include "azure_c_shared_utility/platform.h"
+#ifdef MACOSX
 #include "azure_prov_client/iothub_security_factory.h"
+#endif
 
 #include "iothub_client.h"
 #include "iothub_client_version.h"
@@ -48,6 +50,7 @@ void platform_deinit(void)
 {
 }
 
+#ifdef MACOSX
 int iothub_security_init(IOTHUB_SECURITY_TYPE sec_type)
 {
     (void*)sec_type;
@@ -57,6 +60,7 @@ int iothub_security_init(IOTHUB_SECURITY_TYPE sec_type)
 void iothub_security_deinit(void)
 {
 }
+#endif
 
 // "map.h"
 
