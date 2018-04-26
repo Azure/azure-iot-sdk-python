@@ -1,3 +1,26 @@
+# Python Pip package distribution table
+### For the IoT Hub Device SDK, IoT Hub Service SDK, and DPS Device SDK, please see the table below for using either the PIP Packages available, or building locally. 
+### For the DPS Service SDK, since it is implemented in Native Python, you can use the available PIP package on any of the platforms without worrying about the matrix below.
+
+| OS version 	|  Python version 	| Architecture  	| Boost version for Pip  	| Boost version for building locally  	|
+|:-:        	|:-:             	|:-:             	|:-:                    	|:-:                                	|
+| Windows    	|  Python 2     	|  x86 32       	| No Boost required     	| Any                               	|
+|             	|                 	|  x86 64           | No Boost required       	| Any                                	|
+|           	|  Python 3     	|  x86 32       	| No Boost required     	| Any                               	|
+|             	|                 	|  x86 64           | No Boost required       	| Any                                	|
+| Ubuntu 16.04	|  Python 2     	|  x86 32       	| 1.58                   	| Any                               	|
+|             	|                 	|  x86 64           | 1.58                  	| Any                                	|
+|            	|  Python 3     	|  x86 32       	| 1.58                  	| Any                               	|
+|             	|                 	|  x86 64           | 1.58                  	| Any                                	|
+| Raspbian  	|  Python 2     	|  ArmV7        	| 1.55                   	| Any                               	|
+|             	|                	|  ArmV6            | TBD                   	| Any                                	|
+|            	|  Python 3     	|  ArmV7         	| 1.55                   	| Any                               	|
+|             	|                	|  ArmV6            | TBD                   	| Any                                	|
+| OSX       	|  Python 2     	|  32              	| TBD                   	| Any                               	|
+|             	|                 	|  64               | TBD                   	| Any                                	|
+|           	|  Python 3     	|  32     	        | TBD                   	| Any                               	|
+|             	|                 	|  64               | TBD                   	| Any                                	|
+
 # Prepare your development environment
 
 This document describes how to prepare your development environment to use the *Microsoft Azure IoT SDKs for Python*.
