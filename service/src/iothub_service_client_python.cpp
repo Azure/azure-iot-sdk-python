@@ -854,6 +854,32 @@ class IoTHubRegistryManager
 {
     IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
     IOTHUB_REGISTRYMANAGER_HANDLE _iothubRegistryManagerHandle;
+private:
+
+    void CopyDeviceToDeviceEx(IOTHUB_DEVICE *source, IOTHUB_DEVICE_EX *dest)
+    {
+        dest->version = 1;
+        dest->deviceId = source->deviceId;
+        dest->primaryKey = source->primaryKey;
+        dest->secondaryKey = source->secondaryKey;
+        dest->generationId = source->generationId;
+        dest->eTag = source->eTag;
+        dest->connectionState = source->connectionState;
+        dest->connectionStateUpdatedTime = source->connectionStateUpdatedTime;
+        dest->status = source->status;
+        dest->statusReason = source->statusReason;
+        dest->statusUpdatedTime = source->statusUpdatedTime;
+        dest->lastActivityTime = source->lastActivityTime;
+        dest->cloudToDeviceMessageCount = source->cloudToDeviceMessageCount;
+        dest->isManaged = source->isManaged;
+        dest->configuration = source->configuration;
+        dest->deviceProperties = source->deviceProperties;
+        dest->serviceProperties = source->serviceProperties;
+        dest->authMethod = source->authMethod;
+        // Legacy devices don't have concept of edge capability.
+        dest->iotEdge_capable = false;
+    }
+    
 public:
 
     IoTHubRegistryManager(
@@ -922,7 +948,7 @@ public:
         }
     }
 
-    IOTHUB_DEVICE CreateDevice(
+    IOTHUB_DEVICE_EX CreateDevice(
         std::string deviceId,
         std::string primaryKey,
         std::string secondaryKey,
@@ -930,25 +956,31 @@ public:
         IoTHubDeviceCapabilities *deviceCapabilities=NULL
         )
     {
-        IOTHUB_DEVICE iothubDevice;
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
-        IOTHUB_REGISTRY_DEVICE_CREATE deviceCreate;
-        deviceCreate.deviceId = deviceId.c_str();
-        deviceCreate.primaryKey = primaryKey.c_str();
-        deviceCreate.secondaryKey = secondaryKey.c_str();
-        deviceCreate.authMethod = authMethod;
+        IOTHUB_REGISTRY_DEVICE_CREATE_EX deviceCreateEx;
+        memset(&deviceCreateEx, 0, sizeof(deviceCreateEx));
+
+        IOTHUB_DEVICE_EX iothubDevice;
+        memset(&iothubDevice, 0, sizeof(iothubDevice));
+        iothubDevice.version = 1;
+
+        deviceCreateEx.version = 1;
+        deviceCreateEx.deviceId = deviceId.c_str();
+        deviceCreateEx.primaryKey = primaryKey.c_str();
+        deviceCreateEx.secondaryKey = secondaryKey.c_str();
+        deviceCreateEx.authMethod = authMethod;
         if (deviceCapabilities != NULL)
         {
-            deviceCreate.iotEdge_capable = deviceCapabilities->GetIotEdge();
+            deviceCreateEx.iotEdge_capable = deviceCapabilities->GetIotEdge();
         }
         else
         {
-            deviceCreate.iotEdge_capable = false;
+            deviceCreateEx.iotEdge_capable = false;
         }
 
         ScopedGILRelease release;
-        result = IoTHubRegistryManager_CreateDevice(_iothubRegistryManagerHandle, &deviceCreate, &iothubDevice);
+        result = IoTHubRegistryManager_CreateDevice_Ex(_iothubRegistryManagerHandle, &deviceCreateEx, &iothubDevice);
 
         if (result != IOTHUB_REGISTRYMANAGER_OK)
         {
@@ -957,21 +989,24 @@ public:
         return iothubDevice;
     }
 
-    IOTHUB_DEVICE GetDevice(
+    IOTHUB_DEVICE_EX GetDevice(
         std::string deviceId
         )
     {
-        IOTHUB_DEVICE iothubDevice;
+        IOTHUB_DEVICE_EX iothubDeviceEx;
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
+        memset(&iothubDeviceEx, 0, sizeof(iothubDeviceEx));
+        iothubDeviceEx.version = 1;
+
         ScopedGILRelease release;
-        result = IoTHubRegistryManager_GetDevice(_iothubRegistryManagerHandle, deviceId.c_str(), &iothubDevice);
+        result = IoTHubRegistryManager_GetDevice_Ex(_iothubRegistryManagerHandle, deviceId.c_str(), &iothubDeviceEx);
 
         if (result != IOTHUB_REGISTRYMANAGER_OK)
         {
             throw IoTHubRegistryManagerError(__func__, result);
         }
-        return iothubDevice;
+        return iothubDeviceEx;
     }
 
     void UpdateDevice(
@@ -985,7 +1020,10 @@ public:
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
-        IOTHUB_REGISTRY_DEVICE_UPDATE deviceUpdate;
+        IOTHUB_REGISTRY_DEVICE_UPDATE_EX deviceUpdate;
+        memset(&deviceUpdate, 0, sizeof(deviceUpdate));
+        deviceUpdate.version = 1;
+        
         deviceUpdate.deviceId = deviceId.c_str();
         deviceUpdate.primaryKey = primaryKey.c_str();
         deviceUpdate.secondaryKey = secondaryKey.c_str();
@@ -1001,7 +1039,7 @@ public:
         }
 
         ScopedGILRelease release;
-        result = IoTHubRegistryManager_UpdateDevice(_iothubRegistryManagerHandle, &deviceUpdate);
+        result = IoTHubRegistryManager_UpdateDevice_Ex(_iothubRegistryManagerHandle, &deviceUpdate);
 
         if (result != IOTHUB_REGISTRYMANAGER_OK)
         {
@@ -1046,7 +1084,14 @@ public:
             while (next_device != NULL)
             {
                 IOTHUB_DEVICE* device = (IOTHUB_DEVICE*)singlylinkedlist_item_get_value(next_device);
-                retVal.append(*device);
+                IOTHUB_DEVICE_EX deviceEx;
+
+                // IoTHubRegistryManager_GetDeviceList has been deprecated and is NOT moving to the 
+                // newer model of IOTHUB_DEVICE_EX but just keeping with IOTHUB_DEVICE.  Since rest of Python
+                // layer deals with IOTHUB_DEVICE_EX, however, translate this object to IOTHUB_DEVICE_EX.
+                CopyDeviceToDeviceEx(device,&deviceEx);
+                    
+                retVal.append(deviceEx);
                 singlylinkedlist_remove(deviceList, next_device);
                 next_device = singlylinkedlist_get_head_item(deviceList);
             }
@@ -1079,16 +1124,21 @@ public:
         IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
         )
     {
-        IOTHUB_MODULE iothubModule;
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
         IOTHUB_REGISTRY_MODULE_CREATE moduleCreate;
+        memset(&moduleCreate, 0, sizeof(moduleCreate));
+        moduleCreate.version = 1;
+
+        IOTHUB_MODULE iothubModule;
+        memset(&iothubModule, 0, sizeof(iothubModule));
+        iothubModule.version = 1;
+
         moduleCreate.deviceId = deviceId.c_str();
         moduleCreate.primaryKey = primaryKey.c_str();
         moduleCreate.secondaryKey = secondaryKey.c_str();
         moduleCreate.moduleId = moduleId.c_str();
         moduleCreate.authMethod = authMethod;
-        moduleCreate.iotEdge_capable = false;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_CreateModule(_iothubRegistryManagerHandle, &moduleCreate, &iothubModule);
@@ -1111,12 +1161,14 @@ public:
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
         IOTHUB_REGISTRY_MODULE_UPDATE moduleUpdate;
+        memset(&moduleUpdate, 0, sizeof(moduleUpdate));
+        moduleUpdate.version = 1;
+
         moduleUpdate.deviceId = deviceId.c_str();
         moduleUpdate.primaryKey = primaryKey.c_str();
         moduleUpdate.secondaryKey = secondaryKey.c_str();
         moduleUpdate.moduleId = moduleId.c_str();
         moduleUpdate.authMethod = authMethod;
-        moduleUpdate.iotEdge_capable = false;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_UpdateModule(_iothubRegistryManagerHandle, &moduleUpdate);
@@ -1136,6 +1188,7 @@ public:
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
         ScopedGILRelease release;
+        iothubModule.version = 1;
         result = IoTHubRegistryManager_GetModule(_iothubRegistryManagerHandle, deviceId.c_str(), moduleId.c_str(), &iothubModule);
 
         if (result != IOTHUB_REGISTRYMANAGER_OK)
@@ -1154,7 +1207,7 @@ public:
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
         ScopedGILRelease release;
-        result = IoTHubRegistryManager_GetModuleList(_iothubRegistryManagerHandle, deviceId.c_str(), moduleList);
+        result = IoTHubRegistryManager_GetModuleList(_iothubRegistryManagerHandle, deviceId.c_str(), moduleList, 1);
 
         if (result != IOTHUB_REGISTRYMANAGER_OK)
         {
@@ -2174,24 +2227,24 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("iot_edge", &IoTHubDeviceCapabilities::GetIotEdge, &IoTHubDeviceCapabilities::SetIotEdge)
         ;
 
-    class_<IOTHUB_DEVICE>("IoTHubDevice", no_init)
-        .add_property("deviceId", &IOTHUB_DEVICE::deviceId)
-        .add_property("primaryKey", &IOTHUB_DEVICE::primaryKey)
-        .add_property("secondaryKey", &IOTHUB_DEVICE::secondaryKey)
-        .add_property("generationId", &IOTHUB_DEVICE::generationId)
-        .add_property("eTag", &IOTHUB_DEVICE::eTag)
-        .add_property("connectionState", &IOTHUB_DEVICE::connectionState)
-        .add_property("connectionStateUpdatedTime", &IOTHUB_DEVICE::connectionStateUpdatedTime)
-        .add_property("status", &IOTHUB_DEVICE::status)
-        .add_property("statusReason", &IOTHUB_DEVICE::statusReason)
-        .add_property("statusUpdatedTime", &IOTHUB_DEVICE::statusUpdatedTime)
-        .add_property("lastActivityTime", &IOTHUB_DEVICE::lastActivityTime)
-        .add_property("cloudToDeviceMessageCount", &IOTHUB_DEVICE::cloudToDeviceMessageCount)
-        .add_property("isManaged", &IOTHUB_DEVICE::isManaged)
-        .add_property("configuration", &IOTHUB_DEVICE::configuration)
-        .add_property("deviceProperties", &IOTHUB_DEVICE::deviceProperties)
-        .add_property("serviceProperties", &IOTHUB_DEVICE::serviceProperties)
-        .add_property("authMethod", &IOTHUB_DEVICE::authMethod)      
+    class_<IOTHUB_DEVICE_EX>("IoTHubDevice", no_init)
+        .add_property("deviceId", &IOTHUB_DEVICE_EX::deviceId)
+        .add_property("primaryKey", &IOTHUB_DEVICE_EX::primaryKey)
+        .add_property("secondaryKey", &IOTHUB_DEVICE_EX::secondaryKey)
+        .add_property("generationId", &IOTHUB_DEVICE_EX::generationId)
+        .add_property("eTag", &IOTHUB_DEVICE_EX::eTag)
+        .add_property("connectionState", &IOTHUB_DEVICE_EX::connectionState)
+        .add_property("connectionStateUpdatedTime", &IOTHUB_DEVICE_EX::connectionStateUpdatedTime)
+        .add_property("status", &IOTHUB_DEVICE_EX::status)
+        .add_property("statusReason", &IOTHUB_DEVICE_EX::statusReason)
+        .add_property("statusUpdatedTime", &IOTHUB_DEVICE_EX::statusUpdatedTime)
+        .add_property("lastActivityTime", &IOTHUB_DEVICE_EX::lastActivityTime)
+        .add_property("cloudToDeviceMessageCount", &IOTHUB_DEVICE_EX::cloudToDeviceMessageCount)
+        .add_property("isManaged", &IOTHUB_DEVICE_EX::isManaged)
+        .add_property("configuration", &IOTHUB_DEVICE_EX::configuration)
+        .add_property("deviceProperties", &IOTHUB_DEVICE_EX::deviceProperties)
+        .add_property("serviceProperties", &IOTHUB_DEVICE_EX::serviceProperties)
+        .add_property("authMethod", &IOTHUB_DEVICE_EX::authMethod)
         ;
 
     class_<IOTHUB_MODULE>("IoTHubModule", no_init)

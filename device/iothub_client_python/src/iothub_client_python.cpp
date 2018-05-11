@@ -1337,6 +1337,7 @@ public:
 
 class IoTHubClient
 {
+protected:
     static IOTHUB_CLIENT_TRANSPORT_PROVIDER
         GetProtocol(IOTHUB_TRANSPORT_PROVIDER _protocol)
     {
@@ -1659,33 +1660,6 @@ public:
         }
     }
 
-    void SetInputMessageCallback(
-        std::string inputName,
-        boost::python::object& messageCallback,
-        boost::python::object& userContext
-        )
-    {
-        if (!PyCallable_Check(messageCallback.ptr()))
-        {
-            PyErr_SetString(PyExc_TypeError, "set_message_callback expected type callable");
-            boost::python::throw_error_already_set();
-            return;
-        }
-        ReceiveContext *receiveContext = new ReceiveContext();
-        receiveContext->messageCallback = messageCallback;
-        receiveContext->userContext = userContext;
-        IOTHUB_CLIENT_RESULT result;
-        {
-            ScopedGILRelease release;
-            result = IoTHubClient_SetInputMessageCallback(iotHubClientHandle, inputName.c_str(),  ReceiveMessageCallback, receiveContext);
-        }
-        if (result != IOTHUB_CLIENT_OK)
-        {
-            throw IoTHubClientError(__func__, result);
-        }
-    }
-
-
     void SetConnectionStatusCallback(
         boost::python::object& connectionStatusCallback,
         boost::python::object& userContext
@@ -1969,6 +1943,130 @@ public:
     }
 #endif
 
+#ifdef SUPPORT___STR__
+    std::string str() const
+    {
+        std::stringstream s;
+        return s.str();
+    }
+
+    std::string repr() const
+    {
+        std::stringstream s;
+        s << "IoTHubClient(" << str() << ")";
+        return s.str();
+    }
+#endif
+};
+
+class IoTHubDeviceClient : public IoTHubClient
+{
+public:
+    IoTHubDeviceClient(const IoTHubClient& client) : IoTHubClient(client)
+    {
+        ;
+    }
+
+    IoTHubDeviceClient(
+        IOTHUB_CLIENT_HANDLE _iotHubClientHandle,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+         IoTHubClient(_iotHubClientHandle, _protocol)
+    {
+        ;
+    }
+
+    IoTHubDeviceClient(
+        std::string connectionString,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+        IoTHubClient(connectionString, _protocol)
+    {
+        ;
+    }
+
+    IoTHubDeviceClient(
+        const IoTHubConfig &_config
+    ) : IoTHubClient(_config)
+    {
+        ;
+    }
+
+    IoTHubDeviceClient(
+        IoTHubTransport* _iotHubTransport,
+        IoTHubConfig* _iotHubConfig
+    ) : IoTHubClient(_iotHubTransport, _iotHubConfig)
+    {
+        ;
+    }
+
+#ifndef MACOSX
+    IoTHubDeviceClient(
+        std::string iothub_uri,
+        std::string device_id,
+        SECURITY_TYPE security_type,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) : IoTHubClient(iothub_uri, device_id, security_type, _protocol)
+    {
+        ;
+    }
+#endif
+};
+
+
+class IoTHubModuleClient : public IoTHubClient
+{
+public:
+    IoTHubModuleClient(const IoTHubClient& client) : IoTHubClient(client)
+    {
+        ;
+    }
+
+    IoTHubModuleClient(
+        IOTHUB_CLIENT_HANDLE _iotHubClientHandle,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+         IoTHubClient(_iotHubClientHandle, _protocol)
+    {
+        ;
+    }
+
+    IoTHubModuleClient(
+        std::string connectionString,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) :
+        IoTHubClient(connectionString, _protocol)
+    {
+        ;
+    }
+
+    IoTHubModuleClient(
+        const IoTHubConfig &_config
+    ) : IoTHubClient(_config)
+    {
+        ;
+    }
+
+    IoTHubModuleClient(
+        IoTHubTransport* _iotHubTransport,
+        IoTHubConfig* _iotHubConfig
+    ) : IoTHubClient(_iotHubTransport, _iotHubConfig)
+    {
+        ;
+    }
+
+#ifndef MACOSX
+    IoTHubModuleClient(
+        std::string iothub_uri,
+        std::string device_id,
+        SECURITY_TYPE security_type,
+        IOTHUB_TRANSPORT_PROVIDER _protocol
+    ) : IoTHubClient(iothub_uri, device_id, security_type, _protocol)
+    {
+        ;
+    }
+#endif
+
     void SendEventToOutputAsync(
         std::string outputName,
         IoTHubMessage &eventMessage,
@@ -1997,20 +2095,31 @@ public:
         }
     } 
 
-#ifdef SUPPORT___STR__
-    std::string str() const
+    void SetInputMessageCallback(
+        std::string inputName,
+        boost::python::object& messageCallback,
+        boost::python::object& userContext
+        )
     {
-        std::stringstream s;
-        return s.str();
+        if (!PyCallable_Check(messageCallback.ptr()))
+        {
+            PyErr_SetString(PyExc_TypeError, "set_message_callback expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+        ReceiveContext *receiveContext = new ReceiveContext();
+        receiveContext->messageCallback = messageCallback;
+        receiveContext->userContext = userContext;
+        IOTHUB_CLIENT_RESULT result;
+        {
+            ScopedGILRelease release;
+            result = IoTHubClient_SetInputMessageCallback(iotHubClientHandle, inputName.c_str(),  ReceiveMessageCallback, receiveContext);
+        }
+        if (result != IOTHUB_CLIENT_OK)
+        {
+            throw IoTHubClientError(__func__, result);
+        }
     }
-
-    std::string repr() const
-    {
-        std::stringstream s;
-        s << "IoTHubClient(" << str() << ")";
-        return s.str();
-    }
-#endif
 };
 
 using namespace boost::python;
@@ -2285,8 +2394,6 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #ifndef DONT_USE_UPLOADTOBLOB
         .def("upload_blob_async", &IoTHubClient::UploadToBlobAsync)
 #endif
-        .def("send_event_async", &IoTHubClient::SendEventToOutputAsync)
-        .def("set_message_callback", &IoTHubClient::SetInputMessageCallback)
         // attributes
         .def_readonly("protocol", &IoTHubClient::protocol)
         // Python helpers
@@ -2295,5 +2402,64 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("__repr__", &IoTHubClient::repr)
 #endif
         ;
+
+    class_<IoTHubDeviceClient, boost::noncopyable>("IoTHubDeviceClient", no_init)
+        .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
+        .def(init<IoTHubTransport*, IoTHubConfig*>())
+#ifndef MACOSX
+        .def(init<std::string, std::string, SECURITY_TYPE, IOTHUB_TRANSPORT_PROVIDER>())
+#endif
+        .def("send_event_async", &IoTHubDeviceClient::SendEventAsync)
+        .def("set_message_callback", &IoTHubDeviceClient::SetMessageCallback)
+        .def("set_connection_status_callback", &IoTHubDeviceClient::SetConnectionStatusCallback)
+        .def("set_retry_policy", &IoTHubDeviceClient::SetRetryPolicy)
+        .def("get_retry_policy", &IoTHubDeviceClient::GetRetryPolicy)
+        .def("set_device_twin_callback", &IoTHubDeviceClient::SetDeviceTwinCallback)
+        .def("send_reported_state", &IoTHubDeviceClient::SendReportedState)
+        .def("set_device_method_callback", &IoTHubDeviceClient::SetDeviceMethodCallback)
+        .def("device_method_response", &IoTHubDeviceClient::DeviceMethodResponse)
+        .def("set_option", &IoTHubDeviceClient::SetOption)
+        .def("get_send_status", &IoTHubDeviceClient::GetSendStatus)
+        .def("get_last_message_receive_time", &IoTHubDeviceClient::GetLastMessageReceiveTime)
+#ifndef DONT_USE_UPLOADTOBLOB
+        .def("upload_blob_async", &IoTHubDeviceClient::UploadToBlobAsync)
+#endif
+        // attributes
+        .def_readonly("protocol", &IoTHubDeviceClient::protocol)
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubDeviceClient::str)
+        .def("__repr__", &IoTHubDeviceClient::repr)
+#endif
+            ;
+
+    class_<IoTHubModuleClient, boost::noncopyable>("IoTHubModuleClient", no_init)
+        .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
+        .def(init<IoTHubTransport*, IoTHubConfig*>())
+#ifndef MACOSX
+        .def(init<std::string, std::string, SECURITY_TYPE, IOTHUB_TRANSPORT_PROVIDER>())
+#endif
+        .def("send_event_async", &IoTHubModuleClient::SendEventAsync)
+        .def("set_connection_status_callback", &IoTHubModuleClient::SetConnectionStatusCallback)
+        .def("set_retry_policy", &IoTHubModuleClient::SetRetryPolicy)
+        .def("get_retry_policy", &IoTHubModuleClient::GetRetryPolicy)
+        .def("set_device_twin_callback", &IoTHubModuleClient::SetDeviceTwinCallback)
+        .def("send_reported_state", &IoTHubModuleClient::SendReportedState)
+        .def("set_device_method_callback", &IoTHubModuleClient::SetDeviceMethodCallback)
+        .def("device_method_response", &IoTHubModuleClient::DeviceMethodResponse)
+        .def("set_option", &IoTHubModuleClient::SetOption)
+        .def("get_send_status", &IoTHubModuleClient::GetSendStatus)
+        .def("get_last_message_receive_time", &IoTHubModuleClient::GetLastMessageReceiveTime)
+        .def("send_event_async", &IoTHubModuleClient::SendEventToOutputAsync)
+        .def("set_message_callback", &IoTHubModuleClient::SetInputMessageCallback)
+        // attributes
+        .def_readonly("protocol", &IoTHubModuleClient::protocol)
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &IoTHubModuleClient::str)
+        .def("__repr__", &IoTHubModuleClient::repr)
+#endif
+            ;
+
 };
 

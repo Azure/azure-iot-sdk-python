@@ -8,7 +8,7 @@ import random
 import time
 import sys
 import iothub_client
-from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider
+from iothub_client import IoTHubModuleClient, IoTHubClientError, IoTHubTransportProvider
 from iothub_client import IoTHubMessage, IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
 from iothub_client_args import get_iothub_opt, OptionError
 
@@ -22,7 +22,7 @@ TIMEOUT = 241000
 MINIMUM_POLLING_TIME = 9
 
 # messageTimeout - the maximum time in milliseconds until a message times out.
-# The timeout period starts at IoTHubClient.send_event_to_output.
+# The timeout period starts at IoTHubModuleClient.send_event_to_output.
 # By default, messages do not expire.
 MESSAGE_TIMEOUT = 10000
 
@@ -65,7 +65,7 @@ class HubManager(object):
             connection_string,
             protocol=IoTHubTransportProvider.MQTT):
         self.client_protocol = protocol
-        self.client = IoTHubClient(connection_string, protocol)
+        self.client = IoTHubModuleClient(connection_string, protocol)
         if protocol == IoTHubTransportProvider.HTTP:
             self.client.set_option("timeout", TIMEOUT)
             self.client.set_option("MinimumPollingTime", MINIMUM_POLLING_TIME)
@@ -109,7 +109,7 @@ def main(connection_string, protocol):
 
         while True:
             # send a few messages every minute
-            print ( "IoTHubClient sending %d messages" % MESSAGE_COUNT )
+            print ( "IoTHubModuleClient sending %d messages" % MESSAGE_COUNT )
 
             for message_counter in range(0, MESSAGE_COUNT):
                 temperature = MIN_TEMPERATURE + (random.random() * 10)
@@ -123,10 +123,10 @@ def main(connection_string, protocol):
                     "temperatureAlert": 'true' if temperature > 28 else 'false'
                 }
                 hub_manager.send_event_to_output("temperatureOutput", msg_txt_formatted, msg_properties, message_counter)
-                print ( "IoTHubClient.send_event_to_output accepted message [%d] for transmission to IoT Hub." % message_counter )
+                print ( "IoTHubModuleClient.send_event_to_output accepted message [%d] for transmission to IoT Hub." % message_counter )
 
             # Wait for Commands or exit
-            print ( "IoTHubClient waiting for commands, press Ctrl-C to exit." )
+            print ( "IoTHubModuleClient waiting for commands, press Ctrl-C to exit." )
 
             status_counter = 0
             while status_counter < 6:
@@ -139,7 +139,7 @@ def main(connection_string, protocol):
         print ( "Unexpected error %s from IoTHub" % iothub_error )
         return
     except KeyboardInterrupt:
-        print ( "IoTHubClient sample stopped" )
+        print ( "IoTHubModuleClient sample stopped" )
 
 
 def usage():

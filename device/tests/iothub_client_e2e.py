@@ -18,7 +18,7 @@ from iothub_service_client import IoTHubDeviceTwin
 from iothub_service_client import IoTHubDeviceMethod
 from iothub_service_client import IoTHubMessage, IoTHubDevice, IoTHubDeviceStatus
 
-from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
+from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult, IoTHubDeviceClient, IoTHubModuleClient
 from iothub_client import IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
 from iothub_client import IoTHubTransport, IoTHubConfig, IoTHubClientRetryPolicy
 
@@ -337,10 +337,15 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
 
     # prepare
     # act
-    device_client = IoTHubClient(device_or_module_connection_string, protocol)
+    if testing_modules == True:
+        device_client = IoTHubModuleClient(device_or_module_connection_string, protocol)
+        assert isinstance(device_client, IoTHubModuleClient), 'Error: Invalid type returned!'
+    else:
+        device_client = IoTHubDeviceClient(device_or_module_connection_string, protocol)
+        assert isinstance(device_client, IoTHubDeviceClient), 'Error: Invalid type returned!'
 
     # verify
-    assert isinstance(device_client, IoTHubClient), 'Error: Invalid type returned!'
+
     assert device_client != None, "Error: device_client is NULL"
     ###########################################################################
 
@@ -365,13 +370,14 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     # verify
     ###########################################################################
 
-    ###########################################################################
-    # set_message_callback
-    
-    # prepare
-    # act
-    device_client.set_message_callback(receive_message_callback, MESSAGING_CONTEXT)
-    ###########################################################################
+    if testing_modules == False: ## Modules do not currently support set_message_callback outside context of Edge inputs/outputs
+        ###########################################################################
+        # set_message_callback
+        
+        # prepare
+        # act
+        device_client.set_message_callback(receive_message_callback, MESSAGING_CONTEXT)
+        ###########################################################################
 
     ###########################################################################
     # set_connection_status_callback
@@ -485,26 +491,27 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     print ( "GetRetryPolicy returned: retryPolicy = %d" %  retryPolicyReturn.retryPolicy)
     print ( "GetRetryPolicy returned: retryTimeoutLimitInSeconds = %d" %  retryPolicyReturn.retryTimeoutLimitInSeconds)
 
-    ###########################################################################
-    # send_event_async
+    if testing_modules == False: ## Modules do not currently support set_message_callback outside context of Edge inputs/outputs
+        ###########################################################################
+        # send_event_async
 
-    # prepare
-    global MESSAGING_MESSAGE
-    global MESSAGE_RECEIVE_EVENT
-    global MESSAGE_RECEIVE_CALLBACK_COUNTER
+        # prepare
+        global MESSAGING_MESSAGE
+        global MESSAGE_RECEIVE_EVENT
+        global MESSAGE_RECEIVE_CALLBACK_COUNTER
 
-    MESSAGING_MESSAGE = ''.join([random.choice(string.ascii_letters) for n in range(12)])
-    message = IoTHubMessage(bytearray(MESSAGING_MESSAGE, 'utf8'))
-    MESSAGE_RECEIVE_EVENT.clear()
-    MESSAGE_RECEIVE_CALLBACK_COUNTER = 0
+        MESSAGING_MESSAGE = ''.join([random.choice(string.ascii_letters) for n in range(12)])
+        message = IoTHubMessage(bytearray(MESSAGING_MESSAGE, 'utf8'))
+        MESSAGE_RECEIVE_EVENT.clear()
+        MESSAGE_RECEIVE_CALLBACK_COUNTER = 0
 
-    # act
-    sc_send_message(iothub_service_client_messaging, device_id, message, testing_modules)
-    MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
+        # act
+        sc_send_message(iothub_service_client_messaging, device_id, message, testing_modules)
+        MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
 
-    # verify
-    assert MESSAGE_RECEIVE_CALLBACK_COUNTER > 0, "Error: message has not been received"
-    ###########################################################################
+        # verify
+        assert MESSAGE_RECEIVE_CALLBACK_COUNTER > 0, "Error: message has not been received"
+        ###########################################################################
 
     ###########################################################################
     # get_send_status
@@ -539,27 +546,28 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         ###########################################################################
 
 
-    ###########################################################################
-    # upload_blob_async
-    
-    # prepare
-    global BLOB_UPLOAD_CONTEXT
-    global BLOB_UPLOAD_EVENT
-    global BLOB_UPLOAD_CALLBACK_COUNTER
+    if testing_modules == False:  ## Modules do not currently support uploadToBlob
+        ###########################################################################
+        # upload_blob_async
+        
+        # prepare
+        global BLOB_UPLOAD_CONTEXT
+        global BLOB_UPLOAD_EVENT
+        global BLOB_UPLOAD_CALLBACK_COUNTER
 
-    destination_file_name = ''.join([random.choice(string.ascii_letters) for n in range(12)])
-    source = "Blob content for file upload test!"
-    size = 34
-    BLOB_UPLOAD_EVENT.clear()
-    BLOB_UPLOAD_CALLBACK_COUNTER = 0
+        destination_file_name = ''.join([random.choice(string.ascii_letters) for n in range(12)])
+        source = "Blob content for file upload test!"
+        size = 34
+        BLOB_UPLOAD_EVENT.clear()
+        BLOB_UPLOAD_CALLBACK_COUNTER = 0
 
-    # act
-    device_client.upload_blob_async(destination_file_name, source, size, blob_upload_conf_callback, BLOB_UPLOAD_CONTEXT)
-    BLOB_UPLOAD_EVENT.wait(CALLBACK_TIMEOUT)
+        # act
+        device_client.upload_blob_async(destination_file_name, source, size, blob_upload_conf_callback, BLOB_UPLOAD_CONTEXT)
+        BLOB_UPLOAD_EVENT.wait(CALLBACK_TIMEOUT)
 
-    # verify
-    assert BLOB_UPLOAD_CALLBACK_COUNTER > 0, "Error: blob_upload_conf_callback callback has not been called"
-    ###########################################################################
+        # verify
+        assert BLOB_UPLOAD_CALLBACK_COUNTER > 0, "Error: blob_upload_conf_callback callback has not been called"
+        ###########################################################################
 
 
 def run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, protocol, authMethod, testing_modules):

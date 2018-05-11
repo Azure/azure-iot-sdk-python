@@ -663,6 +663,8 @@ class TestClassDefinitions(unittest.TestCase):
         client = IoTHubClient(ioTHubTransport, ioTHubConfig)
         self.assertIsInstance(client, IoTHubClient)
 
+        module = IoTHubModuleClient(ioTHubTransport, ioTHubConfig)
+
         if hasattr(IoTHubTransportProvider, "HTTP"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.HTTP)
             self.assertIsInstance(client, IoTHubClient)
@@ -755,8 +757,8 @@ class TestClassDefinitions(unittest.TestCase):
         # set_message_callback when using an input name
         inputName = "inputName"
         with self.assertRaises(Exception):
-            client.set_message_callback(receive_message_callback, inputName, context)
-        result = client.set_message_callback(inputName, receive_message_callback, context)
+            module.set_message_callback(receive_message_callback, inputName, context)
+        result = module.set_message_callback(inputName, receive_message_callback, context)
 
         # send_event_async
         counter = 1
@@ -779,9 +781,9 @@ class TestClassDefinitions(unittest.TestCase):
         # send_event_async with output name
         outputName = "output_name"
         with self.assertRaises(Exception):
-            result = client.send_event_async(
+            result = module.send_event_async(
                 message, outputName, send_confirmation_callback, counter)
-        result = client.send_event_async(
+        result = module.send_event_async(
             outputName, message, send_confirmation_callback, counter)
         self.assertIsNone(result)
 

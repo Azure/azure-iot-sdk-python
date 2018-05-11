@@ -8,7 +8,7 @@ import random
 import time
 import sys
 import iothub_client
-from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider
+from iothub_client import IoTHubModuleClient, IoTHubClientError, IoTHubTransportProvider
 from iothub_client import IoTHubMessage, IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
 from iothub_client_args import get_iothub_opt, OptionError
 
@@ -22,7 +22,7 @@ TIMEOUT = 241000
 MINIMUM_POLLING_TIME = 9
 
 # messageTimeout - the maximum time in milliseconds until a message times out.
-# The timeout period starts at IoTHubClient.send_event_async.
+# The timeout period starts at IoTHubModuleClient.send_event_async.
 # By default, messages do not expire.
 MESSAGE_TIMEOUT = 10000
 
@@ -85,7 +85,7 @@ class HubManager(object):
             connection_string,
             protocol=IoTHubTransportProvider.MQTT):
         self.client_protocol = protocol
-        self.client = IoTHubClient(connection_string, protocol)
+        self.client = IoTHubModuleClient(connection_string, protocol)
         if protocol == IoTHubTransportProvider.HTTP:
             self.client.set_option("timeout", TIMEOUT)
             self.client.set_option("MinimumPollingTime", MINIMUM_POLLING_TIME)
@@ -129,7 +129,7 @@ def main(connection_string, protocol):
         print ( "Unexpected error %s from IoTHub" % iothub_error )
         return
     except KeyboardInterrupt:
-        print ( "IoTHubClient sample stopped" )
+        print ( "IoTHubModuleClient sample stopped" )
 
 
 def usage():
