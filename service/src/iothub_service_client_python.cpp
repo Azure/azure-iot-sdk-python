@@ -808,6 +808,7 @@ public:
         case IOTHUB_REGISTRYMANAGER_DEVICE_EXIST: s << "DEVICE_EXIST"; break;
         case IOTHUB_REGISTRYMANAGER_DEVICE_NOT_EXIST: s << "DEVICE_NOT_EXIST"; break;
         case IOTHUB_REGISTRYMANAGER_CALLBACK_NOT_SET: s << "CALLBACK_NOT_SET"; break;
+        case IOTHUB_REGISTRYMANAGER_INVALID_VERSION: s << "INVALID_VERSION"; break;
         }
         return s.str();
     }
