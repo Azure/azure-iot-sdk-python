@@ -793,9 +793,6 @@ class TestClassDefinitions(unittest.TestCase):
             result = module_from_env.create_from_environment()
         with self.assertRaises(Exception):
             result = module_from_env.create_from_environment(IoTHubTransportProvider.AMQP, "invalidParam")
-        result = module_from_env.create_from_environment(
-            IoTHubTransportProvider.AMQP)
-        self.assertIsNone(result)
 
         # get_send_status
         with self.assertRaises(AttributeError):
