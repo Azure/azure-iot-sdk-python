@@ -1,8 +1,8 @@
 ; Copyright(c) Microsoft.All rights reserved.
 ; Licensed under the MIT license.See LICENSE file in the project root for full license information.
-; IotHub_Client_Python.def : Declares the module parameters.
-; LIBRARY      "IotHub_Client.PYD"
+; iothub_client.def : Declares the common exports.
 
+LIBRARY      iothub_client.pyd
 EXPORTS
 ;   version.h
     IoTHubClient_GetVersionString
@@ -115,5 +115,3 @@ EXPORTS
     IoTHubModuleClient_ModuleMethodResponse
     IoTHubModuleClient_SendEventToOutputAsync
     IoTHubModuleClient_SetInputMessageCallback
-    IoTHubModuleClient_CreateFromEnvironment
-
