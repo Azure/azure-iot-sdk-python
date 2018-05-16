@@ -26,8 +26,6 @@ EXPORTS
     IoTHubClient_SetDeviceMethodCallback_Ex
     IoTHubClient_DeviceMethodResponse
     IoTHubClient_UploadToBlobAsync
-    IoTHubClient_SendEventToOutputAsync
-    IoTHubClient_SetInputMessageCallback
 ;   iothub_client_ll.h
     IoTHubClient_LL_CreateFromConnectionString
     IoTHubClient_LL_Create
@@ -81,3 +79,41 @@ EXPORTS
 ;   platform.h
     platform_init
     platform_deinit
+
+    IoTHubDeviceClient_CreateFromConnectionString
+    IoTHubDeviceClient_Create
+    IoTHubDeviceClient_CreateWithTransport
+    IoTHubDeviceClient_CreateFromDeviceAuth
+    IoTHubDeviceClient_Destroy
+    IoTHubDeviceClient_SendEventAsync
+    IoTHubDeviceClient_GetSendStatus
+    IoTHubDeviceClient_SetMessageCallback
+    IoTHubDeviceClient_SetConnectionStatusCallback
+    IoTHubDeviceClient_SetRetryPolicy
+    IoTHubDeviceClient_GetRetryPolicy
+    IoTHubDeviceClient_GetLastMessageReceiveTime
+    IoTHubDeviceClient_SetOption
+    IoTHubDeviceClient_SetDeviceTwinCallback
+    IoTHubDeviceClient_SendReportedState
+    IoTHubDeviceClient_SetDeviceMethodCallback
+    IoTHubDeviceClient_DeviceMethodResponse
+    IoTHubDeviceClient_UploadToBlobAsync
+
+    IoTHubModuleClient_CreateFromConnectionString
+    IoTHubModuleClient_Destroy
+    IoTHubModuleClient_SendEventAsync
+    IoTHubModuleClient_GetSendStatus
+    IoTHubModuleClient_SetMessageCallback
+    IoTHubModuleClient_SetConnectionStatusCallback
+    IoTHubModuleClient_SetRetryPolicy
+    IoTHubModuleClient_GetRetryPolicy
+    IoTHubModuleClient_GetLastMessageReceiveTime
+    IoTHubModuleClient_SetOption
+    IoTHubModuleClient_SetModuleTwinCallback
+    IoTHubModuleClient_SendReportedState
+    IoTHubModuleClient_SetModuleMethodCallback
+    IoTHubModuleClient_ModuleMethodResponse
+    IoTHubModuleClient_SendEventToOutputAsync
+    IoTHubModuleClient_SetInputMessageCallback
+    IoTHubModuleClient_CreateFromEnvironment
+

@@ -1021,26 +1021,38 @@ public:
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
-        IOTHUB_REGISTRY_DEVICE_UPDATE_EX deviceUpdate;
-        memset(&deviceUpdate, 0, sizeof(deviceUpdate));
-        deviceUpdate.version = 1;
+        ScopedGILRelease release;
         
-        deviceUpdate.deviceId = deviceId.c_str();
-        deviceUpdate.primaryKey = primaryKey.c_str();
-        deviceUpdate.secondaryKey = secondaryKey.c_str();
-        deviceUpdate.status = status;
-        deviceUpdate.authMethod = authMethod;
         if (deviceCapabilities != NULL)
         {
+            IOTHUB_REGISTRY_DEVICE_UPDATE_EX deviceUpdate;
+            memset(&deviceUpdate, 0, sizeof(deviceUpdate));
+            deviceUpdate.version = 1;
+            
+            deviceUpdate.deviceId = deviceId.c_str();
+            deviceUpdate.primaryKey = primaryKey.c_str();
+            deviceUpdate.secondaryKey = secondaryKey.c_str();
+            deviceUpdate.status = status;
+            deviceUpdate.authMethod = authMethod;
             deviceUpdate.iotEdge_capable = deviceCapabilities->GetIotEdge();
+
+            result = IoTHubRegistryManager_UpdateDevice_Ex(_iothubRegistryManagerHandle, &deviceUpdate);
         }
         else
         {
-            deviceUpdate.iotEdge_capable = false;
+            IOTHUB_REGISTRY_DEVICE_UPDATE deviceUpdate;
+            memset(&deviceUpdate, 0, sizeof(deviceUpdate));
+            
+            deviceUpdate.deviceId = deviceId.c_str();
+            deviceUpdate.primaryKey = primaryKey.c_str();
+            deviceUpdate.secondaryKey = secondaryKey.c_str();
+            deviceUpdate.status = status;
+            deviceUpdate.authMethod = authMethod;
+        
+            // If deviceCapabilities were not set, we need to use the legacy (non-Ex) Update function.
+            // This will never set the edge field to the server which will leave its original value in place.
+            result = IoTHubRegistryManager_UpdateDevice(_iothubRegistryManagerHandle, &deviceUpdate);
         }
-
-        ScopedGILRelease release;
-        result = IoTHubRegistryManager_UpdateDevice_Ex(_iothubRegistryManagerHandle, &deviceUpdate);
 
         if (result != IOTHUB_REGISTRYMANAGER_OK)
         {

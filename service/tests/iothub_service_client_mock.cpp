@@ -533,7 +533,7 @@ char*  IoTHubDeviceTwin_UpdateModuleTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDL
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateDevice_Ex(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const IOTHUB_REGISTRY_DEVICE_CREATE_EX* deviceCreateInfo, IOTHUB_DEVICE_EX* deviceInfo)
 {
-    (void)registryManagerHandle, deviceCreateInfo,   deviceInfo;
+    (void)registryManagerHandle, deviceCreateInfo, deviceInfo;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
