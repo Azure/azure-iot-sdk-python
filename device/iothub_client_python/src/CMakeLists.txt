@@ -11,10 +11,6 @@ if(WIN32)
     if(${use_wsio})
         set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/iothub_client_ws.def)
     endif()
-
-    if({use_edge_modules})
-        set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/iothub_edge_modules.def)
-    endif()
 endif()
 
 include_directories(.)

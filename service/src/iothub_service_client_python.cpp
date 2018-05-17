@@ -28,6 +28,7 @@
 #include "iothub_devicetwin.h"
 #include "iothubtransporthttp.h"
 #include "iothubtransportamqp.h"
+#include "internal/iothub_client_common.h"
 
 #ifndef IMPORT_NAME
 #define IMPORT_NAME iothub_service_client

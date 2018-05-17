@@ -907,39 +907,6 @@ public:
 
 };
 
-class IoTHubNotImplementedError : public IoTHubError
-{
-protected:
-    std::string description;
-
-public:
-    IoTHubNotImplementedError(
-        std::string _func,
-        std::string _cls,
-        std::string _description
-        ) :
-        IoTHubError(
-            "",
-            _cls,
-            _func
-            )
-    {
-        description = _description;
-    }
-
-    IOTHUB_CLIENT_RESULT result;
-
-    virtual std::string decode_error() const
-    {
-        std::stringstream s;
-        s << "ERROR: Not implemented: " << description;
-        return s.str();
-    }
-
-};
-
-
-
 void iothubClientError(const IoTHubClientError& x)
 {
     boost::python::object pythonExceptionInstance(x);
@@ -2234,7 +2201,6 @@ public:
 
     void CreateFromEnvironment(IOTHUB_TRANSPORT_PROVIDER _protocol)
     {
-#ifdef USE_EDGE_MODULES
         protocol = _protocol;
         
         {
@@ -2245,10 +2211,6 @@ public:
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
-#else
-    (void)_protocol;
-    throw IoTHubNotImplementedError("IoTHubModuleClient", __func__, "IoTHubModuleClient_CreateFromEnvironment requires Azure IoT SDK to have been build with edge_module support enabled.");
-#endif
     }
 };
 

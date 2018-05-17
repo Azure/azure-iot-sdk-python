@@ -115,3 +115,5 @@ EXPORTS
     IoTHubModuleClient_ModuleMethodResponse
     IoTHubModuleClient_SendEventToOutputAsync
     IoTHubModuleClient_SetInputMessageCallback
+    IoTHubModuleClient_LL_CreateFromEnvironment
+    IoTHubModuleClient_CreateFromEnvironment
