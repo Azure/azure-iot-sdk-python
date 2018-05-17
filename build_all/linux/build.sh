@@ -9,7 +9,6 @@ cd $build_root
 
 PYTHON_VERSION=2.7
 USE_TPM_SIM=
-USE_EDGE_MODULES=
 
 process_args()
 {
@@ -30,10 +29,6 @@ process_args()
           "--use-tpm-simulator" ) USE_TPM_SIM="--use-tpm-simulator";;
           * ) ;;
         esac
-        case "$arg" in
-          "--use-edge-modules" ) USE_EDGE_MODULES="--use-edge-modules";;
-          * ) ;;
-        esac
       fi
     done
 }
@@ -42,7 +37,7 @@ process_args $*
 
 # instruct C builder to include python library and to skip tests
 
-./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $* --provisioning $USE_TPM_SIM $USE_EDGE_MODULES
+./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $* --provisioning $USE_TPM_SIM --use-edge-modules
 [ $? -eq 0 ] || exit $?
 cd $build_root
 

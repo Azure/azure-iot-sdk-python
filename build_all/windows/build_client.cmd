@@ -46,7 +46,6 @@ if "%1" equ "--config" goto arg-build-config
 if "%1" equ "--wheel" goto arg-build-wheel
 if "%1" equ "--platform" goto arg-build-platform
 if "%1" equ "--use-tpm-simulator" goto arg-use-tpm-simulator
-if "%1" equ "--use_edge_modules" goto arg-use_edge_modules
 call :usage && exit /b 1
 
 :arg-build-config
@@ -69,10 +68,6 @@ goto args-continue
 set use_tpm_simulator=--use-tpm-simulator
 goto args-continue
 
-:arg-use_edge_modules
-set use_edge_modules=--use_edge_modules
-goto args-continue
-
 :args-continue
 shift
 goto args-loop
@@ -88,7 +83,7 @@ set cmake-output=cmake_%build-platform%
 REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator% %use_edge_modules%
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator% --use-edge-modules
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%
