@@ -399,7 +399,10 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     
         # prepare
         # act
-        device_client.set_device_twin_callback(device_twin_callback, MESSAGING_CONTEXT)
+        if testing_modules == True:
+            device_client.set_module_twin_callback(device_twin_callback, MESSAGING_CONTEXT)
+        else:
+            device_client.set_device_twin_callback(device_twin_callback, MESSAGING_CONTEXT)
 
         # verify
         ###########################################################################
@@ -409,7 +412,10 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     
         # prepare
         # act
-        device_client.set_device_method_callback(device_method_callback, MESSAGING_CONTEXT)
+        if testing_modules == True:
+            device_client.set_module_method_callback(device_method_callback, MESSAGING_CONTEXT)
+        else:
+            device_client.set_device_method_callback(device_method_callback, MESSAGING_CONTEXT)
 
         # verify
         ###########################################################################
