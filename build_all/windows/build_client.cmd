@@ -83,7 +83,7 @@ set cmake-output=cmake_%build-platform%
 REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator% --use-edge-modules
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator% --use_edge_modules
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%

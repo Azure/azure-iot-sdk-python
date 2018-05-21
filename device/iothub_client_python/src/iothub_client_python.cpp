@@ -1397,6 +1397,17 @@ public:
 
     IOTHUB_TRANSPORT_PROVIDER protocol;
 
+    IoTHubClient()
+    {
+        ;
+    }
+
+    IoTHubClient(const IoTHubClient& client)
+    {
+        (void)client;
+        throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+    }
+
     IoTHubClient(
         CLIENT_INTERFACE_TYPE _client_interface_type)
     {
@@ -1850,6 +1861,7 @@ public:
         DeviceMethodContext *deviceMethodContext = new DeviceMethodContext();
         deviceMethodContext->deviceMethodCallback = deviceMethodCallback;
         deviceMethodContext->userContext = userContext;
+
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
@@ -2035,9 +2047,10 @@ public:
 class IoTHubDeviceClient : public IoTHubClient<IOTHUB_DEVICE_CLIENT_HANDLE>
 {
 public:
-    IoTHubDeviceClient(const IoTHubClient& client) : IoTHubClient(client, CLIENT_INTERFACE_DEVICE)
+    IoTHubDeviceClient(const IoTHubDeviceClient& client)
     {
-        ;
+        (void)client;
+        throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
     }
 
     IoTHubDeviceClient(
@@ -2090,6 +2103,13 @@ public:
 class IoTHubModuleClient : public IoTHubClient<IOTHUB_MODULE_CLIENT_HANDLE>
 {
 public:
+    IoTHubModuleClient(const IoTHubModuleClient& client)
+    {
+        (void)client;
+        throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+    }
+
+
     IoTHubModuleClient() : IoTHubClient(CLIENT_INTERFACE_MODULE)
     {
         ;
