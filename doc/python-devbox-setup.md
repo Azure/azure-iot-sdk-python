@@ -38,7 +38,7 @@ This document describes how to prepare your development environment to use the *
 
 Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run `python --version` or `python3 --version` at the command line to check the version. 
 * On Linux, Python 2.7 is typically already installed and active. 
-* On Windows, install the latest x86 or x64 Python 2.7 or 3.x client from ([python.org](https://www.python.org/downloads/)). If you plan to build the Python library, the scrips will need a valid Python.exe in the path. Based on the active Python version (e.g. Python 2.7.11 x86 32bit) the build script choses the compiler settings for the Python extension module build accordingly and copies the extension to the test and sample folders.
+* On Windows, install the latest x86 or x64 Python 2.7 or 3.x client from ([python.org](https://www.python.org/downloads/)). **Make sure you download the x64 version instead of the default x86 version if your machine is x64.** If you plan to build the Python library, the scrips will need a valid Python.exe in the path. Based on the active Python version (e.g. Python 2.7.11 x86 32bit) the build script choses the compiler settings for the Python extension module build accordingly and copies the extension to the test and sample folders.
 
 <a name="pypi-wheels"></a>
 ## Install the Python modules using PyPI wheels from [PyPI] 
@@ -54,6 +54,7 @@ Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run
 > - On other platforms make sure the Pip tool is upgraded to the latest version. (> 9)
 > - If Pip cannot install the package for the specific version of Python installed on your machine, use one of the following options to build the **iothub_client** module.
 > - If Pip cannot be found, see https://pip.pypa.io/en/stable/installing/
+> - Installation on a Raspberry Pi may require 'sudo pip3 install MODULE'
 
 <a name="linux"></a>
 ## Build the Azure IoT Hub SDKs for Python on Linux
