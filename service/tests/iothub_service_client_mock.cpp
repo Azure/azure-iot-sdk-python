@@ -352,32 +352,39 @@ void IoTHubRegistryManager_Destroy(IOTHUB_REGISTRYMANAGER_HANDLE registryManager
  
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateDevice(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const IOTHUB_REGISTRY_DEVICE_CREATE* deviceCreate, IOTHUB_DEVICE* device)
 {
-    (void)registryManagerHandle, deviceCreate, device;
+    (void)registryManagerHandle;
+    (void)deviceCreate;
+    (void)device;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetDevice(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, IOTHUB_DEVICE* device)
 {
-    (void)registryManagerHandle, deviceId;
+    (void)registryManagerHandle;
+    (void)deviceId;
     device = NULL;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
  
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_UpdateDevice(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, IOTHUB_REGISTRY_DEVICE_UPDATE* deviceUpdate)
 {
-    (void)registryManagerHandle, deviceUpdate;
+    (void)registryManagerHandle;
+    (void)deviceUpdate;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
  
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_DeleteDevice(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId)
 {
-    (void)registryManagerHandle, deviceId;
+    (void)registryManagerHandle;
+    (void)deviceId;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetDeviceList(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, size_t numberOfDevices, SINGLYLINKEDLIST_HANDLE deviceList)
 {
-    (void)registryManagerHandle, numberOfDevices, deviceList;
+    (void)registryManagerHandle;
+    (void)numberOfDevices;
+    (void)deviceList;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
  
@@ -390,31 +397,42 @@ IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetStatistics(IOTHUB_REGISTR
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const IOTHUB_REGISTRY_MODULE_CREATE* moduleCreate, IOTHUB_MODULE* module)
 {
-    (void)registryManagerHandle, moduleCreate, module;
+    (void)registryManagerHandle;
+    (void)moduleCreate;
+    (void)module;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, const char* moduleId, IOTHUB_MODULE* module)
 {
-    (void)registryManagerHandle, deviceId, moduleId, module;
+    (void)registryManagerHandle;
+    (void)deviceId;
+    (void)moduleId;
+    (void)module;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_UpdateModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, IOTHUB_REGISTRY_MODULE_UPDATE* moduleUpdate)
 {
-    (void)registryManagerHandle, moduleUpdate;
+    (void)registryManagerHandle;
+    (void)moduleUpdate;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_DeleteModule(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, const char* moduleId)
 {
-    (void)registryManagerHandle, deviceId, moduleId;
+    (void)registryManagerHandle;
+    (void)deviceId;
+    (void)moduleId;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetModuleList(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, SINGLYLINKEDLIST_HANDLE moduleList, int module_version)
 {
-    (void)registryManagerHandle, deviceId, moduleList, module_version;
+    (void)registryManagerHandle;
+    (void)deviceId;
+    (void)moduleList;
+    (void)module_version;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
@@ -434,7 +452,9 @@ void IoTHubMessaging_Destroy(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandl
 
 IOTHUB_MESSAGING_RESULT IoTHubMessaging_Open(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, IOTHUB_OPEN_COMPLETE_CALLBACK openCompleteCallback, void* userContextCallback)
 {
-    (void)messagingClientHandle, openCompleteCallback, userContextCallback;
+    (void)messagingClientHandle;
+    (void)openCompleteCallback;
+    (void)userContextCallback;
     return IOTHUB_MESSAGING_OK;
 }
 
@@ -445,19 +465,30 @@ void IoTHubMessaging_Close(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle)
 
 IOTHUB_MESSAGING_RESULT IoTHubMessaging_SendAsync(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, const char* deviceId, IOTHUB_MESSAGE_HANDLE message, IOTHUB_SEND_COMPLETE_CALLBACK sendCompleteCallback, void* userContextCallback)
 {
-    (void)messagingClientHandle, deviceId, message, sendCompleteCallback, userContextCallback;
+    (void)messagingClientHandle;
+    (void)deviceId;
+    (void)message;
+    (void)sendCompleteCallback;
+    (void)userContextCallback;
     return IOTHUB_MESSAGING_OK;
 }
 
 IOTHUB_MESSAGING_RESULT IoTHubMessaging_SendAsyncModule(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, const char* deviceId, const char* moduleId, IOTHUB_MESSAGE_HANDLE message, IOTHUB_SEND_COMPLETE_CALLBACK sendCompleteCallback, void* userContextCallback)
 {
-    (void)messagingClientHandle, moduleId, deviceId, message, sendCompleteCallback, userContextCallback;
+    (void)messagingClientHandle;
+    (void)moduleId;
+    (void)deviceId;
+    (void)message;
+    (void)sendCompleteCallback;
+    (void)userContextCallback;
     return IOTHUB_MESSAGING_OK;
 }
 
 IOTHUB_MESSAGING_RESULT IoTHubMessaging_SetFeedbackMessageCallback(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, IOTHUB_FEEDBACK_MESSAGE_RECEIVED_CALLBACK feedbackMessageReceivedCallback, void* userContextCallback)
 {
-    (void)messagingClientHandle, feedbackMessageReceivedCallback, userContextCallback;
+    (void)messagingClientHandle;
+    (void)feedbackMessageReceivedCallback;
+    (void)userContextCallback;
     return IOTHUB_MESSAGING_OK;
 }
 
@@ -477,7 +508,11 @@ void  IoTHubDeviceMethod_Destroy(IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE serv
 
 IOTHUB_DEVICE_METHOD_RESULT IoTHubDeviceMethod_Invoke(IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE serviceClientDeviceMethodHandle, const char* deviceId, const char* methodName, const char* methodPayload, unsigned int timeout, int* responseStatus, unsigned char** responsePayload, size_t* responsePayloadSize)
 {
-    (void)serviceClientDeviceMethodHandle, deviceId, methodName, methodPayload, timeout;
+    (void)serviceClientDeviceMethodHandle;
+    (void)deviceId;
+    (void)methodName;
+    (void)methodPayload;
+    (void)timeout;
     *responseStatus = 42;
     *responsePayload = (unsigned char *)"RESPONSE";
     *responsePayloadSize = 8;
@@ -486,7 +521,12 @@ IOTHUB_DEVICE_METHOD_RESULT IoTHubDeviceMethod_Invoke(IOTHUB_SERVICE_CLIENT_DEVI
 
 IOTHUB_DEVICE_METHOD_RESULT IoTHubDeviceMethod_InvokeModule(IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE serviceClientDeviceMethodHandle, const char* deviceId, const char* moduleId,  const char* methodName, const char* methodPayload, unsigned int timeout, int* responseStatus, unsigned char** responsePayload, size_t* responsePayloadSize)
 {
-    (void)serviceClientDeviceMethodHandle, deviceId, moduleId, methodName, methodPayload, timeout;
+    (void)serviceClientDeviceMethodHandle;
+    (void)deviceId;
+    (void)moduleId;
+    (void)methodName;
+    (void)methodPayload;
+    (void)timeout;
     *responseStatus = 42;
     *responsePayload = (unsigned char *)"RESPONSE";
     *responsePayloadSize = 8;
@@ -509,43 +549,56 @@ void  IoTHubDeviceTwin_Destroy(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceC
 
 char*  IoTHubDeviceTwin_GetTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId)
 {
-    (void)serviceClientDeviceTwinHandle, deviceId;
+    (void)serviceClientDeviceTwinHandle;
+    (void)deviceId;
     return (char*)"";
 }
 
 char*  IoTHubDeviceTwin_UpdateTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId, const char* deviceTwinJson)
 {
-    (void)serviceClientDeviceTwinHandle, deviceId, deviceTwinJson;
+    (void)serviceClientDeviceTwinHandle;
+    (void)deviceId;
+    (void)deviceTwinJson;
     return (char*)"";
 }
 
 char*  IoTHubDeviceTwin_GetModuleTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId, const char* moduleId)
 {
-    (void)serviceClientDeviceTwinHandle, deviceId, moduleId;
+    (void)serviceClientDeviceTwinHandle;
+    (void)deviceId;
+    (void)moduleId;
     return (char*)"";
 }
 
 char*  IoTHubDeviceTwin_UpdateModuleTwin(IOTHUB_SERVICE_CLIENT_DEVICE_TWIN_HANDLE serviceClientDeviceTwinHandle, const char* deviceId, const char* moduleId, const char* moduleTwinJson)
 {
-    (void)serviceClientDeviceTwinHandle, deviceId, moduleId, moduleTwinJson;
+    (void)serviceClientDeviceTwinHandle;
+    (void)deviceId;
+    (void)moduleId;
+    (void)moduleTwinJson;
     return (char*)"";
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_CreateDevice_Ex(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const IOTHUB_REGISTRY_DEVICE_CREATE_EX* deviceCreateInfo, IOTHUB_DEVICE_EX* deviceInfo)
 {
-    (void)registryManagerHandle, deviceCreateInfo, deviceInfo;
+    (void)registryManagerHandle;
+    (void)deviceCreateInfo;
+    (void)deviceInfo;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_GetDevice_Ex(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, const char* deviceId, IOTHUB_DEVICE_EX* deviceInfo)
 {
-    (void)registryManagerHandle, deviceId, deviceInfo;
+    (void)registryManagerHandle;
+    (void)deviceId;
+    (void)deviceInfo;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 
 IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_UpdateDevice_Ex(IOTHUB_REGISTRYMANAGER_HANDLE registryManagerHandle, IOTHUB_REGISTRY_DEVICE_UPDATE_EX* deviceUpdate)
 {
-    (void)registryManagerHandle, deviceUpdate;
+    (void)registryManagerHandle;
+    (void)deviceUpdate;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
 

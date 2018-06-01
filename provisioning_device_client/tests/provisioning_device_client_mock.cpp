@@ -50,7 +50,7 @@ void platform_deinit(void)
 
 int prov_dev_security_init(SECURE_DEVICE_TYPE hsm_type)
 {
-    (void*)hsm_type;
+    (void)hsm_type;
     return 0;
 }
 
@@ -62,33 +62,33 @@ PROV_DEVICE_HANDLE mockProvDevHandle = (PROV_DEVICE_HANDLE)0x12345678;
 
 PROV_DEVICE_HANDLE Prov_Device_Create(const char* uri, const char* id_scope, PROV_DEVICE_TRANSPORT_PROVIDER_FUNCTION protocol)
 {
-    (void*)uri;
-    (void*)id_scope;
-    (void*)protocol;
+    (void)uri;
+    (void)id_scope;
+    (void)protocol;
     return mockProvDevHandle;
 }
 
 void Prov_Device_Destroy(PROV_DEVICE_HANDLE prov_device_handle)
 {
-    (void*)prov_device_handle;
+    (void)prov_device_handle;
     return;
 }
 
 PROV_DEVICE_RESULT Prov_Device_Register_Device(PROV_DEVICE_HANDLE prov_device_handle, PROV_DEVICE_CLIENT_REGISTER_DEVICE_CALLBACK register_callback, void* user_context, PROV_DEVICE_CLIENT_REGISTER_STATUS_CALLBACK register_status_callback, void* status_user_context)
 {
-    (void*)prov_device_handle;
-    (void*)register_callback;
-    (void*)user_context;
-    (void*)register_status_callback;
-    (void*)status_user_context;
+    (void)prov_device_handle;
+    (void)register_callback;
+    (void)user_context;
+    (void)register_status_callback;
+    (void)status_user_context;
     return PROV_DEVICE_RESULT_OK;
 }
 
 PROV_DEVICE_RESULT Prov_Device_SetOption(PROV_DEVICE_HANDLE prov_device_handle, const char* optionName, const void* value)
 {
-    (void*)prov_device_handle;
-    (void*)optionName;
-    (void*)value;
+    (void)prov_device_handle;
+    (void)optionName;
+    (void)value;
     return PROV_DEVICE_RESULT_OK;
 }
 

@@ -1095,7 +1095,7 @@ SendReportedStateCallback(
     void* userContextCallback
     )
 {
-    (void*)userContextCallback;
+    (void)userContextCallback;
 
     SendReportedStateContext *sendReportedStateContext = (SendReportedStateContext *)userContextCallback;
     boost::python::object userContext = sendReportedStateContext->userContext;
