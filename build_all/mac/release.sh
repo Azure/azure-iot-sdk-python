@@ -37,9 +37,9 @@ process_args $*
 
 # identify processor architecture
 if [[ "$(uname -m)" = "x86_64" ]] ; then
-    PLAT_ARCH="macos64"
+    PLAT_ARCH="macosx_10_6_x86_64"
 else
-    PLAT_ARCH="macos32"
+    PLAT_ARCH="macosx_10_6_i386"
 fi
 
 ########################################################

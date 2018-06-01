@@ -41,7 +41,7 @@ scriptdir=$(cd "$(dirname "$0")" && pwd)
 if [ $PYTHON_VERSION == "3.4" ] || [ $PYTHON_VERSION == "3.5" ] || [ $PYTHON_VERSION == "3.6" ]
 then
 	echo "BUILDING BOOST for PYTHON $PYTHON_VERSION"
-	deps="boost-python --with-python3"
+	deps="boost-python3"
 else
 	echo "INSTALL BOOST for PYTHON $PYTHON_VERSION"
 	deps="boost-python"

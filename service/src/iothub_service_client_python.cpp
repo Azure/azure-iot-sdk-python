@@ -34,8 +34,7 @@
 #define IMPORT_NAME iothub_service_client
 #endif
 
-// These lines will come back when time for actual release of Python SDK with modules.  Pre-release needs special case string creation.
-#define VERSION_STRING "1.4.0.0b0"
+#define VERSION_STRING "1.4.0.0b1"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
