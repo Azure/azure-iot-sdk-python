@@ -47,6 +47,9 @@
     printf("Object: %s\n", object_classname.c_str());\
 }
 
+const std::string empty_string = std::string();
+
+
 class PlatformCallHandler
 {
 private:
@@ -1130,12 +1133,12 @@ public:
     }
 
     IOTHUB_MODULE CreateModule(
-        std::string deviceId,
-        std::string primaryKey,
-        std::string secondaryKey,
-        std::string moduleId,
+        const std::string deviceId,
+        const std::string primaryKey,
+        const std::string secondaryKey,
+        const std::string moduleId,
         IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod,
-        std::string managedBy=NULL
+        const std::string managedBy=empty_string
         )
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
@@ -1153,7 +1156,7 @@ public:
         moduleCreate.secondaryKey = secondaryKey.c_str();
         moduleCreate.moduleId = moduleId.c_str();
         moduleCreate.authMethod = authMethod;
-        moduleCreate.managedBy = managedBy.c_str();
+        moduleCreate.managedBy = (managedBy != empty_string) ? managedBy.c_str() : NULL;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_CreateModule(_iothubRegistryManagerHandle, &moduleCreate, &iothubModule);
@@ -1166,12 +1169,12 @@ public:
     }
 
     void UpdateModule(
-        std::string deviceId,
-        std::string primaryKey,
-        std::string secondaryKey,
-        std::string moduleId,
+        const std::string deviceId,
+        const std::string primaryKey,
+        const std::string secondaryKey,
+        const std::string moduleId,
         IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod,
-        std::string managedBy=NULL
+        const std::string managedBy=empty_string
         )
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
@@ -1185,7 +1188,7 @@ public:
         moduleUpdate.secondaryKey = secondaryKey.c_str();
         moduleUpdate.moduleId = moduleId.c_str();
         moduleUpdate.authMethod = authMethod;
-        moduleUpdate.managedBy = managedBy.c_str();
+        moduleUpdate.managedBy = (managedBy != empty_string) ? managedBy.c_str() : NULL;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_UpdateModule(_iothubRegistryManagerHandle, &moduleUpdate);
