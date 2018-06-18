@@ -26,6 +26,7 @@
 #include "iothub_messaging.h"
 #include "iothub_devicemethod.h"
 #include "iothub_devicetwin.h"
+#include "iothub_deviceconfiguration.h"
 #include "iothubtransporthttp.h"
 #include "iothubtransportamqp.h"
 #include "iothub_client_core_common.h"
@@ -2046,6 +2047,153 @@ public:
     }
 };
 
+class IoTHubDeviceConfiguration
+{
+private:
+    IOTHUB_DEVICE_CONFIGURATION _device_configuration;
+
+public:
+    IoTHubDeviceConfiguration()
+    {
+        memset(&_device_configuration, 0, sizeof(_device_configuration));
+    }
+
+    IoTHubDeviceConfiguration(IOTHUB_DEVICE_CONFIGURATION &device_configuration)
+    {
+        // A shallow copy is desired as caller transfers ownership on this constructor
+        memcpy(&_device_configuration, &device_configuration, sizeof(_device_configuration));
+    }
+
+    ~IoTHubDeviceConfiguration()
+    {
+        IoTHubDeviceConfiguration_FreeConfigurationMembers(&_device_configuration);
+    }
+
+    // boost::python::dict
+    const char* GetTargetCondition()
+    {
+        return _device_configuration.targetCondition;
+    }
+
+    void SetTargetCondition(std::string targetCondition)
+    {
+        _device_configuration.targetCondition = _strdup(targetCondition.c_str());
+    }
+
+    boost::python::dict IoTHubDeviceConfiguration::GetLabels()
+    {
+        boost::python::dict labelsDictionary;
+
+        for (size_t i = 0; i < _device_configuration.labels.numLabels; i++)
+        {
+            labelsDictionary[_device_configuration.labels.labelNames] = labelsDictionary[_device_configuration.labels.labelValues];
+        }
+
+        return labelsDictionary;
+    }
+};
+
+
+class IoTHubDeviceConfigurationManager
+{
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
+    IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE _ioTHubDeviceConfigurationHandle;
+public:
+    IoTHubDeviceConfigurationManager(
+        std::string connectionString
+        ) : _iothubServiceClientAuthHandle(NULL),
+			_ioTHubDeviceConfigurationHandle(NULL)
+    {
+        ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
+
+        _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
+        if (_iothubServiceClientAuthHandle == NULL)
+        {
+            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+        }
+
+        _ioTHubDeviceConfigurationHandle = IoTHubDeviceConfiguration_Create(_iothubServiceClientAuthHandle);
+        if (_ioTHubDeviceConfigurationHandle == NULL)
+        {
+            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+        }
+    }
+
+    IoTHubDeviceConfigurationManager(
+        IoTHubServiceClientAuth iothubAuth
+        ) : _iothubServiceClientAuthHandle(NULL),
+			_ioTHubDeviceConfigurationHandle(NULL)
+    {
+        ScopedGILRelease release;
+        PlatformCallHandler::Platform_Init();
+
+        _iothubServiceClientAuthHandle = iothubAuth.GetHandle();
+        if (_iothubServiceClientAuthHandle == NULL)
+        {
+            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+        }
+
+        _ioTHubDeviceConfigurationHandle = IoTHubDeviceConfiguration_Create(_iothubServiceClientAuthHandle);
+        if (_ioTHubDeviceConfigurationHandle == NULL)
+        {
+            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+        }
+    }
+
+    ~IoTHubDeviceConfigurationManager()
+    {
+        PlatformCallHandler::Platform_DeInit();
+        Destroy();
+    }
+
+    void Destroy()
+    {
+        ScopedGILRelease release;
+
+        if (_ioTHubDeviceConfigurationHandle != NULL)
+        {
+            IoTHubDeviceConfiguration_Destroy(_ioTHubDeviceConfigurationHandle);
+            _ioTHubDeviceConfigurationHandle = NULL;
+        }
+
+        if (_iothubServiceClientAuthHandle != NULL)
+        {
+            IoTHubServiceClientAuth_Destroy(_iothubServiceClientAuthHandle);
+            _iothubServiceClientAuthHandle = NULL;
+        }
+    }
+
+    IoTHubDeviceConfiguration* IoTHubDeviceConfigurationManager::GetConfiguration(std::string configurationId)
+    {
+        IOTHUB_DEVICE_CONFIGURATION iothubDeviceConfigurationStruct;
+        IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+
+        memset(&iothubDeviceConfigurationStruct, 0, sizeof(iothubDeviceConfigurationStruct));
+        iothubDeviceConfigurationStruct.version = IOTHUB_DEVICE_CONFIGURATION_CONTENT_VERSION_1;
+
+        result = IoTHubDeviceConfiguration_GetConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str(), &iothubDeviceConfigurationStruct);
+        if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
+        {   
+            printf("ERROR!! %d\n", result); // BUGBUG - throw here!
+        }
+
+        iothubDeviceConfigurationStruct.targetCondition = _strdup("This is target test!");
+
+        IoTHubDeviceConfiguration *ioTHubDeviceConfiguration = new IoTHubDeviceConfiguration(iothubDeviceConfigurationStruct);
+        return ioTHubDeviceConfiguration;
+    }
+
+    IoTHubDeviceConfigurationManager::AddConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
+    {
+        IOTHUB_DEVICE_CONFIGURATION iothubDeviceConfigurationStruct;
+        IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+
+        result = IoTHubDeviceConfiguration_AddConfiguration(_ioTHubDeviceConfigurationHandle, 
+    }
+};
+
+
 using namespace boost::python;
 
 static const char* iothub_service_client_docstring =
@@ -2346,4 +2494,20 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("update_twin", &IoTHubDeviceTwin::UpdateTwin)
         .def("update_twin", &IoTHubDeviceTwin::UpdateModuleTwin)
         ;
+
+    class_<IoTHubDeviceConfiguration>("IoTHubDeviceConfiguration", no_init)
+        .def(init<>())
+        .add_property("targetCondition", &IoTHubDeviceConfiguration::GetTargetCondition, &IoTHubDeviceConfiguration::SetTargetCondition)
+        .add_property("labels", &IoTHubDeviceConfiguration::GetLabels) // , &IoTHubDeviceConfiguration::SetLabels)
+        ;
+
+    class_<IoTHubDeviceConfigurationManager, boost::noncopyable>("IoTHubDeviceConfigurationManager", no_init)
+        .def(init<std::string>())
+        .def(init<IoTHubDeviceConfigurationManager>())
+        .def("get_configuration", &IoTHubDeviceConfigurationManager::GetConfiguration, return_internal_reference<1>())
+        .def("add_configuration", &IoTHubDeviceConfigurationManager::AddConfiguration)
+        //.def("get_twin", &IoTHubDeviceTwin::GetTwin)
+        //.def("update_twin", &IoTHubDeviceTwin::UpdateTwin)
+        ;
+        
 };
