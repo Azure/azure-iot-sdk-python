@@ -2064,6 +2064,12 @@ public:
         memcpy(&_device_configuration, &device_configuration, sizeof(_device_configuration));
     }
 
+    IoTHubDeviceConfiguration(IOTHUB_DEVICE_CONFIGURATION *device_configuration)
+    {
+        // A shallow copy is desired as caller transfers ownership on this constructor
+        memcpy(&_device_configuration, device_configuration, sizeof(_device_configuration));
+    }
+
     ~IoTHubDeviceConfiguration()
     {
         IoTHubDeviceConfiguration_FreeConfigurationMembers(&_device_configuration);
@@ -2091,6 +2097,33 @@ public:
 
         return labelsDictionary;
     }
+
+    // Perform a shallow copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
+    void GetAddConfiguration(IOTHUB_DEVICE_CONFIGURATION_ADD &deviceConfigurationAdd) const
+    {
+        memset(&deviceConfigurationAdd, 0, sizeof(deviceConfigurationAdd));
+        deviceConfigurationAdd.version = IOTHUB_DEVICE_CONFIGURATION_ADD_VERSION_1;
+        deviceConfigurationAdd.configurationId = _device_configuration.configurationId;
+        deviceConfigurationAdd.targetCondition = _device_configuration.targetCondition;
+        deviceConfigurationAdd.priority = _device_configuration.priority;
+        memcpy(&deviceConfigurationAdd.content, &_device_configuration.content, sizeof(deviceConfigurationAdd.content));
+        memcpy(&deviceConfigurationAdd.labels, &_device_configuration.labels, sizeof(deviceConfigurationAdd.labels));
+        memcpy(&deviceConfigurationAdd.metrics, &_device_configuration.metricsDefinition, sizeof(deviceConfigurationAdd.metrics)); 
+    }
+
+    // Perform a shallow copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_UPDATE structure
+    void GetUpdateConfiguration(IOTHUB_DEVICE_CONFIGURATION_UPDATE &deviceConfigurationUpdate) const
+    {
+        memset(&deviceConfigurationUpdate, 0, sizeof(deviceConfigurationUpdate));
+        deviceConfigurationUpdate.version = IOTHUB_DEVICE_CONFIGURATION_UPDATE_VERSION_1;
+        deviceConfigurationUpdate.configurationId = _device_configuration.configurationId;
+        deviceConfigurationUpdate.targetCondition = _device_configuration.targetCondition;
+        deviceConfigurationUpdate.priority = _device_configuration.priority;
+        memcpy(&deviceConfigurationUpdate.labels, &_device_configuration.labels, sizeof(deviceConfigurationUpdate.labels));
+        memcpy(&deviceConfigurationUpdate.metrics, &_device_configuration.metricsDefinition, sizeof(deviceConfigurationUpdate.metrics)); 
+    }
+
+    
 };
 
 
@@ -2164,33 +2197,111 @@ public:
         }
     }
 
-    IoTHubDeviceConfiguration* IoTHubDeviceConfigurationManager::GetConfiguration(std::string configurationId)
+    IoTHubDeviceConfiguration* AddConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
     {
-        IOTHUB_DEVICE_CONFIGURATION iothubDeviceConfigurationStruct;
+        IOTHUB_DEVICE_CONFIGURATION deviceConfigurationStruct;
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
 
-        memset(&iothubDeviceConfigurationStruct, 0, sizeof(iothubDeviceConfigurationStruct));
-        iothubDeviceConfigurationStruct.version = IOTHUB_DEVICE_CONFIGURATION_CONTENT_VERSION_1;
+        IOTHUB_DEVICE_CONFIGURATION_ADD deviceConfigurationAdd;
 
-        result = IoTHubDeviceConfiguration_GetConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str(), &iothubDeviceConfigurationStruct);
+        ioTHubDeviceConfiguration->GetAddConfiguration(deviceConfigurationAdd);
+        memset(&deviceConfigurationStruct, 0, sizeof(deviceConfigurationStruct));
+        deviceConfigurationStruct.version = IOTHUB_DEVICE_CONFIGURATION_CONTENT_VERSION_1;
+
+        result = IoTHubDeviceConfiguration_AddConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationAdd, &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
         {   
-            printf("ERROR!! %d\n", result); // BUGBUG - throw here!
+            printf("ERROR add!! %d\n", result); // BUGBUG - throw here!
         }
 
-        iothubDeviceConfigurationStruct.targetCondition = _strdup("This is target test!");
+        deviceConfigurationStruct.targetCondition = _strdup("This is target test added!");
 
-        IoTHubDeviceConfiguration *ioTHubDeviceConfiguration = new IoTHubDeviceConfiguration(iothubDeviceConfigurationStruct);
+        IoTHubDeviceConfiguration *ioTHubDeviceAddedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationStruct);
+        return ioTHubDeviceAddedConfiguration;
+    }
+
+    IoTHubDeviceConfiguration* GetConfiguration(std::string configurationId)
+    {
+        IOTHUB_DEVICE_CONFIGURATION deviceConfigurationStruct;
+        IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+
+        memset(&deviceConfigurationStruct, 0, sizeof(deviceConfigurationStruct));
+        deviceConfigurationStruct.version = IOTHUB_DEVICE_CONFIGURATION_CONTENT_VERSION_1;
+
+        result = IoTHubDeviceConfiguration_GetConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str(), &deviceConfigurationStruct);
+        if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
+        {   
+            printf("ERROR get!! %d\n", result); // BUGBUG - throw here!
+        }
+
+        deviceConfigurationStruct.targetCondition = _strdup("This is target test get!");
+
+        IoTHubDeviceConfiguration *ioTHubDeviceConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationStruct);
         return ioTHubDeviceConfiguration;
     }
 
-    IoTHubDeviceConfigurationManager::AddConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
+    void DeleteConfiguration(std::string configurationId)
     {
-        IOTHUB_DEVICE_CONFIGURATION iothubDeviceConfigurationStruct;
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
 
-        result = IoTHubDeviceConfiguration_AddConfiguration(_ioTHubDeviceConfigurationHandle, 
+        result = IoTHubDeviceConfiguration_DeleteConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str());
+        if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
+        {   
+            printf("ERROR delete!! %d\n", result); // BUGBUG - throw here!
+        }
     }
+
+    boost::python::list GetConfigurations(size_t maxConfigurationsCount)
+    {
+        boost::python::list retVal;
+        IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+        SINGLYLINKEDLIST_HANDLE configurationsList = singlylinkedlist_create();
+
+        if (configurationsList == NULL)
+        {
+            printf("ERROR create linked list!!\n"); // BUGBUG - throw here!
+        }
+        
+        result = IoTHubDeviceConfiguration_GetConfigurations(_ioTHubDeviceConfigurationHandle, maxConfigurationsCount, configurationsList);
+        if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
+        {   
+            printf("ERROR IoTHubDeviceConfiguration_GetConfigurations!! %d\n", result); // BUGBUG - throw here!
+        }
+
+        LIST_ITEM_HANDLE next_configuration = singlylinkedlist_get_head_item(configurationsList);
+        while (next_configuration != NULL)
+        {
+            IOTHUB_DEVICE_CONFIGURATION* configuration = (IOTHUB_DEVICE_CONFIGURATION*)singlylinkedlist_item_get_value(next_configuration);
+            IoTHubDeviceConfiguration *deviceConfiguration = new IoTHubDeviceConfiguration(configuration);
+
+            if (deviceConfiguration == NULL)
+            {
+                printf("ERROR allocating!! %d\n", result); // BUGBUG - throw here!  Or will new throw for me???
+            }
+
+            retVal.append(deviceConfiguration);
+            singlylinkedlist_remove(configurationsList, next_configuration);
+            next_configuration = singlylinkedlist_get_head_item(configurationsList);
+        }
+        singlylinkedlist_destroy(configurationsList);
+    }
+
+/*
+    void IoTHubDeviceConfigurationManager::UpdateConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
+    {
+        IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+        IOTHUB_DEVICE_CONFIGURATION_UPDATE deviceConfigurationUpdate;
+
+        ioTHubDeviceConfiguration->GetUpdateConfiguration(deviceConfigurationUpdate);
+
+        result = IoTHubDeviceConfiguration_UpdateConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationUpdate);
+        if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
+        {   
+            printf("ERROR update!! %d\n", result); // BUGBUG - throw here!
+        }
+    }
+*/
+    
 };
 
 
@@ -2505,7 +2616,10 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def(init<std::string>())
         .def(init<IoTHubDeviceConfigurationManager>())
         .def("get_configuration", &IoTHubDeviceConfigurationManager::GetConfiguration, return_internal_reference<1>())
-        .def("add_configuration", &IoTHubDeviceConfigurationManager::AddConfiguration)
+        .def("add_configuration", &IoTHubDeviceConfigurationManager::AddConfiguration, return_internal_reference<1>())
+        //.def("update_configuration", &IoTHubDeviceConfigurationManager::UpdateConfiguration)
+        .def("delete_configuration", &IoTHubDeviceConfigurationManager::DeleteConfiguration)
+    
         //.def("get_twin", &IoTHubDeviceTwin::GetTwin)
         //.def("update_twin", &IoTHubDeviceTwin::UpdateTwin)
         ;
