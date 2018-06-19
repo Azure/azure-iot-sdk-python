@@ -2047,6 +2047,53 @@ public:
     }
 };
 
+
+static PyObject *iothubDeviceConfigurationErrorType = NULL;
+
+class IoTHubDeviceConfigurationError : public IoTHubError
+{
+public:
+    IoTHubDeviceConfigurationError(
+        std::string _func,
+        IOTHUB_DEVICE_CONFIGURATION_RESULT _result
+        ) :
+        IoTHubError(
+            "IoTHubDeviceConfigurationError",
+            "IoTHubDeviceConfiguration",
+            _func
+            )
+    {
+        result = _result;
+    }
+
+    IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+
+    virtual std::string decode_error() const
+    {
+        std::stringstream s;
+        s << "IoTHubDeviceConfigurationResult.";
+        switch (result)
+        {
+        case IOTHUB_DEVICE_CONFIGURATION_OK: s << "OK"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_INVALID_ARG: s << "INVALID_ARG"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_ERROR: s << "ERROR"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_HTTPAPI_ERROR: s << "HTTPAPI_ERROR"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_JSON_ERROR: s << "JSON_ERROR"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_OUT_OF_MEMORY_ERROR: s << "OUT_OF_MEMORY"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_CONFIGURATION_NOT_EXIST: s << "CONFIGURATION_DOES_NOT_EXIST"; break;
+        case IOTHUB_DEVICE_CONFIGURATION_CONFIGURATION_EXIST: s << "CONFIGURATION_DOES_EXIST"; break;
+        }
+        return s.str();
+    }
+};
+
+void iothubDeviceConfigurationError(const IoTHubDeviceConfigurationError& x)
+{
+    boost::python::object pythonExceptionInstance(x);
+    PyErr_SetObject(iothubDeviceConfigurationErrorType, pythonExceptionInstance.ptr());
+}
+
+
 class IoTHubDeviceConfiguration
 {
 private:
@@ -2060,13 +2107,13 @@ public:
 
     IoTHubDeviceConfiguration(IOTHUB_DEVICE_CONFIGURATION &device_configuration)
     {
-        // A shallow copy is desired as caller transfers ownership on this constructor
+        // Shallow copy as caller transfers ownership on this constructor
         memcpy(&_device_configuration, &device_configuration, sizeof(_device_configuration));
     }
 
     IoTHubDeviceConfiguration(IOTHUB_DEVICE_CONFIGURATION *device_configuration)
     {
-        // A shallow copy is desired as caller transfers ownership on this constructor
+        // Shallow copy as caller transfers ownership on this constructor
         memcpy(&_device_configuration, device_configuration, sizeof(_device_configuration));
     }
 
@@ -2075,7 +2122,28 @@ public:
         IoTHubDeviceConfiguration_FreeConfigurationMembers(&_device_configuration);
     }
 
-    // boost::python::dict
+    const char* GetSchemaVersion()
+    {
+        return _device_configuration.schemaVersion;
+    }
+
+    void SetSchemaVersion(std::string schemaVersion)
+    {
+        free((char*)_device_configuration.schemaVersion);
+        _device_configuration.schemaVersion = _strdup(schemaVersion.c_str());
+    }
+
+    const char* GetConfigurationId()
+    {
+        return _device_configuration.configurationId;
+    }
+
+    void SetConfigurationId(std::string configurationId)
+    {
+        free((char*)_device_configuration.configurationId);
+        _device_configuration.configurationId = _strdup(configurationId.c_str());
+    }
+
     const char* GetTargetCondition()
     {
         return _device_configuration.targetCondition;
@@ -2083,9 +2151,60 @@ public:
 
     void SetTargetCondition(std::string targetCondition)
     {
+        free((char*)_device_configuration.targetCondition);
         _device_configuration.targetCondition = _strdup(targetCondition.c_str());
     }
 
+    const char* GetETag()
+    {
+        return _device_configuration.eTag;
+    }
+
+    void SetEtag(std::string eTag)
+    {
+        free((char*)_device_configuration.eTag);
+        _device_configuration.eTag = _strdup(eTag.c_str());
+    }
+
+    const char* GetContentType()
+    {
+        return _device_configuration.contentType;
+    }
+
+    void SetContentType(std::string contentType)
+    {
+        free((char*)_device_configuration.contentType);
+        _device_configuration.contentType = _strdup(contentType.c_str());
+    }
+
+    const char* GetCreatedTimeUtc()
+    {
+        return _device_configuration.createdTimeUtc;
+    }
+
+    void SetCreatedTimeUtc(std::string createdTimeUtc)
+    {
+        free((char*)_device_configuration.createdTimeUtc);
+        _device_configuration.createdTimeUtc = _strdup(createdTimeUtc.c_str());
+    }
+
+    const char* GetLastUpdateTimeUtc()
+    {
+        return _device_configuration.lastUpdatedTimeUtc;
+    }
+
+    void SetPriority(int priority)
+    {
+        _device_configuration.priority = priority;
+    }
+
+    int GetPriority()
+    {
+        return _device_configuration.priority;
+    }
+
+    // BUGBUG - code up content.
+   
     boost::python::dict IoTHubDeviceConfiguration::GetLabels()
     {
         boost::python::dict labelsDictionary;
@@ -2097,6 +2216,7 @@ public:
 
         return labelsDictionary;
     }
+
 
     // Perform a shallow copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
     void GetAddConfiguration(IOTHUB_DEVICE_CONFIGURATION_ADD &deviceConfigurationAdd) const
@@ -2143,13 +2263,13 @@ public:
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
         if (_iothubServiceClientAuthHandle == NULL)
         {
-            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+            throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_ERROR);
         }
 
         _ioTHubDeviceConfigurationHandle = IoTHubDeviceConfiguration_Create(_iothubServiceClientAuthHandle);
         if (_ioTHubDeviceConfigurationHandle == NULL)
         {
-            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+            throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_ERROR);
         }
     }
 
@@ -2164,13 +2284,13 @@ public:
         _iothubServiceClientAuthHandle = iothubAuth.GetHandle();
         if (_iothubServiceClientAuthHandle == NULL)
         {
-            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+            throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_ERROR);
         }
 
         _ioTHubDeviceConfigurationHandle = IoTHubDeviceConfiguration_Create(_iothubServiceClientAuthHandle);
         if (_ioTHubDeviceConfigurationHandle == NULL)
         {
-            throw IoTHubDeviceTwinError(__func__, IOTHUB_DEVICE_TWIN_ERROR);
+            throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_ERROR);
         }
     }
 
@@ -2211,7 +2331,7 @@ public:
         result = IoTHubDeviceConfiguration_AddConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationAdd, &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
         {   
-            printf("ERROR add!! %d\n", result); // BUGBUG - throw here!
+            throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
         deviceConfigurationStruct.targetCondition = _strdup("This is target test added!");
@@ -2231,7 +2351,7 @@ public:
         result = IoTHubDeviceConfiguration_GetConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str(), &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
         {   
-            printf("ERROR get!! %d\n", result); // BUGBUG - throw here!
+            throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
         deviceConfigurationStruct.targetCondition = _strdup("This is target test get!");
@@ -2247,7 +2367,7 @@ public:
         result = IoTHubDeviceConfiguration_DeleteConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str());
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
         {   
-            printf("ERROR delete!! %d\n", result); // BUGBUG - throw here!
+            throw IoTHubDeviceConfigurationError(__func__, result);
         }
     }
 
@@ -2259,13 +2379,13 @@ public:
 
         if (configurationsList == NULL)
         {
-            printf("ERROR create linked list!!\n"); // BUGBUG - throw here!
+            throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_OUT_OF_MEMORY_ERROR);
         }
         
         result = IoTHubDeviceConfiguration_GetConfigurations(_ioTHubDeviceConfigurationHandle, maxConfigurationsCount, configurationsList);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
         {   
-            printf("ERROR IoTHubDeviceConfiguration_GetConfigurations!! %d\n", result); // BUGBUG - throw here!
+            throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
         LIST_ITEM_HANDLE next_configuration = singlylinkedlist_get_head_item(configurationsList);
@@ -2273,11 +2393,6 @@ public:
         {
             IOTHUB_DEVICE_CONFIGURATION* configuration = (IOTHUB_DEVICE_CONFIGURATION*)singlylinkedlist_item_get_value(next_configuration);
             IoTHubDeviceConfiguration *deviceConfiguration = new IoTHubDeviceConfiguration(configuration);
-
-            if (deviceConfiguration == NULL)
-            {
-                printf("ERROR allocating!! %d\n", result); // BUGBUG - throw here!  Or will new throw for me???
-            }
 
             retVal.append(deviceConfiguration);
             singlylinkedlist_remove(configurationsList, next_configuration);
@@ -2297,7 +2412,7 @@ public:
         result = IoTHubDeviceConfiguration_UpdateConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationUpdate);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
         {   
-            printf("ERROR update!! %d\n", result); // BUGBUG - throw here!
+            throw IoTHubDeviceConfigurationError(__func__, result);
         }
     }
 */
@@ -2366,11 +2481,18 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     IoTHubDeviceTwinErrorClass.def("__str__", &IoTHubDeviceTwinError::str);
     IoTHubDeviceTwinErrorClass.def("__repr__", &IoTHubDeviceTwinError::repr);
 
+    class_<IoTHubDeviceConfigurationError>IoTHubDeviceConfigurationErrorClass("IoTHubDeviceConfigurationErrorArg", init<std::string, IOTHUB_DEVICE_CONFIGURATION_RESULT>());
+    IoTHubDeviceConfigurationErrorClass.def_readonly("result", &IoTHubDeviceConfigurationError::result);
+    IoTHubDeviceConfigurationErrorClass.def_readonly("func", &IoTHubDeviceConfigurationError::func);
+    IoTHubDeviceConfigurationErrorClass.def("__str__", &IoTHubDeviceConfigurationError::str);
+    IoTHubDeviceConfigurationErrorClass.def("__repr__", &IoTHubDeviceConfigurationError::repr);
+
     register_exception_translator<IoTHubMapError>(iotHubMapError);
     register_exception_translator<IoTHubRegistryManagerError>(iothubRegistryManagerError);
     register_exception_translator<IoTHubMessagingError>(iothubMessagingError);
     register_exception_translator<IoTHubDeviceMethodError>(iothubDeviceMethodError);
     register_exception_translator<IoTHubDeviceTwinError>(iothubDeviceTwinError);
+    register_exception_translator<IoTHubDeviceConfigurationError>(iothubDeviceConfigurationError);
 
     // iothub errors derived from BaseException --> IoTHubError --> IoTHubXXXError
     iotHubErrorType = createExceptionClass("IoTHubError");
@@ -2381,6 +2503,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     iothubMessagingErrorType = createExceptionClass("IoTHubMessagingError", iotHubErrorType);
     iothubDeviceMethodErrorType = createExceptionClass("IoTHubDeviceMethodError", iotHubErrorType);
     iothubDeviceTwinErrorType = createExceptionClass("IoTHubDeviceTwinError", iotHubErrorType);
+    iothubDeviceConfigurationErrorType = createExceptionClass("IoTHubDeviceConfigurationError", iotHubErrorType);
 
     // iothub service client return codes
     enum_<MAP_RESULT>("IoTHubMapResult")
@@ -2608,7 +2731,14 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 
     class_<IoTHubDeviceConfiguration>("IoTHubDeviceConfiguration", no_init)
         .def(init<>())
+        .add_property("schemaVersion", &IoTHubDeviceConfiguration::GetSchemaVersion, &IoTHubDeviceConfiguration::SetSchemaVersion)
+        .add_property("configurationId", &IoTHubDeviceConfiguration::GetConfigurationId, &IoTHubDeviceConfiguration::SetConfigurationId)
         .add_property("targetCondition", &IoTHubDeviceConfiguration::GetTargetCondition, &IoTHubDeviceConfiguration::SetTargetCondition)
+        .add_property("eTag", &IoTHubDeviceConfiguration::GetETag, &IoTHubDeviceConfiguration::SetEtag)
+        .add_property("contentType", &IoTHubDeviceConfiguration::GetContentType, &IoTHubDeviceConfiguration::SetContentType)
+        .add_property("createdTimeUtc", &IoTHubDeviceConfiguration::GetCreatedTimeUtc, &IoTHubDeviceConfiguration::SetCreatedTimeUtc)
+        .add_property("lastUpdatedTimeUtc", &IoTHubDeviceConfiguration::GetLastUpdateTimeUtc)
+        .add_property("priority", &IoTHubDeviceConfiguration::GetPriority, &IoTHubDeviceConfiguration::SetPriority)
         .add_property("labels", &IoTHubDeviceConfiguration::GetLabels) // , &IoTHubDeviceConfiguration::SetLabels)
         ;
 
