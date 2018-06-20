@@ -2128,7 +2128,6 @@ private:
         {
             const char* key = boost::python::extract<const char*>(dictKeys[i]);
             const char* value = boost::python::extract<const char*>(sourceDict[key]);
-            printf("Key = %s, value = %s\n", key, value);
 
             if (Map_Add(map, key, value) != MAP_OK)
             {
@@ -2269,39 +2268,21 @@ public:
         return _device_configuration.priority;
     }
 
+    /*
     boost::python::dict& IoTHubDeviceConfiguration::GetLabels()
     {
-        printf("GetLabels called\n");
         return labelsDictionary;
     }
+    */
 
-    boost::python::dict IoTHubDeviceConfiguration::GetLabelsTest() const
+    boost::python::dict IoTHubDeviceConfiguration::GetLabels() const
     {
-        printf("GetLabelsTest\n");
-        boost::python::list keys = labelsDictionary.keys();
-        // printf("Value=%s\n", labelsDictionary["444"]);
-
-        for (long i = 0; i < len(keys); i++)
-        {
-            const char* key = boost::python::extract<const char*>(keys[i]);
-            const char* value = boost::python::extract<const char*>(labelsDictionary[key]);
-            printf("Key = %s, value = %s\n", key, value);
-        }
-    
         return labelsDictionary;
     }
-
-    void IoTHubDeviceConfiguration::SetLabels(boost::python::dict dict)
-    {
-        printf("SetLabels\n");
-    }
-
 
     // Perform a copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
     void GetAddConfiguration(IOTHUB_DEVICE_CONFIGURATION_ADD &deviceConfigurationAdd) const
     {
-        printf("GetAddConfig\n");
-    
         memset(&deviceConfigurationAdd, 0, sizeof(deviceConfigurationAdd));
         deviceConfigurationAdd.version = IOTHUB_DEVICE_CONFIGURATION_ADD_VERSION_1;
         deviceConfigurationAdd.configurationId = _device_configuration.configurationId;
@@ -2317,8 +2298,6 @@ public:
     // Perform a copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
     void GetUpdateConfiguration(IOTHUB_DEVICE_CONFIGURATION &deviceConfigurationUpdate) const 
     {
-        printf("GetUpdateConfiguration\n");
-
         memset(&deviceConfigurationUpdate, 0, sizeof(deviceConfigurationUpdate));
         deviceConfigurationUpdate.version = IOTHUB_DEVICE_CONFIGURATION_UPDATE_VERSION_1;
 
@@ -2337,21 +2316,7 @@ public:
 
     IOTHUB_DEVICE_CONFIGURATION_CONTENT* GetContent()
     {
-        static int hasBeenCalled = 0;
-        printf("GetContent\n");
-
-        if (hasBeenCalled == 0) { printf("Initial setting...\n");
-            _device_configuration.content.modulesContent = _strdup("Module-from-c");
-            _device_configuration.content.deviceContent = _strdup("Device-from-c");
-            hasBeenCalled = 1;
-        }
         return &_device_configuration.content;
-    }
-
-    void SetContent(IOTHUB_DEVICE_CONFIGURATION_CONTENT content)
-    {
-        printf("SetContent <%s / %s>\n", content.deviceContent, content.modulesContent);
-        memcpy(&_device_configuration.content, &content, sizeof(_device_configuration.content));
     }
 };
 
@@ -2855,11 +2820,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("createdTimeUtc", &IoTHubDeviceConfiguration::GetCreatedTimeUtc, &IoTHubDeviceConfiguration::SetCreatedTimeUtc)
         .add_property("lastUpdatedTimeUtc", &IoTHubDeviceConfiguration::GetLastUpdateTimeUtc)
         .add_property("priority", &IoTHubDeviceConfiguration::GetPriority, &IoTHubDeviceConfiguration::SetPriority)
-        .add_property("labels", make_function(&IoTHubDeviceConfiguration::GetLabels, return_value_policy<reference_existing_object>()))
-        .add_property("labels", &IoTHubDeviceConfiguration::GetLabelsTest)
-        // .add_property("content", &IoTHubDeviceConfiguration::GetContent, &IoTHubDeviceConfiguration::SetContent)
-        // .add_property("content", &IoTHubDeviceConfiguration::GetContent)
-        // .def("content", &IoTHubDeviceConfiguration::GetContent, return_internal_reference<1>())
+        .add_property("labels", &IoTHubDeviceConfiguration::GetLabels)
         .add_property("content", make_function(&IoTHubDeviceConfiguration::GetContent, return_value_policy<reference_existing_object>()))
         ;
 
