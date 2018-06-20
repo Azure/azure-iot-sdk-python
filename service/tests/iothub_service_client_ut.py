@@ -936,5 +936,107 @@ class TestClassDefinitions(unittest.TestCase):
         # Test success on update twin on module
         deviceTwinClient.update_twin(deviceId, moduleId, deviceTwinJson)
 
+    def test_IoTHubDeviceConfiguration(self):
+        # constructor (connection string)
+        with self.assertRaises(Exception):
+            deviceConfiguration = IoTHubDeviceConfiguration(1)
+
+        deviceConfiguration = IoTHubDeviceConfiguration()
+
+        # Set string type to integer properties
+        with self.assertRaises(Exception):
+            deviceConfiguration.priority = "setting-string-to-integer-priority"
+
+        # Setting integer types to string properties
+        with self.assertRaises(Exception):
+            deviceConfiguration.schemaVersion = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.configurationId = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.targetCondition = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.eTag = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.content = 123
+        with self.assertRaises(Exception):
+            # Cannot set content to a string as it has properties itself.
+            deviceConfiguration.content = "123"
+        with self.assertRaises(Exception):
+            deviceConfiguration.content.modulesContent = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.content.deviceContent = 123
+
+        # Read only properties
+        with self.assertRaises(Exception):
+            deviceConfiguration.lastUpdatedTimeUtc = "LastUpdatedUtc"
+
+        # Verify setting appropriate values is OK
+        deviceConfiguration.priority = 1234
+        deviceConfiguration.schemaVersion = "schemaVersion"
+        deviceConfiguration.configurationId = "configurationId"
+        deviceConfiguration.targetCondition = "targetCondition"
+        deviceConfiguration.eTag = "etag"
+        deviceConfiguration.content.modulesContent = "modulesContent"
+        deviceConfiguration.content.deviceContent = "devicesContent"
+
+    def test_IoTHubDeviceConfigurationManager(self):
+        deviceConfiguration = IoTHubDeviceConfiguration()
+
+        with self.assertRaises(Exception):
+            deviceConfigurationManager = IoTHubDeviceConfigurationManager()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager = IoTHubDeviceConfigurationManager("string1", "string2")
+
+        authClient = IoTHubServiceClientAuth(connectionString)
+        deviceConfigurationManager = IoTHubDeviceConfigurationManager(authClient)
+        deviceConfigurationManager = IoTHubDeviceConfigurationManager(connectionString)
+
+        # get_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration("configId1", "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration(deviceConfiguration)
+        deviceConfigurationManager.get_configuration("configId1")
+
+        # add_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.add_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.add_configuration("configId1")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.add_configuration(deviceConfiguration, "configId2")
+        deviceConfigurationManager.add_configuration(deviceConfiguration)
+
+        # update_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.update_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.update_configuration("configId1")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.update_configuration(deviceConfiguration, "configId2")
+        deviceConfigurationManager.update_configuration(deviceConfiguration)
+
+        # update_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.delete_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.delete_configuration("configId1", "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.delete_configuration(deviceConfiguration, "configId2")
+        deviceConfigurationManager.delete_configuration("configId1")
+
+        # get_configuration_list
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list("configId1", "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list(deviceConfiguration, "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list("configId1")
+        deviceConfigurationManager.get_configuration_list(20)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

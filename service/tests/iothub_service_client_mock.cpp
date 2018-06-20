@@ -27,6 +27,8 @@
 #include "iothub_devicetwin.h"
 #include "iothubtransporthttp.h"
 #include "iothubtransportamqp.h"
+#include "iothub_deviceconfiguration.h"
+
 
 #define IMPORT_NAME iothub_service_client_mock
 
@@ -601,6 +603,64 @@ IOTHUB_REGISTRYMANAGER_RESULT IoTHubRegistryManager_UpdateDevice_Ex(IOTHUB_REGIS
     (void)deviceUpdate;
     return IOTHUB_REGISTRYMANAGER_OK;
 }
+
+IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE mockDeviceConfigurationHandle = (IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE)0x12345670;
+
+IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE IoTHubDeviceConfiguration_Create(IOTHUB_SERVICE_CLIENT_AUTH_HANDLE serviceClientHandle)
+{
+    (void)serviceClientHandle;
+    return mockDeviceConfigurationHandle;
+}
+
+void IoTHubDeviceConfiguration_Destroy(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle)
+{
+    (void)serviceClientDeviceConfigurationHandle;
+}
+
+IOTHUB_DEVICE_CONFIGURATION_RESULT IoTHubDeviceConfiguration_GetConfigurations(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle, size_t maxConfigurationsCount, SINGLYLINKEDLIST_HANDLE configurations)
+{
+    (void)serviceClientDeviceConfigurationHandle;
+    (void)maxConfigurationsCount;
+    (void)configurations;
+    return IOTHUB_DEVICE_CONFIGURATION_OK;
+}
+
+IOTHUB_DEVICE_CONFIGURATION_RESULT IoTHubDeviceConfiguration_GetConfiguration(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle, const char* configurationId, IOTHUB_DEVICE_CONFIGURATION* configuration)
+{
+    (void)serviceClientDeviceConfigurationHandle;
+    (void)configurationId;
+    (void)configuration;
+    return IOTHUB_DEVICE_CONFIGURATION_OK;
+}
+
+IOTHUB_DEVICE_CONFIGURATION_RESULT IoTHubDeviceConfiguration_AddConfiguration(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle, const IOTHUB_DEVICE_CONFIGURATION_ADD* configurationCreate, IOTHUB_DEVICE_CONFIGURATION* configuration)
+{
+    (void)serviceClientDeviceConfigurationHandle;
+    (void)configurationCreate;
+    (void)configuration;
+    return IOTHUB_DEVICE_CONFIGURATION_OK;
+}
+
+IOTHUB_DEVICE_CONFIGURATION_RESULT IoTHubDeviceConfiguration_UpdateConfiguration(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle, const IOTHUB_DEVICE_CONFIGURATION* configuration)
+{
+    (void)serviceClientDeviceConfigurationHandle;
+    (void)configuration;
+    return IOTHUB_DEVICE_CONFIGURATION_OK;
+}
+
+IOTHUB_DEVICE_CONFIGURATION_RESULT IoTHubDeviceConfiguration_DeleteConfiguration(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle, const char* configurationId)
+{
+    (void)serviceClientDeviceConfigurationHandle;
+    (void)configurationId;
+    return IOTHUB_DEVICE_CONFIGURATION_OK;
+}
+
+void IoTHubDeviceConfiguration_FreeConfigurationMembers(IOTHUB_DEVICE_CONFIGURATION* configuration)
+{
+    (void)configuration;
+}
+
+
 
 // "iothubtransporthttp.h"
 TRANSPORT_PROVIDER *mockProtocol = (TRANSPORT_PROVIDER *)0x12345678;
