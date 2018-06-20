@@ -2098,8 +2098,14 @@ class IoTHubDeviceConfiguration
 {
 private:
     IOTHUB_DEVICE_CONFIGURATION _device_configuration;
+
+    boost::python::dict addMetrictsDictionary;
+
     boost::python::dict labelsDictionary;
-    boost::python::dict metricsDictionary;
+    boost::python::dict systemMetricsResultDictionary;
+    boost::python::dict systemMetricsDefinitionDictionary;
+    boost::python::dict metricResultDictionary;
+    boost::python::dict metricsDefinitionDictionary;
 
 
 // IOTHUB_DEVICE_CONFIGURATION_CONTENT content;                    //version 1+
@@ -2107,7 +2113,7 @@ private:
 // IOTHUB_DEVICE_CONFIGURATION_METRICS_DEFINITION metrics;         //version 1+
 
     // Translate a Python dictionary into an array that deviceConfiguration C layer can process.
-    static void CopyBoostDictionaryToArray(boost::python::dict &sourceDict, const char*const** keys, const char*const** values, size_t* count)
+    static void CopyBoostDictionaryToArray(const boost::python::dict &sourceDict, const char*const** keys, const char*const** values, size_t* count)
     {
         MAP_HANDLE map = Map_Create(NULL);
         if (map == NULL)
@@ -2116,11 +2122,11 @@ private:
             throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_OUT_OF_MEMORY_ERROR);
         }
 
-        boost::python::list keys = labelsDictionary.keys();
+        boost::python::list dictKeys = sourceDict.keys();
 
-        for (long i = 0; i < len(keys); i++)
+        for (long i = 0; i < len(dictKeys); i++)
         {
-            const char* key = boost::python::extract<const char*>(keys[i]);
+            const char* key = boost::python::extract<const char*>(dictKeys[i]);
             const char* value = boost::python::extract<const char*>(sourceDict[key]);
             printf("Key = %s, value = %s\n", key, value);
 
@@ -2130,8 +2136,17 @@ private:
             }
         }
 
-        Map_GetInternals(map, keys, values, &count);
-        Map_Destroy(map);
+        Map_GetInternals(map, keys, values, count);
+        // Map_Destroy(map); // BUGBUG - one of many leaks.  Probably should move from Map class generally here.
+    }
+
+    template <class T>
+    static void CopyArrayToBoostDictionary(size_t count, const char** keys, T* values, boost::python::dict &destinationDictionary)
+    {
+        for (size_t i = 0; i < count; i++)
+        {
+            destinationDictionary[keys[i]] = values[i];
+        }
     }
 
 
@@ -2145,6 +2160,21 @@ public:
     {
         // Shallow copy as caller transfers ownership on this constructor
         memcpy(&_device_configuration, &device_configuration, sizeof(_device_configuration));
+
+        CopyArrayToBoostDictionary<const char*>(_device_configuration.labels.numLabels,  _device_configuration.labels.labelNames, 
+                                                _device_configuration.labels.labelValues, labelsDictionary);
+
+        CopyArrayToBoostDictionary<double>(_device_configuration.systemMetricsResult.numQueries, _device_configuration.systemMetricsResult.queryNames, 
+                                           _device_configuration.systemMetricsResult.results, systemMetricsResultDictionary);
+
+        CopyArrayToBoostDictionary<const char*>(_device_configuration.systemMetricsDefinition.numQueries, _device_configuration.systemMetricsDefinition.queryNames, 
+                                                _device_configuration.systemMetricsDefinition.queryStrings, systemMetricsDefinitionDictionary);
+
+        CopyArrayToBoostDictionary<double>(_device_configuration.metricResult.numQueries, _device_configuration.metricResult.queryNames, 
+                                           _device_configuration.metricResult.results, metricResultDictionary);
+
+        CopyArrayToBoostDictionary<const char*>(_device_configuration.metricsDefinition.numQueries, _device_configuration.metricsDefinition.queryNames, 
+                                                _device_configuration.metricsDefinition.queryStrings, metricsDefinitionDictionary);
     }
 
     IoTHubDeviceConfiguration(IOTHUB_DEVICE_CONFIGURATION *device_configuration)
@@ -2239,8 +2269,6 @@ public:
         return _device_configuration.priority;
     }
 
-    // BUGBUG - code up content.
-   
     boost::python::dict& IoTHubDeviceConfiguration::GetLabels()
     {
         printf("GetLabels called\n");
@@ -2273,7 +2301,6 @@ public:
     void GetAddConfiguration(IOTHUB_DEVICE_CONFIGURATION_ADD &deviceConfigurationAdd) const
     {
         printf("GetAddConfig\n");
-        GetLabelsTest();
     
         memset(&deviceConfigurationAdd, 0, sizeof(deviceConfigurationAdd));
         deviceConfigurationAdd.version = IOTHUB_DEVICE_CONFIGURATION_ADD_VERSION_1;
@@ -2281,10 +2308,50 @@ public:
         deviceConfigurationAdd.targetCondition = _device_configuration.targetCondition;
         deviceConfigurationAdd.priority = _device_configuration.priority;
         
-        //memcpy(&deviceConfigurationAdd.content, &_device_configuration.content, sizeof(deviceConfigurationAdd.content));
+        memcpy(&deviceConfigurationAdd.content, &_device_configuration.content, sizeof(deviceConfigurationAdd.content));
 
-        CopyBoostDictionaryToArray(labelsDictionary, &_device_configuration.labels.labelNames, &_device_configuration.labels.labelValues);
-        CopyBoostDictionaryToArray(metricsDictionary, &_device_configuration.metrics.queryNames, &_device_configuration.metrics.queryStrings);
+        CopyBoostDictionaryToArray(labelsDictionary, (const char *const **)&deviceConfigurationAdd.labels.labelNames, (const char *const **)(&deviceConfigurationAdd.labels.labelValues), &deviceConfigurationAdd.labels.numLabels);
+        CopyBoostDictionaryToArray(addMetrictsDictionary, (const char *const **)&deviceConfigurationAdd.metrics.queryNames, (const char *const **)&deviceConfigurationAdd.metrics.queryStrings, &deviceConfigurationAdd.metrics.numQueries);
+    }
+
+    // Perform a copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
+    void GetUpdateConfiguration(IOTHUB_DEVICE_CONFIGURATION &deviceConfigurationUpdate) const 
+    {
+        printf("GetUpdateConfiguration\n");
+
+        memset(&deviceConfigurationUpdate, 0, sizeof(deviceConfigurationUpdate));
+        deviceConfigurationUpdate.version = IOTHUB_DEVICE_CONFIGURATION_UPDATE_VERSION_1;
+
+        deviceConfigurationUpdate.eTag =  _device_configuration.eTag;
+        deviceConfigurationUpdate.schemaVersion =  _device_configuration.schemaVersion;
+        deviceConfigurationUpdate.configurationId = _device_configuration.configurationId;
+        deviceConfigurationUpdate.targetCondition = _device_configuration.targetCondition;
+        deviceConfigurationUpdate.priority = _device_configuration.priority;
+        // Not copying all items as they are not all supported.
+
+        memcpy(&deviceConfigurationUpdate.content, &_device_configuration.content, sizeof(deviceConfigurationUpdate.content));
+
+        CopyBoostDictionaryToArray(labelsDictionary, (const char *const **)&deviceConfigurationUpdate.labels.labelNames, (const char *const **)(&deviceConfigurationUpdate.labels.labelValues), &deviceConfigurationUpdate.labels.numLabels);
+        CopyBoostDictionaryToArray(addMetrictsDictionary, (const char *const **)&deviceConfigurationUpdate.metricsDefinition.queryNames, (const char *const **)&deviceConfigurationUpdate.metricsDefinition.queryStrings, &deviceConfigurationUpdate.metricsDefinition.numQueries);
+    }
+
+    IOTHUB_DEVICE_CONFIGURATION_CONTENT* GetContent()
+    {
+        static int hasBeenCalled = 0;
+        printf("GetContent\n");
+
+        if (hasBeenCalled == 0) { printf("Initial setting...\n");
+            _device_configuration.content.modulesContent = _strdup("Module-from-c");
+            _device_configuration.content.deviceContent = _strdup("Device-from-c");
+            hasBeenCalled = 1;
+        }
+        return &_device_configuration.content;
+    }
+
+    void SetContent(IOTHUB_DEVICE_CONFIGURATION_CONTENT content)
+    {
+        printf("SetContent <%s / %s>\n", content.deviceContent, content.modulesContent);
+        memcpy(&_device_configuration.content, &content, sizeof(_device_configuration.content));
     }
 };
 
@@ -2379,7 +2446,7 @@ public:
 
         IoTHubDeviceConfiguration *ioTHubDeviceAddedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationStruct);
 
-        IoTHubDeviceConfiguration_FreeConfigurationMembers(deviceConfigurationAdd);
+        //IoTHubDeviceConfiguration_FreeConfigurationMembers(deviceConfigurationAdd);
         // deviceConfigurationStruct
         
         return ioTHubDeviceAddedConfiguration;
@@ -2398,8 +2465,6 @@ public:
         {   
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
-
-        deviceConfigurationStruct.targetCondition = _strdup("This is target test get!");
 
         IoTHubDeviceConfiguration *ioTHubDeviceConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationStruct);
         return ioTHubDeviceConfiguration;
@@ -2446,11 +2511,10 @@ public:
         singlylinkedlist_destroy(configurationsList);
     }
 
-/*
-    void IoTHubDeviceConfigurationManager::UpdateConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
+    IoTHubDeviceConfiguration* UpdateConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
     {
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
-        IOTHUB_DEVICE_CONFIGURATION_UPDATE deviceConfigurationUpdate;
+        IOTHUB_DEVICE_CONFIGURATION deviceConfigurationUpdate;
 
         ioTHubDeviceConfiguration->GetUpdateConfiguration(deviceConfigurationUpdate);
 
@@ -2459,8 +2523,10 @@ public:
         {   
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
+
+        IoTHubDeviceConfiguration *ioTHubDeviceUpdatedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationUpdate);
+        return ioTHubDeviceUpdatedConfiguration;
     }
-*/
     
 };
 
@@ -2774,6 +2840,11 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("update_twin", &IoTHubDeviceTwin::UpdateModuleTwin)
         ;
 
+    class_<IOTHUB_DEVICE_CONFIGURATION_CONTENT>("IoTHubDeviceConfigurationContent", no_init)
+        .add_property("deviceContent", &IOTHUB_DEVICE_CONFIGURATION_CONTENT::deviceContent, &IOTHUB_DEVICE_CONFIGURATION_CONTENT::deviceContent)
+        .add_property("modulesContent", &IOTHUB_DEVICE_CONFIGURATION_CONTENT::modulesContent, &IOTHUB_DEVICE_CONFIGURATION_CONTENT::modulesContent)
+        ;
+
     class_<IoTHubDeviceConfiguration>("IoTHubDeviceConfiguration", no_init)
         .def(init<>())
         .add_property("schemaVersion", &IoTHubDeviceConfiguration::GetSchemaVersion, &IoTHubDeviceConfiguration::SetSchemaVersion)
@@ -2786,6 +2857,10 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("priority", &IoTHubDeviceConfiguration::GetPriority, &IoTHubDeviceConfiguration::SetPriority)
         .add_property("labels", make_function(&IoTHubDeviceConfiguration::GetLabels, return_value_policy<reference_existing_object>()))
         .add_property("labels", &IoTHubDeviceConfiguration::GetLabelsTest)
+        // .add_property("content", &IoTHubDeviceConfiguration::GetContent, &IoTHubDeviceConfiguration::SetContent)
+        // .add_property("content", &IoTHubDeviceConfiguration::GetContent)
+        // .def("content", &IoTHubDeviceConfiguration::GetContent, return_internal_reference<1>())
+        .add_property("content", make_function(&IoTHubDeviceConfiguration::GetContent, return_value_policy<reference_existing_object>()))
         ;
 
     class_<IoTHubDeviceConfigurationManager, boost::noncopyable>("IoTHubDeviceConfigurationManager", no_init)
@@ -2793,7 +2868,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def(init<IoTHubDeviceConfigurationManager>())
         .def("get_configuration", &IoTHubDeviceConfigurationManager::GetConfiguration, return_internal_reference<1>())
         .def("add_configuration", &IoTHubDeviceConfigurationManager::AddConfiguration, return_internal_reference<1>())
-        //.def("update_configuration", &IoTHubDeviceConfigurationManager::UpdateConfiguration)
+        .def("update_configuration", &IoTHubDeviceConfigurationManager::UpdateConfiguration, return_internal_reference<1>())
         .def("delete_configuration", &IoTHubDeviceConfigurationManager::DeleteConfiguration)
     
         //.def("get_twin", &IoTHubDeviceTwin::GetTwin)
