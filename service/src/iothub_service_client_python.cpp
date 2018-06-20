@@ -2232,17 +2232,6 @@ public:
         _device_configuration.eTag = _strdup(eTag.c_str());
     }
 
-    const char* GetContentType()
-    {
-        return _device_configuration.contentType;
-    }
-
-    void SetContentType(std::string contentType)
-    {
-        free((char*)_device_configuration.contentType);
-        _device_configuration.contentType = _strdup(contentType.c_str());
-    }
-
     const char* GetCreatedTimeUtc()
     {
         return _device_configuration.createdTimeUtc;
@@ -2822,7 +2811,6 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("configurationId", &IoTHubDeviceConfiguration::GetConfigurationId, &IoTHubDeviceConfiguration::SetConfigurationId)
         .add_property("targetCondition", &IoTHubDeviceConfiguration::GetTargetCondition, &IoTHubDeviceConfiguration::SetTargetCondition)
         .add_property("eTag", &IoTHubDeviceConfiguration::GetETag, &IoTHubDeviceConfiguration::SetEtag)
-        .add_property("contentType", &IoTHubDeviceConfiguration::GetContentType, &IoTHubDeviceConfiguration::SetContentType)
         .add_property("createdTimeUtc", &IoTHubDeviceConfiguration::GetCreatedTimeUtc, &IoTHubDeviceConfiguration::SetCreatedTimeUtc)
         .add_property("lastUpdatedTimeUtc", &IoTHubDeviceConfiguration::GetLastUpdateTimeUtc)
         .add_property("priority", &IoTHubDeviceConfiguration::GetPriority, &IoTHubDeviceConfiguration::SetPriority)
@@ -2832,7 +2820,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 
     class_<IoTHubDeviceConfigurationManager, boost::noncopyable>("IoTHubDeviceConfigurationManager", no_init)
         .def(init<std::string>())
-        .def(init<IoTHubDeviceConfigurationManager>())
+        .def(init<IoTHubServiceClientAuth>())
         .def("get_configuration", &IoTHubDeviceConfigurationManager::GetConfiguration, return_internal_reference<1>())
         .def("add_configuration", &IoTHubDeviceConfigurationManager::AddConfiguration, return_internal_reference<1>())
         .def("update_configuration", &IoTHubDeviceConfigurationManager::UpdateConfiguration, return_internal_reference<1>())

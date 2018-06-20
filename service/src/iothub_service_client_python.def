@@ -50,6 +50,15 @@ EXPORTS
     IoTHubDeviceTwin_UpdateTwin
     IoTHubDeviceTwin_GetModuleTwin
     IoTHubDeviceTwin_UpdateModuleTwin
+;   iothub_deviceconfiguration.h
+    IoTHubDeviceConfiguration_Create
+    IoTHubDeviceConfiguration_Destroy
+    IoTHubDeviceConfiguration_GetConfigurations
+    IoTHubDeviceConfiguration_GetConfiguration
+    IoTHubDeviceConfiguration_AddConfiguration
+    IoTHubDeviceConfiguration_UpdateConfiguration
+    IoTHubDeviceConfiguration_DeleteConfiguration
+    IoTHubDeviceConfiguration_FreeConfigurationMembers
 ;   map.h (c-utility)
     Map_Create
     Map_Destroy
