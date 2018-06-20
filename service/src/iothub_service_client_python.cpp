@@ -2184,7 +2184,8 @@ public:
 
     ~IoTHubDeviceConfiguration()
     {
-        IoTHubDeviceConfiguration_FreeConfigurationMembers(&_device_configuration);
+        // BUGBUG - when freeing items from GetList() we hit issues because of invalid pointers.
+        // IoTHubDeviceConfiguration_FreeConfigurationMembers(&_device_configuration);
     }
 
     const char* GetSchemaVersion()
@@ -2446,9 +2447,9 @@ public:
         }
     }
 
-    boost::python::list GetConfigurations(size_t maxConfigurationsCount)
+    boost::python::list GetConfigurationList(size_t maxConfigurationsCount)
     {
-        boost::python::list retVal;
+        boost::python::list configurationList;
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
         SINGLYLINKEDLIST_HANDLE configurationsList = singlylinkedlist_create();
 
@@ -2467,13 +2468,18 @@ public:
         while (next_configuration != NULL)
         {
             IOTHUB_DEVICE_CONFIGURATION* configuration = (IOTHUB_DEVICE_CONFIGURATION*)singlylinkedlist_item_get_value(next_configuration);
+
+            configuration->contentType = NULL; // BUGBUG - C layer is returning invalid pointer here so NULL out to ignore for now.
+            
             IoTHubDeviceConfiguration *deviceConfiguration = new IoTHubDeviceConfiguration(configuration);
 
-            retVal.append(deviceConfiguration);
+            configurationList.append(deviceConfiguration);
             singlylinkedlist_remove(configurationsList, next_configuration);
             next_configuration = singlylinkedlist_get_head_item(configurationsList);
         }
         singlylinkedlist_destroy(configurationsList);
+
+        return configurationList;
     }
 
     IoTHubDeviceConfiguration* UpdateConfiguration(const IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
@@ -2831,9 +2837,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("add_configuration", &IoTHubDeviceConfigurationManager::AddConfiguration, return_internal_reference<1>())
         .def("update_configuration", &IoTHubDeviceConfigurationManager::UpdateConfiguration, return_internal_reference<1>())
         .def("delete_configuration", &IoTHubDeviceConfigurationManager::DeleteConfiguration)
-    
-        //.def("get_twin", &IoTHubDeviceTwin::GetTwin)
-        //.def("update_twin", &IoTHubDeviceTwin::UpdateTwin)
+        .def("get_configuration_list", &IoTHubDeviceConfigurationManager::GetConfigurationList)
         ;
         
 };
