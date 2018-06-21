@@ -65,8 +65,8 @@ def run_deviceconfig():
 
         # get_configuration_list
         print ( "get_configuration_list" )
-        number_of_configurations = 10
-        configuration_list = iothub_deviceconfiguration_manager.get_configuration_list(20)
+        number_of_configurations = 20
+        configuration_list = iothub_deviceconfiguration_manager.get_configuration_list(number_of_configurations)
 
         number_of_configurations = len(configuration_list)
         print ( "Number of configuration                       : {0}".format(number_of_configurations) )
