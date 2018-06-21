@@ -85,7 +85,6 @@ def print_config_info(title, iothub_deviceconfig):
     print ( "iothub_deviceconfig.content.modulesContent         = {0}".format(iothub_deviceconfig.content.modulesContent) )
     print ( "" )
 
-
 def read_environment_vars():
     global IOTHUB_CONNECTION_STRING
 
@@ -675,6 +674,7 @@ MODULE_CONTENT = '''{"sunny": {"properties.desired": {"temperature": 69,"humidit
 def strip_spaces(str):
     return ''.join(str.split())
 
+'''
 
 def veryify_expected_device_configuration(expectedConfig, actualConfig):
     assert actualConfig != None, "Returneded configuration object is NULL"
@@ -686,7 +686,6 @@ def veryify_expected_device_configuration(expectedConfig, actualConfig):
     assert strip_spaces(expectedConfig.content.modulesContent) == strip_spaces(actualConfig.content.modulesContent), "modulesContent doesn't match"
     assert expectedConfig.labels["label1"] == actualConfig.labels["label1"], "Labels[label1] doesn't match"
     assert expectedConfig.labels["label2"] == actualConfig.labels["label2"], "Labels[label2] doesn't match"
-
 
 def run_e2e_deviceconfiguration(iothub_connection_string):
 
@@ -745,6 +744,7 @@ def run_e2e_deviceconfiguration(iothub_connection_string):
             iothub_deviceconfiguration_manager.delete_configuration(configuration_id)
 
     return retval
+'''
 
 def main():
     print ("********************* iothub_service_client E2E tests started!")
