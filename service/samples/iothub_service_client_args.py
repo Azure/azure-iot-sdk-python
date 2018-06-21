@@ -68,4 +68,36 @@ def get_iothub_opt_with_module(
 
     return connection_string, device_id, module_id
 
+def get_iothub_opt_configuration_id(
+        argv,
+        connection_string,
+        configuration_id):
+    if len(argv) > 0:
+        try:
+            opts, args = getopt.getopt(
+                argv, "hd:c:", [
+                    "connectionstring=", "configurationid="])
+        except getopt.GetoptError as get_opt_error:
+            raise OptionError("Error: %s" % get_opt_error.msg)
+        for opt, arg in opts:
+            if opt == '-h':
+                raise OptionError("Help:")
+            elif opt in ("--connectionstring"):
+                connection_string = arg
+            elif opt in ("--configurationid"):
+                configuration_id = arg
+
+
+    print("connection string" + connection_string)
+    #print("config string" + configuration_id)
+    if connection_string.find("HostName") < 0:
+        raise OptionError(
+            "Error: Hostname not found, not a valid connection string")
+
+    if (configuration_id is None):
+        raise OptionError(
+            "Error: configurationid required parameter")    
+
+    return connection_string, configuration_id
+
     
