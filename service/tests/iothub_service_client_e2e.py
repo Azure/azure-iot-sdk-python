@@ -17,6 +17,7 @@ from iothub_service_client import IoTHubMessaging
 from iothub_service_client import IoTHubDeviceTwin
 from iothub_service_client import IoTHubDeviceMethod
 from iothub_service_client import IoTHubMessage, IoTHubDevice, IoTHubDeviceStatus, IoTHubDeviceMethodResponse, IoTHubModule
+from iothub_service_client import IoTHubDeviceConfigurationManager, IoTHubDeviceConfiguration
 
 from iothub_client import IoTHubClient, IoTHubClientError, IoTHubTransportProvider, IoTHubClientResult
 from iothub_client import IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
@@ -72,6 +73,18 @@ def print_device_or_module_info(title, iothub_device_or_module, testing_modules)
     print ( "  authMethod                  = {0}".format(iothub_device_or_module.authMethod) )
     print ( "" )
 
+def print_config_info(title, iothub_deviceconfig):
+    print ( title + ":" )
+    print ( "iothub_deviceconfig.targetCondition                = {0}".format(iothub_deviceconfig.targetCondition) )
+    print ( "iothub_deviceconfig.schemaVersion                  = {0}".format(iothub_deviceconfig.schemaVersion) )
+    print ( "iothub_deviceconfig.configurationId                = {0}".format(iothub_deviceconfig.configurationId) )
+    print ( "iothub_deviceconfig.eTag                           = {0}".format(iothub_deviceconfig.eTag) )
+    print ( "iothub_deviceconfig.createdTimeUtc                 = {0}".format(iothub_deviceconfig.createdTimeUtc) )
+    print ( "iothub_deviceconfig.priority                       = {0}".format(iothub_deviceconfig.priority) )
+    print ( "iothub_deviceconfig.content.deviceContent          = {0}".format(iothub_deviceconfig.content.deviceContent) )
+    print ( "iothub_deviceconfig.content.modulesContent         = {0}".format(iothub_deviceconfig.content.modulesContent) )
+    print ( "" )
+
 
 def read_environment_vars():
     global IOTHUB_CONNECTION_STRING
@@ -86,6 +99,11 @@ def read_environment_vars():
 def generate_device_name():
     postfix = ''.join([random.choice(string.ascii_letters) for n in range(12)])
     return "python_e2e_test_device-{0}".format(postfix)
+
+def generate_configurationid_id():
+    numbers = '0123456789'
+    postfix = ''.join([random.choice(numbers) for n in range(12)])
+    return "python_e2e_test_config-{0}".format(postfix)
 
 
 def get_connection_string(iothub_registry_manager, iothub_connection_string, device_id, testing_modules):
@@ -645,6 +663,88 @@ def run_e2e_messaging(iothub_connection_string, testing_modules):
     
     return retval
 
+MODULE_CONTENT = '''{"sunny": {"properties.desired": {"temperature": 69,"humidity": 30}}, 
+                                      "goolily": {"properties.desired": {"elevation": 45,"orientation": "NE"}}, 
+                                      "$edgeAgent": {"properties.desired": {"schemaVersion": "1.0","runtime": {"type": "docker","settings": {"minDockerVersion": "1.5","loggingOptions": ""}},"systemModules": 
+                                                {"edgeAgent": {"type": "docker","settings": {"image": "edgeAgent","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}, 
+                                                "edgeHub": {"type": "docker","status": "running","restartPolicy": "always","settings": {"image": "edgeHub","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}}, 
+                                                    "modules": {"sunny": {"version": "1.0","type": "docker","status": "running","restartPolicy": "on-failure","settings": {"image": "mongo","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}, 
+                                                    "goolily": {"version": "1.0","type": "docker","status": "running","restartPolicy": "on-failure","settings": {"image": "asa","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}}}}, 
+                                      "$edgeHub": {"properties.desired": {"schemaVersion": "1.0","routes": {"route1": "from * INTO $upstream"},"storeAndForwardConfiguration": {"timeToLiveSecs": 20}}}}'''
+
+def strip_spaces(str):
+    return ''.join(str.split())
+
+
+def veryify_expected_device_configuration(expectedConfig, actualConfig):
+    assert actualConfig != None, "Returneded configuration object is NULL"
+
+    assert expectedConfig.targetCondition == actualConfig.targetCondition, "targetCondition doesn't match"
+    assert expectedConfig.configurationId == actualConfig.configurationId, "configurationId doesn't match"
+    # assert expectedConfig.priority == actualConfig.priority, "priority doesn't match"
+    assert strip_spaces(expectedConfig.content.deviceContent) == strip_spaces(actualConfig.content.deviceContent), "deviceContent doesn't match"
+    assert strip_spaces(expectedConfig.content.modulesContent) == strip_spaces(actualConfig.content.modulesContent), "modulesContent doesn't match"
+    assert expectedConfig.labels["label1"] == actualConfig.labels["label1"], "Labels[label1] doesn't match"
+    assert expectedConfig.labels["label2"] == actualConfig.labels["label2"], "Labels[label2] doesn't match"
+
+
+def run_e2e_deviceconfiguration(iothub_connection_string):
+
+    try:
+        # prepare
+        configuration_id = generate_configurationid_id()
+        assert isinstance(configuration_id, str), 'Invalid type returned!'
+        print(configuration_id)
+
+        iothub_deviceconfiguration = IoTHubDeviceConfiguration()
+        assert iothub_deviceconfiguration != None, "iothub_deviceconfiguration is NULL"
+
+        print ("Creating configuration object for {0}".format(configuration_id))        
+        iothub_deviceconfiguration.targetCondition = "tags.UniqueTag='configurationapplyedgeagentreportinge2etestcita5b4e2b7f6464fe9988feea7d887584a' and tags.Environment='test'"
+        iothub_deviceconfiguration.configurationId =  configuration_id
+        iothub_deviceconfiguration.priority = 10
+        iothub_deviceconfiguration.content.deviceContent = ""
+        iothub_deviceconfiguration.content.modulesContent = MODULE_CONTENT
+        iothub_deviceconfiguration.labels["label1"] = "value1"
+        iothub_deviceconfiguration.labels["label2"] = "value2"
+
+        # add_configuration
+        print ("Adding configuration for {0}".format(configuration_id))
+        iothub_deviceconfiguration_manager = IoTHubDeviceConfigurationManager(iothub_connection_string)
+
+        iothub_deviceconfig_added = iothub_deviceconfiguration_manager.add_configuration(iothub_deviceconfiguration)
+        veryify_expected_device_configuration(iothub_deviceconfiguration, iothub_deviceconfig_added)
+
+        # get_configuration
+        print ("Getting configuration for {0}".format(configuration_id))
+        iothub_deviceconfig_get = iothub_deviceconfiguration_manager.get_configuration(configuration_id)
+        veryify_expected_device_configuration(iothub_deviceconfig_get, iothub_deviceconfig_added)
+
+        # update_configuration
+        print ("Updating configuration for {0}".format(configuration_id))
+        iothub_deviceconfig_added.targetCondition = "tags.UniqueTag='configurationapplyedgeagentreportinge2etestcita5b4e2b7f6464fe9988feea7d887584a' and tags.Environment='test2'"
+        iothub_deviceconfig_updated = iothub_deviceconfiguration_manager.update_configuration(iothub_deviceconfig_added)
+        veryify_expected_device_configuration(iothub_deviceconfig_updated, iothub_deviceconfig_added)
+
+        # get_configuration_list
+        print ("Retrieving configuration list")
+        number_of_configurations = 20
+        configuration_list = iothub_deviceconfiguration_manager.get_configuration_list(number_of_configurations)
+        assert len(configuration_list) > 0, "No configurations were returned"
+        assert len(configuration_list) <= number_of_configurations, "More configurations were returned than specified max"
+
+        retval = 0
+
+    except Exception as e:
+        print ( "" )
+        print ("run_e2e_deviceconfiguration() failed with exception: {0}".format(e))
+        retval = 1
+    finally:
+        if (iothub_deviceconfiguration is not None):
+            print ("Deleting configuration for {0}".format(configuration_id))
+            iothub_deviceconfiguration_manager.delete_configuration(configuration_id)
+
+    return retval
 
 def main():
     print ("********************* iothub_service_client E2E tests started!")
@@ -659,6 +759,7 @@ def main():
         assert run_e2e_method(IOTHUB_CONNECTION_STRING, True) == 0
         assert run_e2e_messaging(IOTHUB_CONNECTION_STRING, False) == 0
         assert run_e2e_messaging(IOTHUB_CONNECTION_STRING, True) == 0
+        # assert run_e2e_deviceconfiguration(IOTHUB_CONNECTION_STRING) == 0
         print ("********************* iothub_service_client E2E tests passed!")
         return 0
     except Exception as e:
