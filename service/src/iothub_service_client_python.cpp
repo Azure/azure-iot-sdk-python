@@ -2356,7 +2356,7 @@ public:
                                    _addMetrictsDictionaryMapHandle);
     }
 
-    // Perform a copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
+    // Perform a copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION structure
     void GetUpdateConfiguration(IOTHUB_DEVICE_CONFIGURATION &deviceConfigurationUpdate)
     {
         memset(&deviceConfigurationUpdate, 0, sizeof(deviceConfigurationUpdate));
@@ -2367,7 +2367,6 @@ public:
         deviceConfigurationUpdate.configurationId = _configurationId.c_str();
         deviceConfigurationUpdate.targetCondition = _targetCondition.c_str();
         deviceConfigurationUpdate.priority = _priority;
-        // Not copying all items as they are not all supported.
 
         deviceConfigurationUpdate.content.deviceContent = _content.GetDeviceContent();
         deviceConfigurationUpdate.content.modulesContent = _content.GetModulesContent();
@@ -2404,7 +2403,7 @@ public:
         _iothubServiceClientAuthHandle = IoTHubServiceClientAuth_CreateFromConnectionString(connectionString.c_str());
         if (_iothubServiceClientAuthHandle == NULL)
         {
-            printf("uh-oh\n"); return; // throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_ERROR);
+            throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_ERROR);
         }
 
         _ioTHubDeviceConfigurationHandle = IoTHubDeviceConfiguration_Create(_iothubServiceClientAuthHandle);
