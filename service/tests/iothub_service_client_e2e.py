@@ -676,8 +676,8 @@ def strip_spaces(str):
 
 '''
 
-def veryify_expected_device_configuration(expectedConfig, actualConfig):
-    assert actualConfig != None, "Returneded configuration object is NULL"
+def verify_expected_device_configuration(expectedConfig, actualConfig):
+    assert actualConfig != None, "Returned configuration object is NULL"
 
     assert expectedConfig.targetCondition == actualConfig.targetCondition, "targetCondition doesn't match"
     assert expectedConfig.configurationId == actualConfig.configurationId, "configurationId doesn't match"
@@ -712,18 +712,18 @@ def run_e2e_deviceconfiguration(iothub_connection_string):
         iothub_deviceconfiguration_manager = IoTHubDeviceConfigurationManager(iothub_connection_string)
 
         iothub_deviceconfig_added = iothub_deviceconfiguration_manager.add_configuration(iothub_deviceconfiguration)
-        veryify_expected_device_configuration(iothub_deviceconfiguration, iothub_deviceconfig_added)
+        verify_expected_device_configuration(iothub_deviceconfiguration, iothub_deviceconfig_added)
 
         # get_configuration
         print ("Getting configuration for {0}".format(configuration_id))
         iothub_deviceconfig_get = iothub_deviceconfiguration_manager.get_configuration(configuration_id)
-        veryify_expected_device_configuration(iothub_deviceconfig_get, iothub_deviceconfig_added)
+        verify_expected_device_configuration(iothub_deviceconfig_get, iothub_deviceconfig_added)
 
         # update_configuration
         print ("Updating configuration for {0}".format(configuration_id))
         iothub_deviceconfig_added.targetCondition = "tags.UniqueTag='configurationapplyedgeagentreportinge2etestcita5b4e2b7f6464fe9988feea7d887584a' and tags.Environment='test2'"
         iothub_deviceconfig_updated = iothub_deviceconfiguration_manager.update_configuration(iothub_deviceconfig_added)
-        veryify_expected_device_configuration(iothub_deviceconfig_updated, iothub_deviceconfig_added)
+        verify_expected_device_configuration(iothub_deviceconfig_updated, iothub_deviceconfig_added)
 
         # get_configuration_list
         print ("Retrieving configuration list")

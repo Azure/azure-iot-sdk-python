@@ -2122,6 +2122,66 @@ public:
 };
 
 
+class IOTHUB_DEVICE_CONFIGURATION_Wrapper : public IOTHUB_DEVICE_CONFIGURATION
+{
+public:
+    IOTHUB_DEVICE_CONFIGURATION_Wrapper()
+    {
+        memset(this, 0, sizeof(*this));
+        version = IOTHUB_DEVICE_CONFIGURATION_VERSION_1;
+    }
+
+    ~IOTHUB_DEVICE_CONFIGURATION_Wrapper()
+    {
+        IoTHubDeviceConfiguration_FreeConfigurationMembers((IOTHUB_DEVICE_CONFIGURATION*)this);
+    }
+
+    IOTHUB_DEVICE_CONFIGURATION_Wrapper operator=(const IOTHUB_DEVICE_CONFIGURATION_Wrapper &config)
+    {
+        memcpy(this, &config, sizeof(*this));
+        return *this;
+    }
+};
+
+class IOTHUB_DEVICE_CONFIGURATION_ADD_Wrapper : public IOTHUB_DEVICE_CONFIGURATION_ADD
+{
+public:
+    IOTHUB_DEVICE_CONFIGURATION_ADD_Wrapper()
+    {
+        memset(this, 0, sizeof(*this));
+        version = IOTHUB_DEVICE_CONFIGURATION_VERSION_1;
+    }
+
+    ~IOTHUB_DEVICE_CONFIGURATION_ADD_Wrapper()
+    {
+        // IOTHUB_DEVICE_CONFIGURATION_ADD was special cased as a shallow memcpy.
+        // Since we don't own the memory, do nothing here.
+    }
+};
+
+
+class SINGLYLINKEDLIST_HANDLE_Wrapper
+{
+    SINGLYLINKEDLIST_HANDLE _h;
+
+public:
+    SINGLYLINKEDLIST_HANDLE_Wrapper()
+    {
+        _h = singlylinkedlist_create();
+    }
+
+    ~SINGLYLINKEDLIST_HANDLE_Wrapper()
+    {
+        if (_h != NULL)
+        {
+            singlylinkedlist_destroy(_h);
+        }
+    }
+
+    operator SINGLYLINKEDLIST_HANDLE&() { return _h; }
+};
+
+
 class IoTHubDeviceConfiguration
 {
 private:
@@ -2336,10 +2396,8 @@ public:
     }
 
     // Perform a copy of appropriate members into IOTHUB_DEVICE_CONFIGURATION_ADD structure
-    void GetAddConfiguration(IOTHUB_DEVICE_CONFIGURATION_ADD &deviceConfigurationAdd)
+    void GetAddConfiguration(IOTHUB_DEVICE_CONFIGURATION_ADD_Wrapper &deviceConfigurationAdd)
     {
-        memset(&deviceConfigurationAdd, 0, sizeof(deviceConfigurationAdd));
-        deviceConfigurationAdd.version = IOTHUB_DEVICE_CONFIGURATION_ADD_VERSION_1;
         deviceConfigurationAdd.configurationId = _configurationId.c_str();
         deviceConfigurationAdd.targetCondition = _targetCondition.c_str();
         deviceConfigurationAdd.priority = _priority;
@@ -2360,7 +2418,7 @@ public:
     void GetUpdateConfiguration(IOTHUB_DEVICE_CONFIGURATION &deviceConfigurationUpdate)
     {
         memset(&deviceConfigurationUpdate, 0, sizeof(deviceConfigurationUpdate));
-        deviceConfigurationUpdate.version = IOTHUB_DEVICE_CONFIGURATION_UPDATE_VERSION_1;
+        deviceConfigurationUpdate.version = IOTHUB_DEVICE_CONFIGURATION_VERSION_1;
 
         deviceConfigurationUpdate.eTag =  _eTag.c_str();
         deviceConfigurationUpdate.schemaVersion =  _schemaVersion.c_str();
@@ -2459,14 +2517,12 @@ public:
 
     IoTHubDeviceConfiguration* AddConfiguration(IoTHubDeviceConfiguration* ioTHubDeviceConfiguration)
     {
-        IOTHUB_DEVICE_CONFIGURATION deviceConfigurationStruct;
+        IOTHUB_DEVICE_CONFIGURATION_Wrapper deviceConfigurationStruct;
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
 
-        IOTHUB_DEVICE_CONFIGURATION_ADD deviceConfigurationAdd;
+        IOTHUB_DEVICE_CONFIGURATION_ADD_Wrapper deviceConfigurationAdd;
 
         ioTHubDeviceConfiguration->GetAddConfiguration(deviceConfigurationAdd);
-        memset(&deviceConfigurationStruct, 0, sizeof(deviceConfigurationStruct));
-        deviceConfigurationStruct.version = IOTHUB_DEVICE_CONFIGURATION_CONTENT_VERSION_1;
 
         result = IoTHubDeviceConfiguration_AddConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationAdd, &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
@@ -2474,22 +2530,14 @@ public:
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
-
         IoTHubDeviceConfiguration *ioTHubDeviceAddedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationStruct);
-
-        //IoTHubDeviceConfiguration_FreeConfigurationMembers(deviceConfigurationAdd);
-        // deviceConfigurationStruct
-        
         return ioTHubDeviceAddedConfiguration;
     }
 
     IoTHubDeviceConfiguration* GetConfiguration(std::string configurationId)
     {
-        IOTHUB_DEVICE_CONFIGURATION deviceConfigurationStruct;
+        IOTHUB_DEVICE_CONFIGURATION_Wrapper deviceConfigurationStruct;
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
-
-        memset(&deviceConfigurationStruct, 0, sizeof(deviceConfigurationStruct));
-        deviceConfigurationStruct.version = IOTHUB_DEVICE_CONFIGURATION_CONTENT_VERSION_1;
 
         result = IoTHubDeviceConfiguration_GetConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str(), &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
@@ -2516,9 +2564,9 @@ public:
     {
         boost::python::list configurationList;
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
-        SINGLYLINKEDLIST_HANDLE configurationsList = singlylinkedlist_create();
+        SINGLYLINKEDLIST_HANDLE_Wrapper configurationsList;
 
-        if (configurationsList == NULL)
+        if ((SINGLYLINKEDLIST_HANDLE)configurationsList == NULL)
         {
             throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_OUT_OF_MEMORY_ERROR);
         }
@@ -2532,17 +2580,13 @@ public:
         LIST_ITEM_HANDLE next_configuration = singlylinkedlist_get_head_item(configurationsList);
         while (next_configuration != NULL)
         {
-            IOTHUB_DEVICE_CONFIGURATION* configuration = (IOTHUB_DEVICE_CONFIGURATION*)singlylinkedlist_item_get_value(next_configuration);
-
-            configuration->contentType = NULL; // TODO - C layer is returning invalid pointer here so NULL out to ignore for now.
-            
+            IOTHUB_DEVICE_CONFIGURATION_Wrapper* configuration = ((IOTHUB_DEVICE_CONFIGURATION_Wrapper*)singlylinkedlist_item_get_value(next_configuration));
             IoTHubDeviceConfiguration *deviceConfiguration = new IoTHubDeviceConfiguration(*configuration);
 
             configurationList.append(deviceConfiguration);
             singlylinkedlist_remove(configurationsList, next_configuration);
             next_configuration = singlylinkedlist_get_head_item(configurationsList);
         }
-        singlylinkedlist_destroy(configurationsList);
 
         return configurationList;
     }
@@ -2562,8 +2606,7 @@ public:
 
         IoTHubDeviceConfiguration *ioTHubDeviceUpdatedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationUpdate);
         return ioTHubDeviceUpdatedConfiguration;
-    }
-    
+    }    
 };
 
 

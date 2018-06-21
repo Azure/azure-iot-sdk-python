@@ -87,9 +87,6 @@ def get_iothub_opt_configuration_id(
             elif opt in ("--configurationid"):
                 configuration_id = arg
 
-
-    print("connection string" + connection_string)
-    #print("config string" + configuration_id)
     if connection_string.find("HostName") < 0:
         raise OptionError(
             "Error: Hostname not found, not a valid connection string")
@@ -100,4 +97,3 @@ def get_iothub_opt_configuration_id(
 
     return connection_string, configuration_id
 
-    
