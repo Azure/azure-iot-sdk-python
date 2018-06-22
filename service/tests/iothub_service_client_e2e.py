@@ -663,19 +663,21 @@ def run_e2e_messaging(iothub_connection_string, testing_modules):
     
     return retval
 
-MODULE_CONTENT = '''{"sunny": {"properties.desired": {"temperature": 69,"humidity": 30}}, 
+'''
+
+MODULE_CONTENT = ''{"sunny": {"properties.desired": {"temperature": 69,"humidity": 30}}, 
                                       "goolily": {"properties.desired": {"elevation": 45,"orientation": "NE"}}, 
                                       "$edgeAgent": {"properties.desired": {"schemaVersion": "1.0","runtime": {"type": "docker","settings": {"minDockerVersion": "1.5","loggingOptions": ""}},"systemModules": 
                                                 {"edgeAgent": {"type": "docker","settings": {"image": "edgeAgent","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}, 
                                                 "edgeHub": {"type": "docker","status": "running","restartPolicy": "always","settings": {"image": "edgeHub","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}}, 
                                                     "modules": {"sunny": {"version": "1.0","type": "docker","status": "running","restartPolicy": "on-failure","settings": {"image": "mongo","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}, 
                                                     "goolily": {"version": "1.0","type": "docker","status": "running","restartPolicy": "on-failure","settings": {"image": "asa","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}}}}, 
-                                      "$edgeHub": {"properties.desired": {"schemaVersion": "1.0","routes": {"route1": "from * INTO $upstream"},"storeAndForwardConfiguration": {"timeToLiveSecs": 20}}}}'''
+                                      "$edgeHub": {"properties.desired": {"schemaVersion": "1.0","routes": {"route1": "from * INTO $upstream"},"storeAndForwardConfiguration": {"timeToLiveSecs": 20}}}}''
 
 def strip_spaces(str):
     return ''.join(str.split())
 
-'''
+
 
 def verify_expected_device_configuration(expectedConfig, actualConfig):
     assert actualConfig != None, "Returned configuration object is NULL"
