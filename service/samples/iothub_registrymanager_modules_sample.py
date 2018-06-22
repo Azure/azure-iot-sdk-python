@@ -22,6 +22,7 @@ def print_module_info(title, iothub_module):
     print ( title + ":" )
     print ( "iothubModule.deviceId                    = {0}".format(iothub_module.deviceId) )
     print ( "iothubModule.moduleId                    = {0}".format(iothub_module.moduleId) )
+    print ( "iothubModule.managedBy                   = {0}".format(iothub_module.managedBy) )
     print ( "iothubModule.primaryKey                  = {0}".format(iothub_module.primaryKey) )
     print ( "iothubModule.secondaryKey                = {0}".format(iothub_module.secondaryKey) )
     print ( "iothubModule.generationId                = {0}".format(iothub_module.generationId) )
@@ -54,7 +55,8 @@ def iothub_registrymanager_modules_sample_run():
         primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         secondary_key = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
         auth_method = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY
-        iothub_registry_manager.update_module(DEVICE_ID, primary_key, secondary_key, MODULE_ID, auth_method)
+        managedBy = "testManagedBy"
+        iothub_registry_manager.update_module(DEVICE_ID, primary_key, secondary_key, MODULE_ID, auth_method, managedBy)
         updated_module = iothub_registry_manager.get_module(DEVICE_ID, MODULE_ID)
         print_module_info("UpdateModule", updated_module)
 

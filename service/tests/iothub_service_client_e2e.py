@@ -56,6 +56,7 @@ def print_device_or_module_info(title, iothub_device_or_module, testing_modules)
     print ( "  deviceId                    = {0}".format(iothub_device_or_module.deviceId) )
     if (testing_modules):
         print ( "  moduleId                  = {0}".format(iothub_device_or_module.moduleId) )
+        print ( "  managedBy                   = {0}".format(iothub_device_or_module.managedBy) )
     print ( "  generationId                = {0}".format(iothub_device_or_module.generationId) )
     print ( "  eTag                        = {0}".format(iothub_device_or_module.eTag) )
     print ( "  connectionState             = {0}".format(iothub_device_or_module.connectionState) )

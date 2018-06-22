@@ -1,4 +1,3 @@
-
 // Copyright(c) Microsoft.All rights reserved.
 // Licensed under the MIT license.See LICENSE file in the project root for full license information.
 
@@ -47,6 +46,8 @@
     std::string object_classname = boost::python::extract<std::string>(obj.attr("__class__").attr("__name__"));\
     printf("Object: %s\n", object_classname.c_str());\
 }
+
+const std::string empty_string = std::string();
 
 class PlatformCallHandler
 {
@@ -1131,11 +1132,12 @@ public:
     }
 
     IOTHUB_MODULE CreateModule(
-        std::string deviceId,
-        std::string primaryKey,
-        std::string secondaryKey,
-        std::string moduleId,
-        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
+        const std::string deviceId,
+        const std::string primaryKey,
+        const std::string secondaryKey,
+        const std::string moduleId,
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod,
+        const std::string managedBy=empty_string
         )
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
@@ -1153,6 +1155,8 @@ public:
         moduleCreate.secondaryKey = secondaryKey.c_str();
         moduleCreate.moduleId = moduleId.c_str();
         moduleCreate.authMethod = authMethod;
+        moduleCreate.managedBy = (managedBy != empty_string) ? managedBy.c_str() : NULL;
+
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_CreateModule(_iothubRegistryManagerHandle, &moduleCreate, &iothubModule);
@@ -1165,11 +1169,12 @@ public:
     }
 
     void UpdateModule(
-        std::string deviceId,
-        std::string primaryKey,
-        std::string secondaryKey,
-        std::string moduleId,
-        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod
+        const std::string deviceId,
+        const std::string primaryKey,
+        const std::string secondaryKey,
+        const std::string moduleId,
+        IOTHUB_REGISTRYMANAGER_AUTH_METHOD authMethod,
+        const std::string managedBy=empty_string
         )
     {
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
@@ -1183,6 +1188,7 @@ public:
         moduleUpdate.secondaryKey = secondaryKey.c_str();
         moduleUpdate.moduleId = moduleId.c_str();
         moduleUpdate.authMethod = authMethod;
+        moduleUpdate.managedBy = (managedBy != empty_string) ? managedBy.c_str() : NULL;
 
         ScopedGILRelease release;
         result = IoTHubRegistryManager_UpdateModule(_iothubRegistryManagerHandle, &moduleUpdate);
@@ -1259,8 +1265,11 @@ public:
     }
 };
 
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads, CreateDevice, 4, 5)
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_overloads2, UpdateDevice, 5, 6)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_CreateDevice_overloads, CreateDevice, 4, 5)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_UpdateDevice_overloads, UpdateDevice, 5, 6)
+
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_CreateModule_overloads, CreateModule, 5, 6)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(IoTHubRegistryManager_UpdateModule_overloads, UpdateModule, 5, 6)
 
 //
 //  iothub_messaging.h
@@ -2136,10 +2145,10 @@ public:
         IoTHubDeviceConfiguration_FreeConfigurationMembers((IOTHUB_DEVICE_CONFIGURATION*)this);
     }
 
-    IOTHUB_DEVICE_CONFIGURATION_Wrapper& operator=(const IOTHUB_DEVICE_CONFIGURATION_Wrapper &config)
+    IOTHUB_DEVICE_CONFIGURATION_Wrapper operator=(const IOTHUB_DEVICE_CONFIGURATION_Wrapper &config)
     {
         memcpy(this, &config, sizeof(*this));
-        return this;
+        return *this;
     }
 };
 
@@ -2844,6 +2853,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .add_property("lastActivityTime", &IOTHUB_MODULE::lastActivityTime)
         .add_property("cloudToDeviceMessageCount", &IOTHUB_MODULE::cloudToDeviceMessageCount)
         .add_property("authMethod", &IOTHUB_MODULE::authMethod)
+        .add_property("managedBy", &IOTHUB_MODULE::managedBy)
         ;
 
     class_<IOTHUB_REGISTRY_STATISTICS>("IoTHubRegistryStatistics", no_init)
@@ -2880,14 +2890,14 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
     class_<IoTHubRegistryManager, boost::noncopyable>("IoTHubRegistryManager", no_init)
         .def(init<std::string>())
         .def(init<IoTHubServiceClientAuth>())
-        .def("create_device", &IoTHubRegistryManager::CreateDevice, IoTHubRegistryManager_overloads())
+        .def("create_device", &IoTHubRegistryManager::CreateDevice, IoTHubRegistryManager_CreateDevice_overloads())
         .def("get_device", &IoTHubRegistryManager::GetDevice)
-        .def("update_device", &IoTHubRegistryManager::UpdateDevice, IoTHubRegistryManager_overloads2())
+        .def("update_device", &IoTHubRegistryManager::UpdateDevice, IoTHubRegistryManager_UpdateDevice_overloads())
         .def("delete_device", &IoTHubRegistryManager::DeleteDevice)
         .def("get_device_list", &IoTHubRegistryManager::GetDeviceList)
         .def("get_statistics", &IoTHubRegistryManager::GetStatistics)
-        .def("create_module", &IoTHubRegistryManager::CreateModule)
-        .def("update_module", &IoTHubRegistryManager::UpdateModule)
+        .def("create_module", &IoTHubRegistryManager::CreateModule, IoTHubRegistryManager_CreateModule_overloads())
+        .def("update_module", &IoTHubRegistryManager::UpdateModule, IoTHubRegistryManager_UpdateModule_overloads())
         .def("get_module", &IoTHubRegistryManager::GetModule)
         .def("get_module_list", &IoTHubRegistryManager::GetModuleList)
         .def("delete_module", &IoTHubRegistryManager::DeleteModule)
