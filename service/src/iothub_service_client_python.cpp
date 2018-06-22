@@ -34,7 +34,7 @@
 #define IMPORT_NAME iothub_service_client
 #endif
 
-#define VERSION_STRING "1.4.0.0b2"
+#define VERSION_STRING "1.4.0.0b3"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -2375,7 +2375,7 @@ public:
         return _priority;
     }
 
-    boost::python::dict IoTHubDeviceConfiguration::GetLabels()
+    boost::python::dict GetLabels() const
     {
         return _labelsDictionary;
     }
