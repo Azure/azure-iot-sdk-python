@@ -806,7 +806,6 @@ class TestClassDefinitions(unittest.TestCase):
 
         # send_async
         deviceId = "deviceId"
-        moduleId = "moduleId"
         message = IoTHubMessage(bytearray("Hello", 'utf8'))
         with self.assertRaises(AttributeError):
             messagingClient.SendAsync()
@@ -822,12 +821,8 @@ class TestClassDefinitions(unittest.TestCase):
             messagingClient.send_async(deviceId, message, "")
         with self.assertRaises(Exception):
             messagingClient.send_async(deviceId, message, send_complete_callback)
-        with self.assertRaises(Exception):
-            messagingClient.send_async(deviceId, moduleId, message, send_complete_callback, None, "extraParam")
         # Success case with message to device
         messagingClient.send_async(deviceId, message, send_complete_callback, None)
-        # Success case with message to module
-        messagingClient.send_async(deviceId, moduleId, message, send_complete_callback, None)
 
         # set_feedback_message_callback
         with self.assertRaises(AttributeError):

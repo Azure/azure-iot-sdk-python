@@ -579,7 +579,7 @@ def run_e2e_method(iothub_connection_string, testing_modules):
     return retval
 
 
-def run_e2e_messaging(iothub_connection_string, testing_modules):
+def run_e2e_messaging(iothub_connection_string):
     global RECEIVE_CALLBACKS
     global MESSAGING_MESSAGE
 
@@ -595,13 +595,9 @@ def run_e2e_messaging(iothub_connection_string, testing_modules):
         iothub_registry_manager = IoTHubRegistryManager(iothub_connection_string)
         new_device = iothub_registry_manager.create_device(device_id, primary_key, secondary_key, auth_method)
 
-        if testing_modules == True:
-            new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
-            protocol = IoTHubTransportProvider.AMQP
-        else:
-            protocol = IoTHubTransportProvider.MQTT
+        protocol = IoTHubTransportProvider.MQTT
 
-        connection_string = get_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, testing_modules)
+        connection_string = get_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, false)
 
         device_client = IoTHubClient(connection_string, protocol)
         assert isinstance(device_client, IoTHubClient), 'Invalid type returned!'
@@ -639,11 +635,7 @@ def run_e2e_messaging(iothub_connection_string, testing_modules):
         MESSAGING_MESSAGE = ''.join([random.choice(string.ascii_letters) for n in range(12)])
         message = IoTHubMessage(bytearray(MESSAGING_MESSAGE, 'utf8'))
 
-        # act
-        if testing_modules == True:
-            iothub_messaging.send_async(device_id, TEST_MODULE_ID, message, send_complete_callback, MESSAGING_CONTEXT)
-        else:
-            iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
+        iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
         MESSAGE_RECEIVED_EVENT.wait(MESSAGE_RECEIVE_CALLBACK_TIMEOUT)
 
         # verify
@@ -663,19 +655,20 @@ def run_e2e_messaging(iothub_connection_string, testing_modules):
     
     return retval
 
-MODULE_CONTENT = '''{"sunny": {"properties.desired": {"temperature": 69,"humidity": 30}}, 
+'''
+MODULE_CONTENT = ''{"sunny": {"properties.desired": {"temperature": 69,"humidity": 30}}, 
                                       "goolily": {"properties.desired": {"elevation": 45,"orientation": "NE"}}, 
                                       "$edgeAgent": {"properties.desired": {"schemaVersion": "1.0","runtime": {"type": "docker","settings": {"minDockerVersion": "1.5","loggingOptions": ""}},"systemModules": 
                                                 {"edgeAgent": {"type": "docker","settings": {"image": "edgeAgent","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}, 
                                                 "edgeHub": {"type": "docker","status": "running","restartPolicy": "always","settings": {"image": "edgeHub","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}}, 
                                                     "modules": {"sunny": {"version": "1.0","type": "docker","status": "running","restartPolicy": "on-failure","settings": {"image": "mongo","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}, 
                                                     "goolily": {"version": "1.0","type": "docker","status": "running","restartPolicy": "on-failure","settings": {"image": "asa","createOptions": ""},"configuration": {"id": "configurationapplyedgeagentreportinge2etestcit-config-a9ed4811-1b57-48bf-8af2-02319a38de01"}}}}}, 
-                                      "$edgeHub": {"properties.desired": {"schemaVersion": "1.0","routes": {"route1": "from * INTO $upstream"},"storeAndForwardConfiguration": {"timeToLiveSecs": 20}}}}'''
+                                      "$edgeHub": {"properties.desired": {"schemaVersion": "1.0","routes": {"route1": "from * INTO $upstream"},"storeAndForwardConfiguration": {"timeToLiveSecs": 20}}}}''
 
 def strip_spaces(str):
     return ''.join(str.split())
 
-'''
+
 
 def verify_expected_device_configuration(expectedConfig, actualConfig):
     assert actualConfig != None, "Returned configuration object is NULL"

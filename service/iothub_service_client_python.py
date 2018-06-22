@@ -837,24 +837,6 @@ class IoTHubMessaging:
         """
         pass
 
-    def send_async(self, device_id, module_id, message, send_complete_callback, user_context):
-        """
-        
-        :param device_id: The device name (id) associated with module_id
-        :type device_id: str
-        :param module_id: The module name (id) to send the message to
-        :type module_id: str
-        :param message: The IoTHubMessage instance to send
-        :type message: IoTHubMessage
-        :param send_complete_callback: The callback will be called if send operation completed
-        :type send_complete_callback: Callable Python function
-        :param user_context: The user context object used in the sendCompleteCallback
-        :type user_context: any
-        :raises: IoTHubMessagingError if send operation failed
-        """
-        pass
-
-
     def set_feedback_message_callback(self, feedback_message_received_callback, user_context):
         """
         
