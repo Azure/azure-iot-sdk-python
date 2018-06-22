@@ -2399,7 +2399,7 @@ public:
         return _priority;
     }
 
-    boost::python::dict IoTHubDeviceConfiguration::GetLabels()
+    boost::python::dict GetLabels() const
     {
         return _labelsDictionary;
     }
