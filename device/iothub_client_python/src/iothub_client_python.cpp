@@ -1338,6 +1338,13 @@ public:
     }
 };
 
+struct IoTHubDeviceMethodResponse
+{
+    int status;
+    std::string payload;
+};
+
+
 typedef enum CLIENT_INTERFACE_TYPE_TAG
 {
     CLIENT_INTERFACE_DEVICE,
@@ -2232,12 +2239,87 @@ public:
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
     }
+
+    // IoTHubDeviceMethodResponse InvokeMethodAsyncOnModule(
+    void InvokeMethodAsyncOnModule(
+        const std::string deviceId,
+        const std::string moduleId,
+        const std::string methodName,
+        const std::string methodPayload,
+        unsigned int timeout
+    )
+    {
+        (void)deviceId; (void)moduleId; (void)methodName; (void)methodPayload; (void)timeout;
+    #if 0
+        IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
+        IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
+
+        ScopedGILRelease release;
+        int responseStatus;
+        unsigned char* responsePayload;
+        size_t responsePayloadSize;
+       
+        result = IoTHubModuleClient_ModuleMethodInvoke(iotHubClientHandle, deviceId.c_str(), moduleId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
+
+        if (result == IOTHUB_DEVICE_METHOD_OK)
+        {
+            response.status = responseStatus;
+            std::string payload(&responsePayload[0], &responsePayload[0] + responsePayloadSize);
+            response.payload = payload;
+        }
+
+        if (result != IOTHUB_DEVICE_METHOD_OK)
+        {
+            throw IoTHubDeviceMethodError(__func__, result);
+        }
+        return response;
+        #endif
+    }
+
+    // IoTHubDeviceMethodResponse InvokeMethodAsyncOnDevice(
+    void InvokeMethodAsyncOnDevice(
+        const std::string deviceId,
+        const std::string methodName,
+        const std::string methodPayload,
+        unsigned int timeout
+    )
+    {
+        (void)deviceId; (void)methodName; (void)methodPayload; (void)timeout;
+        #if 0
+        IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
+        IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
+
+        ScopedGILRelease release;
+        int responseStatus;
+        unsigned char* responsePayload;
+        size_t responsePayloadSize;
+       
+        result = IoTHubModuleClient_DeviceMethodInvoke(iotHubClientHandle, deviceId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
+
+        if (result == IOTHUB_DEVICE_METHOD_OK)
+        {
+            response.status = responseStatus;
+            std::string payload(&responsePayload[0], &responsePayload[0] + responsePayloadSize);
+            response.payload = payload;
+        }
+
+        if (result != IOTHUB_DEVICE_METHOD_OK)
+        {
+            throw IoTHubDeviceMethodError(__func__, result);
+        }
+        return response;
+        #endif
+    }
+
+
+    
 };
 
 using namespace boost::python;
 
 static const char* iothub_client_docstring =
 "iothub_client is a Python module for communicating with the Azure IoT Hub";
+
 
 BOOST_PYTHON_MODULE(IMPORT_NAME)
 {
@@ -2545,6 +2627,11 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #endif
             ;
 
+    class_<IoTHubDeviceMethodResponse>("IoTHubDeviceMethodResponse")
+        .add_property("status", &IoTHubDeviceMethodResponse::status)
+        .add_property("payload", &IoTHubDeviceMethodResponse::payload)
+        ;
+
     class_<IoTHubModuleClient, boost::noncopyable>("IoTHubModuleClient", no_init)
         .def(init<std::string, IOTHUB_TRANSPORT_PROVIDER>())
         .def(init<IoTHubTransport*, IoTHubConfig*>())
@@ -2567,6 +2654,8 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("send_event_async", &IoTHubModuleClient::SendEventToOutputAsync)
         .def("set_message_callback", &IoTHubModuleClient::SetInputMessageCallback)
         .def("create_from_environment", &IoTHubModuleClient::CreateFromEnvironment)
+        .def("InvokeMethodAsync", &IoTHubModuleClient::InvokeMethodAsyncOnModule)
+        .def("InvokeMethodAsync", &IoTHubModuleClient::InvokeMethodAsyncOnDevice)
         // attributes
         .def_readonly("protocol", &IoTHubModuleClient::protocol)
         // Python helpers

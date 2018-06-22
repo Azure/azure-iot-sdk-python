@@ -29,7 +29,6 @@ EXPORTS
     IoTHubMessaging_Open
     IoTHubMessaging_Close
     IoTHubMessaging_SendAsync
-    IoTHubMessaging_SendAsyncModule
     IoTHubMessaging_SetFeedbackMessageCallback
 ;   iothub_messaging_ll.h
     IoTHubMessaging_LL_Create

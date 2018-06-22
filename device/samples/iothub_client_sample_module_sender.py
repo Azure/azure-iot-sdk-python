@@ -10,7 +10,6 @@ import sys
 import iothub_client
 from iothub_client import IoTHubModuleClient, IoTHubClientError, IoTHubTransportProvider
 from iothub_client import IoTHubMessage, IoTHubMessageDispositionResult, IoTHubError, DeviceMethodReturnValue
-from iothub_client_args import get_iothub_opt, OptionError
 
 # HTTP options
 # Because it can poll "after 9 seconds" polls will happen effectively
@@ -38,12 +37,7 @@ METHOD_CONTEXT = 0
 # global counters
 SEND_CALLBACKS = 0
 
-# Choose HTTP, AMQP or MQTT as transport protocol.  Currently only MQTT is supported.
 PROTOCOL = IoTHubTransportProvider.MQTT
-
-# String containing Hostname, Device Id & Device Key in the format:
-# "HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<device_key>;ModuleId=<module_id>;GatewayHostName=<gateway>"
-CONNECTION_STRING = "[Device Connection String]"
 
 MSG_TXT = "{\"deviceId\": \"myPythonDevice\",\"windSpeed\": %.2f,\"temperature\": %.2f,\"humidity\": %.2f}"
 
@@ -62,25 +56,15 @@ class HubManager(object):
 
     def __init__(
             self,
-            connection_string,
-            protocol=IoTHubTransportProvider.MQTT):
+            protocol):
         self.client_protocol = protocol
-        self.client = IoTHubModuleClient(connection_string, protocol)
-        if protocol == IoTHubTransportProvider.HTTP:
-            self.client.set_option("timeout", TIMEOUT)
-            self.client.set_option("MinimumPollingTime", MINIMUM_POLLING_TIME)
+        self.client = IoTHubModuleClient()
+        self.client.create_from_environment(protocol)
         # set the time until a message times out
         self.client.set_option("messageTimeout", MESSAGE_TIMEOUT)
-        # some embedded platforms need certificate information
-        # self.set_certificates()
+        # set to increase logging level
+        # self.client.set_option("logtrace", 1)
 
-    def set_certificates(self):
-        from iothub_client_cert import CERTIFICATES
-        try:
-            self.client.set_option("TrustedCerts", CERTIFICATES)
-            print ( "set_option TrustedCerts successful" )
-        except IoTHubClientError as iothub_client_error:
-            print ( "set_option TrustedCerts failed (%s)" % iothub_client_error )
 
     # Sends a message to the queue with outputQueueName, "temperatureOutput" in the case of the sample.
     def send_event_to_output(self, outputQueueName, event, properties, send_context):
@@ -96,16 +80,16 @@ class HubManager(object):
             outputQueueName, event, send_confirmation_callback, send_context)
 
 
-def main(connection_string, protocol):
+def main(protocol):
     try:
         print ( "\nPython %s\n" % sys.version )
         print ( "IoT Hub Client for Python" )
 
-        hub_manager = HubManager(connection_string, protocol)
+        hub_manager = HubManager(protocol)
 
-        print ( "Starting the IoT Hub Python sample using protocol %s..." % hub_manager.client_protocol )
+        print ( "Starting the IoT Hub Python sample..."  )
 
-        content = "Hello World from Python Blob APi"
+        content = "Hello World from Python APi"
 
         while True:
             # send a few messages every minute
@@ -141,22 +125,5 @@ def main(connection_string, protocol):
     except KeyboardInterrupt:
         print ( "IoTHubModuleClient sample stopped" )
 
-
-def usage():
-    print ( "Usage: iothub_client_sample_module_sender.py -p <protocol> -c <connectionstring>" )
-    print ( "    protocol        : <amqp, http, mqtt>" )
-    print ( "    connectionstring: <HostName=<host_name>;DeviceId=<device_id>;SharedAccessKey=<device_key>;ModuleId=<module_id>;GatewayHostName=<gateway>" )
-
 if __name__ == '__main__':
-    try:
-        (CONNECTION_STRING, PROTOCOL) = get_iothub_opt(sys.argv[1:], CONNECTION_STRING)
-    except OptionError as option_error:
-        print ( option_error )
-        usage()
-        sys.exit(1)
-
-    if PROTOCOL != IoTHubTransportProvider.MQTT:
-        protocol("Only the MQTT protocol is currently supported")
-        sys.exit(1)
-
-    main(CONNECTION_STRING, PROTOCOL)
+    main(PROTOCOL)

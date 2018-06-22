@@ -475,17 +475,6 @@ IOTHUB_MESSAGING_RESULT IoTHubMessaging_SendAsync(IOTHUB_MESSAGING_CLIENT_HANDLE
     return IOTHUB_MESSAGING_OK;
 }
 
-IOTHUB_MESSAGING_RESULT IoTHubMessaging_SendAsyncModule(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, const char* deviceId, const char* moduleId, IOTHUB_MESSAGE_HANDLE message, IOTHUB_SEND_COMPLETE_CALLBACK sendCompleteCallback, void* userContextCallback)
-{
-    (void)messagingClientHandle;
-    (void)moduleId;
-    (void)deviceId;
-    (void)message;
-    (void)sendCompleteCallback;
-    (void)userContextCallback;
-    return IOTHUB_MESSAGING_OK;
-}
-
 IOTHUB_MESSAGING_RESULT IoTHubMessaging_SetFeedbackMessageCallback(IOTHUB_MESSAGING_CLIENT_HANDLE messagingClientHandle, IOTHUB_FEEDBACK_MESSAGE_RECEIVED_CALLBACK feedbackMessageReceivedCallback, void* userContextCallback)
 {
     (void)messagingClientHandle;

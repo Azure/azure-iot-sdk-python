@@ -1615,30 +1615,6 @@ public:
         }
     }
 
-    void SendModuleAsync(
-        std::string deviceId,
-        std::string moduleId,
-        IoTHubMessage &message,
-        boost::python::object& sendCompleteCallback, 
-        boost::python::object& userContextCallback
-        )
-    {
-        IOTHUB_MESSAGING_RESULT result = IOTHUB_MESSAGING_OK;
-        if (sendCompleteContext != NULL)
-        {
-            sendCompleteContext->sendCompleteCallback = sendCompleteCallback;
-            sendCompleteContext->userContext = userContextCallback;
-        }
-
-        ScopedGILRelease release;
-        result = IoTHubMessaging_SendAsyncModule(_iothubMessagingHandle, deviceId.c_str(), moduleId.c_str(), message.Handle(), SendCompleteCallback, sendCompleteContext);
-
-        if (result != IOTHUB_MESSAGING_OK)
-        {
-            throw IoTHubMessagingError(__func__, result);
-        }
-    }
-
     void SetFeedbackMessageCallback(
         boost::python::object& feedbackMessageReceivedCallback, 
         boost::python::object& userContextCallback
@@ -2909,7 +2885,6 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("open", &IoTHubMessaging::Open)
         .def("close", &IoTHubMessaging::Close)
         .def("send_async", &IoTHubMessaging::SendAsync)
-        .def("send_async", &IoTHubMessaging::SendModuleAsync)
         .def("set_feedback_message_callback", &IoTHubMessaging::SetFeedbackMessageCallback)
         ;
 
