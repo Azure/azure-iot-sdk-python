@@ -1338,7 +1338,7 @@ public:
     }
 };
 
-struct IoTHubDeviceMethodResponse
+struct IoTHubMethodResponse
 {
     int status;
     std::string payload;
@@ -2240,7 +2240,7 @@ public:
         }
     }
 
-    // IoTHubDeviceMethodResponse InvokeMethodAsyncOnModule(
+    // IoTHubMethodResponse InvokeMethodAsyncOnModule(
     void InvokeMethodAsyncOnModule(
         const std::string deviceId,
         const std::string moduleId,
@@ -2253,7 +2253,7 @@ public:
         (void)deviceId; (void)moduleId; (void)methodName; (void)methodPayload; (void)timeout;
 #else
         IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
-        IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
+        IoTHubMethodResponse response = IoTHubMethodResponse();
 
         ScopedGILRelease release;
         int responseStatus;
@@ -2277,7 +2277,7 @@ public:
 #endif
     }
 
-    // IoTHubDeviceMethodResponse InvokeMethodAsyncOnDevice(
+    // IoTHubMethodResponse InvokeMethodAsyncOnDevice(
     void InvokeMethodAsyncOnDevice(
         const std::string deviceId,
         const std::string methodName,
@@ -2289,7 +2289,7 @@ public:
         (void)deviceId; (void)methodName; (void)methodPayload; (void)timeout;
 #else
         IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
-        IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
+        IoTHubMethodResponse response = IoTHubMethodResponse();
 
         ScopedGILRelease release;
         int responseStatus;
@@ -2626,9 +2626,9 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #endif
             ;
 
-    class_<IoTHubDeviceMethodResponse>("IoTHubDeviceMethodResponse")
-        .add_property("status", &IoTHubDeviceMethodResponse::status)
-        .add_property("payload", &IoTHubDeviceMethodResponse::payload)
+    class_<IoTHubMethodResponse>("IoTHubMethodResponse")
+        .add_property("status", &IoTHubMethodResponse::status)
+        .add_property("payload", &IoTHubMethodResponse::payload)
         ;
 
     class_<IoTHubModuleClient, boost::noncopyable>("IoTHubModuleClient", no_init)
