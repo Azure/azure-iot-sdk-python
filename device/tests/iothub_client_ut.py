@@ -796,6 +796,25 @@ class TestClassDefinitions(unittest.TestCase):
         result = module_from_env.create_from_environment(IoTHubTransportProvider.AMQP)
         self.assertIsNone(result)
 
+        # invoke_method
+        timeout = 60
+        with self.assertRaises(Exception):
+            module.invoke_method_async();
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", "foo");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout, "foo");
+
+        module.invoke_method_async("testDevice", "methodName", "methodPayload", timeout);
+        module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout);
 
         # get_send_status
         with self.assertRaises(AttributeError):

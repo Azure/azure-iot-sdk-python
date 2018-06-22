@@ -2249,8 +2249,9 @@ public:
         unsigned int timeout
     )
     {
+#if 1
         (void)deviceId; (void)moduleId; (void)methodName; (void)methodPayload; (void)timeout;
-    #if 0
+#else
         IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
         IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
 
@@ -2273,7 +2274,7 @@ public:
             throw IoTHubDeviceMethodError(__func__, result);
         }
         return response;
-        #endif
+#endif
     }
 
     // IoTHubDeviceMethodResponse InvokeMethodAsyncOnDevice(
@@ -2284,8 +2285,9 @@ public:
         unsigned int timeout
     )
     {
+#if 1
         (void)deviceId; (void)methodName; (void)methodPayload; (void)timeout;
-        #if 0
+#else
         IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
         IoTHubDeviceMethodResponse response = IoTHubDeviceMethodResponse();
 
@@ -2308,11 +2310,8 @@ public:
             throw IoTHubDeviceMethodError(__func__, result);
         }
         return response;
-        #endif
-    }
-
-
-    
+#endif
+    }  
 };
 
 using namespace boost::python;
@@ -2654,8 +2653,8 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("send_event_async", &IoTHubModuleClient::SendEventToOutputAsync)
         .def("set_message_callback", &IoTHubModuleClient::SetInputMessageCallback)
         .def("create_from_environment", &IoTHubModuleClient::CreateFromEnvironment)
-        .def("InvokeMethodAsync", &IoTHubModuleClient::InvokeMethodAsyncOnModule)
-        .def("InvokeMethodAsync", &IoTHubModuleClient::InvokeMethodAsyncOnDevice)
+        .def("invoke_method_async", &IoTHubModuleClient::InvokeMethodAsyncOnModule)
+        .def("invoke_method_async", &IoTHubModuleClient::InvokeMethodAsyncOnDevice)
         // attributes
         .def_readonly("protocol", &IoTHubModuleClient::protocol)
         // Python helpers
