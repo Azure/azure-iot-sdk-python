@@ -597,7 +597,7 @@ def run_e2e_messaging(iothub_connection_string):
 
         protocol = IoTHubTransportProvider.MQTT
 
-        connection_string = get_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, false)
+        connection_string = get_connection_string(iothub_registry_manager, IOTHUB_CONNECTION_STRING, device_id, False)
 
         device_client = IoTHubClient(connection_string, protocol)
         assert isinstance(device_client, IoTHubClient), 'Invalid type returned!'
@@ -751,8 +751,7 @@ def main():
         assert run_e2e_twin(IOTHUB_CONNECTION_STRING, True) == 0
         assert run_e2e_method(IOTHUB_CONNECTION_STRING, False) == 0
         assert run_e2e_method(IOTHUB_CONNECTION_STRING, True) == 0
-        assert run_e2e_messaging(IOTHUB_CONNECTION_STRING, False) == 0
-        assert run_e2e_messaging(IOTHUB_CONNECTION_STRING, True) == 0
+        assert run_e2e_messaging(IOTHUB_CONNECTION_STRING) == 0
         # assert run_e2e_deviceconfiguration(IOTHUB_CONNECTION_STRING) == 0
         print ("********************* iothub_service_client E2E tests passed!")
         return 0
