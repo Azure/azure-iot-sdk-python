@@ -1040,9 +1040,9 @@ class TestClassDefinitions(unittest.TestCase):
         with self.assertRaises(Exception):
             deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule")
         with self.assertRaises(Exception):
-            deviceConfigurationManager.get_configuration_list("deviceOrModule", deviceConfigurationcontent, "invalidType")
+            deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule", deviceConfigurationcontent, "invalidType")
         deviceConfigurationcontent.deviceContent = "DeviceContent"
-        deviceConfigurationManager.get_configuration_list("deviceOrModule", deviceConfigurationcontent)
+        deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule", deviceConfigurationcontent)
 
 
 if __name__ == '__main__':
