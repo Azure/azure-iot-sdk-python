@@ -2592,6 +2592,22 @@ public:
         IoTHubDeviceConfiguration *ioTHubDeviceUpdatedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationUpdate);
         return ioTHubDeviceUpdatedConfiguration;
     }    
+
+    void ApplyConfigurationContentToDeviceOrModule(std::string deviceOrModuleId, const IOTHUB_DEVICE_CONFIGURATION_CONTENT *configurationContent)
+    {
+        IOTHUB_DEVICE_CONFIGURATION_RESULT result;
+        
+        IOTHUB_DEVICE_CONFIGURATION_CONTENT contentStruct;
+        contentStruct.deviceContent = configurationContent->deviceContent->c_str();
+        contentStruct.modulesContent = configurationContent->modulesContent->c_str();
+
+        result = IoTHubDeviceConfiguration_ApplyConfigurationContentToDeviceOrModule(_ioTHubDeviceConfigurationHandle, deviceOrModuleId.c_str(), &contentStruct);
+
+        if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
+        {   
+            throw IoTHubDeviceConfigurationError(__func__, result);
+        }        
+    }
 };
 
 
@@ -2930,6 +2946,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("update_configuration", &IoTHubDeviceConfigurationManager::UpdateConfiguration, return_internal_reference<1>())
         .def("delete_configuration", &IoTHubDeviceConfigurationManager::DeleteConfiguration)
         .def("get_configuration_list", &IoTHubDeviceConfigurationManager::GetConfigurationList)
+        .def("apply_configurationcontent_to_device_or_module", &IoTHubDeviceConfigurationManager::ApplyConfigurationContentToDeviceOrModule)
         ;
         
 };

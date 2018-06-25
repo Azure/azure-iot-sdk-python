@@ -1033,5 +1033,17 @@ class TestClassDefinitions(unittest.TestCase):
             deviceConfigurationManager.get_configuration_list("configId1")
         deviceConfigurationManager.get_configuration_list(20)
 
+        # apply_configurationcontent_to_device_or_module
+        deviceConfigurationcontent = IoTHubDeviceConfigurationContent()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.apply_configurationcontent_to_device_or_module()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list("deviceOrModule", deviceConfigurationcontent, "invalidType")
+        deviceConfigurationcontent.deviceContent = "DeviceContent"
+        deviceConfigurationManager.get_configuration_list("deviceOrModule", deviceConfigurationcontent)
+
+
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2)  
