@@ -649,6 +649,13 @@ void IoTHubDeviceConfiguration_FreeConfigurationMembers(IOTHUB_DEVICE_CONFIGURAT
     (void)configuration;
 }
 
+IOTHUB_DEVICE_CONFIGURATION_RESULT IoTHubDeviceConfiguration_ApplyConfigurationContentToDeviceOrModule(IOTHUB_SERVICE_CLIENT_DEVICE_CONFIGURATION_HANDLE serviceClientDeviceConfigurationHandle, const char* deviceOrModuleId, const IOTHUB_DEVICE_CONFIGURATION_CONTENT* configurationContent)
+{
+    (void)configurationContent;
+    (void)deviceOrModuleId;
+    (void)serviceClientDeviceConfigurationHandle;
+    return IOTHUB_DEVICE_CONFIGURATION_OK;
+}
 
 
 // "iothubtransporthttp.h"

@@ -375,7 +375,7 @@ def run_e2e_registrymanager(iothub_connection_string):
 
         ###########################################################################
         # delete_device
- 
+
         # prepare
         # act
         iothub_registry_manager.delete_device(device_id)
@@ -685,6 +685,7 @@ def run_e2e_deviceconfiguration(iothub_connection_string):
 
     try:
         # prepare
+        device_id = None
         configuration_id = generate_configurationid_id()
         assert isinstance(configuration_id, str), 'Invalid type returned!'
         print(configuration_id)
@@ -725,6 +726,18 @@ def run_e2e_deviceconfiguration(iothub_connection_string):
         configuration_list = iothub_deviceconfiguration_manager.get_configuration_list(number_of_configurations)
         assert len(configuration_list) > 0, "No configurations were returned"
         assert len(configuration_list) <= number_of_configurations, "More configurations were returned than specified max"
+        
+        # apply_configurationcontent_to_device_or_module
+        iothub_registry_manager = IoTHubRegistryManager(iothub_connection_string)
+
+        device_id = generate_device_name()
+        new_device = iothub_registry_manager.create_device(device_id, "",  "", IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY)
+        new_module = iothub_registry_manager.create_module(device_id, "", "", TEST_MODULE_ID, IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY)
+        assert isinstance(new_device, IoTHubDevice), 'Invalid type returned!'
+
+        configurationContent = iothub_deviceconfig_added.content
+        print("Applying configuration to device or module")
+        iothub_deviceconfiguration_manager.apply_configurationcontent_to_device_or_module(device_id, configurationContent)
 
         retval = 0
 
@@ -736,6 +749,9 @@ def run_e2e_deviceconfiguration(iothub_connection_string):
         if (iothub_deviceconfiguration is not None):
             print ("Deleting configuration for {0}".format(configuration_id))
             iothub_deviceconfiguration_manager.delete_configuration(configuration_id)
+            
+        if (device_id is not None):
+            iothub_registry_manager.delete_device(device_id)
 
     return retval
 '''
@@ -763,3 +779,5 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+

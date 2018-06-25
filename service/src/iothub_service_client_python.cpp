@@ -30,6 +30,8 @@
 #include "iothubtransportamqp.h"
 #include "iothub_client_core_common.h"
 
+
+
 #ifndef IMPORT_NAME
 #define IMPORT_NAME iothub_service_client
 #endif
@@ -2593,13 +2595,13 @@ public:
         return ioTHubDeviceUpdatedConfiguration;
     }    
 
-    void ApplyConfigurationContentToDeviceOrModule(std::string deviceOrModuleId, const IOTHUB_DEVICE_CONFIGURATION_CONTENT *configurationContent)
+    void ApplyConfigurationContentToDeviceOrModule(std::string deviceOrModuleId, const IoTHubDeviceConfigurationContent *configurationContent)
     {
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
         
         IOTHUB_DEVICE_CONFIGURATION_CONTENT contentStruct;
-        contentStruct.deviceContent = configurationContent->deviceContent->c_str();
-        contentStruct.modulesContent = configurationContent->modulesContent->c_str();
+        contentStruct.deviceContent = configurationContent->GetDeviceContent();
+        contentStruct.modulesContent = configurationContent->GetModulesContent();
 
         result = IoTHubDeviceConfiguration_ApplyConfigurationContentToDeviceOrModule(_ioTHubDeviceConfigurationHandle, deviceOrModuleId.c_str(), &contentStruct);
 
@@ -2921,6 +2923,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         ;
 
     class_<IoTHubDeviceConfigurationContent>("IoTHubDeviceConfigurationContent", no_init)
+        .def(init<>())
         .add_property("deviceContent", &IoTHubDeviceConfigurationContent::GetDeviceContent, &IoTHubDeviceConfigurationContent::SetDeviceContent)
         .add_property("modulesContent", &IoTHubDeviceConfigurationContent::GetModulesContent, &IoTHubDeviceConfigurationContent::SetModulesContent)
         ;
