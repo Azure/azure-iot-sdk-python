@@ -17,7 +17,7 @@ class DeviceEnrollmentOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: The API version to use for the request. Supported versions include: 2017-11-15. Constant value: "2017-11-15".
+    :ivar api_version: The API version to use for the request. Supported versions include: 2018-04-01. Constant value: "2018-04-01".
     """
 
     models = models
@@ -29,9 +29,9 @@ class DeviceEnrollmentOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2017-11-15"
+        self.api_version = "2018-04-01"
 
-    def get(
+    def get_v20180401(
             self, id, custom_headers=None, raw=False, **operation_config):
         """Get a device enrollment record.
 
@@ -83,7 +83,7 @@ class DeviceEnrollmentOperations(object):
 
         return deserialized
 
-    def create_or_update(
+    def create_or_update_v20180401(
             self, id, enrollment, if_match=None, custom_headers=None, raw=False, **operation_config):
         """Create or update a device enrollment record.
 
@@ -131,7 +131,7 @@ class DeviceEnrollmentOperations(object):
         response = self._client.send(
             request, header_parameters, body_content, **operation_config)
 
-        if response.status_code not in [200, 400, 401, 404, 412, 415, 429, 500]:
+        if response.status_code not in [200, 400, 401, 404, 409, 412, 415, 429, 500]:
             raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
 
         deserialized = None
@@ -186,14 +186,14 @@ class DeviceEnrollmentOperations(object):
         request = self._client.delete(url, query_parameters)
         response = self._client.send(request, header_parameters, **operation_config)
 
-        if response.status_code not in [204, 400, 401, 404, 412, 429, 500]:
+        if response.status_code not in [204, 400, 401, 404, 409, 412, 429, 500]:
             raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
 
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
 
-    def bulk_operation(
+    def bulk_operation_v20180401(
             self, bulk_operation, custom_headers=None, raw=False, **operation_config):
         """Bulk device enrollment operation.
 
@@ -232,7 +232,7 @@ class DeviceEnrollmentOperations(object):
         response = self._client.send(
             request, header_parameters, body_content, **operation_config)
 
-        if response.status_code not in [200, 400, 401, 404, 412, 415, 429, 500]:
+        if response.status_code not in [200, 400, 401, 404, 409, 412, 415, 429, 500]:
             raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
 
         deserialized = None
@@ -246,7 +246,7 @@ class DeviceEnrollmentOperations(object):
 
         return deserialized
 
-    def query(
+    def query_v20180401(
             self, query_specification, custom_headers=None, raw=False, **operation_config):
         """Query the device enrollment records.
 

@@ -22,7 +22,7 @@ class EnrollmentGroup(Model):
     :param etag: The entity tag associated with the resource.
     :type etag: str
     :param provisioning_status: The provisioning status. Possible values
-     include: 'enabled', 'disabled'
+     include: 'enabled', 'disabled'. Default value: "1" .
     :type provisioning_status: str or ~serviceswagger.models.enum
     :param created_date_time_utc: The DateTime this resource was created.
     :type created_date_time_utc: datetime
@@ -47,7 +47,7 @@ class EnrollmentGroup(Model):
         'last_updated_date_time_utc': {'key': 'lastUpdatedDateTimeUtc', 'type': 'iso-8601'},
     }
 
-    def __init__(self, enrollment_group_id, attestation, iot_hub_host_name=None, initial_twin=None, etag=None, provisioning_status=None, created_date_time_utc=None, last_updated_date_time_utc=None):
+    def __init__(self, enrollment_group_id, attestation, iot_hub_host_name=None, initial_twin=None, etag=None, provisioning_status="enabled", created_date_time_utc=None, last_updated_date_time_utc=None):
         self.enrollment_group_id = enrollment_group_id
         self.attestation = attestation
         self.iot_hub_host_name = iot_hub_host_name

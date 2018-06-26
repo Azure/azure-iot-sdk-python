@@ -9,7 +9,7 @@ from msrest.serialization import Model
 
 
 class BulkEnrollmentOperationResult(Model):
-    """Bulk enrollment operation result.
+    """BulkEnrollmentOperationResult.
 
     :param is_successful: Indicates if the operation was successful in its
      entirety

@@ -1,12 +1,11 @@
 {
   "swagger": "2.0",
   "info": {
-    "version": "2017-11-15",
+    "version": "2018-04-01",
     "title": "DeviceProvisioningService_ServiceRuntimeClient",
     "description": "API for service operations with the Azure IotHub Device Provisioning Service"
   },
-  "host": "contoso.azure-devices-provisioning.net",
-  "basePath": "/",
+  "host": "localhost",
   "schemes": [
     "https"
   ],
@@ -17,7 +16,7 @@
           "GET"
         ],
         "summary": "Get a device enrollment record.",
-        "operationId": "DeviceEnrollment_Get",
+        "operationId": "DeviceEnrollment_GetV20180401",
         "consumes": [],
         "produces": [
           "application/json"
@@ -31,8 +30,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -70,7 +68,7 @@
           "PUT"
         ],
         "summary": "Create or update a device enrollment record.",
-        "operationId": "DeviceEnrollment_CreateOrUpdate",
+        "operationId": "DeviceEnrollment_CreateOrUpdateV20180401",
         "consumes": [
           "application/json"
         ],
@@ -102,8 +100,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -121,6 +118,9 @@
           },
           "500": {
             "description": "An internal error occurred."
+          },
+          "409": {
+            "description": "The request conflicts with the current server state. This error is most likely to occur in response to a PUT, POST, or DELETE request. It can be resolved by using the most recent ETag for the resource."
           },
           "412": {
             "description": "The ETag in the request does not match the ETag of the existing resource, as per RFC7232."
@@ -166,8 +166,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -188,6 +187,9 @@
           },
           "204": {
             "description": "Success"
+          },
+          "409": {
+            "description": "The request conflicts with the current server state. This error is most likely to occur in response to a PUT, POST, or DELETE request. It can be resolved by using the most recent ETag for the resource."
           },
           "412": {
             "description": "The ETag in the request does not match the ETag of the existing resource, as per RFC7232."
@@ -221,8 +223,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -292,8 +293,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -311,6 +311,9 @@
           },
           "500": {
             "description": "An internal error occurred."
+          },
+          "409": {
+            "description": "The request conflicts with the current server state. This error is most likely to occur in response to a PUT, POST, or DELETE request. It can be resolved by using the most recent ETag for the resource."
           },
           "412": {
             "description": "The ETag in the request does not match the ETag of the existing resource, as per RFC7232."
@@ -356,8 +359,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -378,6 +380,9 @@
           },
           "204": {
             "description": "Success"
+          },
+          "409": {
+            "description": "The request conflicts with the current server state. This error is most likely to occur in response to a PUT, POST, or DELETE request. It can be resolved by using the most recent ETag for the resource."
           },
           "412": {
             "description": "The ETag in the request does not match the ETag of the existing resource, as per RFC7232."
@@ -411,8 +416,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -469,8 +473,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -492,6 +495,9 @@
           "204": {
             "description": "Success"
           },
+          "409": {
+            "description": "The request conflicts with the current server state. This error is most likely to occur in response to a PUT, POST, or DELETE request. It can be resolved by using the most recent ETag for the resource."
+          },
           "412": {
             "description": "The ETag in the request does not match the ETag of the existing resource, as per RFC7232."
           },
@@ -510,7 +516,7 @@
           "POST"
         ],
         "summary": "Bulk device enrollment operation.",
-        "operationId": "DeviceEnrollment_BulkOperation",
+        "operationId": "DeviceEnrollment_BulkOperationV20180401",
         "consumes": [
           "application/json"
         ],
@@ -528,8 +534,7 @@
             }
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -547,6 +552,9 @@
           },
           "500": {
             "description": "An internal error occurred."
+          },
+          "409": {
+            "description": "The request conflicts with the current server state. This error is most likely to occur in response to a PUT, POST, or DELETE request. It can be resolved by using the most recent ETag for the resource."
           },
           "412": {
             "description": "The ETag in the request does not match the ETag of the existing resource, as per RFC7232."
@@ -575,7 +583,7 @@
           "POST"
         ],
         "summary": "Query the device enrollment records.",
-        "operationId": "DeviceEnrollment_Query",
+        "operationId": "DeviceEnrollment_QueryV20180401",
         "consumes": [
           "application/json"
         ],
@@ -593,8 +601,7 @@
             }
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -672,8 +679,7 @@
             }
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -747,8 +753,7 @@
             "type": "string"
           },
           {
-            "required": true,
-            "$ref": "#/parameters/api-version"
+            "$ref": "#/parameters/ApiVersionParameter"
           }
         ],
         "responses": {
@@ -820,6 +825,10 @@
       ],
       "type": "object",
       "properties": {
+        "capabilities": {
+          "$ref": "#/definitions/DeviceCapabilities",
+          "description": "Capabilities of the device"
+        },
         "registrationId": {
           "description": "Registration ID.",
           "type": "string"
@@ -850,6 +859,7 @@
         },
         "provisioningStatus": {
           "description": "The provisioning status.",
+          "default": 1,
           "enum": [
             "enabled",
             "disabled"
@@ -865,6 +875,19 @@
           "format": "date-time",
           "description": "The DateTime this resource was last updated.",
           "type": "string"
+        }
+      }
+    },
+    "DeviceCapabilities": {
+      "description": "Device capabilities.",
+      "required": [
+        "iotEdge"
+      ],
+      "type": "object",
+      "properties": {
+        "iotEdge": {
+          "description": "IoT Edge capability",
+          "type": "boolean"
         }
       }
     },
@@ -1109,6 +1132,7 @@
         },
         "provisioningStatus": {
           "description": "The provisioning status.",
+          "default": 1,
           "enum": [
             "enabled",
             "disabled"
@@ -1130,11 +1154,18 @@
     "BulkEnrollmentOperation": {
       "description": "Bulk operation",
       "required": [
-        "mode",
-        "enrollments"
+        "enrollments",
+        "mode"
       ],
       "type": "object",
       "properties": {
+        "enrollments": {
+          "description": "Enrollment items",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IndividualEnrollment"
+          }
+        },
         "mode": {
           "description": "Operation mode",
           "enum": [
@@ -1144,18 +1175,10 @@
             "delete"
           ],
           "type": "string"
-        },
-        "enrollments": {
-          "description": "Enrollment items",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/IndividualEnrollment"
-          }
         }
       }
     },
     "BulkEnrollmentOperationResult": {
-      "description": "Bulk enrollment operation result",
       "required": [
         "isSuccessful"
       ],
@@ -1245,13 +1268,13 @@
     }
   },
   "parameters": {
-    "api-version": {
+    "ApiVersionParameter": {
       "name": "api-version",
       "in": "query",
-      "description": "The API version to use for the request. Supported versions include: 2017-11-15",
+      "description": "The API version to use for the request. Supported versions include: 2018-04-01",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "default": "2018-04-01"
     }
-  },
-  "securityDefinitions": {}
+  }
 }

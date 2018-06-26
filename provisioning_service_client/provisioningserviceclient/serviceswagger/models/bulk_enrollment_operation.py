@@ -11,23 +11,23 @@ from msrest.serialization import Model
 class BulkEnrollmentOperation(Model):
     """Bulk operation.
 
+    :param enrollments: Enrollment items
+    :type enrollments: list[~serviceswagger.models.IndividualEnrollment]
     :param mode: Operation mode. Possible values include: 'create', 'update',
      'updateIfMatchETag', 'delete'
     :type mode: str or ~serviceswagger.models.enum
-    :param enrollments: Enrollment items
-    :type enrollments: list[~serviceswagger.models.IndividualEnrollment]
     """
 
     _validation = {
-        'mode': {'required': True},
         'enrollments': {'required': True},
+        'mode': {'required': True},
     }
 
     _attribute_map = {
-        'mode': {'key': 'mode', 'type': 'str'},
         'enrollments': {'key': 'enrollments', 'type': '[IndividualEnrollment]'},
+        'mode': {'key': 'mode', 'type': 'str'},
     }
 
-    def __init__(self, mode, enrollments):
-        self.mode = mode
+    def __init__(self, enrollments, mode):
         self.enrollments = enrollments
+        self.mode = mode
