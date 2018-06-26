@@ -31,7 +31,7 @@ class DeviceEnrollmentOperations(object):
         self.config = config
         self.api_version = "2018-04-01"
 
-    def get_v20180401(
+    def get(
             self, id, custom_headers=None, raw=False, **operation_config):
         """Get a device enrollment record.
 
@@ -83,7 +83,7 @@ class DeviceEnrollmentOperations(object):
 
         return deserialized
 
-    def create_or_update_v20180401(
+    def create_or_update(
             self, id, enrollment, if_match=None, custom_headers=None, raw=False, **operation_config):
         """Create or update a device enrollment record.
 
@@ -193,7 +193,7 @@ class DeviceEnrollmentOperations(object):
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
 
-    def bulk_operation_v20180401(
+    def bulk_operation(
             self, bulk_operation, custom_headers=None, raw=False, **operation_config):
         """Bulk device enrollment operation.
 

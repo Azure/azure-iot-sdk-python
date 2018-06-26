@@ -16,7 +16,7 @@
           "GET"
         ],
         "summary": "Get a device enrollment record.",
-        "operationId": "DeviceEnrollment_GetV20180401",
+        "operationId": "DeviceEnrollment_Get",
         "consumes": [],
         "produces": [
           "application/json"
@@ -68,7 +68,7 @@
           "PUT"
         ],
         "summary": "Create or update a device enrollment record.",
-        "operationId": "DeviceEnrollment_CreateOrUpdateV20180401",
+        "operationId": "DeviceEnrollment_CreateOrUpdate",
         "consumes": [
           "application/json"
         ],
@@ -516,7 +516,7 @@
           "POST"
         ],
         "summary": "Bulk device enrollment operation.",
-        "operationId": "DeviceEnrollment_BulkOperationV20180401",
+        "operationId": "DeviceEnrollment_BulkOperation",
         "consumes": [
           "application/json"
         ],
@@ -859,7 +859,7 @@
         },
         "provisioningStatus": {
           "description": "The provisioning status.",
-          "default": 1,
+          "default": "enabled",
           "enum": [
             "enabled",
             "disabled"
@@ -1132,7 +1132,7 @@
         },
         "provisioningStatus": {
           "description": "The provisioning status.",
-          "default": 1,
+          "default": "enabled",
           "enum": [
             "enabled",
             "disabled"

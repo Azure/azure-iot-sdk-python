@@ -28,7 +28,7 @@ class IndividualEnrollment(Model):
     :param etag: The entity tag associated with the resource.
     :type etag: str
     :param provisioning_status: The provisioning status. Possible values
-     include: 'enabled', 'disabled'. Default value: "1" .
+     include: 'enabled', 'disabled'. Default value: "enabled" .
     :type provisioning_status: str or ~serviceswagger.models.enum
     :param created_date_time_utc: The DateTime this resource was created.
     :type created_date_time_utc: datetime
