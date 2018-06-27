@@ -17,7 +17,7 @@ class RegistrationStateOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: The API version to use for the request. Supported versions include: 2017-11-15. Constant value: "2017-11-15".
+    :ivar api_version: The API version to use for the request. Supported versions include: 2018-04-01. Constant value: "2018-04-01".
     """
 
     models = models
@@ -29,7 +29,7 @@ class RegistrationStateOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2017-11-15"
+        self.api_version = "2018-04-01"
 
     def get_registration_state(
             self, id, custom_headers=None, raw=False, **operation_config):
@@ -124,7 +124,7 @@ class RegistrationStateOperations(object):
         request = self._client.delete(url, query_parameters)
         response = self._client.send(request, header_parameters, **operation_config)
 
-        if response.status_code not in [204, 400, 401, 404, 412, 429, 500]:
+        if response.status_code not in [204, 400, 401, 404, 409, 412, 429, 500]:
             raise models.ProvisioningServiceErrorDetailsException(self._deserialize, response)
 
         if raw:

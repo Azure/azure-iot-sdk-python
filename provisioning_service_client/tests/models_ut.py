@@ -9,7 +9,7 @@ from six.moves import mock
 
 import context
 from provisioningserviceclient.models import AttestationMechanism, IndividualEnrollment, \
-    EnrollmentGroup, DeviceRegistrationState, InitialTwin
+    EnrollmentGroup, DeviceRegistrationState, InitialTwin, DeviceCapabilities
 import provisioningserviceclient.serviceswagger.models as genmodels
 
 
@@ -45,8 +45,11 @@ class TestIndividualEnrollmentCreation(unittest.TestCase):
         att = genmodels.AttestationMechanism(TPM_LABEL, tpm=tpm)
         drs = genmodels.DeviceRegistrationState(TEST_REG_ID, REG_STATUS_ASSIGNED)
         twin = genmodels.InitialTwin()
-        ie = genmodels.IndividualEnrollment(TEST_REG_ID, att, TEST_DEV_ID, drs, TEST_HOST_NAME,
-                                            twin, TEST_ETAG, REG_STATUS_ASSIGNED, TEST_TIME, TEST_TIME2)
+        capabilities = genmodels.DeviceCapabilities(False)
+        ie = genmodels.IndividualEnrollment(TEST_REG_ID, att, capabilities=capabilities, device_id=TEST_DEV_ID, registration_state=drs,
+                                            iot_hub_host_name=TEST_HOST_NAME, initial_twin=twin, etag=TEST_ETAG,
+                                            provisioning_status=PROV_STATUS_ENABLED, created_date_time_utc=TEST_TIME,
+                                            last_updated_date_time_utc=TEST_TIME2)
         ret = IndividualEnrollment(ie)
         self.assertIsInstance(ret, IndividualEnrollment)
         self.assertIs(ret._internal, ie)
@@ -56,6 +59,8 @@ class TestIndividualEnrollmentCreation(unittest.TestCase):
         self.assertIs(ret._drs_wrapper._internal, drs)
         self.assertIsInstance(ret._twin_wrapper, InitialTwin)
         self.assertIs(ret._twin_wrapper._internal, twin)
+        self.assertIsInstance(ret._capabilities_wrapper, DeviceCapabilities)
+        self.assertIs(ret._capabilities_wrapper._internal, capabilities)
 
     def test_ie_constructor_min_model(self):
         tpm = genmodels.TpmAttestation(TEST_EK)
@@ -68,12 +73,14 @@ class TestIndividualEnrollmentCreation(unittest.TestCase):
         self.assertIs(ret._att_wrapper._internal, att)
         self.assertIsNone(ret._drs_wrapper)
         self.assertIsNone(ret._twin_wrapper)
+        self.assertIsNone(ret._capabilities_wrapper)
 
     def test_ie_create_full_model(self):
         att = AttestationMechanism.create_with_tpm(TEST_EK)
         ts = InitialTwin.create()
+        capabilities = DeviceCapabilities.create()
         ret = IndividualEnrollment.create(TEST_REG_ID, att, TEST_DEV_ID, TEST_HOST_NAME, ts, \
-            PROV_STATUS_ENABLED)
+            PROV_STATUS_ENABLED, capabilities)
         internal = ret._internal
         self.assertIsInstance(ret, IndividualEnrollment)
         self.assertEqual(internal.registration_id, TEST_REG_ID)
@@ -86,6 +93,8 @@ class TestIndividualEnrollmentCreation(unittest.TestCase):
         self.assertIs(ret._twin_wrapper, ts)
         self.assertIsNone(internal.registration_state)
         self.assertIsNone(ret._drs_wrapper)
+        self.assertEqual(internal.capabilities, capabilities._internal)
+        self.assertIs(ret._capabilities_wrapper, capabilities)
         self.assertIsNone(internal.etag)
         self.assertIsNone(internal.created_date_time_utc)
         self.assertIsNone(internal.last_updated_date_time_utc)
@@ -95,6 +104,7 @@ class TestIndividualEnrollmentCreation(unittest.TestCase):
         ret = IndividualEnrollment.create(TEST_REG_ID, att)
         internal = ret._internal
         self.assertIsInstance(ret, IndividualEnrollment)
+        self.assertIsNone(ret._capabilities_wrapper)
         self.assertEqual(internal.registration_id, TEST_REG_ID)
         self.assertIsNone(internal.device_id)
         self.assertIsNone(internal.iot_hub_host_name)
@@ -117,9 +127,21 @@ class TestIndividualEnrollmentAttributes(unittest.TestCase):
         self.gen_att = genmodels.AttestationMechanism(TPM_LABEL, tpm=tpm)
         self.gen_drs = genmodels.DeviceRegistrationState(TEST_REG_ID, REG_STATUS_ASSIGNED)
         self.gen_twin = genmodels.InitialTwin()
-        gen_ie = genmodels.IndividualEnrollment(TEST_REG_ID, self.gen_att, TEST_DEV_ID, self.gen_drs, \
+        self.gen_cap = genmodels.DeviceCapabilities(False)
+        gen_ie = genmodels.IndividualEnrollment(TEST_REG_ID, self.gen_att, self.gen_cap, TEST_DEV_ID, self.gen_drs, \
             TEST_HOST_NAME, self.gen_twin, TEST_ETAG, PROV_STATUS_ENABLED, TEST_TIME, TEST_TIME2)
         self.ie = IndividualEnrollment(gen_ie)
+
+    def test_ie_get_device_capabilities(self):
+        res = self.ie.capabilities
+        self.assertIsInstance(res, DeviceCapabilities)
+        self.assertIs(res._internal, self.gen_cap)
+
+    def test_ie_set_device_capabilities(self):
+        cap = DeviceCapabilities.create()
+        self.ie.capabilities = cap
+        self.assertIs(self.ie._internal.capabilities, cap._internal)
+        self.assertIs(self.ie._capabilities_wrapper, cap)
 
     def test_ie_get_reg_id(self):
         res = self.ie.registration_id
@@ -354,6 +376,36 @@ class TestEnrollmentGroupAttributes(unittest.TestCase):
         with self.assertRaises(AttributeError):
             self.eg.last_updated_date_time_utc = NEWVAL
         self.assertIs(self.eg._internal.last_updated_date_time_utc, TEST_TIME2)
+
+
+class TestDeviceCapabilitiesCreation(unittest.TestCase):
+
+    def test_device_capabilities_constructor(self):
+        gen_cap = genmodels.DeviceCapabilities(False)
+        cap = DeviceCapabilities(gen_cap)
+        self.assertIsInstance(cap, DeviceCapabilities)
+        self.assertIs(cap._internal, gen_cap)
+
+    def test_capabilities_capabilities_create(self):
+        cap = DeviceCapabilities.create(True)
+        internal = cap._internal
+        self.assertIsInstance(cap, DeviceCapabilities)
+        self.assertTrue(internal.iot_edge)
+
+
+class TestDeviceCapabilitiesAttributes(unittest.TestCase):
+
+    def setUp(self):
+        gen_cap = genmodels.DeviceCapabilities(iot_edge=True)
+        self.cap = DeviceCapabilities(gen_cap)
+
+    def test_capabilities_get_iot_edge(self):
+        res = self.cap.iot_edge
+        self.assertTrue(res)
+
+    def test_capabilities_set_iot_edge(self):
+        self.cap.iot_edge = False
+        self.assertFalse(self.cap.iot_edge)
 
 
 class TestDeviceRegistrationStateCreation(unittest.TestCase):

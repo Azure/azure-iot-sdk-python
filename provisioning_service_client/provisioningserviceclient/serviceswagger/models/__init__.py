@@ -6,6 +6,7 @@
 # --------------------------------------------------------------------------
 
 from .provisioning_service_error_details import ProvisioningServiceErrorDetails, ProvisioningServiceErrorDetailsException
+from .device_capabilities import DeviceCapabilities
 from .device_registration_state import DeviceRegistrationState
 from .tpm_attestation import TpmAttestation
 from .x509_certificate_info import X509CertificateInfo
@@ -27,6 +28,7 @@ from .query_specification import QuerySpecification
 
 __all__ = [
     'ProvisioningServiceErrorDetails', 'ProvisioningServiceErrorDetailsException',
+    'DeviceCapabilities',
     'DeviceRegistrationState',
     'TpmAttestation',
     'X509CertificateInfo',

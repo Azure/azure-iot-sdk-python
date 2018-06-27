@@ -86,7 +86,8 @@ class BulkEnrollmentOperation(genmodels.BulkEnrollmentOperation):
     :type enrollments: list[:class:`IndividualEnrollment
      <provisioningserviceclient.models.IndividualEnrollment>`]
     """
-    pass
+    def __init__(self, mode, enrollments):
+        super(self.__class__, self).__init__(enrollments, mode);
 
 
 class BulkEnrollmentOperationResult(genmodels.BulkEnrollmentOperationResult):

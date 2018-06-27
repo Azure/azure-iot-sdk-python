@@ -11,6 +11,7 @@ class IndividualEnrollment(object):
 
     :param internal_model: Internal model of an Individual Enrollment
     :type internal_model: :class:`IndividualEnrollment<serviceswagger.models.IndividualEnrollment>`
+    :ivar capabilities: Capabilities of device
     :ivar registration_id: Registration ID.
     :ivar device_id: Desired IoT Hub device ID
     :ivar registration_state: Current registration state
@@ -37,9 +38,14 @@ class IndividualEnrollment(object):
         else:
             self._twin_wrapper = None
 
+        if self._internal.capabilities is not None:
+            self._capabilities_wrapper = DeviceCapabilities(self._internal.capabilities)
+        else:
+            self._capabilities_wrapper = None
+
     @classmethod
     def create(cls, registration_id, attestation, device_id=None, iot_hub_host_name=None,\
-        initial_twin=None, provisioning_status=None):
+        initial_twin=None, provisioning_status=None, device_capabilities=None):
         """
         Create a new Individual Enrollment instance
 
@@ -53,6 +59,9 @@ class IndividualEnrollment(object):
         :type initial_twin: :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
         :param str provisioning_status: The provisioning status. Possible values are 'enabled',
          'disabled' (optional)
+        :param device_capabilities: Device Capabilities (optional)
+        :type device_capabilities: :class:`DeviceCapabilities
+         <provisioningserviceclient.models.DeviceCapabilities>`
         :returns: New instance of :class:`IndividualEnrollment
          <provisioningserviceclient.models.IndividualEnrollment>`
         :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
@@ -64,14 +73,30 @@ class IndividualEnrollment(object):
         else:
             twin_internal = None
 
+        if device_capabilities is not None:
+            cap_internal = device_capabilities._internal
+        else:
+            cap_internal = None
+
         internal = genmodels.IndividualEnrollment(registration_id, att_internal, \
-            device_id=device_id, iot_hub_host_name=iot_hub_host_name, initial_twin=twin_internal, \
-            provisioning_status=provisioning_status)
+            capabilities=cap_internal,  device_id=device_id, iot_hub_host_name=iot_hub_host_name, \
+            initial_twin=twin_internal, provisioning_status=provisioning_status)
 
         new = cls(internal)
         new._att_wrapper = attestation
         new._twin_wrapper = initial_twin
+        new._drs_wrapper = None
+        new._capabilities_wrapper = device_capabilities
         return new
+
+    @property
+    def capabilities(self):
+        return self._capabilities_wrapper
+
+    @capabilities.setter
+    def capabilities(self, value):
+        self._internal.capabilities = value._internal
+        self._capabilities_wrapper = value
 
     @property
     def registration_id(self):
@@ -262,6 +287,36 @@ class EnrollmentGroup(object):
     def last_updated_date_time_utc(self):
         return self._internal.last_updated_date_time_utc
 
+class DeviceCapabilities(object):
+    """
+    Device Capabilities model. To instantiate please use the "create" class method
+
+    :param bool iot_edge: IoT Edge capability
+    """
+    def __init__(self, internal_model):
+        self._internal = internal_model
+
+    @classmethod
+    def create(cls, iot_edge=False):
+        """
+        Create a new Device Capabilities instance.
+
+        :param bool iot_edge: IoT Edge capable
+        :returns: New instance of :class:`DeviceCapabilities
+         <provisioningserviceclient.models.DeviceCapabilities>`
+        :rtype: :class:`DeviceCapabilities<provisioningserviceclient.models.DeviceCapabilities>`
+        """
+        internal = genmodels.DeviceCapabilities(iot_edge)
+        new = cls(internal)
+        return new
+
+    @property
+    def iot_edge(self):
+        return self._internal.iot_edge
+
+    @iot_edge.setter
+    def iot_edge(self, value):
+        self._internal.iot_edge = value
 
 class DeviceRegistrationState(object):
     """

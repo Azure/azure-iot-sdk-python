@@ -26,7 +26,7 @@ class DeviceProvisioningServiceServiceRuntimeClientConfiguration(Configuration):
             self, base_url=None):
 
         if not base_url:
-            base_url = 'https://contoso.azure-devices-provisioning.net'
+            base_url = 'https://localhost'
 
         super(DeviceProvisioningServiceServiceRuntimeClientConfiguration, self).__init__(base_url)
 
@@ -56,7 +56,7 @@ class DeviceProvisioningServiceServiceRuntimeClient(object):
         self._client = ServiceClient(None, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = '2017-11-15'
+        self.api_version = '2018-04-01'
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
