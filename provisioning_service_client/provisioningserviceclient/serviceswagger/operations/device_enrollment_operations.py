@@ -246,7 +246,7 @@ class DeviceEnrollmentOperations(object):
 
         return deserialized
 
-    def query_v20180401(
+    def query(
             self, query_specification, custom_headers=None, raw=False, **operation_config):
         """Query the device enrollment records.
 

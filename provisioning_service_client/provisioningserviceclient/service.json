@@ -583,7 +583,7 @@
           "POST"
         ],
         "summary": "Query the device enrollment records.",
-        "operationId": "DeviceEnrollment_QueryV20180401",
+        "operationId": "DeviceEnrollment_Query",
         "consumes": [
           "application/json"
         ],
