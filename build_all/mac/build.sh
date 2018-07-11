@@ -12,7 +12,7 @@ PYTHON_VERSION=2.7
 process_args()
 {
     save_next_arg=0
-    
+
     for arg in $*
     do
       if [ $save_next_arg == 1 ]
@@ -56,7 +56,7 @@ fi
 rm -r -f $build_folder
 mkdir -p $build_folder
 pushd $build_folder
-cmake -Drun_valgrind:BOOL=OFF -DcompileOption_CXX:STRING="-Wno-unused-value" -DcompileOption_C:STRING="-Wno-unused-value" -Drun_e2e_tests:BOOL=OFF -Drun_longhaul_tests=OFF -Duse_amqp:BOOL=ON -Duse_http:BOOL=ON -Duse_mqtt:BOOL=ON -Ddont_use_uploadtoblob:BOOL=OFF -Duse_wsio:BOOL=ON -Drun_unittests:BOOL=OFF -Dbuild_python:STRING=$PYTHON_VERSION -Dbuild_javawrapper:BOOL=OFF -Dno_logging:BOOL=OFF $c_build_root -Dwip_use_c2d_amqp_methods:BOOL=OFF -DPYTHON_LIBRARY=$python_lib -DPYTHON_INCLUDE_DIR=$python_include -Duse_prov_client=OFF
+cmake -DBoost_DEBUG=ON -Drun_valgrind:BOOL=OFF -DcompileOption_CXX:STRING="-Wno-unused-value" -DcompileOption_C:STRING="-Wno-unused-value" -Drun_e2e_tests:BOOL=OFF -Drun_longhaul_tests=OFF -Duse_amqp:BOOL=ON -Duse_http:BOOL=ON -Duse_mqtt:BOOL=ON -Ddont_use_uploadtoblob:BOOL=OFF -Duse_wsio:BOOL=ON -Drun_unittests:BOOL=OFF -Dbuild_python:STRING=$PYTHON_VERSION -Dbuild_javawrapper:BOOL=OFF -Dno_logging:BOOL=OFF $c_build_root -Dwip_use_c2d_amqp_methods:BOOL=OFF -DPYTHON_LIBRARY=$python_lib -DPYTHON_INCLUDE_DIR=$python_include -Duse_prov_client=OFF -Duse_edge_modules=ON -Dskip_samples=ON
 
 # Set the default cores
 CORES=$(sysctl -n hw.ncpu)
@@ -101,4 +101,3 @@ echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
 "python${PYTHON_VERSION}" iothub_service_client_map_test.py
 [ $? -eq 0 ] || exit $?
 cd $build_root
-
