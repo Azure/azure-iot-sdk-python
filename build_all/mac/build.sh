@@ -18,9 +18,9 @@ process_args()
       if [ $save_next_arg == 1 ]
       then
         PYTHON_VERSION="$arg"
-        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
         then
-          echo "Supported python versions are 2.7, 3.4, 3.5 or 3.6"
+          echo "Supported python versions are 2.7, 3.4, 3.5, 3.6 or 3.7"
           exit 1
         fi
         save_next_arg=0
@@ -41,7 +41,7 @@ export OPENSSL_ROOT_DIR=/usr/local/opt/openssl
 c_build_root=${build_root}"/c"
 
 # brew installes python 3.x to $prefix/include/python3.xm
-if [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+if [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
 then
 	python_prefix=$(python-config --prefix)
 	python_include=$python_prefix/include/python$PYTHON_VERSION

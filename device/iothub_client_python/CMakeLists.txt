@@ -39,7 +39,6 @@ elseif(APPLE)
         find_package(Boost COMPONENTS python27)
     else()
         string(REPLACE "." "" boost_python ${build_python})
-        message("--------------------- boost_python: ${boost_python}")
         find_package(Boost COMPONENTS python${boost_python})
         # mac boost-python libs don't support versions
         string(REPLACE "libboost_python-mt.dylib" "libboost_python3-mt.dylib" Boost_LIBRARIES ${Boost_LIBRARIES})
