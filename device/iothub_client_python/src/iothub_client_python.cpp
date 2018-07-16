@@ -50,7 +50,7 @@
 #define IMPORT_NAME iothub_client
 #endif
 
-#define VERSION_STRING "1.4.0"
+#define VERSION_STRING "1.4.1"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -149,10 +149,10 @@ enum SECURITY_TYPE
 #endif
 #if USE_AMQP
 		AMQP,
-#endif		
+#endif
 #if USE_MQTT
 		MQTT,
-#endif		
+#endif
 #if USE_AMQP
 		AMQP_WS,
 #endif
@@ -1058,8 +1058,8 @@ extern "C"
 void
 DeviceTwinCallback(
     DEVICE_TWIN_UPDATE_STATE updateState,
-    const unsigned char* payLoad, 
-    size_t size, 
+    const unsigned char* payLoad,
+    size_t size,
     void* userContextCallback
     )
 {
@@ -1130,10 +1130,10 @@ public:
 extern "C"
 int
 DeviceMethodCallback(
-    const char* method_name, 
-    const unsigned char* payLoad, 
-    size_t size, 
-    unsigned char** response, 
+    const char* method_name,
+    const unsigned char* payLoad,
+    size_t size,
+    unsigned char** response,
     size_t* resp_size,
     void* userContextCallback
     )
@@ -1356,7 +1356,7 @@ class IoTHubClient
 {
 protected:
     CLIENT_INTERFACE_TYPE client_interface_type;
-    
+
     static IOTHUB_CLIENT_TRANSPORT_PROVIDER
         GetProtocol(IOTHUB_TRANSPORT_PROVIDER _protocol)
     {
@@ -1394,7 +1394,7 @@ protected:
             PyErr_SetString(PyExc_TypeError, "IoTHubTransportProvider set to unknown protocol");
             boost::python::throw_error_already_set();
             break;
-        }   
+        }
         return protocol;
     }
 
@@ -1422,7 +1422,7 @@ public:
     }
 
     IoTHubClient(
-        const IoTHubClient& client, 
+        const IoTHubClient& client,
         CLIENT_INTERFACE_TYPE _client_interface_type)
     {
         (void)client;
@@ -1459,7 +1459,7 @@ public:
             PlatformCallHandler::Platform_Init();
             iotHubClientHandle = IoTHubClient_CreateFromConnectionString("", GetProtocol(_protocol));
 
-            iotHubClientHandle = (client_interface_type == CLIENT_INTERFACE_DEVICE) ? 
+            iotHubClientHandle = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
                                     IoTHubDeviceClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol)) :
                                     IoTHubModuleClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
         }
@@ -1475,7 +1475,7 @@ public:
     )
     {
         client_interface_type = _client_interface_type;
-    
+
         IOTHUB_CLIENT_CONFIG config;
         config.protocol = GetProtocol(_config.protocol);
         config.deviceId = _config.deviceId.c_str();
@@ -1504,7 +1504,7 @@ public:
     )
     {
         client_interface_type = _client_interface_type;
-    
+
         IOTHUB_CLIENT_CONFIG config;
         config.protocol = GetProtocol(_iotHubConfig->protocol);
 
@@ -1637,7 +1637,7 @@ public:
         {
             {
                 ScopedGILRelease release;
-                if (client_interface_type == CLIENT_INTERFACE_DEVICE) 
+                if (client_interface_type == CLIENT_INTERFACE_DEVICE)
                 {
                     IoTHubDeviceClient_Destroy(iotHubClientHandle);
                 }
@@ -1675,7 +1675,7 @@ public:
         sendContext->eventMessage = eventMessage.Clone();
         {
             ScopedGILRelease release;
-            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ? 
+            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
                         IoTHubDeviceClient_SendEventAsync(iotHubClientHandle, eventMessage.Handle(), SendConfirmationCallback, sendContext) :
                         IoTHubModuleClient_SendEventAsync(iotHubClientHandle, eventMessage.Handle(), SendConfirmationCallback, sendContext);
         }
@@ -1691,7 +1691,7 @@ public:
         IOTHUB_CLIENT_RESULT result = IOTHUB_CLIENT_OK;
         {
             ScopedGILRelease release;
-            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ? 
+            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
                         IoTHubDeviceClient_GetSendStatus(iotHubClientHandle, &iotHubClientStatus) :
                         IoTHubModuleClient_GetSendStatus(iotHubClientHandle, &iotHubClientStatus);
         }
@@ -1719,7 +1719,7 @@ public:
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
-            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ? 
+            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
                         IoTHubDeviceClient_SetMessageCallback(iotHubClientHandle, ReceiveMessageCallback, receiveContext) :
                         IoTHubModuleClient_SetMessageCallback(iotHubClientHandle, ReceiveMessageCallback, receiveContext);
         }
@@ -1746,8 +1746,8 @@ public:
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
-            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ? 
-                        IoTHubDeviceClient_SetConnectionStatusCallback(iotHubClientHandle, ConnectionStatusCallback, receiveContext) : 
+            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
+                        IoTHubDeviceClient_SetConnectionStatusCallback(iotHubClientHandle, ConnectionStatusCallback, receiveContext) :
                         IoTHubModuleClient_SetConnectionStatusCallback(iotHubClientHandle, ConnectionStatusCallback, receiveContext);
         }
         if (result != IOTHUB_CLIENT_OK)
@@ -1765,7 +1765,7 @@ public:
         {
             ScopedGILRelease release;
             result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                        IoTHubDeviceClient_SetRetryPolicy(iotHubClientHandle, retryPolicy, retryTimeoutLimitInSeconds) : 
+                        IoTHubDeviceClient_SetRetryPolicy(iotHubClientHandle, retryPolicy, retryTimeoutLimitInSeconds) :
                         IoTHubModuleClient_SetRetryPolicy(iotHubClientHandle, retryPolicy, retryTimeoutLimitInSeconds);
         }
         if (result != IOTHUB_CLIENT_OK)
@@ -1782,7 +1782,7 @@ public:
         {
             ScopedGILRelease release;
             result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                        IoTHubDeviceClient_GetRetryPolicy(iotHubClientHandle, &iotHubClientRetryPolicy, &retryTimeoutLimitInSeconds) : 
+                        IoTHubDeviceClient_GetRetryPolicy(iotHubClientHandle, &iotHubClientRetryPolicy, &retryTimeoutLimitInSeconds) :
                         IoTHubModuleClient_GetRetryPolicy(iotHubClientHandle, &iotHubClientRetryPolicy, &retryTimeoutLimitInSeconds);
         }
         if (result != IOTHUB_CLIENT_OK)
@@ -1815,7 +1815,7 @@ public:
         {
             ScopedGILRelease release;
             result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                        IoTHubDeviceClient_SetDeviceTwinCallback(iotHubClientHandle, DeviceTwinCallback, deviceTwinContext) : 
+                        IoTHubDeviceClient_SetDeviceTwinCallback(iotHubClientHandle, DeviceTwinCallback, deviceTwinContext) :
                         IoTHubModuleClient_SetModuleTwinCallback(iotHubClientHandle, DeviceTwinCallback, deviceTwinContext);
         }
         if (result != IOTHUB_CLIENT_OK)
@@ -1845,7 +1845,7 @@ public:
         {
             ScopedGILRelease release;
             result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                        IoTHubDeviceClient_SendReportedState(iotHubClientHandle, (const unsigned char*)reportedState.c_str(), size, SendReportedStateCallback, sendReportedStateContext) : 
+                        IoTHubDeviceClient_SendReportedState(iotHubClientHandle, (const unsigned char*)reportedState.c_str(), size, SendReportedStateCallback, sendReportedStateContext) :
                         IoTHubModuleClient_SendReportedState(iotHubClientHandle, (const unsigned char*)reportedState.c_str(), size, SendReportedStateCallback, sendReportedStateContext);
         }
         if (result != IOTHUB_CLIENT_OK)
@@ -1904,7 +1904,7 @@ public:
             throw IoTHubClientError(__func__, result);
         }
     }
-    
+
     void DeviceMethodResponse(
         METHOD_HANDLE method_id,
         std::string response,
@@ -1932,7 +1932,7 @@ public:
         {
             ScopedGILRelease release;
             result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                        IoTHubDeviceClient_GetLastMessageReceiveTime(iotHubClientHandle, &lastMessageReceiveTime) : 
+                        IoTHubDeviceClient_GetLastMessageReceiveTime(iotHubClientHandle, &lastMessageReceiveTime) :
                         IoTHubModuleClient_GetLastMessageReceiveTime(iotHubClientHandle, &lastMessageReceiveTime);
         }
         if (result != IOTHUB_CLIENT_OK)
@@ -1977,7 +1977,7 @@ public:
             {
                 ScopedGILRelease release;
                 result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                            IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str()) : 
+                            IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str()) :
                             IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
             }
         }
@@ -1988,7 +1988,7 @@ public:
             {
                 ScopedGILRelease release;
                 result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                            IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), &value) : 
+                            IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), &value) :
                             IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &value);
             }
         }
@@ -2198,7 +2198,7 @@ public:
         {
             throw IoTHubClientError(__func__, result);
         }
-    } 
+    }
 
     void SetInputMessageCallback(
         std::string inputName,
@@ -2229,7 +2229,7 @@ public:
     void CreateFromEnvironment(IOTHUB_TRANSPORT_PROVIDER _protocol)
     {
         protocol = _protocol;
-        
+
         {
             ScopedGILRelease release;
             iotHubClientHandle = IoTHubModuleClient_CreateFromEnvironment(GetProtocol(_protocol));
@@ -2259,7 +2259,7 @@ public:
         int responseStatus;
         unsigned char* responsePayload;
         size_t responsePayloadSize;
-       
+
         result = IoTHubModuleClient_ModuleMethodInvoke(iotHubClientHandle, deviceId.c_str(), moduleId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
 
         if (result == IOTHUB_DEVICE_METHOD_OK)
@@ -2295,7 +2295,7 @@ public:
         int responseStatus;
         unsigned char* responsePayload;
         size_t responsePayloadSize;
-       
+
         result = IoTHubModuleClient_DeviceMethodInvoke(iotHubClientHandle, deviceId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
 
         if (result == IOTHUB_DEVICE_METHOD_OK)
@@ -2311,7 +2311,7 @@ public:
         }
         return response;
 #endif
-    }  
+    }
 };
 
 using namespace boost::python;
@@ -2665,4 +2665,3 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
             ;
 
 };
-

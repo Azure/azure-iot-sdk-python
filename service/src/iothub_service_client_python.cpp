@@ -36,7 +36,7 @@
 #define IMPORT_NAME iothub_service_client
 #endif
 
-#define VERSION_STRING "1.4.0"
+#define VERSION_STRING "1.4.1"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -837,7 +837,7 @@ class IoTHubDeviceCapabilities
     bool iotEdge;
 
 public:
-    IoTHubDeviceCapabilities() : 
+    IoTHubDeviceCapabilities() :
         iotEdge(false)
     {
         ;
@@ -884,12 +884,12 @@ private:
         // Legacy devices don't have concept of edge capability.
         dest->iotEdge_capable = false;
     }
-    
+
 public:
 
     IoTHubRegistryManager(
         std::string connectionString
-        ) : _iothubServiceClientAuthHandle(NULL), 
+        ) : _iothubServiceClientAuthHandle(NULL),
 			_iothubRegistryManagerHandle(NULL)
     {
         ScopedGILRelease release;
@@ -1026,13 +1026,13 @@ public:
         IOTHUB_REGISTRYMANAGER_RESULT result = IOTHUB_REGISTRYMANAGER_OK;
 
         ScopedGILRelease release;
-        
+
         if (deviceCapabilities != NULL)
         {
             IOTHUB_REGISTRY_DEVICE_UPDATE_EX deviceUpdate;
             memset(&deviceUpdate, 0, sizeof(deviceUpdate));
             deviceUpdate.version = 1;
-            
+
             deviceUpdate.deviceId = deviceId.c_str();
             deviceUpdate.primaryKey = primaryKey.c_str();
             deviceUpdate.secondaryKey = secondaryKey.c_str();
@@ -1046,13 +1046,13 @@ public:
         {
             IOTHUB_REGISTRY_DEVICE_UPDATE deviceUpdate;
             memset(&deviceUpdate, 0, sizeof(deviceUpdate));
-            
+
             deviceUpdate.deviceId = deviceId.c_str();
             deviceUpdate.primaryKey = primaryKey.c_str();
             deviceUpdate.secondaryKey = secondaryKey.c_str();
             deviceUpdate.status = status;
             deviceUpdate.authMethod = authMethod;
-        
+
             // If deviceCapabilities were not set, we need to use the legacy (non-Ex) Update function.
             // This will never set the edge field to the server which will leave its original value in place.
             result = IoTHubRegistryManager_UpdateDevice(_iothubRegistryManagerHandle, &deviceUpdate);
@@ -1103,11 +1103,11 @@ public:
                 IOTHUB_DEVICE* device = (IOTHUB_DEVICE*)singlylinkedlist_item_get_value(next_device);
                 IOTHUB_DEVICE_EX deviceEx;
 
-                // IoTHubRegistryManager_GetDeviceList has been deprecated and is NOT moving to the 
+                // IoTHubRegistryManager_GetDeviceList has been deprecated and is NOT moving to the
                 // newer model of IOTHUB_DEVICE_EX but just keeping with IOTHUB_DEVICE.  Since rest of Python
                 // layer deals with IOTHUB_DEVICE_EX, however, translate this object to IOTHUB_DEVICE_EX.
                 CopyDeviceToDeviceEx(device,&deviceEx);
-                    
+
                 retVal.append(deviceEx);
                 singlylinkedlist_remove(deviceList, next_device);
                 next_device = singlylinkedlist_get_head_item(deviceList);
@@ -1328,7 +1328,7 @@ typedef struct
 } OpenCompleteContext;
 
 extern "C"
-void 
+void
 OpenCompleteCallback(
     void* openCompleteCallbackContext
     )
@@ -1397,7 +1397,7 @@ typedef struct
 } FeedbackMessageReceivedContext;
 
 extern "C"
-void 
+void
 FeedbackMessageReceivedCallback(
     void* feedbackMessageReceivedCallbackContext,
     IOTHUB_SERVICE_FEEDBACK_BATCH* feedbackBatch
@@ -1567,7 +1567,7 @@ public:
     }
 
     void Open(
-        boost::python::object& openCompleteCallback, 
+        boost::python::object& openCompleteCallback,
         boost::python::object& userContextCallback
         )
     {
@@ -1597,7 +1597,7 @@ public:
     void SendAsync(
         std::string deviceId,
         IoTHubMessage &message,
-        boost::python::object& sendCompleteCallback, 
+        boost::python::object& sendCompleteCallback,
         boost::python::object& userContextCallback
         )
     {
@@ -1618,7 +1618,7 @@ public:
     }
 
     void SetFeedbackMessageCallback(
-        boost::python::object& feedbackMessageReceivedCallback, 
+        boost::python::object& feedbackMessageReceivedCallback,
         boost::python::object& userContextCallback
         )
     {
@@ -1693,7 +1693,7 @@ struct IoTHubDeviceMethodResponse
 
 class IoTHubDeviceMethod
 {
-    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle; 
+    IOTHUB_SERVICE_CLIENT_AUTH_HANDLE _iothubServiceClientAuthHandle;
     IOTHUB_SERVICE_CLIENT_DEVICE_METHOD_HANDLE _iothubDeviceMethodHandle;
 public:
     IoTHubDeviceMethod(
@@ -1806,7 +1806,7 @@ public:
         int responseStatus;
         unsigned char* responsePayload;
         size_t responsePayloadSize;
-       
+
         result = IoTHubDeviceMethod_InvokeModule(_iothubDeviceMethodHandle, deviceId.c_str(), moduleId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
 
         if (result == IOTHUB_DEVICE_METHOD_OK)
@@ -2109,7 +2109,8 @@ public:
 };
 
 
-class IOTHUB_DEVICE_CONFIGURATION_Wrapper : public IOTHUB_DEVICE_CONFIGURATION
+class IOTHUB_DEVICE_CONFIGURATION_Wrapper
+: public IOTHUB_DEVICE_CONFIGURATION
 {
 public:
     IOTHUB_DEVICE_CONFIGURATION_Wrapper()
@@ -2200,7 +2201,7 @@ private:
             Map_Destroy(owner_map);
             owner_map = NULL;
         }
-    
+
         owner_map = Map_Create(NULL);
         if (owner_map == NULL)
         {
@@ -2283,19 +2284,19 @@ public:
         _content.SetDeviceContent(GetValueOrEmpty(device_configuration.content.deviceContent));
         _content.SetModulesContent(GetValueOrEmpty(device_configuration.content.modulesContent));
 
-        CopyArrayToBoostDictionary<const char*>(device_configuration.labels.numLabels,  device_configuration.labels.labelNames, 
+        CopyArrayToBoostDictionary<const char*>(device_configuration.labels.numLabels,  device_configuration.labels.labelNames,
                                                 device_configuration.labels.labelValues, _labelsDictionary);
 
-        CopyArrayToBoostDictionary<double>(device_configuration.systemMetricsResult.numQueries, device_configuration.systemMetricsResult.queryNames, 
+        CopyArrayToBoostDictionary<double>(device_configuration.systemMetricsResult.numQueries, device_configuration.systemMetricsResult.queryNames,
                                            device_configuration.systemMetricsResult.results, _systemMetricsResultDictionary);
 
-        CopyArrayToBoostDictionary<const char*>(device_configuration.systemMetricsDefinition.numQueries, device_configuration.systemMetricsDefinition.queryNames, 
+        CopyArrayToBoostDictionary<const char*>(device_configuration.systemMetricsDefinition.numQueries, device_configuration.systemMetricsDefinition.queryNames,
                                                 device_configuration.systemMetricsDefinition.queryStrings, _systemMetricsDefinitionDictionary);
 
-        CopyArrayToBoostDictionary<double>(device_configuration.metricResult.numQueries, device_configuration.metricResult.queryNames, 
+        CopyArrayToBoostDictionary<double>(device_configuration.metricResult.numQueries, device_configuration.metricResult.queryNames,
                                            device_configuration.metricResult.results, _metricResultDictionary);
 
-        CopyArrayToBoostDictionary<const char*>(device_configuration.metricsDefinition.numQueries, device_configuration.metricsDefinition.queryNames, 
+        CopyArrayToBoostDictionary<const char*>(device_configuration.metricsDefinition.numQueries, device_configuration.metricsDefinition.queryNames,
                                                 device_configuration.metricsDefinition.queryStrings, _metricsDefinitionDictionary);
     }
 
@@ -2392,11 +2393,11 @@ public:
         deviceConfigurationAdd.content.deviceContent = _content.GetDeviceContent();
         deviceConfigurationAdd.content.modulesContent = _content.GetModulesContent();
 
-        CopyBoostDictionaryToArray(_labelsDictionary, (const char *const **)&deviceConfigurationAdd.labels.labelNames, 
+        CopyBoostDictionaryToArray(_labelsDictionary, (const char *const **)&deviceConfigurationAdd.labels.labelNames,
                                    (const char *const **)(&deviceConfigurationAdd.labels.labelValues), &deviceConfigurationAdd.labels.numLabels,
                                    _labelsDictionaryMapHandle);
 
-        CopyBoostDictionaryToArray(_addMetricsDictionary, (const char *const **)&deviceConfigurationAdd.metrics.queryNames, 
+        CopyBoostDictionaryToArray(_addMetricsDictionary, (const char *const **)&deviceConfigurationAdd.metrics.queryNames,
                                    (const char *const **)&deviceConfigurationAdd.metrics.queryStrings, &deviceConfigurationAdd.metrics.numQueries,
                                    _addMetricsDictionaryMapHandle);
     }
@@ -2416,10 +2417,10 @@ public:
         deviceConfigurationUpdate.content.deviceContent = _content.GetDeviceContent();
         deviceConfigurationUpdate.content.modulesContent = _content.GetModulesContent();
 
-        CopyBoostDictionaryToArray(_labelsDictionary, (const char *const **)&deviceConfigurationUpdate.labels.labelNames, 
+        CopyBoostDictionaryToArray(_labelsDictionary, (const char *const **)&deviceConfigurationUpdate.labels.labelNames,
                                    (const char *const **)(&deviceConfigurationUpdate.labels.labelValues), &deviceConfigurationUpdate.labels.numLabels,
                                    _labelsDictionaryMapHandle);
-        
+
         CopyBoostDictionaryToArray(_addMetricsDictionary, (const char *const **)&deviceConfigurationUpdate.metricsDefinition.queryNames,
                                    (const char *const **)&deviceConfigurationUpdate.metricsDefinition.queryStrings, &deviceConfigurationUpdate.metricsDefinition.numQueries,
                                    _addMetricsDictionaryMapHandle);
@@ -2513,7 +2514,7 @@ public:
 
         result = IoTHubDeviceConfiguration_AddConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationAdd, &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
-        {   
+        {
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
@@ -2528,7 +2529,7 @@ public:
 
         result = IoTHubDeviceConfiguration_GetConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str(), &deviceConfigurationStruct);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
-        {   
+        {
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
@@ -2542,7 +2543,7 @@ public:
 
         result = IoTHubDeviceConfiguration_DeleteConfiguration(_ioTHubDeviceConfigurationHandle, configurationId.c_str());
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
-        {   
+        {
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
     }
@@ -2557,10 +2558,10 @@ public:
         {
             throw IoTHubDeviceConfigurationError(__func__, IOTHUB_DEVICE_CONFIGURATION_OUT_OF_MEMORY_ERROR);
         }
-        
+
         result = IoTHubDeviceConfiguration_GetConfigurations(_ioTHubDeviceConfigurationHandle, maxConfigurationsCount, configurationsList);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
-        {   
+        {
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
@@ -2587,18 +2588,18 @@ public:
 
         result = IoTHubDeviceConfiguration_UpdateConfiguration(_ioTHubDeviceConfigurationHandle, &deviceConfigurationUpdate);
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
-        {   
+        {
             throw IoTHubDeviceConfigurationError(__func__, result);
         }
 
         IoTHubDeviceConfiguration *ioTHubDeviceUpdatedConfiguration = new IoTHubDeviceConfiguration(deviceConfigurationUpdate);
         return ioTHubDeviceUpdatedConfiguration;
-    }    
+    }
 
     void ApplyConfigurationContentToDeviceOrModule(std::string deviceOrModuleId, const IoTHubDeviceConfigurationContent *configurationContent)
     {
         IOTHUB_DEVICE_CONFIGURATION_RESULT result;
-        
+
         IOTHUB_DEVICE_CONFIGURATION_CONTENT contentStruct;
         contentStruct.deviceContent = configurationContent->GetDeviceContent();
         contentStruct.modulesContent = configurationContent->GetModulesContent();
@@ -2606,9 +2607,9 @@ public:
         result = IoTHubDeviceConfiguration_ApplyConfigurationContentToDeviceOrModule(_ioTHubDeviceConfigurationHandle, deviceOrModuleId.c_str(), &contentStruct);
 
         if (result != IOTHUB_DEVICE_CONFIGURATION_OK)
-        {   
+        {
             throw IoTHubDeviceConfigurationError(__func__, result);
-        }        
+        }
     }
 };
 
@@ -2951,5 +2952,5 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         .def("get_configuration_list", &IoTHubDeviceConfigurationManager::GetConfigurationList)
         .def("apply_configurationcontent_to_device_or_module", &IoTHubDeviceConfigurationManager::ApplyConfigurationContentToDeviceOrModule)
         ;
-        
+
 };

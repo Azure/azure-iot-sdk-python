@@ -41,7 +41,7 @@
 #define IMPORT_NAME provisioning_device_client
 #endif
 
-#define VERSION_STRING "1.4.0"
+#define VERSION_STRING "1.4.1"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -302,7 +302,7 @@ extern "C"
 void
 RegisterDeviceCallback(
     PROV_DEVICE_RESULT register_result,
-    const char* iothub_uri, 
+    const char* iothub_uri,
     const char* device_id,
     void* user_context
 )
@@ -312,7 +312,7 @@ RegisterDeviceCallback(
     boost::python::object userContext = registerDeviceContext->userContext;
     {
         ScopedGILAcquire acquire;
-        try 
+        try
         {
             register_callback(register_result, iothub_uri, device_id, userContext);
         }
@@ -337,7 +337,7 @@ RegisterDeviceStatusCallback(
     boost::python::object status_user_context = registerDeviceStatusContext->status_user_context;
     {
         ScopedGILAcquire acquire;
-        try 
+        try
         {
             register_status_callback(reg_status, status_user_context);
         }
@@ -620,7 +620,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 
     provisioningErrorType = createExceptionClass("ProvisioningError");
     provisioningDeviceClientErrorType = createExceptionClass("ProvisioningDeviceClientError", provisioningErrorType);
-    
+
     enum_<PROV_DEVICE_REG_STATUS>("ProvisioningDeviceRegistrationStatus")
         .value("CONNECTED", PROV_DEVICE_REG_STATUS_CONNECTED)
         .value("REGISTERING", PROV_DEVICE_REG_STATUS_REGISTERING)
