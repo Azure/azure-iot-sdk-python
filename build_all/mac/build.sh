@@ -95,9 +95,9 @@ cp $build_folder/provisioning_device_client_python/src/provisioning_device_clien
 
 cd $build_root/service/tests/
 echo "python${PYTHON_VERSION}" iothub_service_client_ut.py
-"python${PYTHON_VERSION}" iothub_service_client_ut.py
+"python${PYTHON_VERSION}" -u iothub_service_client_ut.py
 [ $? -eq 0 ] || exit $?
 echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
-"python${PYTHON_VERSION}" iothub_service_client_map_test.py
+"python${PYTHON_VERSION}" -u iothub_service_client_map_test.py
 [ $? -eq 0 ] || exit $?
 cd $build_root

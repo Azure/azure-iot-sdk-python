@@ -144,27 +144,27 @@ if "%build-config%"=="Debug" (
 
 cd ..\..\device\tests
 @Echo python iothub_client_ut.py
-python iothub_client_ut.py
+python -u iothub_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 @Echo python iothub_client_map_test.py
-python iothub_client_map_test.py
+python -u iothub_client_map_test.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
 
 cd ..\..\service\tests
 @Echo python iothub_service_client_ut.py
-python iothub_service_client_ut.py
+python -u iothub_service_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 @Echo python iothub_service_client_map_test.py
-python iothub_service_client_map_test.py
+python -u iothub_service_client_map_test.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
 
 cd ..\..\provisioning_device_client\tests
 @Echo python provisioning_device_client_ut.py
-python provisioning_device_client_ut.py
+python -u provisioning_device_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%

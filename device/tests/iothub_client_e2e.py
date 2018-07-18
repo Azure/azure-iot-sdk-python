@@ -242,11 +242,14 @@ def blob_upload_conf_callback(result, user_context):
 # Helper functions - Service Client
 ###########################################################################
 def sc_create_registrymanager(iothub_connection_string):
+    print ("Creating registry manager")
     iothub_registry_manager = IoTHubRegistryManager(iothub_connection_string)
     assert iothub_registry_manager != None, "RegistryManager creation failed"
     return iothub_registry_manager
 
 def sc_create_device_and_module_if_needed(iothub_registry_manager, device_id, auth_method, testing_modules):
+    print ("Creating device = {0}".format(device_id))
+
     global IOTHUB_E2E_X509_THUMBPRINT
 
     if auth_method == IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT:
@@ -257,35 +260,47 @@ def sc_create_device_and_module_if_needed(iothub_registry_manager, device_id, au
     secondary_key = ""
     new_device = iothub_registry_manager.create_device(device_id, primary_key, secondary_key, auth_method)
     assert new_device != None, "Device creation failed"
+    print ("Created device ({0}) for testing".format(device_id))
 
     if (testing_modules):
         new_module = iothub_registry_manager.create_module(device_id, primary_key, secondary_key, TEST_MODULE_ID, auth_method)
         assert new_module != None, "Device creation failed"
+        print ("Created module ({0}) for testing".format(TEST_MODULE_ID))
 
 def sc_create_messaging(iothub_connection_string):
+    print ("Creating messaging handle")
     iothub_messaging = IoTHubMessaging(iothub_connection_string)
     assert iothub_messaging != None, "iothub_messaging is NULL"
     return iothub_messaging
 
 def sc_messaging_open(iothub_messaging):
+    print ("Opening messaging handle after sleep of {0} seconds".format(SLEEP_BEFORE_DEVICE_ACTION))
+
     time.sleep(SLEEP_BEFORE_DEVICE_ACTION)
     iothub_messaging.open(open_complete_callback, MESSAGING_CONTEXT)
 
 def sc_send_message(iothub_messaging, device_id, message, testing_modules):
+    print ("Sending message for device id = {0}".format(device_id))
+
     if (testing_modules):
         iothub_messaging.send_async(device_id, TEST_MODULE_ID, message, send_complete_callback, MESSAGING_CONTEXT)
     else:
         iothub_messaging.send_async(device_id, message, send_complete_callback, MESSAGING_CONTEXT)
 
 def sc_messaging_close(iothub_messaging):
+    print ("Closing iothub_messaging object")
     iothub_messaging.close()
 
 def sc_create_twin(iothub_connection_string):
+    print ("Creating twin")
+
     iothub_device_twin = IoTHubDeviceTwin(IOTHUB_CONNECTION_STRING)
     assert iothub_device_twin != None, "iothub_device_twin is NULL"
     return iothub_device_twin
 
 def sc_get_twin(iothub_device_twin, device_id, testing_modules):
+    print ("Getting twin")
+
     if (testing_modules):
         twin_info = iothub_device_twin.get_twin(device_id, TEST_MODULE_ID)
     else:
@@ -294,6 +309,8 @@ def sc_get_twin(iothub_device_twin, device_id, testing_modules):
     return twin_info
 
 def sc_update_twin(iothub_device_twin, device_id, testing_modules):
+    print ("Updating twin")
+
     new_property_name = "telemetryInterval"
     new_property_value = "42"
     UPDATE_JSON = "{\"properties\":{\"desired\":{\"" + new_property_name + "\":" + new_property_value + "}}}"
@@ -305,11 +322,15 @@ def sc_update_twin(iothub_device_twin, device_id, testing_modules):
     return twin_info
 
 def sc_create_device_method(iothub_connection_string):
+    print ("Creating method handle")
+
     iothub_device_method = IoTHubDeviceMethod(IOTHUB_CONNECTION_STRING)
     assert iothub_device_method != None, "iothub_device_method is NULL"
     return iothub_device_method
 
-def sc_invoke_device_method(iothub_device_method, device_id, method_name, method_payload, testing_modules):
+def sc_invoke_method(iothub_device_method, device_id, method_name, method_payload, testing_modules):
+    print ("Invoking method")
+
     DEVICE_METHOD_TIMEOUT = 60
     if (testing_modules):
         response = iothub_device_method.invoke(device_id, TEST_MODULE_ID, method_name, method_payload, DEVICE_METHOD_TIMEOUT)
@@ -319,6 +340,7 @@ def sc_invoke_device_method(iothub_device_method, device_id, method_name, method
     return response
 
 def sc_delete_device(iothub_registry_manager, device_id):
+    print ("Deleting device {0}".format(device_id))
     iothub_registry_manager.delete_device(device_id)
 
 
@@ -337,6 +359,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
 
     # prepare
     # act
+    print ("Creating client handle")
     if testing_modules == True:
         device_client = IoTHubModuleClient(device_or_module_connection_string, protocol)
         assert isinstance(device_client, IoTHubModuleClient), 'Error: Invalid type returned!'
@@ -354,6 +377,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
 
     # prepare
     # act
+    print ("set_option calls for client")
     device_client.set_option("messageTimeout", DEVICE_MESSAGE_TIMEOUT)
 
     if authMethod == IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT:
@@ -376,6 +400,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         
         # prepare
         # act
+        print ("set_message_callback for client")
         device_client.set_message_callback(receive_message_callback, MESSAGING_CONTEXT)
         ###########################################################################
 
@@ -384,6 +409,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
     
     # prepare
     # act
+    print ("set_connection_status_callback for client")
     device_client.set_connection_status_callback(connection_status_callback, CONNECTION_STATUS_CONTEXT)
     ###########################################################################
 
@@ -395,7 +421,8 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
        or protocol == IoTHubTransportProvider.MQTT \
        or protocol == IoTHubTransportProvider.MQTT_WS:
         ###########################################################################
-        # set_device_twin_callback
+        # set_*_twin_callback
+        print ("set_twin_callback for client")
     
         # prepare
         # act
@@ -408,7 +435,8 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         ###########################################################################
 
         ###########################################################################
-        # set_device_method_callback
+        # set_*_method_callback
+        print ("set_method_callback for client")
     
         # prepare
         # act
@@ -452,7 +480,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         payload_json = "{\"method_number\":\"42\"}"
 
         # act
-        sc_invoke_device_method(iothub_device_method, device_id, method_name, payload_json, testing_modules)
+        sc_invoke_method(iothub_device_method, device_id, method_name, payload_json, testing_modules)
         DEVICE_METHOD_EVENT.wait(CALLBACK_TIMEOUT)
 
         # verify
@@ -472,6 +500,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         REPORTED_STATE_CALLBACK_COUNTER = 0
 
         # act
+        print ("send_reported_state")
         device_client.send_reported_state(reported_state, len(reported_state), send_reported_state_callback, REPORTED_STATE_CONTEXT)
         REPORTED_STATE_EVENT.wait(CALLBACK_TIMEOUT)
 
@@ -521,6 +550,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
 
     ###########################################################################
     # get_send_status
+    print ("Testing get_send_status")
 
     # prepare
     status_counter = 0
@@ -541,6 +571,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
        and protocol != IoTHubTransportProvider.AMQP_WS:
         ###########################################################################
         # get_last_message_receive_time
+        print ("Testing get_last_message_receive_time")
 
         # prepare
         last_receive_time = -1
@@ -568,6 +599,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         BLOB_UPLOAD_CALLBACK_COUNTER = 0
 
         # act
+        print ("Testing upload_blob_async to destination file = {0}".format(destination_file_name))
         device_client.upload_blob_async(destination_file_name, source, size, blob_upload_conf_callback, BLOB_UPLOAD_CONTEXT)
         BLOB_UPLOAD_EVENT.wait(CALLBACK_TIMEOUT)
 
