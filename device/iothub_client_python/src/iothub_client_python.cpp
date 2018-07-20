@@ -1338,10 +1338,25 @@ public:
     }
 };
 
-struct IoTHubMethodResponse
+class IoTHubMethodResponse
 {
-    int status;
-    std::string payload;
+public:
+    IoTHubMethodResponse()
+    {
+        ;
+    }
+
+    IoTHubMethodResponse(IOTHUB_CLIENT_RESULT _result, int _responseStatus, unsigned char* _responsePayload, size_t _responsePayloadSize)
+    {
+        result = _result;
+        responseStatus = _responseStatus;
+        std::string payload(&_responsePayload[0], &_responsePayload[0] + _responsePayloadSize);
+        responsePayload = payload;
+    }
+
+    int result;
+    int responseStatus;
+    std::string responsePayload;
 };
 
 
@@ -1915,9 +1930,7 @@ public:
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
-            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                        IoTHubDeviceClient_DeviceMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode) :
-                        IoTHubModuleClient_ModuleMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode);
+            result = IoTHubDeviceClient_DeviceMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode);
         }
         if (result != IOTHUB_CLIENT_OK)
         {
@@ -2106,6 +2119,44 @@ public:
 #endif
 };
 
+class InvokeModuleOrDeviceMethodContext
+{
+public:
+    boost::python::object userCallback;
+    boost::python::object userContext;
+
+    InvokeModuleOrDeviceMethodContext(boost::python::object _userCallback, boost::python::object _userContext)
+    {
+        userCallback = _userCallback;
+        userContext = _userContext;
+    }
+};
+
+extern "C"
+void
+iotHubInvokeModuleOrDeviceMethodCallback(IOTHUB_CLIENT_RESULT result, int responseStatus, unsigned char* responsePayload, size_t responsePayloadSize, void* context)
+{
+    InvokeModuleOrDeviceMethodContext *invokeContext = (InvokeModuleOrDeviceMethodContext *)context;
+    boost::python::object userCallback = invokeContext->userCallback;
+    boost::python::object userContext = invokeContext->userContext;
+
+    IoTHubMethodResponse methodResponse = IoTHubMethodResponse(result, responseStatus, responsePayload, responsePayloadSize);
+    
+    {
+        ScopedGILAcquire acquire;
+        try {
+            userCallback(methodResponse, userContext);
+        }
+        catch (const boost::python::error_already_set)
+        {
+            // Catch and ignore exception that is thrown in Python callback.
+            // There is nothing we can do about it here.
+            PyErr_Print();
+        }
+    }
+    delete invokeContext;
+}
+
 
 class IoTHubModuleClient : public IoTHubClient<IOTHUB_MODULE_CLIENT_HANDLE>
 {
@@ -2240,77 +2291,68 @@ public:
         }
     }
 
-    // IoTHubMethodResponse InvokeMethodAsyncOnModule(
     void InvokeMethodAsyncOnModule(
         const std::string deviceId,
         const std::string moduleId,
         const std::string methodName,
         const std::string methodPayload,
-        unsigned int timeout
+        unsigned int timeout,
+        boost::python::object& userCallback,
+        boost::python::object& userContext
     )
     {
-#if 1
-        (void)deviceId; (void)moduleId; (void)methodName; (void)methodPayload; (void)timeout;
-#else
-        IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
-        IoTHubMethodResponse response = IoTHubMethodResponse();
-
-        ScopedGILRelease release;
-        int responseStatus;
-        unsigned char* responsePayload;
-        size_t responsePayloadSize;
-
-        result = IoTHubModuleClient_ModuleMethodInvoke(iotHubClientHandle, deviceId.c_str(), moduleId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
-
-        if (result == IOTHUB_DEVICE_METHOD_OK)
+        if (!PyCallable_Check(userCallback.ptr()))
         {
-            response.status = responseStatus;
-            std::string payload(&responsePayload[0], &responsePayload[0] + responsePayloadSize);
-            response.payload = payload;
+            PyErr_SetString(PyExc_TypeError, "InvokeMethodAsyncOnModule expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+    
+        InvokeModuleOrDeviceMethodContext *invokeContext = new InvokeModuleOrDeviceMethodContext(userCallback, userContext);
+        IOTHUB_CLIENT_RESULT result;
+
+        {
+            ScopedGILRelease release;
+            result = IoTHubModuleClient_ModuleMethodInvokeAsync(iotHubClientHandle, deviceId.c_str(), moduleId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, iotHubInvokeModuleOrDeviceMethodCallback, invokeContext);
         }
 
-        if (result != IOTHUB_DEVICE_METHOD_OK)
+        if (result != IOTHUB_CLIENT_OK)
         {
-            throw IoTHubDeviceMethodError(__func__, result);
+            delete invokeContext;
+            throw IoTHubClientError(__func__, result);
         }
-        return response;
-#endif
     }
 
-    // IoTHubMethodResponse InvokeMethodAsyncOnDevice(
     void InvokeMethodAsyncOnDevice(
         const std::string deviceId,
         const std::string methodName,
         const std::string methodPayload,
-        unsigned int timeout
+        unsigned int timeout,
+        boost::python::object& userCallback,
+        boost::python::object& userContext
     )
     {
-#if 1
-        (void)deviceId; (void)methodName; (void)methodPayload; (void)timeout;
-#else
-        IOTHUB_DEVICE_METHOD_RESULT result = IOTHUB_DEVICE_METHOD_OK;
-        IoTHubMethodResponse response = IoTHubMethodResponse();
-
-        ScopedGILRelease release;
-        int responseStatus;
-        unsigned char* responsePayload;
-        size_t responsePayloadSize;
-
-        result = IoTHubModuleClient_DeviceMethodInvoke(iotHubClientHandle, deviceId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, &responseStatus, &responsePayload, &responsePayloadSize);
-
-        if (result == IOTHUB_DEVICE_METHOD_OK)
+        if (!PyCallable_Check(userCallback.ptr()))
         {
-            response.status = responseStatus;
-            std::string payload(&responsePayload[0], &responsePayload[0] + responsePayloadSize);
-            response.payload = payload;
+            PyErr_SetString(PyExc_TypeError, "InvokeMethodAsyncOnModule expected type callable");
+            boost::python::throw_error_already_set();
+            return;
+        }
+    
+        InvokeModuleOrDeviceMethodContext *invokeContext = new InvokeModuleOrDeviceMethodContext(userCallback, userContext);
+        IOTHUB_CLIENT_RESULT result;
+
+        {
+            ScopedGILRelease release;
+            result = IoTHubModuleClient_DeviceMethodInvokeAsync(iotHubClientHandle, deviceId.c_str(), methodName.c_str(), methodPayload.c_str(), timeout, iotHubInvokeModuleOrDeviceMethodCallback, invokeContext);
         }
 
-        if (result != IOTHUB_DEVICE_METHOD_OK)
+        if (result != IOTHUB_CLIENT_OK)
         {
-            throw IoTHubDeviceMethodError(__func__, result);
+            delete invokeContext;
+            throw IoTHubClientError(__func__, result);
         }
-        return response;
-#endif
+
     }
 };
 
@@ -2627,8 +2669,10 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
             ;
 
     class_<IoTHubMethodResponse>("IoTHubMethodResponse")
-        .add_property("status", &IoTHubMethodResponse::status)
-        .add_property("payload", &IoTHubMethodResponse::payload)
+        .def(init<>())
+        .add_property("result", &IoTHubMethodResponse::result)
+        .add_property("responseStatus", &IoTHubMethodResponse::responseStatus)
+        .add_property("responsePayload", &IoTHubMethodResponse::responsePayload)
         ;
 
     class_<IoTHubModuleClient, boost::noncopyable>("IoTHubModuleClient", no_init)

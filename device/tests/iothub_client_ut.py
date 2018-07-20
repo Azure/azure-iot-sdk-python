@@ -62,6 +62,8 @@ def device_method_callback_ex(method_name, payLoad, size, method_id, user_contex
 def blob_upload_callback(result, userContext):
     return
 
+def invokemethod_callback(result, userContext):
+    return;
 
 def connection_status_callback(result, reason, user_context):
     return
@@ -812,9 +814,13 @@ class TestClassDefinitions(unittest.TestCase):
             module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", "foo");
         with self.assertRaises(Exception):
             module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout, "foo");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout, invokemethod_callback);
 
-        module.invoke_method_async("testDevice", "methodName", "methodPayload", timeout);
-        module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout);
+        # testing module invoke overload
+        module.invoke_method_async("testDevice", "methodName", "methodPayload", timeout, invokemethod_callback, None);
+        # testing device invoke overload
+        module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout, invokemethod_callback, None);
 
         # get_send_status
         with self.assertRaises(AttributeError):
