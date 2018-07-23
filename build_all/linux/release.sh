@@ -90,16 +90,16 @@ cd $build_root
 
 cd ./build_all/linux/release_device_client
 cp $build_folder/python/src/iothub_client.so iothub_client/iothub_client.so
-"python${PYTHON_VERSION}" setup_device_client.py bdist_wheel --plat-name $PLAT_ARCH
+"python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 cd $build_root
 
 cd ./build_all/linux/release_service_client
 cp $build_folder/python_service_client/src/iothub_service_client.so iothub_service_client/iothub_service_client.so
-"python${PYTHON_VERSION}" setup_service_client.py bdist_wheel --plat-name $PLAT_ARCH
+"python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 cd $build_root
 
 cd ./build_all/linux/release_provisioning_device_client
 cp $build_folder/provisioning_device_client_python/src/provisioning_device_client.so provisioning_device_client/provisioning_device_client.so
-"python${PYTHON_VERSION}" setup_provisioning_device_client.py bdist_wheel --plat-name $PLAT_ARCH
+"python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 
 cd $build_root
