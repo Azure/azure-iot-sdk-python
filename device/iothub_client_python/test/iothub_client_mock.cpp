@@ -20,9 +20,14 @@
 #include <list>
 
 #include "azure_c_shared_utility/platform.h"
+#ifndef MACOSX
 #include "azure_prov_client/iothub_security_factory.h"
+#endif
 
 #include "iothub_client.h"
+#include "iothub_device_client.h"
+#include "iothub_module_client.h"
+#include "iothub_client_edge.h"
 #include "iothub_client_version.h"
 #include "iothub_message.h"
 #include "iothubtransport.h"
@@ -48,15 +53,17 @@ void platform_deinit(void)
 {
 }
 
+#ifndef MACOSX
 int iothub_security_init(IOTHUB_SECURITY_TYPE sec_type)
 {
-    (void*)sec_type;
+    (void)sec_type;
     return 0;
 }
 
 void iothub_security_deinit(void)
 {
 }
+#endif
 
 // "map.h"
 
@@ -194,7 +201,9 @@ TRANSPORT_HANDLE mockTransportHandle = (TRANSPORT_HANDLE)0x12345678;
 
 TRANSPORT_HANDLE IoTHubTransport_Create(IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol, const char* iotHubName, const char* iotHubSuffix)
 {
-    (void)protocol, iotHubName, iotHubSuffix;
+    (void)protocol;
+    (void)iotHubName;
+    (void)iotHubSuffix;
     return mockTransportHandle;
 }
 
@@ -207,9 +216,14 @@ void IoTHubTransport_Destroy(TRANSPORT_HANDLE transportHandle)
 
 IOTHUB_CLIENT_HANDLE mockClientHandle = (IOTHUB_CLIENT_HANDLE)0x12345678;
 
+
+//
+//  IOTHUB_CLIENT
+//
 IOTHUB_CLIENT_HANDLE IoTHubClient_CreateFromConnectionString(const char* connectionString, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
 {
-    (void)connectionString, protocol;
+    (void)connectionString;
+    (void)protocol;
     return mockClientHandle;
 }
 
@@ -221,13 +235,16 @@ IOTHUB_CLIENT_HANDLE IoTHubClient_Create(const IOTHUB_CLIENT_CONFIG* config)
 
 IOTHUB_CLIENT_HANDLE IoTHubClient_CreateWithTransport(TRANSPORT_HANDLE transportHandle, const IOTHUB_CLIENT_CONFIG* config)
 {
-    (void)transportHandle, config;
+    (void)transportHandle;
+    (void)config;
     return mockClientHandle;
 }
 
 IOTHUB_CLIENT_HANDLE IoTHubClient_CreateFromDeviceAuth(const char* iothub_uri, const char* device_id, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
 {
-    (void)iothub_uri, device_id, protocol;
+    (void)iothub_uri;
+    (void)device_id;
+    (void)protocol;
     return mockClientHandle;
 }
 
@@ -238,87 +255,402 @@ void IoTHubClient_Destroy(IOTHUB_CLIENT_HANDLE iotHubClientHandle)
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SendEventAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_MESSAGE_HANDLE eventMessageHandle, IOTHUB_CLIENT_EVENT_CONFIRMATION_CALLBACK eventConfirmationCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, eventMessageHandle, eventConfirmationCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)eventMessageHandle;
+    (void)eventConfirmationCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_GetSendStatus(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_STATUS *iotHubClientStatus)
 {
-    (void)iotHubClientHandle, iotHubClientStatus;
+    (void)iotHubClientHandle;
+    (void)iotHubClientStatus;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetMessageCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC messageCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, messageCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)messageCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetConnectionStatusCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_CONNECTION_STATUS_CALLBACK connectionStatusCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, connectionStatusCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)connectionStatusCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetRetryPolicy(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_RETRY_POLICY retryPolicy, size_t retryTimeoutLimitInSeconds)
 {
-    (void)iotHubClientHandle, retryPolicy, retryTimeoutLimitInSeconds;
+    (void)iotHubClientHandle;
+    (void)retryPolicy;
+    (void)retryTimeoutLimitInSeconds;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_GetRetryPolicy(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_RETRY_POLICY* retryPolicy, size_t* retryTimeoutLimitInSeconds)
 {
-    (void)iotHubClientHandle, retryPolicy, retryTimeoutLimitInSeconds;
+    (void)iotHubClientHandle;
+    (void)retryPolicy;
+    (void)retryTimeoutLimitInSeconds;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetDeviceTwinCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_DEVICE_TWIN_CALLBACK deviceTwinCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, deviceTwinCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)deviceTwinCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SendReportedState(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const unsigned char* reportedState, size_t size ,  IOTHUB_CLIENT_REPORTED_STATE_CALLBACK reportedStateCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, reportedState, size, reportedStateCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)reportedState;
+    (void)size;
+    (void)reportedStateCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetDeviceMethodCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_DEVICE_METHOD_CALLBACK_ASYNC deviceMethodCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, deviceMethodCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)deviceMethodCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetDeviceMethodCallback_Ex(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_INBOUND_DEVICE_METHOD_CALLBACK inboundDeviceMethodCallback, void* userContextCallback)
 {
-    (void)iotHubClientHandle, inboundDeviceMethodCallback, userContextCallback;
+    (void)iotHubClientHandle;
+    (void)inboundDeviceMethodCallback;
+    (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_DeviceMethodResponse(IOTHUB_CLIENT_HANDLE iotHubClientHandle, METHOD_HANDLE methodId, const unsigned char* response, size_t respSize, int statusCode)
 {
-    (void)iotHubClientHandle, methodId, response, respSize, statusCode;
+    (void)iotHubClientHandle;
+    (void)methodId;
+    (void)response;
+    (void)respSize;
+    (void)statusCode;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_GetLastMessageReceiveTime(IOTHUB_CLIENT_HANDLE iotHubClientHandle, time_t* lastMessageReceiveTime)
 {
-    (void)iotHubClientHandle, lastMessageReceiveTime;
+    (void)iotHubClientHandle;
+    (void)lastMessageReceiveTime;
     return IOTHUB_CLIENT_INDEFINITE_TIME;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_SetOption(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* optionName, const void* value)
 {
-    (void)iotHubClientHandle, optionName, value;
+    (void)iotHubClientHandle;
+    (void)optionName;
+    (void)value;
     return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubClient_UploadToBlobAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* destinationFileName, const unsigned char* source, size_t size, IOTHUB_CLIENT_FILE_UPLOAD_CALLBACK iotHubClientFileUploadCallback, void* context)
 {
-    (void)iotHubClientHandle, destinationFileName, source, size, iotHubClientFileUploadCallback, context;
+    (void)iotHubClientHandle;
+    (void)destinationFileName;
+    (void)source;
+    (void)size;
+    (void)iotHubClientFileUploadCallback;
+    (void)context;
     return IOTHUB_CLIENT_OK;
 }
+
+//
+//  IOTHUB_DEVICE_CLIENT
+//
+
+IOTHUB_CLIENT_HANDLE IoTHubDeviceClient_CreateFromConnectionString(const char* connectionString, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
+{
+    (void)connectionString;
+    (void)protocol;
+    return mockClientHandle;
+}
+
+IOTHUB_CLIENT_HANDLE IoTHubDeviceClient_Create(const IOTHUB_CLIENT_CONFIG* config)
+{
+    (void)config;
+    return mockClientHandle;
+}
+
+IOTHUB_CLIENT_HANDLE IoTHubDeviceClient_CreateWithTransport(TRANSPORT_HANDLE transportHandle, const IOTHUB_CLIENT_CONFIG* config)
+{
+    (void)transportHandle;
+    (void)config;
+    return mockClientHandle;
+}
+
+IOTHUB_CLIENT_HANDLE IoTHubDeviceClient_CreateFromDeviceAuth(const char* iothub_uri, const char* device_id, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
+{
+    (void)iothub_uri;
+    (void)device_id;
+    (void)protocol;
+    return mockClientHandle;
+}
+
+void IoTHubDeviceClient_Destroy(IOTHUB_CLIENT_HANDLE iotHubClientHandle)
+{
+    (void)iotHubClientHandle;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SendEventAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_MESSAGE_HANDLE eventMessageHandle, IOTHUB_CLIENT_EVENT_CONFIRMATION_CALLBACK eventConfirmationCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)eventMessageHandle;
+    (void)eventConfirmationCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_GetSendStatus(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_STATUS *iotHubClientStatus)
+{
+    (void)iotHubClientHandle;
+    (void)iotHubClientStatus;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SetMessageCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC messageCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)messageCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SetConnectionStatusCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_CONNECTION_STATUS_CALLBACK connectionStatusCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)connectionStatusCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SetRetryPolicy(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_RETRY_POLICY retryPolicy, size_t retryTimeoutLimitInSeconds)
+{
+    (void)iotHubClientHandle;
+    (void)retryPolicy;
+    (void)retryTimeoutLimitInSeconds;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_GetRetryPolicy(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_RETRY_POLICY* retryPolicy, size_t* retryTimeoutLimitInSeconds)
+{
+    (void)iotHubClientHandle;
+    (void)retryPolicy;
+    (void)retryTimeoutLimitInSeconds;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SetDeviceTwinCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_DEVICE_TWIN_CALLBACK deviceTwinCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)deviceTwinCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SendReportedState(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const unsigned char* reportedState, size_t size ,  IOTHUB_CLIENT_REPORTED_STATE_CALLBACK reportedStateCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)reportedState;
+    (void)size;
+    (void)reportedStateCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SetDeviceMethodCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_DEVICE_METHOD_CALLBACK_ASYNC deviceMethodCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)deviceMethodCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_DeviceMethodResponse(IOTHUB_CLIENT_HANDLE iotHubClientHandle, METHOD_HANDLE methodId, const unsigned char* response, size_t respSize, int statusCode)
+{
+    (void)iotHubClientHandle;
+    (void)methodId;
+    (void)response;
+    (void)respSize;
+    (void)statusCode;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_GetLastMessageReceiveTime(IOTHUB_CLIENT_HANDLE iotHubClientHandle, time_t* lastMessageReceiveTime)
+{
+    (void)iotHubClientHandle;
+    (void)lastMessageReceiveTime;
+    return IOTHUB_CLIENT_INDEFINITE_TIME;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_SetOption(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* optionName, const void* value)
+{
+    (void)iotHubClientHandle;
+    (void)optionName;
+    (void)value;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubDeviceClient_UploadToBlobAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* destinationFileName, const unsigned char* source, size_t size, IOTHUB_CLIENT_FILE_UPLOAD_CALLBACK iotHubClientFileUploadCallback, void* context)
+{
+    (void)iotHubClientHandle;
+    (void)destinationFileName;
+    (void)source;
+    (void)size;
+    (void)iotHubClientFileUploadCallback;
+    (void)context;
+    return IOTHUB_CLIENT_OK;
+}
+
+//
+//  IOTHUB_MODULE_CLIENT
+//
+IOTHUB_MODULE_CLIENT_HANDLE IoTHubModuleClient_CreateFromConnectionString(const char* connectionString, IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
+{
+    (void)connectionString;
+    (void)protocol;
+    return (IOTHUB_MODULE_CLIENT_HANDLE)mockClientHandle;
+}
+
+void IoTHubModuleClient_Destroy(IOTHUB_CLIENT_HANDLE iotHubClientHandle)
+{
+    (void)iotHubClientHandle;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SendEventAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_MESSAGE_HANDLE eventMessageHandle, IOTHUB_CLIENT_EVENT_CONFIRMATION_CALLBACK eventConfirmationCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)eventMessageHandle;
+    (void)eventConfirmationCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_GetSendStatus(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_STATUS *iotHubClientStatus)
+{
+    (void)iotHubClientHandle;
+    (void)iotHubClientStatus;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetMessageCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC messageCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)messageCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetConnectionStatusCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_CONNECTION_STATUS_CALLBACK connectionStatusCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)connectionStatusCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetRetryPolicy(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_RETRY_POLICY retryPolicy, size_t retryTimeoutLimitInSeconds)
+{
+    (void)iotHubClientHandle;
+    (void)retryPolicy;
+    (void)retryTimeoutLimitInSeconds;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_GetRetryPolicy(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_RETRY_POLICY* retryPolicy, size_t* retryTimeoutLimitInSeconds)
+{
+    (void)iotHubClientHandle;
+    (void)retryPolicy;
+    (void)retryTimeoutLimitInSeconds;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetModuleTwinCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_DEVICE_TWIN_CALLBACK moduleTwinCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)moduleTwinCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SendReportedState(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const unsigned char* reportedState, size_t size ,  IOTHUB_CLIENT_REPORTED_STATE_CALLBACK reportedStateCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)reportedState;
+    (void)size;
+    (void)reportedStateCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetModuleMethodCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_CLIENT_DEVICE_METHOD_CALLBACK_ASYNC moduleMethodCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)moduleMethodCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_ModuleMethodResponse(IOTHUB_CLIENT_HANDLE iotHubClientHandle, METHOD_HANDLE methodId, const unsigned char* response, size_t respSize, int statusCode)
+{
+    (void)iotHubClientHandle;
+    (void)methodId;
+    (void)response;
+    (void)respSize;
+    (void)statusCode;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_GetLastMessageReceiveTime(IOTHUB_CLIENT_HANDLE iotHubClientHandle, time_t* lastMessageReceiveTime)
+{
+    (void)iotHubClientHandle;
+    (void)lastMessageReceiveTime;
+    return IOTHUB_CLIENT_INDEFINITE_TIME;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetOption(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* optionName, const void* value)
+{
+    (void)iotHubClientHandle;
+    (void)optionName;
+    (void)value;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SendEventToOutputAsync(IOTHUB_CLIENT_HANDLE iotHubClientHandle, IOTHUB_MESSAGE_HANDLE eventMessageHandle, const char* outputName, IOTHUB_CLIENT_EVENT_CONFIRMATION_CALLBACK eventConfirmationCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)eventMessageHandle;
+    (void)outputName;
+    (void)eventConfirmationCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;
+} 
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetInputMessageCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* inputName, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC eventHandlerCallback, void* userContextCallback)
+{
+    (void)iotHubClientHandle;
+    (void)inputName;
+    (void)eventHandlerCallback;
+    (void)userContextCallback;
+    return IOTHUB_CLIENT_OK;    
+}
+
 
 // "iothub_client_version.h"
 
@@ -334,6 +666,12 @@ IOTHUB_MESSAGE_HANDLE mockMessageHandle = (IOTHUB_MESSAGE_HANDLE)0x12345678;
 char mockBuffer[MOCKMESSAGESIZE] = { 0 };
 char mockMessageId[MOCKMESSAGESIZE] = { 0 };
 char mockCorrelationId[MOCKMESSAGESIZE] = { 0 };
+// Setter functions for mock values below are not plumbed up to Python layer, so hard-code data.
+const char* mockInputName = "python-testmockInput";
+const char* mockOutputName = "python-testmockOutput";
+const char* mockConnectionModuleId = "python-testmockConnectionModuleId";
+const char* mockConnectionDeviceId = "python-testmockConnectionDeviceId";
+
 size_t mockSize = 0;
 bool mockString = false;
 
@@ -475,9 +813,39 @@ IOTHUB_MESSAGE_RESULT IoTHubMessage_SetCorrelationId(IOTHUB_MESSAGE_HANDLE iotHu
     return IOTHUB_MESSAGE_OK;
 }
 
+const char* IoTHubMessage_GetOutputName(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockOutputName;
+}
+
+const char* IoTHubMessage_GetInputName(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockInputName;
+}
+
+const char* IoTHubMessage_GetConnectionModuleId(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockConnectionModuleId;
+}
+
+const char* IoTHubMessage_GetConnectionDeviceId(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
+{
+    (void)iotHubMessageHandle;
+    return mockConnectionDeviceId;
+}
+
 void IoTHubMessage_Destroy(IOTHUB_MESSAGE_HANDLE iotHubMessageHandle)
 {
     (void)iotHubMessageHandle;
+}
+
+IOTHUB_MODULE_CLIENT_HANDLE IoTHubModuleClient_CreateFromEnvironment(IOTHUB_CLIENT_TRANSPORT_PROVIDER protocol)
+{
+    (void)protocol;
+    return (IOTHUB_MODULE_CLIENT_HANDLE)mockMessageHandle;
 }
 
 TRANSPORT_PROVIDER *mockProtocol = (TRANSPORT_PROVIDER *)0x12345678;

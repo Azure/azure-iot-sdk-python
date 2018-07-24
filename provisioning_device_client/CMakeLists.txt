@@ -36,9 +36,10 @@ if(WIN32)
     endif()
 elseif(APPLE)
     if (${build_python} STREQUAL "2.7")
-        find_package(Boost COMPONENTS python)
+        find_package(Boost COMPONENTS python27)
     else()
-        find_package(Boost COMPONENTS python)
+        string(REPLACE "." "" boost_python ${build_python})
+        find_package(Boost COMPONENTS python${boost_python})
         # mac boost-python libs don't support versions
         string(REPLACE "libboost_python-mt.dylib" "libboost_python3-mt.dylib" Boost_LIBRARIES ${Boost_LIBRARIES})
     endif()
@@ -92,4 +93,3 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(tests)
-

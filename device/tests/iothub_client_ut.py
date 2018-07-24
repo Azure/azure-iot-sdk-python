@@ -615,6 +615,16 @@ class TestClassDefinitions(unittest.TestCase):
         self.assertEqual(result, "xyz")
         result = message.correlation_id
         self.assertEqual(result, "xyz")
+        # input_name / output_name / connection_device_id / connection_module_id do not have set operations
+        # test them against the hard-coded string that the mocked C layer returns
+        result = message.input_name
+        self.assertEqual(result, "python-testmockInput")
+        result = message.output_name
+        self.assertEqual(result, "python-testmockOutput")
+        result = message.connection_device_id
+        self.assertEqual(result, "python-testmockConnectionDeviceId")
+        result = message.connection_module_id
+        self.assertEqual(result, "python-testmockConnectionModuleId")
 
     def test_DeviceMethodReturnValue(self):
         # constructor
@@ -652,6 +662,8 @@ class TestClassDefinitions(unittest.TestCase):
         self.assertIsInstance(ioTHubConfig, IoTHubConfig)
         client = IoTHubClient(ioTHubTransport, ioTHubConfig)
         self.assertIsInstance(client, IoTHubClient)
+
+        module = IoTHubModuleClient(ioTHubTransport, ioTHubConfig)
 
         if hasattr(IoTHubTransportProvider, "HTTP"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.HTTP)
@@ -742,6 +754,12 @@ class TestClassDefinitions(unittest.TestCase):
         result = client.set_message_callback(receive_message_callback, context)
         self.assertIsNone(result)
 
+        # set_message_callback when using an input name
+        inputName = "inputName"
+        with self.assertRaises(Exception):
+            module.set_message_callback(receive_message_callback, inputName, context)
+        result = module.set_message_callback(inputName, receive_message_callback, context)
+
         # send_event_async
         counter = 1
         message = IoTHubMessage("myMessage")
@@ -759,6 +777,44 @@ class TestClassDefinitions(unittest.TestCase):
         result = client.send_event_async(
             message, send_confirmation_callback, counter)
         self.assertIsNone(result)
+
+        # send_event_async with output name
+        outputName = "output_name"
+        with self.assertRaises(Exception):
+            result = module.send_event_async(
+                message, outputName, send_confirmation_callback, counter)
+        result = module.send_event_async(
+            outputName, message, send_confirmation_callback, counter)
+        self.assertIsNone(result)
+
+        # create_from_environment
+        module_from_env = IoTHubModuleClient()
+        with self.assertRaises(Exception):
+            result = module_from_env.create_from_environment()
+        with self.assertRaises(Exception):
+            result = module_from_env.create_from_environment(IoTHubTransportProvider.AMQP, "invalidParam")
+        result = module_from_env.create_from_environment(IoTHubTransportProvider.AMQP)
+        self.assertIsNone(result)
+
+        # invoke_method
+        timeout = 60
+        with self.assertRaises(Exception):
+            module.invoke_method_async();
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", "foo");
+        with self.assertRaises(Exception):
+            module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout, "foo");
+
+        module.invoke_method_async("testDevice", "methodName", "methodPayload", timeout);
+        module.invoke_method_async("testDevice", "testModule", "methodName", "methodPayload", timeout);
 
         # get_send_status
         with self.assertRaises(AttributeError):

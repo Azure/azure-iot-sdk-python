@@ -3,15 +3,15 @@ import sys
 
 setup(
     name='azure_iothub_provisioningserviceclient',
-    version='0.0.1',
+    version='1.1.0',
     description='IoT Hub Provisioning Service Client Library',
     license='Apache Software License',
-    url='https://github.com/Azure/azure-iot-sdk-python/tree/master/provisioningserviceclient',
+    url='https://github.com/Azure/azure-iot-sdk-python/tree/master/provisioning_service_client',
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
     long_description='IoT Hub Provisioning Service Client Library for Python',
     install_requires=['msrest'],
-    packages=['provisioningserviceclient', 'provisioningserviceclient.serviceswagger', 'provisioningserviceclient.serviceswagger.models', 'provisioningserviceclient.serviceswagger.operations'],
+    packages=['provisioningserviceclient', 'provisioningserviceclient.serviceswagger', 'provisioningserviceclient.serviceswagger.models', 'provisioningserviceclient.serviceswagger.operations', 'provisioningserviceclient.utils'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

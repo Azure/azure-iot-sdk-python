@@ -11,7 +11,7 @@ import context
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification, \
     BulkEnrollmentOperation, ProvisioningServiceError
 from provisioningserviceclient.models import IndividualEnrollment, AttestationMechanism, \
-    InitialTwin, EnrollmentGroup
+    InitialTwin, EnrollmentGroup, DeviceCapabilities
 
 
 CONNECTION_STRING = ""
@@ -51,10 +51,14 @@ def run_scenario_individual_enrollment():
     #update
     twin = InitialTwin.create(TAGS, DESIRED_PROPERTIES)
     ret_ie.initial_twin = twin
+    capabilities = DeviceCapabilities.create(True)
+    ret_ie.capabilities = capabilities
+
     ret_ie = psc.create_or_update(ret_ie)
     assert ret_ie.registration_id == REGISTRATION_ID
     assert ret_ie.initial_twin.tags == TAGS
     assert ret_ie.initial_twin.desired_properties == DESIRED_PROPERTIES
+    assert ret_ie.capabilities.iot_edge == True
 
     #get
     ret_ie = psc.get_individual_enrollment(REGISTRATION_ID)

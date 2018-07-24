@@ -1,8 +1,8 @@
 ; Copyright(c) Microsoft.All rights reserved.
 ; Licensed under the MIT license.See LICENSE file in the project root for full license information.
-; IotHub_Client_Python.def : Declares the module parameters.
-; LIBRARY      "IotHub_Client.PYD"
+; iothub_client.def : Declares the common exports.
 
+LIBRARY      iothub_client.pyd
 EXPORTS
 ;   version.h
     IoTHubClient_GetVersionString
@@ -48,6 +48,10 @@ EXPORTS
     IoTHubMessage_SetMessageId
     IoTHubMessage_GetCorrelationId
     IoTHubMessage_SetCorrelationId
+    IoTHubMessage_GetOutputName
+    IoTHubMessage_GetInputName
+    IoTHubMessage_GetConnectionModuleId
+    IoTHubMessage_GetConnectionDeviceId
     IoTHubMessage_SetContentTypeSystemProperty
     IoTHubMessage_GetContentTypeSystemProperty
     IoTHubMessage_SetContentEncodingSystemProperty
@@ -75,3 +79,41 @@ EXPORTS
 ;   platform.h
     platform_init
     platform_deinit
+
+    IoTHubDeviceClient_CreateFromConnectionString
+    IoTHubDeviceClient_Create
+    IoTHubDeviceClient_CreateWithTransport
+    IoTHubDeviceClient_CreateFromDeviceAuth
+    IoTHubDeviceClient_Destroy
+    IoTHubDeviceClient_SendEventAsync
+    IoTHubDeviceClient_GetSendStatus
+    IoTHubDeviceClient_SetMessageCallback
+    IoTHubDeviceClient_SetConnectionStatusCallback
+    IoTHubDeviceClient_SetRetryPolicy
+    IoTHubDeviceClient_GetRetryPolicy
+    IoTHubDeviceClient_GetLastMessageReceiveTime
+    IoTHubDeviceClient_SetOption
+    IoTHubDeviceClient_SetDeviceTwinCallback
+    IoTHubDeviceClient_SendReportedState
+    IoTHubDeviceClient_SetDeviceMethodCallback
+    IoTHubDeviceClient_DeviceMethodResponse
+    IoTHubDeviceClient_UploadToBlobAsync
+
+    IoTHubModuleClient_CreateFromConnectionString
+    IoTHubModuleClient_Destroy
+    IoTHubModuleClient_SendEventAsync
+    IoTHubModuleClient_GetSendStatus
+    IoTHubModuleClient_SetMessageCallback
+    IoTHubModuleClient_SetConnectionStatusCallback
+    IoTHubModuleClient_SetRetryPolicy
+    IoTHubModuleClient_GetRetryPolicy
+    IoTHubModuleClient_GetLastMessageReceiveTime
+    IoTHubModuleClient_SetOption
+    IoTHubModuleClient_SetModuleTwinCallback
+    IoTHubModuleClient_SendReportedState
+    IoTHubModuleClient_SetModuleMethodCallback
+    IoTHubModuleClient_ModuleMethodResponse
+    IoTHubModuleClient_SendEventToOutputAsync
+    IoTHubModuleClient_SetInputMessageCallback
+    IoTHubModuleClient_LL_CreateFromEnvironment
+    IoTHubModuleClient_CreateFromEnvironment

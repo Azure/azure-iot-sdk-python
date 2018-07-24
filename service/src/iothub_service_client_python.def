@@ -18,6 +18,11 @@ EXPORTS
     IoTHubRegistryManager_DeleteDevice
     IoTHubRegistryManager_GetDeviceList
     IoTHubRegistryManager_GetStatistics
+    IoTHubRegistryManager_CreateModule
+    IoTHubRegistryManager_GetModule
+    IoTHubRegistryManager_UpdateModule
+    IoTHubRegistryManager_DeleteModule
+    IoTHubRegistryManager_GetModuleList
 ;   iothub_messaging.h
     IoTHubMessaging_Create
     IoTHubMessaging_Destroy
@@ -36,11 +41,23 @@ EXPORTS
     IoTHubDeviceMethod_Create
     IoTHubDeviceMethod_Destroy
     IoTHubDeviceMethod_Invoke
+    IoTHubDeviceMethod_InvokeModule
 ;   iothub_devicetwin.h
     IoTHubDeviceTwin_Create
     IoTHubDeviceTwin_Destroy
     IoTHubDeviceTwin_GetTwin
     IoTHubDeviceTwin_UpdateTwin
+    IoTHubDeviceTwin_GetModuleTwin
+    IoTHubDeviceTwin_UpdateModuleTwin
+;   iothub_deviceconfiguration.h
+    IoTHubDeviceConfiguration_Create
+    IoTHubDeviceConfiguration_Destroy
+    IoTHubDeviceConfiguration_GetConfigurations
+    IoTHubDeviceConfiguration_GetConfiguration
+    IoTHubDeviceConfiguration_AddConfiguration
+    IoTHubDeviceConfiguration_UpdateConfiguration
+    IoTHubDeviceConfiguration_DeleteConfiguration
+    IoTHubDeviceConfiguration_FreeConfigurationMembers
 ;   map.h (c-utility)
     Map_Create
     Map_Destroy

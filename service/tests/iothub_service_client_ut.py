@@ -622,6 +622,8 @@ class TestClassDefinitions(unittest.TestCase):
         primaryKey = "primaryKey"
         secondaryKey = "secondaryKey"
         authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
+        deviceCapabilities = IoTHubDeviceCapabilities()
+        deviceCapabilities.iot_edge = False
         with self.assertRaises(AttributeError):
             regManClient.CreateDevice()
         with self.assertRaises(Exception):
@@ -634,6 +636,9 @@ class TestClassDefinitions(unittest.TestCase):
             regManClient.create_device(deviceId, primaryKey, secondaryKey)
         result = regManClient.create_device(deviceId, primaryKey, secondaryKey, authMethod)
         self.assertIsInstance(result, IoTHubDevice)
+        result = regManClient.create_device(deviceId, primaryKey, secondaryKey, authMethod, deviceCapabilities)
+        self.assertIsInstance(result, IoTHubDevice)
+
 
         # get_device
         deviceId = "deviceId"
@@ -650,6 +655,8 @@ class TestClassDefinitions(unittest.TestCase):
         secondaryKey = "secondaryKey"
         status = IoTHubDeviceStatus.ENABLED
         authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
+        deviceCapabilities = IoTHubDeviceCapabilities()
+        deviceCapabilities.iot_edge = True
         with self.assertRaises(AttributeError):
             regManClient.UpdateDevice()
         with self.assertRaises(Exception):
@@ -663,6 +670,7 @@ class TestClassDefinitions(unittest.TestCase):
         with self.assertRaises(Exception):
             regManClient.create_device(deviceId, primaryKey, secondaryKey, status)
         regManClient.update_device(deviceId, primaryKey, secondaryKey, status, authMethod)
+        regManClient.update_device(deviceId, primaryKey, secondaryKey, status, authMethod, deviceCapabilities)
 
         # delete_device
         deviceId = "deviceId"
@@ -685,6 +693,79 @@ class TestClassDefinitions(unittest.TestCase):
             regManClient.GetStatistics()
         result = regManClient.get_statistics()
         self.assertIsInstance(result, IoTHubRegistryStatistics)
+
+        # create_module
+        deviceId = "deviceId"
+        moduleId = "moduleId"
+        primaryKey = "primaryKey"
+        secondaryKey = "secondaryKey"
+        authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
+        with self.assertRaises(AttributeError):
+            regManClient.CreateModule()
+        with self.assertRaises(Exception):
+            regManClient.create_module()
+        with self.assertRaises(Exception):
+            regManClient.create_module(deviceId)
+        with self.assertRaises(Exception):
+            regManClient.create_module(deviceId, primaryKey)
+        with self.assertRaises(Exception):
+            regManClient.create_module(deviceId, primaryKey, secondaryKey)
+        with self.assertRaises(Exception):
+            regManClient.create_module(deviceId, primaryKey, secondaryKey, moduleId)
+        result = regManClient.create_module(deviceId, primaryKey, secondaryKey, moduleId, authMethod)
+        self.assertIsInstance(result, IoTHubModule)
+
+        # update_module
+        deviceId = "deviceId"
+        moduleId = "moduleId"
+        primaryKey = "primaryKey"
+        secondaryKey = "secondaryKey"
+        status = IoTHubDeviceStatus.ENABLED
+        authMethod = IoTHubRegistryManagerAuthMethod.SHARED_PRIVATE_KEY;
+        with self.assertRaises(AttributeError):
+            regManClient.UpdateModule()
+        with self.assertRaises(Exception):
+            regManClient.update_module()
+        with self.assertRaises(Exception):
+            regManClient.update_module(deviceId)
+        with self.assertRaises(Exception):
+            regManClient.update_module(deviceId, primaryKey)
+        with self.assertRaises(Exception):
+            regManClient.update_module(deviceId, primaryKey, secondaryKey)
+        with self.assertRaises(Exception):
+            regManClient.create_module(deviceId, primaryKey, secondaryKey, moduleId)
+        regManClient.update_module(deviceId, primaryKey, secondaryKey, moduleId, authMethod)
+
+        # get_module
+        deviceId = "deviceId"
+        moduleId = "moduleId"
+        with self.assertRaises(AttributeError):
+            regManClient.GetDevice()
+        with self.assertRaises(Exception):
+            regManClient.get_module()
+        with self.assertRaises(Exception):
+            regManClient.get_module(deviceId)
+        result = regManClient.get_module(deviceId, moduleId)
+        self.assertIsInstance(result, IoTHubModule)
+
+        # get_module_list
+        deviceId = "deviceId"
+        with self.assertRaises(AttributeError):
+            regManClient.GetModuleList()
+        with self.assertRaises(Exception):
+            regManClient.get_module_list()
+        result = regManClient.get_module_list(deviceId)
+
+        # delete_module
+        deviceId = "deviceId"
+        moduleId = "moduleId"
+        with self.assertRaises(AttributeError):
+            regManClient.DeleteModule()
+        with self.assertRaises(Exception):
+            regManClient.delete_module()
+        with self.assertRaises(Exception):
+            regManClient.delete_module(deviceId)
+        regManClient.delete_module(deviceId, moduleId)
 
     def test_IoTHubMessaging(self):
         # constructor (connection string)
@@ -740,6 +821,7 @@ class TestClassDefinitions(unittest.TestCase):
             messagingClient.send_async(deviceId, message, "")
         with self.assertRaises(Exception):
             messagingClient.send_async(deviceId, message, send_complete_callback)
+        # Success case with message to device
         messagingClient.send_async(deviceId, message, send_complete_callback, None)
 
         # set_feedback_message_callback
@@ -772,6 +854,7 @@ class TestClassDefinitions(unittest.TestCase):
 
         # invoke
         deviceId = "deviceId"
+        moduleId = "moduleId"
         methodName = "methodName"
         methodPayload = "methodPayload"
         timeout = 42
@@ -789,7 +872,13 @@ class TestClassDefinitions(unittest.TestCase):
             deviceMethodClient.invoke(deviceId, methodName, 1)
         with self.assertRaises(Exception):
             deviceMethodClient.invoke(deviceId, methodName, methodPayload)
+        with self.assertRaises(Exception):
+            deviceMethodClient.invoke(deviceId, moduleId, methodName, methodPayload, timeout, "extraParameter")
+        # Test success on invoke method on a device
         response = deviceMethodClient.invoke(deviceId, methodName, methodPayload, timeout)
+        self.assertIsInstance(response, IoTHubDeviceMethodResponse)
+        # Test success on invoke method on a module
+        response = deviceMethodClient.invoke(deviceId, moduleId, methodName, methodPayload, timeout)
         self.assertIsInstance(response, IoTHubDeviceMethodResponse)
 
     def test_IoTHubDeviceTwin(self):
@@ -811,14 +900,21 @@ class TestClassDefinitions(unittest.TestCase):
 
         # get_twin
         deviceId = "deviceId"
+        moduleId = "moduleId"
         with self.assertRaises(Exception):
             deviceTwinClient.get_twin()
         with self.assertRaises(Exception):
             deviceTwinClient.get_twin(1)
+        with self.assertRaises(Exception):
+            deviceTwinClient.get_twin(deviceId, moduleId, 1)
+        # Test success on get twin on device
         deviceTwinClient.get_twin(deviceId)
+        # Test success on get twin on module
+        deviceTwinClient.get_twin(deviceId, moduleId)
 
         # update_twin
         deviceId = "deviceId"
+        moduleId = "moduleId"
         deviceTwinJson = "deviceTwinJson"
         with self.assertRaises(Exception):
             deviceTwinClient.update_twin()
@@ -828,7 +924,126 @@ class TestClassDefinitions(unittest.TestCase):
             deviceTwinClient.update_twin(deviceId)
         with self.assertRaises(Exception):
             deviceTwinClient.update_twin(deviceId, 1)
+        with self.assertRaises(Exception):
+            deviceTwinClient.update_twin(deviceId, moduleId, 1)
+        # Test success on update twin on device
         deviceTwinClient.update_twin(deviceId, deviceTwinJson)
+        # Test success on update twin on module
+        deviceTwinClient.update_twin(deviceId, moduleId, deviceTwinJson)
+
+    def test_IoTHubDeviceConfiguration(self):
+        # constructor (connection string)
+        with self.assertRaises(Exception):
+            deviceConfiguration = IoTHubDeviceConfiguration(1)
+
+        deviceConfiguration = IoTHubDeviceConfiguration()
+
+        # Set string type to integer properties
+        with self.assertRaises(Exception):
+            deviceConfiguration.priority = "setting-string-to-integer-priority"
+
+        # Setting integer types to string properties
+        with self.assertRaises(Exception):
+            deviceConfiguration.schemaVersion = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.configurationId = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.targetCondition = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.eTag = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.content = 123
+        with self.assertRaises(Exception):
+            # Cannot set content to a string as it has properties itself.
+            deviceConfiguration.content = "123"
+        with self.assertRaises(Exception):
+            deviceConfiguration.content.modulesContent = 123
+        with self.assertRaises(Exception):
+            deviceConfiguration.content.deviceContent = 123
+
+        # Read only properties
+        with self.assertRaises(Exception):
+            deviceConfiguration.lastUpdatedTimeUtc = "LastUpdatedUtc"
+
+        # Verify setting appropriate values is OK
+        deviceConfiguration.priority = 1234
+        deviceConfiguration.schemaVersion = "schemaVersion"
+        deviceConfiguration.configurationId = "configurationId"
+        deviceConfiguration.targetCondition = "targetCondition"
+        deviceConfiguration.eTag = "etag"
+        deviceConfiguration.content.modulesContent = "modulesContent"
+        deviceConfiguration.content.deviceContent = "devicesContent"
+
+    def test_IoTHubDeviceConfigurationManager(self):
+        deviceConfiguration = IoTHubDeviceConfiguration()
+
+        with self.assertRaises(Exception):
+            deviceConfigurationManager = IoTHubDeviceConfigurationManager()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager = IoTHubDeviceConfigurationManager("string1", "string2")
+
+        authClient = IoTHubServiceClientAuth(connectionString)
+        deviceConfigurationManager = IoTHubDeviceConfigurationManager(authClient)
+        deviceConfigurationManager = IoTHubDeviceConfigurationManager(connectionString)
+
+        # get_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration("configId1", "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration(deviceConfiguration)
+        deviceConfigurationManager.get_configuration("configId1")
+
+        # add_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.add_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.add_configuration("configId1")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.add_configuration(deviceConfiguration, "configId2")
+        deviceConfigurationManager.add_configuration(deviceConfiguration)
+
+        # update_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.update_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.update_configuration("configId1")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.update_configuration(deviceConfiguration, "configId2")
+        deviceConfigurationManager.update_configuration(deviceConfiguration)
+
+        # update_configuration
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.delete_configuration()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.delete_configuration("configId1", "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.delete_configuration(deviceConfiguration, "configId2")
+        deviceConfigurationManager.delete_configuration("configId1")
+
+        # get_configuration_list
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list("configId1", "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list(deviceConfiguration, "configId2")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.get_configuration_list("configId1")
+        deviceConfigurationManager.get_configuration_list(20)
+
+        # apply_configurationcontent_to_device_or_module
+        deviceConfigurationcontent = IoTHubDeviceConfigurationContent()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.apply_configurationcontent_to_device_or_module()
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule")
+        with self.assertRaises(Exception):
+            deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule", deviceConfigurationcontent, "invalidType")
+        deviceConfigurationcontent.deviceContent = "DeviceContent"
+        deviceConfigurationManager.apply_configurationcontent_to_device_or_module("deviceOrModule", deviceConfigurationcontent)
+
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=2)  

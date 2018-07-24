@@ -1,3 +1,26 @@
+# Python Pip package distribution table
+### For the IoT Hub Device SDK, IoT Hub Service SDK, and DPS Device SDK, please see the table below for using either the PIP Packages available, or building locally. 
+### For the DPS Service SDK, since it is implemented in Native Python, you can use the available PIP package on any of the platforms without worrying about the matrix below.
+
+| OS version 	|  Python version 	| Architecture  	| Boost version for Pip  	| Boost version for building locally  	|
+|:-:        	|:-:             	|:-:             	|:-:                    	|:-:                                	|
+| Windows    	|  Python 2     	|  x86 32       	| No Boost required     	| Any                               	|
+|             	|                 	|  x86 64           | No Boost required       	| Any                                	|
+|           	|  Python 3     	|  x86 32       	| No Boost required     	| Any                               	|
+|             	|                 	|  x86 64           | No Boost required       	| Any                                	|
+| Ubuntu 16.04	|  Python 2     	|  x86 32       	| 1.58                   	| Any                               	|
+|             	|                 	|  x86 64           | 1.58                  	| Any                                	|
+|            	|  Python 3     	|  x86 32       	| 1.58                  	| Any                               	|
+|             	|                 	|  x86 64           | 1.58                  	| Any                                	|
+| Raspbian  	|  Python 2     	|  ArmV7        	| 1.55                   	| Any                               	|
+|             	|                	|  ArmV6            | TBD                   	| Any                                	|
+|            	|  Python 3     	|  ArmV7         	| 1.55                   	| Any                               	|
+|             	|                	|  ArmV6            | TBD                   	| Any                                	|
+| OSX       	|  Python 2     	|  32              	| TBD                   	| Any                               	|
+|             	|                 	|  64               | TBD                   	| Any                                	|
+|           	|  Python 3     	|  32     	        | TBD                   	| Any                               	|
+|             	|                 	|  64               | TBD                   	| Any                                	|
+
 # Prepare your development environment
 
 This document describes how to prepare your development environment to use the *Microsoft Azure IoT SDKs for Python*.
@@ -15,7 +38,7 @@ This document describes how to prepare your development environment to use the *
 
 Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run `python --version` or `python3 --version` at the command line to check the version. 
 * On Linux, Python 2.7 is typically already installed and active. 
-* On Windows, install the latest x86 or x64 Python 2.7 or 3.x client from ([python.org](https://www.python.org/downloads/)). If you plan to build the Python library, the scrips will need a valid Python.exe in the path. Based on the active Python version (e.g. Python 2.7.11 x86 32bit) the build script choses the compiler settings for the Python extension module build accordingly and copies the extension to the test and sample folders.
+* On Windows, install the latest x86 or x64 Python 2.7 or 3.x client from ([python.org](https://www.python.org/downloads/)). **Make sure you download the x64 version instead of the default x86 version if your machine is x64.** If you plan to build the Python library, the scrips will need a valid Python.exe in the path. Based on the active Python version (e.g. Python 2.7.11 x86 32bit) the build script choses the compiler settings for the Python extension module build accordingly and copies the extension to the test and sample folders.
 
 <a name="pypi-wheels"></a>
 ## Install the Python modules using PyPI wheels from [PyPI] 
@@ -30,6 +53,8 @@ Ensure that the desired Python version is installed (2.7.x, 3.4.x or 3.5.x). Run
 > - On Windows make sure the Visual C++ Redistributable for Visual Studio 2015 package is installed from here: https://www.microsoft.com/en-us/download/details.aspx?id=48145 (Note: Visual Studio 2015 installation includes it) 
 > - On other platforms make sure the Pip tool is upgraded to the latest version. (> 9)
 > - If Pip cannot install the package for the specific version of Python installed on your machine, use one of the following options to build the **iothub_client** module.
+> - If Pip cannot be found, see https://pip.pypa.io/en/stable/installing/
+> - Installation on a Raspberry Pi may require 'sudo pip3 install MODULE'
 
 <a name="linux"></a>
 ## Build the Azure IoT Hub SDKs for Python on Linux

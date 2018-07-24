@@ -12,15 +12,15 @@ PYTHON_VERSION=2.7
 process_args()
 {
     save_next_arg=0
-    
+
     for arg in $*
     do
       if [ $save_next_arg == 1 ]
       then
         PYTHON_VERSION="$arg"
-        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
         then
-          echo "Supported python versions are 2.7, 3.4, 3.5 or 3.6"
+          echo "Supported python versions are 2.7, 3.4, 3.5, 3.6 or 3.7"
           exit 1
         fi
         save_next_arg=0
@@ -41,7 +41,7 @@ export OPENSSL_ROOT_DIR=/usr/local/opt/openssl
 c_build_root=${build_root}"/c"
 
 # brew installes python 3.x to $prefix/include/python3.xm
-if [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+if [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
 then
 	python_prefix=$(python-config --prefix)
 	python_include=$python_prefix/include/python$PYTHON_VERSION
@@ -56,7 +56,7 @@ fi
 rm -r -f $build_folder
 mkdir -p $build_folder
 pushd $build_folder
-cmake -Drun_valgrind:BOOL=OFF -DcompileOption_CXX:STRING="-Wno-unused-value" -DcompileOption_C:STRING="-Wno-unused-value" -Drun_e2e_tests:BOOL=OFF -Drun_longhaul_tests=OFF -Duse_amqp:BOOL=ON -Duse_http:BOOL=ON -Duse_mqtt:BOOL=ON -Ddont_use_uploadtoblob:BOOL=OFF -Duse_wsio:BOOL=ON -Drun_unittests:BOOL=OFF -Dbuild_python:STRING=$PYTHON_VERSION -Dbuild_javawrapper:BOOL=OFF -Dno_logging:BOOL=OFF $c_build_root -Dwip_use_c2d_amqp_methods:BOOL=OFF -DPYTHON_LIBRARY=$python_lib -DPYTHON_INCLUDE_DIR=$python_include -Duse_prov_client=ON
+cmake -DBoost_DEBUG=ON -Drun_valgrind:BOOL=OFF -DcompileOption_CXX:STRING="-Wno-unused-value" -DcompileOption_C:STRING="-Wno-unused-value" -Drun_e2e_tests:BOOL=OFF -Drun_longhaul_tests=OFF -Duse_amqp:BOOL=ON -Duse_http:BOOL=ON -Duse_mqtt:BOOL=ON -Ddont_use_uploadtoblob:BOOL=OFF -Duse_wsio:BOOL=ON -Drun_unittests:BOOL=OFF -Dbuild_python:STRING=$PYTHON_VERSION -Dbuild_javawrapper:BOOL=OFF -Dno_logging:BOOL=OFF $c_build_root -Dwip_use_c2d_amqp_methods:BOOL=OFF -DPYTHON_LIBRARY=$python_lib -DPYTHON_INCLUDE_DIR=$python_include -Duse_prov_client=OFF -Duse_edge_modules=ON -Dskip_samples=ON
 
 # Set the default cores
 CORES=$(sysctl -n hw.ncpu)
@@ -91,26 +91,13 @@ echo copy provisioning_device_client_mock library to tests folder
 cp $build_folder/provisioning_device_client_python/tests/provisioning_device_client_mock.dylib ./provisioning_device_client/tests/provisioning_device_client_mock.so
 cp $build_folder/provisioning_device_client_python/src/provisioning_device_client.dylib ./provisioning_device_client/tests/provisioning_device_client.so
 
-cd $build_root/device/tests/
-echo "python${PYTHON_VERSION}" iothub_client_ut.py
-"python${PYTHON_VERSION}" iothub_client_ut.py
-[ $? -eq 0 ] || exit $?
-echo "python${PYTHON_VERSION}" iothub_client_map_test.py
-"python${PYTHON_VERSION}" iothub_client_map_test.py
-[ $? -eq 0 ] || exit $?
-cd $build_root
+
 
 cd $build_root/service/tests/
 echo "python${PYTHON_VERSION}" iothub_service_client_ut.py
-"python${PYTHON_VERSION}" iothub_service_client_ut.py
+"python${PYTHON_VERSION}" -u iothub_service_client_ut.py
 [ $? -eq 0 ] || exit $?
 echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
-"python${PYTHON_VERSION}" iothub_service_client_map_test.py
-[ $? -eq 0 ] || exit $?
-cd $build_root
-
-cd $build_root/provisioning_device_client/tests/
-echo "python${PYTHON_VERSION}" provisioning_device_client_ut.py
-"python${PYTHON_VERSION}" provisioning_device_client_ut.py
+"python${PYTHON_VERSION}" -u iothub_service_client_map_test.py
 [ $? -eq 0 ] || exit $?
 cd $build_root

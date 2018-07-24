@@ -83,7 +83,7 @@ set cmake-output=cmake_%build-platform%
 REM -- C --
 cd %build-root%..\..\c\build_all\windows
 
-call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator%
+call build_client.cmd --platform %build-platform% --buildpython %build-python% --config %build-config% --provisioning %use_tpm_simulator% --use_edge_modules
 
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 cd %build-root%
@@ -144,27 +144,27 @@ if "%build-config%"=="Debug" (
 
 cd ..\..\device\tests
 @Echo python iothub_client_ut.py
-python iothub_client_ut.py
+python -u iothub_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 @Echo python iothub_client_map_test.py
-python iothub_client_map_test.py
+python -u iothub_client_map_test.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
 
 cd ..\..\service\tests
 @Echo python iothub_service_client_ut.py
-python iothub_service_client_ut.py
+python -u iothub_service_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 @Echo python iothub_service_client_map_test.py
-python iothub_service_client_map_test.py
+python -u iothub_service_client_map_test.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%
 
 cd ..\..\provisioning_device_client\tests
 @Echo python provisioning_device_client_ut.py
-python provisioning_device_client_ut.py
+python -u provisioning_device_client_ut.py
 if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
 echo Python unit test PASSED
 cd %build-root%

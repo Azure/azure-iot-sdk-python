@@ -9,9 +9,9 @@ cd $build_root
 ./build_all/linux/build.sh --build-python 3.4 $*
 [ $? -eq 0 ] || exit $?
 
-python3 ./service/tests/iothub_service_client_e2e.py
+python3 -u ./service/tests/iothub_service_client_e2e.py
 [ $? -eq 0 ] || exit $?
 
-python3 ./device/tests/iothub_client_e2e.py
+python3 -u ./device/tests/iothub_client_e2e.py
 [ $? -eq 0 ] || exit $?
 

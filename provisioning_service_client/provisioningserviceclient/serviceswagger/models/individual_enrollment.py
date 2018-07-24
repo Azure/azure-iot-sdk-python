@@ -11,6 +11,8 @@ from msrest.serialization import Model
 class IndividualEnrollment(Model):
     """The device enrollment record.
 
+    :param capabilities: Capabilities of the device
+    :type capabilities: ~serviceswagger.models.DeviceCapabilities
     :param registration_id: Registration ID.
     :type registration_id: str
     :param device_id: Desired IoT Hub device ID (optional).
@@ -26,7 +28,7 @@ class IndividualEnrollment(Model):
     :param etag: The entity tag associated with the resource.
     :type etag: str
     :param provisioning_status: The provisioning status. Possible values
-     include: 'enabled', 'disabled'
+     include: 'enabled', 'disabled'. Default value: "enabled" .
     :type provisioning_status: str or ~serviceswagger.models.enum
     :param created_date_time_utc: The DateTime this resource was created.
     :type created_date_time_utc: datetime
@@ -41,6 +43,7 @@ class IndividualEnrollment(Model):
     }
 
     _attribute_map = {
+        'capabilities': {'key': 'capabilities', 'type': 'DeviceCapabilities'},
         'registration_id': {'key': 'registrationId', 'type': 'str'},
         'device_id': {'key': 'deviceId', 'type': 'str'},
         'registration_state': {'key': 'registrationState', 'type': 'DeviceRegistrationState'},
@@ -53,7 +56,8 @@ class IndividualEnrollment(Model):
         'last_updated_date_time_utc': {'key': 'lastUpdatedDateTimeUtc', 'type': 'iso-8601'},
     }
 
-    def __init__(self, registration_id, attestation, device_id=None, registration_state=None, iot_hub_host_name=None, initial_twin=None, etag=None, provisioning_status=None, created_date_time_utc=None, last_updated_date_time_utc=None):
+    def __init__(self, registration_id, attestation, capabilities=None, device_id=None, registration_state=None, iot_hub_host_name=None, initial_twin=None, etag=None, provisioning_status="enabled", created_date_time_utc=None, last_updated_date_time_utc=None):
+        self.capabilities = capabilities
         self.registration_id = registration_id
         self.device_id = device_id
         self.registration_state = registration_state

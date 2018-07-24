@@ -6,10 +6,10 @@ set(iothub_client_python_c_files
 )
 
 if(WIN32)
+    set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/dllmain.c ../windows/iothub_client.def)
+
     if(${use_wsio})
-        set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/dllmain.c ../windows/iothub_client_ws.def)
-    else()
-        set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/dllmain.c ../windows/iothub_client.def)
+        set(iothub_client_python_c_files ${iothub_client_python_c_files} ../windows/iothub_client_ws.def)
     endif()
 endif()
 
