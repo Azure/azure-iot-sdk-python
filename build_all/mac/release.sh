@@ -112,11 +112,11 @@ cd $build_root
 
 cd ./build_all/mac/release_device_client
 cp $build_folder/python/src/iothub_client.dylib iothub_client/iothub_client.so
-"python${PYTHON_VERSION}" setup_device_client.py bdist_wheel --plat-name $PLAT_ARCH
+"python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 cd $build_root
 
 cd ./build_all/mac/release_service_client
 cp $build_folder/python_service_client/src/iothub_service_client.dylib iothub_service_client/iothub_service_client.so
-"python${PYTHON_VERSION}" setup_service_client.py bdist_wheel --plat-name $PLAT_ARCH
+"python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 
 cd $build_root
