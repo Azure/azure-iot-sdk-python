@@ -16,16 +16,22 @@ RECEIVE_CONTEXT = 0
 
 PROTOCOL = IoTHubTransportProvider.MQTT
 
+TARGET_MODULE="TODO - Fill in module name to invoke"
+TARGET_METHOD_NAME="TODO - Fill in method name to invoke"
+TARGET_METHOD_PAYLOAD="{TODO - Fill in sample JSON}"
+TIMEOUT=60
+
+CALLBACK_INVOKED = False
+
+
 def invoke_method_callback(response, user_context):
+    global CALLBACK_INVOKED
     print ("invoke_method_callback called:")
     print ("  result = %d" % response.result)
     print ("  responseStatus = %d" % response.responseStatus)
-    print ("  responsePayload = %d" % response.responsePayload)
+    print ("  responsePayload = %s" % response.responsePayload)
+    CALLBACK_INVOKED = True
 
-TARGET_MODULE="testFilter"
-TARGET_METHOD_NAME="getCarVin"
-TARGET_METHOD_PAYLOAD="{sample-Json}"
-TIMEOUT=60
 
 class HubManager(object):
     def __init__(
@@ -56,6 +62,12 @@ def main(protocol):
         print ( "NOTE: This sample will only run when running from inside an Edge container")
 
         hub_manager.invoke_module()
+
+        # The invocation happens asyncronously.  Wait for callback.
+        while (CALLBACK_INVOKED == False):
+            time.sleep(1)
+
+        print("Waking up main thread and exiting as callback has been invoked.")
 
     except IoTHubError as iothub_error:
         print ( "Unexpected error %s from IoTHub" % iothub_error )
