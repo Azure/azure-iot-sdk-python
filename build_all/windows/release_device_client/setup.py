@@ -41,6 +41,7 @@ setup(
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
     long_description=_long_description,
+    long_description_content_type="text/markdown",
     packages=['iothub_client'],
     classifiers=[
         'Environment :: Win32 (MS Windows)',
