@@ -203,7 +203,7 @@ if %wheel%==1 (
     echo create IoTHub Service Client Python wheel:
     echo "python setup.py bdist_wheel --plat-name %platname%"
     cd release_service_client
-    python setup_service_client.py bdist_wheel --plat-name "%platname%"
+    python setup.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Service Client Python wheel done
