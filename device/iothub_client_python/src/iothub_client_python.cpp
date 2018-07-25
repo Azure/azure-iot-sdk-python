@@ -1421,18 +1421,20 @@ public:
 
     IoTHubClient()
     {
-        ;
+        iotHubClientHandle = NULL;
     }
 
     IoTHubClient(const IoTHubClient& client)
     {
         (void)client;
+        iotHubClientHandle = NULL;
         throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
     }
 
     IoTHubClient(
         CLIENT_INTERFACE_TYPE _client_interface_type)
     {
+        iotHubClientHandle = NULL;
         client_interface_type = _client_interface_type;
     }
 
@@ -1442,6 +1444,7 @@ public:
     {
         (void)client;
         client_interface_type = _client_interface_type;
+        iotHubClientHandle = NULL;
         throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
     }
 
@@ -1453,6 +1456,7 @@ public:
         iotHubClientHandle(_iotHubClientHandle),
         protocol(_protocol)
     {
+        iotHubClientHandle = NULL;
         client_interface_type = _client_interface_type;
         if (_iotHubClientHandle == NULL)
         {
@@ -1467,13 +1471,13 @@ public:
     ) :
         protocol(_protocol)
     {
+        iotHubClientHandle = NULL;
+
         {
             client_interface_type = _client_interface_type;
 
             ScopedGILRelease release;
             PlatformCallHandler::Platform_Init();
-            iotHubClientHandle = IoTHubClient_CreateFromConnectionString("", GetProtocol(_protocol));
-
             iotHubClientHandle = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
                                     IoTHubDeviceClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol)) :
                                     IoTHubModuleClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
@@ -1490,6 +1494,7 @@ public:
     )
     {
         client_interface_type = _client_interface_type;
+        iotHubClientHandle = NULL;
 
         IOTHUB_CLIENT_CONFIG config;
         config.protocol = GetProtocol(_config.protocol);
@@ -1519,6 +1524,7 @@ public:
     )
     {
         client_interface_type = _client_interface_type;
+        iotHubClientHandle = NULL;
 
         IOTHUB_CLIENT_CONFIG config;
         config.protocol = GetProtocol(_iotHubConfig->protocol);
@@ -1630,6 +1636,7 @@ public:
         PlatformCallHandler::Platform_Init();
 
         client_interface_type = _client_interface_type;
+        iotHubClientHandle = NULL;
 
         if (iothub_security_init(GetSecurityType(security_type)) == 0)
         {
