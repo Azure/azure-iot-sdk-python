@@ -13,10 +13,10 @@ class BinaryDistribution(Distribution):
         return False
 
 #Get relative path to readme
-file_dir = os.path.dirname(os.path.realpath(__file__))
-readme_path = os.path.join(file_dir, '../../../device/readme.md')
-print("\n\n\n\n\nREADME PATH:" + readme_path)
-with open(readme_path, "r") as fh:
+# file_dir = os.path.dirname(os.path.realpath(__file__))
+# readme_path = os.path.join(file_dir, '../../../device/readme.md')
+# print("\n\n\n\n\nREADME PATH:" + readme_path)
+with open("readme.md", "r") as fh:
     _long_description = fh.read
 
 try:
