@@ -17,7 +17,7 @@ class BinaryDistribution(Distribution):
 # readme_path = os.path.join(file_dir, '../../../device/readme.md')
 # print("\n\n\n\n\nREADME PATH:" + readme_path)
 with open("readme.md", "r") as fh:
-    _long_description = fh.read
+    _long_description = fh.read()
 
 try:
     if sys.version_info < (2, 7):
