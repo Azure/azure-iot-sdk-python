@@ -186,10 +186,10 @@ if %wheel%==1 (
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
-    echo create Python wheel:
-    echo "python setup_device_client.py bdist_wheel --plat-name %platname%"
+    echo create IoTHub Device Client Python wheel:
+    echo "python setup.py bdist_wheel --plat-name %platname%"
     cd release_device_client
-    python setup_device_client.py bdist_wheel --plat-name "%platname%"
+    python setup.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Device Client Python wheel done
@@ -200,10 +200,10 @@ if %wheel%==1 (
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
-    echo create Python wheel:
-    echo "python setup_service_client.py bdist_wheel --plat-name %platname%"
+    echo create IoTHub Service Client Python wheel:
+    echo "python setup.py bdist_wheel --plat-name %platname%"
     cd release_service_client
-    python setup_service_client.py bdist_wheel --plat-name "%platname%"
+    python setup.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoTHub Service Client Python wheel done
@@ -214,10 +214,10 @@ if %wheel%==1 (
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     echo update Python packages
     python -m pip install -U pip setuptools wheel twine
-    echo create Python wheel: 
-    echo "python provisioning_device_client.py bdist_wheel --plat-name %platname%"
+    echo create IoTHub Provisioning Device Client Python wheel: 
+    echo "python setup.py bdist_wheel --plat-name %platname%"
     cd release_provisioning_device_client
-    python setup_provisioning_device_client.py bdist_wheel --plat-name "%platname%"
+    python setup.py bdist_wheel --plat-name "%platname%"
     if not !ERRORLEVEL!==0 exit /b !ERRORLEVEL!
     dir dist
     echo IoT Provisioning Device Client Python wheel done

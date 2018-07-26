@@ -1478,6 +1478,7 @@ public:
 
             ScopedGILRelease release;
             PlatformCallHandler::Platform_Init();
+
             iotHubClientHandle = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
                                     IoTHubDeviceClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol)) :
                                     IoTHubModuleClient_CreateFromConnectionString(connectionString.c_str(), GetProtocol(_protocol));
