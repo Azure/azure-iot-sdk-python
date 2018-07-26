@@ -1,5 +1,6 @@
 from setuptools import setup, Distribution
 import sys
+import os
 
 class PlatformError(Exception):
     def __init__(self, value):
@@ -11,7 +12,11 @@ class BinaryDistribution(Distribution):
     def is_pure(self):
         return False
 
-_long_description=()
+#Get relative path to readme
+file_dir = os.path.dirname(os.path.realpath(__file__))
+readme_path = os.path.join(file_dir, '../../../provisioning_device_client/doc/package-readme.md')
+with open(readme_path, "r") as fh:
+    _long_description = fh.read()
 
 try:
     if sys.version_info < (2, 7):
@@ -35,7 +40,8 @@ setup(
     url='https://github.com/Azure/azure-iot-sdk-python/tree/master/provisioning_device_client',
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
-    long_description='IoT Provisioning Device Client Library for Python 2.7 and 3.6 - provisioning_device_client.so',
+    long_description=_long_description,
+    long_description_content_type='text/markdown',
     packages=['provisioning_device_client'],
     classifiers=[
         'Operating System :: MacOS',
