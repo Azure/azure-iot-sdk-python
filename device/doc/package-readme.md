@@ -30,10 +30,6 @@ Use this SDK to:
 Please refer to our [sample repository][Python Device SDK Sample Repository] for examples of how to use the Azure IoT Hub Device Client SDK.
 
 
-## Simple Example (Send Message)
-
-
-
 [Azure IoT Fundamentals]: https://docs.microsoft.com/en-us/azure/iot-fundamentals/
 [Azure IoT Hub Documentation]: https://docs.microsoft.com/en-us/azure/iot-hub/
 [Azure IoT Edge]:
