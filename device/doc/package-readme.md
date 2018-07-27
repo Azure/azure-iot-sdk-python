@@ -6,6 +6,14 @@
 pip install azure-iothub-device-client
 ```
 
+Additionally, if running on Linux or OSX:
+
+```
+apt-get install libboost-python-dev
+```
+
+For best results, ensure that your version of boost is >= 1.58
+
 ## Feature List
 
 Use this SDK to:
