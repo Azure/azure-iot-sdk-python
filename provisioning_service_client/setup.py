@@ -1,6 +1,17 @@
 from setuptools import setup, Distribution
 import sys
 
+with open("doc/package-readme.md", "r") as fh:
+    _long_description = fh.read()
+
+try:
+    if sys.version_info < (2, 7):
+        raise PlatformError("Require Python 2.7 or greater")
+    if sys.version_info >= (3, 0) and sys.version_info < (3, 4):
+        raise PlatformError("Require Python 3.4 or greater")
+except PlatformError as e:
+    sys.exit(e.value)
+
 setup(
     name='azure_iothub_provisioningserviceclient',
     version='1.1.0',
@@ -9,7 +20,7 @@ setup(
     url='https://github.com/Azure/azure-iot-sdk-python/tree/master/provisioning_service_client',
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
-    long_description='IoT Hub Provisioning Service Client Library for Python',
+    long_description=_long_description,
     install_requires=['msrest'],
     packages=['provisioningserviceclient', 'provisioningserviceclient.serviceswagger', 'provisioningserviceclient.serviceswagger.models', 'provisioningserviceclient.serviceswagger.operations', 'provisioningserviceclient.utils'],
     classifiers=[
