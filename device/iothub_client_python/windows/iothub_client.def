@@ -112,8 +112,9 @@ EXPORTS
     IoTHubModuleClient_SetModuleTwinCallback
     IoTHubModuleClient_SendReportedState
     IoTHubModuleClient_SetModuleMethodCallback
-    IoTHubModuleClient_ModuleMethodResponse
     IoTHubModuleClient_SendEventToOutputAsync
     IoTHubModuleClient_SetInputMessageCallback
     IoTHubModuleClient_LL_CreateFromEnvironment
     IoTHubModuleClient_CreateFromEnvironment
+    IoTHubModuleClient_ModuleMethodInvokeAsync
+    IoTHubModuleClient_DeviceMethodInvokeAsync

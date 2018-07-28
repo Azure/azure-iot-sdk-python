@@ -607,16 +607,6 @@ IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetModuleMethodCallback(IOTHUB_CLIENT_HA
     return IOTHUB_CLIENT_OK;
 }
 
-IOTHUB_CLIENT_RESULT IoTHubModuleClient_ModuleMethodResponse(IOTHUB_CLIENT_HANDLE iotHubClientHandle, METHOD_HANDLE methodId, const unsigned char* response, size_t respSize, int statusCode)
-{
-    (void)iotHubClientHandle;
-    (void)methodId;
-    (void)response;
-    (void)respSize;
-    (void)statusCode;
-    return IOTHUB_CLIENT_OK;
-}
-
 IOTHUB_CLIENT_RESULT IoTHubModuleClient_GetLastMessageReceiveTime(IOTHUB_CLIENT_HANDLE iotHubClientHandle, time_t* lastMessageReceiveTime)
 {
     (void)iotHubClientHandle;
@@ -649,6 +639,31 @@ IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetInputMessageCallback(IOTHUB_CLIENT_HA
     (void)eventHandlerCallback;
     (void)userContextCallback;
     return IOTHUB_CLIENT_OK;    
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_DeviceMethodInvokeAsync(IOTHUB_MODULE_CLIENT_HANDLE iotHubModuleClientHandle, const char* deviceId, const char* methodName, const char* methodPayload, unsigned int timeout, IOTHUB_METHOD_INVOKE_CALLBACK methodInvokeCallback, void* context)
+{
+    (void)iotHubModuleClientHandle;
+    (void)deviceId;
+    (void)methodName;
+    (void)methodPayload;
+    (void)timeout;
+    (void)methodInvokeCallback;
+    (void)context;
+    return IOTHUB_CLIENT_OK;
+}
+
+IOTHUB_CLIENT_RESULT IoTHubModuleClient_ModuleMethodInvokeAsync(IOTHUB_MODULE_CLIENT_HANDLE iotHubModuleClientHandle, const char* deviceId, const char* moduleId, const char* methodName, const char* methodPayload, unsigned int timeout, IOTHUB_METHOD_INVOKE_CALLBACK methodInvokeCallback, void* context)
+{
+    (void)iotHubModuleClientHandle;
+    (void)deviceId;
+    (void)moduleId;
+    (void)methodName;
+    (void)methodPayload;
+    (void)timeout;
+    (void)methodInvokeCallback;
+    (void)context;
+    return IOTHUB_CLIENT_OK;
 }
 
 
