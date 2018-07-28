@@ -21,6 +21,7 @@ setup(
     author='aziotclb',
     author_email='aziotclb@microsoft.com',
     long_description=_long_description,
+    long_description_content_type='text/markdown',
     install_requires=['msrest'],
     packages=['provisioningserviceclient', 'provisioningserviceclient.serviceswagger', 'provisioningserviceclient.serviceswagger.models', 'provisioningserviceclient.serviceswagger.operations', 'provisioningserviceclient.utils'],
     classifiers=[
