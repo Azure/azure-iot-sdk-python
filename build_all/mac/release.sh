@@ -8,25 +8,37 @@ build_folder=$build_root"/c/cmake/iotsdk_mac"
 cd $build_root
 
 PYTHON_VERSION=2.7
+UPLOAD_PIP=0
 
 process_args()
 {
     save_next_arg=0
-    
+
     for arg in $*
     do
-      if [ $save_next_arg == 1 ]
-      then
+      if [ $save_next_arg == 1 ]; then
+        save_next_arg=0
         PYTHON_VERSION="$arg"
-        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
         then
-          echo "Supported python versions are 2.7, 3.4, 3.5 or 3.6"
+          echo "Supported python versions are 2.7, 3.4, 3.5, 3.6 or 3.7"
           exit 1
         fi
+      elif [ $save_next_arg == 2 ]; then
         save_next_arg=0
-      else
+        if [ $arg == "release" ]; then
+            UPLOAD_PIP=1
+        elif [ $arg == "test" ]; then
+            UPLOAD_PIP=2
+        else
+            UPLOAD_PIP=0
+            echo "Please specify upload-pip path: release or test"
+            exit 1
+        fi
+      elif [ $save_next_arg == 0 ]; then
         case "$arg" in
           "--build-python" ) save_next_arg=1;;
+          "--upload-pip" ) save_next_arg=2;;
           * ) ;;
         esac
       fi
@@ -35,35 +47,31 @@ process_args()
 
 process_args $*
 
-# identify processor architecture
-if [[ "$(uname -m)" = "x86_64" ]] ; then
-    PLAT_ARCH="macosx_10_6_x86_64"
-else
-    PLAT_ARCH="macosx_10_6_i386"
-fi
+# processor architecture is any for Mac packages
+PLAT_ARCH="any"
 
 ########################################################
 #build azure-iot-sdk-c
 export OPENSSL_ROOT_DIR=/usr/local/opt/openssl
 c_build_root=${build_root}"/c"
 
-# brew installes python 3.x to $prefix/include/python3.xm
-if [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+# brew installs python 3.x to $prefix/include/python3.xm
+if [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
 then
-	python_prefix=$(python-config --prefix)
-	python_include=$python_prefix/include/python$PYTHON_VERSION
-	python_lib=$python_prefix/lib/libpython$PYTHON_VERSION.dylib
+    python_prefix=$(python-config --prefix)
+    python_include=$python_prefix/include/python$PYTHON_VERSION
+    python_lib=$python_prefix/lib/libpython$PYTHON_VERSION.dylib
 else
-	python_prefix=$(python3-config --prefix)
-	python_include=$python_prefix/include/python${PYTHON_VERSION}m
-	python_lib=$python_prefix/lib/libpython${PYTHON_VERSION}m.dylib
+    python_prefix=$(python3-config --prefix)
+    python_include=$python_prefix/include/python${PYTHON_VERSION}m
+    python_lib=$python_prefix/lib/libpython${PYTHON_VERSION}m.dylib
 fi
 
 
 rm -r -f $build_folder
 mkdir -p $build_folder
 pushd $build_folder
-cmake -Drun_valgrind:BOOL=OFF -DcompileOption_CXX:STRING="-Wno-unused-value" -DcompileOption_C:STRING="-Wno-unused-value" -Drun_e2e_tests:BOOL=OFF -Drun_longhaul_tests=OFF -Duse_amqp:BOOL=ON -Duse_http:BOOL=ON -Duse_mqtt:BOOL=ON -Ddont_use_uploadtoblob:BOOL=OFF -Duse_wsio:BOOL=ON -Drun_unittests:BOOL=OFF -Dbuild_python:STRING=$PYTHON_VERSION -Dbuild_javawrapper:BOOL=OFF -Dno_logging:BOOL=OFF $c_build_root -Dwip_use_c2d_amqp_methods:BOOL=OFF -DPYTHON_LIBRARY=$python_lib -DPYTHON_INCLUDE_DIR=$python_include
+cmake -Drun_valgrind:BOOL=OFF -DcompileOption_CXX:STRING="-Wno-unused-value" -DcompileOption_C:STRING="-Wno-unused-value" -Drun_e2e_tests:BOOL=OFF -Drun_longhaul_tests=OFF -Duse_amqp:BOOL=ON -Duse_http:BOOL=ON -Duse_mqtt:BOOL=ON -Ddont_use_uploadtoblob:BOOL=OFF -Duse_wsio:BOOL=ON -Drun_unittests:BOOL=OFF -Dbuild_python:STRING=$PYTHON_VERSION -Dbuild_javawrapper:BOOL=OFF -Dno_logging:BOOL=OFF $c_build_root -Dwip_use_c2d_amqp_methods:BOOL=OFF -DPYTHON_LIBRARY=$python_lib -DPYTHON_INCLUDE_DIR=$python_include -Duse_prov_client=OFF -Duse_edge_modules=ON -Dskip_samples=ON
 
 # Set the default cores
 CORES=$(sysctl -n hw.ncpu)
@@ -113,10 +121,20 @@ cd $build_root
 cd ./build_all/mac/release_device_client
 cp $build_folder/python/src/iothub_client.dylib iothub_client/iothub_client.so
 "python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
+if [ $UPLOAD_PIP == 1 ]; then
+    twine upload --repository-url https://pypi.org/legacy/ dist/*
+elif [ $UPLOAD_PIP == 2 ]; then
+    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+fi
 cd $build_root
 
 cd ./build_all/mac/release_service_client
 cp $build_folder/python_service_client/src/iothub_service_client.dylib iothub_service_client/iothub_service_client.so
 "python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
-
+if [ $UPLOAD_PIP == 1 ]; then
+    twine upload --repository-url https://pypi.org/legacy/ dist/*
+elif [ $UPLOAD_PIP == 2 ]; then
+    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+fi
 cd $build_root
+

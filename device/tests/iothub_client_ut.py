@@ -7,6 +7,7 @@
 import sys
 import unittest
 import iothub_client_mock
+import platform
 from iothub_client_mock import *
 
 # connnection strings for mock testing
@@ -18,6 +19,10 @@ callback_key = ""
 callback_value = ""
 callback_message = ""
 
+platform_is_mac = platform.mac_ver()[0]
+if platform_is_mac:
+    print ("Running on MacOS version " + platform_is_mac)
+    print ("Provisioning related unit tests are disabled")
 
 def map_callback_ok(key, value):
     global callback_key
@@ -674,11 +679,13 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
-            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.HTTP)
-            self.assertIsInstance(client, IoTHubClient)
-            self.assertEqual(client.protocol, IoTHubTransportProvider.HTTP)
-            with self.assertRaises(AttributeError):
-                client.protocol = IoTHubTransportProvider.AMQP
+            #When we are building for Mac there is no ProvisioningClient included in the C build and the classes below are not exts
+            if not platform_is_mac:
+                client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.HTTP)
+                self.assertIsInstance(client, IoTHubClient)
+                self.assertEqual(client.protocol, IoTHubTransportProvider.HTTP)
+                with self.assertRaises(AttributeError):
+                    client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "AMQP"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.AMQP)
@@ -687,11 +694,13 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
-            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP)
-            self.assertIsInstance(client, IoTHubClient)
-            self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP)
-            with self.assertRaises(AttributeError):
-                client.protocol = IoTHubTransportProvider.AMQP
+            #When we are building for Mac there is no ProvisioningClient included in the C build and the classes below are not exts
+            if not platform_is_mac:
+                client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP)
+                self.assertIsInstance(client, IoTHubClient)
+                self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP)
+                with self.assertRaises(AttributeError):
+                    client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "MQTT"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.MQTT)
@@ -700,11 +709,13 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
-            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT)
-            self.assertIsInstance(client, IoTHubClient)
-            self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT)
-            with self.assertRaises(AttributeError):
-                client.protocol = IoTHubTransportProvider.AMQP
+            #When we are building for Mac there is no ProvisioningClient included in the C build and the classes below are not exts
+            if not platform_is_mac:
+                client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT)
+                self.assertIsInstance(client, IoTHubClient)
+                self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT)
+                with self.assertRaises(AttributeError):
+                    client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "AMQP_WS"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.AMQP_WS)
@@ -713,11 +724,13 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
-            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP_WS)
-            self.assertIsInstance(client, IoTHubClient)
-            self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP_WS)
-            with self.assertRaises(AttributeError):
-                client.protocol = IoTHubTransportProvider.AMQP
+            #When we are building for Mac there is no ProvisioningClient included in the C build and the classes below are not exts
+            if not platform_is_mac:
+                client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.X509, IoTHubTransportProvider.AMQP_WS)
+                self.assertIsInstance(client, IoTHubClient)
+                self.assertEqual(client.protocol, IoTHubTransportProvider.AMQP_WS)
+                with self.assertRaises(AttributeError):
+                    client.protocol = IoTHubTransportProvider.AMQP
 
         if hasattr(IoTHubTransportProvider, "MQTT_WS"):
             client = IoTHubClient(connection_str, IoTHubTransportProvider.MQTT_WS)
@@ -726,11 +739,13 @@ class TestClassDefinitions(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 client.protocol = IoTHubTransportProvider.AMQP
 
-            client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT_WS)
-            self.assertIsInstance(client, IoTHubClient)
-            self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT_WS)
-            with self.assertRaises(AttributeError):
-                client.protocol = IoTHubTransportProvider.AMQP
+            #When we are building for Mac there is no ProvisioningClient included in the C build and the classes below are not exts
+            if not platform_is_mac:
+                client = IoTHubClient(uri_str, device_id, IoTHubSecurityType.SAS, IoTHubTransportProvider.MQTT_WS)
+                self.assertIsInstance(client, IoTHubClient)
+                self.assertEqual(client.protocol, IoTHubTransportProvider.MQTT_WS)
+                with self.assertRaises(AttributeError):
+                    client.protocol = IoTHubTransportProvider.AMQP
 
         with self.assertRaises(AttributeError):
             client.protocol = IoTHubTransportProvider.AMQP
