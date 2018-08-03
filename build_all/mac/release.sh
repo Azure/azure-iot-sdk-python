@@ -122,7 +122,7 @@ cd ./build_all/mac/release_device_client
 cp $build_folder/python/src/iothub_client.dylib iothub_client/iothub_client.so
 "python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 if [ $UPLOAD_PIP == 1 ]; then
-    twine upload --repository-url https://pypi.org/legacy/ dist/*
+    twine upload dist/*
 elif [ $UPLOAD_PIP == 2 ]; then
     twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 fi
@@ -132,7 +132,7 @@ cd ./build_all/mac/release_service_client
 cp $build_folder/python_service_client/src/iothub_service_client.dylib iothub_service_client/iothub_service_client.so
 "python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
 if [ $UPLOAD_PIP == 1 ]; then
-    twine upload --repository-url https://pypi.org/legacy/ dist/*
+    twine upload dist/*
 elif [ $UPLOAD_PIP == 2 ]; then
     twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 fi
