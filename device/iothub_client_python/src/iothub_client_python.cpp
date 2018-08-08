@@ -50,7 +50,7 @@
 #define IMPORT_NAME iothub_client
 #endif
 
-#define VERSION_STRING "1.4.1"
+#define VERSION_STRING "1.4.2"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -2149,7 +2149,7 @@ iotHubInvokeModuleOrDeviceMethodCallback(IOTHUB_CLIENT_RESULT result, int respon
     boost::python::object userContext = invokeContext->userContext;
 
     IoTHubMethodResponse methodResponse = IoTHubMethodResponse(result, responseStatus, responsePayload, responsePayloadSize);
-    
+
     {
         ScopedGILAcquire acquire;
         try {
@@ -2315,7 +2315,7 @@ public:
             boost::python::throw_error_already_set();
             return;
         }
-    
+
         InvokeModuleOrDeviceMethodContext *invokeContext = new InvokeModuleOrDeviceMethodContext(userCallback, userContext);
         IOTHUB_CLIENT_RESULT result;
 
@@ -2346,7 +2346,7 @@ public:
             boost::python::throw_error_already_set();
             return;
         }
-    
+
         InvokeModuleOrDeviceMethodContext *invokeContext = new InvokeModuleOrDeviceMethodContext(userCallback, userContext);
         IOTHUB_CLIENT_RESULT result;
 
