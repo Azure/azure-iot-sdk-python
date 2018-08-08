@@ -21,7 +21,7 @@ process_args()
         PYTHON_VERSION="$arg"
         if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
         then
-          echo "Supported python versions are 2.7, 3.4 or 3.5"
+          echo "Supported python versions are 2.7, 3.4, 3.5 or 3.6"
           exit 1
         fi 
         save_next_arg=0
