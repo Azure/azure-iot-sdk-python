@@ -14,7 +14,12 @@ PYTHON_VERSION=all
 UPLOAD_PIP=0
 
 # processor architecture is any for Mac packages
-PLAT_ARCH="any"
+# identify processor architecture
+if [[ "$(uname -m)" = "x86_64" ]] ; then
+    PLAT_ARCH="macosx_10_6_x86_64"
+else
+    PLAT_ARCH="macosx_10_6_intel"
+fi
 
 process_args()
 {
