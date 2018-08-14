@@ -19,9 +19,9 @@ process_args()
       if [ $save_next_arg == 1 ]
       then
         PYTHON_VERSION="$arg"
-        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ]
+        if [ $PYTHON_VERSION != "2.7" ] && [ $PYTHON_VERSION != "3.4" ] && [ $PYTHON_VERSION != "3.5" ] && [ $PYTHON_VERSION != "3.6" ] && [ $PYTHON_VERSION != "3.7" ]
         then
-          echo "Supported python versions are 2.7, 3.4, 3.5 or 3.6"
+          echo "Supported python versions are 2.7, 3.4, 3.5, 3.6 or 3.7"
           exit 1
         fi 
         save_next_arg=0
@@ -38,7 +38,7 @@ process_args $*
 
 scriptdir=$(cd "$(dirname "$0")" && pwd)
 
-if [ $PYTHON_VERSION == "3.4" ] || [ $PYTHON_VERSION == "3.5" ] || [ $PYTHON_VERSION == "3.6" ]
+if [ $PYTHON_VERSION == "3.4" ] || [ $PYTHON_VERSION == "3.5" ] || [ $PYTHON_VERSION == "3.6" ] || [ $PYTHON_VERSION == "3.7" ]
 then
 	echo "BUILDING BOOST for PYTHON $PYTHON_VERSION"
 	deps="boost-python3"
