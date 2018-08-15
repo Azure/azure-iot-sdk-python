@@ -91,22 +91,35 @@ build_c_sdk()
 
 copy_binaries()
 {
-    [ $? -eq 0 ] || exit $?
     cd $build_root
 
     echo copy iothub_client library to samples folder
     cp $build_folder/python/src/iothub_client.dylib ./device/samples/iothub_client.so
+    [ $? -eq 0 ] || exit $?
+
     echo copy iothub_client_mock library to tests folder
     cp $build_folder/python/test/iothub_client_mock.dylib ./device/tests/iothub_client_mock.so
+    [ $? -eq 0 ] || exit $?
+
     cp $build_folder/python/src/iothub_client.dylib ./device/tests/iothub_client.so
+    [ $? -eq 0 ] || exit $?
+
     cp $build_folder/python_service_client/src/iothub_service_client.dylib ./device/tests/iothub_service_client.so
+    [ $? -eq 0 ] || exit $?
 
     echo copy iothub_service_client library to samples folder
     cp $build_folder/python_service_client/src/iothub_service_client.dylib ./service/samples/iothub_service_client.so
+    [ $? -eq 0 ] || exit $?
+
     echo copy iothub_service_client_mock library to tests folder
     cp $build_folder/python_service_client/tests/iothub_service_client_mock.dylib ./service/tests/iothub_service_client_mock.so
+    [ $? -eq 0 ] || exit $?
+
     cp $build_folder/python_service_client/src/iothub_service_client.dylib ./service/tests/iothub_service_client.so
+    [ $? -eq 0 ] || exit $?
+
     cp $build_folder/python/src/iothub_client.dylib ./service/tests/iothub_client.so
+    [ $? -eq 0 ] || exit $?
 }
 
 run_unit_tests()
@@ -115,15 +128,18 @@ run_unit_tests()
     echo "python${PYTHON_VERSION}" iothub_client_ut.py
     "python${PYTHON_VERSION}" iothub_client_ut.py
     [ $? -eq 0 ] || exit $?
+
     echo "python${PYTHON_VERSION}" iothub_client_map_test.py
     "python${PYTHON_VERSION}" iothub_client_map_test.py
     [ $? -eq 0 ] || exit $?
     cd $build_root
 
+
     cd $build_root/service/tests/
     echo "python${PYTHON_VERSION}" iothub_service_client_ut.py
     "python${PYTHON_VERSION}" iothub_service_client_ut.py
     [ $? -eq 0 ] || exit $?
+
     echo "python${PYTHON_VERSION}" iothub_service_client_map_test.py
     "python${PYTHON_VERSION}" iothub_service_client_map_test.py
     [ $? -eq 0 ] || exit $?
@@ -134,12 +150,19 @@ create_packages()
 {
     cd ./build_all/mac/release_device_client
     cp $build_folder/python/src/iothub_client.dylib iothub_client/iothub_client.so
+    [ $? -eq 0 ] || exit $?
+
     "python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
+    [ $? -eq 0 ] || exit $?
     cd $build_root
+
 
     cd ./build_all/mac/release_service_client
     cp $build_folder/python_service_client/src/iothub_service_client.dylib iothub_service_client/iothub_service_client.so
+    [ $? -eq 0 ] || exit $?
+
     "python${PYTHON_VERSION}" setup.py bdist_wheel --plat-name $PLAT_ARCH
+    [ $? -eq 0 ] || exit $?
     cd $build_root
 }
 
@@ -151,6 +174,7 @@ upload_packages()
     elif [ $UPLOAD_PIP == 2 ]; then
         twine upload --repository-url https://test.pypi.org/legacy/ dist/*
     fi
+    [ $? -eq 0 ] || exit $?
     cd $build_root
 
     cd ./build_all/mac/release_service_client
@@ -159,6 +183,7 @@ upload_packages()
     elif [ $UPLOAD_PIP == 2 ]; then
         twine upload --repository-url https://test.pypi.org/legacy/ dist/*
     fi
+    [ $? -eq 0 ] || exit $?
     cd $build_root
 }
 
