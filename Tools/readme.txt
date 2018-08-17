@@ -14,5 +14,3 @@ Run the below commands to run the "platform_data.py" file
 
 3) Run the "platform_data.py" file and verify the output on prompt
  >> python platform_data.py
- 
-
