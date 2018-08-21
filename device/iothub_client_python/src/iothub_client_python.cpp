@@ -1995,8 +1995,11 @@ public:
         )
     {
         IOTHUB_CLIENT_RESULT result = IOTHUB_CLIENT_OK;
-//#ifdef IS_PY3
+#ifdef IS_PY3
         if (PyLong_Check(option.ptr()))
+#else
+        if (PyInt_Check(option.ptr()) || PyLong_Check(option.ptr()))
+#endif
         {
             // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
             uint64_t value = (uint64_t)boost::python::extract<long>(option);
@@ -2007,7 +2010,11 @@ public:
                             IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &value);
             }
         }
-        else if (PyBytes_Check(option.ptr()))
+#ifdef IS_PY3
+        else if (PyUnicode_Check(option.ptr()))
+#else
+        else if (PyString_Check(option.ptr()) || PyUnicode_Check(option.ptr()))
+#endif
         {
             std::string stringValue = boost::python::extract<std::string>(option);
             {
@@ -2017,38 +2024,9 @@ public:
                             IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
             }
         }
-//#else
-        // if (PyString_Check(option.ptr()))
-        // {
-        //     std::string stringValue = boost::python::extract<std::string>(option);
-        //     {
-        //         ScopedGILRelease release;
-        //         result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-        //                     IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str()) :
-        //                     IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
-        //     }
-        // }
-        // else if (PyInt_Check(option.ptr()))
-        // {
-        //     // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
-        //     uint64_t value = (uint64_t)boost::python::extract<int>(option);
-        //     {
-        //         ScopedGILRelease release;
-        //         result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-        //                     IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), &value) :
-        //                     IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &value);
-        //     }
-        // }
-//#endif
-        else
+        //Check the Python object class name to see if it's HttpProxyOptions
+        else if (((std::string)boost::python::extract<std::string>(option.attr("__class__").attr("__name__"))).compare("HttpProxyOptions") == 0)
         {
-            std::string type = boost::python::extract<std::string>(option.attr("__class__").attr("__name__"));
-            if (type.compare("HttpProxyOptions") == 0)
-            {
-                printf("hi");
-            }
-            // int result = boost::python::extract<std::string>(option.attr("__class__").attr("__name__")).compare("HttpProxyOptions");
-
             HTTP_PROXY_OPTIONS proxy_options;
             HttpProxyOptions value = (HttpProxyOptions)boost::python::extract<HttpProxyOptions>(option);
 
@@ -2061,11 +2039,11 @@ public:
                         IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), &proxy_options) :
                         IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &proxy_options);
         }
-        // else
-        // {
-        //     PyErr_SetString(PyExc_TypeError, "set_option expected type int, string or HttpProxyOptions");
-        //     boost::python::throw_error_already_set();
-        // }
+        else
+        {
+            PyErr_SetString(PyExc_TypeError, "set_option expected type int, string or HttpProxyOptions");
+            boost::python::throw_error_already_set();
+        }
 
         if (result != IOTHUB_CLIENT_OK)
         {
@@ -2655,6 +2633,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         ;
 
     class_<HttpProxyOptions, boost::noncopyable>("HttpProxyOptions", no_init)
+        .def(init<>())
         .def_readwrite("host_address", &HttpProxyOptions::hostAddress)
         .def_readwrite("port", &HttpProxyOptions::port)
         .def_readwrite("username", &HttpProxyOptions::username)
