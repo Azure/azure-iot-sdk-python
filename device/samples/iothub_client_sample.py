@@ -198,12 +198,11 @@ def iothub_client_sample_run():
             print ( "IoTHubClient sending %d messages" % MESSAGE_COUNT )
 
             for message_counter in range(0, MESSAGE_COUNT):
+                wind_speed = AVG_WIND_SPEED + (random.random() * 4 + 2)
                 temperature = MIN_TEMPERATURE + (random.random() * 10)
                 humidity = MIN_HUMIDITY + (random.random() * 20)
-                msg_txt_formatted = MSG_TXT % (
-                    AVG_WIND_SPEED + (random.random() * 4 + 2),
-                    temperature,
-                    humidity)
+                msg_txt_formatted = MSG_TXT % (wind_speed, temperature, humidity)
+
                 # messages can be encoded as string or bytearray
                 if (message_counter & 1) == 1:
                     message = IoTHubMessage(bytearray(msg_txt_formatted, 'utf8'))
