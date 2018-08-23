@@ -953,24 +953,23 @@ public:
 
 class HttpProxyOptions
 {
-    // std::string hostAddress;
-    // int port;
-    // std::string username;
-    // std::string password;
-
 public:
-
-    std::string hostAddress;
+    HttpProxyOptions(
+        std::string _host_address,
+        int _port = 0,
+        std::string _username = "",
+        std::string _password = ""
+    ) :
+        host_address(_host_address),
+        port(_port),
+        username(_username),
+        password(_password)
+    {
+    }
+    std::string host_address;
     int port;
     std::string username;
     std::string password;
-
-    HttpProxyOptions()
-    {
-        port = 0;
-    }
-
-
 };
 
 // callbacks
@@ -2030,7 +2029,7 @@ public:
             HTTP_PROXY_OPTIONS proxy_options;
             HttpProxyOptions value = (HttpProxyOptions)boost::python::extract<HttpProxyOptions>(option);
 
-            proxy_options.host_address = value.hostAddress.c_str();
+            proxy_options.host_address = value.host_address.c_str();
             proxy_options.port = value.port;
             proxy_options.username = value.username.c_str();
             proxy_options.password = value.password.c_str();
@@ -2633,12 +2632,12 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         ;
 
     class_<HttpProxyOptions, boost::noncopyable>("HttpProxyOptions", no_init)
-        .def(init<>())
-        .def_readwrite("host_address", &HttpProxyOptions::hostAddress)
+        .def(init<std::string, optional<int, std::string, std::string>>())
+        .def_readwrite("host_address", &HttpProxyOptions::host_address)
         .def_readwrite("port", &HttpProxyOptions::port)
         .def_readwrite("username", &HttpProxyOptions::username)
         .def_readwrite("password", &HttpProxyOptions::password)
-                // Python helpers
+        // Python helpers
 #ifdef SUPPORT___STR__
         .def("__str__", &HttpProxyOptions::str)
         .def("__repr__", &HttpProxyOptions::repr)

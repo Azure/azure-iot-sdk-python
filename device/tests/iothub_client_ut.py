@@ -873,9 +873,10 @@ class TestClassDefinitions(unittest.TestCase):
         self.assertIsNone(result)
 
         #set option w/ proxy
-        proxy = HttpProxyOptions()
-        proxy.hostAddress = "address"
-        proxy.port = 8080
+        proxy = HttpProxyOptions("127.0.0.1", 8888, "username", "password")
+        result = client.set_option("proxy_data", proxy)
+        self.assertIsNone(result)
+        proxy = HttpProxyOptions("127.0.0.1", 8888)
         result = client.set_option("proxy_data", proxy)
         self.assertIsNone(result)
 

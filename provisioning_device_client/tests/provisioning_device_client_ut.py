@@ -122,23 +122,18 @@ class TestProvisioningDeviceClient(unittest.TestCase):
         with self.assertRaises(Exception):
             proxy_options = ProvisioningHttpProxyOptions()
         with self.assertRaises(Exception):
-            proxy_options = ProvisioningHttpProxyOptions(host_address)
-        with self.assertRaises(Exception):
             proxy_options = ProvisioningHttpProxyOptions(host_address, host_address)
-        with self.assertRaises(Exception):
-            proxy_options = ProvisioningHttpProxyOptions(host_address, port)
         with self.assertRaises(Exception):
             proxy_options = ProvisioningHttpProxyOptions(host_address, port, port)
         with self.assertRaises(Exception):
-            proxy_options = ProvisioningHttpProxyOptions(host_address, port, username)
-        with self.assertRaises(Exception):
             proxy_options = ProvisioningHttpProxyOptions(host_address, port, username, port)
 
-            self.assertIsInstance(proxy_options, ProvisioningHttpProxyOptions)
-            self.assertEqual(proxy_options.host_address, host_address)
-            self.assertEqual(proxy_options.port, port)
-            self.assertEqual(proxy_options.username, username)
-            self.assertEqual(proxy_options.password, password)
+        proxy_options = ProvisioningHttpProxyOptions(host_address, port, username, password)
+        self.assertIsInstance(proxy_options, ProvisioningHttpProxyOptions)
+        self.assertEqual(proxy_options.host_address, host_address)
+        self.assertEqual(proxy_options.port, port)
+        self.assertEqual(proxy_options.username, username)
+        self.assertEqual(proxy_options.password, password)
 
     def test_ProvisioningDeviceClient(self):
         # constructor
