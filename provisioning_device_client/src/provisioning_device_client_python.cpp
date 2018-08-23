@@ -350,6 +350,7 @@ RegisterDeviceStatusCallback(
     }
 }
 
+#define HTTP_PROXY_OPTIONS_PYTHON_NAME "ProvisioningHttpProxyOptions"
 class HttpProxyOptions
 {
 public:
@@ -554,7 +555,7 @@ public:
                 result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
             }
         }
-        else if (((std::string)boost::python::extract<std::string>(option_value.attr("__class__").attr("__name__"))).compare("ProvisioningHttpProxyOptions") == 0)
+        else if (((std::string)boost::python::extract<std::string>(option_value.attr("__class__").attr("__name__"))).compare(HTTP_PROXY_OPTIONS_PYTHON_NAME) == 0)
         {
             HttpProxyOptions http_proxy_options = (HttpProxyOptions)boost::python::extract<HttpProxyOptions>(option_value);
 
@@ -665,7 +666,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         ;
 
     // classes
-    class_<HttpProxyOptions, boost::noncopyable>("ProvisioningHttpProxyOptions", no_init)
+    class_<HttpProxyOptions, boost::noncopyable>(HTTP_PROXY_OPTIONS_PYTHON_NAME, no_init)
         .def(init<std::string, optional<int, std::string, std::string>>())
         .def_readwrite("host_address", &HttpProxyOptions::host_address)
         .def_readwrite("port", &HttpProxyOptions::port)

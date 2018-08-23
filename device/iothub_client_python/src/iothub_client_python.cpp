@@ -951,6 +951,7 @@ public:
 
 //class exposed to py used as parameter for setOption w/ proxy
 
+#define HTTP_PROXY_OPTIONS_PYTHON_NAME "HttpProxyOptions"
 class HttpProxyOptions
 {
 public:
@@ -2024,7 +2025,7 @@ public:
             }
         }
         //Check the Python object class name to see if it's HttpProxyOptions
-        else if (((std::string)boost::python::extract<std::string>(option.attr("__class__").attr("__name__"))).compare("HttpProxyOptions") == 0)
+        else if (((std::string)boost::python::extract<std::string>(option.attr("__class__").attr("__name__"))).compare(HTTP_PROXY_OPTIONS_PYTHON_NAME) == 0)
         {
             HTTP_PROXY_OPTIONS proxy_options;
             HttpProxyOptions value = (HttpProxyOptions)boost::python::extract<HttpProxyOptions>(option);
@@ -2631,7 +2632,7 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #endif
         ;
 
-    class_<HttpProxyOptions, boost::noncopyable>("HttpProxyOptions", no_init)
+    class_<HttpProxyOptions, boost::noncopyable>(HTTP_PROXY_OPTIONS_PYTHON_NAME, no_init)
         .def(init<std::string, optional<int, std::string, std::string>>())
         .def_readwrite("host_address", &HttpProxyOptions::host_address)
         .def_readwrite("port", &HttpProxyOptions::port)
