@@ -9,6 +9,7 @@
 #endif
 
 #include <boost/python.hpp>
+#include <iostream>
 
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -19,6 +20,7 @@
 #include <list>
 
 #include "azure_c_shared_utility/platform.h"
+#include "azure_c_shared_utility/shared_util_options.h"
 #include "iothub_client.h"
 #include "iothub_device_client.h"
 #include "iothub_module_client.h"
@@ -945,6 +947,31 @@ public:
     std::string iotHubName;
     std::string iotHubSuffix;
     std::string protocolGatewayHostName;
+};
+
+
+//class exposed to py used as parameter for setOption w/ proxy
+
+#define HTTP_PROXY_OPTIONS_PYTHON_NAME "HttpProxyOptions"
+class HttpProxyOptions
+{
+public:
+    HttpProxyOptions(
+        std::string _host_address,
+        int _port = 0,
+        std::string _username = "",
+        std::string _password = ""
+    ) :
+        host_address(_host_address),
+        port(_port),
+        username(_username),
+        password(_password)
+    {
+    }
+    std::string host_address;
+    int port;
+    std::string username;
+    std::string password;
 };
 
 // callbacks
@@ -1971,6 +1998,9 @@ public:
         IOTHUB_CLIENT_RESULT result = IOTHUB_CLIENT_OK;
 #ifdef IS_PY3
         if (PyLong_Check(option.ptr()))
+#else
+        if (PyInt_Check(option.ptr()) || PyLong_Check(option.ptr()))
+#endif
         {
             // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
             uint64_t value = (uint64_t)boost::python::extract<long>(option);
@@ -1981,18 +2011,11 @@ public:
                             IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &value);
             }
         }
-        else
-        {
-            std::string stringValue = boost::python::extract<std::string>(option);
-            {
-                ScopedGILRelease release;
-                result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                            IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str()) :
-                            IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
-            }
-        }
+#ifdef IS_PY3
+        else if (PyUnicode_Check(option.ptr()) || PyBytes_Check(option.ptr()))
 #else
-        if (PyString_Check(option.ptr()))
+        else if (PyString_Check(option.ptr()) || PyUnicode_Check(option.ptr()) || PyBytes_Check(option.ptr()))
+#endif
         {
             std::string stringValue = boost::python::extract<std::string>(option);
             {
@@ -2002,23 +2025,27 @@ public:
                             IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), stringValue.c_str());
             }
         }
-        else if (PyInt_Check(option.ptr()))
+        //Check the Python object class name to see if it's HttpProxyOptions
+        else if (((std::string)boost::python::extract<std::string>(option.attr("__class__").attr("__name__"))).compare(HTTP_PROXY_OPTIONS_PYTHON_NAME) == 0)
         {
-            // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
-            uint64_t value = (uint64_t)boost::python::extract<int>(option);
-            {
-                ScopedGILRelease release;
-                result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
-                            IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), &value) :
-                            IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &value);
-            }
+            HTTP_PROXY_OPTIONS proxy_options;
+            HttpProxyOptions value = (HttpProxyOptions)boost::python::extract<HttpProxyOptions>(option);
+
+            proxy_options.host_address = value.host_address.c_str();
+            proxy_options.port = value.port;
+            proxy_options.username = value.username.c_str();
+            proxy_options.password = value.password.c_str();
+
+            result = (client_interface_type == CLIENT_INTERFACE_DEVICE) ?
+                        IoTHubDeviceClient_SetOption(iotHubClientHandle, optionName.c_str(), &proxy_options) :
+                        IoTHubModuleClient_SetOption(iotHubClientHandle, optionName.c_str(), &proxy_options);
         }
         else
         {
-            PyErr_SetString(PyExc_TypeError, "set_option expected type int or string");
+            PyErr_SetString(PyExc_TypeError, "set_option expected type int, string or HttpProxyOptions");
             boost::python::throw_error_already_set();
         }
-#endif
+
         if (result != IOTHUB_CLIENT_OK)
         {
             printf("IoTHub Client SetOption failed with result: %d", result);
@@ -2603,6 +2630,19 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
 #ifdef SUPPORT___STR__
         .def("__str__", &IoTHubConfig::str)
         .def("__repr__", &IoTHubConfig::repr)
+#endif
+        ;
+
+    class_<HttpProxyOptions, boost::noncopyable>(HTTP_PROXY_OPTIONS_PYTHON_NAME, no_init)
+        .def(init<std::string, optional<int, std::string, std::string>>())
+        .def_readwrite("host_address", &HttpProxyOptions::host_address)
+        .def_readwrite("port", &HttpProxyOptions::port)
+        .def_readwrite("username", &HttpProxyOptions::username)
+        .def_readwrite("password", &HttpProxyOptions::password)
+        // Python helpers
+#ifdef SUPPORT___STR__
+        .def("__str__", &HttpProxyOptions::str)
+        .def("__repr__", &HttpProxyOptions::repr)
 #endif
         ;
 

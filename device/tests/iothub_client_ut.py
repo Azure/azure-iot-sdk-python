@@ -872,6 +872,14 @@ class TestClassDefinitions(unittest.TestCase):
         result = client.set_option("timeout", timeout)
         self.assertIsNone(result)
 
+        #set option w/ proxy
+        proxy = HttpProxyOptions("127.0.0.1", 8888, "username", "password")
+        result = client.set_option("proxy_data", proxy)
+        self.assertIsNone(result)
+        proxy = HttpProxyOptions("127.0.0.1", 8888)
+        result = client.set_option("proxy_data", proxy)
+        self.assertIsNone(result)
+
         # set_device_twin_callback
         counter = 1
         context = {"a": "b"}

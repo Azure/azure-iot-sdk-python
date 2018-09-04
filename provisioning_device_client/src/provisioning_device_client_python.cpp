@@ -350,14 +350,15 @@ RegisterDeviceStatusCallback(
     }
 }
 
+#define HTTP_PROXY_OPTIONS_PYTHON_NAME "ProvisioningHttpProxyOptions"
 class HttpProxyOptions
 {
 public:
     HttpProxyOptions(
         std::string _host_address,
-        int _port,
-        std::string _username,
-        std::string _password
+        int _port = 0,
+        std::string _username = "",
+        std::string _password = ""
     ) :
         host_address(_host_address),
         port(_port),
@@ -534,7 +535,24 @@ public:
 
         PROV_DEVICE_RESULT result;
 
-        if (option_name == OPTION_TRUSTED_CERT)
+#ifdef IS_PY3
+        if (PyLong_Check(option_value.ptr()))
+#else
+        if (PyInt_Check(option_value.ptr()) || PyLong_Check(option_value.ptr()))
+#endif
+        {
+            // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
+            uint64_t value = (uint64_t)boost::python::extract<long>(option_value);
+            {
+                ScopedGILRelease release;
+                result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
+            }
+        }
+#ifdef IS_PY3
+        else if (PyUnicode_Check(option_value.ptr()) || PyBytes_Check(option_value.ptr()))
+#else
+        else if (PyString_Check(option_value.ptr()) || PyUnicode_Check(option_value.ptr()) || PyBytes_Check(option_value.ptr()))
+#endif
         {
             std::string value = (std::string)boost::python::extract<std::string>(option_value);
             {
@@ -542,22 +560,15 @@ public:
                 result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), value.c_str());
             }
         }
-        else if (option_name == OPTION_LOG_TRACE)
+        else if (PyBool_Check(option_value.ptr()))
         {
-            if (PyBool_Check(option_value.ptr()))
+            bool value = (bool)boost::python::extract<bool>(option_value);
             {
-                bool value = (bool)boost::python::extract<bool>(option_value);
-                {
-                    ScopedGILRelease release;
-                    result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
-                }
-            }
-            else
-            {
-                result = PROV_DEVICE_RESULT_ERROR;
+                ScopedGILRelease release;
+                result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
             }
         }
-        else if (option_name == OPTION_HTTP_PROXY)
+        else if (((std::string)boost::python::extract<std::string>(option_value.attr("__class__").attr("__name__"))).compare(HTTP_PROXY_OPTIONS_PYTHON_NAME) == 0)
         {
             HttpProxyOptions http_proxy_options = (HttpProxyOptions)boost::python::extract<HttpProxyOptions>(option_value);
 
@@ -668,8 +679,12 @@ BOOST_PYTHON_MODULE(IMPORT_NAME)
         ;
 
     // classes
-    class_<HttpProxyOptions, boost::noncopyable>("ProvisioningHttpProxyOptions", no_init)
-        .def(init<std::string, int, std::string, std::string>())
+    class_<HttpProxyOptions, boost::noncopyable>(HTTP_PROXY_OPTIONS_PYTHON_NAME, no_init)
+        .def(init<std::string, optional<int, std::string, std::string>>())
+        .def_readwrite("host_address", &HttpProxyOptions::host_address)
+        .def_readwrite("port", &HttpProxyOptions::port)
+        .def_readwrite("username", &HttpProxyOptions::username)
+        .def_readwrite("password", &HttpProxyOptions::password)
 #ifdef SUPPORT___STR__
         .def("__str__", &HttpProxyOptions::str)
         .def("__repr__", &HttpProxyOptions::repr)
