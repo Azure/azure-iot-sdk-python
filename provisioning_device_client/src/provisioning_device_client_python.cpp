@@ -536,6 +536,19 @@ public:
         PROV_DEVICE_RESULT result;
 
 #ifdef IS_PY3
+        if (PyLong_Check(option_value.ptr()))
+#else
+        if (PyInt_Check(option_value.ptr()) || PyLong_Check(option_value.ptr()))
+#endif
+        {
+            // Cast to 64 bit value, as SetOption expects 64 bit for some integer options
+            uint64_t value = (uint64_t)boost::python::extract<long>(option_value);
+            {
+                ScopedGILRelease release;
+                result = Prov_Device_SetOption(_prov_device_handle, option_name.c_str(), &value);
+            }
+        }
+#ifdef IS_PY3
         else if (PyUnicode_Check(option_value.ptr()) || PyBytes_Check(option_value.ptr()))
 #else
         else if (PyString_Check(option_value.ptr()) || PyUnicode_Check(option_value.ptr()) || PyBytes_Check(option_value.ptr()))
