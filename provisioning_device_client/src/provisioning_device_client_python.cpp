@@ -536,9 +536,9 @@ public:
         PROV_DEVICE_RESULT result;
 
 #ifdef IS_PY3
-        if (PyUnicode_Check(option_value.ptr()))
+        else if (PyUnicode_Check(option.ptr()) || PyBytes_Check(option.ptr()))
 #else
-        if (PyString_Check(option_value.ptr()) || PyUnicode_Check(option_value.ptr()))
+        else if (PyString_Check(option.ptr()) || PyUnicode_Check(option.ptr()) || PyBytes_Check(option.ptr()))
 #endif
         {
             std::string value = (std::string)boost::python::extract<std::string>(option_value);

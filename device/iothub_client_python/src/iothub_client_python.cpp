@@ -9,6 +9,7 @@
 #endif
 
 #include <boost/python.hpp>
+#include <iostream>
 
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -2011,9 +2012,9 @@ public:
             }
         }
 #ifdef IS_PY3
-        else if (PyUnicode_Check(option.ptr()))
+        else if (PyUnicode_Check(option.ptr()) || PyBytes_Check(option.ptr()))
 #else
-        else if (PyString_Check(option.ptr()) || PyUnicode_Check(option.ptr()))
+        else if (PyString_Check(option.ptr()) || PyUnicode_Check(option.ptr()) || PyBytes_Check(option.ptr()))
 #endif
         {
             std::string stringValue = boost::python::extract<std::string>(option);
