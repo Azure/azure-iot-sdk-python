@@ -1,4 +1,5 @@
 from iothub_client import IoTHubClient, IoTHubTransportProvider, IoTHubMessage
+import time
 
 CONNECTION_STRING = "<YOUR DEVICE CONNECTION STRING HERE>"
 PROTOCOL = IoTHubTransportProvider.MQTT
@@ -13,3 +14,6 @@ if __name__ == '__main__':
     message = IoTHubMessage("test message")
     client.send_event_async(message, send_confirmation_callback, None)
     print("Message transmitted to IoT Hub")
+
+    while True:
+        time.sleep(1)
