@@ -11,6 +11,7 @@ import time
 import threading
 import types
 import base64
+import time
 
 from iothub_service_client import IoTHubRegistryManager, IoTHubRegistryManagerAuthMethod
 from iothub_service_client import IoTHubMessaging
@@ -546,6 +547,18 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
 
         # verify
         assert MESSAGE_RECEIVE_CALLBACK_COUNTER > 0, "Error: message has not been received"
+
+        # prepare
+        MESSAGING_MESSAGE = ""
+        empty_message = IoTHubMessage(MESSAGING_MESSAGE)
+        # act
+        sc_send_message(iothub_service_client_messaging, device_id, empty_message, testing_modules)
+        time.sleep(60) 
+        MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
+
+        # verify
+        assert MESSAGE_RECEIVE_CALLBACK_COUNTER > 1, "Error: empty message has not been received"
+
         ###########################################################################
 
     ###########################################################################
