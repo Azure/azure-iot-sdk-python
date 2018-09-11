@@ -553,7 +553,7 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         empty_message = IoTHubMessage(MESSAGING_MESSAGE)
         # act
         sc_send_message(iothub_service_client_messaging, device_id, empty_message, testing_modules)
-        time.sleep(60) 
+        time.sleep(30) 
         MESSAGE_RECEIVE_EVENT.wait(CALLBACK_TIMEOUT)
 
         # verify
