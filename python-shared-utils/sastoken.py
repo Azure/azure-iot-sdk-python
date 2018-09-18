@@ -4,6 +4,11 @@ import hashlib
 import time
 import six.moves.urllib as urllib
 
+__all__ = [
+    "SasToken",
+    "SasTokenError"
+]
+
 class SasTokenError(Exception):
     
     def __init__(self, message, cause=None):
@@ -22,6 +27,10 @@ class SasToken(object):
 
     Data Attributes:
     expiry_time (int): Time that token will expire (in UTC, since epoch)
+    ttl (int): Time to live for the token, in seconds
+
+    Raises:
+    SasTokenError if trying to build a SasToken from invalid values
     """
 
     _encoding_type = 'utf-8'

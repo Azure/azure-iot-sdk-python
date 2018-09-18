@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import pytest
 from pytest_mock import mocker
 import time
@@ -33,6 +35,7 @@ class TestCreateSasToken(object):
 
         expected_uri = "my+ch%C3%A2teu.azure-devices.provisioning.net"
         assert s._uri == expected_uri
+
 
     @pytest.mark.xfail(raises=SasTokenError)
     def test_key_not_base_64(self):

@@ -1,5 +1,3 @@
-"""A Connection String
-"""
 
 __all__ = [
     "ConnectionString"
@@ -51,6 +49,15 @@ def _validate_keys(d):
 
 
 class ConnectionString(object):
+    """
+    Key/value mappings with connection details. Uses the same syntax as dictionary
+
+    Parameters:
+    connection_string(str): string with connection details provided by Azure
+
+    Raises:
+    ValueError if provided connection_string is invalid
+    """
 
     def __init__(self, connection_string):
         cs_args = connection_string.split(CS_DELIMITER)
