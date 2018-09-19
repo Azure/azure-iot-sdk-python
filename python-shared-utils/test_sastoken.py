@@ -8,9 +8,9 @@ from sastoken import SasToken, SasTokenError
 class TestCreateSasToken(object):
 
     def test_create_default_ttl(self):
-        uri = "myhub.azure-devices.net"
-        key_name = "iothubowner"
-        key = "N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M="
+        uri = "my.host.name"
+        key_name = "mykeyname"
+        key = "Zm9vYmFy"
         s = SasToken(uri, key_name, key)
         assert s._uri == uri
         assert s._key_name == key_name
@@ -18,9 +18,9 @@ class TestCreateSasToken(object):
         assert s.ttl == 3600
 
     def test_create_custom_ttl(self):
-        uri = "myhub.azure-devices.net"
-        key_name = "iothubowner"
-        key = "N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M="
+        uri = "my.host.name"
+        key_name = "mykeyname"
+        key = "Zm9vYmFy"
         s = SasToken(uri, key_name, key, 9000)
         assert s._uri == uri
         assert s._key_name == key_name
@@ -28,19 +28,19 @@ class TestCreateSasToken(object):
         assert s.ttl == 9000
 
     def test_uri_with_special_chars(self):
-        uri = "my châteu.azure-devices.provisioning.net"
-        key_name = "iothubowner"
-        key = "N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M="
+        uri = "my châteu.host.name"
+        key_name = "mykeyname"
+        key = "Zm9vYmFy"
         s = SasToken(uri, key_name, key)
 
-        expected_uri = "my+ch%C3%A2teu.azure-devices.provisioning.net"
+        expected_uri = "my+ch%C3%A2teu.host.name"
         assert s._uri == expected_uri
 
 
     @pytest.mark.xfail(raises=SasTokenError)
     def test_key_not_base_64(self):
-        uri = "myhub.azure-devices.net"
-        key_name = "iothubowner"
+        uri = "my.host.name"
+        key_name = "mykeyname"
         key = "this is not base64"
         s = SasToken(uri, key_name, key)
 
@@ -49,9 +49,9 @@ class TestsOnValidSasToken(object):
 
     def test_refresh(self):
         #Move this setup block to fixtures when understood
-        uri = "myhub.azure-devices.net"
-        key_name = "iothubowner"
-        key = "N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M="
+        uri = "my.host.name"
+        key_name = "mykeyname"
+        key = "Zm9vYmFy"
         sastoken = SasToken(uri, key_name, key)
 
         #Actual test

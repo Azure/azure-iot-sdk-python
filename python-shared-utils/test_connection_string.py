@@ -14,43 +14,43 @@ class TestConnectionStringInput(object):
 
     @pytest.mark.xfail(raises=ValueError)
     def test_incomplete_input(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net")
+        cs = ConnectionString("HostName=my.host.name")
 
     @pytest.mark.xfail(raises=ValueError)
     def test_invalid_key(self):
-        cs = ConnectionString("InvalidKey=myhub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
+        cs = ConnectionString("InvalidKey=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy")
 
     @pytest.mark.xfail(raises=ValueError)
     def test_duplicate_key(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net;HostName=myhub.azure-devices.net;SharedAccessKey=iothubowner;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
+        cs = ConnectionString("HostName=my.host.name;HostName=my.host.name;SharedAccessKey=mykeyname;SharedAccessKey=Zm9vYmFy")
 
     def test_service_string(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
+        cs = ConnectionString("HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy")
 
     def test_device_string(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net;DeviceId=my-device;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
+        cs = ConnectionString("HostName=my.host.name;DeviceId=my-device;SharedAccessKey=Zm9vYmFy")
 
     def test_device_string_with_gateway_hostname(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net;DeviceId=my-device;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=;GatewayHostName=mygateway")
+        cs = ConnectionString("HostName=my.host.name;DeviceId=my-device;SharedAccessKey=Zm9vYmFy;GatewayHostName=mygateway")
 
     def test_module_string(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
+        cs = ConnectionString("HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy")
 
     def test_module_string_with_gateway_hostname(self):
-        cs = ConnectionString("HostName=myhub.azure-devices.net;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=;GatewayHostName=mygateway")
+        cs = ConnectionString("HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy;GatewayHostName=mygateway")
 
 def test___repr__():
-    string = "HostName=myhub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M="
+    string = "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
     cs = ConnectionString(string)
     assert str(cs) == string
 
 def test___getitem__item_exists():
-    cs = ConnectionString("HostName=myhub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
-    assert cs["HostName"] == "myhub.azure-devices.net"
-    assert cs["SharedAccessKeyName"] == "iothubowner"
-    assert cs["SharedAccessKey"] == "N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M="
+    cs = ConnectionString("HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy")
+    assert cs["HostName"] == "my.host.name"
+    assert cs["SharedAccessKeyName"] == "mykeyname"
+    assert cs["SharedAccessKey"] == "Zm9vYmFy"
 
 @pytest.mark.xfail(raises=KeyError)
 def test___getitem__item_does_not_exist():
-    cs = ConnectionString("HostName=myhub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=N3QWnl1hC56JttVsO4s2qpi0BckBjpuK3TIlOnORi0M=")
+    cs = ConnectionString("HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy")
     cs["SharedAccessSignature"]
