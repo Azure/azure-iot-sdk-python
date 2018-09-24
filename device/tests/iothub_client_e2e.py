@@ -596,29 +596,29 @@ def run_e2e_device_client(iothub_service_client_messaging, iothub_device_method,
         ###########################################################################
 
 
-    if testing_modules == False:  ## Modules do not currently support uploadToBlob
-        ###########################################################################
-        # upload_blob_async
+    #if testing_modules == False:  ## Modules do not currently support uploadToBlob
+    #    ###########################################################################
+    #    # upload_blob_async
         
-        # prepare
-        global BLOB_UPLOAD_CONTEXT
-        global BLOB_UPLOAD_EVENT
-        global BLOB_UPLOAD_CALLBACK_COUNTER
+    #    # prepare
+    #    global BLOB_UPLOAD_CONTEXT
+    #    global BLOB_UPLOAD_EVENT
+    #    global BLOB_UPLOAD_CALLBACK_COUNTER
 
-        destination_file_name = ''.join([random.choice(string.ascii_letters) for n in range(12)])
-        source = "Blob content for file upload test!"
-        size = 34
-        BLOB_UPLOAD_EVENT.clear()
-        BLOB_UPLOAD_CALLBACK_COUNTER = 0
+    #    destination_file_name = ''.join([random.choice(string.ascii_letters) for n in range(12)])
+    #    source = "Blob content for file upload test!"
+    #    size = 34
+    #    BLOB_UPLOAD_EVENT.clear()
+    #    BLOB_UPLOAD_CALLBACK_COUNTER = 0
 
-        # act
-        print ("Testing upload_blob_async to destination file = {0}".format(destination_file_name))
-        device_client.upload_blob_async(destination_file_name, source, size, blob_upload_conf_callback, BLOB_UPLOAD_CONTEXT)
-        BLOB_UPLOAD_EVENT.wait(CALLBACK_TIMEOUT)
+    #    # act
+    #    print ("Testing upload_blob_async to destination file = {0}".format(destination_file_name))
+    #    device_client.upload_blob_async(destination_file_name, source, size, blob_upload_conf_callback, BLOB_UPLOAD_CONTEXT)
+    #    BLOB_UPLOAD_EVENT.wait(CALLBACK_TIMEOUT)
 
-        # verify
-        assert BLOB_UPLOAD_CALLBACK_COUNTER > 0, "Error: blob_upload_conf_callback callback has not been called"
-        ###########################################################################
+    #    # verify
+    #    assert BLOB_UPLOAD_CALLBACK_COUNTER > 0, "Error: blob_upload_conf_callback callback has not been called"
+    #    ###########################################################################
 
 
 def run_e2e(iothub_registry_manager, iothub_service_client_messaging, iothub_device_method, iothub_device_twin, protocol, authMethod, testing_modules):
