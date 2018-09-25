@@ -11,7 +11,7 @@ class TestCreateSasToken(object):
         uri = "my.host.name"
         key_name = "mykeyname"
         key = "Zm9vYmFy"
-        s = SasToken(uri, key_name, key)
+        s = SasToken(uri, key, key_name)
         assert s._uri == uri
         assert s._key_name == key_name
         assert s._key == key
@@ -21,7 +21,7 @@ class TestCreateSasToken(object):
         uri = "my.host.name"
         key_name = "mykeyname"
         key = "Zm9vYmFy"
-        s = SasToken(uri, key_name, key, 9000)
+        s = SasToken(uri, key, key_name, 9000)
         assert s._uri == uri
         assert s._key_name == key_name
         assert s._key == key
@@ -31,7 +31,7 @@ class TestCreateSasToken(object):
         uri = "my châteu.host.name"
         key_name = "mykeyname"
         key = "Zm9vYmFy"
-        s = SasToken(uri, key_name, key)
+        s = SasToken(uri, key, key_name)
 
         expected_uri = "my+ch%C3%A2teu.host.name"
         assert s._uri == expected_uri
@@ -42,7 +42,7 @@ class TestCreateSasToken(object):
         uri = "my.host.name"
         key_name = "mykeyname"
         key = "this is not base64"
-        s = SasToken(uri, key_name, key)
+        s = SasToken(uri, key, key_name)
 
 
 class TestsOnValidSasToken(object): 
@@ -52,7 +52,7 @@ class TestsOnValidSasToken(object):
         uri = "my.host.name"
         key_name = "mykeyname"
         key = "Zm9vYmFy"
-        sastoken = SasToken(uri, key_name, key)
+        sastoken = SasToken(uri, key, key_name)
 
         #Actual test
         old_expiry = sastoken.expiry_time
