@@ -34,9 +34,10 @@ class SasToken(object):
     """
 
     _encoding_type = 'utf-8'
-    _token_format = "SharedAccessSignature sr={}&sig={}&se={}&skn={}"
+    _service_token_format = "SharedAccessSignature sr={}&sig={}&se={}&skn={}"
+    _device_token_format = "SharedAccessSignature sr={}&sig={}&se={}"
 
-    def __init__(self, uri, key_name, key, ttl=3600):
+    def __init__(self, uri, key, key_name=None, ttl=3600):
         self._uri = urllib.parse.quote_plus(uri)
         self._key_name = key_name
         self._key = key
@@ -64,6 +65,11 @@ class SasToken(object):
             signing_key = base64.b64decode(self._key.encode(self._encoding_type))
             signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
             signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
-            return self._token_format.format(self._uri, signature, str(self.expiry_time), self._key_name)
         except (TypeError, base64.binascii.Error) as e:
             raise SasTokenError("Unable to build SasToken from given values", e)
+
+        if self._key_name:
+            token = self._service_token_format.format(self._uri, signature, str(self.expiry_time), self._key_name)
+        else:
+            token = self._device_token_format.format(self._uri, signature, str(self.expiry_time))
+        return token
