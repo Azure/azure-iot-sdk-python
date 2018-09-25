@@ -1,0 +1,2 @@
+paho-mqtt==1.4.0
+transitions==0.6.8
