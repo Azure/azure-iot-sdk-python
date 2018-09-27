@@ -11,9 +11,13 @@ import ssl
 
 class MQTTWrapper:
     def __init__(self, client_id, hostname, state_machine):
+        if client_id and hostname and state_machine:
+            pass
+        else:
+            raise ValueError("Can not instantiate MQTT broker. Incomplete values.")
         self._client_id = client_id
         self._hostname = hostname
-        self._mqtt_client = mqtt.Client(client_id, protocol=mqtt.MQTTv311, clean_session=False)
+        self._mqtt_client = mqtt.Client(client_id, False, protocol=mqtt.MQTTv311)
         self._state_machine = state_machine
 
     @staticmethod
@@ -45,12 +49,12 @@ class MQTTWrapper:
 
     def connect_and_start(self, hostname):
         logging.info("connecting to mqtt broker")
-        self._mqtt_client.connect(hostname, port=8883)
+        self._mqtt_client.connect(host=hostname, port=8883)
         self._mqtt_client.loop_start()
 
     def publish(self, topic, message_payload):
         logging.info('sending')
-        self._mqtt_client.publish(topic, message_payload, qos=1)
+        self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
 
     def disconnect_and_stop(self):
         logging.info('disconnecting from mqtt broker')

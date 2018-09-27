@@ -16,6 +16,11 @@ class Transport(object):
         :param source: The id of source (i.e. the client).
         :param hostname: The hostname of the hub to connect to. In case of MQTT it will always connect via port 8883 to the host
         """
+        if transport_protocol and source and hostname:
+            pass
+        else:
+            raise ValueError("Can not instantiate transport. Incomplete values.")
+
         self._transport_protocol = transport_protocol
         self._source = source
         self._hostname = hostname
