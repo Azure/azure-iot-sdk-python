@@ -12,15 +12,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..\..\python_shared_uti
 import logging
 import types
 from transitions import Machine
-from iothub_device_sdk.device.transport.transport_protocol import TransportProtocol
-from .transport.transport import Transport
+from .transport.transport import Transport, TransportProtocol
 from connection_string import ConnectionString, DEVICE_ID, HOST_NAME, SHARED_ACCESS_KEY
 from sastoken import SasToken
 
 
 class DeviceClient(object):
-    """Client used to connect a device to an Azure IoT Hub instance"""
-
+    """The public facing API that will allow a single physical device to connect
+        to an Azure IoT Hub. The Azure IoT Hub supports sending events to and receiving
+        messages from an IoT Hub.
+    """
     def __init__(self, connection_string, transport_protocol):
         self._connection_string = connection_string
         self._device_id = connection_string[DEVICE_ID]
@@ -43,17 +44,20 @@ class DeviceClient(object):
 
         self.on_connection_state = types.FunctionType
         self.on_c2d_message = types.FunctionType
-        # self.on_message_broker_connect = types.FunctionType
-
-    # def on_message_broker_connect(self):
-    #     self._machine.trig_on_connect()
 
     def connect_to_iot_hub(self):
-        """Connects the client to an Azure IoT Hub instance"""
+        """Connects the device to an Azure IoT Hub.
+        The device client must call this method as an entry point to getting connected to IoT Hub
+        """
         logging.info("creating client")
         self._machine.trig_connect()
 
     def _on_enter_connecting(self):
+        """
+        The state machine internal to the device enters this method on transitioning to the state of connecting.
+        In this method the transport layer is created and transport connects to the message broker.
+        This prepares the device to further send messages to the IoT Hub via the message broker.
+        """
         self._emit_connection_status()
         self._transport = Transport(self._transport_protocol, self._device_id, self._hostname, self._machine)
         self._transport.create_message_broker_with_callbacks()
@@ -72,14 +76,25 @@ class DeviceClient(object):
         # self._machine.trig_on_connect()
 
     def disconnect_from_iot_hub(self):
+        """
+        Disconnects the device from Azure IoT Hub
+        """
         logging.info("disconnecting")
         self._machine.trig_disconnect()
 
     def _on_enter_disconnecting(self):
+        """
+        The state machine internal to the device enters this method on transitioning to the state of disconnecting.
+        """
         self._emit_connection_status()
         self._transport.disconnect_from_message_broker()
 
     def send_event(self, payload):
+        """
+        Sends an actual message/telemetry to the IoT Hub via the message broker.
+        The device client must call this method to send messages.
+        :param payload: The actual message to send.
+        """
         if self._machine.state == "connected":
             topic = "devices/" + self._device_id + "/messages/events/"
             self._transport.send_event(topic, payload)
@@ -87,6 +102,9 @@ class DeviceClient(object):
             raise ValueError("cannot send if not connected")
 
     def _emit_connection_status(self):
+        """
+        The connection status is emitted whenever the state machine internal to the device gets connected or disconnected.
+        """
         logging.info("emit_connection_status")
         if self.on_connection_state:
             self.on_connection_state(self._machine.state)

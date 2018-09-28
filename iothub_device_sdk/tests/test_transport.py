@@ -25,50 +25,51 @@ def test_emptyinput():
         Transport("", "", "", "")
 
 
-def test_sendevent(mocker, transport):
-    topic = "devices/" + device_id + "/messages/events/"
-    event = "Wingardian Leviosa"
-    mocker.patch.object(transport, '_mqtt_wrapper')
-
-    transport.send_event(topic, event)
-    transport._mqtt_wrapper.publish.assert_called_once_with(topic, event)
+def test_create():
+    trans = Transport(TransportProtocol.MQTT, device_id, hostname, state_machine)
+    assert trans.__getattribute__("_source") == device_id
+    assert trans.__getattribute__("_hostname") == hostname
+    assert trans.__getattribute__("_transport_protocol") == TransportProtocol.MQTT
 
 
-def test_createmessagebroker_assigncallbacks(mocker, transport, state_machine):
-    mocker.patch.object(MQTTWrapper, "create_mqtt_client_wrapper")
-    mocker.patch.object(transport, '_mqtt_wrapper')
+def test_createmessagebroker_assigncallbacks(mocker, transport):
+    mocker.patch.object(MQTTWrapper, "assign_callbacks")
 
     transport.create_message_broker_with_callbacks()
-    MQTTWrapper.create_mqtt_client_wrapper.assert_called_once_with(device_id, hostname, state_machine)
-    transport._mqtt_wrapper.assign_callbacks.assert_called_once()
+    MQTTWrapper.assign_callbacks.assert_called_once()
 
 
 def test_set_options_on_message_broker(mocker, transport):
     username = "tomriddle"
     password = "iamvoldemort"
-
-    mocker.patch.object(transport, '_mqtt_wrapper')
+    mocker.patch.object(MQTTWrapper, "set_tls_options")
+    mocker.patch.object(MQTTWrapper, "set_credentials")
 
     transport.set_options_on_message_broker(username, password)
 
-    transport._mqtt_wrapper.set_tls_options.assert_called_once()
-    transport._mqtt_wrapper.set_credentials.assert_called_once_with(username, password)
+    MQTTWrapper.set_tls_options.assert_called_once()
+    MQTTWrapper.set_credentials.assert_called_once_with(username, password)
+
+
+def test_sendevent(mocker, transport):
+    topic = "devices/" + device_id + "/messages/events/"
+    event = "Wingardian Leviosa"
+    mocker.patch.object(MQTTWrapper, "publish")
+
+    transport.send_event(topic, event)
+
+    MQTTWrapper.publish.assert_called_once_with(topic, event)
 
 
 def test_connect_to_message_broker(mocker, transport):
-    mocker.patch.object(transport, '_mqtt_wrapper')
+    mocker.patch.object(MQTTWrapper, "connect_and_start")
 
     transport.connect_to_message_broker()
-    transport._mqtt_wrapper.connect_and_start.assert_called_once_with(hostname)
+    MQTTWrapper.connect_and_start.assert_called_once_with(hostname)
 
 
 def test_disconnect_from_message_broker(mocker, transport):
-    mocker.patch.object(transport, '_mqtt_wrapper')
+    mocker.patch.object(MQTTWrapper, "disconnect_and_stop")
 
     transport.disconnect_from_message_broker()
-    transport._mqtt_wrapper.disconnect_and_stop.assert_called_once()
-
-
-
-
-
+    MQTTWrapper.disconnect_and_stop.assert_called_once()

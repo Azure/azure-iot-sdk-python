@@ -9,7 +9,3 @@ class AMQPWrapper(object):
         self._client_id = client_id
         self._hostname = hostname
 
-
-    @staticmethod
-    def create_amqp_client_wrapper(client_id, hostname):
-        return AMQPWrapper(client_id, hostname)
