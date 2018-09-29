@@ -10,7 +10,9 @@ import ssl
 
 
 class MQTTWrapper:
-
+    """A wrapper over the actual implementation of mqtt message broker which will eventually connect to an mqtt broker
+             to publish/subscribe messages.
+    """
     def __init__(self, client_id, hostname, state_machine):
         """A wrapper over the actual implementation of mqtt which will eventually connect to an mqtt client
          to publish/subscribe messages.
@@ -29,10 +31,6 @@ class MQTTWrapper:
         self._hostname = hostname
         self._mqtt_client = mqtt.Client(client_id, False, protocol=mqtt.MQTTv311)
         self._state_machine = state_machine
-
-    # @staticmethod
-    # def create_mqtt_client_wrapper(client_id, hostname, state_machine):
-    #     return MQTTWrapper(client_id, hostname, state_machine)
 
     def assign_callbacks(self):
         """

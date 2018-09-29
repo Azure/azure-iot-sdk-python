@@ -5,21 +5,22 @@
 
 import logging
 from iothub_device_sdk.device.device_client import DeviceClient
+from iothub_device_sdk.device.transport.transport import TransportProtocol
 
 logging.basicConfig(level=logging.INFO)
 
 conn_str = "DEVICE_CONNECTION_STRING"
-simpleDevice = DeviceClient.from_connection_string(conn_str)
+simpleDevice = DeviceClient.from_connection_string(conn_str, TransportProtocol.MQTT)
 
 
 def connection_state_callback(status):
     print("connection status: " + status)
     if status == "connected":
-        simpleDevice.send_event("Expecto Patronum")
+        simpleDevice.send_event("Silencio")
 
 
 simpleDevice.on_connection_state = connection_state_callback
-simpleDevice.connect_to_iot_hub()
+simpleDevice.connect()
 
 while True:
     continue

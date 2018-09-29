@@ -4,17 +4,18 @@
 # --------------------------------------------------------------------------------------------
 
 # Temporary path hack (replace once monorepo path solution implemented)
-import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "..\..\python_shared_utils"))
+# import os
+# import sys
+# sys.path.append(os.path.join(os.path.dirname(__file__), "..\..\python_shared_utils"))
 # ---------------------------------------------------------------------
 
 import logging
 import types
 from transitions import Machine
-from .transport.transport import Transport, TransportProtocol
-from connection_string import ConnectionString, DEVICE_ID, HOST_NAME, SHARED_ACCESS_KEY
-from sastoken import SasToken
+from .transport.transport import Transport
+from .authentication_provider import AuthenticationProvider
+# from connection_string import ConnectionString, DEVICE_ID, HOST_NAME, SHARED_ACCESS_KEY
+# from sastoken import SasToken
 
 
 class DeviceClient(object):
@@ -22,10 +23,10 @@ class DeviceClient(object):
         to an Azure IoT Hub. The Azure IoT Hub supports sending events to and receiving
         messages from an IoT Hub.
     """
-    def __init__(self, connection_string, transport_protocol):
-        self._connection_string = connection_string
-        self._device_id = connection_string[DEVICE_ID]
-        self._hostname = connection_string[HOST_NAME]
+    def __init__(self, auth_provider, transport_protocol):
+        self._auth_provider = auth_provider
+        self._device_id = auth_provider.device_id
+
         self._transport_protocol = transport_protocol
 
         states = ["disconnected", "connecting", "connected", "disconnecting"]
@@ -45,7 +46,7 @@ class DeviceClient(object):
         self.on_connection_state = types.FunctionType
         self.on_c2d_message = types.FunctionType
 
-    def connect_to_iot_hub(self):
+    def connect(self):
         """Connects the device to an Azure IoT Hub.
         The device client must call this method as an entry point to getting connected to IoT Hub
         """
@@ -59,17 +60,16 @@ class DeviceClient(object):
         This prepares the device to further send messages to the IoT Hub via the message broker.
         """
         self._emit_connection_status()
-        self._transport = Transport(self._transport_protocol, self._device_id, self._hostname, self._machine)
+        self._transport = Transport(self._transport_protocol, self._auth_provider.device_id,
+                                    self._auth_provider.hostname, self._machine)
         self._transport.create_message_broker_with_callbacks()
 
-        username = self._hostname + "/" + self._device_id
-        uri = self._hostname + "/devices/" + self._device_id
-        sas_token = SasToken(uri, self._connection_string[SHARED_ACCESS_KEY])
-
+        username = self._auth_provider.username
+        sas_token_str = str(self._auth_provider.sas_token)
         logging.info("username: %s", username)
-        logging.info("sas_token: %s", str(sas_token))
+        logging.info("sas_token: %s", sas_token_str)
 
-        self._transport.set_options_on_message_broker(username, str(sas_token))
+        self._transport.set_options_on_message_broker(username, sas_token_str)
 
         logging.info("connecting")
         self._transport.connect_to_message_broker()
@@ -110,6 +110,6 @@ class DeviceClient(object):
             self.on_connection_state(self._machine.state)
 
     @staticmethod
-    def from_connection_string(connection_string):
+    def from_connection_string(connection_string, transport_protocol):
         """Creates a device client with the specified connection string"""
-        return DeviceClient(ConnectionString(connection_string), TransportProtocol.MQTT)
+        return DeviceClient(AuthenticationProvider.create_authentication_from_connection_string(connection_string), transport_protocol)

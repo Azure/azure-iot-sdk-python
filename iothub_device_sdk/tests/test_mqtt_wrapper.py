@@ -41,13 +41,12 @@ def test_create_none_empty_input():
 
 def test_create(state_machine):
     wrapper = MQTTWrapper(device_id, hostname, state_machine)
-    assert wrapper.__getattribute__("_client_id") == device_id
-    assert wrapper.__getattribute__("_hostname") == hostname
-    assert wrapper.__getattribute__("_state_machine") == state_machine
+    assert wrapper._client_id == device_id
+    assert wrapper._hostname == hostname
+    assert wrapper._state_machine == state_machine
 
-    mqttclient = wrapper.__getattribute__("_mqtt_client")
-    mqttclient.__getattribute__("_client_id") == device_id
-    mqttclient.__getattribute__("_protocol") == mqtt.MQTTv311
+    wrapper._mqtt_client._client_id == device_id
+    wrapper._mqtt_client._protocol == mqtt.MQTTv311
 
 
 def test_set_tls_options(mocker, mqtt_wrapper):
