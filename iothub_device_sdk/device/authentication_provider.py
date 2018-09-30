@@ -20,34 +20,39 @@ class AuthenticationProvider(object):
         self.hostname = connection_string[HOST_NAME]
         self.device_id = connection_string[DEVICE_ID]
 
-        self.username = self.hostname + "/" + self.device_id
+        self.username = None
+        self.password = None
 
-        uri = self.hostname + "/devices/" + self.device_id
-        self.sas_token = SasToken(uri, connection_string[SHARED_ACCESS_KEY])
+        self.sas_token = None
 
         # no actual implementation yet , but just a different option for authentication
         self.tpm = tpm_security_provider
 
-    @classmethod
-    def create_sharedaccesspolicykey_auth_provider(cls, connection_string):
-        return AuthenticationProvider(connection_string, None)
+    def create_symmetrickey_auth_provider(self, connection_string_obj):
+        uri = self.hostname + "/devices/" + self.device_id
+        self.sas_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY])
 
-    @classmethod
-    def create_symmetrickey_auth_provider(cls, connection_string):
-        return AuthenticationProvider(connection_string, None)
+    def create_sharedaccesspolicykey_auth_provider(self, connection_string_obj):
+        uri = self.hostname + "/devices/" + self.device_id
+        self.sas_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY], connection_string_obj[SHARED_ACCESS_KEY_NAME])
 
-    @classmethod
-    def create_X509_auth_provider(cls, certificate):
-        return AuthenticationProvider(None, None)
+    def create_X509_auth_provider(self, certificate):
+        pass
+
+    def create_username_password_mqtt(self):
+        self.username = self.hostname + "/" + self.device_id
+        self.password = str(self.sas_token)
 
     @classmethod
     def create_authentication_from_connection_string(cls, connection_string):
         connection_string_obj = ConnectionString(connection_string)
-        # if connection_string_obj[SHARED_ACCESS_KEY_NAME]:
-        #     auth_provider = cls.create_sharedaccesspolicykey_auth_provider(connection_string_obj)
-        if connection_string_obj[SHARED_ACCESS_KEY]:
-            auth_provider = cls.create_symmetrickey_auth_provider(connection_string_obj)
+        auth_provider = AuthenticationProvider(connection_string_obj)
+
+        if connection_string_obj._dict.get(SHARED_ACCESS_KEY_NAME) is not None:
+            auth_provider.create_sharedaccesspolicykey_auth_provider(connection_string_obj)
+        elif connection_string_obj._dict.get(SHARED_ACCESS_KEY) is not None:
+            auth_provider.create_symmetrickey_auth_provider(connection_string_obj)
         else:
-            auth_provider = cls.create_X509_auth_provider(connection_string_obj)
+            auth_provider.create_X509_auth_provider(connection_string_obj)
 
         return auth_provider

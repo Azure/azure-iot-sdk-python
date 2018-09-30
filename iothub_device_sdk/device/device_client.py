@@ -64,6 +64,7 @@ class DeviceClient(object):
                                     self._auth_provider.hostname, self._machine)
         self._transport.create_message_broker_with_callbacks()
 
+        self._auth_provider.create_username_password_mqtt()
         username = self._auth_provider.username
         sas_token_str = str(self._auth_provider.sas_token)
         logging.info("username: %s", username)
