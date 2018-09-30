@@ -14,6 +14,10 @@ from sastoken import SasToken
 
 
 class AuthenticationProvider(object):
+    """
+    A provider for authentication mechanism based on known authentication mechanisms ,
+    including x509 and SAS based authentication.
+    """
 
     def __init__(self, connection_string, tpm_security_provider=None):
 
