@@ -33,24 +33,37 @@ class AuthenticationProvider(object):
         self.shared_access_keyname = None
         self.shared_access_key = None
 
-    def create_symmetrickey_auth_provider(self, connection_string_obj):
-        uri = self.hostname + "/devices/" + self.device_id
-        self.shared_access_signature_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY])
-
-    def create_sharedaccesspolicykey_auth_provider(self, connection_string_obj):
-        uri = self.hostname + "/devices/" + self.device_id
-        self.shared_access_signature_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY], connection_string_obj[SHARED_ACCESS_KEY_NAME])
-
     @classmethod
     def create_authentication_from_connection_string(cls, connection_string):
         connection_string_obj = ConnectionString(connection_string)
         auth_provider = AuthenticationProvider(connection_string_obj)
+        uri = auth_provider.hostname + "/devices/" + auth_provider.device_id
 
         if connection_string_obj._dict.get(SHARED_ACCESS_KEY_NAME) is not None:
-            auth_provider.create_sharedaccesspolicykey_auth_provider(connection_string_obj)
+            auth_provider.shared_access_signature_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY],
+                                                         connection_string_obj[SHARED_ACCESS_KEY_NAME])
         elif connection_string_obj._dict.get(SHARED_ACCESS_KEY) is not None:
-            auth_provider.create_symmetrickey_auth_provider(connection_string_obj)
+            auth_provider.shared_access_signature_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY])
         else:
             pass
 
         return auth_provider
+
+    def get_device_id(self):
+        """
+        :return: The id of the device
+        """
+        return self.device_id
+
+    def get_current_sas_token(self):
+        """
+        :return: The current shared access signature token
+        """
+        return self.shared_access_signature_token
+
+    def get_hostname(self):
+        """
+        :return: The hostname
+        """
+        return self.hostname
+

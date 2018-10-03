@@ -16,7 +16,7 @@ simpleDevice = DeviceClient.from_connection_string(conn_str, TransportProtocol.M
 def connection_state_callback(status):
     print("connection status: " + status)
     if status == "connected":
-        simpleDevice.send_event("Silencio")
+        simpleDevice.send_event("Mimbulus Mimbletonia")
 
 simpleDevice.on_connection_state = connection_state_callback
 simpleDevice.connect()
@@ -27,6 +27,3 @@ while True:
 
 
 
-
-
-# Banana Fritters, Balderdash, Caput Draconis , Mimbulus Mimbletonia
