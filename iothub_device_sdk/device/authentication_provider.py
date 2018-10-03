@@ -32,7 +32,6 @@ class AuthenticationProvider(object):
         self.shared_access_signature_token = None
         self.shared_access_keyname = None
         self.shared_access_key = None
-        self.x509 = None
 
     def create_symmetrickey_auth_provider(self, connection_string_obj):
         uri = self.hostname + "/devices/" + self.device_id
@@ -52,6 +51,6 @@ class AuthenticationProvider(object):
         elif connection_string_obj._dict.get(SHARED_ACCESS_KEY) is not None:
             auth_provider.create_symmetrickey_auth_provider(connection_string_obj)
         else:
-            auth_provider.create_X509_auth_provider(connection_string_obj)
+            pass
 
         return auth_provider
