@@ -1,7 +1,4 @@
-
-__all__ = [
-    "ConnectionString"
-    ]
+__all__ = ["ConnectionString"]
 
 CS_DELIMITER = ";"
 CS_VAL_SEPARATOR = "="
@@ -14,7 +11,15 @@ DEVICE_ID = "DeviceId"
 MODULE_ID = "ModuleId"
 GATEWAY_HOST_NAME = "GatewayHostName"
 
-_valid_keys = [HOST_NAME, SHARED_ACCESS_KEY_NAME, SHARED_ACCESS_KEY, SHARED_ACCESS_SIGNATURE, DEVICE_ID, MODULE_ID, GATEWAY_HOST_NAME]
+_valid_keys = [
+    HOST_NAME,
+    SHARED_ACCESS_KEY_NAME,
+    SHARED_ACCESS_KEY,
+    SHARED_ACCESS_SIGNATURE,
+    DEVICE_ID,
+    MODULE_ID,
+    GATEWAY_HOST_NAME,
+]
 
 
 def _parse_connection_string(connection_string):
@@ -23,7 +28,7 @@ def _parse_connection_string(connection_string):
     cs_args = connection_string.split(CS_DELIMITER)
     d = dict(arg.split(CS_VAL_SEPARATOR, 1) for arg in cs_args)
     if len(cs_args) != len(d):
-        #various errors related to incorrect parsing - duplicate args, bad syntax, etc.
+        # various errors related to incorrect parsing - duplicate args, bad syntax, etc.
         raise ValueError("Invalid Connection String - Unable to parse")
     if not all(key in _valid_keys for key in d.keys()):
         raise ValueError("Invalid Connection String - Invalid Key")
@@ -38,11 +43,11 @@ def _validate_keys(d):
     shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
     shared_access_key = d.get(SHARED_ACCESS_KEY)
     device_id = d.get(DEVICE_ID)
-    
-    #This logic could be expanded to return the category of ConnectionString
-    if (host_name and device_id and shared_access_key):
+
+    # This logic could be expanded to return the category of ConnectionString
+    if host_name and device_id and shared_access_key:
         pass
-    elif (host_name and shared_access_key and shared_access_key_name):
+    elif host_name and shared_access_key and shared_access_key_name:
         pass
     else:
         raise ValueError("Invalid Connection String - Incomplete")
@@ -60,7 +65,6 @@ class ConnectionString(object):
     """
 
     def __init__(self, connection_string):
-        cs_args = connection_string.split(CS_DELIMITER)
         self._dict = _parse_connection_string(connection_string)
         self._strrep = connection_string
 
