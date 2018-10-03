@@ -19,33 +19,28 @@ class AuthenticationProvider(object):
     including x509 and SAS based authentication.
     """
 
-    def __init__(self, connection_string, tpm_security_provider=None):
+    def __init__(self, connection_string):
 
         self.hostname = connection_string[HOST_NAME]
         self.device_id = connection_string[DEVICE_ID]
 
-        self.username = None
-        self.password = None
+        if connection_string._dict.get(MODULE_ID) is not None:
+            self.module_id = connection_string[MODULE_ID]
+        if connection_string._dict.get(GATEWAY_HOST_NAME) is not None:
+            self.gateway_hostname = connection_string[GATEWAY_HOST_NAME]
 
-        self.sas_token = None
-
-        # no actual implementation yet , but just a different option for authentication
-        self.tpm = tpm_security_provider
+        self.shared_access_signature_token = None
+        self.shared_access_keyname = None
+        self.shared_access_key = None
+        self.x509 = None
 
     def create_symmetrickey_auth_provider(self, connection_string_obj):
         uri = self.hostname + "/devices/" + self.device_id
-        self.sas_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY])
+        self.shared_access_signature_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY])
 
     def create_sharedaccesspolicykey_auth_provider(self, connection_string_obj):
         uri = self.hostname + "/devices/" + self.device_id
-        self.sas_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY], connection_string_obj[SHARED_ACCESS_KEY_NAME])
-
-    def create_X509_auth_provider(self, certificate):
-        pass
-
-    def create_username_password_mqtt(self):
-        self.username = self.hostname + "/" + self.device_id
-        self.password = str(self.sas_token)
+        self.shared_access_signature_token = SasToken(uri, connection_string_obj[SHARED_ACCESS_KEY], connection_string_obj[SHARED_ACCESS_KEY_NAME])
 
     @classmethod
     def create_authentication_from_connection_string(cls, connection_string):
