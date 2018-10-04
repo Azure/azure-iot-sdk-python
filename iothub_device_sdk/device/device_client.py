@@ -23,6 +23,15 @@ class DeviceClient(object):
         :param auth_provider: The authentication provider
         :param transport_protocol: The transport protocol
         """
+        if auth_provider is None and transport_protocol is None:
+            raise ValueError("Authentication provider and Transport protocol are none")
+        elif auth_provider is None:
+            raise ValueError("Authentication provider is none")
+        elif transport_protocol is None:
+            raise ValueError("Transport protocol is none")
+        else:
+            pass
+
         self._auth_provider = auth_provider
         self._transport_protocol = transport_protocol
 
