@@ -1,5 +1,7 @@
 # Microsoft Azure IoT SDKs for Python
 
+![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/python/python-canary)
+
 This repository contains the following:
 * **Azure IoT Hub Device SDK for Python**: to connect client devices to Azure IoT Hub
 * **Azure IoT Hub Service SDK for Python**: enables developing back-end applications for Azure IoT
@@ -18,7 +20,7 @@ Devices and data sources in an IoT solution can range from a simple network-conn
 * **Using PyPI package on Windows, Linux (Ubuntu) or Raspberry Pi**: the simplest way to use the Azure IoT SDK for Python to develop device apps on Windows is to leverage the PyPI package which you can install following these [instructions][PyPI-install-instructions].
 * **Clone the repository**: This repository uses [GitHub Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for its dependencies. In order to automatically clone these submodules, you need to use the `--recursive` option as described here:
 ```
-git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git 
+git clone --recursive https://github.com/Azure/azure-iot-sdk-python.git
 ```
 If you have downloaded the zip instead of cloning the repository, you will need to run the following command to restore submodules:
 ```
