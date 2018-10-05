@@ -1,3 +1,12 @@
+![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/python/python-preview)
+
+# Azure IoT Hub Python SDKs v2 - PREVIEW
+
+This repository contains the code for the future v2.0.0 of the Azure IoT SDKs for Python. The goal of v2.0.0 is to be a complete rewrite of the existing SDK that maximizes the use of the Python language and its standard features rather than wrap over the C SDK, like v1.x.x of the SDK did.
+
+# How to install the SDK
+
+There is currently no preview package released on pip. The only way to test the SDK is to clone the repository. We will update the readme with instructions & samples as soon as something is ready to be shared.
 
 # Contributing
 
@@ -12,5 +21,3 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
-
-
