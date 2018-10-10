@@ -1,0 +1,30 @@
+FROM quay.io/pypa/manylinux1_i686
+
+ENV INITSYSTEM=on
+ENV PRE_CMD=linux32
+
+# Update image
+SHELL ["/bin/bash", "-c"]
+
+RUN yum update -y && yum install -y sudo cmake build-essential curl libcurl4-openssl-dev \
+    libssl-dev uuid-dev python-pip apt-utils python-virtualenv valgrind
+
+# Edit sudoers file
+# To avoid error: sudo: sorry, you must have a tty to run sudo
+RUN sed -i -e "s/Defaults    requiretty.*/ #Defaults    requiretty/g" /etc/sudoers
+
+# Linking to newer cmake
+RUN sudo ln -sf /usr/bin/cmake28 /usr/bin/cmake
+
+RUN /opt/python/cp35-cp35m/bin/pip3 install virtualenv
+RUN /opt/python/cp35-cp35m/bin/python -m virtualenv /usr/env3
+RUN source /usr/env3/bin/activate && pip install --upgrade pip && pip install -U setuptools wheel
+
+WORKDIR /usr/sdk
+
+# Copy code (this assumes the ./src folder contains the recursively cloned SDK repository (azure/azure-iot-sdk-python))
+COPY ./src ./src
+
+# Build for python 3
+# RUN source /usr/env3/bin/activate && sudo ./src/build_all/linux/setup.sh --python-version 3.5
+RUN source /usr/env3/bin/activate && sudo ./src/build_all/linux/release.sh --build-python 3.5
