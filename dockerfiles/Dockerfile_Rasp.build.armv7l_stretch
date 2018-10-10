@@ -1,0 +1,25 @@
+FROM resin/raspberrypi3-debian:stretch
+
+ENV INITSYSTEM=on
+
+# Update image
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y cmake build-essential curl libcurl4-openssl-dev \
+    libssl1.0-dev uuid-dev apt-utils python python-pip python-virtualenv python3 python3-pip python3-virtualenv \
+    libboost-python-dev pkg-config valgrind
+
+WORKDIR /usr/sdk
+
+# Copy code (this assumes the ./src folder contains the recursively cloned SDK repository (azure/azure-iot-sdk-python))
+COPY ./src ./src
+
+RUN python3 -m virtualenv --python=python3.5 env35
+RUN source env35/bin/activate && pip install --upgrade pip && pip install -U setuptools wheel
+
+# Build for Python 3
+RUN source env35/bin/activate && ./src/build_all/linux/release.sh --build-python 3.5
+
+# Repeat for Python 2
+RUN pip install -U setuptools wheel
+RUN ./src/build_all/linux/release.sh
