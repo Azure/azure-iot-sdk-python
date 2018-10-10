@@ -11,7 +11,7 @@ WORKDIR /usr/sdk
 RUN python -m virtualenv --python=python3 env3
 RUN source env3/bin/activate && pip install --upgrade pip && pip install -U setuptools wheel
 
-# Copy code
+# Copy code (this assumes the ./src folder contains the recursively cloned SDK repository (azure/azure-iot-sdk-python))
 COPY ./src ./src
 
 # Build for Python 3
