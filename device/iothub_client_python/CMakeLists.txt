@@ -65,6 +65,12 @@ if (WIN32)
   add_definitions( -DBOOST_PYTHON_STATIC_LIB )
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  if (CMAKE_BUILD_TYPE EQUAL "DEBUG")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ggdb")
+  endif()
+endif()
 
 # get python
 # some versions of cmake shipped with Linux

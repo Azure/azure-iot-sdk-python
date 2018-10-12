@@ -9,11 +9,12 @@ cd $build_root
 
 PYTHON_VERSION=2.7
 USE_TPM_SIM=
+make=true
 
 process_args()
 {
     save_next_arg=0
-    
+
     for arg in $*
     do
       if [ $save_next_arg == 1 ]
@@ -27,6 +28,7 @@ process_args()
         esac
         case "$arg" in
           "--use-tpm-simulator" ) USE_TPM_SIM="--use-tpm-simulator";;
+          "--no-make" ) make=false;;
           * ) ;;
         esac
       fi
@@ -37,7 +39,11 @@ process_args $*
 
 # instruct C builder to include python library and to skip tests
 
-./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $* --provisioning $USE_TPM_SIM --use-edge-modules
+if [ "$make" = false ]; then
+  $NO_MAKE="--no-make"
+fi
+
+./c/build_all/linux/build.sh --build-python $PYTHON_VERSION $* --provisioning $USE_TPM_SIM --use-edge-modules $NO_MAKE
 [ $? -eq 0 ] || exit $?
 cd $build_root
 
