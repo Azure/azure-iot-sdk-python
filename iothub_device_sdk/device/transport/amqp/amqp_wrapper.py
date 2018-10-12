@@ -8,4 +8,3 @@ class AMQPWrapper(object):
     def __init__(self, client_id, hostname):
         self._client_id = client_id
         self._hostname = hostname
-

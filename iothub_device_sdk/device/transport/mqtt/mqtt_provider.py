@@ -16,6 +16,7 @@ class MQTTProvider(object):
     A wrapper over the actual implementation of mqtt message broker which will eventually connect to an mqtt broker
     to publish/subscribe messages.
     """
+
     def __init__(self, device_id, hostname, password):
         """
         Constructor to instantiate a mqtt provider.
@@ -28,10 +29,12 @@ class MQTTProvider(object):
             {"trigger": "trig_connect", "source": "disconnected", "dest": "connecting"},
             {"trigger": "trig_on_connect", "source": "connecting", "dest": "connected"},
             {"trigger": "trig_disconnect", "source": "connected", "dest": "disconnecting"},
-            {"trigger": "trig_on_disconnect", "source": "disconnecting", "dest": "disconnected"}
+            {"trigger": "trig_on_disconnect", "source": "disconnecting", "dest": "disconnected"},
         ]
 
-        self._state_machine = Machine(states=states, transitions=transitions, initial="disconnected")
+        self._state_machine = Machine(
+            states=states, transitions=transitions, initial="disconnected"
+        )
         self._state_machine.on_enter_connecting(self._on_enter_connecting)
         self._state_machine.on_enter_disconnecting(self._on_enter_disconnecting)
         self._state_machine.on_enter_connected(self._emit_connection_status)
@@ -69,8 +72,14 @@ class MQTTProvider(object):
         self._mqtt_client.on_publish = on_publish_callback
         logging.info("Created MQTT provider, assigned callbacks")
 
-        self._mqtt_client.tls_set(ca_certs=os.environ.get("IOTHUB_ROOT_CA_CERT"), certfile=None, keyfile=None,
-                                  cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1, ciphers=None)
+        self._mqtt_client.tls_set(
+            ca_certs=os.environ.get("IOTHUB_ROOT_CA_CERT"),
+            certfile=None,
+            keyfile=None,
+            cert_reqs=ssl.CERT_REQUIRED,
+            tls_version=ssl.PROTOCOL_TLSv1,
+            ciphers=None,
+        )
         self._mqtt_client.tls_insecure_set(False)
 
         self._mqtt_client.username_pw_set(username=self._username, password=self._password)
@@ -104,7 +113,7 @@ class MQTTProvider(object):
         This method disconnects the mqtt provider. This should be called from the upper transport
         when it wants to disconnect from the mqtt provider.
         """
-        logging.info('disconnecting from mqtt broker')
+        logging.info("disconnecting from mqtt broker")
         self._mqtt_client.loop_stop()
 
     def publish(self, topic, message_payload):
@@ -113,5 +122,5 @@ class MQTTProvider(object):
         :param topic: topic: The topic that the message should be published on.
         :param message_payload: The actual message to send.
         """
-        logging.info('sending')
+        logging.info("sending")
         self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)

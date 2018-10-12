@@ -35,7 +35,7 @@ steps:
   enabled: false
   continueOnError: true
 
-- script: 'pytest python_shared_utils --junitxml=junit/test-results.xml'
+- script: 'pytest --junitxml=junit/test-results.xml'
   displayName: pytest
 
 - task: PublishTestResults@2

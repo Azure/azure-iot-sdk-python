@@ -3,37 +3,20 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-# Temporary path hack (replace once monorepo path solution implemented)
-# import os
-# import sys
-# sys.path.append(os.path.join(os.path.dirname(__file__), "..\..\python_shared_utils"))
-# ---------------------------------------------------------------------
-
 import logging
 import types
-from .transport.transport import Transport
-from .authentication_provider import AuthenticationProvider
+from .symmetric_key_authentication_provider import SymmetricKeyAuthenticationProvider
 
 
 class DeviceClient(object):
-
-    def __init__(self, auth_provider, transport_protocol):
+    def __init__(self, auth_provider, transport_config):
         """
         Constructor for instantiating a device client
         :param auth_provider: The authentication provider
-        :param transport_protocol: The transport protocol
+        :param transport_config: The transport config
         """
-        if auth_provider is None and transport_protocol is None:
-            raise ValueError("Authentication provider and Transport protocol are none")
-        elif auth_provider is None:
-            raise ValueError("Authentication provider is none")
-        elif transport_protocol is None:
-            raise ValueError("Transport protocol is none")
-        else:
-            pass
-
         self._auth_provider = auth_provider
-        self._transport_protocol = transport_protocol
+        self._transport_config = transport_config
 
         self._transport = None
         self.state = "initial"
@@ -45,9 +28,9 @@ class DeviceClient(object):
         The device client must call this method as an entry point to getting connected to IoT Hub
         """
         logging.info("connecting to transport")
-        self._transport = Transport(self._auth_provider, self._transport_protocol)
+        self._transport = self._transport_config.get_specific_transport(self._auth_provider)
         self._transport.on_transport_connected = self._get_transport_connected_state_callback
-        self._transport.connect_to_message_broker()
+        self._transport.connect()
         self._emit_connection_status()
 
     def send_event(self, event):
@@ -60,6 +43,8 @@ class DeviceClient(object):
             self._transport.send_event(event)
         else:
             logging.error("Can not send if not connected")
+            # Check if need to define custom exception
+            raise ValueError("No connection present to send event.")
 
     def _emit_connection_status(self):
         """
@@ -68,13 +53,19 @@ class DeviceClient(object):
         logging.info("emit_connection_status")
         if self.on_connection_state:
             self.on_connection_state(self.state)
+        else:
+            logging.error("No callback defined for sending state")
 
     def _get_transport_connected_state_callback(self, new_state):
         self.state = new_state
-        if self.on_connection_state:
-            self.on_connection_state(self.state)
+        self._emit_connection_status()
 
     @staticmethod
-    def from_connection_string(connection_string, transport_protocol):
+    def create_from_connection_string(connection_string, transport_config):
         """Creates a device client with the specified connection string"""
-        return DeviceClient(AuthenticationProvider.create_authentication_from_connection_string(connection_string), transport_protocol)
+        return DeviceClient(
+            SymmetricKeyAuthenticationProvider.create_authentication_from_connection_string(
+                connection_string
+            ),
+            transport_config,
+        )
