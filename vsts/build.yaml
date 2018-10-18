@@ -27,20 +27,15 @@ steps:
 - script: 'python -m pip install --upgrade pip'
   displayName: 'Update pip'
 
-- script: 'pip install -r python_shared_utils/requirements.txt'
-  displayName: 'Install dependencies'
+- script: 'python dev_setup.py'
+  displayName: 'Prepare environment (install packages + dependencies + tools)'
 
-- script: 'pip install flake8 && flake8'
-  displayName: Flake8
-  enabled: false
-  continueOnError: true
-
-- script: 'pytest --junitxml=junit/test-results.xml'
+- script: 'python test_packages.py'
   displayName: pytest
 
 - task: PublishTestResults@2
-  displayName: 'Publish Test Results **/test-results.xml'
+  displayName: 'Publish Test Results **/*-test-results.xml'
   inputs:
-    testResultsFiles: '**/test-results.xml'
+    testResultsFiles: '**/*-test-results.xml'
 
     testRunTitle: 'Python $(python.version)'

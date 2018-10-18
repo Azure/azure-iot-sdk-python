@@ -1,0 +1,2 @@
+We do NOT maintain the service.json to generate code in this repository.
+In order to generate, please acquire the file and place it in this directory, then run protocol-generator

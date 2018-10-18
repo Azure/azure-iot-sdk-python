@@ -1,7 +1,0 @@
-paho-mqtt==1.4.0
-transitions==0.6.8
-pytest==3.8.0
-pytest-mock==1.10.0
-mock=2.0.0
-enum34==1.1.6
-six==1.11.0
