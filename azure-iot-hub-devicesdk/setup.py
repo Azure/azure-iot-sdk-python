@@ -36,6 +36,7 @@ setup(
         "paho-mqtt==1.4.0",
         "transitions==0.6.8",
         "enum34==1.1.6",
+        "requests==2.20.0"
     ],
     packages=find_packages(exclude=["tests"]),
 )
