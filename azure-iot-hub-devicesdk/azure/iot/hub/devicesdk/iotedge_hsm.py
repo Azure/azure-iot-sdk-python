@@ -1,11 +1,32 @@
 import six.moves.urllib as urllib
 import requests
+import requests_unixsocket
 import os
 import base64
 import json
 
+requests_unixsocket.monkeypatch()
+
 
 class IotEdgeHsm(object):
+    @staticmethod
+    def fix_socket_uri(old_uri):
+        old_prefix = "unix://"
+        new_prefix = "http+unix://"
+
+        if old_uri.startswith(old_prefix):
+            stripped_uri = old_uri[len(old_prefix) :]
+            if stripped_uri.endswith("/"):
+                stripped_uri = stripped_uri[:-1]
+            new_uri = new_prefix + urllib.parse.quote(stripped_uri, safe="")
+        else:
+            new_uri = old_uri
+
+        if not new_uri.endswith("/"):
+            new_uri += "/"
+
+        return new_uri
+
     def __init__(self):
         """
         Constructor for instantiating a iot hsm object.  This is an object that can 
@@ -16,7 +37,7 @@ class IotEdgeHsm(object):
         self.module_id = os.environ["IOTEDGE_MODULEID"]
         self.api_version = os.environ["IOTEDGE_APIVERSION"]
         self.module_generation_id = os.environ["IOTEDGE_MODULEGENERATIONID"]
-        self.workload_uri = os.environ["IOTEDGE_WORKLOADURI"]
+        self.workload_uri = IotEdgeHsm.fix_socket_uri(os.environ["IOTEDGE_WORKLOADURI"])
 
     def get_trust_bundle(self):
         """

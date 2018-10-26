@@ -20,7 +20,7 @@ from mock import patch
 fake_module_id = "__FAKE_MODULE__ID__"
 fake_api_version = "__FAKE_API_VERSION__"
 fake_module_generation_id = "__FAKE_MODULE_GENERATION_ID__"
-fake_workload_uri = "__FAKE_WORKLOAD_URI__"
+fake_http_workload_uri = "http://__FAKE_WORKLOAD_URI__/"
 fake_certificate = "__FAKE_CERTIFICATE__"
 fake_message = "__FAKE_MESSAGE__"
 fake_digest = "__FAKE_DIGEST__"
@@ -29,7 +29,7 @@ required_environment_variables = {
     "IOTEDGE_MODULEID": fake_module_id,
     "IOTEDGE_APIVERSION": fake_api_version,
     "IOTEDGE_MODULEGENERATIONID": fake_module_generation_id,
-    "IOTEDGE_WORKLOADURI": fake_workload_uri,
+    "IOTEDGE_WORKLOADURI": fake_http_workload_uri,
 }
 
 
@@ -60,7 +60,8 @@ def test_get_trust_bundle_returns_certificate(mock_get):
     assert cert == fake_certificate
     mock_response.raise_for_status.assert_called_once()  # this verifies that a failed status code will throw
     mock_get.assert_called_once_with(
-        fake_workload_uri + "trust-bundle", params={"api-version": fake_api_version}
+        fake_http_workload_uri + "trust-bundle",
+        params={"api-version": fake_api_version},
     )
 
 
@@ -77,7 +78,7 @@ def test_get_trust_bundle_returns_certificate(mock_post):
     assert digest == fake_digest
     mock_response.raise_for_status.assert_called_once()  # this verifies that a failed status code will throw
     fake_url = (
-        fake_workload_uri
+        fake_http_workload_uri
         + "modules/"
         + fake_module_id
         + "/genid/"
@@ -94,3 +95,25 @@ def test_get_trust_bundle_returns_certificate(mock_post):
     mock_post.assert_called_once_with(
         fake_url, data=fake_data, params={"api-version": fake_api_version}
     )
+
+
+@patch.object(requests, "get")
+@patch.dict(os.environ, required_environment_variables)
+def test_workload_uri_values_get_adjusted_correctly(mock_get):
+    for (original_uri, adjusted_uri) in [
+        ("http://foo", "http://foo/"),
+        ("http://foo/", "http://foo/"),
+        ("unix:///foo/bar", "http+unix://%2Ffoo%2Fbar/"),
+        ("unix:///foo/bar/", "http+unix://%2Ffoo%2Fbar/"),
+    ]:
+        mock_get.reset_mock()
+
+        env = required_environment_variables.copy()
+        env["IOTEDGE_WORKLOADURI"] = original_uri
+        with patch.dict(os.environ, env):
+            hsm = IotEdgeHsm()
+            cert = hsm.get_trust_bundle()
+
+            mock_get.assert_called_once_with(
+                adjusted_uri + "trust-bundle", params={"api-version": fake_api_version}
+            )
