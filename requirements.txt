@@ -9,4 +9,4 @@ flake8
 msrest
 six
 mock
-black; python_version > '3.6'
+black; python_version >= '3.6'
