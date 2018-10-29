@@ -6,9 +6,7 @@
 import pytest
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
-from azure.iot.hub.devicesdk.symmetric_key_authentication_provider import (
-    SymmetricKeyAuthenticationProvider,
-)
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from six import add_move, MovedModule
 
 add_move(MovedModule("mock", "mock", "unittest.mock"))
@@ -25,9 +23,7 @@ device_id = "MyPensieve"
 @pytest.fixture(scope="module")
 def authentication_provider():
     connection_string = connection_string_format.format(hostname, device_id, shared_access_key)
-    auth_provider = SymmetricKeyAuthenticationProvider.create_authentication_from_connection_string(
-        connection_string
-    )
+    auth_provider = from_connection_string(connection_string)
     return auth_provider
 
 
@@ -39,9 +35,7 @@ def transport(authentication_provider):
 
 def test_create():
     connection_string = connection_string_format.format(hostname, device_id, shared_access_key)
-    authentication_provider = SymmetricKeyAuthenticationProvider.create_authentication_from_connection_string(
-        connection_string
-    )
+    authentication_provider = from_connection_string(connection_string)
     trans = MQTTTransport(authentication_provider)
     assert trans._auth_provider == authentication_provider
     assert trans._mqtt_provider is None

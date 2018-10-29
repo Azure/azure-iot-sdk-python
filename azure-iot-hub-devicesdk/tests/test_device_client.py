@@ -4,11 +4,8 @@
 # --------------------------------------------------------------------------------------------
 
 from azure.iot.hub.devicesdk.device_client import DeviceClient
-from azure.iot.hub.devicesdk.symmetric_key_authentication_provider import (
-    SymmetricKeyAuthenticationProvider,
-)
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
-from azure.iot.hub.devicesdk.transport.transport_config import TransportConfig, TransportProtocol
 import pytest
 
 from six import add_move, MovedModule
@@ -32,74 +29,24 @@ def connection_string():
 
 @pytest.fixture
 def authentication_provider(connection_string):
-    auth_provider = SymmetricKeyAuthenticationProvider.create_authentication_from_connection_string(
-        connection_string
-    )
+    auth_provider = from_connection_string(connection_string)
     return auth_provider
 
 
-@pytest.fixture
-def mqtt_transport_config():
-    return TransportConfig(TransportProtocol.MQTT)
-
-
-def test_create_from_incomplete_connection_string():
-    with pytest.raises(ValueError, match="Invalid Connection String - Incomplete"):
-        connection_string = "HostName=beauxbatons.academy-net;SharedAccessKey=Zm9vYmFy"
-        DeviceClient.create_from_connection_string(connection_string, mqtt_transport_config)
-
-
-def test_create_from_duplicatekeys_connection_string():
-    with pytest.raises(ValueError, match="Invalid Connection String - Unable to parse"):
-        connection_string = (
-            "HostName=beauxbatons.academy-net;HostName=TheDeluminator;HostName=Zm9vYmFy"
-        )
-        DeviceClient.create_from_connection_string(connection_string, mqtt_transport_config)
-
-
-# Without the proper delimiter the dictionary function itself can't take place
-def test_create_from_badparsing_connection_string():
-    with pytest.raises(ValueError):
-        connection_string = "HostName+beauxbatons.academy-net!DeviceId+TheDeluminator!"
-        DeviceClient.create_from_connection_string(connection_string, mqtt_transport_config)
-
-
-def test_create_from_badkeys_connection_string():
-    with pytest.raises(ValueError, match="Invalid Connection String - Invalid Key"):
-        connection_string = "BadHostName=beauxbatons.academy-net;BadDeviceId=TheDeluminator;SharedAccessKey=Zm9vYmFy"
-        DeviceClient.create_from_connection_string(connection_string, mqtt_transport_config)
-
-
-def test_static(connection_string, mqtt_transport_config):
-    device_client = DeviceClient.create_from_connection_string(
-        connection_string, mqtt_transport_config
-    )
-
-    assert device_client._transport_config == mqtt_transport_config
-    assert device_client.state == "initial"
-    assert device_client._transport is None
-
-
-def test_connect(mocker, authentication_provider, mqtt_transport_config):
-    mocker.patch.object(DeviceClient, "_emit_connection_status")
-    mocker.patch.object(MQTTTransport, "connect")
-
-    device_client = DeviceClient(authentication_provider, mqtt_transport_config)
-    assert device_client.state == "initial"
-    assert device_client._transport is None
+def test_device_client_connect_in_turn_calls_transport_connect(authentication_provider):
+    mock_transport = MagicMock(spec=MQTTTransport)
+    device_client = DeviceClient(authentication_provider, mock_transport)
 
     device_client.connect()
 
-    assert isinstance(device_client._transport, MQTTTransport)
-
-    MQTTTransport.connect.assert_called_once_with()
-    DeviceClient._emit_connection_status.assert_called_once_with()
+    mock_transport.connect.assert_called_once_with()
 
 
-def test_get_transport_state(mocker, mqtt_transport_config):
+def test_device_client_get_transport_state_callback_calls_on_connection_state_handler(mocker, authentication_provider):
     stub_on_connection_state = mocker.stub(name="on_connection_state")
 
-    device_client = DeviceClient(authentication_provider, mqtt_transport_config)
+    mock_transport = MQTTTransport(authentication_provider)
+    device_client = DeviceClient(authentication_provider, mock_transport)
     device_client.on_connection_state = stub_on_connection_state
 
     new_state = "apparating"
@@ -108,10 +55,11 @@ def test_get_transport_state(mocker, mqtt_transport_config):
     stub_on_connection_state.assert_called_once_with(new_state)
 
 
-def test_emit_connection_status(mocker, mqtt_transport_config):
+def test_device_client_emit_connection_status_calls_on_connection_state_handler(mocker, authentication_provider):
     stub_on_connection_state = mocker.stub(name="on_connection_state")
 
-    device_client = DeviceClient(authentication_provider, mqtt_transport_config)
+    mock_transport = MQTTTransport(authentication_provider)
+    device_client = DeviceClient(authentication_provider, mock_transport)
     device_client.on_connection_state = stub_on_connection_state
     new_state = "apparating"
     device_client.state = new_state
@@ -121,38 +69,27 @@ def test_emit_connection_status(mocker, mqtt_transport_config):
     stub_on_connection_state.assert_called_once_with(new_state)
 
 
-def test_send_event_magic_mock(mocker, authentication_provider, mqtt_transport_config):
+def test_device_client_send_event_in_turn_calls_transport_send_event(authentication_provider):
     mock_transport = MagicMock(spec=MQTTTransport)
-    mock_transport_config = mocker.patch.object(TransportConfig, "get_specific_transport")
-    mock_transport_config.return_value = mock_transport
 
-    mocker.patch.object(mock_transport, "send_event")
-    mocker.patch.object(DeviceClient, "_emit_connection_status")
-
-    event = "Caput Draconis"
-    device_client = DeviceClient(authentication_provider, mqtt_transport_config)
-    assert device_client.state == "initial"
-    assert device_client._transport is None
+    event = "Levicorpus"
+    device_client = DeviceClient(authentication_provider, mock_transport)
     device_client.state = "connected"
     device_client.connect()
     device_client.send_event(event)
 
-    TransportConfig.get_specific_transport.assert_called_once_with(authentication_provider)
     mock_transport.send_event.assert_called_once_with(event)
-    DeviceClient._emit_connection_status.assert_called_once_with()
 
 
-def test_send_event_error(mocker, authentication_provider, mqtt_transport_config):
-    mocker.patch.object(TransportConfig, "get_specific_transport")
-    mocker.patch.object(DeviceClient, "_emit_connection_status")
+def test_transport_any_error_surfaces_to_device_client(authentication_provider):
+    mock_transport = MagicMock(spec=MQTTTransport)
+    mock_transport.send_event.side_effect = RuntimeError("Some runtime error happened")
 
-    with pytest.raises(ValueError, match="No connection present to send event."):
-        event = "Caput Draconis"
-        device_client = DeviceClient(authentication_provider, mqtt_transport_config)
-        assert device_client.state == "initial"
-        assert device_client._transport is None
-        device_client.state = "disconnected"
-        device_client.connect()
+    event = "Caput Draconis"
+    device_client = DeviceClient(authentication_provider, mock_transport)
+    device_client.state = "connected"
+    device_client.connect()
+    with pytest.raises(RuntimeError, match="Some runtime error happened"):
         device_client.send_event(event)
 
-    TransportConfig.get_specific_transport.assert_called_once_with(authentication_provider)
+    mock_transport.send_event.assert_called_once_with(event)

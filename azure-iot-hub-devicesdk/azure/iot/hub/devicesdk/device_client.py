@@ -5,20 +5,19 @@
 
 import logging
 import types
-from .symmetric_key_authentication_provider import SymmetricKeyAuthenticationProvider
+from .transport.mqtt.mqtt_transport import MQTTTransport
 
 
 class DeviceClient(object):
-    def __init__(self, auth_provider, transport_config):
+    def __init__(self, auth_provider, transport):
         """
-        Constructor for instantiating a device client
+        Constructor for instantiating an internal client
         :param auth_provider: The authentication provider
-        :param transport_config: The transport config
+        :param transport: The device transport that the client will use.
         """
         self._auth_provider = auth_provider
-        self._transport_config = transport_config
+        self._transport = transport
 
-        self._transport = None
         self.state = "initial"
 
         self.on_connection_state = types.FunctionType
@@ -28,10 +27,8 @@ class DeviceClient(object):
         The device client must call this method as an entry point to getting connected to IoT Hub
         """
         logging.info("connecting to transport")
-        self._transport = self._transport_config.get_specific_transport(self._auth_provider)
         self._transport.on_transport_connected = self._get_transport_connected_state_callback
         self._transport.connect()
-        self._emit_connection_status()
 
     def send_event(self, event):
         """
@@ -39,12 +36,7 @@ class DeviceClient(object):
         The device client must call this method to send messages.
         :param event: The actual message to send.
         """
-        if self.state is "connected":
-            self._transport.send_event(event)
-        else:
-            logging.error("Can not send if not connected")
-            # Check if need to define custom exception
-            raise ValueError("No connection present to send event.")
+        self._transport.send_event(event)
 
     def _emit_connection_status(self):
         """
@@ -61,11 +53,10 @@ class DeviceClient(object):
         self._emit_connection_status()
 
     @staticmethod
-    def create_from_connection_string(connection_string, transport_config):
-        """Creates a device client with the specified connection string"""
-        return DeviceClient(
-            SymmetricKeyAuthenticationProvider.create_authentication_from_connection_string(
-                connection_string
-            ),
-            transport_config,
-        )
+    def from_authentication_provider(authentication_provider, transport_name):
+        """Creates a device client with the specified authentication provider and transport protocol"""
+        if transport_name == "mqtt":
+            transport = MQTTTransport(authentication_provider)
+        else:
+            raise NotImplementedError("No specific transport can be instantiated based on the choice.")
+        return DeviceClient(authentication_provider, transport)

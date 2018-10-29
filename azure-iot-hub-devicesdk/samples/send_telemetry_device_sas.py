@@ -5,19 +5,20 @@
 import os
 import logging
 from azure.iot.hub.devicesdk.device_client import DeviceClient
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_shared_access_signature
 
 logging.basicConfig(level=logging.INFO)
 
-conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-auth_provider = from_connection_string(conn_str)
+sas_token_string = os.getenv("IOTHUB_DEVICE_SAS_STRING")
+
+auth_provider = from_shared_access_signature(str(sas_token_string))
 simpleDevice = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
 
 def connection_state_callback(status):
     print("connection status: " + status)
     if status == "connected":
-        simpleDevice.send_event("Mimbulus Mimbletonia")
+        simpleDevice.send_event("Caput Draconis")
 
 
 simpleDevice.on_connection_state = connection_state_callback
