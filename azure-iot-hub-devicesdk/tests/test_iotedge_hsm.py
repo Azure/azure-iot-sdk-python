@@ -58,7 +58,7 @@ def test_get_trust_bundle_returns_certificate(mock_get):
     cert = hsm.get_trust_bundle()
 
     assert cert == fake_certificate
-    mock_response.raise_for_status.assert_called_once()  # this verifies that a failed status code will throw
+    mock_response.raise_for_status.assert_called_once_with()  # this verifies that a failed status code will throw
     mock_get.assert_called_once_with(
         fake_http_workload_uri + "trust-bundle",
         params={"api-version": fake_api_version},
@@ -76,7 +76,7 @@ def test_get_trust_bundle_returns_certificate(mock_post):
     digest = hsm.sign(fake_message)
 
     assert digest == fake_digest
-    mock_response.raise_for_status.assert_called_once()  # this verifies that a failed status code will throw
+    mock_response.raise_for_status.assert_called_once_with()  # this verifies that a failed status code will throw
     fake_url = (
         fake_http_workload_uri
         + "modules/"
