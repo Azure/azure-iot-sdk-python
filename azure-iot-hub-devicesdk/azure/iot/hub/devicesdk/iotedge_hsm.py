@@ -50,12 +50,12 @@ class IotEdgeHsm(object):
         r.raise_for_status()
         return r.json()["certificate"]
 
-    def sign(self, message):
+    def sign(self, data):
         """
-        Use the IoTEdge HSM to sign a message.  The signed value can be used a
+        Use the IoTEdge HSM to sign a piece of data.  The signed value can be used a
         SAS token when communicating with IoTEdge
 
-        :param message The string to sign
+        :param data The string to sign
 
         returns The signature string.
         """
@@ -70,7 +70,7 @@ class IotEdgeHsm(object):
         sign_request = {
             "keyId": "primary",
             "algo": "HMACSHA256",
-            "data": base64.b64encode(message.encode()).decode(),
+            "data": base64.b64encode(data.encode('utf-8')).decode(),
         }
 
         r = requests.post(
@@ -79,4 +79,4 @@ class IotEdgeHsm(object):
             data=json.dumps(sign_request),
         )
         r.raise_for_status()
-        return base64.b64decode(r.json()["digest"]).decode()
+        return r.json()["digest"]

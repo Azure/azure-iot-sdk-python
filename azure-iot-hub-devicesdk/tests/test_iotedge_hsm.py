@@ -69,7 +69,7 @@ def test_get_trust_bundle_returns_certificate(mock_get):
 @patch.dict(os.environ, required_environment_variables)
 def test_get_trust_bundle_returns_certificate(mock_post):
     mock_response = mock.Mock(spec=requests.Response)
-    mock_response.json.return_value = {"digest": base64.b64encode(fake_digest.encode())}
+    mock_response.json.return_value = {"digest": fake_digest }
     mock_post.return_value = mock_response
 
     hsm = IotEdgeHsm()
@@ -77,6 +77,7 @@ def test_get_trust_bundle_returns_certificate(mock_post):
 
     assert digest == fake_digest
     mock_response.raise_for_status.assert_called_once_with()  # this verifies that a failed status code will throw
+
     fake_url = (
         fake_http_workload_uri
         + "modules/"
