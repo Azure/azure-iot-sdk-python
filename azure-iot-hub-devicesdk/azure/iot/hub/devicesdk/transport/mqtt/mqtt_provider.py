@@ -17,10 +17,10 @@ class MQTTProvider(object):
     to publish/subscribe messages.
     """
 
-    def __init__(self, device_id, hostname, password):
+    def __init__(self, client_id, hostname, username, password):
         """
         Constructor to instantiate a mqtt provider.
-        :param device_id: The id of the device representing the client when connecting to the broker.
+        :param client_id: The id of the client connecting to the broker.
         :param hostname: hostname or IP address of the remote broker.
         :param password:  The password to authenticate with.
         """
@@ -40,9 +40,9 @@ class MQTTProvider(object):
         self._state_machine.on_enter_connected(self._emit_connection_status)
         self._state_machine.on_enter_disconnected(self._emit_connection_status)
 
-        self._device_id = device_id
+        self._client_id = client_id
         self._hostname = hostname
-        self._username = hostname + "/" + device_id
+        self._username = username
         self._password = password
         self._mqtt_client = None
 
@@ -55,7 +55,7 @@ class MQTTProvider(object):
         The mqtt provider is also connected to a remote broker and is ready to receive messages.
         """
         self._emit_connection_status()
-        self._mqtt_client = mqtt.Client(self._device_id, False, protocol=mqtt.MQTTv311)
+        self._mqtt_client = mqtt.Client(self._client_id, False, protocol=mqtt.MQTTv311)
 
         def _on_connect_callback(client, userdata, flags, result_code):
             logging.info("connected with result code: %s", str(result_code))
@@ -77,11 +77,9 @@ class MQTTProvider(object):
             certfile=None,
             keyfile=None,
             cert_reqs=ssl.CERT_REQUIRED,
-            tls_version=ssl.PROTOCOL_TLSv1,
+            tls_version=ssl.PROTOCOL_TLSv1_2,
             ciphers=None,
         )
-        self._mqtt_client.tls_insecure_set(False)
-
         self._mqtt_client.username_pw_set(username=self._username, password=self._password)
 
         self._mqtt_client.connect(host=self._hostname, port=8883)

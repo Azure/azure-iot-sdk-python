@@ -15,14 +15,14 @@ from mock import MagicMock
 
 
 connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
-shared_access_key = "Zm9vYmFy"
-hostname = "beauxbatons.academy-net"
-device_id = "MyPensieve"
+fake_shared_access_key = "Zm9vYmFy"
+fake_hostname = "beauxbatons.academy-net"
+fake_device_id = "MyPensieve"
 
 
 @pytest.fixture(scope="module")
 def authentication_provider():
-    connection_string = connection_string_format.format(hostname, device_id, shared_access_key)
+    connection_string = connection_string_format.format(fake_hostname, fake_device_id, fake_shared_access_key)
     auth_provider = from_connection_string(connection_string)
     return auth_provider
 
@@ -33,15 +33,15 @@ def transport(authentication_provider):
     return transport
 
 
-def test_create():
-    connection_string = connection_string_format.format(hostname, device_id, shared_access_key)
+def test_instantiation_creates_proper_transport():
+    connection_string = connection_string_format.format(fake_hostname, fake_device_id, fake_shared_access_key)
     authentication_provider = from_connection_string(connection_string)
     trans = MQTTTransport(authentication_provider)
     assert trans._auth_provider == authentication_provider
     assert trans._mqtt_provider is None
 
 
-def test_connect_to_message_broker(mocker, transport):
+def test_connect_in_turn_calls_connect_on_provider(mocker, transport):
     mock_mqtt_provider = MagicMock(spec=MQTTProvider)
     mock_mqtt_provider_constructor = mocker.patch(
         "azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"
@@ -54,8 +54,8 @@ def test_connect_to_message_broker(mocker, transport):
     mock_mqtt_provider.connect.assert_called_once_with()
 
 
-def test_sendevent(mocker, transport):
-    topic = "devices/" + device_id + "/messages/events/"
+def test_sendevent_in_turn_calls_publish_on_provider(mocker, transport):
+    topic = "devices/" + fake_device_id + "/messages/events/"
     event = "Wingardian Leviosa"
 
     mock_mqtt_provider = MagicMock(spec=MQTTProvider)
@@ -73,7 +73,7 @@ def test_sendevent(mocker, transport):
     mock_mqtt_provider.publish.assert_called_once_with(topic, event)
 
 
-def test_disconnect_from_message_broker(mocker, transport):
+def test_disconnect_in_turn_calls_disconnect_on_provider(mocker, transport):
     mock_mqtt_provider = MagicMock(spec=MQTTProvider)
     mock_mqtt_provider_constructor = mocker.patch(
         "azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"
@@ -85,3 +85,21 @@ def test_disconnect_from_message_broker(mocker, transport):
     transport.disconnect()
 
     mock_mqtt_provider.disconnect.assert_called_once_with()
+
+
+def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(mocker, transport):
+    mock_mqtt_provider = MagicMock(spec=MQTTProvider)
+    mock_mqtt_provider_constructor = mocker.patch(
+        "azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"
+    )
+    mock_mqtt_provider_constructor.return_value = mock_mqtt_provider
+    mocker.patch.object(mock_mqtt_provider, "connect")
+
+    stub_on_transport_connected = mocker.stub(name="on_transport_connected")
+    transport.on_transport_connected = stub_on_transport_connected
+
+    fake_new_state = "noiseless_blackness"
+    transport.connect()
+    mock_mqtt_provider.on_mqtt_connected(fake_new_state)
+
+    stub_on_transport_connected.assert_called_once_with(fake_new_state)

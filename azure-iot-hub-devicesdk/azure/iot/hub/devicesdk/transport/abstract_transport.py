@@ -37,8 +37,8 @@ class AbstractTransport:
         pass
 
     @abc.abstractmethod
-    def _get_connected_state_callback(self):
+    def _handle_provider_connected_state(self):
         """
-        Callback for getting connected.
+        Handler when the underlying provider gets connected.
         """
         pass

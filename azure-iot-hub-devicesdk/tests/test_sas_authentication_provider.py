@@ -29,7 +29,7 @@ def create_sas_token_string_device(is_module=False, is_key_name=False):
         return sas_device_token_format.format(uri, signature, expiry)
 
 
-def test_all_attributes_for_device():
+def test_sas_auth_provider_is_created_from_device_sas_token_string():
     sas_string = create_sas_token_string_device()
     sas_auth_provider = SharedAccessSignatureAuthenticationProvider.parse(sas_string)
     assert sas_auth_provider.hostname == hostname
@@ -38,7 +38,7 @@ def test_all_attributes_for_device():
     assert device_id in sas_auth_provider.sas_token_str
 
 
-def test_all_attributes_for_module():
+def test_sas_auth_provider_is_created_from_module_sas_token_string():
     sas_string = create_sas_token_string_device(True)
     sas_auth_provider = SharedAccessSignatureAuthenticationProvider.parse(sas_string)
     assert sas_auth_provider.hostname == hostname
@@ -51,7 +51,7 @@ def test_all_attributes_for_module():
     assert module_id in sas_auth_provider.sas_token_str
 
 
-def test_device_sastoken_skn():
+def test_sas_auth_provider_is_created_from_device_sas_token_string_with_keyname():
     sas_string = create_sas_token_string_device(False, True)
     sas_auth_provider = SharedAccessSignatureAuthenticationProvider.parse(sas_string)
     assert sas_auth_provider.hostname == hostname
@@ -59,6 +59,15 @@ def test_device_sastoken_skn():
     assert hostname in sas_auth_provider.sas_token_str
     assert device_id in sas_auth_provider.sas_token_str
     assert shared_access_key_name in sas_auth_provider.sas_token_str
+
+
+def test_sas_auth_provider_is_created_from_device_sas_token_string_quoted():
+    sas_string_quoted = "SharedAccessSignature sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&sig=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora"
+    sas_auth_provider = SharedAccessSignatureAuthenticationProvider.parse(sas_string_quoted)
+    assert sas_auth_provider.hostname == hostname
+    assert sas_auth_provider.device_id == device_id
+    assert hostname in sas_auth_provider.sas_token_str
+    assert device_id in sas_auth_provider.sas_token_str
 
 
 def test_raises_auth_provider_created_from_missing_part_shared_access_signature_string():

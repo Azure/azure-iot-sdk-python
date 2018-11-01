@@ -7,9 +7,10 @@ import pytest
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 
 
-def test_raises_exception():
+def test_raises_exception_on_init_of_abstract_transport():
     with pytest.raises(TypeError) as error:
         AbstractTransport()
     msg = str(error.value)
-    expected_msg = "Can't instantiate abstract class AbstractTransport with abstract methods _get_connected_state_callback, connect, disconnect, send_event"
+    expected_msg = "Can't instantiate abstract class AbstractTransport with abstract methods _handle_provider_connected_state, connect, disconnect, send_event"
     assert msg == expected_msg
+

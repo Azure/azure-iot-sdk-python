@@ -6,5 +6,6 @@
 from .internal_client import InternalClient
 
 
-class DeviceClient(InternalClient):
+class ModuleClient(InternalClient):
     pass
+
