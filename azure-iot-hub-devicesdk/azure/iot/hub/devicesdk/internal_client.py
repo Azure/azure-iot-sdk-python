@@ -7,6 +7,7 @@ import logging
 import types
 from .transport.mqtt.mqtt_transport import MQTTTransport
 
+logger = logging.getLogger(__name__)
 
 class InternalClient(object):
     """
@@ -29,7 +30,7 @@ class InternalClient(object):
         """Connects the client to an Azure IoT Hub.
         The client must call this method as an entry point to getting connected to IoT Hub
         """
-        logging.info("connecting to transport")
+        logger.info("connecting to transport")
         self._transport.on_transport_connected = self._handle_transport_connected_state
         self._transport.connect()
 
@@ -45,11 +46,11 @@ class InternalClient(object):
         """
         The connection status is emitted whenever the client on the module gets connected or disconnected.
         """
-        logging.info("emit_connection_status")
+        logger.info("emit_connection_status")
         if self.on_connection_state:
             self.on_connection_state(self.state)
         else:
-            logging.warn("No callback defined for sending state")
+            logger.warn("No callback defined for sending state")
 
     def _handle_transport_connected_state(self, new_state):
         self.state = new_state

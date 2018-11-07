@@ -10,6 +10,7 @@ import os
 import ssl
 from transitions import Machine
 
+logger = logging.getLogger(__name__)
 
 class MQTTProvider(object):
     """
@@ -58,19 +59,19 @@ class MQTTProvider(object):
         self._mqtt_client = mqtt.Client(self._client_id, False, protocol=mqtt.MQTTv311)
 
         def _on_connect_callback(client, userdata, flags, result_code):
-            logging.info("connected with result code: %s", str(result_code))
+            logger.info("connected with result code: %s", str(result_code))
             self._state_machine.trig_on_connect()
 
         def on_disconnect_callback(client, userdata, result_code):
-            logging.info("disconnected with result code: %s", str(result_code))
+            logger.info("disconnected with result code: %s", str(result_code))
 
         def on_publish_callback(client, userdata, mid):
-            logging.info("payload published")
+            logger.info("payload published")
 
         self._mqtt_client.on_connect = _on_connect_callback
         self._mqtt_client.on_disconnect = on_disconnect_callback
         self._mqtt_client.on_publish = on_publish_callback
-        logging.info("Created MQTT provider, assigned callbacks")
+        logger.info("Created MQTT provider, assigned callbacks")
 
         self._mqtt_client.tls_set(
             ca_certs=os.environ.get("IOTHUB_ROOT_CA_CERT"),
@@ -92,8 +93,7 @@ class MQTTProvider(object):
         """
         The connection status is emitted whenever the state machine gets connected or disconnected.
         """
-        logging.info("emit_connection_status")
-        logging.info(self._state_machine.state)
+        logger.info("emit_connection_status: %s", self._state_machine.state)
         if self._state_machine.state == "connected":
             self.on_mqtt_connected(self._state_machine.state)
 
@@ -103,7 +103,7 @@ class MQTTProvider(object):
         It internally triggers the state machine to transition into "connecting" state.
         This method should be called as an entry point before sending any telemetry.
         """
-        logging.info("creating mqtt client and connecting to mqtt broker")
+        logger.info("creating mqtt client and connecting to mqtt broker")
         self._state_machine.trig_connect()
 
     def disconnect(self):
@@ -111,7 +111,7 @@ class MQTTProvider(object):
         This method disconnects the mqtt provider. This should be called from the upper transport
         when it wants to disconnect from the mqtt provider.
         """
-        logging.info("disconnecting from mqtt broker")
+        logger.info("disconnecting transport")
         self._mqtt_client.loop_stop()
 
     def publish(self, topic, message_payload):
@@ -120,5 +120,5 @@ class MQTTProvider(object):
         :param topic: topic: The topic that the message should be published on.
         :param message_payload: The actual message to send.
         """
-        logging.info("sending")
+        logger.info("sending")
         self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
