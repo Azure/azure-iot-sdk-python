@@ -2,13 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
-
+import logging
 from .authentication_provider import AuthenticationProvider
 """
 The urllib, urllib2, and urlparse modules from Python 2 have been combined in the urllib package in Python 3
 The six.moves.urllib package is a python version-independent location of the above functionality.
 """
 import six.moves.urllib as urllib
+
+logger = logging.getLogger(__name__)
 
 URI_SEPARATOR = "/"
 DELIMITER = "&"
@@ -37,6 +39,7 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
         """
         Constructor for Shared Access Signature Authentication Provider
         """
+        logger.info("Using SAS authentication for (%s,%s) ", device_id, module_id)
         AuthenticationProvider.__init__(self, hostname, device_id, module_id)
         self.sas_token_str = sas_token_str
 
