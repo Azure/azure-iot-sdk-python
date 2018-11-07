@@ -6,12 +6,11 @@ import base64
 import hmac
 import hashlib
 import time
-from .authentication_provider import AuthenticationProvider
-"""
-The urllib, urllib2, and urlparse modules from Python 2 have been combined in the urllib package in Python 3
-The six.moves.urllib package is a python version-independent location of the above functionality.
-"""
+import logging
 import six.moves.urllib as urllib
+from .selfsign_authentication_provider_base import SelfSignAuthenticationProviderBase
+
+logger = logging.getLogger(__name__)
 
 DELIMITER = ";"
 VALUE_SEPARATOR = "="
@@ -34,26 +33,29 @@ _valid_keys = [
     GATEWAY_HOST_NAME,
 ]
 
-_device_keyname_token_format = "SharedAccessSignature sr={}&sig={}&se={}&skn={}"
-_device_token_format = "SharedAccessSignature sr={}&sig={}&se={}"
 
-
-class SymmetricKeyAuthenticationProvider(AuthenticationProvider):
+class SymmetricKeyAuthenticationProvider(SelfSignAuthenticationProviderBase):
     """
     A Symmetric Key Authentication Provider. This provider needs to create the Shared Access Signature that would be needed to conenct to the IoT Hub.
     """
-    def __init__(self, hostname, device_id, module_id, sas_token_str):
+
+    def __init__(
+        self,
+        hostname,
+        device_id,
+        module_id,
+        shared_access_key,
+        shared_access_key_name=None,
+    ):
         """
+
         Constructor for SymmetricKey Authentication Provider
         """
-        AuthenticationProvider.__init__(self, hostname, device_id, module_id)
-        self.sas_token_str = sas_token_str
-
-    def get_current_sas_token(self):
-        """
-        :return: The current shared access signature token
-        """
-        return self.sas_token_str
+        SelfSignAuthenticationProviderBase.__init__(
+            self, hostname, device_id, module_id
+        )
+        self.shared_access_key = shared_access_key
+        self.shared_access_key_name = shared_access_key_name
 
     @staticmethod
     def parse(connection_string):
@@ -75,46 +77,32 @@ class SymmetricKeyAuthenticationProvider(AuthenticationProvider):
 
         _validate_keys(d)
 
-        sas_token_str = _create_sas(d.get(HOST_NAME), d.get(DEVICE_ID), d.get(SHARED_ACCESS_KEY), d.get(MODULE_ID), d.get(SHARED_ACCESS_KEY_NAME))
-
-        return SymmetricKeyAuthenticationProvider(d.get(HOST_NAME), d.get(DEVICE_ID), d.get(MODULE_ID), sas_token_str)
-
-
-def _create_sas(hostname, device_id, shared_access_key, module_id=None, shared_access_key_name=None):
-    resource_uri = hostname + "/devices/" + device_id
-    if module_id:
-        resource_uri += "/modules/" + module_id
-
-    quoted_resource_uri = urllib.parse.quote_plus(resource_uri)
-    expiry = int(time.time() + 3600)
-    signature = _signature(quoted_resource_uri, expiry, shared_access_key)
-
-    if shared_access_key_name:
-        token = _device_keyname_token_format.format(
-            quoted_resource_uri, signature, str(expiry), shared_access_key_name
+        return SymmetricKeyAuthenticationProvider(
+            d.get(HOST_NAME),
+            d.get(DEVICE_ID),
+            d.get(MODULE_ID),
+            d.get(SHARED_ACCESS_KEY),
+            d.get(SHARED_ACCESS_KEY_NAME),
         )
-    else:
-        token = _device_token_format.format(quoted_resource_uri, signature, str(expiry))
-    return str(token)
 
-
-def _signature(resource_uri, expiry, device_key):
-    """
-    Creates the base64-encoded HMAC-SHA256 hash of the string to sign. The string to sign is constructed from the
-    resource_uri and expiry and the signing key is constructed from the device_key.
-    :param resource_uri: the resource URI to encode into the token
-    :param expiry: an integer value representing the number of seconds since the epoch 00:00:00 UTC on 1 January 1970 at which the token will expire.
-    :param device_key: Symmetric key to use to create SasTokens.
-    :return: The signature portion of the Sas Token.
-    """
-    try:
-        message = (resource_uri + "\n" + str(expiry)).encode("utf-8")
-        signing_key = base64.b64decode(device_key.encode("utf-8"))
-        signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
-        signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
-    except (TypeError, base64.binascii.Error) as e:
-        raise TypeError("Unable to build shared access signature from given values", e)
-    return signature
+    def _do_sign(self, quoted_resource_uri, expiry):
+        """
+        Creates the base64-encoded HMAC-SHA256 hash of the string to sign. The string to sign is constructed from the
+        resource_uri and expiry and the signing key is constructed from the device_key.
+        :param  quoted_resource_uri: the resource URI to encode into the token, already URI-encoded
+        :param expiry: an integer value representing the number of seconds since the epoch 00:00:00 UTC on 1 January 1970 at which the token will expire.
+        :return: The signature portion of the Sas Token.
+        """
+        try:
+            message = (quoted_resource_uri + "\n" + str(expiry)).encode("utf-8")
+            signing_key = base64.b64decode(self.shared_access_key.encode("utf-8"))
+            signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
+            signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
+        except (TypeError, base64.binascii.Error) as e:
+            raise TypeError(
+                "Unable to build shared access signature from given values", e
+            )
+        return signature
 
 
 def _validate_keys(d):

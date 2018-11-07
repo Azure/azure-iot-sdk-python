@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-from azure.iot.hub.devicesdk.iotedge_hsm import IotEdgeHsm
+from azure.iot.hub.devicesdk.auth.iotedge_hsm import IotEdgeHsm
 import pytest
 import requests
 import os

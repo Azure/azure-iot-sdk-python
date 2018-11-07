@@ -1,9 +1,9 @@
-import six.moves.urllib as urllib
-import requests
-import requests_unixsocket
 import os
 import base64
 import json
+import six.moves.urllib as urllib
+import requests
+import requests_unixsocket
 
 requests_unixsocket.monkeypatch()
 
@@ -79,4 +79,4 @@ class IotEdgeHsm(object):
             data=json.dumps(sign_request),
         )
         r.raise_for_status()
-        return r.json()["digest"]
+        return urllib.parse.quote(r.json()["digest"])
