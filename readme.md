@@ -12,6 +12,23 @@ To manage all your Azure resources using Python, you can leverate the [Azure CLI
 
 To find SDKs in other languages for Azure IoT, please refer to the [azure-iot-sdks][azure-iot-sdks] repository.
 
+## IMPORTANT INSTALLATION notes - Dealing with `ImportError` issues
+
+The current version of the Azure IoT SDK for Python is a wrapper over [our C SDK](https://github.com/azure/azure-iot-sdk-c). It is generated using the [Boost](https://www.boost.org/) library. Because of that, it comes with several significant limitations:
+- Boost and other C dependencies should be installed on the system for the PIP package to work, or the SDK to be built.
+- Only a handful of "golden configurations" OS images are supported by the PIP package, because they have the right dependency tree:
+  - Ubuntu 16:04 + Python 3.5 (or 2.7) + libboost-python-dev + libcurl4-openssl-dev + python3-dev (or python-dev for 2.7)
+  - Windows 10: Python 3.6 corresponding to your CPU architecture (the default download on python.org is x86 and will not work if running on x64)
+  - Raspbian Stretch: + Python 3.5 or 2.7 + libboost-python-dev + libcurl4-openssl-dev + python3-dev (or python-dev for 2.7)
+  - Mac OS: Python 3.7.0 (or 2.7) + libboost-1.67 + curl 7.61.1 (all installed via homebrew)
+Any other distribution/OS probably embed different versions of boost & dependencies which won't work and will result in an `ImportError` at runtime.
+
+The [dockerfiles](https://github.com/Azure/azure-iot-sdk-python/tree/master/dockerfiles) folder in this repository provides examples of configurations that successfully build the SDK or run the pip packages. We would absolutely welcome contributions to this folder to add more configurations.
+
+*my version is not in this list and I need support*: you always have the option of [rebuilding the sdk][devbox-setup].
+
+We are fully aware that this is a less than ideal situation and we are currently working on a full python implementation that will have the wide platform support that is expected of any respectable python library. While we intend to support this wrapper-based version of the SDK until the new one is full-featured, we will be deprecating it shortly thereafter. We will update this readme with the link to the new preview version when it is available.
+
 ## Developing applications for Azure IoT
 Visit [Azure IoT Dev Center][iot-dev-center] to learn more about developing applications for Azure IoT.
 
