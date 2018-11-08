@@ -5,15 +5,15 @@
 import os
 import logging
 import six.moves.urllib as urllib
-from .selfsign_authentication_provider_base import SelfSignAuthenticationProviderBase
+from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
 from .iotedge_hsm import IotEdgeHsm
 
 logger = logging.getLogger(__name__)
 
 
-class IotEdgeAuthenticationProvider(SelfSignAuthenticationProviderBase):
+class IotEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
     """
-    An IoTEdge Authentication Provider. This provider needs to create the Shared Access Signature that would be needed to conenct to the IoT Hub.
+    An Azure IoT Edge Authentication Provider. This provider creates the Shared Access Signature that would be needed to connenct to the IoT Edge runtime
     """
 
     def __init__(self):
@@ -25,10 +25,10 @@ class IotEdgeAuthenticationProvider(SelfSignAuthenticationProviderBase):
         module_id = os.environ["IOTEDGE_MODULEID"]
 
         logger.info(
-            "Using IoTEdge authentication for {%s,%s}", device_id, module_id
+            "Using IoTEdge authentication for {%s, %s, %s}", hostname, device_id, module_id
         )
 
-        SelfSignAuthenticationProviderBase.__init__(
+        BaseRenewableTokenAuthenticationProvider.__init__(
             self, hostname, device_id, module_id
         )
 
@@ -37,11 +37,10 @@ class IotEdgeAuthenticationProvider(SelfSignAuthenticationProviderBase):
         self.ca_cert = self.hsm.get_trust_bundle()
 
     @staticmethod
-    # pylint: disable=arguments-differ
     def parse(connection_string):
         pass
 
-    def _do_sign(self, quoted_resource_uri, expiry):
+    def _sign(self, quoted_resource_uri, expiry):
         """
         Creates the signature to be inserted in the SAS token
         :param resource_uri: the resource URI to encode into the token

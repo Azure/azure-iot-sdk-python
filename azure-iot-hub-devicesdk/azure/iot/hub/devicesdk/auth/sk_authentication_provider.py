@@ -8,7 +8,7 @@ import hashlib
 import time
 import logging
 import six.moves.urllib as urllib
-from .selfsign_authentication_provider_base import SelfSignAuthenticationProviderBase
+from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,10 @@ _valid_keys = [
 ]
 
 
-class SymmetricKeyAuthenticationProvider(SelfSignAuthenticationProviderBase):
+class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
     """
-    A Symmetric Key Authentication Provider. This provider needs to create the Shared Access Signature that would be needed to conenct to the IoT Hub.
+    A Symmetric Key Authentication Provider. This provider needs to create the i
+    Shared Access Signature that would be needed to connect to the IoT Hub.
     """
 
     def __init__(
@@ -51,7 +52,11 @@ class SymmetricKeyAuthenticationProvider(SelfSignAuthenticationProviderBase):
 
         Constructor for SymmetricKey Authentication Provider
         """
-        SelfSignAuthenticationProviderBase.__init__(
+        logger.info(
+            "Using Shared Key authentication for {%s, %s, %s}", hostname, device_id, module_id
+        )
+
+        BaseRenewableTokenAuthenticationProvider.__init__(
             self, hostname, device_id, module_id
         )
         self.shared_access_key = shared_access_key
@@ -85,7 +90,7 @@ class SymmetricKeyAuthenticationProvider(SelfSignAuthenticationProviderBase):
             d.get(SHARED_ACCESS_KEY_NAME),
         )
 
-    def _do_sign(self, quoted_resource_uri, expiry):
+    def _sign(self, quoted_resource_uri, expiry):
         """
         Creates the base64-encoded HMAC-SHA256 hash of the string to sign. The string to sign is constructed from the
         resource_uri and expiry and the signing key is constructed from the device_key.

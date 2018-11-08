@@ -22,17 +22,29 @@ DEFAULT_TOKEN_RENEWAL_INTERVAL = 3600
 DEFAULT_TOKEN_RENEWAL_MARGIN = 120
 
 
-class SelfSignAuthenticationProviderBase(AuthenticationProvider):
+class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
     """
-    A base class for authentication providers which are able to sign themselves
+    A base class for authentication providers which are based on SAS (Shared
+    Authentication Signature) strings which are able to be renewed.
+    The SAS token string renewal is based on a signing function that is used
+    to create the sig field of the SAS string.  This base implements all
+    functionality for SAS string creation except for the signing function,
+    which is expected to be provided by derived objects.  This base also
+    implements the functionality necessary for timing and executing the
+    token renewal operation.
     """
 
     def __init__(self, hostname, device_id, module_id):
         """
-        Constructor for SymmetricKey Authentication Provider
+        Constructor for Renewable Token Authentication Provider.
+
+        This object is intended as a base class and cannot be used directly.
+        A derived class which provides a signing function (such as
+        SymmetricKeyAuthenticationProvider or IotEdgeAuthenticationProvider)
+        should be used instead.
         """
         logger.info(
-            "Using symetric key authentication for (%s, %s, %s)", hostname, device_id, module_id
+            "Using symmetric key authentication for (%s, %s, %s)", hostname, device_id, module_id
         )
 
         AuthenticationProvider.__init__(self, hostname, device_id, module_id)
@@ -46,6 +58,8 @@ class SelfSignAuthenticationProviderBase(AuthenticationProvider):
         Force the SAS token to update itself.  This will cause a new sas token to be
         created, and self.on_sas_token_updated to be called.  The token update will
         be rescheduled based on the current time.
+
+        :return: None
         """
         logger.info(
             "Generating new SAS token for (%s,%s) that expires %d seconds in the future",
@@ -59,7 +73,7 @@ class SelfSignAuthenticationProviderBase(AuthenticationProvider):
             resource_uri += "/modules/" + self.module_id
         quoted_resource_uri = urllib.parse.quote_plus(resource_uri)
 
-        signature = self._do_sign(quoted_resource_uri, expiry)
+        signature = self._sign(quoted_resource_uri, expiry)
 
         if self.shared_access_key_name:
             token = _device_keyname_token_format.format(
@@ -74,17 +88,21 @@ class SelfSignAuthenticationProviderBase(AuthenticationProvider):
 
     def get_current_sas_token(self):
         """
-        :return: The current shared access signature token
+        Get the current SharedAuthenticationSignature string.  This string can be used
+        to authenticate with an Azure IoT Hub or Azure IoT Edge Hub service.
+
+        :return: The current shared access signature token in string form.  If a SAS token
+        has not yet been crated yet, it will be created and returned.
         """
         if not self.sas_token_str:
             self.generate_new_sas_token()
         return self.sas_token_str
-                
+
 
     @abc.abstractmethod
-    def _do_sign(self, quoted_resource_uri, expiry):
+    def _sign(self, quoted_resource_uri, expiry):
         """
-        Create and return a new signature for this object.  Caller is responsible for placing the
-        signature inside the context of a SAS token string.
+        Create and return a new signature for this object.  The caller is responsible
+        for placing the signature inside the sig field of a SAS token string.
         """
         pass

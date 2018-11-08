@@ -27,7 +27,12 @@ def from_shared_access_signature(sas_token_str):
 
 def from_environment():
     """
-    Provides an `AuthenticationProvider` object that can be used inside of an IoTEdge module
+    Provides an `AuthenticationProvider` object that can be used inside of an Azure IoT Edge module.
+
+    This method does not need any parameters because all of the information necessary to connect
+    to Azure IoT Edge comes from the operating system of the module container and also from the 
+    IoTEdge service.
+
     :return: iotedge AuthenticationProvider
     """
     return IotEdgeAuthenticationProvider()

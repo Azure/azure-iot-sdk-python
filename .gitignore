@@ -108,3 +108,6 @@ junit
 
 # Coverage results
 coverage/
+
+# VS Code
+.vscode/
