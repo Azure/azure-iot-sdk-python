@@ -18,7 +18,7 @@ class MQTTProvider(object):
     to publish/subscribe messages.
     """
 
-    def __init__(self, client_id, hostname, username, password):
+    def __init__(self, client_id, hostname, username, password, ca_cert=None):
         """
         Constructor to instantiate a mqtt provider.
         :param client_id: The id of the client connecting to the broker.
@@ -46,8 +46,9 @@ class MQTTProvider(object):
         self._username = username
         self._password = password
         self._mqtt_client = None
+        self._ca_cert = ca_cert
 
-        self.on_mqtt_connected = types.FunctionType
+        self.on_mqtt_connected = None
 
     def _on_enter_connecting(self):
         """
@@ -73,14 +74,15 @@ class MQTTProvider(object):
         self._mqtt_client.on_publish = on_publish_callback
         logger.info("Created MQTT provider, assigned callbacks")
 
-        self._mqtt_client.tls_set(
-            ca_certs=os.environ.get("IOTHUB_ROOT_CA_CERT"),
-            certfile=None,
-            keyfile=None,
-            cert_reqs=ssl.CERT_REQUIRED,
-            tls_version=ssl.PROTOCOL_TLSv1_2,
-            ciphers=None,
-        )
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        if self._ca_cert:
+            ssl_context.load_verify_locations(cadata = self._ca_cert)
+        else:
+            ssl_context.load_default_certs()
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
+        self._mqtt_client.tls_set_context(ssl_context)
+        self._mqtt_client.tls_insecure_set(False)
         self._mqtt_client.username_pw_set(username=self._username, password=self._password)
 
         self._mqtt_client.connect(host=self._hostname, port=8883)
@@ -94,7 +96,7 @@ class MQTTProvider(object):
         The connection status is emitted whenever the state machine gets connected or disconnected.
         """
         logger.info("emit_connection_status: %s", self._state_machine.state)
-        if self._state_machine.state == "connected":
+        if self.on_mqtt_connected and self._state_machine.state == "connected":
             self.on_mqtt_connected(self._state_machine.state)
 
     def connect(self):

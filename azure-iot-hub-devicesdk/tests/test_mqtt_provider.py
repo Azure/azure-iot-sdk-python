@@ -12,6 +12,7 @@ from six import add_move, MovedModule
 add_move(MovedModule("mock", "mock", "unittest.mock"))
 from six.moves import mock
 from mock import MagicMock
+from mock import patch
 
 
 fake_hostname = "beauxbatons.academy-net"
@@ -20,7 +21,8 @@ fake_password = "Fortuna Major"
 fake_username = fake_hostname + "/" + fake_device_id
 
 
-def test_connect_triggers_state_machine_connect_which_calls_on_enter_connecting(mocker):
+@patch.object(ssl, "SSLContext")
+def test_connect_triggers_state_machine_connect_which_calls_on_enter_connecting(mock_ssl, mocker):
     mock_mqtt_client = MagicMock(spec=mqtt.Client)
     mock_constructor_mqtt_client = mocker.patch(
         "azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider.mqtt.Client"
@@ -34,14 +36,13 @@ def test_connect_triggers_state_machine_connect_which_calls_on_enter_connecting(
     MQTTProvider._emit_connection_status.assert_called_once_with()
 
     mock_constructor_mqtt_client.assert_called_once_with(fake_device_id, False, protocol=4)
-    mock_mqtt_client.tls_set.assert_called_once_with(
-        ca_certs=os.environ.get("IOTHUB_ROOT_CA_CERT"),
-        certfile=None,
-        keyfile=None,
-        cert_reqs=ssl.CERT_REQUIRED,
-        tls_version=ssl.PROTOCOL_TLSv1_2,
-        ciphers=None,
-    )
+    mock_ssl.assert_called_once_with(ssl.PROTOCOL_TLSv1_2)
+    assert(mock_mqtt_client.tls_set_context.call_count == 1)
+    context = mock_mqtt_client.tls_set_context.call_args[0][0]
+    assert(context.check_hostname == True)
+    assert(context.verify_mode == ssl.CERT_REQUIRED)
+    context.load_default_certs.assert_called_once_with()
+    mock_mqtt_client.tls_insecure_set.assert_called_once_with(False)
     mock_mqtt_client.connect.assert_called_once_with(host=fake_hostname, port=8883)
     mock_mqtt_client.loop_start.assert_called_once_with()
 

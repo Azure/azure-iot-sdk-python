@@ -27,8 +27,8 @@ def test_all_attributes_for_device():
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
     assert sym_key_auth_provider.hostname == hostname
     assert sym_key_auth_provider.device_id == device_id
-    assert hostname in sym_key_auth_provider.sas_token_str
-    assert device_id in sym_key_auth_provider.sas_token_str
+    assert hostname in sym_key_auth_provider.get_current_sas_token()
+    assert device_id in sym_key_auth_provider.get_current_sas_token()
 
 
 def test_all_attributes_for_module():
@@ -39,9 +39,9 @@ def test_all_attributes_for_module():
     assert sym_key_auth_provider.hostname == hostname
     assert sym_key_auth_provider.device_id == device_id
     assert sym_key_auth_provider.module_id == module_id
-    assert hostname in sym_key_auth_provider.sas_token_str
-    assert device_id in sym_key_auth_provider.sas_token_str
-    assert module_id in sym_key_auth_provider.sas_token_str
+    assert hostname in sym_key_auth_provider.get_current_sas_token()
+    assert device_id in sym_key_auth_provider.get_current_sas_token()
+    assert module_id in sym_key_auth_provider.get_current_sas_token()
 
 
 def test_sastoken_keyname_device():
@@ -51,9 +51,9 @@ def test_sastoken_keyname_device():
 
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
 
-    assert hostname in sym_key_auth_provider.sas_token_str
-    assert device_id in sym_key_auth_provider.sas_token_str
-    assert shared_access_key_name in sym_key_auth_provider.sas_token_str
+    assert hostname in sym_key_auth_provider.get_current_sas_token()
+    assert device_id in sym_key_auth_provider.get_current_sas_token()
+    assert shared_access_key_name in sym_key_auth_provider.get_current_sas_token()
 
 
 def test_raises_when_auth_provider_created_from_incomplete_connection_string():

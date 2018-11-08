@@ -24,7 +24,7 @@ class InternalClient(object):
 
         self.state = "initial"
 
-        self.on_connection_state = types.FunctionType
+        self.on_connection_state = None
 
     def connect(self):
         """Connects the client to an Azure IoT Hub.
