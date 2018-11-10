@@ -179,7 +179,7 @@ In order to setup your development environment to build the C binaries, you need
 * On Windows you will need Visual Studio, git and cmake
 
 ### Compile the Python modules using boost::python libraries in Windows.
-1. Open a Visual Studio 2015 x86 or x64 Native Tools command prompt, depending on your installed Python version.
+1. Open a Visual Studio 2015 (or 2017) x86 or x64 Native Tools command prompt, depending on your installed Python version.
 2. Download the zip version of the boost 1.60 library for windows from [boost-zip].
 3. Unpack zip to a local folder, e.g. **C:\boost_1_60_0**.
 4. Navigate to the root folder of the boost library, e.g. **C:\boost_1_60_0**.

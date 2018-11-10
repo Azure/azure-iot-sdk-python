@@ -5,6 +5,8 @@
 This repository contains the following:
 * **Azure IoT Hub Device SDK for Python**: to connect client devices to Azure IoT Hub
 * **Azure IoT Hub Service SDK for Python**: enables developing back-end applications for Azure IoT
+* **Azure IoT Hub Provisioning Device SDK for Python**: to connect client devices to Azure IoT Hub Provisioning Service
+* **Azure IoT Hub Provisioning Service SDK for Python**: enables developing back-end applications for Azure IoT Hub Provisioning Service
 
 To create and manage an instance of IoT Hub in your Azure subscription using Python, you can use the [Azure IoT Hub management library for Python][azure-iot-mgmt-lib]. Read more [here][azure-iot-mgmt-lib-doc].
 
