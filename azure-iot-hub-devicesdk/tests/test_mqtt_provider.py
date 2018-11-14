@@ -7,6 +7,7 @@ from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
 import paho.mqtt.client as mqtt
 import os
 import ssl
+import pytest
 from six import add_move, MovedModule
 
 add_move(MovedModule("mock", "mock", "unittest.mock"))
@@ -22,21 +23,17 @@ fake_username = fake_hostname + "/" + fake_device_id
 
 
 @patch.object(ssl, "SSLContext")
-def test_connect_triggers_state_machine_connect_which_calls_on_enter_connecting(mock_ssl, mocker):
-    mock_mqtt_client = MagicMock(spec=mqtt.Client)
-    mock_constructor_mqtt_client = mocker.patch(
-        "azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider.mqtt.Client"
-    )
-    mock_constructor_mqtt_client.return_value = mock_mqtt_client
-
+@patch.object(mqtt, "Client")
+def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
     mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
-    mocker.patch.object(MQTTProvider, "_emit_connection_status")
     mqtt_provider.connect()
 
-    MQTTProvider._emit_connection_status.assert_called_once_with()
+    MockMqttClient.assert_called_once_with(fake_device_id, False, protocol=4)
+    mock_mqtt_client = MockMqttClient.return_value
 
-    mock_constructor_mqtt_client.assert_called_once_with(fake_device_id, False, protocol=4)
-    mock_ssl.assert_called_once_with(ssl.PROTOCOL_TLSv1_2)
+    MockSsl.assert_called_once_with(ssl.PROTOCOL_TLSv1_2)
+    mock_ssl = MockSsl.return_value
+
     assert(mock_mqtt_client.tls_set_context.call_count == 1)
     context = mock_mqtt_client.tls_set_context.call_args[0][0]
     assert(context.check_hostname == True)
@@ -49,54 +46,47 @@ def test_connect_triggers_state_machine_connect_which_calls_on_enter_connecting(
     assert mock_mqtt_client.on_connect is not None
     assert mock_mqtt_client.on_disconnect is not None
     assert mock_mqtt_client.on_publish is not None
+    assert mock_mqtt_client.on_subscribe is not None
 
 
-def test_mqtt_client_connect_callback_triggers_state_machine_on_connect_which_calls_handler(mocker):
-    mock_mqtt_client = MagicMock(spec=mqtt.Client)
-    mock_constructor_mqtt_client = mocker.patch(
-        "azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider.mqtt.Client"
-    )
-    mock_constructor_mqtt_client.return_value = mock_mqtt_client
-
-    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
-    stub_on_mqtt_connected = mocker.stub(name="on_mqtt_connected")
-    mqtt_provider.on_mqtt_connected = stub_on_mqtt_connected
-
-    mqtt_provider.connect()
-    mock_mqtt_client.on_connect(None, None, None, 0)
-
-    connected_state = "connected"
-    stub_on_mqtt_connected.assert_called_once_with(connected_state)
-
-
-def test_disconnect_calls_loopstop_on_mqttclient(mocker):
-    mock_mqtt_client = MagicMock(spec=mqtt.Client)
-    mock_constructor_mqtt_client = mocker.patch(
-        "azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider.mqtt.Client"
-    )
-    mock_constructor_mqtt_client.return_value = mock_mqtt_client
-    mocker.patch.object(mock_mqtt_client, "loop_stop")
+@patch.object(mqtt, "Client")
+@pytest.mark.parametrize("client_callback_name, client_callback_args, provider_callback_name, provider_callback_args", [
+    ("on_connect", [None, None, None, 0], "on_mqtt_connected", ["connected"]),
+    ("on_disconnect", [None, None, 0], "on_mqtt_disconnected", []),
+    ("on_publish", [None, None, 0], "on_mqtt_published", []),
+    ("on_subscribe", [None, None, 0], "on_mqtt_subscribed", [])
+])
+def test_mqtt_client_callback_triggers_provider_callback(MockMqttClient, client_callback_name, client_callback_args, provider_callback_name, provider_callback_args):
+    mock_mqtt_client = MockMqttClient.return_value
 
     mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
-    mqtt_provider._on_enter_connecting()
+    stub_provider_callback = MagicMock()
+    setattr(mqtt_provider, provider_callback_name, stub_provider_callback)
+
+    getattr(mock_mqtt_client, client_callback_name)(*client_callback_args)
+
+    stub_provider_callback.assert_called_once_with(*provider_callback_args)
+
+
+@patch.object(mqtt, "Client")
+def test_disconnect_calls_loopstop_on_mqttclient(MockMqttClient):
+    mock_mqtt_client = MockMqttClient.return_value
+
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
     mqtt_provider.disconnect()
 
     mock_mqtt_client.loop_stop.assert_called_once_with()
+    mock_mqtt_client.disconnect.assert_called_once_with()
 
 
-def test_publish_calls_publish_on_mqtt_client(mocker):
+@patch.object(mqtt, "Client")
+def test_publish_calls_publish_on_mqtt_client(MockMqttClient):
+    mock_mqtt_client = MockMqttClient.return_value
+
     topic = "topic/"
     event = "Tarantallegra"
 
-    mock_mqtt_client = MagicMock(spec=mqtt.Client)
-    mock_constructor_mqtt_client = mocker.patch(
-        "azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider.mqtt.Client"
-    )
-    mock_constructor_mqtt_client.return_value = mock_mqtt_client
-    mocker.patch.object(mock_mqtt_client, "publish")
-
     mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
-    mqtt_provider._on_enter_connecting()
     mqtt_provider.publish(topic, event)
 
     mock_mqtt_client.publish.assert_called_once_with(topic=topic, payload=event, qos=1)

@@ -6,11 +6,10 @@
 import paho.mqtt.client as mqtt
 import logging
 import types
-import os
 import ssl
-from transitions import Machine
 
 logger = logging.getLogger(__name__)
+
 
 class MQTTProvider(object):
     """
@@ -24,23 +23,8 @@ class MQTTProvider(object):
         :param client_id: The id of the client connecting to the broker.
         :param hostname: hostname or IP address of the remote broker.
         :param password:  The password to authenticate with.
+        :param ca_cert: Certificate which can be used to validate a server-side TLS connection. 
         """
-        states = ["disconnected", "connecting", "connected", "disconnecting"]
-        transitions = [
-            {"trigger": "trig_connect", "source": "disconnected", "dest": "connecting"},
-            {"trigger": "trig_on_connect", "source": "connecting", "dest": "connected"},
-            {"trigger": "trig_disconnect", "source": "connected", "dest": "disconnecting"},
-            {"trigger": "trig_on_disconnect", "source": "disconnecting", "dest": "disconnected"},
-        ]
-
-        self._state_machine = Machine(
-            states=states, transitions=transitions, initial="disconnected"
-        )
-        self._state_machine.on_enter_connecting(self._on_enter_connecting)
-        self._state_machine.on_enter_disconnecting(self._on_enter_disconnecting)
-        self._state_machine.on_enter_connected(self._emit_connection_status)
-        self._state_machine.on_enter_disconnected(self._emit_connection_status)
-
         self._client_id = client_id
         self._hostname = hostname
         self._username = username
@@ -49,64 +33,68 @@ class MQTTProvider(object):
         self._ca_cert = ca_cert
 
         self.on_mqtt_connected = None
+        self.on_mqtt_disconnected = None
+        self.on_mqtt_published = None
+        self.on_mqtt_subscribed = None
 
-    def _on_enter_connecting(self):
+        self._create_mqtt_client()
+
+    def _create_mqtt_client(self):
         """
-        The state machine internal enters this method on transitioning to the state of connecting.
-        In this method the mqtt provider is created and necessary callbacks are assigned.
-        The mqtt provider is also connected to a remote broker and is ready to receive messages.
+        Create the MQTT client object and assign all necessary callbacks.
         """
-        self._emit_connection_status()
+        logger.info("creating mqtt client")
+
         self._mqtt_client = mqtt.Client(self._client_id, False, protocol=mqtt.MQTTv311)
 
-        def _on_connect_callback(client, userdata, flags, result_code):
+        def on_connect_callback(client, userdata, flags, result_code):
             logger.info("connected with result code: %s", str(result_code))
-            self._state_machine.trig_on_connect()
+            # TODO: how to do failed connection?
+            self.on_mqtt_connected("connected")
 
         def on_disconnect_callback(client, userdata, result_code):
             logger.info("disconnected with result code: %s", str(result_code))
+            self.on_mqtt_disconnected()
 
         def on_publish_callback(client, userdata, mid):
-            logger.info("payload published")
+            logger.info("payload published for %s", str(mid))
+            # TODO: how to do failed publish
+            self.on_mqtt_published()
 
-        self._mqtt_client.on_connect = _on_connect_callback
+        def on_subscribe_callback(client, userdata, mid):
+            logger.info("suback received")
+            # TODO: how to do failure?
+            self.on_mqtt_subscribed()
+
+        self._mqtt_client.on_connect = on_connect_callback
         self._mqtt_client.on_disconnect = on_disconnect_callback
         self._mqtt_client.on_publish = on_publish_callback
+        self._mqtt_client.on_subscribe = on_subscribe_callback
+
         logger.info("Created MQTT provider, assigned callbacks")
+
+    def connect(self):
+        """
+        This method connects the upper transport layer to the mqtt broker.
+        This method should be called as an entry point before sending any telemetry.
+        """
+        logger.info("connecting to mqtt broker")
 
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         if self._ca_cert:
-            ssl_context.load_verify_locations(cadata = self._ca_cert)
+            ssl_context.load_verify_locations(cadata=self._ca_cert)
         else:
             ssl_context.load_default_certs()
         ssl_context.verify_mode = ssl.CERT_REQUIRED
         ssl_context.check_hostname = True
         self._mqtt_client.tls_set_context(ssl_context)
         self._mqtt_client.tls_insecure_set(False)
-        self._mqtt_client.username_pw_set(username=self._username, password=self._password)
+        self._mqtt_client.username_pw_set(
+            username=self._username, password=self._password
+        )
 
         self._mqtt_client.connect(host=self._hostname, port=8883)
         self._mqtt_client.loop_start()
-
-    def _on_enter_disconnecting(self):
-        self._emit_connection_status()
-
-    def _emit_connection_status(self):
-        """
-        The connection status is emitted whenever the state machine gets connected or disconnected.
-        """
-        logger.info("emit_connection_status: %s", self._state_machine.state)
-        if self.on_mqtt_connected and self._state_machine.state == "connected":
-            self.on_mqtt_connected(self._state_machine.state)
-
-    def connect(self):
-        """
-        This method connects the upper transport layer to the mqtt provider.
-        It internally triggers the state machine to transition into "connecting" state.
-        This method should be called as an entry point before sending any telemetry.
-        """
-        logger.info("creating mqtt client and connecting to mqtt broker")
-        self._state_machine.trig_connect()
 
     def disconnect(self):
         """
@@ -115,6 +103,7 @@ class MQTTProvider(object):
         """
         logger.info("disconnecting transport")
         self._mqtt_client.loop_stop()
+        self._mqtt_client.disconnect()
 
     def publish(self, topic, message_payload):
         """
