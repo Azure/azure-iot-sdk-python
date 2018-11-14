@@ -3,7 +3,7 @@
 The `SharedAccessSignatureAuthenticationProvider` class represents a type of `AuthenticationProvider` which can accept a shared access signature string.
 The authentication provider is created by first parsing the shared access signature string.
 The parsed fields are :- `sr`, `sig` , `se`, an optional `skn`
-The `resource_uri` it also unquoted and parsed to get `hostname`, `device_id` and optional `module_id` and stored as public attributes.
+The `resource_uri` is unquoted and parsed to get `hostname`, `device_id` and optional `module_id` and stored as public attributes.
 
 ## Private Dunder Init
 Creates a new instance of the `SharedAccessSignatureAuthenticationProvider` object. It takes in parameters `hostname`, `device_id`,  optional `module_id` and `sas_token_str`.

@@ -1,51 +1,81 @@
 resources:
 - repo: self
 #Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
+jobs:
 
-pool:
-  vmImage: 'Ubuntu 16.04'
-strategy:
-    matrix:
-      Python27:
-        python.version: '2.7'
-      Python34:
-        python.version: '3.4'
-      Python35:
-        python.version: '3.5'
-      Python36:
-        python.version: '3.6'
-      Python37:
-        python.version: '3.7'
-    maxParallel: 5
-steps:
-- task: UsePythonVersion@0
-  displayName: 'Use Python $(python.version)'
-  inputs:
-    versionSpec: '$(python.version)'
-    architecture: 'x64'
+- job: 'Test'
+  pool:
+    vmImage: 'Ubuntu 16.04'
+  strategy:
+      matrix:
+        Python27:
+          python.version: '2.7'
+        Python34:
+          python.version: '3.4'
+        Python35:
+          python.version: '3.5'
+        Python36:
+          python.version: '3.6'
+        Python37:
+          python.version: '3.7'
+      maxParallel: 5
+  steps:
+  - task: UsePythonVersion@0
+    displayName: 'Use Python $(python.version)'
+    inputs:
+      versionSpec: '$(python.version)'
+      architecture: 'x64'
 
-- script: 'python -m pip install --upgrade pip'
-  displayName: 'Update pip'
+  - script: 'python -m pip install --upgrade pip'
+    displayName: 'Update pip'
 
-- script: 'python dev_setup.py'
-  displayName: 'Prepare environment (install packages + dependencies + tools)'
+  - script: 'python dev_setup.py'
+    displayName: 'Prepare environment (install packages + dependencies + tools)'
 
-- script: 'python test_packages.py'
-  displayName: pytest
+  - script: 'python test_packages.py'
+    displayName: pytest
 
-- script: |
-    npm install
+  - script: |
+      npm install
 
-- task: PublishTestResults@2
-  displayName: 'Publish Test Results **/*-test-results.xml'
-  inputs:
-    testResultsFiles: '**/*-test-results.xml'
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results **/*-test-results.xml'
+    inputs:
+      testResultsFiles: '**/*-test-results.xml'
 
-    testRunTitle: 'Python $(python.version)'
+      testRunTitle: 'Python $(python.version)'
 
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: 'cobertura'
-    summaryFileLocation: '$(Build.SourcesDirectory)/coverage.xml'
-    reportDirectory: '$(Build.SourcesDirectory)/coverage'
-    failIfCoverageEmpty: true
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: 'cobertura'
+      summaryFileLocation: '$(Build.SourcesDirectory)/coverage.xml'
+      reportDirectory: '$(Build.SourcesDirectory)/coverage'
+      failIfCoverageEmpty: true
+
+- job: 'Publish'
+  dependsOn: 'Test'
+  pool:
+    vmImage: 'Ubuntu 16.04'
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+      architecture: 'x64'
+
+  - script: |
+      cd azure-iot-hub-devicesdk
+      python setup.py sdist
+    displayName: Build source distribution for devicesdk
+
+  - script: |
+      pip install wheel
+      cd azure-iot-hub-devicesdk
+      python setup.py bdist_wheel
+    displayName: Build wheel distribution for devicesdk
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish artifact dist'
+    inputs:
+      pathtoPublish: $(Build.SourcesDirectory)/azure-iot-hub-devicesdk/dist
+      artifactName: 'dist'

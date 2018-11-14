@@ -111,3 +111,6 @@ coverage/
 
 # VS Code
 .vscode/
+
+# Pycharm
+.idea/
