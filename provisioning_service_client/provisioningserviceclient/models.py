@@ -2,50 +2,27 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-from .serviceswagger import models as genmodels
+# from .protocol import models as genmodels
+# from .protocol import DeviceRegistrationState, ReprovisionPolicy, CustomAllocationDefinition
 
+from .protocol.models import *
+from .protocol.models import InitialTwin as GeneratedInitialTwin
 
-class IndividualEnrollment(object):
-    """
-    Individual Enrollment model. To instantiate please use the "create" class method
+def _patch_models():
+    _patch_individual_enrollment()
+    _patch_enrollment_group()
+    _patch_attestation_mechanism()
+    _patch_device_capabilities()
+    _patch_initial_twin()
 
-    :param internal_model: Internal model of an Individual Enrollment
-    :type internal_model: :class:`IndividualEnrollment<serviceswagger.models.IndividualEnrollment>`
-    :ivar capabilities: Capabilities of device
-    :ivar registration_id: Registration ID.
-    :ivar device_id: Desired IoT Hub device ID
-    :ivar registration_state: Current registration state
-    :ivar attestation: Attestation method used by the device.
-    :ivar iot_hub_host_name: The IoT Hub host name.
-    :ivar initial_twin: Initial device twin.
-    :ivar etag: The entity tag associated with the resource.
-    :ivar provisioning_status: The provisioning status.
-    :ivar created_date_time_utc: The DateTime this resource was created.
-    :ivar last_updated_date_time_utc: The DateTime this resource was last updated.
+def _patch_individual_enrollment():
+    """Add convenience/back-compat methods to IndividualEnrollment
     """
 
-    def __init__(self, internal_model):
-        self._internal = internal_model
-        self._att_wrapper = AttestationMechanism(self._internal.attestation)
-
-        if self._internal.registration_state is not None:
-            self._drs_wrapper = DeviceRegistrationState(self._internal.registration_state)
-        else:
-            self._drs_wrapper = None
-
-        if self._internal.initial_twin is not None:
-            self._twin_wrapper = InitialTwin(self._internal.initial_twin)
-        else:
-            self._twin_wrapper = None
-
-        if self._internal.capabilities is not None:
-            self._capabilities_wrapper = DeviceCapabilities(self._internal.capabilities)
-        else:
-            self._capabilities_wrapper = None
-
-    @classmethod
-    def create(cls, registration_id, attestation, device_id=None, iot_hub_host_name=None,\
-        initial_twin=None, provisioning_status=None, device_capabilities=None):
+    def create(cls, registration_id, attestation, device_id=None, iot_hub_host_name=None,
+        initial_twin=None, provisioning_status="enabled", device_capabilities=None,
+        reprovision_policy=None, allocation_policy=None, iot_hubs=None, 
+        custom_allocation_definition=None):
         """
         Create a new Individual Enrollment instance
 
@@ -58,145 +35,39 @@ class IndividualEnrollment(object):
         :param initial_twin: Initial device twin (optional)
         :type initial_twin: :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
         :param str provisioning_status: The provisioning status. Possible values are 'enabled',
-         'disabled' (optional)
+         'disabled' (optional - default "enabled")
         :param device_capabilities: Device Capabilities (optional)
         :type device_capabilities: :class:`DeviceCapabilities
          <provisioningserviceclient.models.DeviceCapabilities>`
+        :param reprovision_policy: The behavior when a device is re-provisioned to
+        an IoT hub.
+        :type reprovision_policy: `ReprovisionPolicy<provisioningserviceclient.models.ReprovisionPolicy>`
+        :param str allocation_policy: The allocation policy of this resource.
+        :param iot_hubs: The list of names of IoT hubs the device(s) in this
+        resource can be allocated to. Must be a subset of tenant level list of IoT
+        hubs.
+        :type iot_hubs: list[str]
+        :param custom_allocation_definition: Custom allocation definition.
+        :type custom_allocation_definition: :class:`CustomAllocationDefinition
+         <provisioningserviceclient.models.CustomAllocationDefinition>`
         :returns: New instance of :class:`IndividualEnrollment
          <provisioningserviceclient.models.IndividualEnrollment>`
         :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
         """
-        att_internal = attestation._internal
+        return cls(registration_id=registration_id, attestation=attestation, device_id=device_id,
+            iot_hub_host_name=iot_hub_host_name, initial_twin=initial_twin, provisioning_status=provisioning_status,
+            capabilities=device_capabilities, reprovision_policy=reprovision_policy, allocation_policy=allocation_policy,
+            iot_hubs=iot_hubs, custom_allocation_definition=custom_allocation_definition)
+    
+    setattr(IndividualEnrollment, "create", classmethod(create))
 
-        if initial_twin is not None:
-            twin_internal = initial_twin._internal
-        else:
-            twin_internal = None
-
-        if device_capabilities is not None:
-            cap_internal = device_capabilities._internal
-        else:
-            cap_internal = None
-
-        internal = genmodels.IndividualEnrollment(registration_id, att_internal, \
-            capabilities=cap_internal,  device_id=device_id, iot_hub_host_name=iot_hub_host_name, \
-            initial_twin=twin_internal, provisioning_status=provisioning_status)
-
-        new = cls(internal)
-        new._att_wrapper = attestation
-        new._twin_wrapper = initial_twin
-        new._drs_wrapper = None
-        new._capabilities_wrapper = device_capabilities
-        return new
-
-    @property
-    def capabilities(self):
-        return self._capabilities_wrapper
-
-    @capabilities.setter
-    def capabilities(self, value):
-        self._internal.capabilities = value._internal
-        self._capabilities_wrapper = value
-
-    @property
-    def registration_id(self):
-        return self._internal.registration_id
-
-    @registration_id.setter
-    def registration_id(self, value):
-        self._internal.registration_id = value
-
-    @property
-    def device_id(self):
-        return self._internal.device_id
-
-    @device_id.setter
-    def device_id(self, value):
-        self._internal.device_id = value
-
-    @property
-    def registration_state(self):
-        return self._drs_wrapper
-
-    @property
-    def attestation(self):
-        return self._att_wrapper
-
-    @attestation.setter
-    def attestation(self, value):
-        self._internal.attestation = value._internal
-        self._att_wrapper = value
-
-    @property
-    def iot_hub_host_name(self):
-        return self._internal.iot_hub_host_name
-
-    @iot_hub_host_name.setter
-    def iot_hub_host_name(self, value):
-        self._internal.iot_hub_host_name = value
-
-    @property
-    def initial_twin(self):
-        return self._twin_wrapper
-
-    @initial_twin.setter
-    def initial_twin(self, value):
-        self._internal.initial_twin = value._internal
-        self._twin_wrapper = value
-
-    @property
-    def etag(self):
-        return self._internal.etag
-
-    @etag.setter
-    def etag(self, value):
-        self._internal.etag = value
-
-    @property
-    def provisioning_status(self):
-        return self._internal.provisioning_status
-
-    @provisioning_status.setter
-    def provisioning_status(self, value):
-        self._internal.provisioning_status = value
-
-    @property
-    def created_date_time_utc(self):
-        return self._internal.created_date_time_utc
-
-    @property
-    def last_updated_date_time_utc(self):
-        return self._internal.last_updated_date_time_utc
-
-
-class EnrollmentGroup(object):
+def _patch_enrollment_group():
+    """Add conveneince/back-compat methods to EnrollmentGroup
     """
-    Enrollment Group model. To instantiate please use the "create" class method
 
-    :param internal_model: Internal model of an Enrollment Group
-    :type internal_model: :class:`EnrollmentGroup<serviceswagger.models.EnrollmentGroup>`
-    :ivar enrollment_group_id: Enrollment Group ID.
-    :ivar attestation: Attestation method used by the device.
-    :ivar iot_hub_host_name: The Iot Hub host name.
-    :ivar initial_twin: Initial device twin.
-    :ivar etag: The entity tag associated with the resource.
-    :ivar provisioning_status: The provisioning status.
-    :ivar created_date_time_utc: The DateTime this resource was created.
-    :ivar last_updated_date_time_utc: The DateTime this resource was last
-     updated.
-    """
-    def __init__(self, internal_model):
-        self._internal = internal_model
-        self._att_wrapper = AttestationMechanism(self._internal.attestation)
-
-        if self._internal.initial_twin is not None:
-            self._twin_wrapper = InitialTwin(self._internal.initial_twin)
-        else:
-            self._twin_wrapper = None
-
-    @classmethod
-    def create(cls, enrollment_group_id, attestation, iot_hub_host_name=None, initial_twin=None, \
-        provisioning_status=None):
+    def create(cls, enrollment_group_id, attestation, iot_hub_host_name=None, initial_twin=None,
+        provisioning_status="enabled", reprovision_policy=None, allocation_policy=None, iot_hubs=None,
+        custom_allocation_definition=None):
         """
         Create a new Enrollment Group instance
 
@@ -208,95 +79,35 @@ class EnrollmentGroup(object):
         :param initial_twin: Initial device twin (optional)
         :type initial_twin: :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
         :param str provisioning_status: The provisioning status. Possible values are 'enabled',
-         'disabled' (optional)
+         'disabled' (optional - default enabled)
+        :param reprovision_policy: The behavior when a device is re-provisioned to
+         an IoT hub.
+        :type reprovision_policy: `ReprovisionPolicy<provisioningserviceclient.models.ReprovisionPolicy>`
+        :param str allocation_policy: The allocation policy of this resource.
+        :param iot_hubs: The list of names of IoT hubs the device(s) in this
+         resource can be allocated to. Must be a subset of tenant level list of IoT
+         hubs.
+        :type iot_hubs: list[str]
+        :param custom_allocation_definition: Custom allocation definition.
+        :type custom_allocation_definition: :class:`CustomAllocationDefinition
+         <provisioningserviceclient.models.CustomAllocationDefinition>`
         :returns: New instance of :class:`EnrollmentGroup
          <provisioningserviceclient.models.EnrollmentGroup>`
         :rtype: :class:`EnrollentGroup<provisioningserviceclient.models.EnrollmentGroup>`
         """
-        att_internal = attestation._internal
+        return cls(enrollment_group_id=enrollment_group_id, attestation=attestation, 
+            iot_hub_host_name=iot_hub_host_name, initial_twin=initial_twin, 
+            provisioning_status=provisioning_status, reprovision_policy=reprovision_policy,
+            allocation_policy=allocation_policy, iot_hubs=iot_hubs, 
+            custom_allocation_definition=custom_allocation_definition)
 
-        if initial_twin is not None:
-            twin_internal = initial_twin._internal
-        else:
-            twin_internal = None
+    setattr(EnrollmentGroup, "create", classmethod(create))
 
-        internal = genmodels.EnrollmentGroup(enrollment_group_id, att_internal, \
-            iot_hub_host_name=iot_hub_host_name, initial_twin=twin_internal, \
-            provisioning_status=provisioning_status)
 
-        new = cls(internal)
-        new._att_wrapper = attestation
-        new._twin_wrapper = initial_twin
-        return new
-
-    @property
-    def enrollment_group_id(self):
-        return self._internal.enrollment_group_id
-
-    @enrollment_group_id.setter
-    def enrollment_group_id(self, value):
-        self._internal.enrollment_group_id = value
-
-    @property
-    def attestation(self):
-        return self._att_wrapper
-
-    @attestation.setter
-    def attestation(self, value):
-        self._internal.attestation = value._internal
-        self._att_wrapper = value
-
-    @property
-    def iot_hub_host_name(self):
-        return self._internal.iot_hub_host_name
-
-    @iot_hub_host_name.setter
-    def iot_hub_host_name(self, value):
-        self._internal.iot_hub_host_name = value
-
-    @property
-    def initial_twin(self):
-        return self._twin_wrapper
-
-    @initial_twin.setter
-    def initial_twin(self, value):
-        self._internal.initial_twin = value._internal
-        self._twin_wrapper = value
-
-    @property
-    def etag(self):
-        return self._internal.etag
-
-    @etag.setter
-    def etag(self, value):
-        self._internal.etag = value
-
-    @property
-    def provisioning_status(self):
-        return self._internal.provisioning_status
-
-    @provisioning_status.setter
-    def provisioning_status(self, value):
-        self._internal.provisioning_status = value
-
-    @property
-    def created_date_time_utc(self):
-        return self._internal.created_date_time_utc
-
-    @property
-    def last_updated_date_time_utc(self):
-        return self._internal.last_updated_date_time_utc
-
-class DeviceCapabilities(object):
+def _patch_device_capabilities():
+    """Add convenience/back-compat methods to DeviceCapabilities
     """
-    Device Capabilities model. To instantiate please use the "create" class method
 
-    :param bool iot_edge: IoT Edge capability
-    """
-    def __init__(self, internal_model):
-        self._internal = internal_model
-
-    @classmethod
     def create(cls, iot_edge=False):
         """
         Create a new Device Capabilities instance.
@@ -306,88 +117,15 @@ class DeviceCapabilities(object):
          <provisioningserviceclient.models.DeviceCapabilities>`
         :rtype: :class:`DeviceCapabilities<provisioningserviceclient.models.DeviceCapabilities>`
         """
-        internal = genmodels.DeviceCapabilities(iot_edge)
-        new = cls(internal)
-        return new
+        return cls(iot_edge=iot_edge)
 
-    @property
-    def iot_edge(self):
-        return self._internal.iot_edge
-
-    @iot_edge.setter
-    def iot_edge(self, value):
-        self._internal.iot_edge = value
-
-class DeviceRegistrationState(object):
-    """
-    Device Registration State model. Do not instantiate on your own
-
-    :param internal_model: Internal model of a Device Registration State
-    :type internal_model: :class:`DeviceRegistrationState
-     <serviceswagger.models.DeviceRegistrationState>`
-    :ivar registration_id: Registration ID.
-    :ivar created_date_time_utc: Registration create date time (in UTC).
-    :ivar assigned_hub: Assigned Azure IoT Hub.
-    :ivar device_id: Device ID.
-    :ivar status: Enrollment status.
-    :ivar error_code: Error code.
-    :ivar error_message: Error message.
-    :ivar last_updated_date_time_utc: Last updated date time (in UTC).
-    :ivar etag: The entity tag associated with the resource.
-    """
-    def __init__(self, internal_model):
-        self._internal = internal_model
-
-    @property
-    def registration_id(self):
-        return self._internal.registration_id
-
-    @property
-    def created_date_time_utc(self):
-        return self._internal.created_date_time_utc
-
-    @property
-    def assigned_hub(self):
-        return self._internal.assigned_hub
-
-    @property
-    def device_id(self):
-        return self._internal.device_id
-
-    @property
-    def status(self):
-        return self._internal.status
-
-    @property
-    def error_code(self):
-        return self._internal.error_code
-
-    @property
-    def error_message(self):
-        return self._internal.error_message
-
-    @property
-    def last_updated_date_time_utc(self):
-        return self._internal.last_updated_date_time_utc
-
-    @property
-    def etag(self):
-        return self._internal.etag
+    setattr(DeviceCapabilities, "create", classmethod(create))
 
 
-class AttestationMechanism(object):
-    """
-    Attestation Mechanism model. Please instantiate using one of the 'create_with...' class methods
-
-    :param internal_model: Internal model of an Attestation Mechanism
-    :type internal_model: :class:`AttestationMechanism<swaggerservice.models.AttestationMechanism>`
-    :ivar attestation_type: Possible values include: 'none', 'tpm', 'x509'
+def _patch_attestation_mechanism():
+    """Add convenience/back-compat methods to AttestationMechanism
     """
 
-    def __init__(self, internal_model):
-        self._internal = internal_model
-
-    @classmethod
     def create_with_tpm(cls, endorsement_key, storage_root_key=None):
         """
         Create an Attestation Mechanism using a TPM
@@ -398,11 +136,9 @@ class AttestationMechanism(object):
          <provisioningserviceclient.models.AttestationMechanism>`
         :rtype: :class:`AttestationMechnaism<provisioningserviceclient.models.AttestationMechanism>`
         """
-        tpm = genmodels.TpmAttestation(endorsement_key, storage_root_key)
-        att = genmodels.AttestationMechanism("tpm", tpm=tpm)
-        return cls(att)
+        tpm = TpmAttestation(endorsement_key=endorsement_key, storage_root_key=storage_root_key)
+        return cls(type="tpm", tpm=tpm)
 
-    @classmethod
     def create_with_x509_client_certs(cls, cert1, cert2=None):
         """
         Create an AttestationMechanism using X509 client certificates
@@ -413,16 +149,14 @@ class AttestationMechanism(object):
          <provisioningserviceclient.models.AttestationMechanism>`
         :rtype: :class:`AttestationMechnaism<provisioningserviceclient.models.AttestationMechanism>`
         """
-        primary = genmodels.X509CertificateWithInfo(cert1)
+        primary = X509CertificateWithInfo(certificate=cert1)
         secondary = None
         if cert2:
-            secondary = genmodels.X509CertificateWithInfo(cert2)
-        certs = genmodels.X509Certificates(primary, secondary)
-        x509 = genmodels.X509Attestation(client_certificates=certs)
-        att = genmodels.AttestationMechanism("x509", x509=x509)
-        return cls(att)
+            secondary = X509CertificateWithInfo(certificate=cert2)
+        certs = X509Certificates(primary=primary, secondary=secondary)
+        x509 = X509Attestation(client_certificates=certs)
+        return cls(type="x509", x509=x509)
 
-    @classmethod
     def create_with_x509_signing_certs(cls, cert1, cert2=None):
         """
         Create an AttestationMechanism using X509 signing certificates
@@ -433,16 +167,14 @@ class AttestationMechanism(object):
          <provisioningserviceclient.models.AttestationMechanism>`
         :rtype: :class:`AttestationMechnaism<provisioningserviceclient.models.AttestationMechanism>`
         """
-        primary = genmodels.X509CertificateWithInfo(cert1)
+        primary = X509CertificateWithInfo(certificate=cert1)
         secondary = None
         if cert2:
-            secondary = genmodels.X509CertificateWithInfo(cert2)
-        certs = genmodels.X509Certificates(primary, secondary)
-        x509 = genmodels.X509Attestation(signing_certificates=certs)
-        att = genmodels.AttestationMechanism("x509", x509=x509)
-        return cls(att)
+            secondary = X509CertificateWithInfo(certificate=cert2)
+        certs = X509Certificates(primary=primary, secondary=secondary)
+        x509 = X509Attestation(signing_certificates=certs)
+        return cls(type="x509", x509=x509)
 
-    @classmethod
     def create_with_x509_ca_refs(cls, ref1, ref2=None):
         """
         Create an AttestationMechanism using X509 CA References
@@ -453,28 +185,46 @@ class AttestationMechanism(object):
          <provisioningserviceclient.models.AttestationMechanism>`
         :rtype: :class:`AttestationMechnaism<provisioningserviceclient.models.AttestationMechanism>`
         """
-        ca_refs = genmodels.X509CAReferences(ref1, ref2)
-        x509 = genmodels.X509Attestation(ca_references=ca_refs)
-        att = genmodels.AttestationMechanism("x509", x509=x509)
-        return cls(att)
+        ca_refs = X509CAReferences(primary=ref1, secondary=ref2)
+        x509 = X509Attestation(ca_references=ca_refs)
+        return cls(type="x509", x509=x509)
 
-    @property
     def attestation_type(self):
-        return self._internal.type
+        return self.type
 
+    setattr(AttestationMechanism, "create_with_tpm", classmethod(create_with_tpm))
+    setattr(
+        AttestationMechanism,
+        "create_with_x509_client_certs",
+        classmethod(create_with_x509_client_certs),
+    )
+    setattr(
+        AttestationMechanism,
+        "create_with_x509_signing_certs",
+        classmethod(create_with_x509_signing_certs),
+    )
+    setattr(
+        AttestationMechanism,
+        "create_with_x509_ca_refs",
+        classmethod(create_with_x509_ca_refs),
+    )
+    setattr(AttestationMechanism, "attestation_type", property(attestation_type))
 
 class InitialTwin(object):
     """
-    Initial Twin model. Please instantiate using the 'create' class method
-
-    :param internal_model: Internal model of an InitialTwin
-    :type internal_model: :class:`InitialTwin<swaggerservice.models.InitialTwin>`
+    Initial Twin model.
+    :param dict tags: The tags for the Initial Twin
+    :param dict desired_properties: The desired properties for the Initial Twin
     :ivar tags: Initial Twin tags
     :ivar desired_properties: Desired properties of the Initial Twin
     """
 
-    def __init__(self, internal_model):
-        self._internal = internal_model
+    def __init__(self, tags=None, desired_properties=None):
+        tags_tc = TwinCollection(additional_properties=tags)
+        desired_properties_tc = TwinCollection(additional_properties=desired_properties)
+        properties = InitialTwinProperties(desired=desired_properties_tc)
+        twin = GeneratedInitialTwin(tags=tags_tc, properties=properties)
+        self._create_internal(twin)
 
     @classmethod
     def create(cls, tags=None, desired_properties=None):
@@ -486,11 +236,11 @@ class InitialTwin(object):
         :returns: New instance of :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
         :rtype: :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
         """
-        tags_tc = genmodels.TwinCollection(tags)
-        desired_properties_tc = genmodels.TwinCollection(desired_properties)
-        properties = genmodels.InitialTwinProperties(desired_properties_tc)
-        twin = genmodels.InitialTwin(tags_tc, properties)
-        return cls(twin)
+        return cls(tags=tags, desired_properties=desired_properties)
+
+    def _create_internal(self, internal_model):
+        self._internal = internal_model
+        self._internal._wrapper = self
 
     @property
     def tags(self):
@@ -507,3 +257,58 @@ class InitialTwin(object):
     @desired_properties.setter
     def desired_properties(self, value):
         self._internal.properties.desired.additional_properties = value
+
+    def _unwrap(self):
+        return self._internal
+
+def _patch_initial_twin():
+    """Add convenience/back-compat methods for InitialTwin
+    """
+
+    def _wrap(self):
+        """Keep a pointer to a wrapper class
+        """
+        if hasattr(self, "_wrapper"):   #Not EAFP, but this case is common enough to use LBYL
+            wrapper = self._wrapper
+        else:
+            wrapper = InitialTwin._create_internal(self)
+            self._wrapper = wrapper
+        return wrapper
+
+    setattr(GeneratedInitialTwin, "_wrap", _wrap)
+
+
+# def _patch_initial_twin():
+#     """Add convenience/back-compat methods for InitialTwin
+#     """
+
+#     def create(cls, tags=None, desired_properties=None):
+#         """
+#         Create an Initial Twin
+
+#         :param dict tags: The tags for the Initial Twin
+#         :param dict desired_properties: The desired properties for the Initial Twin
+#         :returns: New instance of :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
+#         :rtype: :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
+#         """
+#         tags_tc = TwinCollection(additional_properties=tags)
+#         desired_properties_tc = TwinCollection(additional_properties=desired_properties)
+#         properties = InitialTwinProperties(desired=desired_properties_tc)
+#         return cls(tags=tags, properties=properties)
+
+#     def tags_get(self):
+#         return self.tags.additional_properties
+
+#     def tags_set(self, value):
+#         setattr(self, "tags")
+#         self.tags.additional_properties = value
+
+#     def desired_properties_get(self):
+#         return self.properties.desired.additional_properties
+
+#     def desired_properties_set(self, value):
+#         self.properties.desired.additional_properties = value
+
+#     setattr(InitialTwin, "create", classmethod(create))
+#     setattr(InitialTwin, "tags", property(tags_get, tags_set))
+#     setattr(InitialTwin, "desired_properties", property(desired_properties_get, desired_properties_set))

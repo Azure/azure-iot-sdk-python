@@ -3,10 +3,11 @@
 # full license information.
 
 import provisioningserviceclient.models
-from .client import (ProvisioningServiceClient, BulkEnrollmentOperation,
-                     BulkEnrollmentOperationResult, ProvisioningServiceError, Query,
-                     QuerySpecification)
+from .client import (ProvisioningServiceClient, BulkEnrollmentOperation, \
+                     BulkEnrollmentOperationResult, ProvisioningServiceError, \
+                     QuerySpecification) #Query
 
+provisioningserviceclient.models._patch_models()
 
 __all__ = [
     'ProvisioningServiceClient',

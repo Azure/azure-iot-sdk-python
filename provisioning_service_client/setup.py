@@ -23,7 +23,7 @@ setup(
     long_description=_long_description,
     long_description_content_type='text/markdown',
     install_requires=['msrest'],
-    packages=['provisioningserviceclient', 'provisioningserviceclient.serviceswagger', 'provisioningserviceclient.serviceswagger.models', 'provisioningserviceclient.serviceswagger.operations', 'provisioningserviceclient.utils'],
+    packages=['provisioningserviceclient', 'provisioningserviceclient.protocol', 'provisioningserviceclient.protocol.models', 'provisioningserviceclient.protocol.operations', 'provisioningserviceclient.utils'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

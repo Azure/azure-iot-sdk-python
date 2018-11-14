@@ -2,10 +2,13 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-from .utils import sastoken
-from .serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
-from .serviceswagger import models as genmodels
-from . import models
+from .utils import sastoken, auth
+from .protocol import ProvisioningServiceClient as GeneratedProvisioningServiceClient
+from .protocol.models import (BulkEnrollmentOperation, BulkEnrollmentOperationResult, \
+    BulkEnrollmentOperationError, QuerySpecification, IndividualEnrollment, EnrollmentGroup, \
+    DeviceRegistrationState)
+#from .protocol import models as genmodels
+#from . import models
 
 
 CS_DELIMITER = ";"
@@ -31,91 +34,99 @@ def _is_successful(status_code):
     return result
 
 
-def _copy_and_unwrap_bulkop(bulk_op):
-    """
-    Make a new copy of a BulkEnrollmentOperation that replaces the listed enrollments with their
-    internal values
+# def _copy_and_unwrap_bulkop(bulk_op):
+#     """
+#     Make a new copy of a BulkEnrollmentOperation that replaces the listed enrollments with their
+#     internal values
 
-    :param bulk_op: An instance of :class:`BulkEnrollmentOperation
-     <provisioningserviceclient.BulkEnrollmentOperation>`
-    :type bulk_op: :class:`BulkEnrollmentOperation
-     <provisioningserviceclient.BulkEnrollmentOperation>`
+#     :param bulk_op: An instance of :class:`BulkEnrollmentOperation
+#      <provisioningserviceclient.BulkEnrollmentOperation>`
+#     :type bulk_op: :class:`BulkEnrollmentOperation
+#      <provisioningserviceclient.BulkEnrollmentOperation>`
 
-    :return: A new instance of :class:`BulkEnrollmentOperation
-     <provisioningserviceclient.BulkEnrollmentOperation>`
-    :rtype: :class:`BulkEnrollmentOperation<provisioningserviceclient.BulkEnrollmentOperation>`
-    """
-    new_enrollments = []
-    for i in range(len(bulk_op.enrollments)):
-        new_enrollments.append(bulk_op.enrollments[i]._internal)
-    return BulkEnrollmentOperation(bulk_op.mode, new_enrollments)
-
-
-def _wrap_internal_model(model):
-    """
-    Wrap an internal provisioning service model
-
-    :param model: Provisining service model to be wrapped
-    :type model: :class:`IndividualEnrollment<serviceswagger.models.IndividualEnrollment>`
-     or :class:`EnrollmentGroup<serviceswagger.models.EnrollmentGroup>`
-     or :class:`DeviceRegistrationState<serviceswagger.models.DeviceRegistrationState>`
-    :returns: Wrapped model of corresponding class
-    :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
-     or :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
-     or :class:`DeviceRegistrationState<provisioningserviceclient.models.DeviceRegistrationState>`
-    :raises: TypeError if model of invalid type
-    """
-    if isinstance(model, genmodels.IndividualEnrollment):
-        wrapped = models.IndividualEnrollment(model)
-    elif isinstance(model, genmodels.EnrollmentGroup):
-        wrapped = models.EnrollmentGroup(model)
-    elif isinstance(model, genmodels.DeviceRegistrationState):
-        wrapped = models.DeviceRegistrationState(model)
-    else:
-        raise TypeError("Can't wrap this model")
-    return wrapped
+#     :return: A new instance of :class:`BulkEnrollmentOperation
+#      <provisioningserviceclient.BulkEnrollmentOperation>`
+#     :rtype: :class:`BulkEnrollmentOperation<provisioningserviceclient.BulkEnrollmentOperation>`
+#     """
+#     new_enrollments = []
+#     for i in range(len(bulk_op.enrollments)):
+#         new_enrollments.append(bulk_op.enrollments[i]._internal)
+#     return BulkEnrollmentOperation(bulk_op.mode, new_enrollments)
 
 
-class BulkEnrollmentOperation(genmodels.BulkEnrollmentOperation):
-    """
-    Structure for the details of a Bulk Enrollment Operation
+# def _wrap_internal_model(model):
+#     """
+#     Wrap an internal provisioning service model
 
-    :param str mode: Operation mode. Possible values include: 'create', 'update',
-     'updateIfMatchETag', 'delete'
-    :param enrollments: List of enrollments
-    :type enrollments: list[:class:`IndividualEnrollment
-     <provisioningserviceclient.models.IndividualEnrollment>`]
-    """
-    def __init__(self, mode, enrollments):
-        super(self.__class__, self).__init__(enrollments, mode);
-
-
-class BulkEnrollmentOperationResult(genmodels.BulkEnrollmentOperationResult):
-    """
-    Contains the results of a Bulk Enrollment Operation
-
-    :param is_successful: Indicates if the operation was successful in its
-     entirety
-    :type is_successful: bool
-    :param errors: Registration errors
-    :type errors: list[:class:`BulkEnrollmentOperationError
-     <provisioningserviceclient.BulkEnrollmentOperationError>`]
-    """
-    pass
+#     :param model: Provisining service model to be wrapped
+#     :type model: :class:`IndividualEnrollment<protocol.models.IndividualEnrollment>`
+#      or :class:`EnrollmentGroup<protocol.models.EnrollmentGroup>`
+#      or :class:`DeviceRegistrationState<protocol.models.DeviceRegistrationState>`
+#     :returns: Wrapped model of corresponding class
+#     :rtype: :class:`IndividualEnrollment<provisioningserviceclient.models.IndividualEnrollment>`
+#      or :class:`EnrollmentGroup<provisioningserviceclient.models.EnrollmentGroup>`
+#      or :class:`DeviceRegistrationState<provisioningserviceclient.models.DeviceRegistrationState>`
+#     :raises: TypeError if model of invalid type
+#     """
+#     if isinstance(model, IndividualEnrollment):
+#         wrapped = models.IndividualEnrollment(model)
+#     elif isinstance(model, EnrollmentGroup):
+#         wrapped = models.EnrollmentGroup(model)
+#     elif isinstance(model, DeviceRegistrationState):
+#         wrapped = models.DeviceRegistrationState(model)
+#     else:
+#         raise TypeError("Can't wrap this model")
+#     return wrapped
 
 
-class BulkEnrollmentOperationError(genmodels.BulkEnrollmentOperationError):
-    """
-    Contains the details of a single error in conducting a Bulk Enrollment Operation
+# class BulkEnrollmentOperation(BulkEnrollmentOperation):
+#     """
+#     Structure for the details of a Bulk Enrollment Operation
 
-    :param registration_id: Device registration id.
-    :type registration_id: str
-    :param error_code: Error code
-    :type error_code: int
-    :param error_status: Error status
-    :type error_status: str
-    """
-    pass
+#     :param str mode: Operation mode. Possible values include: 'create', 'update',
+#      'updateIfMatchETag', 'delete'
+#     :param enrollments: List of enrollments
+#     :type enrollments: list[:class:`IndividualEnrollment
+#      <provisioningserviceclient.models.IndividualEnrollment>`]
+#     """
+#     def __init__(self, mode, enrollments):
+#         super(self.__class__, self).__init__(enrollments, mode);
+
+
+# class BulkEnrollmentOperationResult(BulkEnrollmentOperationResult):
+#     """
+#     Contains the results of a Bulk Enrollment Operation
+
+#     :param is_successful: Indicates if the operation was successful in its
+#      entirety
+#     :type is_successful: bool
+#     :param errors: Registration errors
+#     :type errors: list[:class:`BulkEnrollmentOperationError
+#      <provisioningserviceclient.BulkEnrollmentOperationError>`]
+#     """
+#     pass
+
+
+# class BulkEnrollmentOperationError(BulkEnrollmentOperationError):
+#     """
+#     Contains the details of a single error in conducting a Bulk Enrollment Operation
+
+#     :param registration_id: Device registration id.
+#     :type registration_id: str
+#     :param error_code: Error code
+#     :type error_code: int
+#     :param error_status: Error status
+#     :type error_status: str
+#     """
+#     pass
+
+def _unwrap_twin(model):
+    if model.initial_twin:
+        model.initial_twin = model.initial_twin._unwrap()
+
+def _wrap_twin(model):
+    if model.initial_twin:
+        model.initial_twin = model.initial_twin._wrap()
 
 
 class ProvisioningServiceError(Exception):
@@ -144,15 +155,15 @@ class ProvisioningServiceClient(object):
     err_msg_unexpected = "Unexpected response {} from the Provisioning Service"
 
     def __init__(self, host_name, shared_access_key_name, shared_access_key):
-        https_prefix = "https://"
-
         self.host_name = host_name
         self.shared_access_key_name = shared_access_key_name
         self.shared_access_key = shared_access_key
-        self._runtime_client = DeviceProvisioningServiceServiceRuntimeClient(
-            https_prefix + self.host_name)
-        self._sastoken_factory = sastoken.SasTokenFactory(
+
+        #Build connection string
+        cs_auth = auth.ConnectionStringAuthentication.create_with_parsed_values(
             self.host_name, self.shared_access_key_name, self.shared_access_key)
+        self._runtime_client = GeneratedProvisioningServiceClient(cs_auth,
+            "https://" + self.host_name)
 
     @classmethod
     def create_from_connection_string(cls, connection_string):
@@ -187,15 +198,6 @@ class ProvisioningServiceClient(object):
 
         return cls(host_name, shared_access_key_name, shared_access_key)
 
-    def _gen_sastoken_str(self):
-        """
-        Generate a Sas Token from the internal factory
-
-        :return: A string representation of a new Sas Token
-        :rtype: str
-        """
-        return str(self._sastoken_factory.generate_sastoken())
-
     def create_or_update(self, provisioning_model):
         """
         Create or update an object on the Provisioning Service
@@ -213,30 +215,29 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        if isinstance(provisioning_model, models.IndividualEnrollment):
-            operation = self._runtime_client.device_enrollment.create_or_update
+        if isinstance(provisioning_model, IndividualEnrollment):
+            operation = self._runtime_client.create_or_update_individual_enrollment
             id = provisioning_model.registration_id
-        elif isinstance(provisioning_model, models.EnrollmentGroup):
-            operation = self._runtime_client.device_enrollment_group.create_or_update
+        elif isinstance(provisioning_model, EnrollmentGroup):
+            operation = self._runtime_client.create_or_update_enrollment_group
             id = provisioning_model.enrollment_group_id
         else:
             raise TypeError("given object must be IndividualEnrollment or EnrollmentGroup")
 
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
+        _unwrap_twin(provisioning_model)
 
         try:
-            raw_resp = operation(id, provisioning_model._internal, provisioning_model.etag, \
-                custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raw_resp = operation(id, provisioning_model, provisioning_model.etag, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(
                 self.err_msg_unexpected.format(e.response.status_code), e)
 
         if not _is_successful(raw_resp.response.status_code):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
-        result = raw_resp.output
-        return _wrap_internal_model(result)
+        _wrap_twin(raw_resp.output)
+
+        return raw_resp.output
 
     def get_individual_enrollment(self, registration_id):
         """
@@ -250,21 +251,18 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
         try:
             raw_resp = self._runtime_client.device_enrollment.get(
-                registration_id, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+                registration_id, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(
                 self.err_msg_unexpected.format(e.response.status_code), e)
 
         if not _is_successful(raw_resp.response.status_code):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
-        result = raw_resp.output
-        return models.IndividualEnrollment(result)
+        _wrap_twin(raw_resp.output)
+        return raw_resp.output
 
     def get_enrollment_group(self, group_id):
         """
@@ -278,21 +276,18 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
         try:
-            raw_resp = self._runtime_client.device_enrollment_group.get(
-                group_id, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raw_resp = self._runtime_client.get_enrollment_group(
+                group_id, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(
                 self.err_msg_unexpected.format(e.response.status_code), e)
 
         if not _is_successful(raw_resp.response.status_code):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
-        result = raw_resp.output
-        return models.EnrollmentGroup(result)
+        _wrap_twin(raw_resp.output)
+        return raw_resp.output
 
     def get_registration_state(self, registration_id):
         """
@@ -307,21 +302,17 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
         try:
-            raw_resp = self._runtime_client.registration_state.get_registration_state(\
-                registration_id, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raw_resp = self._runtime_client.get_device_registration_state(\
+                registration_id, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(
                 self.err_msg_unexpected.format(e.response.status_code), e)
 
         if not _is_successful(raw_resp.response.status_code):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
-        result = raw_resp.output
-        return models.DeviceRegistrationState(result)
+        return raw_resp.output
 
     def delete(self, provisioning_model):
         """
@@ -336,13 +327,13 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        if isinstance(provisioning_model, models.IndividualEnrollment):
+        if isinstance(provisioning_model, IndividualEnrollment):
             self.delete_individual_enrollment_by_param(provisioning_model.registration_id, \
                 provisioning_model.etag)
-        elif isinstance(provisioning_model, models.EnrollmentGroup):
+        elif isinstance(provisioning_model, EnrollmentGroup):
             self.delete_enrollment_group_by_param(provisioning_model.enrollment_group_id, \
                 provisioning_model.etag)
-        elif isinstance(provisioning_model, models.DeviceRegistrationState):
+        elif isinstance(provisioning_model, DeviceRegistrationState):
             self.delete_registration_state_by_param(provisioning_model.registration_id, \
             provisioning_model.etag)
         else:
@@ -359,13 +350,9 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
         try:
-            raw_resp = self._runtime_client.device_enrollment.delete(registration_id, etag, \
-                custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raw_resp = self._runtime_client.delete_individual_enrollment(registration_id, etag, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(
                 self.err_msg_unexpected.format(e.response.status_code), e)
 
@@ -384,13 +371,10 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
         try:
-            raw_resp = self._runtime_client.device_enrollment_group.delete(
+            raw_resp = self._runtime_client.delete_enrollment_group(
                 group_id, etag, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(
                 self.err_msg_unexpected.format(e.response.status_code), e)
 
@@ -410,13 +394,10 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
         try:
-            raw_resp = self._runtime_client.registration_state.delete_registration_state(
-                registration_id, etag, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raw_resp = self._runtime_client.delete_device_registration_state(
+                registration_id, etag, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
 
         if not _is_successful(raw_resp.response.status_code):
@@ -439,176 +420,160 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
          Provisioning Service
         """
-        custom_headers = {}
-        custom_headers[ProvisioningServiceClient.authorization_header] = self._gen_sastoken_str()
-
-        internal_bulkop = _copy_and_unwrap_bulkop(bulk_op)
-
         try:
-            raw_resp = self._runtime_client.device_enrollment.bulk_operation(internal_bulkop, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
+            raw_resp = self._runtime_client.run_bulk_enrollment_operation(bulk_op, raw=True)
+        except ProvisioningServiceErrorDetails as e:
             raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
 
         if not _is_successful(raw_resp.response.status_code):
             raise ProvisioningServiceError(raw_resp.response.reason)
 
-        result = raw_resp.output
-        result.__class__ = BulkEnrollmentOperationResult
-        return result
+        return raw_resp.output
 
-    def create_individual_enrollment_query(self, query_spec, page_size=None):
-        """
-        Create a Query object to access results of a Provisioning Service query
-        for Individual Enrollments
+#     def create_individual_enrollment_query(self, query_spec, page_size=None):
+#         """
+#         Create a Query object to access results of a Provisioning Service query
+#         for Individual Enrollments
 
-        :param query_spec: The specification for the query
-        :type query_spec: :class:`QuerySpecification<provisioningserviceclient.QuerySpecification>`
-        :param int page_size: The max results per page (optional)
-        :returns: Query object that can iterate over results of the query
-        :rtype: :class:`Query<provisioningserviceclient.Query>`
-        """
-        query_fn = self._runtime_client.device_enrollment.query
-        return Query(query_spec, query_fn, self._sastoken_factory, page_size)
+#         :param query_spec: The specification for the query
+#         :type query_spec: :class:`QuerySpecification<provisioningserviceclient.QuerySpecification>`
+#         :param int page_size: The max results per page (optional)
+#         :returns: Query object that can iterate over results of the query
+#         :rtype: :class:`Query<provisioningserviceclient.Query>`
+#         """
+#         query_fn = self._runtime_client.device_enrollment.query
+#         return Query(query_spec, query_fn, self._sastoken_factory, page_size)
 
-    def create_enrollment_group_query(self, query_spec, page_size=None):
-        """
-        Create a Query object to access results of a Provisioning Service query
-        for Enrollment Groups
+#     def create_enrollment_group_query(self, query_spec, page_size=None):
+#         """
+#         Create a Query object to access results of a Provisioning Service query
+#         for Enrollment Groups
 
-        :param query_spec: The specification for the query
-        :type query_spec: :class:`QuerySpecification<provisioningserviceclient.QuerySpecification>`
-        :param int page_size: The max results per page (optional)
-        :returns: Query object that can iterate over results of the query
-        :rtype: :class:`Query<provisioningserviceclient.Query>`
-        """
-        query_fn = self._runtime_client.device_enrollment_group.query
-        return Query(query_spec, query_fn, self._sastoken_factory, page_size)
+#         :param query_spec: The specification for the query
+#         :type query_spec: :class:`QuerySpecification<provisioningserviceclient.QuerySpecification>`
+#         :param int page_size: The max results per page (optional)
+#         :returns: Query object that can iterate over results of the query
+#         :rtype: :class:`Query<provisioningserviceclient.Query>`
+#         """
+#         query_fn = self._runtime_client.device_enrollment_group.query
+#         return Query(query_spec, query_fn, self._sastoken_factory, page_size)
 
-    def create_registration_state_query(self, reg_id, page_size=None):
-        """
-        Create a Query object to access results of a Provisioning Service query
-        for Device Registration States
+#     def create_registration_state_query(self, reg_id, page_size=None):
+#         """
+#         Create a Query object to access results of a Provisioning Service query
+#         for Device Registration States
 
-        :param query_spec: The specification for the query
-        :type query_spec: :class:`QuerySpecification<provisioningserviceclient.QuerySpecification>`
-        :param int page_size: The max results per page (optional)
-        :returns: Query object that can iterate over results of the query
-        :rtype: :class:`Query<provisioningserviceclient.Query>`
-        """
-        query_fn = self._runtime_client.registration_state.query_registration_state
-        return Query(reg_id, query_fn, self._sastoken_factory, page_size)
+#         :param query_spec: The specification for the query
+#         :type query_spec: :class:`QuerySpecification<provisioningserviceclient.QuerySpecification>`
+#         :param int page_size: The max results per page (optional)
+#         :returns: Query object that can iterate over results of the query
+#         :rtype: :class:`Query<provisioningserviceclient.Query>`
+#         """
+#         query_fn = self._runtime_client.registration_state.query_registration_state
+#         return Query(reg_id, query_fn, self._sastoken_factory, page_size)
 
+# class Query(object):
+#     """
+#     Query object that can be used to iterate over Provisioning Service data.
+#     Note that for general usage, Query objects should be generated using a
+#     :class:`ProvisioningServiceClient<provisioningserviceclient.ProvisioningServiceClient>`
+#     instance, not directly constructed.
 
-class QuerySpecification(genmodels.QuerySpecification):
-    """
-    Contains details of a query to be made to the Provisioning Service
-    :param str query: The query details
-    """
-    pass
+#     :param query_spec_or_id: The Query Specification or registration id
+#     :type query_spec_or_id: :class:`QuerySpecification
+#      <provisioningserviceclient.QuerySpecification>` or str
+#     :param query_fn: Function pointer to make HTTP query request. Note well that it must take args
+#      in the format query_fn(qs: QuerySpecification, cust_headers: dict, raw_resp: bool) or
+#      query_fn(id: str, cust_headers: dict, raw_resp:bool) and return an instance of
+#      :class:`ClientRawResponse<msrest.pipeline.ClientRawResponse>` when raw_resp == True
+#     :type query_fn: Function pointer
+#     :param sastoken_factory: Sas Token Factory to generate Sas Tokens
+#     :type sastoken_factory: :class:`SasTokenFactory<utils.sastoken.SasTokenFactory>`
+#     :param int page_size: Max number of results per page of query response
+#     :ivar page_size: Max number of results per page of query response
+#     :ivar has_next: Indicates if the Query has more results to return
+#     :ivar continuation_token: Token indicating current position in list of results
+#     :raises: TypeError if given invalid type
+#     """
 
+#     page_size_header = "x-ms-max-item-count"
+#     continuation_token_header = "x-ms-continuation"
+#     item_type_header = "x-ms-item-type"
+#     authorization_header = "Authorization"
+#     err_msg_unexpected = "Unexpected response {} from the Provisioning Service"
 
-class Query(object):
-    """
-    Query object that can be used to iterate over Provisioning Service data.
-    Note that for general usage, Query objects should be generated using a
-    :class:`ProvisioningServiceClient<provisioningserviceclient.ProvisioningServiceClient>`
-    instance, not directly constructed.
+#     def __init__(self, query_spec_or_id, query_fn, sastoken_factory, page_size=None):
+#         self._query_spec_or_id = query_spec_or_id
+#         self._query_fn = query_fn
+#         self.page_size = page_size
+#         self._sastoken_factory = sastoken_factory
+#         self.has_next = True
+#         self.continuation_token = None
 
-    :param query_spec_or_id: The Query Specification or registration id
-    :type query_spec_or_id: :class:`QuerySpecification
-     <provisioningserviceclient.QuerySpecification>` or str
-    :param query_fn: Function pointer to make HTTP query request. Note well that it must take args
-     in the format query_fn(qs: QuerySpecification, cust_headers: dict, raw_resp: bool) or
-     query_fn(id: str, cust_headers: dict, raw_resp:bool) and return an instance of
-     :class:`ClientRawResponse<msrest.pipeline.ClientRawResponse>` when raw_resp == True
-    :type query_fn: Function pointer
-    :param sastoken_factory: Sas Token Factory to generate Sas Tokens
-    :type sastoken_factory: :class:`SasTokenFactory<utils.sastoken.SasTokenFactory>`
-    :param int page_size: Max number of results per page of query response
-    :ivar page_size: Max number of results per page of query response
-    :ivar has_next: Indicates if the Query has more results to return
-    :ivar continuation_token: Token indicating current position in list of results
-    :raises: TypeError if given invalid type
-    """
+#     def __iter__(self):
+#         self.continuation_token = None
+#         return self
 
-    page_size_header = "x-ms-max-item-count"
-    continuation_token_header = "x-ms-continuation"
-    item_type_header = "x-ms-item-type"
-    authorization_header = "Authorization"
-    err_msg_unexpected = "Unexpected response {} from the Provisioning Service"
+#     def __next__(self):
+#         return self.next()
 
-    def __init__(self, query_spec_or_id, query_fn, sastoken_factory, page_size=None):
-        self._query_spec_or_id = query_spec_or_id
-        self._query_fn = query_fn
-        self.page_size = page_size
-        self._sastoken_factory = sastoken_factory
-        self.has_next = True
-        self.continuation_token = None
+#     @property
+#     def page_size(self):
+#         return self._page_size
 
-    def __iter__(self):
-        self.continuation_token = None
-        return self
+#     @page_size.setter
+#     def page_size(self, value):
+#         if value is None or value > 0:
+#             self._page_size = value
+#         else:
+#             raise ValueError("Page size must be a positive number")
 
-    def __next__(self):
-        return self.next()
+#     def next(self, continuation_token=None):
+#         """
+#         Get the next page of query results
 
-    @property
-    def page_size(self):
-        return self._page_size
+#         :param str continuation_token: Token indicating a specific starting point in the set
+#          of all results
+#         :returns: The next page of results
+#         :rtype: list[:class:`IndividualEnrollment
+#          <provisioningserviceclient.models.IndividualEnrollment>`]
+#         :raises: StopIteration if there are no more results or
+#          :class:`ProvisioningServiceError<provisioningserviceclient.ProvisioningServiceError>` if an
+#          error occurs on the Provisioning Service
+#         """
+#         if not self.has_next:
+#             raise StopIteration("No more results")
 
-    @page_size.setter
-    def page_size(self, value):
-        if value is None or value > 0:
-            self._page_size = value
-        else:
-            raise ValueError("Page size must be a positive number")
+#         if not continuation_token:
+#             continuation_token = self.continuation_token
 
-    def next(self, continuation_token=None):
-        """
-        Get the next page of query results
+#         if self.page_size is not None:
+#             page_size = str(self._page_size)
+#         else:
+#             page_size = self._page_size
 
-        :param str continuation_token: Token indicating a specific starting point in the set
-         of all results
-        :returns: The next page of results
-        :rtype: list[:class:`IndividualEnrollment
-         <provisioningserviceclient.models.IndividualEnrollment>`]
-        :raises: StopIteration if there are no more results or
-         :class:`ProvisioningServiceError<provisioningserviceclient.ProvisioningServiceError>` if an
-         error occurs on the Provisioning Service
-        """
-        if not self.has_next:
-            raise StopIteration("No more results")
+#         custom_headers = {}
+#         custom_headers[Query.authorization_header] = str(self._sastoken_factory.generate_sastoken())
+#         custom_headers[Query.continuation_token_header] = continuation_token
+#         custom_headers[Query.page_size_header] = page_size
 
-        if not continuation_token:
-            continuation_token = self.continuation_token
+#         try:
+#             raw_resp = self._query_fn(self._query_spec_or_id, custom_headers, True)
+#         except ProvisioningServiceErrorDetails as e:
+#             raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
 
-        if self.page_size is not None:
-            page_size = str(self._page_size)
-        else:
-            page_size = self._page_size
+#         if not _is_successful(raw_resp.response.status_code):
+#             raise ProvisioningServiceError(raw_resp.response.reason)
 
-        custom_headers = {}
-        custom_headers[Query.authorization_header] = str(self._sastoken_factory.generate_sastoken())
-        custom_headers[Query.continuation_token_header] = continuation_token
-        custom_headers[Query.page_size_header] = page_size
+#         if not raw_resp.output:
+#             raise StopIteration("No more results")
 
-        try:
-            raw_resp = self._query_fn(self._query_spec_or_id, custom_headers, True)
-        except genmodels.ProvisioningServiceErrorDetailsException as e:
-            raise ProvisioningServiceError(self.err_msg_unexpected.format(e.response.status_code), e)
+#         self.continuation_token = raw_resp.headers[Query.continuation_token_header]
+#         self.has_next = self.continuation_token != None
 
-        if not _is_successful(raw_resp.response.status_code):
-            raise ProvisioningServiceError(raw_resp.response.reason)
+#         #convert results to wrapper class
+#         output = []
+#         for item in raw_resp.output:
+#             output.append(_wrap_internal_model(item))
 
-        if not raw_resp.output:
-            raise StopIteration("No more results")
-
-        self.continuation_token = raw_resp.headers[Query.continuation_token_header]
-        self.has_next = self.continuation_token != None
-
-        #convert results to wrapper class
-        output = []
-        for item in raw_resp.output:
-            output.append(_wrap_internal_model(item))
-
-        return output
+#         return output

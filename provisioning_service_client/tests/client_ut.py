@@ -18,10 +18,10 @@ from provisioningserviceclient.client import ProvisioningServiceClient, \
 from provisioningserviceclient.models import IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState, AttestationMechanism, DeviceRegistrationState
 from provisioningserviceclient import QuerySpecification, Query
-from provisioningserviceclient.serviceswagger import DeviceProvisioningServiceServiceRuntimeClient
-from provisioningserviceclient.serviceswagger.operations import DeviceEnrollmentOperations, \
+from provisioningserviceclient.protocol import DeviceProvisioningServiceServiceRuntimeClient
+from provisioningserviceclient.protocol.operations import DeviceEnrollmentOperations, \
     DeviceEnrollmentGroupOperations, RegistrationStateOperations
-import provisioningserviceclient.serviceswagger.models as genmodels
+import provisioningserviceclient.protocol.models as genmodels
 
 
 SAS = "dummy_token"

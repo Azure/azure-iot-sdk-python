@@ -10,7 +10,7 @@ from six.moves import mock
 import context
 from provisioningserviceclient.models import AttestationMechanism, IndividualEnrollment, \
     EnrollmentGroup, DeviceRegistrationState, InitialTwin, DeviceCapabilities
-import provisioningserviceclient.serviceswagger.models as genmodels
+import provisioningserviceclient.protocol.models as genmodels
 
 
 TPM_LABEL = "tpm"

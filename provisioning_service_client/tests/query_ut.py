@@ -10,8 +10,8 @@ from six.moves import mock
 
 import context
 from provisioningserviceclient.utils.sastoken import SasTokenFactory
-from provisioningserviceclient.serviceswagger.operations.device_enrollment_operations import ClientRawResponse
-import provisioningserviceclient.serviceswagger.models as genmodels
+from provisioningserviceclient.protocol.operations.device_enrollment_operations import ClientRawResponse
+import provisioningserviceclient.protocol.models as genmodels
 import provisioningserviceclient.models as models
 from provisioningserviceclient.client import Query, QuerySpecification, ProvisioningServiceError
 
