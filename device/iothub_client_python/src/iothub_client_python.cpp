@@ -1225,7 +1225,7 @@ InboundDeviceMethodCallback(
     ScopedGILAcquire acquire;
     try
     {
-        boost::python::object user_response_obj = deviceMethodCallback(method_name_std_string, payload_std_string, (unsigned long int)method_id, userContext);
+        boost::python::object user_response_obj = deviceMethodCallback(method_name_std_string, payload_std_string, (unsigned long long)method_id, userContext);
 
 
         retVal = boost::python::extract<int>(user_response_obj)();
@@ -1955,7 +1955,7 @@ public:
     }
 
     void DeviceMethodResponse(
-        unsigned long int method_id,
+        unsigned long long method_id,
         std::string response,
         size_t size,
         int statusCode
