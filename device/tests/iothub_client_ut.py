@@ -966,7 +966,7 @@ class TestClassDefinitions(unittest.TestCase):
         self.assertIsNone(result)
 
         # device_method_response
-        method_id = None
+        method_id = 42
         response = "{}"
         size = 2
         statusCode = 0
