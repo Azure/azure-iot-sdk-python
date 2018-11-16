@@ -1225,11 +1225,10 @@ InboundDeviceMethodCallback(
     ScopedGILAcquire acquire;
     try
     {
-        boost::python::object user_response_obj = deviceMethodCallback(method_name_std_string, payload_std_string, method_id, userContext);
+        boost::python::object user_response_obj = deviceMethodCallback(method_name_std_string, payload_std_string, (unsigned long long)method_id, userContext);
 
-        DeviceMethodReturnValue user_response_value = boost::python::extract<DeviceMethodReturnValue>(user_response_obj)();
 
-        retVal = user_response_value.status;
+        retVal = boost::python::extract<int>(user_response_obj)();
     }
     catch (const boost::python::error_already_set)
     {
@@ -1956,7 +1955,7 @@ public:
     }
 
     void DeviceMethodResponse(
-        METHOD_HANDLE method_id,
+        unsigned long long method_id,
         std::string response,
         size_t size,
         int statusCode
@@ -1965,7 +1964,7 @@ public:
         IOTHUB_CLIENT_RESULT result;
         {
             ScopedGILRelease release;
-            result = IoTHubDeviceClient_DeviceMethodResponse(iotHubClientHandle, method_id, (const unsigned char*)response.c_str(), size, statusCode);
+            result = IoTHubDeviceClient_DeviceMethodResponse(iotHubClientHandle, (METHOD_HANDLE)method_id, (const unsigned char*)response.c_str(), size, statusCode);
         }
         if (result != IOTHUB_CLIENT_OK)
         {
