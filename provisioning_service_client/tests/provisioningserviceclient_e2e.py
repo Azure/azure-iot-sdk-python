@@ -14,9 +14,9 @@ from provisioningserviceclient.models import IndividualEnrollment, AttestationMe
     InitialTwin, EnrollmentGroup, DeviceCapabilities
 
 
-CONNECTION_STRING = ""
-ENDORSEMENT_KEY = ""
-SIGNING_CERTIFICATE = ""
+PROVISIONING_CONNECTION_STRING = ""
+PROVISIONING_E2E_ENDORSEMENT_KEY = ""
+PROVISIONING_E2E_X509_CERT = ""
 REGISTRATION_ID = "e2e-test-reg-id"
 GROUP_ID = "e2e-test-group-id"
 TAGS = {"tag1": "val1"}
@@ -27,21 +27,21 @@ BULK_SIZE = 10
 
 
 def read_environment_vars():
-    global CONNECTION_STRING
-    global ENDORSEMENT_KEY
-    global SIGNING_CERTIFICATE
+    global PROVISIONING_CONNECTION_STRING
+    global PROVISIONING_E2E_ENDORSEMENT_KEY
+    global PROVISIONING_E2E_X509_CERT
 
-    CONNECTION_STRING = os.environ["CONNECTION_STRING"]
-    six.print_("CONNECTION_STRING: {}".format(CONNECTION_STRING))
-    ENDORSEMENT_KEY = os.environ["ENDORSEMENT_KEY"]
-    six.print_("ENDORSEMENT_KEY: {}".format(ENDORSEMENT_KEY))
-    SIGNING_CERTIFICATE = os.environ["SIGNING_CERTIFICATE"]
-    six.print_("SIGNING_CERTIFICATE: {}".format(SIGNING_CERTIFICATE))
+    PROVISIONING_CONNECTION_STRING = os.environ["PROVISIONING_CONNECTION_STRING"]
+    six.print_("PROVISIONING_CONNECTION_STRING: {}".format(PROVISIONING_CONNECTION_STRING))
+    PROVISIONING_E2E_ENDORSEMENT_KEY = os.environ["PROVISIONING_E2E_ENDORSEMENT_KEY"]
+    six.print_("PROVISIONING_E2E_ENDORSEMENT_KEY: {}".format(PROVISIONING_E2E_ENDORSEMENT_KEY))
+    PROVISIONING_E2E_X509_CERT = os.environ["PROVISIONING_E2E_X509_CERT"]
+    six.print_("PROVISIONING_E2E_X509_CERT: {}".format(PROVISIONING_E2E_X509_CERT))
 
 
 def run_scenario_individual_enrollment():
-    psc = ProvisioningServiceClient.create_from_connection_string(CONNECTION_STRING)
-    att = AttestationMechanism.create_with_tpm(ENDORSEMENT_KEY)
+    psc = ProvisioningServiceClient.create_from_connection_string(PROVISIONING_CONNECTION_STRING)
+    att = AttestationMechanism.create_with_tpm(PROVISIONING_E2E_ENDORSEMENT_KEY)
     ie = IndividualEnrollment.create(REGISTRATION_ID, att)
 
     #create
@@ -97,8 +97,8 @@ def run_scenario_individual_enrollment():
 
 
 def run_scenario_enrollment_group():
-    psc = ProvisioningServiceClient.create_from_connection_string(CONNECTION_STRING)
-    att = AttestationMechanism.create_with_x509_signing_certs(SIGNING_CERTIFICATE)
+    psc = ProvisioningServiceClient.create_from_connection_string(PROVISIONING_CONNECTION_STRING)
+    att = AttestationMechanism.create_with_x509_signing_certs(PROVISIONING_E2E_X509_CERT)
     eg = EnrollmentGroup.create(GROUP_ID, att)
 
     #create
@@ -139,24 +139,24 @@ def main():
     six.print_("Provisioning Service Client E2E Tests Started!")
     six.print_("----------------------------------------------")
 
-    #try:
-    six.print_("Reading environment variables...")
-    read_environment_vars()
-    six.print_("SUCCESS")
-    six.print_("Running Individual Enrollment Scenario...")
-    run_scenario_individual_enrollment()
-    six.print_("PASSED")
-    six.print_("Running Enrollment Group Scenario...")
-    run_scenario_enrollment_group()
-    six.print_("PASSED")
-    six.print_("Provisioning Service Client E2E Tests OK!")
-    six.print_("-----------------------------------------")
-    return 0
-    # except Exception:
-    #     six.print_("FAILED")
-    #     six.print_("Provisioning Service Client E2E Tests FAILED!")
-    #     six.print_("---------------------------------------------")
-    #     return 1
+    try:
+        six.print_("Reading environment variables...")
+        read_environment_vars()
+        six.print_("SUCCESS")
+        six.print_("Running Individual Enrollment Scenario...")
+        run_scenario_individual_enrollment()
+        six.print_("PASSED")
+        six.print_("Running Enrollment Group Scenario...")
+        run_scenario_enrollment_group()
+        six.print_("PASSED")
+        six.print_("Provisioning Service Client E2E Tests OK!")
+        six.print_("-----------------------------------------")
+        return 0
+    except Exception:
+        six.print_("FAILED")
+        six.print_("Provisioning Service Client E2E Tests FAILED!")
+        six.print_("---------------------------------------------")
+        return 1
 
 
 if __name__ == '__main__':

@@ -2,11 +2,10 @@
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 
-# from .protocol import models as genmodels
-# from .protocol import DeviceRegistrationState, ReprovisionPolicy, CustomAllocationDefinition
-
+from .protocol.models import InitialTwin as GeneratedInitialTwin, \
+    QuerySpecification as GeneratedQuerySpecification, \
+    BulkEnrollmentOperation as GeneratedBulkEnrollmentOperation
 from .protocol.models import *
-from .protocol.models import InitialTwin as GeneratedInitialTwin
 
 def _patch_models():
     _patch_individual_enrollment()
@@ -224,7 +223,8 @@ class InitialTwin(object):
         desired_properties_tc = TwinCollection(additional_properties=desired_properties)
         properties = InitialTwinProperties(desired=desired_properties_tc)
         twin = GeneratedInitialTwin(tags=tags_tc, properties=properties)
-        self._create_internal(twin)
+        self._internal = twin
+        self._internal._wrapper = self
 
     @classmethod
     def create(cls, tags=None, desired_properties=None):
@@ -238,9 +238,12 @@ class InitialTwin(object):
         """
         return cls(tags=tags, desired_properties=desired_properties)
 
-    def _create_internal(self, internal_model):
-        self._internal = internal_model
-        self._internal._wrapper = self
+    @classmethod
+    def _create_from_internal(cls, internal_model):
+        new = cls(None, None)
+        new._internal = internal_model
+        new._internal._wrapper = new
+        return new
 
     @property
     def tags(self):
@@ -268,47 +271,37 @@ def _patch_initial_twin():
     def _wrap(self):
         """Keep a pointer to a wrapper class
         """
-        if hasattr(self, "_wrapper"):   #Not EAFP, but this case is common enough to use LBYL
+        if hasattr(self, "_wrapper"):   #Not EAFP, but this case is common enough to use LBYL for performance
             wrapper = self._wrapper
         else:
-            wrapper = InitialTwin._create_internal(self)
-            self._wrapper = wrapper
+            wrapper = InitialTwin._create_from_internal(self)
         return wrapper
 
     setattr(GeneratedInitialTwin, "_wrap", _wrap)
 
 
-# def _patch_initial_twin():
-#     """Add convenience/back-compat methods for InitialTwin
-#     """
+class BulkEnrollmentOperation(GeneratedBulkEnrollmentOperation):
+    """Bulk operation.
 
-#     def create(cls, tags=None, desired_properties=None):
-#         """
-#         Create an Initial Twin
+    All required parameters must be populated in order to send to Azure.
 
-#         :param dict tags: The tags for the Initial Twin
-#         :param dict desired_properties: The desired properties for the Initial Twin
-#         :returns: New instance of :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
-#         :rtype: :class:`InitialTwin<provisioningserviceclient.models.InitialTwin>`
-#         """
-#         tags_tc = TwinCollection(additional_properties=tags)
-#         desired_properties_tc = TwinCollection(additional_properties=desired_properties)
-#         properties = InitialTwinProperties(desired=desired_properties_tc)
-#         return cls(tags=tags, properties=properties)
+    :param mode: Required. Operation mode. Possible values include: 'create',
+     'update', 'updateIfMatchETag', 'delete'
+    :type mode: str or ~protocol.models.enum
+    :param enrollments: Required. Enrollment items
+    :type enrollments: list[~protocol.models.IndividualEnrollment]
+    """
+    def __init__(self, mode, enrollments):
+        super(BulkEnrollmentOperation, self).__init__(enrollments=enrollments, mode=mode)
 
-#     def tags_get(self):
-#         return self.tags.additional_properties
 
-#     def tags_set(self, value):
-#         setattr(self, "tags")
-#         self.tags.additional_properties = value
+class QuerySpecification(GeneratedQuerySpecification):
+    """A Json query request.
 
-#     def desired_properties_get(self):
-#         return self.properties.desired.additional_properties
+    All required parameters must be populated in order to send to Azure.
 
-#     def desired_properties_set(self, value):
-#         self.properties.desired.additional_properties = value
-
-#     setattr(InitialTwin, "create", classmethod(create))
-#     setattr(InitialTwin, "tags", property(tags_get, tags_set))
-#     setattr(InitialTwin, "desired_properties", property(desired_properties_get, desired_properties_set))
+    :param query: Required. The query.
+    :type query: str
+    """
+    def __init__(self, query):
+        super(QuerySpecification, self).__init__(query=query)
