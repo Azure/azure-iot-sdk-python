@@ -8,653 +8,362 @@ add_move(MovedModule('mock', 'mock', 'unittest.mock'))
 from six.moves import mock
 
 import context
-from provisioningserviceclient.models import AttestationMechanism, IndividualEnrollment, \
-    EnrollmentGroup, DeviceRegistrationState, InitialTwin, DeviceCapabilities
-import provisioningserviceclient.protocol.models as genmodels
+from provisioningserviceclient.models import *
+from provisioningserviceclient.protocol.models import InitialTwin as GeneratedInitialTwin
 
+DUMMY_REG_ID = "test-reg-id"
+DUMMY_DEV_ID = "test-dev-id"
+DUMMY_HOST_NAME = "test-host-name"
+DUMMY_ETAG = "test-etag"
+DUMMY_TIME = "test-time"
+DUMMY_TIME2 = "test-time2"
+DUMMY_IOT_HUBS = ["hub1", "hub2"]
+DUMMY_ATTESTATION = "DUMMY ATTESTATION"
+DUMMY_TWIN = "DUMMY TWIN"
+DUMMY_ERR_CODE = 9000
+DUMMY_ERR_MSG = "test-error"
+DUMMY_EK = "test-ek"
+DUMMY_SRK = "test-srk"
+DUMMY_CERT1 = "test-cert1"
+DUMMY_CERT2 = "test-cert2"
+DUMMY_TAGS = {"tag_key" : "tag_val"}
+DUMMY_PROPERTIES = {"property_key" : "property_val"}
 
+DUMMY_DEVICE_CAPABILITIES = "DUMMY DEVICE_CAPABILITIES"
+DUMMY_REPROVISION_POLICY = "DUMMY REPROVISION POLICY"
+DUMMY_ALLOCATION_DEFINITION = "DUMMY ALLOCATION DEFINITION"
+DUMMY_REGISTRATION_STATE = "DUMMY REGISTRATION STATE"
+DUMMY_TPM_ATTESTATION = "DUMMY TPM ATTESTATION"
+DUMMY_INTERNAL_TWIN = "DUMMY INTERNAL TWIN"
+
+PROV_STATUS_ENABLED = "enabled"
+PROV_STATUS_DISABLED = "disabled"
+ALLOCATION_POLICY_HASHED = "hashed"
+REG_STATUS_ASSIGNED = "assigned"
 TPM_LABEL = "tpm"
 X509_LABEL = "x509"
 CLIENT_LABEL = "client"
 SIGNING_LABEL = "signing"
 CA_LABEL = "ca"
-TEST_EK = "test-ek"
-TEST_SRK = "test-srk"
-TEST_CERT1 = "test-cert1"
-TEST_CERT2 = "test-cert2"
-TEST_REG_ID = "test-reg-id"
-TEST_DEV_ID = "test-dev-id"
-TEST_HOST_NAME = "test-host-name"
-TEST_ETAG = "test-etag"
-TEST_TIME = "test-time"
-TEST_TIME2 = "test-time2"
-TEST_ERR_CODE = 9000
-TEST_ERR_MSG = "test-error"
-TEST_TAGS = {"tag_key" : "tag_val"}
-TEST_PROPERTIES = {"property_key" : "property_val"}
-NEWVAL = "newval"
-NEWDICT = {"new":"value"}
-REG_STATUS_ASSIGNED = "assigned"
-PROV_STATUS_ENABLED = "enabled"
 
+class TestIndividualEnrollment(unittest.TestCase):
+    def test_create_min(self):
+        ie = IndividualEnrollment.create(DUMMY_REG_ID, DUMMY_ATTESTATION)
+        self.assertIs(ie.registration_id, DUMMY_REG_ID)
+        self.assertIs(ie.attestation, DUMMY_ATTESTATION)
+        self.assertIs(ie.provisioning_status, PROV_STATUS_ENABLED) #default
+        self.assertIsNone(ie.device_id)
+        self.assertIsNone(ie.iot_hub_host_name)
+        self.assertIsNone(ie.initial_twin)
+        self.assertIsNone(ie.capabilities)
+        self.assertIsNone(ie.reprovision_policy)
+        self.assertIsNone(ie.allocation_policy)
+        self.assertIsNone(ie.iot_hubs)
+        self.assertIsNone(ie.custom_allocation_definition)
+        self.assertIsNone(ie.registration_state)
+        self.assertIsNone(ie.etag)
+        self.assertIsNone(ie.created_date_time_utc)
+        self.assertIsNone(ie.last_updated_date_time_utc)
 
-class TestIndividualEnrollmentCreation(unittest.TestCase):
+    def test_create_max(self):
+        ie = IndividualEnrollment.create(DUMMY_REG_ID, DUMMY_ATTESTATION, DUMMY_DEV_ID,
+            DUMMY_HOST_NAME, DUMMY_TWIN, PROV_STATUS_DISABLED, DUMMY_DEVICE_CAPABILITIES,
+            DUMMY_REPROVISION_POLICY, ALLOCATION_POLICY_HASHED, DUMMY_IOT_HUBS, DUMMY_ALLOCATION_DEFINITION)
+        self.assertIs(ie.registration_id, DUMMY_REG_ID)
+        self.assertIs(ie.attestation, DUMMY_ATTESTATION)
+        self.assertIs(ie.device_id, DUMMY_DEV_ID)
+        self.assertIs(ie.iot_hub_host_name, DUMMY_HOST_NAME)
+        self.assertIs(ie.initial_twin, DUMMY_TWIN)
+        self.assertIs(ie.provisioning_status, PROV_STATUS_DISABLED)
+        self.assertIs(ie.capabilities, DUMMY_DEVICE_CAPABILITIES)
+        self.assertIs(ie.reprovision_policy, DUMMY_REPROVISION_POLICY)
+        self.assertIs(ie.allocation_policy, ALLOCATION_POLICY_HASHED)
+        self.assertIs(ie.iot_hubs, DUMMY_IOT_HUBS)
+        self.assertIs(ie.custom_allocation_definition, DUMMY_ALLOCATION_DEFINITION)
+        self.assertIsNone(ie.registration_state)
+        self.assertIsNone(ie.etag)
+        self.assertIsNone(ie.created_date_time_utc)
+        self.assertIsNone(ie.last_updated_date_time_utc)
 
-    def test_ie_constructor_full_model(self):
-        tpm = genmodels.TpmAttestation(TEST_EK)
-        att = genmodels.AttestationMechanism(TPM_LABEL, tpm=tpm)
-        drs = genmodels.DeviceRegistrationState(TEST_REG_ID, REG_STATUS_ASSIGNED)
-        twin = genmodels.InitialTwin()
-        capabilities = genmodels.DeviceCapabilities(False)
-        ie = genmodels.IndividualEnrollment(TEST_REG_ID, att, capabilities=capabilities, device_id=TEST_DEV_ID, registration_state=drs,
-                                            iot_hub_host_name=TEST_HOST_NAME, initial_twin=twin, etag=TEST_ETAG,
-                                            provisioning_status=PROV_STATUS_ENABLED, created_date_time_utc=TEST_TIME,
-                                            last_updated_date_time_utc=TEST_TIME2)
-        ret = IndividualEnrollment(ie)
-        self.assertIsInstance(ret, IndividualEnrollment)
-        self.assertIs(ret._internal, ie)
-        self.assertIsInstance(ret._att_wrapper, AttestationMechanism)
-        self.assertIs(ret._att_wrapper._internal, att)
-        self.assertIsInstance(ret._drs_wrapper, DeviceRegistrationState)
-        self.assertIs(ret._drs_wrapper._internal, drs)
-        self.assertIsInstance(ret._twin_wrapper, InitialTwin)
-        self.assertIs(ret._twin_wrapper._internal, twin)
-        self.assertIsInstance(ret._capabilities_wrapper, DeviceCapabilities)
-        self.assertIs(ret._capabilities_wrapper._internal, capabilities)
+    def test_back_compat_attributes(self):
+        """DO NOT MODIFY THIS TEST. EVER. IT TESTS BACKWARDS COMPATIBILITY.
+        """
+        #Populate all fields from older version
+        ie = IndividualEnrollment.create(DUMMY_REG_ID, DUMMY_ATTESTATION, DUMMY_DEV_ID,
+            DUMMY_HOST_NAME, DUMMY_TWIN, PROV_STATUS_DISABLED, DUMMY_DEVICE_CAPABILITIES)
+        ie.registration_state = DUMMY_REGISTRATION_STATE
+        ie.etag = DUMMY_ETAG
+        ie.created_date_time_utc = DUMMY_TIME
+        ie.last_updated_date_time_utc = DUMMY_TIME2
 
-    def test_ie_constructor_min_model(self):
-        tpm = genmodels.TpmAttestation(TEST_EK)
-        att = genmodels.AttestationMechanism(TPM_LABEL, tpm=tpm)
-        ie = genmodels.IndividualEnrollment(TEST_REG_ID, att)
-        ret = IndividualEnrollment(ie)
-        self.assertIsInstance(ret, IndividualEnrollment)
-        self.assertIs(ret._internal, ie)
-        self.assertIsInstance(ret._att_wrapper, AttestationMechanism)
-        self.assertIs(ret._att_wrapper._internal, att)
-        self.assertIsNone(ret._drs_wrapper)
-        self.assertIsNone(ret._twin_wrapper)
-        self.assertIsNone(ret._capabilities_wrapper)
-
-    def test_ie_create_full_model(self):
-        att = AttestationMechanism.create_with_tpm(TEST_EK)
-        ts = InitialTwin.create()
-        capabilities = DeviceCapabilities.create()
-        ret = IndividualEnrollment.create(TEST_REG_ID, att, TEST_DEV_ID, TEST_HOST_NAME, ts, \
-            PROV_STATUS_ENABLED, capabilities)
-        internal = ret._internal
-        self.assertIsInstance(ret, IndividualEnrollment)
-        self.assertEqual(internal.registration_id, TEST_REG_ID)
-        self.assertEqual(internal.device_id, TEST_DEV_ID)
-        self.assertEqual(internal.iot_hub_host_name, TEST_HOST_NAME)
-        self.assertEqual(internal.provisioning_status, PROV_STATUS_ENABLED)
-        self.assertEqual(internal.attestation, att._internal)
-        self.assertIs(ret._att_wrapper, att)
-        self.assertEqual(internal.initial_twin, ts._internal)
-        self.assertIs(ret._twin_wrapper, ts)
-        self.assertIsNone(internal.registration_state)
-        self.assertIsNone(ret._drs_wrapper)
-        self.assertEqual(internal.capabilities, capabilities._internal)
-        self.assertIs(ret._capabilities_wrapper, capabilities)
-        self.assertIsNone(internal.etag)
-        self.assertIsNone(internal.created_date_time_utc)
-        self.assertIsNone(internal.last_updated_date_time_utc)
-
-    def test_ie_create_min_model(self):
-        att = AttestationMechanism.create_with_tpm(TEST_EK)
-        ret = IndividualEnrollment.create(TEST_REG_ID, att)
-        internal = ret._internal
-        self.assertIsInstance(ret, IndividualEnrollment)
-        self.assertIsNone(ret._capabilities_wrapper)
-        self.assertEqual(internal.registration_id, TEST_REG_ID)
-        self.assertIsNone(internal.device_id)
-        self.assertIsNone(internal.iot_hub_host_name)
-        self.assertIsNone(internal.provisioning_status)
-        self.assertEqual(internal.attestation, att._internal)
-        self.assertIs(ret._att_wrapper, att)
-        self.assertIsNone(internal.initial_twin)
-        self.assertIsNone(ret._twin_wrapper)
-        self.assertIsNone(internal.registration_state)
-        self.assertIsNone(ret._drs_wrapper)
-        self.assertIsNone(internal.etag)
-        self.assertIsNone(internal.created_date_time_utc)
-        self.assertIsNone(internal.last_updated_date_time_utc)
-
-
-class TestIndividualEnrollmentAttributes(unittest.TestCase):
-
-    def setUp(self):
-        tpm = genmodels.TpmAttestation(TEST_EK)
-        self.gen_att = genmodels.AttestationMechanism(TPM_LABEL, tpm=tpm)
-        self.gen_drs = genmodels.DeviceRegistrationState(TEST_REG_ID, REG_STATUS_ASSIGNED)
-        self.gen_twin = genmodels.InitialTwin()
-        self.gen_cap = genmodels.DeviceCapabilities(False)
-        gen_ie = genmodels.IndividualEnrollment(TEST_REG_ID, self.gen_att, self.gen_cap, TEST_DEV_ID, self.gen_drs, \
-            TEST_HOST_NAME, self.gen_twin, TEST_ETAG, PROV_STATUS_ENABLED, TEST_TIME, TEST_TIME2)
-        self.ie = IndividualEnrollment(gen_ie)
-
-    def test_ie_get_device_capabilities(self):
-        res = self.ie.capabilities
-        self.assertIsInstance(res, DeviceCapabilities)
-        self.assertIs(res._internal, self.gen_cap)
-
-    def test_ie_set_device_capabilities(self):
-        cap = DeviceCapabilities.create()
-        self.ie.capabilities = cap
-        self.assertIs(self.ie._internal.capabilities, cap._internal)
-        self.assertIs(self.ie._capabilities_wrapper, cap)
-
-    def test_ie_get_reg_id(self):
-        res = self.ie.registration_id
-        self.assertIs(res, TEST_REG_ID)
-
-    def test_ie_set_reg_id(self):
-        self.ie.registration_id = NEWVAL
-        self.assertIs(self.ie._internal.registration_id, NEWVAL)
-
-    def test_ie_get_device_id(self):
-        res = self.ie.device_id
-        self.assertIs(res, TEST_DEV_ID)
-
-    def test_ie_set_device_id(self):
-        self.ie.device_id = NEWVAL
-        self.assertIs(self.ie._internal.device_id, NEWVAL)
-
-    def test_ie_get_registration_state(self):
-        res = self.ie.registration_state
-        self.assertIsInstance(res, DeviceRegistrationState)
-        self.assertIs(res._internal, self.gen_drs)
-
-    def test_ie_set_registration_state(self):
-        with self.assertRaises(AttributeError):
-            self.ie.registration_state = NEWVAL
-        self.assertIs(self.ie._internal.registration_state, self.gen_drs)
-
-    def test_ie_get_attestation(self):
-        res = self.ie.attestation
-        self.assertIsInstance(res, AttestationMechanism)
-        self.assertIs(res._internal, self.gen_att)
-
-    def test_ie_set_attestation(self):
-        att = AttestationMechanism.create_with_tpm(TEST_EK)
-        self.ie.attestation = att
-        self.assertIs(self.ie._internal.attestation, att._internal)
-        self.assertIs(self.ie._att_wrapper, att)
-
-    def test_ie_get_iot_hub_host_name(self):
-        res = self.ie.iot_hub_host_name
-        self.assertIs(res, TEST_HOST_NAME)
-
-    def test_ie_set_iot_hub_host_name(self):
-        self.ie.iot_hub_host_name = NEWVAL
-        self.assertIs(self.ie._internal.iot_hub_host_name, NEWVAL)
-
-    def test_ie_get_initial_twin(self):
-        res = self.ie.initial_twin
-        self.assertIsInstance(res, InitialTwin)
-        self.assertIs(res._internal, self.gen_twin)
-
-    def test_ie_set_initial_twin(self):
-        ts = InitialTwin.create()
-        self.ie.initial_twin = ts
-        self.assertIs(self.ie._internal.initial_twin, ts._internal)
-        self.assertIs(self.ie._twin_wrapper, ts)
-
-    def test_ie_get_etag(self):
-        res = self.ie.etag
-        self.assertIs(res, TEST_ETAG)
-
-    def test_ie_set_etag(self):
-        self.ie.etag = NEWVAL
-        self.assertIs(self.ie._internal.etag, NEWVAL)
-
-    def test_ie_get_provisioning_status(self):
-        res = self.ie.provisioning_status
-        self.assertIs(res, PROV_STATUS_ENABLED)
-
-    def test_ie_set_provisioning_status(self):
-        self.ie.provisioning_status = NEWVAL
-        self.assertIs(self.ie._internal.provisioning_status, NEWVAL)
-
-    def test_ie_get_created_date_time_utc(self):
-        res = self.ie.created_date_time_utc
-        self.assertIs(res, TEST_TIME)
-
-    def test_ie_set_created_date_time_utc(self):
-        with self.assertRaises(AttributeError):
-            self.ie.created_date_time_utc = NEWVAL
-        self.assertIs(self.ie._internal.created_date_time_utc, TEST_TIME)
-
-    def test_ie_get_last_updated_date_time_utc(self):
-        res = self.ie.last_updated_date_time_utc
-        self.assertIs(res, TEST_TIME2)
-
-    def test_ie_set_last_updated_date_time_utc(self):
-        with self.assertRaises(AttributeError):
-            self.ie.last_updated_date_time_utc = NEWVAL
-        self.assertIs(self.ie._internal.last_updated_date_time_utc, TEST_TIME2)
+        #check back compat
+        self.assertIs(ie.registration_id, DUMMY_REG_ID)
+        self.assertIs(ie.attestation, DUMMY_ATTESTATION)
+        self.assertIs(ie.device_id, DUMMY_DEV_ID)
+        self.assertIs(ie.iot_hub_host_name, DUMMY_HOST_NAME)
+        self.assertIs(ie.initial_twin, DUMMY_TWIN)
+        self.assertIs(ie.provisioning_status, PROV_STATUS_DISABLED)
+        self.assertIs(ie.capabilities, DUMMY_DEVICE_CAPABILITIES)
+        self.assertIs(ie.registration_state, DUMMY_REGISTRATION_STATE)
+        self.assertIs(ie.etag, DUMMY_ETAG)
+        self.assertIs(ie.created_date_time_utc, DUMMY_TIME)
+        self.assertIs(ie.last_updated_date_time_utc, DUMMY_TIME2)
 
 
 class TestEnrollmentGroupCreation(unittest.TestCase):
 
-    def test_eg_constructor_full_model(self):
-        x509 = genmodels.X509Attestation()
-        att = genmodels.AttestationMechanism(X509_LABEL, x509=x509)
-        twin = genmodels.InitialTwin()
-        eg = genmodels.EnrollmentGroup(TEST_REG_ID, att, TEST_HOST_NAME, twin, TEST_ETAG, \
-            PROV_STATUS_ENABLED, TEST_TIME, TEST_TIME2)
-        ret = EnrollmentGroup(eg)
-        self.assertIsInstance(ret, EnrollmentGroup)
-        self.assertIs(ret._internal, eg)
-        self.assertIsInstance(ret._att_wrapper, AttestationMechanism)
-        self.assertIs(ret._att_wrapper._internal, att)
-        self.assertIsInstance(ret._twin_wrapper, InitialTwin)
-        self.assertIs(ret._twin_wrapper._internal, twin)
+    def test_create_min(self):
+        eg = EnrollmentGroup.create(DUMMY_REG_ID, DUMMY_ATTESTATION)
+        self.assertIs(eg.enrollment_group_id, DUMMY_REG_ID)
+        self.assertIs(eg.attestation, DUMMY_ATTESTATION)
+        self.assertIsNone(eg.iot_hub_host_name)
+        self.assertIsNone(eg.initial_twin)
+        self.assertIs(eg.provisioning_status, PROV_STATUS_ENABLED) #default
+        self.assertIsNone(eg.reprovision_policy)
+        self.assertIsNone(eg.allocation_policy)
+        self.assertIsNone(eg.iot_hubs)
+        self.assertIsNone(eg.custom_allocation_definition)
+        self.assertIsNone(eg.etag)
+        self.assertIsNone(eg.created_date_time_utc)
+        self.assertIsNone(eg.last_updated_date_time_utc)
 
-    def test_eg_constructor_min_model(self):
-        x509 = genmodels.X509Attestation()
-        att = genmodels.AttestationMechanism(X509_LABEL, x509=x509)
-        eg = genmodels.EnrollmentGroup(TEST_REG_ID, att)
-        ret = EnrollmentGroup(eg)
-        self.assertIsInstance(ret, EnrollmentGroup)
-        self.assertIs(ret._internal, eg)
-        self.assertIsInstance(ret._att_wrapper, AttestationMechanism)
-        self.assertIs(ret._att_wrapper._internal, att)
-        self.assertIsNone(ret._twin_wrapper)
+    def test_create_max(self):
+        eg = EnrollmentGroup.create(DUMMY_REG_ID, DUMMY_ATTESTATION, DUMMY_HOST_NAME, DUMMY_TWIN,
+            PROV_STATUS_DISABLED, DUMMY_REPROVISION_POLICY, ALLOCATION_POLICY_HASHED, DUMMY_IOT_HUBS,
+            DUMMY_ALLOCATION_DEFINITION)
+        self.assertIs(eg.enrollment_group_id, DUMMY_REG_ID)
+        self.assertIs(eg.attestation, DUMMY_ATTESTATION)
+        self.assertIs(eg.iot_hub_host_name, DUMMY_HOST_NAME)
+        self.assertIs(eg.initial_twin, DUMMY_TWIN)
+        self.assertIsNone(eg.etag)
+        self.assertIs(eg.provisioning_status, PROV_STATUS_DISABLED)
+        self.assertIs(eg.reprovision_policy, DUMMY_REPROVISION_POLICY)
+        self.assertIsNone(eg.created_date_time_utc)
+        self.assertIsNone(eg.last_updated_date_time_utc)
+        self.assertIs(eg.allocation_policy, ALLOCATION_POLICY_HASHED)
+        self.assertIs(eg.iot_hubs, DUMMY_IOT_HUBS)
+        self.assertIs(eg.custom_allocation_definition, DUMMY_ALLOCATION_DEFINITION)
 
-    def test_eg_create_full_model(self):
-        att = AttestationMechanism.create_with_x509_ca_refs(TEST_CERT1)
-        ts = InitialTwin.create()
-        ret = EnrollmentGroup.create(TEST_REG_ID, att, TEST_HOST_NAME, ts, PROV_STATUS_ENABLED)
-        internal = ret._internal
-        self.assertIsInstance(ret, EnrollmentGroup)
-        self.assertEqual(internal.enrollment_group_id, TEST_REG_ID)
-        self.assertEqual(internal.iot_hub_host_name, TEST_HOST_NAME)
-        self.assertEqual(internal.provisioning_status, PROV_STATUS_ENABLED)
-        self.assertEqual(internal.attestation, att._internal)
-        self.assertIs(ret._att_wrapper, att)
-        self.assertEqual(internal.initial_twin, ts._internal)
-        self.assertIs(ret._twin_wrapper, ts)
-        self.assertIsNone(internal.etag)
-        self.assertIsNone(internal.created_date_time_utc)
-        self.assertIsNone(internal.last_updated_date_time_utc)
+    def test_back_compat_attributes(self):
+        """DO NOT MODIFY THIS TEST. EVER. IT TESTS BACKWARDS COMPATIBILITY.
+        """
+        #Populate all fields from older version
+        eg = EnrollmentGroup.create(DUMMY_REG_ID, DUMMY_ATTESTATION, DUMMY_HOST_NAME, DUMMY_TWIN,
+            PROV_STATUS_DISABLED)
+        eg.etag = DUMMY_ETAG
+        eg.created_date_time_utc = DUMMY_TIME
+        eg.last_updated_date_time_utc = DUMMY_TIME2
 
-    def test_eg_create_min_model(self):
-        att = AttestationMechanism.create_with_x509_ca_refs(TEST_CERT1)
-        ret = EnrollmentGroup.create(TEST_REG_ID, att)
-        internal = ret._internal
-        self.assertIsInstance(ret, EnrollmentGroup)
-        self.assertEqual(internal.enrollment_group_id, TEST_REG_ID)
-        self.assertIsNone(internal.iot_hub_host_name)
-        self.assertIsNone(internal.provisioning_status)
-        self.assertEqual(internal.attestation, att._internal)
-        self.assertIs(ret._att_wrapper, att)
-        self.assertIsNone(internal.initial_twin)
-        self.assertIsNone(ret._twin_wrapper)
-        self.assertIsNone(internal.etag)
-        self.assertIsNone(internal.created_date_time_utc)
-        self.assertIsNone(internal.last_updated_date_time_utc)
+        #check back compat
+        self.assertIs(eg.enrollment_group_id, DUMMY_REG_ID)
+        self.assertIs(eg.attestation, DUMMY_ATTESTATION)
+        self.assertIs(eg.iot_hub_host_name, DUMMY_HOST_NAME)
+        self.assertIs(eg.initial_twin, DUMMY_TWIN)
+        self.assertIs(eg.provisioning_status, PROV_STATUS_DISABLED)
+        self.assertIs(eg.etag, DUMMY_ETAG)
+        self.assertIs(eg.created_date_time_utc, DUMMY_TIME)
+        self.assertIs(eg.last_updated_date_time_utc, DUMMY_TIME2)
 
 
-class TestEnrollmentGroupAttributes(unittest.TestCase):
+class TestDeviceCapabilities(unittest.TestCase):
 
-    def setUp(self):
-        x509 = genmodels.X509Attestation(TEST_CERT1)
-        self.gen_att = genmodels.AttestationMechanism(X509_LABEL, x509=x509)
-        self.gen_twin = genmodels.InitialTwin()
-        gen_eg = genmodels.EnrollmentGroup(TEST_REG_ID, self.gen_att, TEST_HOST_NAME, \
-            self.gen_twin, TEST_ETAG, PROV_STATUS_ENABLED, TEST_TIME, TEST_TIME2)
-        self.eg = EnrollmentGroup(gen_eg)
+    def test_create_min(self):
+        cap = DeviceCapabilities.create()
+        self.assertFalse(cap.iot_edge)
 
-    def test_eg_get_enrollment_group_id(self):
-        res = self.eg.enrollment_group_id
-        self.assertIs(res, TEST_REG_ID)
-
-    def test_eg_set_enrollment_group_id(self):
-        self.eg.enrollment_group_id = NEWVAL
-        self.assertIs(self.eg._internal.enrollment_group_id, NEWVAL)
-
-    def test_eg_get_attestation(self):
-        res = self.eg.attestation
-        self.assertIsInstance(res, AttestationMechanism)
-        self.assertIs(res._internal, self.gen_att)
-
-    def test_eg_set_attestation(self):
-        att = AttestationMechanism.create_with_x509_ca_refs(TEST_CERT1)
-        self.eg.attestation = att
-        self.assertIs(self.eg._internal.attestation, att._internal)
-        self.assertIs(self.eg._att_wrapper, att)
-
-    def test_eg_get_iot_hub_host_name(self):
-        res = self.eg.iot_hub_host_name
-        self.assertIs(res, TEST_HOST_NAME)
-
-    def test_eg_set_iot_hub_host_name(self):
-        self.eg.iot_hub_host_name = NEWVAL
-        self.assertIs(self.eg._internal.iot_hub_host_name, NEWVAL)
-
-    def test_eg_get_initial_twin(self):
-        res = self.eg.initial_twin
-        self.assertIsInstance(res, InitialTwin)
-        self.assertIs(res._internal, self.gen_twin)
-
-    def test_eg_set_initial_twin(self):
-        ts = InitialTwin.create()
-        self.eg.initial_twin = ts
-        self.assertIs(self.eg._internal.initial_twin, ts._internal)
-        self.assertIs(self.eg._twin_wrapper, ts)
-
-    def test_eg_get_etag(self):
-        res = self.eg.etag
-        self.assertIs(res, TEST_ETAG)
-
-    def test_eg_set_etag(self):
-        self.eg.etag = NEWVAL
-        self.assertIs(self.eg._internal.etag, NEWVAL)
-
-    def test_eg_get_provisioning_status(self):
-        res = self.eg.provisioning_status
-        self.assertIs(res, PROV_STATUS_ENABLED)
-
-    def test_eg_set_provisioning_status(self):
-        self.eg.provisioning_status = NEWVAL
-        self.assertIs(self.eg._internal.provisioning_status, NEWVAL)
-
-    def test_eg_get_created_date_time_utc(self):
-        res = self.eg.created_date_time_utc
-        self.assertIs(res, TEST_TIME)
-
-    def test_eg_set_created_date_time_utc(self):
-        with self.assertRaises(AttributeError):
-            self.eg.created_date_time_utc = NEWVAL
-        self.assertIs(self.eg._internal.created_date_time_utc, TEST_TIME)
-
-    def test_eg_get_last_updated_date_time_utc(self):
-        res = self.eg.last_updated_date_time_utc
-        self.assertIs(res, TEST_TIME2)
-
-    def test_eg_set_last_updated_date_time_utc(self):
-        with self.assertRaises(AttributeError):
-            self.eg.last_updated_date_time_utc = NEWVAL
-        self.assertIs(self.eg._internal.last_updated_date_time_utc, TEST_TIME2)
-
-
-class TestDeviceCapabilitiesCreation(unittest.TestCase):
-
-    def test_device_capabilities_constructor(self):
-        gen_cap = genmodels.DeviceCapabilities(False)
-        cap = DeviceCapabilities(gen_cap)
-        self.assertIsInstance(cap, DeviceCapabilities)
-        self.assertIs(cap._internal, gen_cap)
-
-    def test_capabilities_capabilities_create(self):
+    def test_create_max(self):
         cap = DeviceCapabilities.create(True)
-        internal = cap._internal
-        self.assertIsInstance(cap, DeviceCapabilities)
-        self.assertTrue(internal.iot_edge)
+        self.assertTrue(cap.iot_edge)
+
+    def test_back_compat_attributes(self):
+        """DO NOT MODIFY THIS TEST. EVER. IT TESTS BACKWARDS COMPATIBILITY.
+        """
+        cap = DeviceCapabilities.create(True)
+        self.assertTrue(cap.iot_edge)
 
 
-class TestDeviceCapabilitiesAttributes(unittest.TestCase):
+class TestDeviceRegistrationState(unittest.TestCase):
 
-    def setUp(self):
-        gen_cap = genmodels.DeviceCapabilities(iot_edge=True)
-        self.cap = DeviceCapabilities(gen_cap)
+    #No new tests required, because user only reads attributes from this object
 
-    def test_capabilities_get_iot_edge(self):
-        res = self.cap.iot_edge
-        self.assertTrue(res)
+    def test_back_compat_attributes(self):
+        """DO NOT MODIFY THIS TEST. EVER. IT TESTS BACKWARDS COMPATIBILITY.
+        """
+        #Populate fields from older version ONLY
+        drs = DeviceRegistrationState()
+        drs.registration_id = DUMMY_REG_ID
+        drs.created_date_time_utc = DUMMY_TIME
+        drs.assigned_hub = DUMMY_HOST_NAME
+        drs.device_id = DUMMY_DEV_ID
+        drs.status = REG_STATUS_ASSIGNED
+        drs.error_code = DUMMY_ERR_CODE
+        drs.error_message = DUMMY_ERR_MSG
+        drs.last_updated_date_time_utc = DUMMY_TIME2
+        drs.etag = DUMMY_ETAG
 
-    def test_capabilities_set_iot_edge(self):
-        self.cap.iot_edge = False
-        self.assertFalse(self.cap.iot_edge)
-
-
-class TestDeviceRegistrationStateCreation(unittest.TestCase):
-
-    def test_drs_constructor(self):
-        gen_drs = genmodels.DeviceRegistrationState(TEST_REG_ID, REG_STATUS_ASSIGNED, TEST_TIME, \
-            TEST_HOST_NAME, TEST_DEV_ID, TEST_ERR_CODE, TEST_ERR_MSG, TEST_TIME2, TEST_ETAG)
-        drs = DeviceRegistrationState(gen_drs)
-        self.assertIsInstance(drs, DeviceRegistrationState)
-        self.assertIs(drs._internal, gen_drs)
-
-
-class TestDeviceRegistrationStateAttributes(unittest.TestCase):
-
-    def setUp(self):
-        gen_drs = genmodels.DeviceRegistrationState(TEST_REG_ID, REG_STATUS_ASSIGNED, TEST_TIME, \
-            TEST_HOST_NAME, TEST_DEV_ID, TEST_ERR_CODE, TEST_ERR_MSG, TEST_TIME2, TEST_ETAG)
-        self.drs = DeviceRegistrationState(gen_drs)
-
-    def test_drs_get_registration_id(self):
-        res = self.drs.registration_id
-        self.assertIs(res, TEST_REG_ID)
-
-    def test_drs_set_registration_id(self):
-        with self.assertRaises(AttributeError):
-            self.drs.registration_id = NEWVAL
-        self.assertIs(self.drs._internal.registration_id, TEST_REG_ID)
-
-    def test_drs_get_created_date_time_utc(self):
-        res = self.drs.created_date_time_utc
-        self.assertIs(res, TEST_TIME)
-
-    def test_drs_set_created_date_time_utc(self):
-        with self.assertRaises(AttributeError):
-            self.drs.created_date_time_utc = NEWVAL
-        self.assertIs(self.drs._internal.created_date_time_utc, TEST_TIME)
-
-    def test_drs_get_assigned_hub(self):
-        res = self.drs.assigned_hub
-        self.assertIs(res, TEST_HOST_NAME)
-
-    def test_drs_set_assigned_hub(self):
-        with self.assertRaises(AttributeError):
-            self.drs.assigned_hub = NEWVAL
-        self.assertIs(self.drs._internal.assigned_hub, TEST_HOST_NAME)
-
-    def test_drs_get_device_id(self):
-        res = self.drs.device_id
-        self.assertIs(res, TEST_DEV_ID)
-
-    def test_drs_set_device_id(self):
-        with self.assertRaises(AttributeError):
-            self.drs.device_id = NEWVAL
-        self.assertIs(self.drs._internal.device_id, TEST_DEV_ID)
-
-    def test_drs_get_status(self):
-        res = self.drs.status
-        self.assertIs(res, REG_STATUS_ASSIGNED)
-
-    def test_drs_set_status(self):
-        with self.assertRaises(AttributeError):
-            self.drs.status = NEWVAL
-        self.assertIs(self.drs._internal.status, REG_STATUS_ASSIGNED)
-
-    def test_drs_get_error_code(self):
-        res = self.drs.error_code
-        self.assertIs(res, TEST_ERR_CODE)
-
-    def test_drs_set_error_code(self):
-        with self.assertRaises(AttributeError):
-            self.drs.error_code = NEWVAL
-        self.assertIs(self.drs._internal.error_code, TEST_ERR_CODE)
-
-    def test_drs_get_error_message(self):
-        res = self.drs.error_message
-        self.assertIs(res, TEST_ERR_MSG)
-
-    def test_drs_set_error_message(self):
-        with self.assertRaises(AttributeError):
-            self.drs.error_message = NEWVAL
-        self.assertIs(self.drs._internal.error_message, TEST_ERR_MSG)
+        self.assertIs(drs.registration_id, DUMMY_REG_ID)
+        self.assertIs(drs.created_date_time_utc, DUMMY_TIME)
+        self.assertIs(drs.assigned_hub, DUMMY_HOST_NAME)
+        self.assertIs(drs.device_id, DUMMY_DEV_ID)
+        self.assertIs(drs.status, REG_STATUS_ASSIGNED)
+        self.assertIs(drs.error_code, DUMMY_ERR_CODE)
+        self.assertIs(drs.error_message, DUMMY_ERR_MSG)
+        self.assertIs(drs.last_updated_date_time_utc, DUMMY_TIME2)
+        self.assertIs(drs.etag, DUMMY_ETAG)
 
 
-class TestAttestationMechanismCreation(unittest.TestCase):
+class TestAttestationMechanism(unittest.TestCase):
 
     def assert_valid_tpm_attestation(self, att):
-        self.assertIsInstance(att, genmodels.AttestationMechanism)
-        self.assertIsInstance(att.tpm, genmodels.TpmAttestation)
+        self.assertIsInstance(att, AttestationMechanism)
+        self.assertIsInstance(att.tpm, TpmAttestation)
         self.assertIsNone(att.x509)
         self.assertEqual(att.type, TPM_LABEL)
 
     def assert_valid_x509_attestation(self, att, typ):
-        self.assertIsInstance(att, genmodels.AttestationMechanism)
-        self.assertIsInstance(att.x509, genmodels.X509Attestation)
+        self.assertIsInstance(att, AttestationMechanism)
+        self.assertIsInstance(att.x509, X509Attestation)
         self.assertIsNone(att.tpm)
         self.assertEqual(att.type, X509_LABEL)
         if typ == CLIENT_LABEL:
-            self.assertIsInstance(att.x509.client_certificates, genmodels.X509Certificates)
+            self.assertIsInstance(att.x509.client_certificates, X509Certificates)
             self.assertIsNone(att.x509.signing_certificates)
             self.assertIsNone(att.x509.ca_references)
             self.assert_valid_x509_certificates(att.x509.client_certificates)
         elif typ == SIGNING_LABEL:
-            self.assertIsInstance(att.x509.signing_certificates, genmodels.X509Certificates)
+            self.assertIsInstance(att.x509.signing_certificates, X509Certificates)
             self.assertIsNone(att.x509.client_certificates)
             self.assertIsNone(att.x509.ca_references)
             self.assert_valid_x509_certificates(att.x509.signing_certificates)
         else:
-            self.assertIsInstance(att.x509.ca_references, genmodels.X509CAReferences)
+            self.assertIsInstance(att.x509.ca_references, X509CAReferences)
             self.assertIsNone(att.x509.client_certificates)
             self.assertIsNone(att.x509.signing_certificates)
 
     def assert_valid_x509_certificates(self, certs):
-        self.assertIsInstance(certs.primary, genmodels.X509CertificateWithInfo)
+        self.assertIsInstance(certs.primary, X509CertificateWithInfo)
         if (certs.secondary):
-            self.assertIsInstance(certs.secondary, genmodels.X509CertificateWithInfo)
+            self.assertIsInstance(certs.secondary, X509CertificateWithInfo)
 
-    def test_am_create_with_constructor(self):
-        tpm = genmodels.TpmAttestation(TEST_EK)
-        att = genmodels.AttestationMechanism(TPM_LABEL, tpm=tpm)
-        ret = AttestationMechanism(att)
-        self.assertIsInstance(ret, AttestationMechanism)
-        self.assertIs(ret._internal, att)
+    def test_create_with_tpm_min(self):
+        att = AttestationMechanism.create_with_tpm(DUMMY_EK)
+        self.assert_valid_tpm_attestation(att)
+        self.assertEqual(att.tpm.endorsement_key, DUMMY_EK)
+        self.assertIsNone(att.tpm.storage_root_key)
 
-    def test_create_with_tpm_no_srk(self):
-        att = AttestationMechanism.create_with_tpm(TEST_EK)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_tpm_attestation(att._internal)
-        self.assertEqual(att._internal.tpm.endorsement_key, TEST_EK)
-        self.assertIsNone(att._internal.tpm.storage_root_key)
-
-    def test_create_with_tpm_w_srk(self):
-        att = AttestationMechanism.create_with_tpm(TEST_EK, TEST_SRK)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_tpm_attestation(att._internal)
-        self.assertEqual(att._internal.tpm.endorsement_key, TEST_EK)
-        self.assertEqual(att._internal.tpm.storage_root_key, TEST_SRK)
+    def test_create_with_tpm_max(self):
+        att = AttestationMechanism.create_with_tpm(DUMMY_EK, DUMMY_SRK)
+        self.assert_valid_tpm_attestation(att)
+        self.assertEqual(att.tpm.endorsement_key, DUMMY_EK)
+        self.assertEqual(att.tpm.storage_root_key, DUMMY_SRK)
 
     def test_create_with_x509_client_certs_one_cert(self):
-        att = AttestationMechanism.create_with_x509_client_certs(TEST_CERT1)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_x509_attestation(att._internal, CLIENT_LABEL)
-        self.assertEqual(att._internal.x509.client_certificates.primary.certificate, TEST_CERT1)
-        self.assertIsNone(att._internal.x509.client_certificates.primary.info)
-        self.assertIsNone(att._internal.x509.client_certificates.secondary)
+        att = AttestationMechanism.create_with_x509_client_certs(DUMMY_CERT1)
+        self.assert_valid_x509_attestation(att, CLIENT_LABEL)
+        self.assertEqual(att.x509.client_certificates.primary.certificate, DUMMY_CERT1)
+        self.assertIsNone(att.x509.client_certificates.primary.info)
+        self.assertIsNone(att.x509.client_certificates.secondary)
 
     def test_create_with_x509_client_certs_both_certs(self):
-        att = AttestationMechanism.create_with_x509_client_certs(TEST_CERT1, TEST_CERT2)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_x509_attestation(att._internal, CLIENT_LABEL)
-        self.assertEqual(att._internal.x509.client_certificates.primary.certificate, TEST_CERT1)
-        self.assertIsNone(att._internal.x509.client_certificates.primary.info)
-        self.assertEqual(att._internal.x509.client_certificates.secondary.certificate, TEST_CERT2)
-        self.assertIsNone(att._internal.x509.client_certificates.secondary.info)
+        att = AttestationMechanism.create_with_x509_client_certs(DUMMY_CERT1, DUMMY_CERT2)
+        self.assert_valid_x509_attestation(att, CLIENT_LABEL)
+        self.assertEqual(att.x509.client_certificates.primary.certificate, DUMMY_CERT1)
+        self.assertIsNone(att.x509.client_certificates.primary.info)
+        self.assertEqual(att.x509.client_certificates.secondary.certificate, DUMMY_CERT2)
+        self.assertIsNone(att.x509.client_certificates.secondary.info)
 
     def test_create_with_x509_signing_certs_one_cert(self):
-        att = AttestationMechanism.create_with_x509_signing_certs(TEST_CERT1)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_x509_attestation(att._internal, SIGNING_LABEL)
-        self.assertEqual(att._internal.x509.signing_certificates.primary.certificate, TEST_CERT1)
-        self.assertIsNone(att._internal.x509.signing_certificates.primary.info)
-        self.assertIsNone(att._internal.x509.signing_certificates.secondary)
+        att = AttestationMechanism.create_with_x509_signing_certs(DUMMY_CERT1)
+        self.assert_valid_x509_attestation(att, SIGNING_LABEL)
+        self.assertEqual(att.x509.signing_certificates.primary.certificate, DUMMY_CERT1)
+        self.assertIsNone(att.x509.signing_certificates.primary.info)
+        self.assertIsNone(att.x509.signing_certificates.secondary)
 
     def test_create_with_x509_signing_certs_both_certs(self):
-        att = AttestationMechanism.create_with_x509_signing_certs(TEST_CERT1, TEST_CERT2)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_x509_attestation(att._internal, SIGNING_LABEL)
-        self.assertEqual(att._internal.x509.signing_certificates.primary.certificate, TEST_CERT1)
-        self.assertIsNone(att._internal.x509.signing_certificates.primary.info)
-        self.assertEqual(att._internal.x509.signing_certificates.secondary.certificate, TEST_CERT2)
-        self.assertIsNone(att._internal.x509.signing_certificates.secondary.info)
+        att = AttestationMechanism.create_with_x509_signing_certs(DUMMY_CERT1, DUMMY_CERT2)
+        self.assert_valid_x509_attestation(att, SIGNING_LABEL)
+        self.assertEqual(att.x509.signing_certificates.primary.certificate, DUMMY_CERT1)
+        self.assertIsNone(att.x509.signing_certificates.primary.info)
+        self.assertEqual(att.x509.signing_certificates.secondary.certificate, DUMMY_CERT2)
+        self.assertIsNone(att.x509.signing_certificates.secondary.info)
 
     def test_create_with_x509_ca_refs_one_ref(self):
-        att = AttestationMechanism.create_with_x509_ca_refs(TEST_CERT1)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_x509_attestation(att._internal, CA_LABEL)
-        self.assertEqual(att._internal.x509.ca_references.primary, TEST_CERT1)
-        self.assertIsNone(att._internal.x509.ca_references.secondary)
+        att = AttestationMechanism.create_with_x509_ca_refs(DUMMY_CERT1)
+        self.assert_valid_x509_attestation(att, CA_LABEL)
+        self.assertEqual(att.x509.ca_references.primary, DUMMY_CERT1)
+        self.assertIsNone(att.x509.ca_references.secondary)
 
     def test_create_with_x509_ca_refs_both_refs(self):
-        att = AttestationMechanism.create_with_x509_ca_refs(TEST_CERT1, TEST_CERT2)
-        self.assertIsInstance(att, AttestationMechanism)
-        self.assert_valid_x509_attestation(att._internal, CA_LABEL)
-        self.assertEqual(att._internal.x509.ca_references.primary, TEST_CERT1)
-        self.assertEqual(att._internal.x509.ca_references.secondary, TEST_CERT2)
+        att = AttestationMechanism.create_with_x509_ca_refs(DUMMY_CERT1, DUMMY_CERT2)
+        self.assert_valid_x509_attestation(att, CA_LABEL)
+        self.assertEqual(att.x509.ca_references.primary, DUMMY_CERT1)
+        self.assertEqual(att.x509.ca_references.secondary, DUMMY_CERT2)
+
+    def test_back_compat_attributes(self):
+        """DO NOT MODIFY THIS TEST. EVER. IT TESTS BACKWARDS COMPATIBILITY.
+        """
+        #Populate all fields from older version
+        att = AttestationMechanism.create_with_tpm(DUMMY_EK, DUMMY_SRK)
+
+        #Check back compat
+        self.assertIs(att.attestation_type, TPM_LABEL)
 
 
-class TestAttestationMechanismAttributes(unittest.TestCase):
+class TestInitialTwin(unittest.TestCase):
 
-    def setUp(self):
-        gen_tpm = genmodels.TpmAttestation(TEST_EK)
-        gen_att = genmodels.AttestationMechanism(TPM_LABEL, tpm=gen_tpm)
-        self.att = AttestationMechanism(gen_att)
+    def test_init_full(self):
+        twin = InitialTwin(DUMMY_TAGS, DUMMY_PROPERTIES)
+        self.assertIs(twin._internal.tags.additional_properties, DUMMY_TAGS)
+        self.assertIs(twin._internal.properties.desired.additional_properties, DUMMY_PROPERTIES)
+        self.assertIs(twin._internal._wrapper, twin)
 
-    def test_get_attestation_type(self):
-        res = self.att.attestation_type
-        self.assertIs(res, TPM_LABEL)
+    def test_init_empty(self):
+        twin = InitialTwin()
+        self.assertIsNone(twin._internal.tags.additional_properties)
+        self.assertIsNone(twin._internal.properties.desired.additional_properties)
+        self.assertIs(twin._internal._wrapper, twin)
 
-    def test_set_attestation_type(self):
-        with self.assertRaises(AttributeError):
-            self.att.attestation_type = NEWVAL
-        self.assertIs(self.att._internal.type, TPM_LABEL)
+    def test_create_full(self):
+        twin = InitialTwin.create(DUMMY_TAGS, DUMMY_PROPERTIES)
+        self.assertIs(twin._internal.tags.additional_properties, DUMMY_TAGS)
+        self.assertIs(twin._internal.properties.desired.additional_properties, DUMMY_PROPERTIES)
+        self.assertIs(twin._internal._wrapper, twin)
 
+    def test_create_empty(self):
+        twin = InitialTwin.create()
+        self.assertIsNone(twin._internal.tags.additional_properties)
+        self.assertIsNone(twin._internal.properties.desired.additional_properties)
+        self.assertIs(twin._internal._wrapper, twin)
 
-class TestInitialTwinCreation(unittest.TestCase):
+    def test_create_from_internal(self):
+        internal = GeneratedInitialTwin(tags=None, properties=None)
+        twin = InitialTwin._create_from_internal(internal)
+        self.assertIs(twin._internal, internal)
+        self.assertIs(twin._internal._wrapper, twin)
 
-    def test_ts_constructor(self):
-        tags_tc = genmodels.TwinCollection(TEST_TAGS)
-        desired_properties_tc = genmodels.TwinCollection(TEST_PROPERTIES)
-        properties = genmodels.InitialTwinProperties(desired_properties_tc)
-        twin = genmodels.InitialTwin(tags_tc, properties)
-        res = InitialTwin(twin)
+    def test_unwrap(self):
+        twin = InitialTwin.create(DUMMY_TAGS, DUMMY_PROPERTIES)
+        res = twin._unwrap()
+        self.assertIs(twin._internal, res)
+
+    def test_wrap_wrapper_instantiated(self):
+        twin = InitialTwin.create(DUMMY_TAGS, DUMMY_PROPERTIES)
+        res = twin._internal._wrap()
+        self.assertIs(res, twin)
+
+    def test_wrap_wrapper_uninstantiated(self):
+        twin = GeneratedInitialTwin(tags=None, properties=None)
+        res = twin._wrap()
         self.assertIsInstance(res, InitialTwin)
         self.assertIs(res._internal, twin)
 
-    def test_ts_create_full(self):
-        res = InitialTwin.create(TEST_TAGS, TEST_PROPERTIES)
-        self.assertIs(res._internal.tags.additional_properties, TEST_TAGS)
-        self.assertIs(res._internal.properties.desired.additional_properties, TEST_PROPERTIES)
-
-    def test_ts_create_empty(self):
-        res = InitialTwin.create()
-        self.assertIsNone(res._internal.tags.additional_properties)
-        self.assertIsNone(res._internal.properties.desired.additional_properties)
-
-
-class TestInitialTwinAttributes(unittest.TestCase):
-
-    def setUp(self):
-        tags_tc = genmodels.TwinCollection(TEST_TAGS)
-        desired_properties_tc = genmodels.TwinCollection(TEST_PROPERTIES)
-        properties = genmodels.InitialTwinProperties(desired_properties_tc)
-        gen_twin = genmodels.InitialTwin(tags_tc, properties)
-        self.twin = InitialTwin(gen_twin)
-
-    def test_ts_get_tags(self):
-        res = self.twin.tags
-        self.assertIs(res, TEST_TAGS)
-
-    def test_ts_set_tags(self):
-        self.twin.tags = NEWDICT
-        self.assertIs(self.twin._internal.tags.additional_properties, NEWDICT)
-
-    def test_ts_get_desired_properties(self):
-        res = self.twin.desired_properties
-        self.assertIs(res, TEST_PROPERTIES)
-
-    def test_ts_set_desired_properties(self):
-        self.twin.desired_properties = NEWDICT
-        self.assertIs(self.twin._internal.properties.desired.additional_properties, NEWDICT)
+    def test_back_compat_attributes(self):
+        """DO NOT MODIFY THIS TEST. EVER. IT TESTS BACKWARDS COMPATIBILITY.
+        """
+        #Populate all fields from older version
+        twin = InitialTwin.create(DUMMY_TAGS, DUMMY_PROPERTIES)
+        self.assertIs(twin.tags, DUMMY_TAGS)
+        self.assertIs(twin.desired_properties, DUMMY_PROPERTIES)
 
 
 if __name__ == '__main__':

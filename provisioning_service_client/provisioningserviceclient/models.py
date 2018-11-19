@@ -41,7 +41,8 @@ def _patch_individual_enrollment():
         :param reprovision_policy: The behavior when a device is re-provisioned to
         an IoT hub.
         :type reprovision_policy: `ReprovisionPolicy<provisioningserviceclient.models.ReprovisionPolicy>`
-        :param str allocation_policy: The allocation policy of this resource.
+        :param str allocation_policy: The allocation policy of this resource. 
+         Possible values include: 'hashed', 'geoLatency', 'static', 'custom'
         :param iot_hubs: The list of names of IoT hubs the device(s) in this
         resource can be allocated to. Must be a subset of tenant level list of IoT
         hubs.

@@ -433,6 +433,7 @@ class Query(object):
         #wrap results
         output = []
         for item in raw_resp.output:
-            output.append(_wrap_model(item))
+            _wrap_model(item)
+            output.append(item)
 
         return output
