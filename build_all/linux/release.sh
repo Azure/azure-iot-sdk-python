@@ -37,6 +37,8 @@ if [[ $PLAT_NAME = "x86_64" ]] ; then
     PLAT_ARCH="manylinux1_x86_64"
 elif [[ $PLAT_NAME = "armv7l" ]] ; then
     PLAT_ARCH="linux_armv7l"
+elif [[ $PLAT_NAME = "aarch64" ]] ; then
+    PLAT_ARCH="linux_aarch64"
 else
     PLAT_ARCH="manylinux1_i686"
 fi
