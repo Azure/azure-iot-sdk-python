@@ -35,10 +35,3 @@ class AbstractTransport:
         Disconnect from the specific messaging system used by the specific transport protocol
         """
         pass
-
-    @abc.abstractmethod
-    def _handle_provider_connected_state(self):
-        """
-        Handler when the underlying provider gets connected.
-        """
-        pass

@@ -89,9 +89,7 @@ class MQTTProvider(object):
         ssl_context.check_hostname = True
         self._mqtt_client.tls_set_context(ssl_context)
         self._mqtt_client.tls_insecure_set(False)
-        self._mqtt_client.username_pw_set(
-            username=self._username, password=self._password
-        )
+        self._mqtt_client.username_pw_set(username=self._username, password=self._password)
 
         self._mqtt_client.connect(host=self._hostname, port=8883)
         self._mqtt_client.loop_start()

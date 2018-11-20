@@ -3,93 +3,91 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-import types
 import logging
 import six.moves.queue as queue
 from .mqtt_provider import MQTTProvider
-#from transitions.extensions import LockedGraphMachine as Machine
 from transitions.extensions import LockedMachine as Machine
+from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
+
+"""
+The below import is for generating the state machine graph.
+"""
+# from transitions.extensions import LockedGraphMachine as Machine
 
 logger = logging.getLogger(__name__)
 
 
-class MQTTTransport(Machine):
+class MQTTTransport(AbstractTransport):
     def __init__(self, auth_provider):
         """
         Constructor for instantiating a transport
         :param auth_provider: The authentication provider
         """
-        self._auth_provider = auth_provider
+        AbstractTransport.__init__(self, auth_provider)
         self._mqtt_provider = None
         self.on_transport_connected = None
         self._event_queue = queue.LifoQueue()
 
-        states = [
-            "disconnected",
-            "connecting",
-            "connected",
-            "sending",
-            "disconnecting",
-        ]
+        states = ["disconnected", "connecting", "connected", "sending", "disconnecting"]
 
         transitions = [
             {
-                "trigger": "connect",
+                "trigger": "_trig_connect",
                 "source": "disconnected",
                 "dest": "connecting",
                 "after": "_after_action_provider_connect",
             },
             {
-                "trigger": "connect",
+                "trigger": "_trig_connect",
                 "source": ["connecting", "connected", "sending"],
                 "dest": None,
             },
             {
-                "trigger": "_provider_connect_complete",
+                "trigger": "_trig_provider_connect_complete",
                 "source": "connecting",
                 "dest": "connected",
                 "after": "_after_action_deliver_next_queued_event",
             },
-            {"trigger": "disconnect", "source": "disconnected", "dest": None},
+            {"trigger": "_trig_disconnect", "source": "disconnected", "dest": None},
             {
-                "trigger": "disconnect",
+                "trigger": "_trig_disconnect",
                 "source": "connected",
                 "dest": "disconnecting",
                 "after": "_after_action_provider_disconnect",
             },
             {
-                "trigger": "_provider_disconnect_complete",
+                "trigger": "_trig_provider_disconnect_complete",
                 "source": "disconnecting",
                 "dest": "disconnected",
             },
             {
-                "trigger": "send_event",
+                "trigger": "_trig_send_event",
                 "source": "connected",
                 "before": "_before_action_add_event_to_queue",
                 "dest": "sending",
                 "after": "_after_action_deliver_next_queued_event",
             },
             {
-                "trigger": "_provider_publish_complete",
+                "trigger": "_trig_provider_publish_complete",
                 "source": "sending",
                 "dest": None,
                 "unless": "_queue_is_empty",
                 "after": "_after_action_deliver_next_queued_event",
             },
             {
-                "trigger": "_provider_publish_complete",
+                "trigger": "_trig_provider_publish_complete",
                 "source": "sending",
                 "dest": "connected",
-                "conditions": "_queue_is_empty"
+                "conditions": "_queue_is_empty",
             },
             {
-                "trigger": "send_event",
+                "trigger": "_trig_send_event",
                 "source": ["connecting", "sending"],
                 "before": "_before_action_add_event_to_queue",
-                "dest": None
+                "dest": None,
             },
             {
-                "trigger": "send_event",
+                "trigger": "_trig_send_event",
                 "source": "disconnected",
                 "before": "_before_action_add_event_to_queue",
                 "dest": "connecting",
@@ -97,7 +95,7 @@ class MQTTTransport(Machine):
             },
         ]
 
-        def on_transition_complete(event):
+        def _on_transition_complete(event):
             if not event.transition:
                 dest = "[no transition]"
             else:
@@ -111,18 +109,18 @@ class MQTTTransport(Machine):
                 str(event.error),
             )
 
-        Machine.__init__(
-            self,
+        self._state_machine = Machine(
+            model=self,
             states=states,
             transitions=transitions,
             initial="disconnected",
             send_event=True,
-            finalize_event=on_transition_complete,
-            after_state_change=self._after_state_change
+            finalize_event=_on_transition_complete,
+            after_state_change=self._after_state_change,
         )
-    
+
         # to render the state machine as a PNG:
-        # 1. apt insatll graphviz 
+        # 1. apt insatll graphviz
         # 2. pip install pygraphviz
         # 3. change import line at top of this file to import LockedGraphMachine as Machine
         # 4. uncomment the following line
@@ -138,13 +136,22 @@ class MQTTTransport(Machine):
         (This would be better done inside a handler attached to the _provider_connect_complete event,
         but no such thing exists).
         """
-        logger.info("after state change: trigger=%s, dest=%s, error=%s", event.event.name, event.state.name, str(event.error))
-        if (not event.error) and (event.event.name == "_provider_connect_complete") and self.on_transport_connected:
+        logger.info(
+            "after state change: trigger=%s, dest=%s, error=%s",
+            event.event.name,
+            event.state.name,
+            str(event.error),
+        )
+        if (
+            (not event.error)
+            and (event.event.name == "_trig_provider_connect_complete")
+            and self.on_transport_connected
+        ):
             self.on_transport_connected(event.state.name)
 
     def _after_action_provider_connect(self, event):
         """
-        Call into the provider to connect the transport.  
+        Call into the provider to connect the transport.
         This is meant to be called by the state machine as an "after" action
         """
         self._mqtt_provider.connect()
@@ -190,13 +197,7 @@ class MQTTTransport(Machine):
         if self._auth_provider.module_id is not None:
             client_id += "/" + self._auth_provider.module_id
 
-        username = (
-            self._auth_provider.hostname
-            + "/"
-            + client_id
-            + "/"
-            + "?api-version=2018-06-30"
-        )
+        username = self._auth_provider.hostname + "/" + client_id + "/" + "?api-version=2018-06-30"
 
         if hasattr(self._auth_provider, "gateway_hostname"):
             hostname = self._auth_provider.gateway_hostname
@@ -216,9 +217,9 @@ class MQTTTransport(Machine):
             ca_cert=ca_cert,
         )
 
-        self._mqtt_provider.on_mqtt_connected = self._provider_connect_complete
-        self._mqtt_provider.on_mqtt_disconnected = self._provider_disconnect_complete
-        self._mqtt_provider.on_mqtt_published = self._provider_publish_complete
+        self._mqtt_provider.on_mqtt_connected = self._trig_provider_connect_complete
+        self._mqtt_provider.on_mqtt_disconnected = self._trig_provider_disconnect_complete
+        self._mqtt_provider.on_mqtt_published = self._trig_provider_publish_complete
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
@@ -228,3 +229,12 @@ class MQTTTransport(Machine):
 
         topic += "/messages/events/"
         return topic
+
+    def connect(self):
+        self._trig_connect()
+
+    def disconnect(self):
+        self._trig_disconnect()
+
+    def send_event(self, message):
+        self._trig_send_event(message)

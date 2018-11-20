@@ -9,10 +9,12 @@ from .transport.mqtt.mqtt_transport import MQTTTransport
 
 logger = logging.getLogger(__name__)
 
+
 class InternalClient(object):
     """
     A super class representing a generic client. This class needs to be extended for specific clients.
     """
+
     def __init__(self, auth_provider, transport):
         """
         Constructor for instantiating an internal client
@@ -36,7 +38,7 @@ class InternalClient(object):
 
     def send_event(self, event):
         """
-        Sends an actual message/telemetry to the IoT Hub via the message broker.
+        Sends a message to the default events endpoint on the Azure IoT Hub or Edge Hub instance via a message broker.
         The client must call this method to send messages.
         :param event: The actual message to send.
         """
@@ -62,5 +64,7 @@ class InternalClient(object):
         if transport_name == "mqtt":
             transport = MQTTTransport(authentication_provider)
         else:
-            raise NotImplementedError("No specific transport can be instantiated based on the choice.")
+            raise NotImplementedError(
+                "No specific transport can be instantiated based on the choice."
+            )
         return cls(authentication_provider, transport)
