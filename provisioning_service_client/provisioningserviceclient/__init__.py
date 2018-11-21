@@ -5,7 +5,7 @@
 import provisioningserviceclient.models
 from .client import (ProvisioningServiceClient, BulkEnrollmentOperation, \
                      BulkEnrollmentOperationResult, ProvisioningServiceError, \
-                     QuerySpecification) #Query
+                     QuerySpecification, Query)
 
 provisioningserviceclient.models._patch_models()
 
