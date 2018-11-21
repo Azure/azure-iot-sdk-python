@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------------------------
 
 import logging
-import types
 from .transport.mqtt.mqtt_transport import MQTTTransport
 
 logger = logging.getLogger(__name__)

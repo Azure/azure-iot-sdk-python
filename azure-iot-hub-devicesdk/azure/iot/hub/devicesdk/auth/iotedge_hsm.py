@@ -10,30 +10,31 @@ requests_unixsocket.monkeypatch()
 
 class IotEdgeHsm(object):
     """
-    Constructor for instantiating a iot hsm object.  This is an object that 
-    communicates with the Azure IoT Edge HSM in order to get connection credentials 
-    for an Azure IoT Edge module.  The credentials that this object return come in 
+    Constructor for instantiating a iot hsm object.  This is an object that
+    communicates with the Azure IoT Edge HSM in order to get connection credentials
+    for an Azure IoT Edge module.  The credentials that this object return come in
     two forms:
 
     1. The trust bundle, which is a certificate that can be used as a trusted cert
        to authenticate the SSL connection between the IoE Edge module and IoT Edge
-    2. A signing function, which can be used to create the sig field for a 
+    2. A signing function, which can be used to create the sig field for a
        SharedAccessSignature string which can be used to authenticate with Iot Edge
 
     Instantiating this object does not require any parameters.  All necessary parameters
-    come from environment variables that are set inside the IoT Edge module container 
+    come from environment variables that are set inside the IoT Edge module container
     by the edgeAgent that creates the module.
     """
+
     @staticmethod
     def _fix_socket_uri(old_uri):
         """
         This function takes a socket URI in one form and converts it into another form.
 
-        The source form is based on what we receive inside the IOTEDGE_WORKLOADURI 
-        environment variable, and it looks like this: 
+        The source form is based on what we receive inside the IOTEDGE_WORKLOADURI
+        environment variable, and it looks like this:
         "unix:///var/run/iotedge/workload.sock"
 
-        The destination form is based on what the requests_unixsocket library expects 
+        The destination form is based on what the requests_unixsocket library expects
         and it looks like this:
         "http+unix://%2Fvar%2Frun%2Fiotedge%2Fworkload.sock/"
 
@@ -90,12 +91,12 @@ class IotEdgeHsm(object):
 
     def sign(self, data):
         """
-        Use the IoTEdge HSM to sign a piece of data.  The caller should then insert the 
+        Use the IoTEdge HSM to sign a piece of data.  The caller should then insert the
         returned value (the signature) into the 'sig' field of a SharedAccessSignature string.
 
         :param data: The string to sign
 
-        :return: The signature, as a URI-encoded and base64-encoded value that is ready to 
+        :return: The signature, as a URI-encoded and base64-encoded value that is ready to
         directly insert into the SharedAccessSignature string.
         """
         path = (
@@ -109,13 +110,11 @@ class IotEdgeHsm(object):
         sign_request = {
             "keyId": "primary",
             "algo": "HMACSHA256",
-            "data": base64.b64encode(data.encode('utf-8')).decode(),
+            "data": base64.b64encode(data.encode("utf-8")).decode(),
         }
 
         r = requests.post(
-            path,
-            params={"api-version": self.api_version},
-            data=json.dumps(sign_request),
+            path, params={"api-version": self.api_version}, data=json.dumps(sign_request)
         )
         r.raise_for_status()
         return urllib.parse.quote(r.json()["digest"])

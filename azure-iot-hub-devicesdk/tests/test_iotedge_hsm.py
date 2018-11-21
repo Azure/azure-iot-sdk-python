@@ -11,11 +11,10 @@ import json
 import base64
 
 from six import add_move, MovedModule
+from six.moves import mock
+from mock import patch
 
 add_move(MovedModule("mock", "mock", "unittest.mock"))
-from six.moves import mock
-from mock import MagicMock
-from mock import patch
 
 fake_module_id = "__FAKE_MODULE__ID__"
 fake_api_version = "__FAKE_API_VERSION__"
@@ -35,7 +34,7 @@ required_environment_variables = {
 
 @patch.dict(os.environ, required_environment_variables)
 def test_initializer_doesnt_throw_when_all_environment_variables_are_present():
-    hsm = IotEdgeHsm()
+    IotEdgeHsm()
 
 
 def test_initializer_throws_with_missing_environment_variables():
@@ -44,7 +43,7 @@ def test_initializer_throws_with_missing_environment_variables():
         del env[key]
         with patch.dict(os.environ, env):
             with pytest.raises(KeyError, match=key):
-                hsm = IotEdgeHsm()
+                IotEdgeHsm()
 
 
 @patch.object(requests, "get")
@@ -60,16 +59,15 @@ def test_get_trust_bundle_returns_certificate(mock_get):
     assert cert == fake_certificate
     mock_response.raise_for_status.assert_called_once_with()  # this verifies that a failed status code will throw
     mock_get.assert_called_once_with(
-        fake_http_workload_uri + "trust-bundle",
-        params={"api-version": fake_api_version},
+        fake_http_workload_uri + "trust-bundle", params={"api-version": fake_api_version}
     )
 
 
 @patch.object(requests, "post")
 @patch.dict(os.environ, required_environment_variables)
-def test_get_trust_bundle_returns_certificate(mock_post):
+def test_sign_sends_post_with_proper_url_and_data(mock_post):
     mock_response = mock.Mock(spec=requests.Response)
-    mock_response.json.return_value = {"digest": fake_digest }
+    mock_response.json.return_value = {"digest": fake_digest}
     mock_post.return_value = mock_response
 
     hsm = IotEdgeHsm()
@@ -113,7 +111,7 @@ def test_workload_uri_values_get_adjusted_correctly(mock_get):
         env["IOTEDGE_WORKLOADURI"] = original_uri
         with patch.dict(os.environ, env):
             hsm = IotEdgeHsm()
-            cert = hsm.get_trust_bundle()
+            hsm.get_trust_bundle()
 
             mock_get.assert_called_once_with(
                 adjusted_uri + "trust-bundle", params={"api-version": fake_api_version}

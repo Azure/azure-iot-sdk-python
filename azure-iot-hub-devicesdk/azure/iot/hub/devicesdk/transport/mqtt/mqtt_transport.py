@@ -74,7 +74,7 @@ class MQTTTransport(AbstractTransport):
                 "source": "sending",
                 "dest": None,
                 "before": "_before_action_notify_publish_complete",
-                "after": "_trig_check_send_event_queue"
+                "after": "_trig_check_send_event_queue",
             },
             {
                 "trigger": "_trig_send_event",
@@ -91,13 +91,13 @@ class MQTTTransport(AbstractTransport):
             },
             {
                 "trigger": "_trig_check_send_event_queue",
-                "source": [ "connected", "sending" ],
+                "source": ["connected", "sending"],
                 "dest": "connected",
                 "conditions": "_queue_is_empty",
             },
             {
                 "trigger": "_trig_check_send_event_queue",
-                "source": [ "connected", "sending" ],
+                "source": ["connected", "sending"],
                 "dest": "sending",
                 "unless": "_queue_is_empty",
                 "after": "_after_action_deliver_next_queued_event",
@@ -147,7 +147,7 @@ class MQTTTransport(AbstractTransport):
 
     def _before_action_notify_publish_complete(self, event):
         logger.info("publish complete:" + str(event))
-        logger.info("publish error:" + str(event.error));
+        logger.info("publish error:" + str(event.error))
         if not event.error:
             self.on_event_sent()
 
@@ -160,7 +160,7 @@ class MQTTTransport(AbstractTransport):
 
     def _after_action_provider_disconnect(self, event):
         """
-        Call into the provider to disconnect the transport.  
+        Call into the provider to disconnect the transport.
         This is meant to be called by the state machine as an "after" action
         """
         self._mqtt_provider.disconnect()

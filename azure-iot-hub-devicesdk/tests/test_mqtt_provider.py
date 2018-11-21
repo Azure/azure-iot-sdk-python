@@ -5,16 +5,13 @@
 
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
 import paho.mqtt.client as mqtt
-import os
 import ssl
 import pytest
 from six import add_move, MovedModule
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
-from six.moves import mock
 from mock import MagicMock
 from mock import patch
 
+add_move(MovedModule("mock", "mock", "unittest.mock"))
 
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyFirebolt"
@@ -32,12 +29,11 @@ def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
     mock_mqtt_client = MockMqttClient.return_value
 
     MockSsl.assert_called_once_with(ssl.PROTOCOL_TLSv1_2)
-    mock_ssl = MockSsl.return_value
 
-    assert(mock_mqtt_client.tls_set_context.call_count == 1)
+    assert mock_mqtt_client.tls_set_context.call_count == 1
     context = mock_mqtt_client.tls_set_context.call_args[0][0]
-    assert(context.check_hostname == True)
-    assert(context.verify_mode == ssl.CERT_REQUIRED)
+    assert context.check_hostname is True
+    assert context.verify_mode == ssl.CERT_REQUIRED
     context.load_default_certs.assert_called_once_with()
     mock_mqtt_client.tls_insecure_set.assert_called_once_with(False)
     mock_mqtt_client.connect.assert_called_once_with(host=fake_hostname, port=8883)
@@ -50,13 +46,22 @@ def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
 
 
 @patch.object(mqtt, "Client")
-@pytest.mark.parametrize("client_callback_name, client_callback_args, provider_callback_name, provider_callback_args", [
-    ("on_connect", [None, None, None, 0], "on_mqtt_connected", ["connected"]),
-    ("on_disconnect", [None, None, 0], "on_mqtt_disconnected", ["disconnected"]),
-    ("on_publish", [None, None, 0], "on_mqtt_published", []),
-    ("on_subscribe", [None, None, 0], "on_mqtt_subscribed", [])
-])
-def test_mqtt_client_callback_triggers_provider_callback(MockMqttClient, client_callback_name, client_callback_args, provider_callback_name, provider_callback_args):
+@pytest.mark.parametrize(
+    "client_callback_name, client_callback_args, provider_callback_name, provider_callback_args",
+    [
+        ("on_connect", [None, None, None, 0], "on_mqtt_connected", ["connected"]),
+        ("on_disconnect", [None, None, 0], "on_mqtt_disconnected", ["disconnected"]),
+        ("on_publish", [None, None, 0], "on_mqtt_published", []),
+        ("on_subscribe", [None, None, 0], "on_mqtt_subscribed", []),
+    ],
+)
+def test_mqtt_client_callback_triggers_provider_callback(
+    MockMqttClient,
+    client_callback_name,
+    client_callback_args,
+    provider_callback_name,
+    provider_callback_args,
+):
     mock_mqtt_client = MockMqttClient.return_value
 
     mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)

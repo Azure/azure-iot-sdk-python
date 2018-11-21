@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------------------------
 import os
 import logging
-import six.moves.urllib as urllib
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
 from .iotedge_hsm import IotEdgeHsm
 
@@ -24,13 +23,9 @@ class IotEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
         device_id = os.environ["IOTEDGE_DEVICEID"]
         module_id = os.environ["IOTEDGE_MODULEID"]
 
-        logger.info(
-            "Using IoTEdge authentication for {%s, %s, %s}", hostname, device_id, module_id
-        )
+        logger.info("Using IoTEdge authentication for {%s, %s, %s}", hostname, device_id, module_id)
 
-        BaseRenewableTokenAuthenticationProvider.__init__(
-            self, hostname, device_id, module_id
-        )
+        BaseRenewableTokenAuthenticationProvider.__init__(self, hostname, device_id, module_id)
 
         self.hsm = IotEdgeHsm()
         self.gateway_hostname = os.environ["IOTEDGE_GATEWAYHOSTNAME"]

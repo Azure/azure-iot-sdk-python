@@ -3,19 +3,23 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string, from_shared_access_signature
-from azure.iot.hub.devicesdk.auth.sk_authentication_provider import SymmetricKeyAuthenticationProvider
-from azure.iot.hub.devicesdk.auth.sas_authentication_provider import SharedAccessSignatureAuthenticationProvider
-import pytest
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
+    from_connection_string,
+    from_shared_access_signature,
+)
+from azure.iot.hub.devicesdk.auth.sk_authentication_provider import (
+    SymmetricKeyAuthenticationProvider,
+)
+from azure.iot.hub.devicesdk.auth.sas_authentication_provider import (
+    SharedAccessSignatureAuthenticationProvider,
+)
 
 
 connection_string_device_sk_format = "HostName={};DeviceId={};SharedAccessKey={}"
 connection_string_device_skn_format = (
     "HostName={};DeviceId={};SharedAccessKeyName={};SharedAccessKey={}"
 )
-connection_string_module_sk_format = (
-    "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
-)
+connection_string_module_sk_format = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
 connection_string_module_gateway_sk_format = (
     "HostName={};DeviceId={};ModuleId={};SharedAccessKey={};GatewayHostName={}"
 )
@@ -95,4 +99,3 @@ def create_sas_token_string(is_module=False, is_key_name=False):
         return sas_device_skn_token_format.format(uri, signature, expiry, shared_access_key_name)
     else:
         return sas_device_token_format.format(uri, signature, expiry)
-

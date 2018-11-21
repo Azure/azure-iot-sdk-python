@@ -3,15 +3,15 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 import pytest
-from azure.iot.hub.devicesdk.auth.sk_authentication_provider import SymmetricKeyAuthenticationProvider
+from azure.iot.hub.devicesdk.auth.sk_authentication_provider import (
+    SymmetricKeyAuthenticationProvider,
+)
 
 connection_string_device_sk_format = "HostName={};DeviceId={};SharedAccessKey={}"
 connection_string_device_skn_format = (
     "HostName={};DeviceId={};SharedAccessKeyName={};SharedAccessKey={}"
 )
-connection_string_module_sk_format = (
-    "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
-)
+connection_string_module_sk_format = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
 
 shared_access_key = "Zm9vYmFy"
 shared_access_key_name = "alohomora"

@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------------------------
 
 import pytest
-from pytest_mock import mocker
 from azure.iot.provisioning.servicesdk import ProvisioningServiceClient
 from azure.iot.provisioning.servicesdk.protocol import (
     ProvisioningServiceClient as BaseProvisioningServiceClient,

@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------------------------
 import logging
 from .authentication_provider import AuthenticationProvider
+
 """
 The urllib, urllib2, and urlparse modules from Python 2 have been combined in the urllib package in Python 3
 The six.moves.urllib package is a python version-independent location of the above functionality.
@@ -22,12 +23,7 @@ SHARED_ACCESS_KEY_NAME = "skn"
 RESOURCE_URI = "sr"
 EXPIRY = "se"
 
-_valid_keys = [
-    SIGNATURE,
-    SHARED_ACCESS_KEY_NAME,
-    RESOURCE_URI,
-    EXPIRY
-]
+_valid_keys = [SIGNATURE, SHARED_ACCESS_KEY_NAME, RESOURCE_URI, EXPIRY]
 
 
 class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
@@ -35,13 +31,12 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
     The Shared Access Signature Authentication Provider.
     This provider already contains the sas token which will be needed to authenticate with The IoT hub.
     """
+
     def __init__(self, hostname, device_id, module_id, sas_token_str):
         """
         Constructor for Shared Access Signature Authentication Provider
         """
-        logger.info(
-            "Using SAS authentication for {%s, %s, %s}", hostname, device_id, module_id
-        )
+        logger.info("Using SAS authentication for {%s, %s, %s}", hostname, device_id, module_id)
         AuthenticationProvider.__init__(self, hostname, device_id, module_id)
         self.sas_token_str = sas_token_str
 
@@ -65,7 +60,8 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
         parts = sas_token_str.split(PARTS_SEPARATOR)
         if len(parts) != 2:
             raise ValueError(
-                "The Shared Access Signature must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair.")
+                "The Shared Access Signature must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair."
+            )
 
         sas_args = parts[1].split(DELIMITER)
         d = dict(arg.split(VALUE_SEPARATOR, 1) for arg in sas_args)
@@ -73,7 +69,8 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
             raise ValueError("Invalid Shared Access Signature - Unable to parse")
         if not all(key in _valid_keys for key in d.keys()):
             raise ValueError(
-                "Invalid keys in Shared Access Signature. The valid keys are sr, sig, se and an optional skn.")
+                "Invalid keys in Shared Access Signature. The valid keys are sr, sig, se and an optional skn."
+            )
 
         _validate_required_keys(d)
 
@@ -87,7 +84,9 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
         if len(url_segments) > 4:
             module_id = url_segments[4]
 
-        return SharedAccessSignatureAuthenticationProvider(hostname, device_id, module_id, sas_token_str)
+        return SharedAccessSignatureAuthenticationProvider(
+            hostname, device_id, module_id, sas_token_str
+        )
 
 
 def _validate_required_keys(d):
@@ -102,6 +101,6 @@ def _validate_required_keys(d):
     if resource_uri and signature and expiry:
         pass
     else:
-        raise ValueError("Invalid Shared Access Signature. It must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair.")
-
-
+        raise ValueError(
+            "Invalid Shared Access Signature. It must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair."
+        )

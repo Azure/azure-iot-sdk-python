@@ -97,4 +97,4 @@ def test_get_item_does_not_exist_no_given_default():
     cs = ConnectionString(
         "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
     )
-    assert cs.get("invalidkey") == None
+    assert cs.get("invalidkey") is None

@@ -11,10 +11,9 @@ from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTranspo
 import pytest
 
 from six import add_move, MovedModule
+from mock import MagicMock
 
 add_move(MovedModule("mock", "mock", "unittest.mock"))
-from six.moves import mock
-from mock import MagicMock
 
 
 connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
@@ -34,12 +33,15 @@ def authentication_provider(connection_string):
     auth_provider = from_connection_string(connection_string)
     return auth_provider
 
+
 @pytest.fixture(scope="function")
 def mock_transport():
     return MagicMock(spec=AbstractTransport)
 
 
-def test_internal_client_connect_in_turn_calls_transport_connect(authentication_provider, mock_transport):
+def test_internal_client_connect_in_turn_calls_transport_connect(
+    authentication_provider, mock_transport
+):
     client = InternalClient(authentication_provider, mock_transport)
 
     client.connect()
@@ -47,7 +49,9 @@ def test_internal_client_connect_in_turn_calls_transport_connect(authentication_
     mock_transport.connect.assert_called_once_with()
 
 
-def test_connected_state_handler_called_wth_new_state_once_transport_gets_connected(mocker, authentication_provider, mock_transport):
+def test_connected_state_handler_called_wth_new_state_once_transport_gets_connected(
+    mocker, authentication_provider, mock_transport
+):
     client = InternalClient(authentication_provider, mock_transport)
     stub_on_connection_state = mocker.stub(name="on_connection_state")
     client.on_connection_state = stub_on_connection_state
@@ -58,7 +62,10 @@ def test_connected_state_handler_called_wth_new_state_once_transport_gets_connec
     assert client.state == "connected"
     stub_on_connection_state.assert_called_once_with("connected")
 
-def test_connected_state_handler_called_wth_new_state_once_transport_gets_connected(mocker, authentication_provider, mock_transport):
+
+def test_connected_state_handler_called_wth_new_state_once_transport_gets_disconnected(
+    mocker, authentication_provider, mock_transport
+):
     client = InternalClient(authentication_provider, mock_transport)
     stub_on_connection_state = mocker.stub(name="on_connection_state")
     client.on_connection_state = stub_on_connection_state
@@ -74,7 +81,10 @@ def test_connected_state_handler_called_wth_new_state_once_transport_gets_connec
     assert client.state == "disconnected"
     stub_on_connection_state.assert_called_once_with("disconnected")
 
-def test_internal_client_send_event_in_turn_calls_transport_send_event(authentication_provider, mock_transport):
+
+def test_internal_client_send_event_in_turn_calls_transport_send_event(
+    authentication_provider, mock_transport
+):
 
     event = "Levicorpus"
     client = InternalClient(authentication_provider, mock_transport)
@@ -98,12 +108,14 @@ def test_transport_any_error_surfaces_to_internal_client(authentication_provider
     mock_transport.send_event.assert_called_once_with(event)
 
 
-@pytest.mark.parametrize("kind_of_client, auth", [
-    ("Module", authentication_provider),
-    ("Device", authentication_provider),
-])
+@pytest.mark.parametrize(
+    "kind_of_client, auth",
+    [("Module", authentication_provider), ("Device", authentication_provider)],
+)
 def test_client_gets_created_correctly(mocker, kind_of_client, auth, mock_transport):
-    mock_constructor_transport = mocker.patch("azure.iot.hub.devicesdk.internal_client.MQTTTransport")
+    mock_constructor_transport = mocker.patch(
+        "azure.iot.hub.devicesdk.internal_client.MQTTTransport"
+    )
     mock_constructor_transport.return_value = mock_transport
 
     if kind_of_client == "Module":
@@ -121,12 +133,14 @@ def test_client_gets_created_correctly(mocker, kind_of_client, auth, mock_transp
         assert isinstance(device_client, DeviceClient)
 
 
-@pytest.mark.parametrize("kind_of_client, auth", [
-    ("Module", authentication_provider),
-    ("Device", authentication_provider),
-])
+@pytest.mark.parametrize(
+    "kind_of_client, auth",
+    [("Module", authentication_provider), ("Device", authentication_provider)],
+)
 def test_raises_on_creation_of_client_when_transport_is_incorrect(kind_of_client, auth):
-    with pytest.raises(NotImplementedError, match="No specific transport can be instantiated based on the choice."):
+    with pytest.raises(
+        NotImplementedError, match="No specific transport can be instantiated based on the choice."
+    ):
         if kind_of_client == "Module":
             ModuleClient.from_authentication_provider(authentication_provider, "floo")
         else:

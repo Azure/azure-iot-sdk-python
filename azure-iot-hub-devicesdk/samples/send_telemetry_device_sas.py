@@ -5,7 +5,9 @@
 import os
 import logging
 from azure.iot.hub.devicesdk.device_client import DeviceClient
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_shared_access_signature
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
+    from_shared_access_signature,
+)
 
 logging.basicConfig(level=logging.INFO)
 

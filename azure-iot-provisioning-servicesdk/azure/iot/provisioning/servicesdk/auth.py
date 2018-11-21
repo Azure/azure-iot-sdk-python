@@ -30,7 +30,7 @@ class ConnectionStringAuthentication(ConnectionString, Authentication):
 
         If a session object is provided, configure it directly. Otherwise,
         create a new session and return it.
-        
+
         :param session: The session to configure for authentication
         :type session: requests.Session
         :rtype: requests.Session

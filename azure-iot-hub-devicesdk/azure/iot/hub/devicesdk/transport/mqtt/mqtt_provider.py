@@ -5,7 +5,6 @@
 
 import paho.mqtt.client as mqtt
 import logging
-import types
 import ssl
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ class MQTTProvider(object):
         :param client_id: The id of the client connecting to the broker.
         :param hostname: hostname or IP address of the remote broker.
         :param password:  The password to authenticate with.
-        :param ca_cert: Certificate which can be used to validate a server-side TLS connection. 
+        :param ca_cert: Certificate which can be used to validate a server-side TLS connection.
         """
         self._client_id = client_id
         self._hostname = hostname

@@ -1,2 +1,10 @@
 [flake8]
-max-line-length = 130
+# E501: line length (handled by black)
+# W503, E203: Not PEP8 compliant (incompatible with black)
+# F401, F403: imports in Provisioning SDK
+# Ignore generated code
+ignore = E501,W503,E203,F401,F403
+exclude =
+    .git,
+    __pycache__,
+    ./azure-iot-provisioning-servicesdk/azure/iot/provisioning/servicesdk/protocol/models

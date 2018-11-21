@@ -10,7 +10,7 @@ with open("doc/package-readme.md", "r") as fh:
 
 setup(
     name="azure_iot_hub_devicesdk",
-    version="0.0.0a1", # Alpha Release
+    version="0.0.0a1",  # Alpha Release
     description="Microsoft Azure IoT Hub Device SDK",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python",

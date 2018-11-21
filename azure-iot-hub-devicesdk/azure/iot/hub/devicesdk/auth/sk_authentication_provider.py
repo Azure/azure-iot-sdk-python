@@ -5,7 +5,6 @@
 import base64
 import hmac
 import hashlib
-import time
 import logging
 import six.moves.urllib as urllib
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
@@ -47,7 +46,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
         module_id,
         shared_access_key,
         shared_access_key_name=None,
-        gateway_hostname=None
+        gateway_hostname=None,
     ):
         """
 
@@ -57,9 +56,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
             "Using Shared Key authentication for {%s, %s, %s}", hostname, device_id, module_id
         )
 
-        BaseRenewableTokenAuthenticationProvider.__init__(
-            self, hostname, device_id, module_id
-        )
+        BaseRenewableTokenAuthenticationProvider.__init__(self, hostname, device_id, module_id)
         self.shared_access_key = shared_access_key
         self.shared_access_key_name = shared_access_key_name
         self.gateway_hostname = gateway_hostname
@@ -108,9 +105,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
             signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
             signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
         except (TypeError, base64.binascii.Error) as e:
-            raise TypeError(
-                "Unable to build shared access signature from given values", e
-            )
+            raise TypeError("Unable to build shared access signature from given values", e)
         return signature
 
 

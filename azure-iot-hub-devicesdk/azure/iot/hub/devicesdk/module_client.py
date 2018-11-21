@@ -8,4 +8,3 @@ from .internal_client import InternalClient
 
 class ModuleClient(InternalClient):
     pass
-

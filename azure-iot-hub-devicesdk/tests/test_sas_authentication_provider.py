@@ -3,7 +3,9 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 import pytest
-from azure.iot.hub.devicesdk.auth.sas_authentication_provider import SharedAccessSignatureAuthenticationProvider
+from azure.iot.hub.devicesdk.auth.sas_authentication_provider import (
+    SharedAccessSignatureAuthenticationProvider,
+)
 
 
 sas_device_token_format = "SharedAccessSignature sr={}&sig={}&se={}"
@@ -71,7 +73,10 @@ def test_sas_auth_provider_is_created_from_device_sas_token_string_quoted():
 
 
 def test_raises_auth_provider_created_from_missing_part_shared_access_signature_string():
-    with pytest.raises(ValueError, match="The Shared Access Signature must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair."):
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair.",
+    ):
         one_part_sas_str = "sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&sig=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora"
         SharedAccessSignatureAuthenticationProvider.parse(one_part_sas_str)
 
@@ -83,14 +88,18 @@ def test_raises_auth_provider_created_from_shared_access_signature_string_duplic
 
 
 def test_raises_auth_provider_created_from_shared_access_signature_string_bad_keys():
-    with pytest.raises(ValueError, match="Invalid keys in Shared Access Signature. The valid keys are sr, sig, se and an optional skn."):
+    with pytest.raises(
+        ValueError,
+        match="Invalid keys in Shared Access Signature. The valid keys are sr, sig, se and an optional skn.",
+    ):
         bad_key_sas_str = "SharedAccessSignature sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&signature=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora"
         SharedAccessSignatureAuthenticationProvider.parse(bad_key_sas_str)
 
 
 def test_raises_auth_provider_created_from_incomplete_shared_access_signature_string():
-    with pytest.raises(ValueError, match="Invalid Shared Access Signature. It must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair."):
+    with pytest.raises(
+        ValueError,
+        match="Invalid Shared Access Signature. It must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair.",
+    ):
         incomplete_sas_str = "SharedAccessSignature sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&se=1539043658&skn=alohomora"
         SharedAccessSignatureAuthenticationProvider.parse(incomplete_sas_str)
-
-

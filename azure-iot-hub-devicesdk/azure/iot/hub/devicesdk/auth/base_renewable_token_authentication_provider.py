@@ -5,8 +5,6 @@ import time
 import abc
 import logging
 import math
-import weakref
-from threading import Timer
 import six.moves.urllib as urllib
 from .authentication_provider import AuthenticationProvider
 
@@ -80,9 +78,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
                 quoted_resource_uri, signature, str(expiry), self.shared_access_key_name
             )
         else:
-            token = _device_token_format.format(
-                quoted_resource_uri, signature, str(expiry)
-            )
+            token = _device_token_format.format(quoted_resource_uri, signature, str(expiry))
 
         self.sas_token_str = str(token)
 
@@ -97,7 +93,6 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         if not self.sas_token_str:
             self.generate_new_sas_token()
         return self.sas_token_str
-
 
     @abc.abstractmethod
     def _sign(self, quoted_resource_uri, expiry):

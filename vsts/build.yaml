@@ -32,6 +32,9 @@ jobs:
   - script: 'python dev_setup.py'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
+  - script: 'flake8 .'
+    displayName: 'Flake8'
+
   - script: 'python test_packages.py'
     displayName: pytest
 

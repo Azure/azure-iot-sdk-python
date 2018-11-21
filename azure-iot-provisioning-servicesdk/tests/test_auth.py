@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------------------------
 
 import pytest
-from pytest_mock import mocker
 from azure.iot.provisioning.servicesdk.auth import (
     ConnectionStringAuthentication,
     HOST_NAME,

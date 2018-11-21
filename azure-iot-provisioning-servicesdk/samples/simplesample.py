@@ -11,7 +11,6 @@ from azure.iot.sdk.provisioning.service.models import (
     IndividualEnrollment,
     AttestationMechanism,
     TpmAttestation,
-    QuerySpecification,
 )
 
 
@@ -40,7 +39,7 @@ def run_sample(cs, ek):
     new_enrollments = []
     for i in range(0, 10):
         new_tpm = TpmAttestation(endorsement_key=ek)
-        new_am = AttestationMechanism(type="tpm", tpm=tpm)
+        new_am = AttestationMechanism(type="tpm", tpm=new_tpm)
         new_ie = IndividualEnrollment(registration_id=("id-" + str(i)), attestation=new_am)
         new_enrollments.append(new_ie)
     bulk_op = BulkEnrollmentOperation(enrollments=new_enrollments, mode="create")

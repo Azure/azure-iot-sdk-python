@@ -3,11 +3,8 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-import sys
 import os
 import copy
-
-import six
 import pytest
 
 import e2e_convenience
@@ -104,7 +101,7 @@ def purge_individual_enrollments(client):
     enrollments = []
     qs = QuerySpecification(query="*")
     cont = ""
-    while cont != None:
+    while cont is not None:
         qrr = client.query_individual_enrollments(
             query_specification=qs, x_ms_continuation=cont, raw=True
         )
@@ -127,7 +124,7 @@ def purge_enrollment_groups(client):
     enrollments = []
     qs = QuerySpecification(query="*")
     cont = ""
-    while cont != None:
+    while cont is not None:
         qrr = client.query_enrollment_groups(
             query_specification=qs, x_ms_continuation=cont, raw=True
         )
@@ -157,14 +154,14 @@ class TestIndividualEnrollment(object):
         assert ret_ie.registration_id == REGISTRATION_ID
         assert ret_ie.initial_twin.tags.additional_properties == TAGS
         assert ret_ie.initial_twin.properties.desired.additional_properties == DESIRED_PROPERTIES
-        assert ret_ie.capabilities.iot_edge == True
+        assert ret_ie.capabilities.iot_edge is True
 
         # get
         ret_ie = client.get_individual_enrollment(REGISTRATION_ID)
         assert ret_ie.registration_id == REGISTRATION_ID
         assert ret_ie.initial_twin.tags.additional_properties == TAGS
         assert ret_ie.initial_twin.properties.desired.additional_properties == DESIRED_PROPERTIES
-        assert ret_ie.capabilities.iot_edge == True
+        assert ret_ie.capabilities.iot_edge is True
 
         # delete
         client.delete_individual_enrollment(REGISTRATION_ID)

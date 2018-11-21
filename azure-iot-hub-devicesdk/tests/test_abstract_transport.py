@@ -13,4 +13,3 @@ def test_raises_exception_on_init_of_abstract_transport():
     msg = str(error.value)
     expected_msg = "Can't instantiate abstract class AbstractTransport with abstract methods connect, disconnect, send_event"
     assert msg == expected_msg
-

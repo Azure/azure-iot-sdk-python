@@ -6,13 +6,12 @@
 import pytest
 import logging
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
-from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from six import add_move, MovedModule
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
 from six.moves import mock
 from mock import MagicMock
+
+add_move(MovedModule("mock", "mock", "unittest.mock"))
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,7 +26,9 @@ fake_topic = "devices/" + fake_device_id + "/messages/events/"
 
 @pytest.fixture(scope="function")
 def authentication_provider():
-    connection_string = connection_string_format.format(fake_hostname, fake_device_id, fake_shared_access_key)
+    connection_string = connection_string_format.format(
+        fake_hostname, fake_device_id, fake_shared_access_key
+    )
     auth_provider = from_connection_string(connection_string)
     return auth_provider
 
@@ -48,13 +49,15 @@ def test_instantiation_creates_proper_transport(authentication_provider):
     assert trans._mqtt_provider is not None
 
 
-class TestConnect():
+class TestConnect:
     def test_connect_calls_connect_on_provider(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
         transport.connect()
         mock_mqtt_provider.connect.assert_called_once_with()
 
-    def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(self, transport):
+    def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
+        self, transport
+    ):
         mock_mqtt_provider = transport._mqtt_provider
 
         transport.connect()
@@ -93,7 +96,7 @@ class TestConnect():
         transport.on_transport_connected.assert_not_called()
 
 
-class TestSendEvent():
+class TestSendEvent:
     def test_sendevent_calls_publish_on_provider(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
 
@@ -109,11 +112,11 @@ class TestSendEvent():
 
         # send an event
         transport.send_event(fake_event)
-        
+
         # verify that we called connect
         mock_mqtt_provider.connect.assert_called_once_with()
 
-        # verify that we're not connected yet and verify that we havent't published yet 
+        # verify that we're not connected yet and verify that we havent't published yet
         transport.on_transport_connected.assert_not_called()
         mock_mqtt_provider.publish.assert_not_called()
 
@@ -134,7 +137,7 @@ class TestSendEvent():
         # send an event
         transport.send_event(fake_event)
 
-        # verify that we're not connected yet and verify that we havent't published yet 
+        # verify that we're not connected yet and verify that we havent't published yet
         transport.on_transport_connected.assert_not_called()
         mock_mqtt_provider.publish.assert_not_called()
 
@@ -182,7 +185,7 @@ class TestSendEvent():
 
         # assert
         transport.on_event_sent.assert_called_once_with()
-        
+
     def test_connect_send_disconnect(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
 
@@ -198,7 +201,8 @@ class TestSendEvent():
         transport.disconnect()
         mock_mqtt_provider.disconnect.assert_called_once_with()
 
-class TestDisconnect():
+
+class TestDisconnect:
     def test_disconnect_calls_disconnect_on_provider(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
 
@@ -216,8 +220,6 @@ class TestDisconnect():
         mock_mqtt_provider.disconnect.assert_not_called()
 
     def test_disconnect_calls_client_disconnect_callback(self, transport):
-        mock_mqtt_provider = transport._mqtt_provider
-
         transport.connect()
         transport._trig_provider_connect_complete()
 
@@ -225,5 +227,3 @@ class TestDisconnect():
         transport._trig_provider_disconnect_complete()
 
         transport.on_transport_disconnected.assert_called_once_with("disconnected")
-        
-
