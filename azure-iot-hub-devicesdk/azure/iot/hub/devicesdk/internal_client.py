@@ -27,6 +27,7 @@ class InternalClient(object):
         self.state = "initial"
 
         self.on_connection_state = None
+        self.on_event_sent = None
 
     def connect(self):
         """Connects the client to an Azure IoT Hub.
@@ -34,7 +35,16 @@ class InternalClient(object):
         """
         logger.info("connecting to transport")
         self._transport.on_transport_connected = self._handle_transport_connected_state
+        self._transport.on_transport_disconnected = self._handle_transport_connected_state
+        self._transport.on_event_sent = self._handle_transport_event_sent
         self._transport.connect()
+
+    def disconnect(self):
+        """
+        Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub
+        """
+        logger.info("disconnecting from transport")
+        self._transport.disconnect()
 
     def send_event(self, event):
         """
@@ -48,7 +58,7 @@ class InternalClient(object):
         """
         The connection status is emitted whenever the client on the module gets connected or disconnected.
         """
-        logger.info("emit_connection_status")
+        logger.info("emit_connection_status: {}".format(self.state))
         if self.on_connection_state:
             self.on_connection_state(self.state)
         else:
@@ -57,6 +67,11 @@ class InternalClient(object):
     def _handle_transport_connected_state(self, new_state):
         self.state = new_state
         self._emit_connection_status()
+
+    def _handle_transport_event_sent(self):
+        logger.info("_handle_transport_event_sent: " + str(self.on_event_sent))
+        if self.on_event_sent:
+            self.on_event_sent()
 
     @classmethod
     def from_authentication_provider(cls, authentication_provider, transport_name):

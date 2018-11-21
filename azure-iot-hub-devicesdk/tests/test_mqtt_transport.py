@@ -37,6 +37,8 @@ def transport(authentication_provider):
     with mock.patch("azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"):
         transport = MQTTTransport(authentication_provider)
     transport.on_transport_connected = MagicMock()
+    transport.on_transport_disconnected = MagicMock()
+    transport.on_event_sent = MagicMock()
     return transport
 
 
@@ -165,6 +167,37 @@ class TestSendEvent():
         # and verify that we're sending the second event
         mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event_2)
 
+    def test_puback_calls_client_callback(self, transport):
+        mock_mqtt_provider = transport._mqtt_provider
+
+        # connect
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+
+        # send an event
+        transport.send_event(fake_event)
+
+        # fake the puback:
+        transport._trig_provider_publish_complete()
+
+        # assert
+        transport.on_event_sent.assert_called_once_with()
+        
+    def test_connect_send_disconnect(self, transport):
+        mock_mqtt_provider = transport._mqtt_provider
+
+        # connect
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+
+        # send an event
+        transport.send_event(fake_event)
+        transport._trig_provider_publish_complete()
+
+        # disconnect
+        transport.disconnect()
+        mock_mqtt_provider.disconnect.assert_called_once_with()
+
 class TestDisconnect():
     def test_disconnect_calls_disconnect_on_provider(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
@@ -181,4 +214,16 @@ class TestDisconnect():
         transport.disconnect()
 
         mock_mqtt_provider.disconnect.assert_not_called()
+
+    def test_disconnect_calls_client_disconnect_callback(self, transport):
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        transport._trig_provider_connect_complete()
+
+        transport.disconnect()
+        transport._trig_provider_disconnect_complete()
+
+        transport.on_transport_disconnected.assert_called_once_with("disconnected")
+        
 

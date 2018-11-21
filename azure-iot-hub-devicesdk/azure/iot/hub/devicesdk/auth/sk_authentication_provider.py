@@ -47,6 +47,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
         module_id,
         shared_access_key,
         shared_access_key_name=None,
+        gateway_hostname=None
     ):
         """
 
@@ -61,6 +62,8 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
         )
         self.shared_access_key = shared_access_key
         self.shared_access_key_name = shared_access_key_name
+        self.gateway_hostname = gateway_hostname
+        self.ca_cert = None
 
     @staticmethod
     def parse(connection_string):
@@ -88,6 +91,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
             d.get(MODULE_ID),
             d.get(SHARED_ACCESS_KEY),
             d.get(SHARED_ACCESS_KEY_NAME),
+            d.get(GATEWAY_HOST_NAME),
         )
 
     def _sign(self, quoted_resource_uri, expiry):

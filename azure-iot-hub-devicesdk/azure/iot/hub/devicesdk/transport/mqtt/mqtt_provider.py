@@ -54,7 +54,7 @@ class MQTTProvider(object):
 
         def on_disconnect_callback(client, userdata, result_code):
             logger.info("disconnected with result code: %s", str(result_code))
-            self.on_mqtt_disconnected()
+            self.on_mqtt_disconnected("disconnected")
 
         def on_publish_callback(client, userdata, mid):
             logger.info("payload published for %s", str(mid))

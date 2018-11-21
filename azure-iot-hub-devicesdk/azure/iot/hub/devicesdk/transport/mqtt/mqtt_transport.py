@@ -26,6 +26,8 @@ class MQTTTransport(AbstractTransport):
         AbstractTransport.__init__(self, auth_provider)
         self._mqtt_provider = None
         self.on_transport_connected = None
+        self.on_transport_disconnected = None
+        self.on_event_sent = None
         self._event_queue = queue.LifoQueue()
 
         states = ["disconnected", "connecting", "connected", "sending", "disconnecting"]
@@ -46,7 +48,7 @@ class MQTTTransport(AbstractTransport):
                 "trigger": "_trig_provider_connect_complete",
                 "source": "connecting",
                 "dest": "connected",
-                "after": "_after_action_deliver_next_queued_event",
+                "after": "_trig_check_send_event_queue",
             },
             {"trigger": "_trig_disconnect", "source": "disconnected", "dest": None},
             {
@@ -65,20 +67,14 @@ class MQTTTransport(AbstractTransport):
                 "source": "connected",
                 "before": "_before_action_add_event_to_queue",
                 "dest": "sending",
-                "after": "_after_action_deliver_next_queued_event",
+                "after": "_trig_check_send_event_queue",
             },
             {
                 "trigger": "_trig_provider_publish_complete",
                 "source": "sending",
                 "dest": None,
-                "unless": "_queue_is_empty",
-                "after": "_after_action_deliver_next_queued_event",
-            },
-            {
-                "trigger": "_trig_provider_publish_complete",
-                "source": "sending",
-                "dest": "connected",
-                "conditions": "_queue_is_empty",
+                "before": "_before_action_notify_publish_complete",
+                "after": "_trig_check_send_event_queue"
             },
             {
                 "trigger": "_trig_send_event",
@@ -92,6 +88,19 @@ class MQTTTransport(AbstractTransport):
                 "before": "_before_action_add_event_to_queue",
                 "dest": "connecting",
                 "after": "_after_action_provider_connect",
+            },
+            {
+                "trigger": "_trig_check_send_event_queue",
+                "source": [ "connected", "sending" ],
+                "dest": "connected",
+                "conditions": "_queue_is_empty",
+            },
+            {
+                "trigger": "_trig_check_send_event_queue",
+                "source": [ "connected", "sending" ],
+                "dest": "sending",
+                "unless": "_queue_is_empty",
+                "after": "_after_action_deliver_next_queued_event",
             },
         ]
 
@@ -116,7 +125,6 @@ class MQTTTransport(AbstractTransport):
             initial="disconnected",
             send_event=True,
             finalize_event=_on_transition_complete,
-            after_state_change=self._after_state_change,
         )
 
         # to render the state machine as a PNG:
@@ -129,25 +137,19 @@ class MQTTTransport(AbstractTransport):
 
         self._create_mqtt_provider()
 
-    def _after_state_change(self, event):
-        """
-        Callback that happens after all state changes.  Since there are many different 
-        ways to get to the connected state, this is where we call our "on_connected" callback.
-        (This would be better done inside a handler attached to the _provider_connect_complete event,
-        but no such thing exists).
-        """
-        logger.info(
-            "after state change: trigger=%s, dest=%s, error=%s",
-            event.event.name,
-            event.state.name,
-            str(event.error),
-        )
-        if (
-            (not event.error)
-            and (event.event.name == "_trig_provider_connect_complete")
-            and self.on_transport_connected
-        ):
-            self.on_transport_connected(event.state.name)
+    def on_enter_connected(self, event):
+        if event.event.name == "_trig_provider_connect_complete":
+            self.on_transport_connected("connected")
+
+    def on_enter_disconnected(self, event):
+        if event.event.name == "_trig_provider_disconnect_complete":
+            self.on_transport_disconnected("disconnected")
+
+    def _before_action_notify_publish_complete(self, event):
+        logger.info("publish complete:" + str(event))
+        logger.info("publish error:" + str(event.error));
+        if not event.error:
+            self.on_event_sent()
 
     def _after_action_provider_connect(self, event):
         """
@@ -173,7 +175,7 @@ class MQTTTransport(AbstractTransport):
 
     def _queue_is_empty(self, event):
         """
-        Return true if the sending queue is empty.  
+        Return true if the sending queue is empty.
         This is meant to be called by the state machine as a "conditions" or "unless" check
         """
         return self._event_queue.empty()
@@ -189,7 +191,6 @@ class MQTTTransport(AbstractTransport):
             self._mqtt_provider.publish(topic, event_to_send)
         except queue.Empty:
             logger.warning("UNEXPECTED: queue is empty in _after_action_deliver_next_queued_event")
-            pass
 
     def _create_mqtt_provider(self):
         client_id = self._auth_provider.device_id
@@ -199,9 +200,10 @@ class MQTTTransport(AbstractTransport):
 
         username = self._auth_provider.hostname + "/" + client_id + "/" + "?api-version=2018-06-30"
 
+        hostname = None
         if hasattr(self._auth_provider, "gateway_hostname"):
             hostname = self._auth_provider.gateway_hostname
-        else:
+        if not hostname or len(hostname) == 0:
             hostname = self._auth_provider.hostname
 
         if hasattr(self._auth_provider, "ca_cert"):

@@ -58,6 +58,21 @@ def test_connected_state_handler_called_wth_new_state_once_transport_gets_connec
     assert client.state == "connected"
     stub_on_connection_state.assert_called_once_with("connected")
 
+def test_connected_state_handler_called_wth_new_state_once_transport_gets_connected(mocker, authentication_provider, mock_transport):
+    client = InternalClient(authentication_provider, mock_transport)
+    stub_on_connection_state = mocker.stub(name="on_connection_state")
+    client.on_connection_state = stub_on_connection_state
+
+    client.connect()
+    mock_transport.on_transport_connected("connected")
+
+    stub_on_connection_state.reset_mock()
+
+    client.disconnect()
+    mock_transport.on_transport_disconnected("disconnected")
+
+    assert client.state == "disconnected"
+    stub_on_connection_state.assert_called_once_with("disconnected")
 
 def test_internal_client_send_event_in_turn_calls_transport_send_event(authentication_provider, mock_transport):
 
