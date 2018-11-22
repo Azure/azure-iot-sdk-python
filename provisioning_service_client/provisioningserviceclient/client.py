@@ -126,9 +126,11 @@ class ProvisioningServiceClient(object):
         try:
             result = operation(id, provisioning_model, provisioning_model.etag)
         except ProvisioningServiceErrorDetailsException as e:
+            _wrap_model(provisioning_model) #rewrap input
             raise ProvisioningServiceError(
                 self.err_msg.format(e.response.status_code, e.response.reason), e)
 
+        _wrap_model(provisioning_model) #rewrap input
         _wrap_model(result)
         return result
 
@@ -196,6 +198,49 @@ class ProvisioningServiceClient(object):
                 self.err_msg.format(e.response.status_code, e.response.reason), e)
 
         return result
+
+    def get_individual_enrollment_attestation_mechanism(self, registration_id):
+        """
+        Retrieve an Individual Enrollment's Attestation Mechanism from the Provisioning Service
+
+        :param str registration_id: The registration id of the target Individual Enrollment
+        :returns: The Attestation Mechanism of the Individual Enrollment from the Provisioning Service
+         corresponding to the given registration id
+        :rtype: :class: `AttestationMechanism<provisioningserviceclient.models.AttestationMechanism`
+        :raises: :class:`ProvisioningServiceError
+         <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
+         Provisioning Service
+        """
+        try:
+            result = self._runtime_client.get_individual_enrollment_attestation_mechanism(\
+            registration_id)
+        except ProvisioningServiceErrorDetailsException as e:
+            raise ProvisioningServiceError(
+                self.err_msg.format(e.response.status_code, e.response.reason), e)
+
+        return result
+
+    def get_enrollment_group_attestation_mechanism(self, enrollment_group_id):
+        """
+        Retrieve an Enrollment Group's Attestation Mechanism from the Provisioning Service
+
+        :param str enrollment_group_id: The group id of the target Individual Enrollment
+        :returns: The Attestation Mechanism of the Enrollment Group from the Provisioning Service
+         corresponding to the given group id
+        :rtype: :class: `AttestationMechanism<provisioningserviceclient.models.AttestationMechanism`
+        :raises: :class:`ProvisioningServiceError
+         <provisioningserviceclient.ProvisioningServiceError>` if an error occurs on the
+         Provisioning Service
+        """
+        try:
+            result = self._runtime_client.get_enrollment_group_attestation_mechanism(\
+            enrollment_group_id)
+        except ProvisioningServiceErrorDetailsException as e:
+            raise ProvisioningServiceError(
+                self.err_msg.format(e.response.status_code, e.response.reason), e)
+
+        return result
+
 
     def delete(self, provisioning_model):
         """
@@ -295,7 +340,13 @@ class ProvisioningServiceClient(object):
         try:
             result = self._runtime_client.run_bulk_enrollment_operation(bulk_op)
         except ProvisioningServiceErrorDetailsException as e:
+            for enrollment in bulk_op.enrollments:
+                _wrap_model(enrollment)
             raise ProvisioningServiceError(self.err_msg.format(e.response.status_code, e.response.reason), e)
+        
+        for enrollment in bulk_op.enrollments:
+            _wrap_model(enrollment)
+        
         return result
 
     def create_individual_enrollment_query(self, query_spec, page_size=None):
