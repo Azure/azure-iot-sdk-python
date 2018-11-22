@@ -66,6 +66,10 @@ def run_scenario_individual_enrollment():
     assert ret_ie.initial_twin.tags == TAGS
     assert ret_ie.initial_twin.desired_properties == DESIRED_PROPERTIES
 
+    #get attestation mechanism
+    ret_am = psc.get_individual_enrollment_attestation_mechanism(REGISTRATION_ID)
+    assert ret_am.tpm.endorsement_key == PROVISIONING_E2E_ENDORSEMENT_KEY
+
     #delete
     psc.delete(ret_ie)
     try:
@@ -118,6 +122,9 @@ def run_scenario_enrollment_group():
     assert ret_eg.enrollment_group_id == GROUP_ID
     assert ret_eg.initial_twin.tags == TAGS
     assert ret_eg.initial_twin.desired_properties == DESIRED_PROPERTIES
+
+    #get attestation mechansim
+    ret_am = psc.get_enrollment_group_attestation_mechanism(GROUP_ID)
 
     #query
     qs = QuerySpecification("*")
