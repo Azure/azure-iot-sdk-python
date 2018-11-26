@@ -142,6 +142,25 @@ def run_scenario_enrollment_group():
         raise AssertionError
 
 
+def clear_dps_hub():
+    psc = ProvisioningServiceClient.create_from_connection_string(PROVISIONING_CONNECTION_STRING)
+
+    #Individual Enrollments
+    qs = QuerySpecification("*")
+    query = psc.create_individual_enrollment_query(qs)
+    items = []
+    for page in query:
+        items += page
+    bulkop = BulkEnrollmentOperation("delete", items)
+    psc.run_bulk_operation(bulkop)
+
+    #Enrollment Groups
+    query = psc.create_enrollment_group_query(qs)
+    for page in query:
+        for enrollment in page:
+            psc.delete(enrollment)
+
+
 def main():
     six.print_("Provisioning Service Client E2E Tests Started!")
     six.print_("----------------------------------------------")
@@ -163,7 +182,13 @@ def main():
         six.print_("FAILED")
         six.print_("Provisioning Service Client E2E Tests FAILED!")
         six.print_("---------------------------------------------")
-        return 1
+    try:
+        clear_dps_hub()
+    except Exception:
+        six.print_("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
+        six.print_("WARNING: FAILED TO CLEAN UP E2E TESTING HUB. PLEASE MANUALLY REMOVE ALL ENROLLMENTS")
+        six.print_("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+    return 1
 
 
 if __name__ == '__main__':
