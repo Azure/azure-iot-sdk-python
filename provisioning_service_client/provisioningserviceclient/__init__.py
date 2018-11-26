@@ -3,9 +3,7 @@
 # full license information.
 
 import provisioningserviceclient.models
-from .client import (ProvisioningServiceClient, BulkEnrollmentOperation, \
-                     BulkEnrollmentOperationResult, ProvisioningServiceError, \
-                     QuerySpecification, Query)
+from .client import *
 
 provisioningserviceclient.models._patch_models()
 
@@ -16,5 +14,9 @@ __all__ = [
     'QuerySpecification',
     'BulkEnrollmentOperation',
     'BulkEnrollmentOperationResult',
-    'models'
+    'models',
+    'BULKOP_CREATE',
+    'BULKOP_UPDATE',
+    'BULKOP_DELETE',
+    'BULKOP_UPDATE_IF_MATCH_ETAG'
 ]

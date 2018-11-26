@@ -8,13 +8,10 @@ from .models import (BulkEnrollmentOperation, BulkEnrollmentOperationResult, \
     BulkEnrollmentOperationError, QuerySpecification, IndividualEnrollment, EnrollmentGroup, \
     DeviceRegistrationState, ProvisioningServiceErrorDetailsException)
 
-
-CS_DELIMITER = ";"
-CS_VAL_SEPARATOR = "="
-HOST_NAME_LABEL = "HostName"
-SHARED_ACCESS_KEY_NAME_LABEL = "SharedAccessKeyName"
-SHARED_ACCESS_KEY_LABEL = "SharedAccessKey"
-
+BULKOP_CREATE = "create"
+BULKOP_DELETE = "delete"
+BULKOP_UPDATE = "update"
+BULKOP_UPDATE_IF_MATCH_ETAG = "updateIfMatchETag"
 
 def _unwrap_model(model):
     if model.initial_twin: #LBYL for efficiency - nothing exceptional about this situation
@@ -50,6 +47,11 @@ class ProvisioningServiceClient(object):
 
     authorization_header = "Authorization"
     err_msg = "Service Error {} - {}"
+    _cs_delimiter = ";"
+    _cs_val_separator = "="
+    _host_name_label = "HostName"
+    _shared_access_key_name_label = "SharedAccessKeyName"
+    _shared_access_key_label = "SharedAccessKey"
 
     def __init__(self, host_name, shared_access_key_name, shared_access_key):
         self.host_name = host_name
@@ -74,7 +76,7 @@ class ProvisioningServiceClient(object):
          <provisioningserviceclient.ProvisioningServiceClient>`
         :raises: ValueError if connection string is invalid
         """
-        cs_args = connection_string.split(CS_DELIMITER)
+        cs_args = connection_string.split(cls._cs_delimiter)
 
         if len(cs_args) != 3:
             raise ValueError("Too many or too few values in the connection string")
@@ -82,13 +84,13 @@ class ProvisioningServiceClient(object):
             raise ValueError("Duplicate label in connection string")
 
         for arg in cs_args:
-            tokens = arg.split(CS_VAL_SEPARATOR, 1)
+            tokens = arg.split(cls._cs_val_separator, 1)
 
-            if tokens[0] == HOST_NAME_LABEL:
+            if tokens[0] == cls._host_name_label:
                 host_name = tokens[1]
-            elif tokens[0] == SHARED_ACCESS_KEY_NAME_LABEL:
+            elif tokens[0] == cls._shared_access_key_name_label:
                 shared_access_key_name = tokens[1]
-            elif tokens[0] == SHARED_ACCESS_KEY_LABEL:
+            elif tokens[0] == cls._shared_access_key_label:
                 shared_access_key = tokens[1]
             else:
                 raise ValueError("Connection string contains incorrect values")

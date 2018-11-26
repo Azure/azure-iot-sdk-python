@@ -9,7 +9,7 @@ import six
 
 import context
 from provisioningserviceclient import ProvisioningServiceClient, QuerySpecification, \
-    BulkEnrollmentOperation, ProvisioningServiceError
+    BulkEnrollmentOperation, ProvisioningServiceError, BULKOP_CREATE, BULKOP_DELETE
 from provisioningserviceclient.models import IndividualEnrollment, AttestationMechanism, \
     InitialTwin, EnrollmentGroup, DeviceCapabilities
 
@@ -21,8 +21,6 @@ REGISTRATION_ID = "e2e-test-reg-id"
 GROUP_ID = "e2e-test-group-id"
 TAGS = {"tag1": "val1"}
 DESIRED_PROPERTIES = {"dp1": "val1", "dp2": {"dp3": "val2"}}
-CREATE = "create"
-DELETE = "delete"
 BULK_SIZE = 10
 
 
@@ -42,7 +40,7 @@ def read_environment_vars():
 def run_scenario_individual_enrollment():
     psc = ProvisioningServiceClient.create_from_connection_string(PROVISIONING_CONNECTION_STRING)
     att = AttestationMechanism.create_with_tpm(PROVISIONING_E2E_ENDORSEMENT_KEY)
-    ie = IndividualEnrollment.create(REGISTRATION_ID, att)
+    ie = IndividualEnrollment(registration_id=REGISTRATION_ID, attestation=att)
 
     #create
     ret_ie = psc.create_or_update(ie)
@@ -82,20 +80,20 @@ def run_scenario_individual_enrollment():
     #bulk enrollment
     enrollments = []
     for i in range(BULK_SIZE):
-        new = IndividualEnrollment.create(REGISTRATION_ID + str(i), att)
+        new = IndividualEnrollment(registration_id=REGISTRATION_ID + str(i), attestation=att)
         enrollments.append(new)
-    bulk_op = BulkEnrollmentOperation(CREATE, enrollments)
+    bulk_op = BulkEnrollmentOperation(mode=BULKOP_CREATE, enrollments=enrollments)
     res = psc.run_bulk_operation(bulk_op)
     assert res.is_successful
 
     #query
-    qs = QuerySpecification("*")
+    qs = QuerySpecification(query="*")
     q = psc.create_individual_enrollment_query(qs)
     q_results = q.next()
     assert len(q_results) == BULK_SIZE
 
     #cleanup
-    bulk_op = BulkEnrollmentOperation(DELETE, enrollments)
+    bulk_op = BulkEnrollmentOperation(mode=BULKOP_DELETE, enrollments=enrollments)
     res = psc.run_bulk_operation(bulk_op)
     assert res.is_successful
 
@@ -103,7 +101,7 @@ def run_scenario_individual_enrollment():
 def run_scenario_enrollment_group():
     psc = ProvisioningServiceClient.create_from_connection_string(PROVISIONING_CONNECTION_STRING)
     att = AttestationMechanism.create_with_x509_signing_certs(PROVISIONING_E2E_X509_CERT)
-    eg = EnrollmentGroup.create(GROUP_ID, att)
+    eg = EnrollmentGroup(enrollment_group_id=GROUP_ID, attestation=att)
 
     #create
     ret_eg = psc.create_or_update(eg)
@@ -127,7 +125,7 @@ def run_scenario_enrollment_group():
     ret_am = psc.get_enrollment_group_attestation_mechanism(GROUP_ID)
 
     #query
-    qs = QuerySpecification("*")
+    qs = QuerySpecification(query="*")
     q = psc.create_enrollment_group_query(qs)
     q_results = q.next()
     assert len(q_results) == 1
@@ -146,12 +144,12 @@ def clear_dps_hub():
     psc = ProvisioningServiceClient.create_from_connection_string(PROVISIONING_CONNECTION_STRING)
 
     #Individual Enrollments
-    qs = QuerySpecification("*")
+    qs = QuerySpecification(query="*")
     query = psc.create_individual_enrollment_query(qs)
     items = []
     for page in query:
         items += page
-    bulkop = BulkEnrollmentOperation("delete", items)
+    bulkop = BulkEnrollmentOperation(mode=BULKOP_DELETE, enrollments=items)
     psc.run_bulk_operation(bulkop)
 
     #Enrollment Groups
