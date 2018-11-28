@@ -104,18 +104,18 @@ class MQTTTransport(AbstractTransport):
             },
         ]
 
-        def _on_transition_complete(event):
-            if not event.transition:
+        def _on_transition_complete(event_data):
+            if not event_data.transition:
                 dest = "[no transition]"
             else:
-                dest = event.transition.dest
+                dest = event_data.transition.dest
             logger.info(
                 "Transition complete.  Trigger=%s, Source=%s, Dest=%s, result=%s, error=%s",
-                event.event.name,
-                event.state,
+                event_data.event.name,
+                event_data.state,
                 dest,
-                str(event.result),
-                str(event.error),
+                str(event_data.result),
+                str(event_data.error),
             )
 
         self._state_machine = Machine(
@@ -123,7 +123,7 @@ class MQTTTransport(AbstractTransport):
             states=states,
             transitions=transitions,
             initial="disconnected",
-            send_event=True,
+            send_event=True,  # This has nothing to do with telemetry events.  This tells the machine use event_data structures to hold transition arguments
             finalize_event=_on_transition_complete,
         )
 
@@ -137,50 +137,50 @@ class MQTTTransport(AbstractTransport):
 
         self._create_mqtt_provider()
 
-    def on_enter_connected(self, event):
-        if event.event.name == "_trig_provider_connect_complete":
+    def on_enter_connected(self, event_data):
+        if event_data.event.name == "_trig_provider_connect_complete":
             self.on_transport_connected("connected")
 
-    def on_enter_disconnected(self, event):
-        if event.event.name == "_trig_provider_disconnect_complete":
+    def on_enter_disconnected(self, event_data):
+        if event_data.event.name == "_trig_provider_disconnect_complete":
             self.on_transport_disconnected("disconnected")
 
-    def _before_action_notify_publish_complete(self, event):
-        logger.info("publish complete:" + str(event))
-        logger.info("publish error:" + str(event.error))
-        if not event.error:
+    def _before_action_notify_publish_complete(self, event_data):
+        logger.info("publish complete:" + str(event_data))
+        logger.info("publish error:" + str(event_data.error))
+        if not event_data.error:
             self.on_event_sent()
 
-    def _after_action_provider_connect(self, event):
+    def _after_action_provider_connect(self, event_data):
         """
         Call into the provider to connect the transport.
         This is meant to be called by the state machine as an "after" action
         """
         self._mqtt_provider.connect()
 
-    def _after_action_provider_disconnect(self, event):
+    def _after_action_provider_disconnect(self, event_data):
         """
         Call into the provider to disconnect the transport.
         This is meant to be called by the state machine as an "after" action
         """
         self._mqtt_provider.disconnect()
 
-    def _before_action_add_event_to_queue(self, event):
+    def _before_action_add_event_to_queue(self, event_data):
         """
         Queue an event for sending later.
         This is meant to be called by the state machine as an "before" action
         """
-        # TODO: throw here if event.args[0] is not an event/message
-        self._event_queue.put_nowait(event.args[0])
+        # TODO: throw here if event_data.args[0] is not an event/message
+        self._event_queue.put_nowait(event_data.args[0])
 
-    def _queue_is_empty(self, event):
+    def _queue_is_empty(self, event_data):
         """
         Return true if the sending queue is empty.
         This is meant to be called by the state machine as a "conditions" or "unless" check
         """
         return self._event_queue.empty()
 
-    def _after_action_deliver_next_queued_event(self, event):
+    def _after_action_deliver_next_queued_event(self, event_data):
         """
         Call the provider to deliver the next event
         This is meant to be called by the state machine as an "before" action
