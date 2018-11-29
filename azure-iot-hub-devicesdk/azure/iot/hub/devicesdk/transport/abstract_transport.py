@@ -16,21 +16,21 @@ class AbstractTransport:
         self._auth_provider = auth_provider
 
     @abc.abstractmethod
-    def connect(self):
+    def connect(self, callback):
         """
         Connect to the specific messaging system used by the specific transport protocol
         """
         pass
 
     @abc.abstractmethod
-    def send_event(self):
+    def send_event(self, event, callback):
         """
         Send some telemetry, event or message.
         """
         pass
 
     @abc.abstractmethod
-    def disconnect(self):
+    def disconnect(self, callback):
         """
         Disconnect from the specific messaging system used by the specific transport protocol
         """

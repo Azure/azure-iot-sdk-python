@@ -34,9 +34,23 @@ def authentication_provider(connection_string):
     return auth_provider
 
 
+class FakeTransport(AbstractTransport):
+    def __init__(self, auth_provider):
+        pass
+
+    def connect(self, callback):
+        callback()
+
+    def send_event(self, event, callback):
+        callback()
+
+    def disconnect(self, callback):
+        callback()
+
+
 @pytest.fixture(scope="function")
-def mock_transport():
-    return MagicMock(spec=AbstractTransport)
+def mock_transport(authentication_provider):
+    return MagicMock(wraps=FakeTransport(authentication_provider))
 
 
 def test_internal_client_connect_in_turn_calls_transport_connect(
@@ -46,7 +60,7 @@ def test_internal_client_connect_in_turn_calls_transport_connect(
 
     client.connect()
 
-    mock_transport.connect.assert_called_once_with()
+    assert mock_transport.connect.call_count == 1
 
 
 def test_connected_state_handler_called_wth_new_state_once_transport_gets_connected(
@@ -59,7 +73,6 @@ def test_connected_state_handler_called_wth_new_state_once_transport_gets_connec
     client.connect()
     mock_transport.on_transport_connected("connected")
 
-    assert client.state == "connected"
     stub_on_connection_state.assert_called_once_with("connected")
 
 
@@ -71,14 +84,12 @@ def test_connected_state_handler_called_wth_new_state_once_transport_gets_discon
     client.on_connection_state = stub_on_connection_state
 
     client.connect()
-    mock_transport.on_transport_connected("connected")
 
     stub_on_connection_state.reset_mock()
 
     client.disconnect()
     mock_transport.on_transport_disconnected("disconnected")
 
-    assert client.state == "disconnected"
     stub_on_connection_state.assert_called_once_with("disconnected")
 
 
@@ -88,11 +99,11 @@ def test_internal_client_send_event_in_turn_calls_transport_send_event(
 
     event = "Levicorpus"
     client = InternalClient(authentication_provider, mock_transport)
-    client.state = "connected"
     client.connect()
     client.send_event(event)
 
-    mock_transport.send_event.assert_called_once_with(event)
+    assert mock_transport.send_event.call_count == 1
+    assert mock_transport.send_event.call_args[0][0] == event
 
 
 def test_transport_any_error_surfaces_to_internal_client(authentication_provider, mock_transport):
@@ -100,12 +111,12 @@ def test_transport_any_error_surfaces_to_internal_client(authentication_provider
 
     event = "Caput Draconis"
     client = InternalClient(authentication_provider, mock_transport)
-    client.state = "connected"
     client.connect()
     with pytest.raises(RuntimeError, match="Some runtime error happened"):
         client.send_event(event)
 
-    mock_transport.send_event.assert_called_once_with(event)
+    assert mock_transport.send_event.call_count == 1
+    assert mock_transport.send_event.call_args[0][0] == event
 
 
 @pytest.mark.parametrize(

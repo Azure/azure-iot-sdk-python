@@ -6,6 +6,7 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +50,37 @@ class MQTTProvider(object):
         def on_connect_callback(client, userdata, flags, result_code):
             logger.info("connected with result code: %s", str(result_code))
             # TODO: how to do failed connection?
-            self.on_mqtt_connected("connected")
+            try:
+                self.on_mqtt_connected()
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_connected")
+                logger.error(traceback.format_exc())
 
         def on_disconnect_callback(client, userdata, result_code):
             logger.info("disconnected with result code: %s", str(result_code))
-            self.on_mqtt_disconnected("disconnected")
+            try:
+                self.on_mqtt_disconnected()
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_disconnected")
+                logger.error(traceback.format_exc())
 
         def on_publish_callback(client, userdata, mid):
             logger.info("payload published for %s", str(mid))
             # TODO: how to do failed publish
-            self.on_mqtt_published()
+            try:
+                self.on_mqtt_published(mid)
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_published")
+                logger.error(traceback.format_exc())
 
         def on_subscribe_callback(client, userdata, mid):
             logger.info("suback received")
             # TODO: how to do failure?
-            self.on_mqtt_subscribed()
+            try:
+                self.on_mqtt_subscribed()
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_subscribed")
+                logger.error(traceback.format_exc())
 
         self._mqtt_client.on_connect = on_connect_callback
         self._mqtt_client.on_disconnect = on_disconnect_callback
@@ -109,4 +126,5 @@ class MQTTProvider(object):
         :param message_payload: The actual message to send.
         """
         logger.info("sending")
-        self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
+        message_info = self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
+        return message_info.mid

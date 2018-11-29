@@ -5,6 +5,7 @@
 
 import logging
 import six.moves.queue as queue
+from pprint import pprint
 from .mqtt_provider import MQTTProvider
 from transitions.extensions import LockedMachine as Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
@@ -29,15 +30,18 @@ class MQTTTransport(AbstractTransport):
         self.on_transport_disconnected = None
         self.on_event_sent = None
         self._event_queue = queue.LifoQueue()
+        self._event_callback_map = {}
+        self._connect_callback = None
+        self._disconnect_callback = None
 
-        states = ["disconnected", "connecting", "connected", "sending", "disconnecting"]
+        states = ["disconnected", "connecting", "connected", "disconnecting"]
 
         transitions = [
             {
                 "trigger": "_trig_connect",
                 "source": "disconnected",
                 "dest": "connecting",
-                "after": "_after_action_provider_connect",
+                "after": "_call_provider_connect",
             },
             {
                 "trigger": "_trig_connect",
@@ -48,14 +52,14 @@ class MQTTTransport(AbstractTransport):
                 "trigger": "_trig_provider_connect_complete",
                 "source": "connecting",
                 "dest": "connected",
-                "after": "_trig_check_send_event_queue",
+                "after": "_publish_events_in_queue",
             },
             {"trigger": "_trig_disconnect", "source": "disconnected", "dest": None},
             {
                 "trigger": "_trig_disconnect",
                 "source": "connected",
                 "dest": "disconnecting",
-                "after": "_after_action_provider_disconnect",
+                "after": "_call_provider_disconnect",
             },
             {
                 "trigger": "_trig_provider_disconnect_complete",
@@ -65,42 +69,22 @@ class MQTTTransport(AbstractTransport):
             {
                 "trigger": "_trig_send_event",
                 "source": "connected",
-                "before": "_before_action_add_event_to_queue",
-                "dest": "sending",
-                "after": "_trig_check_send_event_queue",
-            },
-            {
-                "trigger": "_trig_provider_publish_complete",
-                "source": "sending",
+                "before": "_add_event_to_queue",
                 "dest": None,
-                "before": "_before_action_notify_publish_complete",
-                "after": "_trig_check_send_event_queue",
+                "after": "_publish_events_in_queue",
             },
             {
                 "trigger": "_trig_send_event",
-                "source": ["connecting", "sending"],
-                "before": "_before_action_add_event_to_queue",
+                "source": "connecting",
+                "before": "_add_event_to_queue",
                 "dest": None,
             },
             {
                 "trigger": "_trig_send_event",
                 "source": "disconnected",
-                "before": "_before_action_add_event_to_queue",
+                "before": "_add_event_to_queue",
                 "dest": "connecting",
-                "after": "_after_action_provider_connect",
-            },
-            {
-                "trigger": "_trig_check_send_event_queue",
-                "source": ["connected", "sending"],
-                "dest": "connected",
-                "conditions": "_queue_is_empty",
-            },
-            {
-                "trigger": "_trig_check_send_event_queue",
-                "source": ["connected", "sending"],
-                "dest": "sending",
-                "unless": "_queue_is_empty",
-                "after": "_after_action_deliver_next_queued_event",
+                "after": "_call_provider_connect",
             },
         ]
 
@@ -110,9 +94,8 @@ class MQTTTransport(AbstractTransport):
             else:
                 dest = event_data.transition.dest
             logger.info(
-                "Transition complete.  Trigger=%s, Source=%s, Dest=%s, result=%s, error=%s",
+                "Transition complete.  Trigger=%s, Dest=%s, result=%s, error=%s",
                 event_data.event.name,
-                event_data.state,
                 dest,
                 str(event_data.result),
                 str(event_data.error),
@@ -125,10 +108,11 @@ class MQTTTransport(AbstractTransport):
             initial="disconnected",
             send_event=True,  # This has nothing to do with telemetry events.  This tells the machine use event_data structures to hold transition arguments
             finalize_event=_on_transition_complete,
+            queued=True,
         )
 
         # to render the state machine as a PNG:
-        # 1. apt insatll graphviz
+        # 1. apt install graphviz
         # 2. pip install pygraphviz
         # 3. change import line at top of this file to import LockedGraphMachine as Machine
         # 4. uncomment the following line
@@ -137,60 +121,89 @@ class MQTTTransport(AbstractTransport):
 
         self._create_mqtt_provider()
 
-    def on_enter_connected(self, event_data):
-        if event_data.event.name == "_trig_provider_connect_complete":
-            self.on_transport_connected("connected")
-
-    def on_enter_disconnected(self, event_data):
-        if event_data.event.name == "_trig_provider_disconnect_complete":
-            self.on_transport_disconnected("disconnected")
-
-    def _before_action_notify_publish_complete(self, event_data):
-        logger.info("publish complete:" + str(event_data))
-        logger.info("publish error:" + str(event_data.error))
-        if not event_data.error:
-            self.on_event_sent()
-
-    def _after_action_provider_connect(self, event_data):
+    def _call_provider_connect(self, event_data):
         """
         Call into the provider to connect the transport.
-        This is meant to be called by the state machine as an "after" action
+        This is meant to be called by the state machine as part of a state transition
         """
+        logger.info("Calling provider connect")
         self._mqtt_provider.connect()
 
-    def _after_action_provider_disconnect(self, event_data):
+    def _call_provider_disconnect(self, event_data):
         """
         Call into the provider to disconnect the transport.
-        This is meant to be called by the state machine as an "after" action
+        This is meant to be called by the state machine as part of a state transition
         """
+        logger.info("Calling provider disconnect")
         self._mqtt_provider.disconnect()
 
-    def _before_action_add_event_to_queue(self, event_data):
+    def _on_provider_connect_complete(self):
         """
-        Queue an event for sending later.
-        This is meant to be called by the state machine as an "before" action
+        Callback that is called by the provider when the connection has been established
         """
+        logger.info("_on_provider_connect_complete")
+        self._trig_provider_connect_complete()
+
+        if self.on_transport_connected:
+            self.on_transport_connected("connected")
+        callback = self._connect_callback
+        if callback:
+            self._connect_callback = None
+            callback()
+
+    def _on_provider_disconnect_complete(self):
+        """
+        Callback that is called by the provider when the connection has been disconnected
+        """
+        logger.info("_on_provider_disconnect_complete")
+        self._trig_provider_disconnect_complete()
+
+        if self.on_transport_disconnected:
+            self.on_transport_disconnected("disconnected")
+        callback = self._disconnect_callback
+        if callback:
+            self._disconnect_callback = None
+            callback()
+
+    def _on_provider_publish_complete(self, mid):
+        """
+        Callback that is called by the provider when a publish operation is complete.
+        """
+        if self.on_event_sent:
+            self.on_event_sent()
+        if mid in self._event_callback_map:
+            callback = self._event_callback_map[mid]
+            del self._event_callback_map[mid]
+            callback()
+
+    def _add_event_to_queue(self, event_data):
+        """
+        Queue an event for sending later.  All events that get sent end up going into
+        this queue, even if they're going to be sent immediately.
+        """
+        logger.info("Adding event to queue for later sending")
         # TODO: throw here if event_data.args[0] is not an event/message
-        self._event_queue.put_nowait(event_data.args[0])
+        self._event_queue.put_nowait((event_data.args[0], event_data.args[1]))
 
-    def _queue_is_empty(self, event_data):
+    def _publish_events_in_queue(self, event_data):
         """
-        Return true if the sending queue is empty.
-        This is meant to be called by the state machine as a "conditions" or "unless" check
+        Publish any events that are waiting in the event queue.  This function
+        actually calls down into the provider to publish the events.  For each
+        event that is published, it saves the message id (mid) and the callback
+        that needs to be called when the result of the publish operation is i
+        available.
         """
-        return self._event_queue.empty()
-
-    def _after_action_deliver_next_queued_event(self, event_data):
-        """
-        Call the provider to deliver the next event
-        This is meant to be called by the state machine as an "before" action
-        """
-        try:
-            event_to_send = self._event_queue.get_nowait()
+        logger.info("checking event queue")
+        while True:
+            try:
+                (event_to_send, callback) = self._event_queue.get_nowait()
+            except queue.Empty:
+                logger.info("done checking queue")
+                return
+            logger.info("retrieved event from queue. publishing.")
             topic = self._get_telemetry_topic()
-            self._mqtt_provider.publish(topic, event_to_send)
-        except queue.Empty:
-            logger.warning("UNEXPECTED: queue is empty in _after_action_deliver_next_queued_event")
+            mid = self._mqtt_provider.publish(topic, event_to_send)
+            self._event_callback_map[mid] = callback
 
     def _create_mqtt_provider(self):
         client_id = self._auth_provider.device_id
@@ -219,9 +232,9 @@ class MQTTTransport(AbstractTransport):
             ca_cert=ca_cert,
         )
 
-        self._mqtt_provider.on_mqtt_connected = self._trig_provider_connect_complete
-        self._mqtt_provider.on_mqtt_disconnected = self._trig_provider_disconnect_complete
-        self._mqtt_provider.on_mqtt_published = self._trig_provider_publish_complete
+        self._mqtt_provider.on_mqtt_connected = self._on_provider_connect_complete
+        self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
+        self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
@@ -232,11 +245,13 @@ class MQTTTransport(AbstractTransport):
         topic += "/messages/events/"
         return topic
 
-    def connect(self):
+    def connect(self, callback=None):
+        self._connect_callback = callback
         self._trig_connect()
 
-    def disconnect(self):
+    def disconnect(self, callback=None):
+        self._disconnect_callback = callback
         self._trig_disconnect()
 
-    def send_event(self, message):
-        self._trig_send_event(message)
+    def send_event(self, message, callback=None):
+        self._trig_send_event(message, callback)

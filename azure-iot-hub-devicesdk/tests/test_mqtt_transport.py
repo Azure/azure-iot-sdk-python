@@ -90,7 +90,7 @@ class TestConnect:
         mock_mqtt_provider.connect.assert_not_called()
         transport.on_transport_connected.assert_not_called()
 
-        mock_mqtt_provider.on_mqtt_published()
+        mock_mqtt_provider.on_mqtt_published(0)
 
         mock_mqtt_provider.connect.assert_not_called()
         transport.on_transport_connected.assert_not_called()
@@ -148,7 +148,7 @@ class TestSendEvent:
         transport.on_transport_connected.assert_called_once_with("connected")
         mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
 
-    def test_send_event_queues_if_waiting_for_send_complete(self, transport):
+    def test_send_event_sends_overlapped_events(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
 
         # connect
@@ -156,19 +156,19 @@ class TestSendEvent:
         mock_mqtt_provider.on_mqtt_connected()
 
         # send an event
-        transport.send_event(fake_event)
+        callback_1 = MagicMock()
+        transport.send_event(fake_event, callback_1)
         mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
 
         # while we're waiting for that send to complete, send another event
-        mock_mqtt_provider.publish.reset_mock()
-        transport.send_event(fake_event_2)
-        mock_mqtt_provider.publish.assert_not_called()
+        callback_2 = MagicMock()
+        transport.send_event(fake_event_2, callback_2)
 
-        # finish sending the first event
-        mock_mqtt_provider.on_mqtt_published()
-
-        # and verify that we're sending the second event
-        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event_2)
+        # verify that we've called publish twice and verify that neither send_event
+        # has completed (because we didn't do anything here to complete it).
+        assert mock_mqtt_provider.publish.call_count == 2
+        callback_1.assert_not_called()
+        callback_2.assert_not_called()
 
     def test_puback_calls_client_callback(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
@@ -181,7 +181,7 @@ class TestSendEvent:
         transport.send_event(fake_event)
 
         # fake the puback:
-        transport._trig_provider_publish_complete()
+        mock_mqtt_provider.on_mqtt_published(0)
 
         # assert
         transport.on_event_sent.assert_called_once_with()
@@ -195,7 +195,7 @@ class TestSendEvent:
 
         # send an event
         transport.send_event(fake_event)
-        transport._trig_provider_publish_complete()
+        mock_mqtt_provider.on_mqtt_published(0)
 
         # disconnect
         transport.disconnect()
@@ -215,15 +215,17 @@ class TestDisconnect:
     def test_disconnect_ignored_if_already_disconnected(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
 
-        transport.disconnect()
+        transport.disconnect(None)
 
         mock_mqtt_provider.disconnect.assert_not_called()
 
     def test_disconnect_calls_client_disconnect_callback(self, transport):
+        mock_mqtt_provider = transport._mqtt_provider
+
         transport.connect()
-        transport._trig_provider_connect_complete()
+        mock_mqtt_provider.on_mqtt_connected()
 
         transport.disconnect()
-        transport._trig_provider_disconnect_complete()
+        mock_mqtt_provider.on_mqtt_disconnected()
 
         transport.on_transport_disconnected.assert_called_once_with("disconnected")

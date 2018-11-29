@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 import os
+import time
 from azure.iot.hub.devicesdk.device_client import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
@@ -20,14 +21,11 @@ device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 # The DeviceClient object will call its `on_connection_state` property every time the state of the client connection changes.
 def connection_state_callback(status):
     print("connection status: " + status)
-    if status == "connected":
-        device_client.disconnect()
 
 
 device_client.on_connection_state = connection_state_callback
 device_client.connect()
-
-input("Press Enter at any time to quit...\n\n")
+device_client.disconnect()
 
 # This will print the following on the command line:
 # connection status: connected
