@@ -1,115 +1,123 @@
 
-Azure IoT Device SDK Installation
-====================================
+Azure IoT Hub Device SDK
+========================
 
-# Install
+## Install
 
-The wheel file distribution should be named like `azure_iot_hub_devicesdk-0.0.1-py2.py3-none-any.whl`
-To install the file with extension `.whl` file please run the following command in a terminal `pip install <filename>`
+We currently do not provide a binary distribution of our package, which means you'll have to clone the repository.
+Once you've cloned the repository, please run the `dev_setup.py` script to setup the environment and to be able to run
+the samples.
 
-For the purpose of writing the samples for device and module it should be known that the top level package is `azure`
+## Quick start
 
-More details for discovering the top level package can be found [below](#finding-the-top-level-package)
+The Device SDK provides client that let devices connect to an Azure IoT Hub instance. These clients needs to authenticate with IoT Hub,
+and the easiest way to do that is using a device connection string which can be obtained from your Azure IoT Hub page in the [Azure Portal](https://portal.azure.com)
 
-# Samples
+The Azure IoT Hub detailed docs that explain how to set up an Azure IoT hub and how to get keys can be found here:
 
-## Device Sample
+[Azure IoT Hub Documentation](https://docs.microsoft.com/en-us/azure/iot-hub/)
 
+## Samples
 
-In this sample we can create a device client. This device client will enable sending telemetry to the IoT Hub. 
+Sample code showing how to use the client can be find in the `samples` folder as well in this readme.
+Our samples rely on having a connection string for the device set in an environment variable called `IOTHUB_DEVICE_CONNECTION_STRING`.
 
-* Create an authentication provider. Authentication provider can be created currently in 2 ways.
-
-  * supplying the device specific connection string
-    *  if an IoT device has been created, the connection string can be retrieved from the Azure Portal by going to the device properties.
-  * supplying the shared access signature
-
-* Create a device client using the authentication provider and a transport protocol. Currently the SDK only supports `mqtt`.
-* Connect the device client.
-* Send event from the device client. Send event can be invoked after
-
-  * Verifying that the device client has been connected with a handler for `on_connection_state`. This is the preferred method.
-  * Or sleeping for a little while to let the device client be connected.
-
-### Code snippet
-
-##### Connection state handler
+### Handling connectivity changes
 ```python
+import os
+from azure.iot.hub.devicesdk.device_client import DeviceClient
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+
+# The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
+conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+
+# The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
+auth_provider = from_connection_string(conn_str)
+
+# For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
+# It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
+device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
+
+# The DeviceClient object will call its `on_connection_state` property every time the state of the client connection changes.
+def connection_state_callback(status):
+    print("connection status: " + status)
+    if (status == 'connected'):
+      device_client.disconnect()
 
 
-    from azure.iot.hub.devicesdk.device_client import DeviceClient
-    from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+device_client.on_connection_state = connection_state_callback
+device_client.connect()
 
-    conn_str = "<IOTHUB_DEVICE_CONNECTION_STRING>"
-    auth_provider = from_connection_string(conn_str)
-    simple_device = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
+input("Press Enter at any time to quit...\n\n")
 
-
-    def connection_state_callback(status):
-        print("connection status: " + status)
-            if status == "connected":
-                simple_device.send_event("caput draconis")
-
-    simple_device.on_connection_state = connection_state_callback
-    simple_device.connect()
+# This will print the following on the command line:
+# connection status: connected
+# connection status: disconnected
 ```
 
-##### Sleep after connection
+### Sending telemetry messages on a regular interval
 ```python
+import os
+from threading import Timer
+from azure.iot.hub.devicesdk.device_client import DeviceClient
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+
+# The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
+conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+# The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
+auth_provider = from_connection_string(conn_str)
+# For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
+# It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
+device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
 
-    from azure.iot.hub.devicesdk.device_client import DeviceClient
-    from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
-    import time
+# This function will be called by a timer on a regular basis, once connected
+def send_payload():
+  print("sending!")
+  device_client.send_event("test_payload")
+  start_sender()
 
-    conn_str = "<IOTHUB_DEVICE_CONNECTION_STRING>"
-    auth_provider = from_connection_string(conn_str)
-    simple_device = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
-    simple_device.connect()
-    
-    time.sleep(30)
+def start_sender():
+  # This defines a timer that fires after 5 seconds
+  global event_sender
+  event_sender = Timer(5.0, send_payload)
+  event_sender.start()
+
+def cancel_sender():
+  event_sender.cancel()
+
+# The connection state callback allows us to detect when the client is connected and disconnected:
+def connection_state_callback(status):
+    print("connection status: " + status)
+    if (status == "connected"):
+      start_sender()
+    elif (status == "disconnected"):
+      cancel_sender()
+
+# Register the connection state callback with the client...
+device_client.on_connection_state = connection_state_callback
+# ... and connect the client. The timer will start when the client reaches the connected state.
+device_client.connect()
+
+input("Press Enter to exit at any time...\n\n")
+cancel_sender()
 ```
 
-## Module Sample
+### Getting help and finding API docs
 
-This is very similar to the device client. All the steps above remains same except that now we create a module client.
+Our SDK makes use of docstrings which means you can find our help directly from the Python Command Line Interface:
 
-### Code snippet
-
-
-Below code shows a different way of creating an authentication provider from a shared access signature and then using a module client. 
-
-```python
-
-
-    from azure.iot.hub.devicesdk.module_client import ModuleClient
-    from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_shared_access_signature
-
-    sas_token_string = "<IOTHUB_DEVICE_SAS_STRING>"
-
-    auth_provider = from_shared_access_signature(sas_token_string)
-    simple_module = ModuleClient.from_authentication_provider(auth_provider, "mqtt")
-
-    def connection_state_callback(status):
-        print("connection status: " + status)
-            if status == "connected":
-                simple_module.send_event("payload from module")
-
-    simple_module.on_connection_state = connection_state_callback
-    simple_module.connect()
+From your terminal/shell:
+```
+$ python
 ```
 
+Within the Python CLI:
+```
+>>> help()
+```
 
-### Finding the top level package
-
-These steps can offer guidance after the wheel has been installed
-
-Running the command `pip list` on a terminal would list out all the packages installed. A package would be found in the list of installed packages which should be named like
-`azure_iot_hub_devicesdk` with a certain version like `0.0.1`.
-
-The python interpreter can be invoked by running the command `python` on the terminal.
-In the python interpreter, please run command `help()` to know more regarding available options.
-Once inside the help session, running the command `modules` would list all the available modules.
-
-It should list a module named `azure`.Type `azure` in the prompt to get help on this package and discover the packages underneath `azure`. 
-For example the `azure` package has an `iot` package underneath it, to discover the packages underneath `iot` type the command `azure.iot` on the terminal.
+Then within the help CLI itself, type the name of the module or class for which you'd like to see the docs, eg:
+```
+help> azure.iot.hub.devicesdk.device_client
+```
