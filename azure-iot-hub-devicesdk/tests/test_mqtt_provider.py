@@ -7,11 +7,7 @@ from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
 import paho.mqtt.client as mqtt
 import ssl
 import pytest
-from six import add_move, MovedModule
-from mock import MagicMock
-from mock import patch
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
+from mock import MagicMock, patch
 
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyFirebolt"

@@ -9,11 +9,7 @@ from azure.iot.hub.devicesdk.module_client import ModuleClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 import pytest
-
-from six import add_move, MovedModule
 from mock import MagicMock
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
 
 
 connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"

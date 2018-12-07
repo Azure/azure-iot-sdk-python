@@ -6,11 +6,7 @@ import os
 from azure.iot.hub.devicesdk.auth.iotedge_authentication_provider import (
     IotEdgeAuthenticationProvider,
 )
-
-from six import add_move, MovedModule
 from mock import patch
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
 
 fake_ca_cert = "__FAKE_CA_CERTIFICATE__"
 fake_module_id = "__FAKE_MODULE_ID__"

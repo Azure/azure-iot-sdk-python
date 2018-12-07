@@ -9,12 +9,7 @@ import requests
 import os
 import json
 import base64
-
-from six import add_move, MovedModule
-from six.moves import mock
-from mock import patch
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
+from mock import Mock, patch
 
 fake_module_id = "__FAKE_MODULE__ID__"
 fake_api_version = "__FAKE_API_VERSION__"
@@ -49,7 +44,7 @@ def test_initializer_throws_with_missing_environment_variables():
 @patch.object(requests, "get")
 @patch.dict(os.environ, required_environment_variables)
 def test_get_trust_bundle_returns_certificate(mock_get):
-    mock_response = mock.Mock(spec=requests.Response)
+    mock_response = Mock(spec=requests.Response)
     mock_response.json.return_value = {"certificate": fake_certificate}
     mock_get.return_value = mock_response
 
@@ -66,7 +61,7 @@ def test_get_trust_bundle_returns_certificate(mock_get):
 @patch.object(requests, "post")
 @patch.dict(os.environ, required_environment_variables)
 def test_sign_sends_post_with_proper_url_and_data(mock_post):
-    mock_response = mock.Mock(spec=requests.Response)
+    mock_response = Mock(spec=requests.Response)
     mock_response.json.return_value = {"digest": fake_digest}
     mock_post.return_value = mock_response
 

@@ -7,11 +7,7 @@ import pytest
 import logging
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
-from six import add_move, MovedModule
-from six.moves import mock
-from mock import MagicMock
-
-add_move(MovedModule("mock", "mock", "unittest.mock"))
+from mock import MagicMock, patch
 
 logging.basicConfig(level=logging.INFO)
 
@@ -35,7 +31,7 @@ def authentication_provider():
 
 @pytest.fixture(scope="function")
 def transport(authentication_provider):
-    with mock.patch("azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"):
+    with patch("azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"):
         transport = MQTTTransport(authentication_provider)
     transport.on_transport_connected = MagicMock()
     transport.on_transport_disconnected = MagicMock()
