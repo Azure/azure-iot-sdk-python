@@ -3,6 +3,25 @@ resources:
 #Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
 jobs:
 
+- job: 'Static_Analysis'
+  pool:
+    vmImage: 'Ubuntu 16.04'
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+      architecture: 'x64'
+
+  - script: 'python -m pip install --upgrade pip'
+    displayName: 'Update pip'
+
+  - script: 'python dev_setup.py'
+    displayName: 'Prepare environment (install packages + dependencies + tools)'
+
+  - script: 'flake8 .'
+    displayName: 'Flake8'
+
 - job: 'Test'
   pool:
     vmImage: 'Ubuntu 16.04'
@@ -32,14 +51,8 @@ jobs:
   - script: 'python dev_setup.py'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
-  - script: 'flake8 .'
-    displayName: 'Flake8'
-
   - script: 'python test_packages.py'
     displayName: pytest
-
-  - script: |
-      npm install
 
   - task: PublishTestResults@2
     displayName: 'Publish Test Results **/*-test-results.xml'
@@ -56,7 +69,10 @@ jobs:
       failIfCoverageEmpty: true
 
 - job: 'Publish'
-  dependsOn: 'Test'
+  dependsOn:
+  - 'Test'
+  - 'Static_Analysis'
+
   pool:
     vmImage: 'Ubuntu 16.04'
 
