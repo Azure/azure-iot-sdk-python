@@ -17,18 +17,16 @@ class MQTTProvider(object):
     to publish/subscribe messages.
     """
 
-    def __init__(self, client_id, hostname, username, password, ca_cert=None):
+    def __init__(self, client_id, hostname, username, ca_cert=None):
         """
         Constructor to instantiate a mqtt provider.
         :param client_id: The id of the client connecting to the broker.
         :param hostname: hostname or IP address of the remote broker.
-        :param password:  The password to authenticate with.
         :param ca_cert: Certificate which can be used to validate a server-side TLS connection.
         """
         self._client_id = client_id
         self._hostname = hostname
         self._username = username
-        self._password = password
         self._mqtt_client = None
         self._ca_cert = ca_cert
 
@@ -89,7 +87,7 @@ class MQTTProvider(object):
 
         logger.info("Created MQTT provider, assigned callbacks")
 
-    def connect(self):
+    def connect(self, password):
         """
         This method connects the upper transport layer to the mqtt broker.
         This method should be called as an entry point before sending any telemetry.
@@ -105,10 +103,19 @@ class MQTTProvider(object):
         ssl_context.check_hostname = True
         self._mqtt_client.tls_set_context(ssl_context)
         self._mqtt_client.tls_insecure_set(False)
-        self._mqtt_client.username_pw_set(username=self._username, password=self._password)
+        self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         self._mqtt_client.connect(host=self._hostname, port=8883)
         self._mqtt_client.loop_start()
+
+    def reconnect(self, password):
+        """
+        This method reconnects the mqtt broker, possibly because of a password (sas) change
+        Connect should have previously been called.
+        """
+        logger.info("reconnecting transport")
+        self._mqtt_client.username_pw_set(username=self._username, password=password)
+        self._mqtt_client.reconnect()
 
     def disconnect(self):
         """

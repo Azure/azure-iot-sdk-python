@@ -36,7 +36,8 @@ def transport(authentication_provider):
     transport.on_transport_connected = MagicMock()
     transport.on_transport_disconnected = MagicMock()
     transport.on_event_sent = MagicMock()
-    return transport
+    yield transport
+    transport.disconnect()
 
 
 def test_instantiation_creates_proper_transport(authentication_provider):
@@ -49,7 +50,10 @@ class TestConnect:
     def test_connect_calls_connect_on_provider(self, transport):
         mock_mqtt_provider = transport._mqtt_provider
         transport.connect()
-        mock_mqtt_provider.connect.assert_called_once_with()
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport._auth_provider.get_current_sas_token()
+        )
+        mock_mqtt_provider.on_mqtt_connected()
 
     def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
         self, transport
@@ -68,7 +72,9 @@ class TestConnect:
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
 
-        mock_mqtt_provider.connect.assert_called_once_with()
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport._auth_provider.get_current_sas_token()
+        )
         transport.on_transport_connected.assert_called_once_with("connected")
 
     def test_connect_ignored_if_waiting_for_send_complete(self, transport):
@@ -100,7 +106,9 @@ class TestSendEvent:
         mock_mqtt_provider.on_mqtt_connected()
         transport.send_event(fake_event)
 
-        mock_mqtt_provider.connect.assert_called_once_with()
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport._auth_provider.get_current_sas_token()
+        )
         mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
 
     def test_send_event_queues_and_connects_before_sending(self, transport):
@@ -110,7 +118,9 @@ class TestSendEvent:
         transport.send_event(fake_event)
 
         # verify that we called connect
-        mock_mqtt_provider.connect.assert_called_once_with()
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport._auth_provider.get_current_sas_token()
+        )
 
         # verify that we're not connected yet and verify that we havent't published yet
         transport.on_transport_connected.assert_not_called()
@@ -128,7 +138,9 @@ class TestSendEvent:
 
         # start connecting and verify that we've called into the provider
         transport.connect()
-        mock_mqtt_provider.connect.assert_called_once_with()
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport._auth_provider.get_current_sas_token()
+        )
 
         # send an event
         transport.send_event(fake_event)

@@ -7,6 +7,8 @@ from azure.iot.hub.devicesdk.auth.sk_authentication_provider import (
     SymmetricKeyAuthenticationProvider,
 )
 
+from mock import MagicMock
+
 connection_string_device_sk_format = "HostName={};DeviceId={};SharedAccessKey={}"
 connection_string_device_skn_format = (
     "HostName={};DeviceId={};SharedAccessKeyName={};SharedAccessKey={}"
@@ -25,10 +27,13 @@ def test_all_attributes_for_device():
         hostname, device_id, shared_access_key
     )
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
-    assert sym_key_auth_provider.hostname == hostname
-    assert sym_key_auth_provider.device_id == device_id
-    assert hostname in sym_key_auth_provider.get_current_sas_token()
-    assert device_id in sym_key_auth_provider.get_current_sas_token()
+    try:
+        assert sym_key_auth_provider.hostname == hostname
+        assert sym_key_auth_provider.device_id == device_id
+        assert hostname in sym_key_auth_provider.get_current_sas_token()
+        assert device_id in sym_key_auth_provider.get_current_sas_token()
+    finally:
+        sym_key_auth_provider.disconnect()
 
 
 def test_all_attributes_for_module():
@@ -36,12 +41,15 @@ def test_all_attributes_for_module():
         hostname, device_id, module_id, shared_access_key
     )
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
-    assert sym_key_auth_provider.hostname == hostname
-    assert sym_key_auth_provider.device_id == device_id
-    assert sym_key_auth_provider.module_id == module_id
-    assert hostname in sym_key_auth_provider.get_current_sas_token()
-    assert device_id in sym_key_auth_provider.get_current_sas_token()
-    assert module_id in sym_key_auth_provider.get_current_sas_token()
+    try:
+        assert sym_key_auth_provider.hostname == hostname
+        assert sym_key_auth_provider.device_id == device_id
+        assert sym_key_auth_provider.module_id == module_id
+        assert hostname in sym_key_auth_provider.get_current_sas_token()
+        assert device_id in sym_key_auth_provider.get_current_sas_token()
+        assert module_id in sym_key_auth_provider.get_current_sas_token()
+    finally:
+        sym_key_auth_provider.disconnect()
 
 
 def test_sastoken_keyname_device():
@@ -51,9 +59,12 @@ def test_sastoken_keyname_device():
 
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
 
-    assert hostname in sym_key_auth_provider.get_current_sas_token()
-    assert device_id in sym_key_auth_provider.get_current_sas_token()
-    assert shared_access_key_name in sym_key_auth_provider.get_current_sas_token()
+    try:
+        assert hostname in sym_key_auth_provider.get_current_sas_token()
+        assert device_id in sym_key_auth_provider.get_current_sas_token()
+        assert shared_access_key_name in sym_key_auth_provider.get_current_sas_token()
+    finally:
+        sym_key_auth_provider.disconnect()
 
 
 def test_raises_when_auth_provider_created_from_incomplete_connection_string():

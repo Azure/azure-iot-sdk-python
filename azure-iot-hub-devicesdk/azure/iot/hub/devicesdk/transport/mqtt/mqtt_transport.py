@@ -5,7 +5,6 @@
 
 import logging
 import six.moves.queue as queue
-from pprint import pprint
 from .mqtt_provider import MQTTProvider
 from transitions.extensions import LockedMachine as Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
@@ -54,7 +53,11 @@ class MQTTTransport(AbstractTransport):
                 "dest": "connected",
                 "after": "_publish_events_in_queue",
             },
-            {"trigger": "_trig_disconnect", "source": "disconnected", "dest": None},
+            {
+                "trigger": "_trig_disconnect",
+                "source": ["disconnected", "disconnecting"],
+                "dest": None,
+            },
             {
                 "trigger": "_trig_disconnect",
                 "source": "connected",
@@ -85,6 +88,17 @@ class MQTTTransport(AbstractTransport):
                 "before": "_add_event_to_queue",
                 "dest": "connecting",
                 "after": "_call_provider_connect",
+            },
+            {
+                "trigger": "_trig_on_shared_access_string_updated",
+                "source": "connected",
+                "dest": "connecting",
+                "after": "_call_provider_reconnect",
+            },
+            {
+                "trigger": "_trig_on_shared_access_string_updated",
+                "source": ["disconnected", "disconnecting"],
+                "dest": None,
             },
         ]
 
@@ -127,7 +141,11 @@ class MQTTTransport(AbstractTransport):
         This is meant to be called by the state machine as part of a state transition
         """
         logger.info("Calling provider connect")
-        self._mqtt_provider.connect()
+        password = self._auth_provider.get_current_sas_token()
+        self._mqtt_provider.connect(password)
+
+        if hasattr(self._auth_provider, "token_update_callback"):
+            self._auth_provider.token_update_callback = self._on_shared_access_string_updated
 
     def _call_provider_disconnect(self, event_data):
         """
@@ -136,6 +154,14 @@ class MQTTTransport(AbstractTransport):
         """
         logger.info("Calling provider disconnect")
         self._mqtt_provider.disconnect()
+        self._auth_provider.disconnect()
+
+    def _call_provider_reconnect(self, event):
+        """
+        reconnect the transport
+        """
+        password = self._auth_provider.get_current_sas_token()
+        self._mqtt_provider.reconnect(password)
 
     def _on_provider_connect_complete(self):
         """
@@ -224,13 +250,7 @@ class MQTTTransport(AbstractTransport):
         else:
             ca_cert = None
 
-        self._mqtt_provider = MQTTProvider(
-            client_id,
-            hostname,
-            username,
-            self._auth_provider.get_current_sas_token(),
-            ca_cert=ca_cert,
-        )
+        self._mqtt_provider = MQTTProvider(client_id, hostname, username, ca_cert=ca_cert)
 
         self._mqtt_provider.on_mqtt_connected = self._on_provider_connect_complete
         self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
@@ -255,3 +275,6 @@ class MQTTTransport(AbstractTransport):
 
     def send_event(self, message, callback=None):
         self._trig_send_event(message, callback)
+
+    def _on_shared_access_string_updated(self):
+        self._trig_on_shared_access_string_updated()

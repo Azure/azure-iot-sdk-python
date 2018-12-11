@@ -46,12 +46,17 @@ def test_initializer_gets_ca_certificate_from_hsm(MockHsm):
 def test_get_shared_access_key_uses_hsm_to_sign(MockHsm):
     MockHsm.return_value.sign.return_value = fake_digest
     auth_provider = IotEdgeAuthenticationProvider()
-    sas_token = auth_provider.get_current_sas_token()
-    assert MockHsm.return_value.sign.call_args[0][0].startswith(
-        "{}%2Fdevices%2F{}%2Fmodules%2F{}\n".format(fake_hostname, fake_device_id, fake_module_id)
-    )
-    assert sas_token.startswith(
-        "SharedAccessSignature sr={}%2Fdevices%2F{}%2Fmodules%2F{}&sig={}&se=".format(
-            fake_hostname, fake_device_id, fake_module_id, fake_digest
+    try:
+        sas_token = auth_provider.get_current_sas_token()
+        assert MockHsm.return_value.sign.call_args[0][0].startswith(
+            "{}%2Fdevices%2F{}%2Fmodules%2F{}\n".format(
+                fake_hostname, fake_device_id, fake_module_id
+            )
         )
-    )
+        assert sas_token.startswith(
+            "SharedAccessSignature sr={}%2Fdevices%2F{}%2Fmodules%2F{}&sig={}&se=".format(
+                fake_hostname, fake_device_id, fake_module_id, fake_digest
+            )
+        )
+    finally:
+        auth_provider.disconnect()

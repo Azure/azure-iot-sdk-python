@@ -13,13 +13,14 @@ fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyFirebolt"
 fake_password = "Fortuna Major"
 fake_username = fake_hostname + "/" + fake_device_id
+new_fake_password = "new fake password"
 
 
 @patch.object(ssl, "SSLContext")
 @patch.object(mqtt, "Client")
 def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
-    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
-    mqtt_provider.connect()
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
+    mqtt_provider.connect(fake_password)
 
     MockMqttClient.assert_called_once_with(fake_device_id, False, protocol=4)
     mock_mqtt_client = MockMqttClient.return_value
@@ -32,6 +33,9 @@ def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
     assert context.verify_mode == ssl.CERT_REQUIRED
     context.load_default_certs.assert_called_once_with()
     mock_mqtt_client.tls_insecure_set.assert_called_once_with(False)
+    mock_mqtt_client.username_pw_set.assert_called_once_with(
+        username=fake_username, password=fake_password
+    )
     mock_mqtt_client.connect.assert_called_once_with(host=fake_hostname, port=8883)
     mock_mqtt_client.loop_start.assert_called_once_with()
 
@@ -60,7 +64,7 @@ def test_mqtt_client_callback_triggers_provider_callback(
 ):
     mock_mqtt_client = MockMqttClient.return_value
 
-    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
     stub_provider_callback = MagicMock()
     setattr(mqtt_provider, provider_callback_name, stub_provider_callback)
 
@@ -73,7 +77,7 @@ def test_mqtt_client_callback_triggers_provider_callback(
 def test_disconnect_calls_loopstop_on_mqttclient(MockMqttClient):
     mock_mqtt_client = MockMqttClient.return_value
 
-    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
     mqtt_provider.disconnect()
 
     mock_mqtt_client.loop_stop.assert_called_once_with()
@@ -87,7 +91,20 @@ def test_publish_calls_publish_on_mqtt_client(MockMqttClient):
     topic = "topic/"
     event = "Tarantallegra"
 
-    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username, fake_password)
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
     mqtt_provider.publish(topic, event)
 
     mock_mqtt_client.publish.assert_called_once_with(topic=topic, payload=event, qos=1)
+
+
+@patch.object(mqtt, "Client")
+def test_reconnect_calls_username_pw_set_and_reconnect_on_mqtt_client(MockMqttClient):
+    mock_mqtt_client = MockMqttClient.return_value
+
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
+    mqtt_provider.reconnect(new_fake_password)
+
+    mock_mqtt_client.username_pw_set.assert_called_once_with(
+        username=fake_username, password=new_fake_password
+    )
+    mock_mqtt_client.reconnect.assert_called_once_with()
