@@ -26,6 +26,8 @@ class InternalClient(object):
         """
         self._auth_provider = auth_provider
         self._transport = transport
+        self._transport.on_transport_connected = self._handle_transport_connected_state
+        self._transport.on_transport_disconnected = self._handle_transport_connected_state
 
         self.state = "initial"
 
@@ -42,8 +44,6 @@ class InternalClient(object):
         to the service has been completely established.
         """
         logger.info("connecting to transport")
-        self._transport.on_transport_connected = self._handle_transport_connected_state
-        self._transport.on_transport_disconnected = self._handle_transport_connected_state
 
         connect_complete = Event()
 
@@ -136,3 +136,22 @@ class InternalClient(object):
                 "No specific transport can be instantiated based on the choice."
             )
         return cls(authentication_provider, transport)
+
+
+# This is where we add our _async functions to InternalClient.  We do this at runtime
+# by adding them to the InternalClient prototype, using what the python community calls
+# "monkeypatching".  If we're running on python 2.7, the import will throw a SyntaxError
+# and we'll just carry on without the _async functions.
+#
+# Don't worry, adding them to InternalClient at runtime will also add them to DeviceClient
+# and ModuleClient.  Python has a module cache like node, so the first time anyone imports
+# internal_client.py (to use it for a base class, for instance), it will monkeypatch it here
+# and use the patched class definition for anyone else who imports internal_client.py
+try:
+    from .async_internal_client import monkeypatch
+
+    monkeypatch()
+except SyntaxError:
+    logger.info("python interpreter does not support async.  Not adding async methods.")
+else:
+    logger.info("Addded _async methods to client object")
