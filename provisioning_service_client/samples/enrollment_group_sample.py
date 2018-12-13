@@ -17,7 +17,7 @@ def main():
 
     #build EnrollmentGroup model
     att = AttestationMechanism.create_with_x509_signing_certs(signing_cert)
-    eg = EnrollmentGroup.create(group_id, att)
+    eg = EnrollmentGroup(enrollment_group_id=group_id, attestation=att)
 
     #create EnrollmentGroup on the Provisioning Service
     eg = psc.create_or_update(eg)
@@ -28,7 +28,7 @@ def main():
     six.print_(eg)
 
     #make a Provisioning Service query
-    qs = QuerySpecification("*")
+    qs = QuerySpecification(query="*")
     page_size = 2 #two results per page -> don't pass this parameter if you just want all of them at once
     query = psc.create_enrollment_group_query(qs, page_size)
 
