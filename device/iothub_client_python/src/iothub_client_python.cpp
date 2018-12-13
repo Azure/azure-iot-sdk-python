@@ -25,7 +25,7 @@
 #include "iothub_device_client.h"
 #include "iothub_module_client.h"
 #include "iothub_client_version.h"
-#include "iothub_client_edge.h"
+#include "internal/iothub_client_edge.h"
 #ifndef MACOSX
 #include "azure_prov_client/iothub_security_factory.h"
 #endif
@@ -35,7 +35,7 @@
 #include "iothubtransporthttp.h"
 #endif
 #if USE_AMQP
-#include "iothubtransport.h"
+#include "internal/iothubtransport.h"
 #include "iothubtransportamqp.h"
 #ifdef USE_WEBSOCKETS
 #include "iothubtransportamqp_websockets.h"
@@ -52,7 +52,7 @@
 #define IMPORT_NAME iothub_client
 #endif
 
-#define VERSION_STRING "1.4.4"
+#define VERSION_STRING "1.4.5"
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3

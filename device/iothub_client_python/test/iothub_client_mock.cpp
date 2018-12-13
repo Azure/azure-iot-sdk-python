@@ -27,10 +27,10 @@
 #include "iothub_client.h"
 #include "iothub_device_client.h"
 #include "iothub_module_client.h"
-#include "iothub_client_edge.h"
+#include "internal/iothub_client_edge.h"
 #include "iothub_client_version.h"
 #include "iothub_message.h"
-#include "iothubtransport.h"
+#include "internal/iothubtransport.h"
 #include "iothubtransporthttp.h"
 #include "iothubtransportamqp.h"
 #include "iothubtransportmqtt.h"
@@ -630,7 +630,7 @@ IOTHUB_CLIENT_RESULT IoTHubModuleClient_SendEventToOutputAsync(IOTHUB_CLIENT_HAN
     (void)eventConfirmationCallback;
     (void)userContextCallback;
     return IOTHUB_CLIENT_OK;
-} 
+}
 
 IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetInputMessageCallback(IOTHUB_CLIENT_HANDLE iotHubClientHandle, const char* inputName, IOTHUB_CLIENT_MESSAGE_CALLBACK_ASYNC eventHandlerCallback, void* userContextCallback)
 {
@@ -638,7 +638,7 @@ IOTHUB_CLIENT_RESULT IoTHubModuleClient_SetInputMessageCallback(IOTHUB_CLIENT_HA
     (void)inputName;
     (void)eventHandlerCallback;
     (void)userContextCallback;
-    return IOTHUB_CLIENT_OK;    
+    return IOTHUB_CLIENT_OK;
 }
 
 IOTHUB_CLIENT_RESULT IoTHubModuleClient_DeviceMethodInvokeAsync(IOTHUB_MODULE_CLIENT_HANDLE iotHubModuleClientHandle, const char* deviceId, const char* methodName, const char* methodPayload, unsigned int timeout, IOTHUB_METHOD_INVOKE_CALLBACK methodInvokeCallback, void* context)
@@ -864,7 +864,7 @@ IOTHUB_MODULE_CLIENT_HANDLE IoTHubModuleClient_CreateFromEnvironment(IOTHUB_CLIE
 }
 
 TRANSPORT_PROVIDER *mockProtocol = (TRANSPORT_PROVIDER *)0x12345678;
-extern "C" 
+extern "C"
 {
     // "iothubtransporthttp.h"
     const TRANSPORT_PROVIDER* HTTP_Protocol(void)
