@@ -14,7 +14,7 @@ except PlatformError as e:
 
 setup(
     name='azure_iothub_provisioningserviceclient',
-    version='1.1.0',
+    version='1.2.0',
     description='IoT Hub Provisioning Service Client Library',
     license='Apache Software License',
     url='https://github.com/Azure/azure-iot-sdk-python/tree/master/provisioning_service_client',
