@@ -70,7 +70,7 @@ class InternalClient(object):
         self._transport.disconnect(callback)
         disconnect_complete.wait()
 
-    def send_event(self, event):
+    def send_event(self, message):
         """
         Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge instance.
         This is a synchronous event, meaning that this function will not return until the event
@@ -79,7 +79,7 @@ class InternalClient(object):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        :param event: The actual message to send.
+        :param message: The actual message to send.
         """
 
         send_complete = Event()
@@ -87,7 +87,7 @@ class InternalClient(object):
         def callback():
             send_complete.set()
 
-        self._transport.send_event(event, callback)
+        self._transport.send_event(message, callback)
         send_complete.wait()
 
     def _emit_connection_status(self):

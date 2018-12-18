@@ -4,10 +4,14 @@
 # --------------------------------------------------------------------------------------------
 
 import logging
+from datetime import date
+import six.moves.urllib as urllib
 import six.moves.queue as queue
 from .mqtt_provider import MQTTProvider
 from transitions.extensions import LockedMachine as Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
+from azure.iot.hub.devicesdk.message import Message
+
 
 """
 The below import is for generating the state machine graph.
@@ -24,6 +28,7 @@ class MQTTTransport(AbstractTransport):
         :param auth_provider: The authentication provider
         """
         AbstractTransport.__init__(self, auth_provider)
+        self.topic = self._get_telemetry_topic()
         self._mqtt_provider = None
         self.on_transport_connected = None
         self.on_transport_disconnected = None
@@ -42,11 +47,7 @@ class MQTTTransport(AbstractTransport):
                 "dest": "connecting",
                 "after": "_call_provider_connect",
             },
-            {
-                "trigger": "_trig_connect",
-                "source": ["connecting", "connected", "sending"],
-                "dest": None,
-            },
+            {"trigger": "_trig_connect", "source": ["connecting", "connected"], "dest": None},
             {
                 "trigger": "_trig_provider_connect_complete",
                 "source": "connecting",
@@ -220,15 +221,21 @@ class MQTTTransport(AbstractTransport):
         available.
         """
         logger.info("checking event queue")
+        encoded_topic = self.topic
         while True:
             try:
-                (event_to_send, callback) = self._event_queue.get_nowait()
+                (message_to_send, callback) = self._event_queue.get_nowait()
             except queue.Empty:
                 logger.info("done checking queue")
                 return
             logger.info("retrieved event from queue. publishing.")
-            topic = self._get_telemetry_topic()
-            mid = self._mqtt_provider.publish(topic, event_to_send)
+
+            if isinstance(message_to_send, Message):
+                encoded_topic = self._encode_properties(message_to_send, self.topic)
+            else:
+                message_to_send = Message(message_to_send)
+
+            mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
             self._event_callback_map[mid] = callback
 
     def _create_mqtt_provider(self):
@@ -263,6 +270,43 @@ class MQTTTransport(AbstractTransport):
             topic += "/modules/" + self._auth_provider.module_id
 
         topic += "/messages/events/"
+        return topic
+
+    def _encode_properties(self, message_to_send, topic):
+        system_properties = dict()
+        if message_to_send.message_id:
+            system_properties["$.mid"] = message_to_send.message_id
+
+        if message_to_send.correlation_id:
+            system_properties["$.cid"] = message_to_send.correlation_id
+
+        if message_to_send.user_id:
+            system_properties["$.uid"] = message_to_send.user_id
+
+        if message_to_send.to:
+            system_properties["$.to"] = message_to_send.to
+
+        if message_to_send.content_type:
+            system_properties["$.ct"] = message_to_send.content_type
+
+        if message_to_send.content_encoding:
+            system_properties["$.ce"] = message_to_send.content_encoding
+
+        if message_to_send.expiry_time_utc:
+            system_properties["$.exp"] = (
+                message_to_send.expiry_time_utc.isoformat()
+                if isinstance(message_to_send.expiry_time_utc, date)
+                else message_to_send.expiry_time_utc
+            )
+
+        system_properties_encoded = urllib.parse.urlencode(system_properties)
+        topic += system_properties_encoded
+
+        if message_to_send.custom_properties and len(message_to_send.custom_properties) > 0:
+            topic += "&"
+            user_properties_encoded = urllib.parse.urlencode(message_to_send.custom_properties)
+            topic += user_properties_encoded
+
         return topic
 
     def connect(self, callback=None):

@@ -6,6 +6,8 @@ import os
 import time
 from azure.iot.hub.devicesdk.device_client import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+from azure.iot.hub.devicesdk.message import Message
+import uuid
 
 # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
@@ -30,8 +32,19 @@ device_client.connect()
 # send 5 messages with a 1 second pause between each message
 for i in range(0, 5):
     print("sending message #" + str(i))
-    device_client.send_event("test_payload message " + str(i))
+    msg = Message("test wind speed " + str(i))
+    msg.message_id = uuid.uuid4()
+    msg.correlation_id = "correlation-1234"
+    msg.custom_properties["tornado-warning"] = "yes"
+    device_client.send_event(msg)
     time.sleep(1)
+
+# send only string messages
+for i in range(5, 10):
+    print("sending message #" + str(i))
+    device_client.send_event("test payload message " + str(i))
+    time.sleep(1)
+
 
 # finally, disconnect
 device_client.disconnect()

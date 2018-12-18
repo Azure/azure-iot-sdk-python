@@ -3,11 +3,12 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 import os
-import time
 import asyncio
 import logging
+import uuid
 from azure.iot.hub.devicesdk.device_client import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+from azure.iot.hub.devicesdk.message import Message
 
 logging.basicConfig(level=logging.INFO)
 
@@ -39,7 +40,11 @@ async def main():
 
     async def send_test_message_async(i):
         print("sending message #" + str(i))
-        await device_client.send_event_async("test_payload message " + str(i))
+        msg = Message("test wind speed " + str(i))
+        msg.message_id = uuid.uuid4()
+        msg.correlation_id = "correlation-1234"
+        msg.custom_properties["tornado-warning"] = "yes"
+        await device_client.send_event_async(msg)
         print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel

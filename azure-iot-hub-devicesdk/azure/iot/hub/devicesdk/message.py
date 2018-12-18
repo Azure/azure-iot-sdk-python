@@ -17,7 +17,7 @@ class Message(object):
         :param content_type: Content type property used to routes with the message body. Can be 'application/json'.
         """
         self.data = data
-        self.custom_properties = {}
+        self.custom_properties = dict()
         self.lock_token = None
         self.message_id = message_id
         self.sequence_number = None

@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------------------------
 
 from azure.iot.hub.devicesdk.message import Message
-import pytest
 
 
 def test_construct_message_with_string():

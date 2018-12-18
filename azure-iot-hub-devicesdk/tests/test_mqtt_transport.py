@@ -5,9 +5,12 @@
 
 import pytest
 import logging
+import six.moves.urllib as urllib
+from azure.iot.hub.devicesdk.message import Message
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from mock import MagicMock, patch
+from datetime import date
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,7 +20,33 @@ fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyPensieve"
 fake_event = "Wingardian Leviosa"
 fake_event_2 = fake_event + " again!"
+
+before_sys_key = "%24."
+after_sys_key = "="
+topic_separator = "&"
+message_id_key = "mid"
+fake_message_id = "spell-1234"
+custom_property_value = "yes"
+custom_property_name = "dementor_alert"
 fake_topic = "devices/" + fake_device_id + "/messages/events/"
+encoded_fake_topic = (
+    fake_topic
+    + before_sys_key
+    + message_id_key
+    + after_sys_key
+    + fake_message_id
+    + topic_separator
+    + custom_property_name
+    + after_sys_key
+    + custom_property_value
+)
+
+
+def create_fake_message():
+    msg = Message(fake_event)
+    msg.message_id = fake_message_id
+    msg.custom_properties[custom_property_name] = custom_property_value
+    return msg
 
 
 @pytest.fixture(scope="function")
@@ -86,7 +115,7 @@ class TestConnect:
         mock_mqtt_provider.reset_mock()
         transport.on_transport_connected.reset_mock()
 
-        transport.send_event(fake_event)
+        transport.send_event(create_fake_message())
         transport.connect()
 
         mock_mqtt_provider.connect.assert_not_called()
@@ -99,23 +128,40 @@ class TestConnect:
 
 
 class TestSendEvent:
-    def test_sendevent_calls_publish_on_provider(self, transport):
+    def test_send_message_with_no_properties(self, transport):
+        fake_msg = Message("Petrificus Totalus")
+
         mock_mqtt_provider = transport._mqtt_provider
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.send_event(fake_event)
+        transport.send_event(fake_msg)
 
         mock_mqtt_provider.connect.assert_called_once_with(
             transport._auth_provider.get_current_sas_token()
         )
-        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
+        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_msg.data)
+
+    def test_sendevent_calls_publish_on_provider(self, transport):
+        fake_msg = create_fake_message()
+
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport.send_event(fake_msg)
+
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport._auth_provider.get_current_sas_token()
+        )
+        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg.data)
 
     def test_send_event_queues_and_connects_before_sending(self, transport):
+        fake_msg = create_fake_message()
         mock_mqtt_provider = transport._mqtt_provider
 
         # send an event
-        transport.send_event(fake_event)
+        transport.send_event(fake_msg)
 
         # verify that we called connect
         mock_mqtt_provider.connect.assert_called_once_with(
@@ -131,9 +177,11 @@ class TestSendEvent:
 
         # verify that our connected callback was called and verify that we published the event
         transport.on_transport_connected.assert_called_once_with("connected")
-        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
+        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg.data)
 
     def test_send_event_queues_if_waiting_for_connect_complete(self, transport):
+        fake_msg = create_fake_message()
+
         mock_mqtt_provider = transport._mqtt_provider
 
         # start connecting and verify that we've called into the provider
@@ -143,7 +191,7 @@ class TestSendEvent:
         )
 
         # send an event
-        transport.send_event(fake_event)
+        transport.send_event(fake_msg)
 
         # verify that we're not connected yet and verify that we havent't published yet
         transport.on_transport_connected.assert_not_called()
@@ -154,9 +202,12 @@ class TestSendEvent:
 
         # verify that our connected callback was called and verify that we published the event
         transport.on_transport_connected.assert_called_once_with("connected")
-        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
+        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg.data)
 
     def test_send_event_sends_overlapped_events(self, transport):
+        fake_msg_1 = create_fake_message()
+        fake_msg_2 = Message(fake_event_2)
+
         mock_mqtt_provider = transport._mqtt_provider
 
         # connect
@@ -165,12 +216,12 @@ class TestSendEvent:
 
         # send an event
         callback_1 = MagicMock()
-        transport.send_event(fake_event, callback_1)
-        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_event)
+        transport.send_event(fake_msg_1, callback_1)
+        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg_1.data)
 
         # while we're waiting for that send to complete, send another event
         callback_2 = MagicMock()
-        transport.send_event(fake_event_2, callback_2)
+        transport.send_event(fake_msg_2, callback_2)
 
         # verify that we've called publish twice and verify that neither send_event
         # has completed (because we didn't do anything here to complete it).
@@ -179,6 +230,8 @@ class TestSendEvent:
         callback_2.assert_not_called()
 
     def test_puback_calls_client_callback(self, transport):
+        fake_msg = create_fake_message()
+
         mock_mqtt_provider = transport._mqtt_provider
 
         # connect
@@ -186,7 +239,7 @@ class TestSendEvent:
         mock_mqtt_provider.on_mqtt_connected()
 
         # send an event
-        transport.send_event(fake_event)
+        transport.send_event(fake_msg)
 
         # fake the puback:
         mock_mqtt_provider.on_mqtt_published(0)
@@ -195,6 +248,8 @@ class TestSendEvent:
         transport.on_event_sent.assert_called_once_with()
 
     def test_connect_send_disconnect(self, transport):
+        fake_msg = create_fake_message()
+
         mock_mqtt_provider = transport._mqtt_provider
 
         # connect
@@ -202,7 +257,7 @@ class TestSendEvent:
         mock_mqtt_provider.on_mqtt_connected()
 
         # send an event
-        transport.send_event(fake_event)
+        transport.send_event(fake_msg)
         mock_mqtt_provider.on_mqtt_published(0)
 
         # disconnect
