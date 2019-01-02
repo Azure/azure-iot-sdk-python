@@ -53,6 +53,7 @@
 #endif
 
 #define VERSION_STRING "1.4.5"
+#define PYTHON_PRODUCT_INFO "python/" VERSION_STRING
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -1513,6 +1514,17 @@ public:
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
+        else
+        {
+            if (client_interface_type == CLIENT_INTERFACE_DEVICE)
+            {
+                IoTHubDeviceClient_SetOption(iotHubClientHandle, "product_info", PYTHON_PRODUCT_INFO);
+            }
+            else
+            {
+                IoTHubModuleClient_SetOption(iotHubClientHandle, "product_info", PYTHON_PRODUCT_INFO);
+            }
+        }
     }
 
     IoTHubClient(
@@ -1541,6 +1553,10 @@ public:
         if (iotHubClientHandle == NULL)
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+        else
+        {
+            IoTHubDeviceClient_SetOption(iotHubClientHandle, "product_info", PYTHON_PRODUCT_INFO);
         }
     }
 
@@ -1622,6 +1638,10 @@ public:
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
+        else
+        {
+            IoTHubDeviceClient_SetOption(iotHubClientHandle, "product_info", PYTHON_PRODUCT_INFO);
+        }
     }
 
 #ifndef MACOSX
@@ -1671,6 +1691,10 @@ public:
             if (iotHubClientHandle == NULL)
             {
                 throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+            }
+            else
+            {
+                IoTHubDeviceClient_SetOption(iotHubClientHandle, "product_info", PYTHON_PRODUCT_INFO);
             }
         }
         else
