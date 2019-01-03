@@ -53,7 +53,7 @@
 #define IMPORT_NAME iothub_client
 #endif
 
-#define VERSION_STRING "1.4.5"
+#define VERSION_STRING "1.4.6"
 #define PYTHON_PRODUCT_INFO "python/" VERSION_STRING
 
 #if PY_MAJOR_VERSION >= 3
