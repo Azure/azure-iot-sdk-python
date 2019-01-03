@@ -25,6 +25,7 @@
 #include "iothub_device_client.h"
 #include "iothub_module_client.h"
 #include "iothub_client_version.h"
+#include "iothub_client_options.h"
 #include "internal/iothub_client_edge.h"
 #ifndef MACOSX
 #include "azure_prov_client/iothub_security_factory.h"
@@ -53,6 +54,7 @@
 #endif
 
 #define VERSION_STRING "1.4.5"
+#define PYTHON_PRODUCT_INFO "python/" VERSION_STRING
 
 #if PY_MAJOR_VERSION >= 3
 #define IS_PY3
@@ -1441,6 +1443,18 @@ protected:
 
     CLIENT_HANDLE_TYPE iotHubClientHandle;
 
+    void SetSdkProductInfo()
+    {
+        if (client_interface_type == CLIENT_INTERFACE_DEVICE)
+        {
+            IoTHubDeviceClient_SetOption(iotHubClientHandle, OPTION_PRODUCT_INFO, PYTHON_PRODUCT_INFO);
+        }
+        else
+        {
+            IoTHubModuleClient_SetOption(iotHubClientHandle, OPTION_PRODUCT_INFO, PYTHON_PRODUCT_INFO);
+        }
+    }
+
 public:
 
     IOTHUB_TRANSPORT_PROVIDER protocol;
@@ -1513,6 +1527,10 @@ public:
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
+        else
+        {
+            SetSdkProductInfo();
+        }
     }
 
     IoTHubClient(
@@ -1541,6 +1559,10 @@ public:
         if (iotHubClientHandle == NULL)
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+        }
+        else
+        {
+            SetSdkProductInfo();
         }
     }
 
@@ -1622,6 +1644,10 @@ public:
         {
             throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
         }
+        else
+        {
+            SetSdkProductInfo();
+        }
     }
 
 #ifndef MACOSX
@@ -1671,6 +1697,10 @@ public:
             if (iotHubClientHandle == NULL)
             {
                 throw IoTHubClientError(__func__, IOTHUB_CLIENT_ERROR);
+            }
+            else
+            {
+                SetSdkProductInfo();
             }
         }
         else
