@@ -69,12 +69,18 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
         fields in the string. Also validates the required properties of the connection string.
         :param connection_string: The semicolon-delimited string of 'name=value' pairs.
         The input may look like the following formations:-
-        SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>
-        SharedAccessSignature sr=<resource_uri>&sig=<signature>&skn=<keyname>&se=<expiry>
+        HostName=<hostname>;DeviceId=<device_id>;SharedAccessKey=<shared_access_key>
+        HostName=<hostname>;DeviceId=<device_id>;SharedAccessKeyName=<shared_access_key_name>;SharedAccessKey=<shared_access_key>
+        HostName=<hostname>;DeviceId=<device_id>;ModuleId=<module_id>;SharedAccessKey=<shared_access_key>
         :return: The Symmetric Key Authentication Provider constructed
         """
-        cs_args = connection_string.split(DELIMITER)
-        d = dict(arg.split(VALUE_SEPARATOR, 1) for arg in cs_args)
+        try:
+            cs_args = connection_string.split(DELIMITER)
+            d = dict(arg.split(VALUE_SEPARATOR, 1) for arg in cs_args)
+        except (ValueError, AttributeError):
+            raise ValueError(
+                "Connection string is required and should not be empty or blank and must be supplied as a string"
+            )
         if len(cs_args) != len(d):
             raise ValueError("Invalid Connection String - Unable to parse")
         if not all(key in _valid_keys for key in d.keys()):

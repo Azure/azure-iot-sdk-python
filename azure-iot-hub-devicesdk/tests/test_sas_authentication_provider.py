@@ -72,13 +72,98 @@ def test_sas_auth_provider_is_created_from_device_sas_token_string_quoted():
     assert device_id in sas_auth_provider.sas_token_str
 
 
+def test_raises_when_auth_provider_created_from_empty_shared_access_signature_string():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse("")
+
+
+def test_raises_when_auth_provider_created_from_none_shared_access_signature_string():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse(None)
+
+
+def test_raises_when_auth_provider_created_from_blank_shared_access_signature_string():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse("  ")
+
+
+def test_raises_when_auth_provider_created_from_numeric_shared_access_signature_string():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse(873915)
+
+
+def test_raises_when_auth_provider_created_from_object_shared_access_signature_string():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse(object)
+
+
+def test_raises_when_auth_provider_created_from_shared_access_signature_string_blank_second_part():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse("SharedAccessSignature   ")
+
+
+def test_raises_when_auth_provider_created_from_shared_access_signature_string_numeric_second_part():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse("SharedAccessSignature 67998311999")
+
+
+def test_raises_when_auth_provider_created_from_shared_access_signature_string_numeric_value_second_part():
+    with pytest.raises(
+        ValueError,
+        match="One of the name value pair of the Shared Access Signature string should be a proper resource uri",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse(
+            "SharedAccessSignature sr=67998311999&sig=24234234&se=1539043658&skn=25245245"
+        )
+
+
+def test_raises_when_auth_provider_created_from_shared_access_signature_string_with_incomplete_sr():
+    with pytest.raises(
+        ValueError,
+        match="One of the name value pair of the Shared Access Signature string should be a proper resource uri",
+    ):
+        SharedAccessSignatureAuthenticationProvider.parse(
+            "SharedAccessSignature sr=MyPensieve&sig=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora"
+        )
+
+
 def test_raises_auth_provider_created_from_missing_part_shared_access_signature_string():
+    with pytest.raises(
+        ValueError,
+        match="The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>",
+    ):
+        one_part_sas_str = "sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&sig=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora"
+        SharedAccessSignatureAuthenticationProvider.parse(one_part_sas_str)
+
+
+def test_raises_auth_provider_created_from_more_parts_shared_access_signature_string():
     with pytest.raises(
         ValueError,
         match="The Shared Access Signature must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair.",
     ):
-        one_part_sas_str = "sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&sig=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora"
-        SharedAccessSignatureAuthenticationProvider.parse(one_part_sas_str)
+        more_part_sas_str = "SharedAccessSignature sr=beauxbatons.academy-net%2Fdevices%2FMyPensieve&sig=IsolemnlySwearThatIamuUptoNogood&se=1539043658&skn=alohomora SharedAccessSignature"
+        SharedAccessSignatureAuthenticationProvider.parse(more_part_sas_str)
 
 
 def test_raises_auth_provider_created_from_shared_access_signature_string_duplicate_keys():

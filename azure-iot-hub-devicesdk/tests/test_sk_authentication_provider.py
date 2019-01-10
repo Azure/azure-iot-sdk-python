@@ -67,6 +67,55 @@ def test_sastoken_keyname_device():
         sym_key_auth_provider.disconnect()
 
 
+def test_raises_when_auth_provider_created_from_empty_connection_string():
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
+        SymmetricKeyAuthenticationProvider.parse("")
+
+
+def test_raises_when_auth_provider_created_from_none_connection_string():
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
+        SymmetricKeyAuthenticationProvider.parse(None)
+
+
+def test_raises_when_auth_provider_created_from_blank_connection_string():
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
+        SymmetricKeyAuthenticationProvider.parse("  ")
+
+
+def test_raises_when_auth_provider_created_from_numeric_connection_string():
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
+        SymmetricKeyAuthenticationProvider.parse(654354)
+
+
+def test_raises_when_auth_provider_created_from_connection_string_object():
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
+        SymmetricKeyAuthenticationProvider.parse(object)
+
+
+def test_raises_when_auth_provider_created_connection_string_with_numeric_argument():
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
+        connection_string = "HostName^43443434"
+        SymmetricKeyAuthenticationProvider.parse(connection_string)
+
+
 def test_raises_when_auth_provider_created_from_incomplete_connection_string():
     with pytest.raises(ValueError, match="Invalid Connection String - Incomplete"):
         connection_string = "HostName=beauxbatons.academy-net;SharedAccessKey=Zm9vYmFy"
@@ -82,7 +131,10 @@ def test_raises_when_auth_provider_created_from_connection_string_with_duplicate
 
 
 def test_raises_when_auth_provider_created_from_connection_string_without_proper_delimeter():
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Connection string is required and should not be empty or blank and must be supplied as a string",
+    ):
         connection_string = "HostName+beauxbatons.academy-net!DeviceId+TheDeluminator!"
         SymmetricKeyAuthenticationProvider.parse(connection_string)
 

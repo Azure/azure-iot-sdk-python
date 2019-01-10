@@ -57,14 +57,20 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
         SharedAccessSignature sr=<resource_uri>&sig=<signature>&skn=<keyname>&se=<expiry>
         :return: The Shared Access Signature Authentication Provider constructed
         """
-        parts = sas_token_str.split(PARTS_SEPARATOR)
+        try:
+            parts = sas_token_str.split(PARTS_SEPARATOR)
+            sas_args = parts[1].split(DELIMITER)
+            d = dict(arg.split(VALUE_SEPARATOR, 1) for arg in sas_args)
+        except (IndexError, ValueError, AttributeError):
+            raise ValueError(
+                "The Shared Access Signature is required and should not be empty or blank and must be supplied as a string consisting of two parts in the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' with an optional skn=<keyname>"
+            )
+
         if len(parts) != 2:
             raise ValueError(
                 "The Shared Access Signature must be of the format 'SharedAccessSignature sr=<resource_uri>&sig=<signature>&se=<expiry>' or/and it can additionally contain an optional skn=<keyname> name=value pair."
             )
 
-        sas_args = parts[1].split(DELIMITER)
-        d = dict(arg.split(VALUE_SEPARATOR, 1) for arg in sas_args)
         if len(sas_args) != len(d):
             raise ValueError("Invalid Shared Access Signature - Unable to parse")
         if not all(key in _valid_keys for key in d.keys()):
@@ -74,19 +80,24 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
 
         _validate_required_keys(d)
 
-        unquoted_resource_uri = urllib.parse.unquote_plus(d.get(RESOURCE_URI))
-        url_segments = unquoted_resource_uri.split(URI_SEPARATOR)
+        try:
+            unquoted_resource_uri = urllib.parse.unquote_plus(d.get(RESOURCE_URI))
+            url_segments = unquoted_resource_uri.split(URI_SEPARATOR)
 
-        module_id = None
-        hostname = url_segments[0]
-        device_id = url_segments[2]
+            module_id = None
+            hostname = url_segments[0]
+            device_id = url_segments[2]
 
-        if len(url_segments) > 4:
-            module_id = url_segments[4]
+            if len(url_segments) > 4:
+                module_id = url_segments[4]
 
-        return SharedAccessSignatureAuthenticationProvider(
-            hostname, device_id, module_id, sas_token_str
-        )
+            return SharedAccessSignatureAuthenticationProvider(
+                hostname, device_id, module_id, sas_token_str
+            )
+        except IndexError:
+            raise ValueError(
+                "One of the name value pair of the Shared Access Signature string should be a proper resource uri"
+            )
 
 
 def _validate_required_keys(d):
