@@ -29,3 +29,4 @@ class Message(object):
         self.ack = None
         self.content_encoding = content_encoding
         self.content_type = content_type
+        self.output_name = None

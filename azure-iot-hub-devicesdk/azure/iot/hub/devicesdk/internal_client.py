@@ -6,6 +6,7 @@
 import logging
 from threading import Event
 from .transport.mqtt.mqtt_transport import MQTTTransport
+from .message import Message
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +80,11 @@ class InternalClient(object):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        :param message: The actual message to send.
+        :param message: The actual message to send. Anything passed that is not an instance of the
+        Message class will be converted to Message object.
         """
+        if not isinstance(message, Message):
+            message = Message(message)
 
         send_complete = Event()
 

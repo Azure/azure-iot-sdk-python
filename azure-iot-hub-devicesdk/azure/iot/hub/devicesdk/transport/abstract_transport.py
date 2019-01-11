@@ -30,6 +30,13 @@ class AbstractTransport:
         pass
 
     @abc.abstractmethod
+    def send_output_event(self, event, callback):
+        """
+        Send some event or message to a specific output
+        """
+        pass
+
+    @abc.abstractmethod
     def disconnect(self, callback):
         """
         Disconnect from the specific messaging system used by the specific transport protocol

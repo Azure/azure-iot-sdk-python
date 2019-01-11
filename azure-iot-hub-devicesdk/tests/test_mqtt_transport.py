@@ -15,9 +15,11 @@ from datetime import date
 logging.basicConfig(level=logging.INFO)
 
 connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
+connection_string_format_mod = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
 fake_shared_access_key = "Zm9vYmFy"
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyPensieve"
+fake_module_id = "MemoryCharms"
 fake_event = "Wingardian Leviosa"
 fake_event_2 = fake_event + " again!"
 
@@ -60,6 +62,22 @@ def authentication_provider():
 
 @pytest.fixture(scope="function")
 def transport(authentication_provider):
+    with patch("azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"):
+        transport = MQTTTransport(authentication_provider)
+    transport.on_transport_connected = MagicMock()
+    transport.on_transport_disconnected = MagicMock()
+    transport.on_event_sent = MagicMock()
+    yield transport
+    transport.disconnect()
+
+
+@pytest.fixture(scope="function")
+def transport_module():
+    connection_string_mod = connection_string_format_mod.format(
+        fake_hostname, fake_device_id, fake_module_id, fake_shared_access_key
+    )
+    authentication_provider = from_connection_string(connection_string_mod)
+
     with patch("azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport.MQTTProvider"):
         transport = MQTTTransport(authentication_provider)
     transport.on_transport_connected = MagicMock()
@@ -141,6 +159,38 @@ class TestSendEvent:
             transport._auth_provider.get_current_sas_token()
         )
         mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_msg.data)
+
+    def test_send_message_with_output_name(self, transport_module):
+        fake_msg = Message("Petrificus Totalus")
+        fake_msg.custom_properties[custom_property_name] = custom_property_value
+        fake_msg.output_name = "fake_output_name"
+
+        fake_output_topic = (
+            "devices/"
+            + fake_device_id
+            + "/modules/"
+            + fake_module_id
+            + "/messages/events/"
+            + before_sys_key
+            + "on"
+            + after_sys_key
+            + "fake_output_name"
+            + topic_separator
+            + custom_property_name
+            + after_sys_key
+            + custom_property_value
+        )
+
+        mock_mqtt_provider = transport_module._mqtt_provider
+
+        transport_module.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport_module.send_event(fake_msg)
+
+        mock_mqtt_provider.connect.assert_called_once_with(
+            transport_module._auth_provider.get_current_sas_token()
+        )
+        mock_mqtt_provider.publish.assert_called_once_with(fake_output_topic, fake_msg.data)
 
     def test_sendevent_calls_publish_on_provider(self, transport):
         fake_msg = create_fake_message()

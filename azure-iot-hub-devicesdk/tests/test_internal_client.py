@@ -40,6 +40,9 @@ class FakeTransport(AbstractTransport):
     def send_event(self, event, callback):
         callback()
 
+    def send_output_event(self, event, callback):
+        callback()
+
     def disconnect(self, callback):
         callback()
 
@@ -99,7 +102,7 @@ def test_internal_client_send_event_in_turn_calls_transport_send_event(
     client.send_event(event)
 
     assert mock_transport.send_event.call_count == 1
-    assert mock_transport.send_event.call_args[0][0] == event
+    assert mock_transport.send_event.call_args[0][0].data == event
 
 
 def test_transport_any_error_surfaces_to_internal_client(authentication_provider, mock_transport):
@@ -112,7 +115,7 @@ def test_transport_any_error_surfaces_to_internal_client(authentication_provider
         client.send_event(event)
 
     assert mock_transport.send_event.call_count == 1
-    assert mock_transport.send_event.call_args[0][0] == event
+    assert mock_transport.send_event.call_args[0][0].data == event
 
 
 @pytest.mark.parametrize(
