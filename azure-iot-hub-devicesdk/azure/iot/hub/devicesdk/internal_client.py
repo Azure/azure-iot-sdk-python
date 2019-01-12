@@ -35,6 +35,9 @@ class InternalClient(object):
         self.on_connection_state = None
         self.on_event_sent = None
 
+        self.on_c2d_message = None
+        self.on_input_message = None
+
     def connect(self):
         """
         Connects the client to an Azure IoT Hub or Azure IoT Edge instance.  The destination is chosen
@@ -93,6 +96,34 @@ class InternalClient(object):
 
         self._transport.send_event(message, callback)
         send_complete.wait()
+
+    def enable_feature(self, feature_name, handler_for_feature):
+        """
+        To enable a specific feature on the internal client.Some of the features that can be enabled
+        are "receiving input messages" and "receiving cloud to device messages"
+        :param feature_name: The specific feature which needs to be enabled. Feature names can be:-
+        "input" , "c2d" etc.
+        :param handler_for_feature: The handler which should be invoked once receiving of messages
+        occur. Based on the feature_name this will be set on the attribute "on_input_message" for
+        "inputs" and on the attribute "on_c2d_message" for "c2d"
+        :raises ValueError if feature_name is not amongst "input" or "c2d"
+        """
+        enable_complete = Event()
+
+        def callback():
+            enable_complete.set()
+
+        if feature_name == "input":
+            self.on_input_message = handler_for_feature
+            self._transport.enable_input_messages(callback)
+        elif feature_name == "c2d":
+            self.on_c2d_message = handler_for_feature
+            self._transport.enable_c2d_messages(callback)
+        else:
+            logger.error("Feature name has not been defined.Feature names can be 'input' or 'c2d'")
+            raise ValueError("Feature names can be only among 'input' or 'c2d'")
+
+        enable_complete.wait()
 
     def _emit_connection_status(self):
         """

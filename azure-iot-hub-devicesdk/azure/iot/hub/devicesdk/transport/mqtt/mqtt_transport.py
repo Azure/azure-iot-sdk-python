@@ -21,6 +21,11 @@ The below import is for generating the state machine graph.
 logger = logging.getLogger(__name__)
 
 
+TOPIC_POS_DEVICE = 4
+TOPIC_POS_MODULE = 6
+TOPIC_POS_INPUT_NAME = 5
+
+
 class MQTTTransport(AbstractTransport):
     def __init__(self, auth_provider):
         """
@@ -37,6 +42,7 @@ class MQTTTransport(AbstractTransport):
         self._event_callback_map = {}
         self._connect_callback = None
         self._disconnect_callback = None
+        self._subscribe_callback = None
 
         states = ["disconnected", "connecting", "connected", "disconnecting"]
 
@@ -100,6 +106,19 @@ class MQTTTransport(AbstractTransport):
                 "trigger": "_trig_on_shared_access_string_updated",
                 "source": ["disconnected", "disconnecting"],
                 "dest": None,
+            },
+            {
+                "trigger": "_trig_enable_receive",
+                "source": "connected",
+                "dest": None,
+                "after": "_call_subscribe",
+            },
+            {"trigger": "_trig_enable_receive", "source": "connecting", "dest": None},
+            {
+                "trigger": "_trig_enable_receive",
+                "source": "disconnected",
+                "dest": "connecting",
+                "after": "_call_provider_connect",
             },
         ]
 
@@ -203,6 +222,37 @@ class MQTTTransport(AbstractTransport):
             del self._event_callback_map[mid]
             callback()
 
+    def _on_provider_subscribe_complete(self, mid):
+        """
+        Callback that is called by the provider when a subscribe operation is complete.
+        """
+        logger.error("_on_provider_subscribe_complete")
+        callback = self._subscribe_callback
+        if callback:
+            self._subscribe_callback = None
+            callback()
+
+    def _on_provider_message_received_callback(self, topic, payload):
+        """
+        Callback that is called by the provider when a message is received.
+        """
+        logger.info("Message received on topic %s", topic)
+        message_received = Message(payload)
+        # TODO : Discuss everything in bytes , need to be changed, specially the topic
+        topic_str = str(topic, "utf-8")
+        topic_parts = topic_str.split("/")
+
+        if _is_input_topic(topic_str):
+            input_name = topic_parts[TOPIC_POS_INPUT_NAME]
+            message_received.input_name = input_name
+            _extract_properties(topic_parts[TOPIC_POS_MODULE], message_received)
+            self.on_transport_input_message_received(input_name, message_received)
+        elif _is_c2d_topic(topic_str):
+            _extract_properties(topic_parts[TOPIC_POS_DEVICE], message_received)
+            self.on_transport_c2d_message_received(message_received)
+        else:
+            pass  # is there any other case
+
     def _add_event_to_queue(self, event_data):
         """
         Queue an event for sending later.  All events that get sent end up going into
@@ -229,7 +279,7 @@ class MQTTTransport(AbstractTransport):
                 return
             logger.info("retrieved event from queue. publishing.")
 
-            encoded_topic = self._encode_properties(message_to_send, self.topic)
+            encoded_topic = _encode_properties(message_to_send, self.topic)
 
             mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
             self._event_callback_map[mid] = callback
@@ -258,6 +308,7 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider.on_mqtt_connected = self._on_provider_connect_complete
         self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
+        self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
@@ -268,45 +319,25 @@ class MQTTTransport(AbstractTransport):
         topic += "/messages/events/"
         return topic
 
-    def _encode_properties(self, message_to_send, topic):
-        system_properties = dict()
-        if message_to_send.output_name:
-            system_properties["$.on"] = message_to_send.output_name
+    def _get_c2d_topic(self):
+        """
+        :return: The topic for cloud to device messages.It is of the format
+        "devices/<deviceid>/messages/devicebound/#"
+        """
+        return "devices/" + self._auth_provider.device_id + "/messages/devicebound/#"
 
-        if message_to_send.message_id:
-            system_properties["$.mid"] = message_to_send.message_id
-
-        if message_to_send.correlation_id:
-            system_properties["$.cid"] = message_to_send.correlation_id
-
-        if message_to_send.user_id:
-            system_properties["$.uid"] = message_to_send.user_id
-
-        if message_to_send.to:
-            system_properties["$.to"] = message_to_send.to
-
-        if message_to_send.content_type:
-            system_properties["$.ct"] = message_to_send.content_type
-
-        if message_to_send.content_encoding:
-            system_properties["$.ce"] = message_to_send.content_encoding
-
-        if message_to_send.expiry_time_utc:
-            system_properties["$.exp"] = (
-                message_to_send.expiry_time_utc.isoformat()
-                if isinstance(message_to_send.expiry_time_utc, date)
-                else message_to_send.expiry_time_utc
-            )
-
-        system_properties_encoded = urllib.parse.urlencode(system_properties)
-        topic += system_properties_encoded
-
-        if message_to_send.custom_properties and len(message_to_send.custom_properties) > 0:
-            topic += "&"
-            user_properties_encoded = urllib.parse.urlencode(message_to_send.custom_properties)
-            topic += user_properties_encoded
-
-        return topic
+    def _get_input_topic(self):
+        """
+        :return: The topic for input messages. It is of the format
+        "devices/<deviceId>/modules/<moduleId>/messages/inputs/#"
+        """
+        return (
+            "devices/"
+            + self._auth_provider.device_id
+            + "/modules/"
+            + self._auth_provider.module_id
+            + "/inputs/#"
+        )
 
     def connect(self, callback=None):
         self._connect_callback = callback
@@ -324,3 +355,120 @@ class MQTTTransport(AbstractTransport):
 
     def _on_shared_access_string_updated(self):
         self._trig_on_shared_access_string_updated()
+
+    def enable_input_messages(self, callback=None, qos=1):
+        self._subscribe_callback = callback
+        c2d_topic = self._get_input_topic()
+        self._trig_enable_receive(callback, c2d_topic, qos)
+
+    def enable_c2d_messages(self, callback=None, qos=1):
+        self._subscribe_callback = callback
+        input_topic = self._get_c2d_topic()
+        self._trig_enable_receive(callback, input_topic, qos)
+
+    def _call_subscribe(self, event_data):
+        logger.info("receive message topic is " + event_data.args[1])
+        self._mqtt_provider.subscribe(event_data.args[1], event_data.args[2])
+        self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
+
+
+def _is_c2d_topic(split_topic_str):
+    """
+    Topics for c2d message are of the following format:
+    devices/<deviceId>/messages/devicebound
+    :param split_topic_str: The already split received topic string
+    """
+    if "messages/devicebound" in split_topic_str and len(split_topic_str) > 4:
+        return True
+    return False
+
+
+def _is_input_topic(split_topic_str):
+    """
+    Topics for inputs are of the following format:
+    devices/<deviceId>/modules/<moduleId>/messages/inputs/<inputName>
+    :param split_topic_str: The already split received topic string
+    """
+    if "inputs" in split_topic_str and len(split_topic_str) > 6:
+        return True
+    return False
+
+
+def _extract_properties(properties, message_received):
+    """
+    Extract key=value pairs from custom properties and set the properties on the received message.
+    :param properties: The properties string which is ampersand(&) delimited key=value pair.
+    :param message_received: The message received with the payload in bytes
+    """
+    key_value_pairs = properties.split("&")
+
+    for entry in key_value_pairs:
+        pair = entry.split("=")
+        key = urllib.parse.unquote_plus(pair[0])
+        value = urllib.parse.unquote_plus(pair[1])
+
+        if key == "$.mid":
+            message_received.message_id = value
+        elif key == "$.cid":
+            message_received.correlation_id = value
+        elif key == "$.uid":
+            message_received.user_id = value
+        elif key == "$.to":
+            message_received.to = value
+        elif key == "$.ct":
+            message_received.content_type = value
+        elif key == "$.ce":
+            message_received.content_encoding = value
+        else:
+            message_received.custom_properties[key] = value
+
+
+def _encode_properties(message_to_send, topic):
+    """
+    uri-encode the system properties of a message as key-value pairs on the topic with defined keys.
+    Additionally if the message has user defined properties, the property keys and values shall be
+    uri-encoded and appended at the end of the above topic with the following convention:
+    '<key>=<value>&<key2>=<value2>&<key3>=<value3>(...)'
+    :param message_to_send: The message to send
+    :param topic: The topic which has not been encoded yet. For a device it looks like
+    "devices/<deviceId>/messages/events/" and for a module it looks like
+    "devices/<deviceId>/<moduleId>/messages/events/
+    :return: The topic which has been uri-encoded
+    """
+    system_properties = dict()
+    if message_to_send.output_name:
+        system_properties["$.on"] = message_to_send.output_name
+    if message_to_send.message_id:
+        system_properties["$.mid"] = message_to_send.message_id
+
+    if message_to_send.correlation_id:
+        system_properties["$.cid"] = message_to_send.correlation_id
+
+    if message_to_send.user_id:
+        system_properties["$.uid"] = message_to_send.user_id
+
+    if message_to_send.to:
+        system_properties["$.to"] = message_to_send.to
+
+    if message_to_send.content_type:
+        system_properties["$.ct"] = message_to_send.content_type
+
+    if message_to_send.content_encoding:
+        system_properties["$.ce"] = message_to_send.content_encoding
+
+    if message_to_send.expiry_time_utc:
+        system_properties["$.exp"] = (
+            message_to_send.expiry_time_utc.isoformat()
+            if isinstance(message_to_send.expiry_time_utc, date)
+            else message_to_send.expiry_time_utc
+        )
+
+    system_properties_encoded = urllib.parse.urlencode(system_properties)
+    topic += system_properties_encoded
+
+    if message_to_send.custom_properties and len(message_to_send.custom_properties) > 0:
+        topic += "&"
+        user_properties_encoded = urllib.parse.urlencode(message_to_send.custom_properties)
+        topic += user_properties_encoded
+
+    return topic

@@ -72,7 +72,7 @@ class MQTTProvider(object):
                 logger.error(traceback.format_exc())
 
         def on_subscribe_callback(client, userdata, mid):
-            logger.info("suback received")
+            logger.info("suback received for %s", str(mid))
             # TODO: how to do failure?
             try:
                 self.on_mqtt_subscribed()
@@ -80,10 +80,19 @@ class MQTTProvider(object):
                 logger.error("Unexpected error calling on_mqtt_subscribed")
                 logger.error(traceback.format_exc())
 
+        def on_message_callback(client, userdata, mqtt_message):
+            logger.info("message received")
+            try:
+                self.on_mqtt_message_received(mqtt_message._topic, mqtt_message.payload)
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_message_received")
+                logger.error(traceback.format_exc())
+
         self._mqtt_client.on_connect = on_connect_callback
         self._mqtt_client.on_disconnect = on_disconnect_callback
         self._mqtt_client.on_publish = on_publish_callback
         self._mqtt_client.on_subscribe = on_subscribe_callback
+        self._mqtt_client.on_message = on_message_callback
 
         logger.info("Created MQTT provider, assigned callbacks")
 
@@ -128,10 +137,24 @@ class MQTTProvider(object):
 
     def publish(self, topic, message_payload):
         """
-        This method enables the transport to send a message to the message broker
+        This method enables the transport to send a message to the message broker.
+        By default the the quality of service level to use is set to 1.
         :param topic: topic: The topic that the message should be published on.
         :param message_payload: The actual message to send.
+        :return message ID for the publish request.
         """
         logger.info("sending")
         message_info = self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
         return message_info.mid
+
+    def subscribe(self, topic, qos=0):
+        """
+        This method subscribes the client to one topic.
+        :param topic: a single string specifying the subscription topic to subscribe to
+        :param qos: the desired quality of service level for the subscription. Defaults to 0.
+        :return: message ID for the subscribe request
+        Raises a ValueError if qos is not 0, 1 or 2, or if topic is None or has zero string length,
+        """
+        logger.info("subscribing")
+        (result, mid) = self._mqtt_client.subscribe(topic, qos)
+        return mid
