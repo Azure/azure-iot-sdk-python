@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-from azure.iot.hub.devicesdk.module_client import ModuleClient
+from azure.iot.hub.devicesdk.sync_clients import ModuleClientSync
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk.message import Message
@@ -61,7 +61,7 @@ def test_module_client_send_to_output_assigns_output_name_and_in_turn_calls_tran
 ):
     output_name = "fake_output_name"
     event = Message("Levicorpus")
-    client = ModuleClient(authentication_provider, mock_transport)
+    client = ModuleClientSync(authentication_provider, mock_transport)
     client.connect()
     client.send_to_output(event, output_name)
 
@@ -70,8 +70,8 @@ def test_module_client_send_to_output_assigns_output_name_and_in_turn_calls_tran
     assert mock_transport.send_output_event.call_args[0][0] == event
 
 
-@patch("azure.iot.hub.devicesdk.module_client.isinstance")
-@patch("azure.iot.hub.devicesdk.module_client.Message")
+@patch("azure.iot.hub.devicesdk.sync_clients.isinstance")
+@patch("azure.iot.hub.devicesdk.sync_clients.Message")
 def test_module_client_send_string_constructs_message_assigns_output_name_and_calls_transport(
     mock_message_constructor, mock_instance_method, authentication_provider, mock_transport
 ):
@@ -79,7 +79,7 @@ def test_module_client_send_string_constructs_message_assigns_output_name_and_ca
 
     output_name = "fake_output_name"
     event = "Levicorpus"
-    client = ModuleClient(authentication_provider, mock_transport)
+    client = ModuleClientSync(authentication_provider, mock_transport)
     client.connect()
     client.send_to_output(event, output_name)
 
