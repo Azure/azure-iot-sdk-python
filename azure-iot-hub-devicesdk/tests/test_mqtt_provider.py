@@ -14,6 +14,10 @@ fake_device_id = "MyFirebolt"
 fake_password = "Fortuna Major"
 fake_username = fake_hostname + "/" + fake_device_id
 new_fake_password = "new fake password"
+fake_topic = "fake_topic"
+fake_qos = 1
+fake_mid = 52
+fake_rc = 0
 
 
 @patch.object(ssl, "SSLContext")
@@ -87,13 +91,15 @@ def test_disconnect_calls_loopstop_on_mqttclient(MockMqttClient):
 @patch.object(mqtt, "Client")
 def test_publish_calls_publish_on_mqtt_client(MockMqttClient):
     mock_mqtt_client = MockMqttClient.return_value
+    mock_mqtt_client.publish = MagicMock(return_value=mqtt.MQTTMessageInfo(fake_mid))
 
     topic = "topic/"
     event = "Tarantallegra"
 
     mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
-    mqtt_provider.publish(topic, event)
+    pub_mid = mqtt_provider.publish(topic, event)
 
+    assert pub_mid == fake_mid
     mock_mqtt_client.publish.assert_called_once_with(topic=topic, payload=event, qos=1)
 
 
@@ -108,3 +114,15 @@ def test_reconnect_calls_username_pw_set_and_reconnect_on_mqtt_client(MockMqttCl
         username=fake_username, password=new_fake_password
     )
     mock_mqtt_client.reconnect.assert_called_once_with()
+
+
+@patch.object(mqtt, "Client")
+def test_subscribe_calls_subscribe_on_mqtt_client(MockMqttClient):
+    mock_mqtt_client = MockMqttClient.return_value
+    mock_mqtt_client.subscribe = MagicMock(return_value=(fake_rc, fake_mid))
+
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
+    sub_mid = mqtt_provider.subscribe(fake_topic, fake_qos)
+
+    assert sub_mid == fake_mid
+    mock_mqtt_client.subscribe.assert_called_once_with(fake_topic, fake_qos)
