@@ -192,16 +192,6 @@ class GenericClientSync(GenericClient):
 
         enable_complete.wait()
 
-    def _emit_connection_status(self):
-        """
-        The connection status is emitted whenever the client on the module gets connected or disconnected.
-        """
-        logger.info("emit_connection_status: {}".format(self.state))
-        if self.on_connection_state:
-            self.on_connection_state(self.state)
-        else:
-            logger.warn("No callback defined for sending state")
-
 
 class DeviceClientSync(GenericClientSync):
     """

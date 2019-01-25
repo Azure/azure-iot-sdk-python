@@ -16,7 +16,7 @@ jobs:
   - script: 'python -m pip install --upgrade pip'
     displayName: 'Update pip'
 
-  - script: 'python dev_setup.py'
+  - script: 'python env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
   - script: 'flake8 .'
@@ -48,7 +48,7 @@ jobs:
   - script: 'python -m pip install --upgrade pip'
     displayName: 'Update pip'
 
-  - script: 'python dev_setup.py'
+  - script: 'python env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
   - script: 'python test_packages.py'

@@ -9,6 +9,7 @@
 import glob
 import os
 import sys
+import argparse
 from subprocess import check_call, CalledProcessError
 
 COMMON_PKG_NAME = "azure-iot-common"
@@ -27,6 +28,15 @@ def pip_command(command, error_ok=False):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Prepare environment")
+    parser.add_argument(
+        "--no_dev",
+        dest="dev_mode",
+        action="store_false",
+        help="Setup environment for running and testing ONLY",
+    )
+    args = parser.parse_args()
+
     packages = [os.path.dirname(p) for p in glob.glob("azure*/setup.py")]
 
     # Ensure common is installed first
@@ -36,3 +46,6 @@ if __name__ == "__main__":
     for package_name in packages:
         pip_command("install -e {}".format(package_name))
     pip_command("install -r requirements.txt")
+    if args.dev_mode:
+        print("Installing pre-commit")
+        check_call("pre-commit install")
