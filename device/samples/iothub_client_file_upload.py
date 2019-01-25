@@ -25,6 +25,10 @@ def iothub_file_upload_sample_run():
         f = open(PATHTOFILE, "r")
         content = f.read()
 
+        # Please note that because of the way the C SDK wrapper is written, file upload is limited to text files.
+        # The last parameter of this method call is user_context.
+        # it will be passed to the blob_upload_conf_callback so that calls and callbacks can be matched together
+        # in case there are multiple simultaneous uploads
         client.upload_blob_async(FILENAME, content, len(content), blob_upload_conf_callback, 0)
 
         print ( "" )
