@@ -48,6 +48,10 @@ def iothub_registrymanager_sample_run():
         new_device = iothub_registry_manager.create_device(DEVICE_ID, primary_key, secondary_key, auth_method)
         print_device_info("CreateDevice", new_device)
 
+        # Other authentication mechanisms:
+        ## new_device = iothub_registry_manager.create_device(DEVICE_ID, primary_thumbprint, secondary_thumbprint, IoTHubRegistryManagerAuthMethod.X509_THUMBPRINT)
+        ## new_device = iothub_registry_manager.create_device(DEVICE_ID, None, None, IoTHubRegistryManagerAuthMethod.X509_CERTIFICATE_AUTHORITY)
+
         # GetDevice
         iothub_device = iothub_registry_manager.get_device(DEVICE_ID)
         print_device_info("GetDevice", iothub_device)
