@@ -5,7 +5,7 @@ Azure IoT Hub Device SDK
 ## Install
 
 We currently do not provide a binary distribution of our package, which means you'll have to clone the repository.
-Once you've cloned the repository, please run the `dev_setup.py` script to setup the environment and to be able to run
+Once you've cloned the repository, please run the `env_setup.py` script to setup the environment and to be able to run
 the samples.
 
 ## Quick start
