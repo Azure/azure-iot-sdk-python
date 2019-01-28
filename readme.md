@@ -165,6 +165,9 @@ Below is a table showing the mapping of the LTS branches to the packages release
 ---
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
+Microsoft collects performance and usage information which may be used to provide and improve Microsoft products and services and enhance your experience.  To learn more, review the [privacy statement](https://go.microsoft.com/fwlink/?LinkId=521839&clcid=0x409).  
+
+
 [iot-dev-center]: http://azure.com/iotdev
 [iot-hub-documentation]: https://docs.microsoft.com/en-us/azure/iot-hub/
 [azure-iot-sdks]: http://github.com/azure/azure-iot-sdks
