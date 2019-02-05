@@ -6,7 +6,8 @@ import os
 import asyncio
 import logging
 import uuid
-from azure.iot.hub.devicesdk import DeviceClient, Message
+from azure.iot.hub.devicesdk.aio import DeviceClient
+from azure.iot.hub.devicesdk import Message
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
     from_connection_string,
 )  # this is a overlong import, fix

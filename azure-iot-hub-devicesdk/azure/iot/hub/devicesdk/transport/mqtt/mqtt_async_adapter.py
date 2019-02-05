@@ -45,3 +45,15 @@ class MQTTTransportAsync(MQTTTransport):
 
         await send_event_async(message, callback)
         await callback.completion()
+
+    async def send_output_event(self, message):
+        logger.info("async sending output event")
+        send_output_event_async = async_adapter.emulate_async(super().send_output_event)
+
+        def sync_callback():
+            logger.info("async sending finished")
+
+        callback = async_adapter.AwaitableCallback(sync_callback)
+
+        await send_output_event_async(message, callback)
+        await callback.completion()

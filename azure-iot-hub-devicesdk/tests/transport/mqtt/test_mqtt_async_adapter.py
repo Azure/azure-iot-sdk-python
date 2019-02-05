@@ -67,3 +67,15 @@ async def test_send_event(mocker, transport, emulate_async_mock, message):
     )
     # Assert the async wrapped method is called
     assert async_call_mock.call_count == 1
+
+
+async def test_send_output_event(mocker, transport, emulate_async_mock, message):
+    async_call_mock = emulate_async_mock.return_value
+    await transport.send_output_event(message)
+    # Assert the superclass send event method is made async
+    assert emulate_async_mock.call_count == 1
+    assert emulate_async_mock.call_args == mocker.call(
+        super(MQTTTransportAsync, transport).send_output_event
+    )
+    # Assert the async wrapped method is called
+    assert async_call_mock.call_count == 1

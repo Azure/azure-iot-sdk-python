@@ -5,7 +5,7 @@
 import os
 import asyncio
 import logging
-from azure.iot.hub.devicesdk import DeviceClient
+from azure.iot.hub.devicesdk.aio import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
 logging.basicConfig(level=logging.INFO)

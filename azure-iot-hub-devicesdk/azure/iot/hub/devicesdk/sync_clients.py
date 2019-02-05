@@ -14,7 +14,7 @@ class GenericClient(object):
     A super class representing a generic client. This class needs to be extended for specific clients.
     """
 
-    def __init__(self, auth_provider, transport):
+    def __init__(self, transport):
         """
         Constructor for instantiating an generic client.  This initializer should not be called
         directly.  Instead, the class method `from_authentication_provider` should be used to
@@ -23,7 +23,6 @@ class GenericClient(object):
         :param auth_provider: The authentication provider
         :param transport: The transport that the client will use.
         """
-        self._auth_provider = auth_provider
         self._transport = transport
         self._transport.on_transport_connected = self._handle_transport_connected_state
         self._transport.on_transport_disconnected = self._handle_transport_connected_state
@@ -97,13 +96,14 @@ class GenericClientSync(GenericClient):
         :param authentication_provider: The authentication provider
         :param transport_name: The name of the transport that the client will use.
         """
+        transport_name = transport_name.lower()
         if transport_name == "mqtt":
             transport = MQTTTransport(authentication_provider)
+        elif transport_name == "amqp" or transport_name == "http":
+            raise NotImplementedError("This transport has not yet been implemented")
         else:
-            raise NotImplementedError(
-                "No specific transport can be instantiated based on the choice."
-            )
-        return cls(authentication_provider, transport)
+            raise ValueError("No specific transport can be instantiated based on the choice.")
+        return cls(transport)
 
     def connect(self):
         """
@@ -193,14 +193,14 @@ class GenericClientSync(GenericClient):
         enable_complete.wait()
 
 
-class DeviceClientSync(GenericClientSync):
+class DeviceClient(GenericClientSync):
     """
     A synchronous device client that connects to an Azure IoT Hub instance.
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5+.
     """
 
-    def __init__(self, auth_provider, transport):
-        super(DeviceClientSync, self).__init__(auth_provider, transport)
+    def __init__(self, transport):
+        super(DeviceClient, self).__init__(transport)
         self._transport.on_transport_c2d_message_received = self._handle_c2d_message_received
 
     def _handle_c2d_message_received(self, message_received):
@@ -210,14 +210,14 @@ class DeviceClientSync(GenericClientSync):
             logger.warn("No handler defined for receiving c2d message")
 
 
-class ModuleClientSync(GenericClientSync):
+class ModuleClient(GenericClientSync):
     """
     A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5+.
     """
 
-    def __init__(self, auth_provider, transport):
-        super(ModuleClientSync, self).__init__(auth_provider, transport)
+    def __init__(self, transport):
+        super(ModuleClient, self).__init__(transport)
         self._transport.on_transport_input_message_received = self._handle_input_message_received
 
     def _handle_input_message_received(self, input_name, message_received):
@@ -232,11 +232,13 @@ class ModuleClientSync(GenericClientSync):
         These are outgoing events and are meant to be "output events"
         This is a synchronous event, meaning that this function will not return until the event
         has been sent to the service and the service has acknowledged receipt of the event.
+
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
-        :param output_name: Name of the output to send the event to.
+
         :param message: message to send to the given output. Anything passed that is not an instance of the
         Message class will be converted to Message object.
+        :param output_name: Name of the output to send the event to.
         """
         if not isinstance(message, Message):
             message = Message(message)

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------------------------
 import os
 import asyncio
-from azure.iot.hub.devicesdk import DeviceClient, ModuleClient
+from azure.iot.hub.devicesdk.aio import DeviceClient, ModuleClient
 
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
     from_shared_access_signature,

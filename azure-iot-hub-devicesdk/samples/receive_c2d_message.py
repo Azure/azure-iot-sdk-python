@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------------------------
 import os
 import logging
-from azure.iot.hub.devicesdk.device_client import DeviceClient
+from azure.iot.hub.devicesdk import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
 logging.basicConfig(level=logging.ERROR)
@@ -41,7 +41,7 @@ device_client.enable_feature("c2d", c2d_message_handler)
 
 while True:
     selection = input("Press Q: Quit for exiting\n")
-    if selection is "Q" or selection is "q":
+    if selection == "Q" or selection == "q":
         print("Quitting")
         break
 

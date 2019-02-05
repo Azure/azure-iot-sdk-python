@@ -3,9 +3,8 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 import time
-from azure.iot.hub.devicesdk.module_client import ModuleClient
+from azure.iot.hub.devicesdk import ModuleClient, Message
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_environment
-from azure.iot.hub.devicesdk.message import Message
 import uuid
 
 # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the module client.

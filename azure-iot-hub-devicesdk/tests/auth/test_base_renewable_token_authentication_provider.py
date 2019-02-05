@@ -150,9 +150,7 @@ def test_generate_new_sas_token_cancels_and_reschedules_update_timer_with_correc
     device_auth_provider.token_validity_period = new_token_validity_period
     device_auth_provider.token_renewal_margin = new_token_renewal_margin
     device_auth_provider.generate_new_sas_token()
-    assert (
-        fake_timer_object.call_args[0][0] == new_token_validity_period - new_token_renewal_margin
-    )
+    assert fake_timer_object.call_args[0][0] == new_token_validity_period - new_token_renewal_margin
 
 
 def test_update_timer_generates_new_sas_token_and_calls_token_update_callback(
