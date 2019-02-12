@@ -92,10 +92,11 @@ def transport_module():
     transport.disconnect()
 
 
-def test_instantiation_creates_proper_transport(authentication_provider):
-    trans = MQTTTransport(authentication_provider)
-    assert trans._auth_provider == authentication_provider
-    assert trans._mqtt_provider is not None
+class TestInstantiation(object):
+    def test_instantiates_correctly(self, authentication_provider):
+        trans = MQTTTransport(authentication_provider)
+        assert trans._auth_provider == authentication_provider
+        assert trans._mqtt_provider is not None
 
 
 class TestConnect:

@@ -53,10 +53,34 @@ def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
 @pytest.mark.parametrize(
     "client_callback_name, client_callback_args, provider_callback_name, provider_callback_args",
     [
-        ("on_connect", [None, None, None, 0], "on_mqtt_connected", []),
-        ("on_disconnect", [None, None, 0], "on_mqtt_disconnected", []),
-        ("on_publish", [None, None, 9], "on_mqtt_published", [9]),
-        ("on_subscribe", [None, None, 0], "on_mqtt_subscribed", []),
+        pytest.param(
+            "on_connect",
+            [None, None, None, 0],
+            "on_mqtt_connected",
+            [],
+            id="on_connect => on_mqtt_connected",
+        ),
+        pytest.param(
+            "on_disconnect",
+            [None, None, 0],
+            "on_mqtt_disconnected",
+            [],
+            id="on_disconnect => on_mqtt_disconnected",
+        ),
+        pytest.param(
+            "on_publish",
+            [None, None, 9],
+            "on_mqtt_published",
+            [9],
+            id="on_publish => on_mqtt_published",
+        ),
+        pytest.param(
+            "on_subscribe",
+            [None, None, 0],
+            "on_mqtt_subscribed",
+            [],
+            id="on_subscribe => on_mqtt_subscribed",
+        ),
     ],
 )
 def test_mqtt_client_callback_triggers_provider_callback(
