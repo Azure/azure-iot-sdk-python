@@ -226,7 +226,7 @@ class MQTTTransport(AbstractTransport):
         """
         Callback that is called by the provider when a subscribe operation is complete.
         """
-        logger.error("_on_provider_subscribe_complete")
+        logger.info("_on_provider_subscribe_complete")
         callback = self._subscribe_callback
         if callback:
             self._subscribe_callback = None
@@ -358,13 +358,13 @@ class MQTTTransport(AbstractTransport):
 
     def enable_input_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
-        c2d_topic = self._get_input_topic()
-        self._trig_enable_receive(callback, c2d_topic, qos)
+        input_topic = self._get_input_topic()
+        self._trig_enable_receive(callback, input_topic, qos)
 
     def enable_c2d_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
-        input_topic = self._get_c2d_topic()
-        self._trig_enable_receive(callback, input_topic, qos)
+        c2d_topic = self._get_c2d_topic()
+        self._trig_enable_receive(callback, c2d_topic, qos)
 
     def _call_subscribe(self, event_data):
         logger.info("receive message topic is " + event_data.args[1])

@@ -76,9 +76,9 @@ def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
         ),
         pytest.param(
             "on_subscribe",
-            [None, None, 0],
+            [None, None, 1234, 1],
             "on_mqtt_subscribed",
-            [],
+            [1234],
             id="on_subscribe => on_mqtt_subscribed",
         ),
     ],
