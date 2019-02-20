@@ -34,6 +34,7 @@ class MQTTProvider(object):
         self.on_mqtt_disconnected = None
         self.on_mqtt_published = None
         self.on_mqtt_subscribed = None
+        self.on_mqtt_unsubscribed = None
 
         self._create_mqtt_client()
 
@@ -88,11 +89,21 @@ class MQTTProvider(object):
                 logger.error("Unexpected error calling on_mqtt_message_received")
                 logger.error(traceback.format_exc())
 
+        def on_unsubscribe_callback(client, userdata, mid):
+            logger.info("UNSUBACK received for %s", str(mid))
+            # TODO: how to do failure?
+            try:
+                self.on_mqtt_unsubscribed(mid)
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_unsubscribed")
+                logger.error(traceback.format_exc())
+
         self._mqtt_client.on_connect = on_connect_callback
         self._mqtt_client.on_disconnect = on_disconnect_callback
         self._mqtt_client.on_publish = on_publish_callback
         self._mqtt_client.on_subscribe = on_subscribe_callback
         self._mqtt_client.on_message = on_message_callback
+        self._mqtt_client.on_unsubscribe = on_unsubscribe_callback
 
         logger.info("Created MQTT provider, assigned callbacks")
 
@@ -157,4 +168,15 @@ class MQTTProvider(object):
         """
         logger.info("subscribing")
         (result, mid) = self._mqtt_client.subscribe(topic, qos)
+        return mid
+
+    def unsubscribe(self, topic):
+        """
+        Unsubscribe the client from one topic.
+        :param topic: a single string which is the subscription topic to unsubscribe from.
+        :return: mid the message ID for the unsubscribe request.
+        Raises a ValueError if topic is None or has zero string length, or is not a string.
+        """
+        logger.info("unsubscribing")
+        (result, mid) = self._mqtt_client.unsubscribe(topic)
         return mid

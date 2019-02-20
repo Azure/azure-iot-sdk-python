@@ -150,3 +150,15 @@ def test_subscribe_calls_subscribe_on_mqtt_client(MockMqttClient):
 
     assert sub_mid == fake_mid
     mock_mqtt_client.subscribe.assert_called_once_with(fake_topic, fake_qos)
+
+
+@patch.object(mqtt, "Client")
+def test_unsubscribe_calls_unsubscribe_on_mqtt_client(MockMqttClient):
+    mock_mqtt_client = MockMqttClient.return_value
+    mock_mqtt_client.unsubscribe = MagicMock(return_value=(fake_rc, fake_mid))
+
+    mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
+    unsub_mid = mqtt_provider.unsubscribe(fake_topic)
+
+    assert unsub_mid == fake_mid
+    mock_mqtt_client.unsubscribe.assert_called_once_with(fake_topic)

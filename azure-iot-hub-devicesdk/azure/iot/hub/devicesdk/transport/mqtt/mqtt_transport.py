@@ -43,6 +43,10 @@ class MQTTTransport(AbstractTransport):
         self._connect_callback = None
         self._disconnect_callback = None
         self._subscribe_callback = None
+        self._unsubscribe_callback = None
+
+        self._c2d_topic = None
+        self._input_topic = None
 
         states = ["disconnected", "connecting", "connected", "disconnecting"]
 
@@ -116,6 +120,19 @@ class MQTTTransport(AbstractTransport):
             {"trigger": "_trig_enable_receive", "source": "connecting", "dest": None},
             {
                 "trigger": "_trig_enable_receive",
+                "source": "disconnected",
+                "dest": "connecting",
+                "after": "_call_provider_connect",
+            },
+            {
+                "trigger": "_trig_disable_receive",
+                "source": "connected",
+                "dest": None,
+                "after": "_call_unsubscribe",
+            },
+            {"trigger": "_trig_disable_receive", "source": "connecting", "dest": None},
+            {
+                "trigger": "_trig_disable_receive",
                 "source": "disconnected",
                 "dest": "connecting",
                 "after": "_call_provider_connect",
@@ -253,6 +270,16 @@ class MQTTTransport(AbstractTransport):
         else:
             pass  # is there any other case
 
+    def _on_provider_unsubscribe_complete(self, mid):
+        """
+        Callback that is called by the provider when a subscribe operation is complete.
+        """
+        logger.info("_on_provider_unsubscribe_complete")
+        callback = self._unsubscribe_callback
+        if callback:
+            self._unsubscribe_callback = None
+            callback()
+
     def _add_event_to_queue(self, event_data):
         """
         Queue an event for sending later.  All events that get sent end up going into
@@ -309,6 +336,7 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
         self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
+        self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
@@ -358,18 +386,30 @@ class MQTTTransport(AbstractTransport):
 
     def enable_input_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
-        input_topic = self._get_input_topic()
-        self._trig_enable_receive(callback, input_topic, qos)
+        self._input_topic = self._get_input_topic()
+        self._trig_enable_receive(callback, self._input_topic, qos)
+
+    def disable_input_messages(self, callback=None):
+        self._unsubscribe_callback = callback
+        self._trig_disable_receive(callback, self._input_topic)
 
     def enable_c2d_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
-        c2d_topic = self._get_c2d_topic()
-        self._trig_enable_receive(callback, c2d_topic, qos)
+        self._c2d_topic = self._get_c2d_topic()
+        self._trig_enable_receive(callback, self._c2d_topic, qos)
+
+    def disable_c2d_messages(self, callback=None):
+        self._unsubscribe_callback = callback
+        self._trig_disable_receive(callback, self._c2d_topic)
 
     def _call_subscribe(self, event_data):
         logger.info("receive message topic is " + event_data.args[1])
         self._mqtt_provider.subscribe(event_data.args[1], event_data.args[2])
         self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
+
+    def _call_unsubscribe(self, event_data):
+        logger.info("unsubscribe from message topic " + event_data.args[1])
+        self._mqtt_provider.unsubscribe(event_data.args[1])
 
 
 def _is_c2d_topic(split_topic_str):
