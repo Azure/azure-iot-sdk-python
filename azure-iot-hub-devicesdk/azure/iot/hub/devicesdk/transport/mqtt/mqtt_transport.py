@@ -10,6 +10,7 @@ import six.moves.queue as queue
 from .mqtt_provider import MQTTProvider
 from transitions.extensions import LockedMachine as Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
+from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.message import Message
 
 
@@ -384,21 +385,39 @@ class MQTTTransport(AbstractTransport):
     def _on_shared_access_string_updated(self):
         self._trig_on_shared_access_string_updated()
 
-    def enable_input_messages(self, callback=None, qos=1):
+    def enable_feature(self, feature_name, callback=None, qos=1):
+        if feature_name == constant.INPUT:
+            self._enable_input_messages(callback, qos)
+        elif feature_name == constant.C2D:
+            self._enable_c2d_messages(callback, qos)
+        else:
+            logger.error("Feature name {} is unknown".format(feature_name))
+            raise ValueError("Invalid feature name")
+
+    def disable_feature(self, feature_name, callback=None):
+        if feature_name == constant.INPUT:
+            self._disable_input_messages(callback)
+        elif feature_name == constant.C2D:
+            self._disable_c2d_messages(callback)
+        else:
+            logger.error("Feature name {} is unknown".format(feature_name))
+            raise ValueError("Invalid feature name")
+
+    def _enable_input_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
         self._input_topic = self._get_input_topic()
         self._trig_enable_receive(callback, self._input_topic, qos)
 
-    def disable_input_messages(self, callback=None):
+    def _disable_input_messages(self, callback=None):
         self._unsubscribe_callback = callback
         self._trig_disable_receive(callback, self._input_topic)
 
-    def enable_c2d_messages(self, callback=None, qos=1):
+    def _enable_c2d_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
         self._c2d_topic = self._get_c2d_topic()
         self._trig_enable_receive(callback, self._c2d_topic, qos)
 
-    def disable_c2d_messages(self, callback=None):
+    def _disable_c2d_messages(self, callback=None):
         self._unsubscribe_callback = callback
         self._trig_disable_receive(callback, self._c2d_topic)
 
@@ -475,7 +494,7 @@ def _encode_properties(message_to_send, topic):
     "devices/<deviceId>/<moduleId>/messages/events/
     :return: The topic which has been uri-encoded
     """
-    system_properties = dict()
+    system_properties = {}
     if message_to_send.output_name:
         system_properties["$.on"] = message_to_send.output_name
     if message_to_send.message_id:

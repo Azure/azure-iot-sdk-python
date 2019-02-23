@@ -3,6 +3,7 @@ from azure.iot.hub.devicesdk import DeviceClient, ModuleClient
 from azure.iot.hub.devicesdk.transport.mqtt import MQTTTransport
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk import Message
+from azure.iot.hub.devicesdk.message_queue import MessageQueue
 
 # Note that the auth_provider fixture is implicitly imported from tests/conftest.py
 
@@ -21,6 +22,12 @@ class FakeTransport(AbstractTransport):
         callback()
 
     def disconnect(self, callback):
+        callback()
+
+    def enable_feature(self, feature_name, callback=None, qos=1):
+        callback()
+
+    def disable_feature(self, feature_name, callback=None):
         callback()
 
 
@@ -118,6 +125,14 @@ class TestModuleClient(ClientSharedTests):
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
+    def test_get_input_message_queue_returns_queue_from_queue_manager(self, client, mocker):
+        input_name = "some_input"
+        qm_spy = mocker.spy(client._queue_manager, "get_input_message_queue")
+        input_queue = client.get_input_message_queue(input_name)
+        assert isinstance(input_queue, MessageQueue)
+        assert qm_spy.call_count == 1
+        assert qm_spy.call_args[0] == (input_name,)
+
 
 class TestDeviceClient(ClientSharedTests):
     client_class = DeviceClient
@@ -125,3 +140,10 @@ class TestDeviceClient(ClientSharedTests):
     @pytest.fixture
     def client(self, transport):
         return DeviceClient(transport)
+
+    def test_get_c2d_message_queue_returns_queue_from_queue_manager(self, client, mocker):
+        qm_spy = mocker.spy(client._queue_manager, "get_c2d_message_queue")
+        c2d_queue = client.get_c2d_message_queue()
+        assert isinstance(c2d_queue, MessageQueue)
+        assert qm_spy.call_count == 1
+        assert qm_spy.call_args[0] == ()

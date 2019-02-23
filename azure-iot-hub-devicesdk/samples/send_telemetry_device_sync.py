@@ -16,16 +16,7 @@ auth_provider = from_connection_string(conn_str)
 # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
 device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
-
-# The connection state callback allows us to detect when the client is connected and disconnected:
-def connection_state_callback(status):
-    print("connection status: " + status)
-
-
-# Register the connection state callback with the client...
-device_client.on_connection_state = connection_state_callback
-
-# ... and connect the client.
+# Connect the client.
 device_client.connect()
 
 # send 5 messages with a 1 second pause between each message

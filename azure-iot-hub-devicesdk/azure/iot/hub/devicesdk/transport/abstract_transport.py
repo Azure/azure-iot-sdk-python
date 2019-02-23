@@ -42,3 +42,17 @@ class AbstractTransport:
         Disconnect from the specific messaging system used by the specific transport protocol
         """
         pass
+
+    @abc.abstractmethod
+    def enable_feature(self, feature_name, callback=None, qos=1):
+        """
+        Enable a specific feature (c2d, input, etc.)
+        """
+        pass
+
+    @abc.abstractmethod
+    def disable_feature(self, feature_name, callback=None):
+        """
+        Disable a specific feature (c2d, input, etc.)
+        """
+        pass

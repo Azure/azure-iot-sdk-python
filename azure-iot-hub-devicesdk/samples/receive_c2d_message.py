@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------------------------
 import os
 import logging
+import threading
 from azure.iot.hub.devicesdk import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
@@ -18,26 +19,27 @@ auth_provider = from_connection_string(conn_str)
 device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
 
-# The connection state callback allows us to detect when the client is connected and disconnected:
-def connection_state_callback(status):
-    print("connection status: " + status)
-
-
-def c2d_message_handler(c2d_message):
-    print("the data in the message received was ")
-    print(c2d_message.data)
-    print("custom properties are")
-    print(c2d_message.custom_properties)
-
-
-# Register the connection state callback with the client...
-device_client.on_connection_state = connection_state_callback
-
-# ... and connect the client.
+# connect the client.
 device_client.connect()
 
 # enable the device to receive c2d messages
-device_client.enable_feature("c2d", c2d_message_handler)
+c2d_message_queue = device_client.get_c2d_message_queue()
+
+
+# define behavior for receiving a C2D message
+def c2d_listener(message_queue):
+    while True:
+        c2d_message = message_queue.get()  # blocking call
+        print("the data in the message received was ")
+        print(c2d_message.data)
+        print("custom properties are")
+        print(c2d_message.custom_properties)
+
+
+# Run a listener thread in the background
+listen_thread = threading.Thread(target=c2d_listener, args=(c2d_message_queue,))
+listen_thread.deamon = True
+listen_thread.start()
 
 while True:
     selection = input("Press Q: Quit for exiting\n")
@@ -47,22 +49,3 @@ while True:
 
 # finally, disconnect
 device_client.disconnect()
-
-
-# The output looks like
-#
-# connection status: connected
-# Press Q: Quit for exiting
-# the data in the message received was
-# b'weather conditions are windy'
-# custom properties are
-# {'tornado-alert': 'yes', 'coverage': 'limited'}
-# the data in the message received was
-# b'weather conditions are windy with chances of snow'
-# custom properties are
-# {}
-# q
-# Quitting
-# connection status: disconnected
-#
-# Process finished with exit code 0

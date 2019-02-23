@@ -16,17 +16,7 @@ auth_provider = from_environment()
 # This authentication provider is created from environment & delegates token generation to iotedged.
 module_client = ModuleClient.from_authentication_provider(auth_provider, "mqtt")
 
-
-# The connection state callback allows us to detect when the client is connected and disconnected:
-def connection_state_callback(status):
-    print("connection status: " + status)
-
-
-# Register the connection state callback with the client...
-# it is not necessary to do so , but always better to know connection was successful
-module_client.on_connection_state = connection_state_callback
-
-# ... and connect the client.
+# Connect the client.
 module_client.connect()
 
 # send 5 messages with a 1 second pause between each message

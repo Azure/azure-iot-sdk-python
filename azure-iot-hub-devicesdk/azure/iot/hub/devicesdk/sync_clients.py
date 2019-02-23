@@ -1,14 +1,14 @@
 import logging
-import abc
 import six
+import weakref
 from threading import Event
 from .transport.mqtt import MQTTTransport
 from .message import Message
+from .message_queue import MessageQueueManager
 
 logger = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
 class GenericClient(object):
     """
     A super class representing a generic client. This class needs to be extended for specific clients.
@@ -24,57 +24,25 @@ class GenericClient(object):
         :param transport: The transport that the client will use.
         """
         self._transport = transport
-        self._transport.on_transport_connected = self._handle_transport_connected_state
-        self._transport.on_transport_disconnected = self._handle_transport_connected_state
-
+        self._transport.on_transport_connected = self._state_change
+        self._transport.on_transport_disconnected = self._state_change
         self.state = "initial"
 
-        self.on_connection_state = None
-        self.on_event_sent = None
-        self.on_c2d_message = None
-        self.on_input_message = None
-
-    def _emit_connection_status(self):
-        """
-        The connection status is emitted whenever the client on the module gets connected or disconnected.
-        """
-        logger.info("emit_connection_status: {}".format(self.state))
-        if self.on_connection_state:
-            self.on_connection_state(self.state)
-        else:
-            logger.warn("No callback defined for sending state")
-
-    def _handle_transport_connected_state(self, new_state):
+    def _state_change(self, new_state):
         self.state = new_state
-        self._emit_connection_status()
-
-    def _handle_transport_event_sent(self):
-        logger.info("_handle_transport_event_sent: " + str(self.on_event_sent))
-        if self.on_event_sent:
-            self.on_event_sent()
-
-    @classmethod
-    @abc.abstractmethod
-    def from_authentication_provider(cls, authentication_provider, transport_name):
-        pass
-
-    @abc.abstractmethod
-    def connect(self):
-        pass
-
-    @abc.abstractmethod
-    def disconnect(self):
-        pass
-
-    @abc.abstractmethod
-    def send_event(self, message):
-        pass
+        logger.info("Connection State - {}".format(self.state))
 
 
 class GenericClientSync(GenericClient):
     """
     A super class representing a generic synchronous client. This class needs to be extended for specific clients.
     """
+
+    def __init__(self, transport):
+        super(GenericClientSync, self).__init__(transport)
+        self._queue_manager = MessageQueueManager(
+            transport.enable_feature, transport.disable_feature
+        )
 
     @classmethod
     def from_authentication_provider(cls, authentication_provider, transport_name):
@@ -164,34 +132,6 @@ class GenericClientSync(GenericClient):
         self._transport.send_event(message, callback)
         send_complete.wait()
 
-    def enable_feature(self, feature_name, handler_for_feature):
-        """
-        To enable a specific feature on the internal client.Some of the features that can be enabled
-        are "receiving input messages" and "receiving cloud to device messages"
-        :param feature_name: The specific feature which needs to be enabled. Feature names can be:-
-        "input" , "c2d" etc.
-        :param handler_for_feature: The handler which should be invoked once receiving of messages
-        occur. Based on the feature_name this will be set on the attribute "on_input_message" for
-        "inputs" and on the attribute "on_c2d_message" for "c2d"
-        :raises ValueError if feature_name is not amongst "input" or "c2d"
-        """
-        enable_complete = Event()
-
-        def callback():
-            enable_complete.set()
-
-        if feature_name == "input":
-            self.on_input_message = handler_for_feature
-            self._transport.enable_input_messages(callback)
-        elif feature_name == "c2d":
-            self.on_c2d_message = handler_for_feature
-            self._transport.enable_c2d_messages(callback)
-        else:
-            logger.error("Feature name has not been defined.Feature names can be 'input' or 'c2d'")
-            raise ValueError("Feature names can be only among 'input' or 'c2d'")
-
-        enable_complete.wait()
-
 
 class DeviceClient(GenericClientSync):
     """
@@ -201,13 +141,10 @@ class DeviceClient(GenericClientSync):
 
     def __init__(self, transport):
         super(DeviceClient, self).__init__(transport)
-        self._transport.on_transport_c2d_message_received = self._handle_c2d_message_received
+        self._transport.on_transport_c2d_message_received = self._queue_manager.route_c2d_message
 
-    def _handle_c2d_message_received(self, message_received):
-        if self.on_c2d_message:
-            self.on_c2d_message(message_received)
-        else:
-            logger.warn("No handler defined for receiving c2d message")
+    def get_c2d_message_queue(self):
+        return self._queue_manager.get_c2d_message_queue()
 
 
 class ModuleClient(GenericClientSync):
@@ -218,13 +155,12 @@ class ModuleClient(GenericClientSync):
 
     def __init__(self, transport):
         super(ModuleClient, self).__init__(transport)
-        self._transport.on_transport_input_message_received = self._handle_input_message_received
+        self._transport.on_transport_input_message_received = (
+            self._queue_manager.route_input_message
+        )
 
-    def _handle_input_message_received(self, input_name, message_received):
-        if self.on_input_message:
-            self.on_input_message(input_name, message_received)
-        else:
-            logger.warn("No handler defined for receiving input message")
+    def get_input_message_queue(self, input_name):
+        return self._queue_manager.get_input_message_queue(input_name)
 
     def send_to_output(self, message, output_name):
         """

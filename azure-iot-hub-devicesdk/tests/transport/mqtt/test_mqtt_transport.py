@@ -8,6 +8,7 @@ import logging
 import six.moves.urllib as urllib
 from azure.iot.hub.devicesdk.message import Message
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
+from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 from mock import MagicMock, patch
 from datetime import date
@@ -359,7 +360,7 @@ class TestEnableInputMessage:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.enable_input_messages()
+        transport.enable_feature(constant.INPUT)
 
         mock_mqtt_provider.subscribe.assert_called_once_with(
             subscribe_input_message_topic, subscribe_input_message_qos
@@ -377,7 +378,7 @@ class TestEnableInputMessage:
 
         # subscribe
         callback = MagicMock()
-        transport.enable_input_messages(callback)
+        transport.enable_feature(constant.INPUT, callback)
 
         # fake the suback:
         mock_mqtt_provider.on_mqtt_subscribed(42)
@@ -392,7 +393,7 @@ class TestEnableC2D:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.enable_c2d_messages()
+        transport.enable_feature(constant.C2D)
 
         mock_mqtt_provider.subscribe.assert_called_once_with(subscribe_c2d_topic, subscribe_c2d_qos)
 
@@ -406,7 +407,7 @@ class TestEnableC2D:
 
         # subscribe
         callback = MagicMock()
-        transport.enable_c2d_messages(callback)
+        transport.enable_feature(constant.C2D, callback)
 
         # fake the suback:
         mock_mqtt_provider.on_mqtt_subscribed(42)
@@ -422,7 +423,7 @@ class TestDisableC2D:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.disable_c2d_messages()
+        transport.disable_feature(constant.C2D)
 
         mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_c2d_topic)
 
@@ -432,7 +433,7 @@ class TestDisableC2D:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.disable_input_messages()
+        transport.disable_feature(constant.INPUT)
 
         mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_input_message_topic)
 
@@ -447,7 +448,7 @@ class TestDisableC2D:
 
         # unsubscribe
         callback = MagicMock()
-        transport.disable_c2d_messages(callback)
+        transport.disable_feature(constant.C2D, callback)
 
         # fake the unsuback:
         mock_mqtt_provider.on_mqtt_unsubscribed(56)

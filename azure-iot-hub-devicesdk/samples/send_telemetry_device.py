@@ -29,15 +29,7 @@ async def main():
     # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
     device_client = await DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
-    # The connection state callback allows us to detect when the client is connected and disconnected:
-    def connection_state_callback(status):
-        print("connection status: " + status)
-
-    # Register the connection state callback with the client...
-    # TODO: open question: connection_state_callback is a sync callback.  Do we want to support async callbacks?
-    device_client.on_connection_state = connection_state_callback
-
-    # ... and connect the client.
+    # Connect the client.
     await device_client.connect()
 
     async def send_test_message(i):

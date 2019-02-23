@@ -34,6 +34,12 @@ class FakeAsyncTransport(AbstractTransport):
     async def disconnect(self):
         return await completed_future()
 
+    async def enable_feature(self, feature_name, qos=1):
+        return await completed_future()
+
+    async def disable_feature(self, feature_name):
+        return await completed_future()
+
 
 @pytest.fixture()
 async def transport(mocker):
