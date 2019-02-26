@@ -1,7 +1,9 @@
-# --------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License. See License.txt in the project root for license information.
-# --------------------------------------------------------------------------------------------
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+"""This module contains tools for working with Shared Access Signature (SAS) Tokens"""
 
 import base64
 import hmac
@@ -13,14 +15,20 @@ __all__ = ["SasToken", "SasTokenError"]
 
 
 class SasTokenError(Exception):
+    """Error in SasToken"""
+
     def __init__(self, message, cause=None):
-        super(self.__class__, self).__init__(message)
+        """Initializer for SasTokenError
+
+        :param str message: Error message
+        :param cause: Exception that caused this error (optional)
+        """
+        super(SasTokenError, self).__init__(message)
         self.cause = cause
 
 
 class SasToken(object):
-    """
-    Shared Access Signature Token used to authenticate a request
+    """Shared Access Signature Token used to authenticate a request
 
     Parameters:
     uri (str): URI of the resouce to be accessed

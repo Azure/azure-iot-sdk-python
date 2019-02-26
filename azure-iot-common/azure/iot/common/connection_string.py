@@ -1,7 +1,9 @@
-# --------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License. See License.txt in the project root for license information.
-# --------------------------------------------------------------------------------------------
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+"""This module contains tools for working with Connection Strings"""
 
 __all__ = ["ConnectionString"]
 
@@ -42,7 +44,7 @@ def _parse_connection_string(connection_string):
 
 
 def _validate_keys(d):
-    """Raise ValueError if incorrect combination of keys
+    """Raise ValueError if incorrect combination of keys in dict d
     """
     host_name = d.get(HOST_NAME)
     shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
@@ -59,17 +61,16 @@ def _validate_keys(d):
 
 
 class ConnectionString(object):
-    """
-    Key/value mappings with connection details. Uses the same syntax as dictionary
-
-    Parameters:
-    connection_string(str): string with connection details provided by Azure
-
-    Raises:
-    ValueError if provided connection_string is invalid
+    """Key/value mappings for connection details.
+    Uses the same syntax as dictionary
     """
 
     def __init__(self, connection_string):
+        """Initializer for ConnectionString
+
+        :param str connection_string: String with connection details provided by Azure
+        :raises: ValueError if provided connection_string is invalid
+        """
         self._dict = _parse_connection_string(connection_string)
         self._strrep = connection_string
 
@@ -80,6 +81,12 @@ class ConnectionString(object):
         return self._strrep
 
     def get(self, key, default=None):
+        """Return the value for key if key is in the dictionary, else default
+
+        :param str key: The key to retrieve a value for
+        :param str default: The default value returned if a key is not found
+        :returns: The value for the given key
+        """
         try:
             return self._dict[key]
         except KeyError:

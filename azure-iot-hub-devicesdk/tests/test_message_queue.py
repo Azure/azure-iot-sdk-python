@@ -1,3 +1,9 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 import pytest
 from azure.iot.hub.devicesdk.message import Message
 from azure.iot.hub.devicesdk.message_queue import MessageQueue, MessageQueueManager

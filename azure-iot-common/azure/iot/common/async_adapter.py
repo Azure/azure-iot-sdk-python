@@ -1,11 +1,20 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+"""This module contains tools for adapting sync code for use in async coroutines."""
+
 import functools
 import azure.iot.common.asyncio_compat as asyncio_compat
 
 
 def emulate_async(fn):
-    """
-    Apply as a decorator to emulate async behavior with a sync function/method
-    via usage of multithreading
+    """Apply as a decorator to emulate async behavior with a sync function/method
+    via usage of multithreading.
+
+    :param fn: The sync function to be run in async.
+    :returns: A coroutine function that will call the given sync function.
     """
 
     @functools.wraps(fn)
@@ -19,13 +28,11 @@ def emulate_async(fn):
 
 
 class AwaitableCallback(object):
-    """
-    A callback whose completion can be waited upon.
+    """A sync callback whose completion can be waited upon.
     """
 
     def __init__(self, callback):
-        """
-        Creates an instance of an AwaitableCallback from a callback function.
+        """Creates an instance of an AwaitableCallback from a callback function.
 
         :param callback: Callback function to be made awaitable.
         """
@@ -42,14 +49,13 @@ class AwaitableCallback(object):
         self.callback = wrapping_callback
 
     def __call__(self, *args, **kwargs):
-        """
-        Calls the callback. Returns the result.
+        """Calls the callback. Returns the result.
         """
         return self.callback(*args, **kwargs)
 
     async def completion(self):
-        """
-        Awaitable method that will return once the AwaitableCallback has been completed.
+        """Awaitable coroutine method that will return once the AwaitableCallback
+        has been completed.
 
         :returns: Result of the callback when it was called.
         """

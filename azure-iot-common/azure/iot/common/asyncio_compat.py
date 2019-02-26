@@ -1,10 +1,17 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+"""This module contains compatibility tools for bridging different versions of asyncio"""
+
 import asyncio
 
 
 def get_running_loop():
-    """
-    Helper function to use the best method to get an event loop to run async code
-    in.  Uses asyncio.get_running_loop() if available (Python 3.7+) or a backported
+    """Gets the currently running event loop
+
+    Uses asyncio.get_running_loop() if available (Python 3.7+) or a backported
     version of the same function in 3.5/3.6.
     """
     try:
@@ -17,11 +24,13 @@ def get_running_loop():
 
 
 def create_task(coro):
-    """
-    Helper function to create a task. "Best effort" function.
+    """Creates a Task object.
+
     If avaialable (Python 3.7+), use asyncio.create_task, which is preferred as it is
     more specific for the goal of immediately scheduling a task from a coroutine. If
-    not available, use the more general puprose asyncio.ensure_future
+    not available, use the more general puprose asyncio.ensure_future.
+
+    :returns: A new Task object.
     """
     try:
         task = asyncio.create_task(coro)
@@ -31,11 +40,14 @@ def create_task(coro):
 
 
 def create_future(loop):
-    """
-    Helper function to create a Future object.  Uses loop.create_future() if it is
-    available.  Otherwise, create the object directly.  loop.create_future is preferred
-    because it allows third parties to provide their own Future object, but it is only
-    available in 3.5.2+
+    """Creates a Future object.
+
+    Uses loop.create_future if it is available. Otherwise, create the object directly.
+
+    Use of loop.create_future is preferred because it allows third parties to provide their own
+    Future object, but it is only available in 3.5.2+
+
+    :returns: A new Future object.
     """
     try:
         future = loop.create_future()

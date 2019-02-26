@@ -1,7 +1,9 @@
-# --------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License. See License.txt in the project root for license information.
-# --------------------------------------------------------------------------------------------
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
 import os
 import logging
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
@@ -11,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class IotEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
-    """
-    An Azure IoT Edge Authentication Provider. This provider creates the Shared Access Signature that would be needed to connenct to the IoT Edge runtime
+    """An Azure IoT Edge Authentication Provider.
+
+    This provider creates the Shared Access Signature that would be needed to connenct to the IoT Edge runtime
     """
 
     def __init__(self):

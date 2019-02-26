@@ -1,3 +1,12 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+"""This module contains user-facing synchronous clients for the
+Azure IoTHub Device SDK for Python.
+"""
+
 import logging
 import six
 import weakref
@@ -8,19 +17,15 @@ from .message_queue import MessageQueueManager
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["DeviceClient", "ModuleClient"]
+
 
 class GenericClient(object):
-    """
-    A super class representing a generic client. This class needs to be extended for specific clients.
-    """
+    """A superclass representing a generic client. This class needs to be extended for specific clients."""
 
     def __init__(self, transport):
-        """
-        Constructor for instantiating an generic client.  This initializer should not be called
-        directly.  Instead, the class method `from_authentication_provider` should be used to
-        create a client object.
+        """Initializer for a generic client.
 
-        :param auth_provider: The authentication provider
         :param transport: The transport that the client will use.
         """
         self._transport = transport
@@ -29,16 +34,23 @@ class GenericClient(object):
         self.state = "initial"
 
     def _state_change(self, new_state):
+        """Handler to be called by the transport upon a connection state change."""
         self.state = new_state
         logger.info("Connection State - {}".format(self.state))
 
 
 class GenericClientSync(GenericClient):
-    """
-    A super class representing a generic synchronous client. This class needs to be extended for specific clients.
+    """A superclass representing a generic synchronous client. This class needs to be extended for specific clients.
     """
 
     def __init__(self, transport):
+        """Initializer for a generic synchronous client.
+
+        This initializer should not be called directly.
+        Instead, the class method `from_authentication_provider` should be used to create a client object.
+
+        :param transport: The transport that the client will use.
+        """
         super(GenericClientSync, self).__init__(transport)
         self._queue_manager = MessageQueueManager(
             transport.enable_feature, transport.disable_feature
@@ -46,10 +58,9 @@ class GenericClientSync(GenericClient):
 
     @classmethod
     def from_authentication_provider(cls, authentication_provider, transport_name):
-        """
-        Creates a device client with the specified authentication provider and transport
+        """Creates a device client with the specified authentication provider and transport.
 
-        When creating the client, you need to pass in an authorization provider and a transport_name
+        When creating the client, you need to pass in an authorization provider and a transport_name.
 
         The authentication_provider parameter is an object created using the authentication_provider_factory
         module.  It knows where to connect (a network address), how to authenticate with the service
@@ -61,8 +72,13 @@ class GenericClientSync(GenericClient):
 
         Currently "mqtt" is the only supported transport.
 
-        :param authentication_provider: The authentication provider
+        :param authentication_provider: The authentication provider.
         :param transport_name: The name of the transport that the client will use.
+
+        :returns: Instance of the client.
+
+        :raises: ValueError if given an invalid transport_name.
+        :raises: NotImplementedError if transport_name is "amqp" or "http".
         """
         transport_name = transport_name.lower()
         if transport_name == "mqtt":
@@ -74,10 +90,10 @@ class GenericClientSync(GenericClient):
         return cls(transport)
 
     def connect(self):
-        """
-        Connects the client to an Azure IoT Hub or Azure IoT Edge instance.  The destination is chosen
-        based on the credentials passed via the auth_provider parameter that was provided when
-        this object was initialized.
+        """Connects the client to an Azure IoT Hub or Azure IoT Edge instance.
+
+        The destination is chosen based on the credentials passed via the auth_provider parameter
+        that was provided when this object was initialized.
 
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely established.
@@ -93,8 +109,7 @@ class GenericClientSync(GenericClient):
         connect_complete.wait()
 
     def disconnect(self):
-        """
-        Disconnect the client from the Azure IoT Hub or Azure IoT Edge instance.
+        """Disconnect the client from the Azure IoT Hub or Azure IoT Edge instance.
 
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely closed.
@@ -110,8 +125,8 @@ class GenericClientSync(GenericClient):
         disconnect_complete.wait()
 
     def send_event(self, message):
-        """
-        Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge instance.
+        """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge instance.
+
         This is a synchronous event, meaning that this function will not return until the event
         has been sent to the service and the service has acknowledged receipt of the event.
 
@@ -134,38 +149,65 @@ class GenericClientSync(GenericClient):
 
 
 class DeviceClient(GenericClientSync):
-    """
-    A synchronous device client that connects to an Azure IoT Hub instance.
-    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5+.
+    """A synchronous device client that connects to an Azure IoT Hub instance.
+
+    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
+
+    :ivar state: The current connection state
     """
 
     def __init__(self, transport):
+        """Initializer for a DeviceClient.
+
+        This initializer should not be called directly.
+        Instead, the class method `from_authentication_provider` should be used to create a client object.
+
+        :param transport: The transport that the client will use.
+        """
         super(DeviceClient, self).__init__(transport)
         self._transport.on_transport_c2d_message_received = self._queue_manager.route_c2d_message
 
     def get_c2d_message_queue(self):
+        """Returns a MessageQueue object that can be used to receive "Cloud to Device" messages.
+
+        :returns: MessageQueue object for C2D Messages.
+        """
         return self._queue_manager.get_c2d_message_queue()
 
 
 class ModuleClient(GenericClientSync):
-    """
-    A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
-    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5+.
+    """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
+
+    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
+
+    :ivar state: The current connection state.
     """
 
     def __init__(self, transport):
+        """Intializer for a ModuleClient.
+
+        This initializer should not be called directly.
+        Instead, the class method `from_authentication_provider` should be used to create a client object.
+
+        :param transport: The transport that the client will use.
+        """
         super(ModuleClient, self).__init__(transport)
         self._transport.on_transport_input_message_received = (
             self._queue_manager.route_input_message
         )
 
     def get_input_message_queue(self, input_name):
+        """Returns a MessageQueue object that can be used to receive Input Messages.
+
+        :returns: MessageQueue object for Input Messages.
+        """
         return self._queue_manager.get_input_message_queue(input_name)
 
     def send_to_output(self, message, output_name):
-        """
-        Sends an event/message to the given module output.
-        These are outgoing events and are meant to be "output events"
+        """Sends an event/message to the given module output.
+
+        These are outgoing events and are meant to be "output events".
+
         This is a synchronous event, meaning that this function will not return until the event
         has been sent to the service and the service has acknowledged receipt of the event.
 

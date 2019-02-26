@@ -1,6 +1,10 @@
+# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License. See License.txt in the project root for license information.
-# --------------------------------------------------------------------------------------------
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+"""This module provides a base class for renewable token authentication providers"""
+
 import time
 import abc
 import logging
@@ -22,9 +26,9 @@ DEFAULT_TOKEN_RENEWAL_MARGIN = 120
 
 
 class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
-    """
-    A base class for authentication providers which are based on SAS (Shared
+    """A base class for authentication providers which are based on SAS (Shared
     Authentication Signature) strings which are able to be renewed.
+
     The SAS token string renewal is based on a signing function that is used
     to create the sig field of the SAS string.  This base implements all
     functionality for SAS string creation except for the signing function,
@@ -33,14 +37,17 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
     token renewal operation.
     """
 
-    def __init__(self, hostname, device_id, module_id):
-        """
-        Constructor for Renewable Token Authentication Provider.
+    def __init__(self, hostname, device_id, module_id=None):
+        """Initializer for Renewable Token Authentication Provider.
 
         This object is intended as a base class and cannot be used directly.
         A derived class which provides a signing function (such as
         SymmetricKeyAuthenticationProvider or IotEdgeAuthenticationProvider)
         should be used instead.
+
+        :param str hostname: The hostname
+        :param str device_id: The device ID
+        :param str module_id: The module ID (optional)
         """
 
         AuthenticationProvider.__init__(self, hostname, device_id, module_id)
@@ -52,13 +59,14 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self.token_update_callback = None
 
     def disconnect(self):
+        """Cancel updates to the SAS Token"""
         self._cancel_token_update_timer()
 
     def generate_new_sas_token(self):
-        """
-        Force the SAS token to update itself.  This will cause a new sas token to be
-        created using the _sign function.  This token is valid for roughly
-        self.token_validity_period second.
+        """Force the SAS token to update itself.
+
+        This will cause a new sas token to be created using the _sign function.
+        This token is valid for roughly self.token_validity_period second.
 
         This validity period can only be roughly enforced because it relies on the
         coordination of clocks between the client device and the service.  If the two
@@ -126,9 +134,8 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self._notify_token_updated()
 
     def _cancel_token_update_timer(self):
-        """
-        Cancel any future token update operations.  This is typically done as part of a
-        teardown operation
+        """Cancel any future token update operations.  This is typically done as part of a
+        teardown operation.
         """
         t = self._token_update_timer
         self._token_update_timer = None
@@ -137,8 +144,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
             t.cancel()
 
     def _schedule_token_update(self, seconds_until_update):
-        """
-        Schedule an automatic sas token update to take place seconds_until_update seconds in
+        """Schedule an automatic sas token update to take place seconds_until_update seconds in
         the future.  If an update was previously scheduled, this method shall cancel the
         previously-scheduled update and schedule a new update.
         """
@@ -158,8 +164,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self._token_update_timer.start()
 
     def _notify_token_updated(self):
-        """
-        Notify clients that the SAS token has been updated by calling self.on_sas_token_updated.
+        """Notify clients that the SAS token has been updated by calling self.on_sas_token_updated.
         In response to this event, clients should re-initiate their connection in order to use
         the updated sas token.
         """
@@ -172,9 +177,9 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
             logger.info("_notify_token_updated: token_update_callback not set.  Doing nothing.")
 
     def get_current_sas_token(self):
-        """
-        Get the current SharedAuthenticationSignature string.  This string can be used
-        to authenticate with an Azure IoT Hub or Azure IoT Edge Hub service.
+        """Get the current SharedAuthenticationSignature string.
+
+        This string can be used to authenticate with an Azure IoT Hub or Azure IoT Edge Hub service.
 
         If a SAS token has not yet been created yet, this function call the generate_new_sas_token
         function to create a new token and schedule the update timer.  See the documentation for
@@ -188,8 +193,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
 
     @abc.abstractmethod
     def _sign(self, quoted_resource_uri, expiry):
-        """
-        Create and return a new signature for this object.  The caller is responsible
+        """Create and return a new signature for this object.  The caller is responsible
         for placing the signature inside the sig field of a SAS token string.
         """
         pass

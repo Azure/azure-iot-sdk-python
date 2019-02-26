@@ -5,7 +5,7 @@ Azure IoT Hub Device SDK
 ## Install
 
 We currently do not provide a binary distribution of our package, which means you'll have to clone the repository.
-Once you've cloned the repository, please run the `env_setup.py` script to setup the environment and to be able to run
+Once you've cloned the repository, please run the `env_setup.py` script in the root to setup the environment and to be able to run
 the samples.
 
 ## Quick start
@@ -19,40 +19,8 @@ The Azure IoT Hub detailed docs that explain how to set up an Azure IoT hub and 
 
 ## Samples
 
-Sample code showing how to use the client can be find in the `samples` folder as well in this readme.
+Sample code showing how to use the client can be find in the [`samples`](samples) folder as well in this readme.
 Our samples rely on having a connection string for the device set in an environment variable called `IOTHUB_DEVICE_CONNECTION_STRING`.
-
-### Handling connectivity changes
-```python
-import os
-import time
-from azure.iot.hub.devicesdk.device_client import DeviceClient
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
-
-# The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-
-# The authentication provider is the object that manages the connection credentials for the client.
-auth_provider = from_connection_string(conn_str)
-
-# For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
-# It needs an authentication provider to secure the communication with the hub, using either tokens or x509 certificates
-device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
-
-
-# The DeviceClient object will call its `on_connection_state` property every time the state of the client connection changes.
-def connection_state_callback(status):
-    print("connection status: " + status)
-
-
-device_client.on_connection_state = connection_state_callback
-device_client.connect()
-device_client.disconnect()
-
-# This will print the following on the command line:
-# connection status: connected
-# connection status: disconnected
-```
 
 ### Sending telemetry messages on a regular interval
 ```python
@@ -69,16 +37,7 @@ auth_provider = from_connection_string(conn_str)
 # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
 device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
-
-# The connection state callback allows us to detect when the client is connected and disconnected:
-def connection_state_callback(status):
-    print("connection status: " + status)
-
-
-# Register the connection state callback with the client...
-device_client.on_connection_state = connection_state_callback
-
-# ... and connect the client.
+#Cconnect the client.
 device_client.connect()
 
 # send 5 messages with a 1 second pause between each message
