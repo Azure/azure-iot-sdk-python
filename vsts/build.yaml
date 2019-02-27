@@ -83,18 +83,12 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      cd azure-iot-hub-devicesdk
-      python setup.py sdist
-    displayName: Build source distribution for devicesdk
-
-  - script: |
       pip install wheel
-      cd azure-iot-hub-devicesdk
-      python setup.py bdist_wheel
-    displayName: Build wheel distribution for devicesdk
+      python build_packages.py
+    displayName: Build source and wheel distribution for devicesdk
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish artifact dist'
     inputs:
-      pathtoPublish: $(Build.SourcesDirectory)/azure-iot-hub-devicesdk/dist
+      pathtoPublish: $(Build.SourcesDirectory)/dist
       artifactName: 'dist'

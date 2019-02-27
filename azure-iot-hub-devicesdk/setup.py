@@ -6,7 +6,7 @@
 
 from setuptools import setup, find_packages
 
-with open("doc/package-readme.md", "r") as fh:
+with open("README.md", "r") as fh:
     _long_description = fh.read()
 
 setup(
@@ -24,19 +24,22 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: MIT Software License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
     install_requires=[
-        "six",
-        "paho-mqtt==1.4.0",
-        "transitions==0.6.8",
-        "enum34==1.1.6",
-        "requests==2.20.0",
-        "requests-unixsocket==0.1.5",
+        "azure-iot-common",
+        "six>=1.12.0,<2.0.0",
+        "paho-mqtt>=1.4.0,<2.0.0",
+        "transitions>=0.6.8,<1.0.0",
+        "requests>=2.20.0,<3.0.0",
+        "requests-unixsocket>=0.1.5,<1.0.0",
     ],
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
     packages=find_packages(exclude=["tests", "samples"]),
