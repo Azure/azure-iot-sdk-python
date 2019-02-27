@@ -12,6 +12,7 @@ from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_co
 
 logging.basicConfig(level=logging.ERROR)
 
+
 # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
@@ -40,7 +41,7 @@ def c2d_listener(message_queue):
 
 # Run a listener thread in the background
 listen_thread = threading.Thread(target=c2d_listener, args=(c2d_message_queue,))
-listen_thread.deamon = True
+listen_thread.daemon = True
 listen_thread.start()
 
 while True:
