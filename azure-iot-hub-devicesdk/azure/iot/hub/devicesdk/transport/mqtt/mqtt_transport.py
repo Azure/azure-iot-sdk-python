@@ -258,7 +258,7 @@ class MQTTTransport(AbstractTransport):
         logger.info("Message received on topic %s", topic)
         message_received = Message(payload)
         # TODO : Discuss everything in bytes , need to be changed, specially the topic
-        topic_str = str(topic, "utf-8")
+        topic_str = topic.decode("utf-8")
         topic_parts = topic_str.split("/")
 
         if _is_input_topic(topic_str):

@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import os
+from six.moves import input
 import logging
 import threading
 from azure.iot.hub.devicesdk import DeviceClient
