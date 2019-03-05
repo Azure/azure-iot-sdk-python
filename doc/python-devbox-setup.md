@@ -109,7 +109,7 @@ The Python iothub_client and iothub_service_client modules support python versio
     * To setup dependencies for python version greater than 3, run `./setup.sh --python-version X.Y` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6)
 5. Run the `./build.sh` script.
     * Build will default to python 2.7
-    * To build with python version greater than 3, run `./build.sh --build-python X.X` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6)
+    * To build with python version greater than 3, run `./build.sh --build-python X.Y` where "X.Y" is the python version (e.g. 3.4, 3.5 or 3.6)
 6. After a successful build, the `iothub_client.so` Python extension module is copied to the [**device/samples**][device-samples] and [**service/samples**][service-samples] folders. Visit these folders for instructions on how to run the samples.
 
 ### Known build issues:
@@ -118,7 +118,7 @@ The Python iothub_client and iothub_service_client modules support python versio
 
 ``[ 98%] Building CXX object python/src/CMakeFiles/iothub_client_python.dir/iothub_client_python.cpp.o``
 
-If you run into this issue, check the **memory consumption** of the device using `free -m command` in another terminal window during that time. If you are running out of memory while compiling iothub_client_python.cpp file, you may have to temporarily increase the **swap space** to get more available memory to successfully build the Python client side device SDK library.
+If you run into this issue, check the **memory consumption** of the device using `free -m` command in another terminal window during that time. If you are running out of memory while compiling iothub_client_python.cpp file, you may have to temporarily increase the **swap space** to get more available memory to successfully build the Python client side device SDK library.
 
 1. CentOS7: Only Python 2.7 is supported due to a missing boost-python3 library package
 
