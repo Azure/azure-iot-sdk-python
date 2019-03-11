@@ -12,8 +12,10 @@ import six
 import weakref
 from threading import Event
 from .transport.mqtt import MQTTTransport
+from .transport import constant
 from .message import Message
-from .message_queue import MessageQueueManager
+from .inbox_manager import InboxManager
+from .sync_inbox import SyncClientInbox
 
 logger = logging.getLogger(__name__)
 
@@ -37,24 +39,6 @@ class GenericClient(object):
         """Handler to be called by the transport upon a connection state change."""
         self.state = new_state
         logger.info("Connection State - {}".format(self.state))
-
-
-class GenericClientSync(GenericClient):
-    """A superclass representing a generic synchronous client. This class needs to be extended for specific clients.
-    """
-
-    def __init__(self, transport):
-        """Initializer for a generic synchronous client.
-
-        This initializer should not be called directly.
-        Instead, the class method `from_authentication_provider` should be used to create a client object.
-
-        :param transport: The transport that the client will use.
-        """
-        super(GenericClientSync, self).__init__(transport)
-        self._queue_manager = MessageQueueManager(
-            transport.enable_feature, transport.disable_feature
-        )
 
     @classmethod
     def from_authentication_provider(cls, authentication_provider, transport_name):
@@ -89,8 +73,24 @@ class GenericClientSync(GenericClient):
             raise ValueError("No specific transport can be instantiated based on the choice.")
         return cls(transport)
 
+
+class GenericClientSync(GenericClient):
+    """A superclass representing a generic synchronous client. This class needs to be extended for specific clients.
+    """
+
+    def __init__(self, transport):
+        """Initializer for a generic synchronous client.
+
+        This initializer should not be called directly.
+        Instead, the class method `from_authentication_provider` should be used to create a client object.
+
+        :param transport: The transport that the client will use.
+        """
+        super(GenericClientSync, self).__init__(transport)
+        self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
+
     def connect(self):
-        """Connects the client to an Azure IoT Hub or Azure IoT Edge instance.
+        """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
 
         The destination is chosen based on the credentials passed via the auth_provider parameter
         that was provided when this object was initialized.
@@ -98,34 +98,36 @@ class GenericClientSync(GenericClient):
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely established.
         """
-        logger.info("connecting to transport")
+        logger.info("Connecting to Hub...")
 
         connect_complete = Event()
 
         def callback():
             connect_complete.set()
+            logger.info("Successfully connected to Hub")
 
-        self._transport.connect(callback)
+        self._transport.connect(callback=callback)
         connect_complete.wait()
 
     def disconnect(self):
-        """Disconnect the client from the Azure IoT Hub or Azure IoT Edge instance.
+        """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely closed.
         """
-        logger.info("disconnecting from transport")
+        logger.info("Disconnecting from Hub...")
 
         disconnect_complete = Event()
 
         def callback():
             disconnect_complete.set()
+            logger.info("Successfully disconnected from Hub")
 
-        self._transport.disconnect(callback)
+        self._transport.disconnect(callback=callback)
         disconnect_complete.wait()
 
     def send_event(self, message):
-        """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge instance.
+        """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         This is a synchronous event, meaning that this function will not return until the event
         has been sent to the service and the service has acknowledged receipt of the event.
@@ -139,13 +141,34 @@ class GenericClientSync(GenericClient):
         if not isinstance(message, Message):
             message = Message(message)
 
+        logger.info("Sending message to Hub...")
         send_complete = Event()
 
         def callback():
             send_complete.set()
+            logger.info("Successfully sent message to Hub")
 
-        self._transport.send_event(message, callback)
+        self._transport.send_event(message, callback=callback)
         send_complete.wait()
+
+    def _enable_feature(self, feature_name):
+        """Enable an Azure IoT Hub feature in the transport.
+
+        This is a synchronous call, meaning that this function will not return until the feature
+        has been enabled.
+
+        :param feature_name: The name of the feature to enable.
+        See azure.iot.hub.devicesdk.transport.constant for possible values
+        """
+        logger.info("Enabling feature:" + feature_name + "...")
+        enable_complete = Event()
+
+        def callback():
+            enable_complete.set()
+            logger.info("Successfully enabled feature:" + feature_name)
+
+        self._transport.enable_feature(feature_name, callback=callback)
+        enable_complete.wait()
 
 
 class DeviceClient(GenericClientSync):
@@ -165,14 +188,28 @@ class DeviceClient(GenericClientSync):
         :param transport: The transport that the client will use.
         """
         super(DeviceClient, self).__init__(transport)
-        self._transport.on_transport_c2d_message_received = self._queue_manager.route_c2d_message
+        self._transport.on_transport_c2d_message_received = self._inbox_manager.route_c2d_message
 
-    def get_c2d_message_queue(self):
-        """Returns a MessageQueue object that can be used to receive "Cloud to Device" messages.
+    def receive_c2d_message(self, block=True, timeout=None):
+        """Receive a C2D message that has been sent from the Azure IoT Hub.
 
-        :returns: MessageQueue object for C2D Messages.
+        :param bool block: Indicates if the operation should block until a message is received.
+        Default True.
+        :param int timeout: Optionally provide a number of seconds until blocking times out.
+
+        :raises: InboxEmpty if timeout occurs on a blocking operation.
+        :raises: InboxEmpty if no message is available on a non-blocking operation.
+
+        :returns: Message that was sent from the Azure IoT Hub.
         """
-        return self._queue_manager.get_c2d_message_queue()
+        if not self._transport.feature_enabled[constant.C2D_MSG]:
+            self._enable_feature(constant.C2D_MSG)
+        c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
+
+        logger.info("Waiting for C2D message...")
+        message = c2d_inbox.get(block=block, timeout=timeout)
+        logger.info("C2D message received")
+        return message
 
 
 class ModuleClient(GenericClientSync):
@@ -193,15 +230,8 @@ class ModuleClient(GenericClientSync):
         """
         super(ModuleClient, self).__init__(transport)
         self._transport.on_transport_input_message_received = (
-            self._queue_manager.route_input_message
+            self._inbox_manager.route_input_message
         )
-
-    def get_input_message_queue(self, input_name):
-        """Returns a MessageQueue object that can be used to receive Input Messages.
-
-        :returns: MessageQueue object for Input Messages.
-        """
-        return self._queue_manager.get_input_message_queue(input_name)
 
     def send_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
@@ -220,13 +250,36 @@ class ModuleClient(GenericClientSync):
         """
         if not isinstance(message, Message):
             message = Message(message)
-
         message.output_name = output_name
 
+        logger.info("Sending message to output:" + output_name + "...")
         send_complete = Event()
 
         def callback():
+            logger.info("Successfully sent message to output: " + output_name)
             send_complete.set()
 
         self._transport.send_output_event(message, callback)
         send_complete.wait()
+
+    def receive_input_message(self, input_name, block=True, timeout=None):
+        """Receive an input message that has been sent from another Module to a specific input.
+
+        :param str input_name: The input name to receive a message on.
+        :param bool block: Indicates if the operation should block until a message is received.
+        Default True.
+        :param int timeout: Optionally provide a number of seconds until blocking times out.
+
+        :raises: InboxEmpty if timeout occurs on a blocking operation.
+        :raises: InboxEmpty if no message is available on a non-blocking operation.
+
+        :returns: Message that was sent to the specified input.
+        """
+        if not self._transport.feature_enabled[constant.INPUT_MSG]:
+            self._enable_feature(constant.INPUT_MSG)
+        input_inbox = self._inbox_manager.get_input_message_inbox(input_name)
+
+        logger.info("Waiting for input message on: " + input_name + "...")
+        message = input_inbox.get(block=block, timeout=timeout)
+        logger.info("Input message received on: " + input_name)
+        return message

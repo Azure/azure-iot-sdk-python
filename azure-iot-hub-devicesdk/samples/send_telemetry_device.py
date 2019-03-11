@@ -5,52 +5,38 @@
 # --------------------------------------------------------------------------
 
 import os
-import asyncio
-import logging
+import time
+from azure.iot.hub.devicesdk import DeviceClient, Message
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 import uuid
-from azure.iot.hub.devicesdk.aio import DeviceClient
-from azure.iot.hub.devicesdk import Message
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
-    from_connection_string,
-)  # this is a overlong import, fix
 
-logging.basicConfig(level=logging.INFO)
+# The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
+conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+# The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
+auth_provider = from_connection_string(conn_str)
+# For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
+# It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
+device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 
-messages_to_send = 10
+# Connect the client.
+device_client.connect()
 
+# send 5 messages with a 1 second pause between each message
+for i in range(0, 5):
+    print("sending message #" + str(i))
+    msg = Message("test wind speed " + str(i))
+    msg.message_id = uuid.uuid4()
+    msg.correlation_id = "correlation-1234"
+    msg.custom_properties["tornado-warning"] = "yes"
+    device_client.send_event(msg)
+    time.sleep(1)
 
-async def main():
-    # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-
-    # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
-    # TODO: open question: do we want async versions of from_connection_string and from_authentication_provider?
-    auth_provider = from_connection_string(conn_str)
-
-    # For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
-    # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
-    device_client = await DeviceClient.from_authentication_provider(auth_provider, "mqtt")
-
-    # Connect the client.
-    await device_client.connect()
-
-    async def send_test_message(i):
-        print("sending message #" + str(i))
-        msg = Message("test wind speed " + str(i))
-        msg.message_id = uuid.uuid4()
-        msg.correlation_id = "correlation-1234"
-        msg.custom_properties["tornado-warning"] = "yes"
-        await device_client.send_event(msg)
-        print("done sending message #" + str(i))
-
-    # send `messages_to_send` messages in parallel
-    await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
-
-    # finally, disconnect
-    await device_client.disconnect()
+# send only string messages
+for i in range(5, 10):
+    print("sending message #" + str(i))
+    device_client.send_event("test payload message " + str(i))
+    time.sleep(1)
 
 
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-    loop.close()
+# finally, disconnect
+device_client.disconnect()

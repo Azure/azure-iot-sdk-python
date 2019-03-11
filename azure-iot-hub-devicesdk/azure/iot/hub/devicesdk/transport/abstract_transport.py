@@ -6,6 +6,7 @@
 
 import abc
 import six
+from . import constant
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -16,6 +17,7 @@ class AbstractTransport:
 
     def __init__(self, auth_provider):
         self._auth_provider = auth_provider
+        self.feature_enabled = {constant.C2D_MSG: False, constant.INPUT_MSG: False}
 
     @abc.abstractmethod
     def connect(self, callback):

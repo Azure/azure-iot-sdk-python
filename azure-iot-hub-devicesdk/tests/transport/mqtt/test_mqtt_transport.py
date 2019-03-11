@@ -361,7 +361,7 @@ class TestEnableInputMessage:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.enable_feature(constant.INPUT)
+        transport.enable_feature(constant.INPUT_MSG)
 
         mock_mqtt_provider.subscribe.assert_called_once_with(
             subscribe_input_message_topic, subscribe_input_message_qos
@@ -379,13 +379,64 @@ class TestEnableInputMessage:
 
         # subscribe
         callback = MagicMock()
-        transport.enable_feature(constant.INPUT, callback)
+        transport.enable_feature(constant.INPUT_MSG, callback)
 
         # fake the suback:
         mock_mqtt_provider.on_mqtt_subscribed(42)
 
         # assert
         callback.assert_called_once_with()
+
+    def test_sets_input_message_status_to_enabled(self, transport_module):
+        transport = transport_module
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport.enable_feature(constant.INPUT_MSG)
+
+        assert transport.feature_enabled[constant.INPUT_MSG]
+
+
+class TestDisableInputMessage:
+    def test_unsubscribe_of_input_calls_unsubscribe_on_provider(self, transport):
+        transport._input_topic = subscribe_input_message_topic
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport.disable_feature(constant.INPUT_MSG)
+
+        mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_input_message_topic)
+
+    def test_unsuback_of_input_calls_client_callback(self, transport):
+        transport._input_topic = subscribe_input_message_topic
+        mock_mqtt_provider = transport._mqtt_provider
+        mock_mqtt_provider.unsubscribe = MagicMock(return_value=56)
+
+        # connect
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+
+        # unsubscribe
+        callback = MagicMock()
+        transport.disable_feature(constant.INPUT_MSG, callback)
+
+        # fake the unsuback:
+        mock_mqtt_provider.on_mqtt_unsubscribed(56)
+
+        # assert
+        callback.assert_called_once_with()
+
+    def test_sets_input_message_status_to_disabled(self, transport):
+        transport._input_topic = subscribe_input_message_topic
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport.disable_feature(constant.INPUT_MSG)
+
+        assert not transport.feature_enabled[constant.INPUT_MSG]
 
 
 class TestEnableC2D:
@@ -394,7 +445,7 @@ class TestEnableC2D:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.enable_feature(constant.C2D)
+        transport.enable_feature(constant.C2D_MSG)
 
         mock_mqtt_provider.subscribe.assert_called_once_with(subscribe_c2d_topic, subscribe_c2d_qos)
 
@@ -408,13 +459,23 @@ class TestEnableC2D:
 
         # subscribe
         callback = MagicMock()
-        transport.enable_feature(constant.C2D, callback)
+        transport.enable_feature(constant.C2D_MSG, callback)
 
         # fake the suback:
         mock_mqtt_provider.on_mqtt_subscribed(42)
 
         # assert
         callback.assert_called_once_with()
+
+    def test_sets_c2d_message_status_to_enabled(self, transport_module):
+        transport = transport_module
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport.enable_feature(constant.C2D_MSG)
+
+        assert transport.feature_enabled[constant.C2D_MSG]
 
 
 class TestDisableC2D:
@@ -424,19 +485,9 @@ class TestDisableC2D:
 
         transport.connect()
         mock_mqtt_provider.on_mqtt_connected()
-        transport.disable_feature(constant.C2D)
+        transport.disable_feature(constant.C2D_MSG)
 
         mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_c2d_topic)
-
-    def test_unsubscribe_of_input_calls_unsubscribe_on_provider(self, transport):
-        transport._input_topic = subscribe_input_message_topic
-        mock_mqtt_provider = transport._mqtt_provider
-
-        transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-        transport.disable_feature(constant.INPUT)
-
-        mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_input_message_topic)
 
     def test_unsuback_of_c2d_calls_client_callback(self, transport):
         transport._c2d_topic = subscribe_c2d_topic
@@ -449,10 +500,20 @@ class TestDisableC2D:
 
         # unsubscribe
         callback = MagicMock()
-        transport.disable_feature(constant.C2D, callback)
+        transport.disable_feature(constant.C2D_MSG, callback)
 
         # fake the unsuback:
         mock_mqtt_provider.on_mqtt_unsubscribed(56)
 
         # assert
         callback.assert_called_once_with()
+
+    def test_sets_c2d_message_status_to_disabled(self, transport):
+        transport._c2d_topic = subscribe_c2d_topic
+        mock_mqtt_provider = transport._mqtt_provider
+
+        transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        transport.disable_feature(constant.C2D_MSG)
+
+        assert not transport.feature_enabled[constant.C2D_MSG]

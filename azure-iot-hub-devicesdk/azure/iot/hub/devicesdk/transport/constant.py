@@ -6,5 +6,5 @@
 """This module contains constants realted to the transport package.
 """
 
-C2D = "c2d"
-INPUT = "input"
+C2D_MSG = "c2d"
+INPUT_MSG = "input"

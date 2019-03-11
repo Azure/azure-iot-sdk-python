@@ -7,39 +7,11 @@
 import pytest
 from azure.iot.hub.devicesdk import DeviceClient, ModuleClient
 from azure.iot.hub.devicesdk.transport.mqtt import MQTTTransport
-from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk import Message
-from azure.iot.hub.devicesdk.message_queue import MessageQueue
+from azure.iot.hub.devicesdk.sync_inbox import SyncClientInbox
+from azure.iot.hub.devicesdk.transport import constant
 
-# Note that the auth_provider fixture is implicitly imported from tests/conftest.py
-
-
-class FakeTransport(AbstractTransport):
-    def __init__(self):
-        pass
-
-    def connect(self, callback):
-        callback()
-
-    def send_event(self, event, callback):
-        callback()
-
-    def send_output_event(self, event, callback):
-        callback()
-
-    def disconnect(self, callback):
-        callback()
-
-    def enable_feature(self, feature_name, callback=None, qos=1):
-        callback()
-
-    def disable_feature(self, feature_name, callback=None):
-        callback()
-
-
-@pytest.fixture
-def transport(mocker):
-    return mocker.MagicMock(wraps=FakeTransport())
+# auth_provider and transport fixtures are implicitly included
 
 
 class ClientSharedTests(object):
@@ -131,13 +103,62 @@ class TestModuleClient(ClientSharedTests):
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
-    def test_get_input_message_queue_returns_queue_from_queue_manager(self, client, mocker):
+    def test_receive_input_message_enables_input_messaging_only_if_not_already_enabled(
+        self, mocker, client, transport
+    ):
+        mocker.patch.object(SyncClientInbox, "get")  # patch this receive_input_message won't block
         input_name = "some_input"
-        qm_spy = mocker.spy(client._queue_manager, "get_input_message_queue")
-        input_queue = client.get_input_message_queue(input_name)
-        assert isinstance(input_queue, MessageQueue)
-        assert qm_spy.call_count == 1
-        assert qm_spy.call_args[0] == (input_name,)
+
+        # Verify Input Messaging enabled if not enabled
+        transport.feature_enabled.__getitem__.return_value = (
+            False
+        )  # Input Messages will appear disabled
+        client.receive_input_message(input_name)
+        assert transport.enable_feature.call_count == 1
+        assert transport.enable_feature.call_args[0][0] == constant.INPUT_MSG
+
+        transport.enable_feature.reset_mock()
+
+        # Verify Input Messaging not enabled if already enabled
+        transport.feature_enabled.__getitem__.return_value = (
+            True
+        )  # Input Messages will appear enabled
+        client.receive_input_message(input_name)
+        assert transport.enable_feature.call_count == 0
+
+    def test_receive_input_message_returns_message_from_input_inbox(self, mocker, client):
+        message = Message("this is a message")
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        inbox_mock.get.return_value = message
+        manager_get_inbox_mock = mocker.patch.object(
+            client._inbox_manager, "get_input_message_inbox", return_value=inbox_mock
+        )
+
+        input_name = "some_input"
+        received_message = client.receive_input_message(input_name)
+        assert manager_get_inbox_mock.call_count == 1
+        assert manager_get_inbox_mock.call_args == mocker.call(input_name)
+        assert inbox_mock.get.call_count == 1
+        assert received_message is message
+
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_c2d_message_can_called_in_mode(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_input_message_inbox", return_value=inbox_mock
+        )
+
+        input_name = "some_input"
+        client.receive_input_message(input_name, block=block, timeout=timeout)
+        assert inbox_mock.get.call_count == 1
+        assert inbox_mock.get.call_args == mocker.call(block=block, timeout=timeout)
 
 
 class TestDeviceClient(ClientSharedTests):
@@ -147,9 +168,49 @@ class TestDeviceClient(ClientSharedTests):
     def client(self, transport):
         return DeviceClient(transport)
 
-    def test_get_c2d_message_queue_returns_queue_from_queue_manager(self, client, mocker):
-        qm_spy = mocker.spy(client._queue_manager, "get_c2d_message_queue")
-        c2d_queue = client.get_c2d_message_queue()
-        assert isinstance(c2d_queue, MessageQueue)
-        assert qm_spy.call_count == 1
-        assert qm_spy.call_args[0] == ()
+    def test_receive_c2d_message_enables_c2d_messaging_only_if_not_already_enabled(
+        self, mocker, client, transport
+    ):
+        mocker.patch.object(SyncClientInbox, "get")  # patch this receive_c2d_message won't block
+
+        # Verify C2D Messaging enabled if not enabled
+        transport.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
+        client.receive_c2d_message()
+        assert transport.enable_feature.call_count == 1
+        assert transport.enable_feature.call_args[0][0] == constant.C2D_MSG
+
+        transport.enable_feature.reset_mock()
+
+        # Verify C2D Messaging not enabled if already enabled
+        transport.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
+        client.receive_c2d_message()
+        assert transport.enable_feature.call_count == 0
+
+    def test_receive_c2d_message_returns_message_from_c2d_inbox(self, mocker, client):
+        message = Message("this is a message")
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        inbox_mock.get.return_value = message
+        manager_get_inbox_mock = mocker.patch.object(
+            client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock
+        )
+
+        received_message = client.receive_c2d_message()
+        assert manager_get_inbox_mock.call_count == 1
+        assert inbox_mock.get.call_count == 1
+        assert received_message is message
+
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_c2d_message_can_called_in_mode(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock)
+
+        client.receive_c2d_message(block=block, timeout=timeout)
+        assert inbox_mock.get.call_count == 1
+        assert inbox_mock.get.call_args == mocker.call(block=block, timeout=timeout)

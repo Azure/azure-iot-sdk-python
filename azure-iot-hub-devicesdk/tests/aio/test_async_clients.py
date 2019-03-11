@@ -9,48 +9,21 @@ import asyncio
 import abc
 import six
 from azure.iot.hub.devicesdk.aio import DeviceClient, ModuleClient
-from azure.iot.hub.devicesdk.transport.mqtt import MQTTTransportAsync
-from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
+from azure.iot.hub.devicesdk.transport.mqtt import MQTTTransport
 from azure.iot.hub.devicesdk import Message
+from azure.iot.hub.devicesdk.aio.async_inbox import AsyncClientInbox
+from azure.iot.hub.devicesdk.transport import constant
 
-# Note that the auth_provider fixture is implicitly imported from tests/conftest.py
+# auth_provider and transport fixtures are implicitly included
+
 
 pytestmark = pytest.mark.asyncio
 
 
-async def completed_future():
+async def create_completed_future(result=None):
     f = asyncio.Future()
-    f.set_result = None
+    f.set_result(result)
     return f
-
-
-class FakeAsyncTransport(AbstractTransport):
-    def __init__(self):
-        pass
-
-    async def connect(self):
-        return await completed_future()
-
-    async def send_event(self, event):
-        return await completed_future()
-
-    async def send_output_event(self, event):
-        return await completed_future()
-
-    async def disconnect(self):
-        return await completed_future()
-
-    async def enable_feature(self, feature_name, qos=1):
-        return await completed_future()
-
-    async def disable_feature(self, feature_name):
-        return await completed_future()
-
-
-@pytest.fixture()
-async def transport(mocker):
-    m = mocker.MagicMock(wraps=FakeAsyncTransport())
-    return m
 
 
 class ClientSharedTests(object):
@@ -60,7 +33,7 @@ class ClientSharedTests(object):
     @pytest.mark.parametrize(
         "protocol,expected_transport",
         [
-            pytest.param("mqtt", MQTTTransportAsync, id="mqtt"),
+            pytest.param("mqtt", MQTTTransport, id="mqtt"),
             pytest.param("amqp", None, id="amqp", marks=xfail_notimplemented),
             pytest.param("http", None, id="http", marks=xfail_notimplemented),
         ],
@@ -68,7 +41,7 @@ class ClientSharedTests(object):
     async def test_from_authentication_provider_instantiates_client(
         self, auth_provider, protocol, expected_transport
     ):
-        client = await self.client_class.from_authentication_provider(auth_provider, protocol)
+        client = self.client_class.from_authentication_provider(auth_provider, protocol)
         assert isinstance(client, self.client_class)
         assert isinstance(client._transport, expected_transport)
         assert client.state == "initial"
@@ -77,14 +50,14 @@ class ClientSharedTests(object):
     @pytest.mark.parametrize(
         "protocol,expected_transport",
         [
-            pytest.param("MQTT", MQTTTransportAsync, id="ALL CAPS"),
-            pytest.param("MqTt", MQTTTransportAsync, id="mIxEd CaSe"),
+            pytest.param("MQTT", MQTTTransport, id="ALL CAPS"),
+            pytest.param("MqTt", MQTTTransport, id="mIxEd CaSe"),
         ],
     )
     async def test_from_authentication_provider_boundary_case_transport_name(
         self, auth_provider, protocol, expected_transport
     ):
-        client = await self.client_class.from_authentication_provider(auth_provider, protocol)
+        client = self.client_class.from_authentication_provider(auth_provider, protocol)
         assert isinstance(client, self.client_class)
         assert isinstance(client._transport, expected_transport)
 
@@ -93,7 +66,7 @@ class ClientSharedTests(object):
         self, auth_provider
     ):
         with pytest.raises(ValueError):
-            await self.client_class.from_authentication_provider(auth_provider, "bad input")
+            self.client_class.from_authentication_provider(auth_provider, "bad input")
 
     async def test_connect_calls_transport(self, client, transport):
         await client.connect()
@@ -142,6 +115,47 @@ class TestModuleClient(ClientSharedTests):
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
+    async def test_receive_input_message_enables_input_messaging_only_if_not_already_enabled(
+        self, mocker, client, transport
+    ):
+        # patch this receive_input_message won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+        input_name = "some_input"
+
+        # Verify Input Messaging enabled if not enabled
+        transport.feature_enabled.__getitem__.return_value = (
+            False
+        )  # Input Messages will appear disabled
+        await client.receive_input_message(input_name)
+        assert transport.enable_feature.call_count == 1
+        assert transport.enable_feature.call_args[0][0] == constant.INPUT_MSG
+
+        transport.enable_feature.reset_mock()
+
+        # Verify Input Messaging not enabled if already enabled
+        transport.feature_enabled.__getitem__.return_value = (
+            True
+        )  # Input Messages will appear enabled
+        await client.receive_input_message(input_name)
+        assert transport.enable_feature.call_count == 0
+
+    async def test_receive_input_message_returns_message_from_input_inbox(self, mocker, client):
+        message = Message("this is a message")
+        inbox_mock = mocker.MagicMock(autospec=AsyncClientInbox)
+        inbox_mock.get.return_value = await create_completed_future(message)
+        manager_get_inbox_mock = mocker.patch.object(
+            client._inbox_manager, "get_input_message_inbox", return_value=inbox_mock
+        )
+
+        input_name = "some_input"
+        received_message = await client.receive_input_message(input_name)
+        assert manager_get_inbox_mock.call_count == 1
+        assert manager_get_inbox_mock.call_args == mocker.call(input_name)
+        assert inbox_mock.get.call_count == 1
+        assert received_message is message
+
 
 class TestDeviceClient(ClientSharedTests):
     client_class = DeviceClient
@@ -149,3 +163,37 @@ class TestDeviceClient(ClientSharedTests):
     @pytest.fixture
     async def client(self, transport):
         return DeviceClient(transport)
+
+    async def test_receive_c2d_message_enables_c2d_messaging_only_if_not_already_enabled(
+        self, mocker, client, transport
+    ):
+        # patch this receive_c2d_message won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        # Verify C2D Messaging enabled if not enabled
+        transport.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
+        await client.receive_c2d_message()
+        assert transport.enable_feature.call_count == 1
+        assert transport.enable_feature.call_args[0][0] == constant.C2D_MSG
+
+        transport.enable_feature.reset_mock()
+
+        # Verify C2D Messaging not enabled if already enabled
+        transport.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
+        await client.receive_c2d_message()
+        assert transport.enable_feature.call_count == 0
+
+    async def test_receive_c2d_message_returns_message_from_c2d_inbox(self, mocker, client):
+        message = Message("this is a message")
+        inbox_mock = mocker.MagicMock(autospec=AsyncClientInbox)
+        inbox_mock.get.return_value = await create_completed_future(message)
+        manager_get_inbox_mock = mocker.patch.object(
+            client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock
+        )
+
+        received_message = await client.receive_c2d_message()
+        assert manager_get_inbox_mock.call_count == 1
+        assert inbox_mock.get.call_count == 1
+        assert received_message is message

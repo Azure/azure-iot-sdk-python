@@ -387,18 +387,18 @@ class MQTTTransport(AbstractTransport):
         self._trig_on_shared_access_string_updated()
 
     def enable_feature(self, feature_name, callback=None, qos=1):
-        if feature_name == constant.INPUT:
+        if feature_name == constant.INPUT_MSG:
             self._enable_input_messages(callback, qos)
-        elif feature_name == constant.C2D:
+        elif feature_name == constant.C2D_MSG:
             self._enable_c2d_messages(callback, qos)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
 
     def disable_feature(self, feature_name, callback=None):
-        if feature_name == constant.INPUT:
+        if feature_name == constant.INPUT_MSG:
             self._disable_input_messages(callback)
-        elif feature_name == constant.C2D:
+        elif feature_name == constant.C2D_MSG:
             self._disable_c2d_messages(callback)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
@@ -408,19 +408,23 @@ class MQTTTransport(AbstractTransport):
         self._subscribe_callback = callback
         self._input_topic = self._get_input_topic()
         self._trig_enable_receive(callback, self._input_topic, qos)
+        self.feature_enabled[constant.INPUT_MSG] = True
 
     def _disable_input_messages(self, callback=None):
         self._unsubscribe_callback = callback
         self._trig_disable_receive(callback, self._input_topic)
+        self.feature_enabled[constant.INPUT_MSG] = False
 
     def _enable_c2d_messages(self, callback=None, qos=1):
         self._subscribe_callback = callback
         self._c2d_topic = self._get_c2d_topic()
         self._trig_enable_receive(callback, self._c2d_topic, qos)
+        self.feature_enabled[constant.C2D_MSG] = True
 
     def _disable_c2d_messages(self, callback=None):
         self._unsubscribe_callback = callback
         self._trig_disable_receive(callback, self._c2d_topic)
+        self.feature_enabled[constant.C2D_MSG] = False
 
     def _call_subscribe(self, event_data):
         logger.info("receive message topic is " + event_data.args[1])

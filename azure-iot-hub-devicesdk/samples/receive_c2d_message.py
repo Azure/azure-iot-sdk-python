@@ -26,14 +26,11 @@ device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 # connect the client.
 device_client.connect()
 
-# enable the device to receive c2d messages
-c2d_message_queue = device_client.get_c2d_message_queue()
-
 
 # define behavior for receiving a C2D message
-def c2d_listener(message_queue):
+def c2d_listener(device_client):
     while True:
-        c2d_message = message_queue.get()  # blocking call
+        c2d_message = device_client.receive_c2d_message()  # blocking call
         print("the data in the message received was ")
         print(c2d_message.data)
         print("custom properties are")
@@ -41,15 +38,18 @@ def c2d_listener(message_queue):
 
 
 # Run a listener thread in the background
-listen_thread = threading.Thread(target=c2d_listener, args=(c2d_message_queue,))
+listen_thread = threading.Thread(target=c2d_listener, args=(device_client,))
 listen_thread.daemon = True
 listen_thread.start()
 
+
+# Wait for user to indicate they are done listening for messages
 while True:
     selection = input("Press Q: Quit for exiting\n")
     if selection == "Q" or selection == "q":
         print("Quitting")
         break
+
 
 # finally, disconnect
 device_client.disconnect()

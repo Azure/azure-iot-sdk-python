@@ -22,7 +22,7 @@ def emulate_async(fn):
         loop = asyncio_compat.get_running_loop()
 
         # Run fn in default ThreadPoolExecutor (CPU * 5 threads)
-        return await loop.run_in_executor(None, fn, *args, **kwargs)
+        return await loop.run_in_executor(None, functools.partial(fn, *args, **kwargs))
 
     return async_fn_wrapper
 

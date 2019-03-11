@@ -5,7 +5,7 @@ as a Device or Module.
 """
 
 from .sync_clients import DeviceClient, ModuleClient
+from .sync_inbox import InboxEmpty
 from .message import Message
-from .message_queue import MessageQueue
 
-__all__ = ["DeviceClient", "ModuleClient", "Message", "MessageQueue", "auth"]
+__all__ = ["DeviceClient", "ModuleClient", "Message", "InboxEmpty", "auth"]
