@@ -399,8 +399,8 @@ class TestEnableInputMessage:
 
 
 class TestDisableInputMessage:
-    def test_unsubscribe_of_input_calls_unsubscribe_on_provider(self, transport):
-        transport._input_topic = subscribe_input_message_topic
+    def test_unsubscribe_of_input_calls_unsubscribe_on_provider(self, transport_module):
+        transport = transport_module
         mock_mqtt_provider = transport._mqtt_provider
 
         transport.connect()
@@ -410,7 +410,6 @@ class TestDisableInputMessage:
         mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_input_message_topic)
 
     def test_unsuback_of_input_calls_client_callback(self, transport):
-        transport._input_topic = subscribe_input_message_topic
         mock_mqtt_provider = transport._mqtt_provider
         mock_mqtt_provider.unsubscribe = MagicMock(return_value=56)
 
@@ -429,7 +428,6 @@ class TestDisableInputMessage:
         callback.assert_called_once_with()
 
     def test_sets_input_message_status_to_disabled(self, transport):
-        transport._input_topic = subscribe_input_message_topic
         mock_mqtt_provider = transport._mqtt_provider
 
         transport.connect()

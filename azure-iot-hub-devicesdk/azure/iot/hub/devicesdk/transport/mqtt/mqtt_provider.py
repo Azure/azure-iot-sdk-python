@@ -36,6 +36,7 @@ class MQTTProvider(object):
         self.on_mqtt_published = None
         self.on_mqtt_subscribed = None
         self.on_mqtt_unsubscribed = None
+        self.on_mqtt_message_received = None
 
         self._create_mqtt_client()
 
@@ -83,7 +84,7 @@ class MQTTProvider(object):
                 logger.error(traceback.format_exc())
 
         def on_message_callback(client, userdata, mqtt_message):
-            logger.info("message received")
+            logger.info("message received on %s", mqtt_message.topic)
             try:
                 self.on_mqtt_message_received(mqtt_message._topic, mqtt_message.payload)
             except:  # noqa: E722 do not use bare 'except'
@@ -166,7 +167,7 @@ class MQTTProvider(object):
         :return: message ID for the subscribe request
         Raises a ValueError if qos is not 0, 1 or 2, or if topic is None or has zero string length,
         """
-        logger.info("subscribing")
+        logger.info("subscribing to %s with qos %s", topic, str(qos))
         (result, mid) = self._mqtt_client.subscribe(topic, qos)
         return mid
 
@@ -177,6 +178,6 @@ class MQTTProvider(object):
         :return: mid the message ID for the unsubscribe request.
         Raises a ValueError if topic is None or has zero string length, or is not a string.
         """
-        logger.info("unsubscribing")
+        logger.info("unsubscribing from %s", topic)
         (result, mid) = self._mqtt_client.unsubscribe(topic)
         return mid
