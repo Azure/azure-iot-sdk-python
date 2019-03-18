@@ -9,7 +9,7 @@ from datetime import date
 import six.moves.urllib as urllib
 import six.moves.queue as queue
 from .mqtt_provider import MQTTProvider
-from transitions.extensions import LockedMachine as Machine
+from transitions import Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.message import Message
@@ -370,23 +370,28 @@ class MQTTTransport(AbstractTransport):
         )
 
     def connect(self, callback=None):
+        logger.info("connect called")
         self._connect_callback = callback
         self._trig_connect()
 
     def disconnect(self, callback=None):
+        logger.info("disconnect called")
         self._disconnect_callback = callback
         self._trig_disconnect()
 
     def send_event(self, message, callback=None):
+        logger.info("send_event called")
         self._trig_send_event(message, callback)
 
     def send_output_event(self, message, callback=None):
+        logger.info("send_output_event called")
         self._trig_send_event(message, callback)
 
     def _on_shared_access_string_updated(self):
         self._trig_on_shared_access_string_updated()
 
     def enable_feature(self, feature_name, callback=None, qos=1):
+        logger.info("enable_feature %s called", feature_name)
         if feature_name == constant.INPUT_MSG:
             self._enable_input_messages(callback, qos)
         elif feature_name == constant.C2D_MSG:
@@ -396,6 +401,7 @@ class MQTTTransport(AbstractTransport):
             raise ValueError("Invalid feature name")
 
     def disable_feature(self, feature_name, callback=None):
+        logger.info("disable_feature %s called", feature_name)
         if feature_name == constant.INPUT_MSG:
             self._disable_input_messages(callback)
         elif feature_name == constant.C2D_MSG:

@@ -109,7 +109,6 @@ def test_disconnect_calls_loopstop_on_mqttclient(MockMqttClient):
     mqtt_provider = MQTTProvider(fake_device_id, fake_hostname, fake_username)
     mqtt_provider.disconnect()
 
-    mock_mqtt_client.loop_stop.assert_called_once_with()
     mock_mqtt_client.disconnect.assert_called_once_with()
 
 

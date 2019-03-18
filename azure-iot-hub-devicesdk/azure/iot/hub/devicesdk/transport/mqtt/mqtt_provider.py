@@ -144,7 +144,6 @@ class MQTTProvider(object):
         when it wants to disconnect from the mqtt provider.
         """
         logger.info("disconnecting transport")
-        self._mqtt_client.loop_stop()
         self._mqtt_client.disconnect()
 
     def publish(self, topic, message_payload):
