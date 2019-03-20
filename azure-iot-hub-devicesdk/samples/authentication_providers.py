@@ -8,11 +8,7 @@ import os
 import asyncio
 from azure.iot.hub.devicesdk.aio import DeviceClient, ModuleClient
 
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
-    from_shared_access_signature,
-    from_connection_string,
-    from_environment,
-)
+from azure.iot.hub.devicesdk import auth
 
 # To understand authentication providers in depth, it is beneficial to be familiar with the Azure IoT Hub Security model:
 # https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-security
@@ -26,40 +22,44 @@ from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
 # At this point the client has everything it needs and it only has to connect to the IoT Hub.
 
 
-def alert_after_connection(status):
-    print("I am at {} state".format(status))
-
-
 async def create_shared_access_sig_auth_provider():
     """
     This creates an authentication provider from the pre-generated shared access signature of the device or module
     """
-    sas_auth_provider = from_shared_access_signature(os.getenv("IOTHUB_DEVICE_SAS_STRING"))
-    device_client_sas = await DeviceClient.from_authentication_provider(sas_auth_provider, "mqtt")
-    device_client_sas.on_connection_state = alert_after_connection
+    sas_auth_provider = auth.from_shared_access_signature(os.getenv("IOTHUB_DEVICE_SAS_STRING"))
+    device_client_sas = DeviceClient.from_authentication_provider(sas_auth_provider, "mqtt")
+    print("Authenticating with SharedAccessSignature string...")
     await device_client_sas.connect()
+    print("Successfully authenticated!")
 
 
 async def create_symmetric_key_auth_provider():
     """
     This creates an authentication provider from the connection string of the device or module
     """
-    key_auth_provider = from_connection_string(os.getenv("IOTHUB_DEVICE_CONNECTION_STRING"))
-    device_client_key = await DeviceClient.from_authentication_provider(key_auth_provider, "mqtt")
+    key_auth_provider = auth.from_connection_string(os.getenv("IOTHUB_DEVICE_CONNECTION_STRING"))
+    device_client_key = DeviceClient.from_authentication_provider(key_auth_provider, "mqtt")
+    print("Authenticating with Device Connection String...")
     await device_client_key.connect()
+    print("Successfully authenticated!")
 
 
 async def create_environ_auth_provider():
     """
     This creates an authentication provider from the system's environment variables.
     """
-    env_auth_provider = from_environment()
-    device_client_env = await DeviceClient.from_authentication_provider(env_auth_provider, "mqtt")
+    env_auth_provider = auth.from_environment()
+    device_client_env = DeviceClient.from_authentication_provider(env_auth_provider, "mqtt")
+    print("Authenticating from system environment...")
     await device_client_env.connect()
+    print("Successfully authenticated!")
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
     # Here we use option 1, but option 2 and 3 can be used interchangeably.
-    loop.run_until_complete(create_shared_access_sig_auth_provider())
-    loop.close()
+    asyncio.run(create_shared_access_sig_auth_provider())
+
+    # If using Python 3.6 or below, use the following code instead of the above:
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(create_shared_access_sig_auth_provider())
+    # loop.close()
