@@ -78,6 +78,40 @@ class ClientSharedTests(object):
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
+    @pytest.mark.skip(reason="Not Implemented")
+    def test_receive_method_request_enables_methods_only_if_not_already_enabled(
+        self, client, transport
+    ):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    def test_receive_method_request_called_without_method_name_returns_method_request_from_generic_method_inbox(
+        self, client, tranposrt
+    ):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    def test_receive_method_request_called_with_method_name_returns_method_request_from_named_method_inbox(
+        self, client, transport
+    ):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_method_request_can_be_called_in_mode(self, mocker, client, block, timeout):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    def test_send_method_response_calls_transport(self, client, transport):
+        pass
+
 
 class TestModuleClient(ClientSharedTests):
     client_class = ModuleClient

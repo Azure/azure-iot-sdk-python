@@ -10,7 +10,7 @@ Azure IoTHub Device SDK for Python.
 import logging
 from azure.iot.common import async_adapter
 from azure.iot.hub.devicesdk.sync_clients import GenericClient
-from azure.iot.hub.devicesdk import Message
+from azure.iot.hub.devicesdk.common import Message
 from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
@@ -33,6 +33,24 @@ class GenericClientAsync(GenericClient):
         """
         super().__init__(transport)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
+        self._transport.on_transport_connected = self._on_state_change
+        self._transport.on_transport_disconnected = self._on_state_change
+        self._transport.on_transport_method_request_received = (
+            self._inbox_manager.route_method_request
+        )
+
+    def _on_state_change(self, new_state):
+        """Handler to be called by the transport upon a connection state change."""
+        self.state = new_state
+        logger.info("Connection State - {}".format(self.state))
+
+        if new_state == "disconnected":
+            self._on_disconnected()
+
+    def _on_disconnected(self):
+        """Helper handler that is called upon a a transport disconnect"""
+        self._inbox_manager.clear_all_method_requests()
+        logger.info("Cleared all pending method requests due to disconnect")
 
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -86,6 +104,49 @@ class GenericClientAsync(GenericClient):
         callback = async_adapter.AwaitableCallback(sync_callback)
 
         await send_event_async(message, callback=callback)
+        await callback.completion()
+
+    async def receive_method_request(self, method_name=None):
+        """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        If no method request is yet available, will wait until it is available.
+
+        :param str method_name: Optionally provide the name of the method to receive requests for.
+        If this parameter is not given, all methods not already being specifically targeted by
+        a different call to receive_method will be received.
+
+        :returns: MethodRequest object representing the received method request.
+        """
+        if not self._transport.feature_enabled[constant.METHODS]:
+            await self._enable_feature(constant.METHODS)
+
+        method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
+
+        logger.info("Waiting for method request...")
+        method_request = await method_inbox.get()
+        logger.info("Received method request")
+        return method_request
+
+    async def send_method_response(self, method_request, payload, status):
+        """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        :param method_request: MethodRequest object representing the method request being
+        responded to.
+        :param payload: The desired payload for the method response.
+        :param int status: The desired return status code for the method response.
+        """
+        logger.info("Sending method response to Hub...")
+        send_method_response_async = async_adapter.emulate_async(
+            self._transport.send_method_response
+        )
+
+        def sync_callback():
+            logger.info("Successfully sent method response to Hub")
+
+        callback = async_adapter.AwaitableCallback(sync_callback)
+
+        # TODO: maybe consolidate method_request, result and status into a new object
+        await send_method_response_async(method_request, payload, status, callback=callback)
         await callback.completion()
 
     async def _enable_feature(self, feature_name):

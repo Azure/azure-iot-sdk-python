@@ -6,6 +6,6 @@ as a Device or Module.
 
 from .sync_clients import DeviceClient, ModuleClient
 from .sync_inbox import InboxEmpty
-from .message import Message
+from .common import Message
 
 __all__ = ["DeviceClient", "ModuleClient", "Message", "InboxEmpty", "auth"]

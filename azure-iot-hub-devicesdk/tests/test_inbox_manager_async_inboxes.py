@@ -36,3 +36,24 @@ class TestInboxManagerWithAsyncInboxes(InboxManagerSharedTests):
         assert delivered
         assert not input_inbox.empty()
         assert await input_inbox.get() is message
+
+    @pytest.mark.asyncio
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_route_method_call_with_unknown_method_adds_method_to_generic_method_inbox(
+        self, manager
+    ):
+        pass
+
+    @pytest.mark.asyncio
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_route_method_call_with_known_method_adds_method_to_named_method_inbox(
+        self, manager
+    ):
+        pass
+
+    @pytest.mark.asyncio
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_route_method_call_will_route_method_to_generic_method_call_inbox_until_named_method_inbox_is_created(
+        self, manager
+    ):
+        pass

@@ -44,12 +44,6 @@ class FakeTransport(AbstractTransport):
     def connect(self, callback):
         callback()
 
-    def send_event(self, event, callback):
-        callback()
-
-    def send_output_event(self, event, callback):
-        callback()
-
     def disconnect(self, callback):
         callback()
 
@@ -57,6 +51,15 @@ class FakeTransport(AbstractTransport):
         callback()
 
     def disable_feature(self, feature_name, callback=None):
+        callback()
+
+    def send_event(self, event, callback):
+        callback()
+
+    def send_output_event(self, event, callback):
+        callback()
+
+    def send_method_response(self, method, payload, status, callback=None):
         callback()
 
 

@@ -7,7 +7,7 @@
 import pytest
 import logging
 import six.moves.urllib as urllib
-from azure.iot.hub.devicesdk.message import Message
+from azure.iot.hub.devicesdk import Message
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_transport import MQTTTransport
 from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
@@ -517,6 +517,35 @@ class TestDisableC2D:
         device_transport.disable_feature(constant.C2D_MSG)
 
         assert not device_transport.feature_enabled[constant.C2D_MSG]
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestEnableMethods:
+    def test_subscribe_calls_subscribe_on_provider(self, transport):
+        pass
+
+    def test_suback_calls_client_callback(self, transport):
+        pass
+
+    def test_sets_methods_status_to_enabled(self, transport):
+        pass
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestDisableMethods:
+    def test_unsubscribe_calls_unsubscribe_on_provider(self, transport):
+        pass
+
+    def test_unsuback_of_methods_calls_client_callback(self, transport):
+        pass
+
+    def test_sets_method_status_to_disabled(self, transport):
+        pass
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestSendMethodResponse:
+    pass
 
 
 @pytest.mark.parametrize(

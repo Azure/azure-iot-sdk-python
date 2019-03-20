@@ -43,9 +43,9 @@ listen_thread.start()
 
 # Wait for user to indicate they are done listening for messages
 while True:
-    selection = input("Press Q: Quit for exiting\n")
+    selection = input("Press Q to quit\n")
     if selection == "Q" or selection == "q":
-        print("Quitting")
+        print("Quitting...")
         break
 
 

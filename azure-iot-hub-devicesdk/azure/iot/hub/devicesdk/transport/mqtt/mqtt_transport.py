@@ -12,7 +12,7 @@ from .mqtt_provider import MQTTProvider
 from transitions import Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk.transport import constant
-from azure.iot.hub.devicesdk.message import Message
+from azure.iot.hub.devicesdk.common import Message
 
 
 """
@@ -146,6 +146,9 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider = None
         self.on_transport_connected = None
         self.on_transport_disconnected = None
+        self.on_transport_c2d_message_received = None
+        self.on_transport_input_message_received = None
+        self.on_transport_method_request_received = None
 
         # Queue of actions that will be executed once the transport is connected.
         # Currently, we use a queue, which is FIFO, but the actual order doesn't matter
@@ -597,6 +600,9 @@ class MQTTTransport(AbstractTransport):
         action = SendMessageAction(message, callback)
         self._trig_add_action_to_pending_queue(action)
 
+    def send_method_response(self, method, payload, status, callback=None):
+        raise NotImplementedError
+
     def _on_shared_access_string_updated(self):
         """
         Callback which is called by the authentication provider when the shared access string has been updated.
@@ -615,6 +621,8 @@ class MQTTTransport(AbstractTransport):
             self._enable_input_messages(callback)
         elif feature_name == constant.C2D_MSG:
             self._enable_c2d_messages(callback)
+        elif feature_name == constant.METHODS:
+            self._enable_methods(callback)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -631,6 +639,8 @@ class MQTTTransport(AbstractTransport):
             self._disable_input_messages(callback)
         elif feature_name == constant.C2D_MSG:
             self._disable_c2d_messages(callback)
+        elif feature_name == constant.METHODS:
+            self._disable_methods(callback)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -678,6 +688,27 @@ class MQTTTransport(AbstractTransport):
         action = UnsubscribeAction(topic=self._get_c2d_topic_for_subscribe(), callback=callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.C2D_MSG] = False
+
+    def _enable_methods(self, callback=None, qos=1):
+        """
+        Helper function to enable methods
+
+        :param callback: callback which is called when the feature is enabled.
+        :param qos: Quality of Serivce level
+        """
+        action = SubscribeAction(self._get_method_topic_for_subscribe(), qos, callback)
+        self._trig_add_action_to_pending_queue(action)
+        self.feature_enabled[constant.METHODS] = True
+
+    def _disable_methods(self, callback=None):
+        """
+        Helper function to disable methods
+
+        :param callback: callback which is called when the feature is disabled
+        """
+        action = UnsubscribeAction(self._get_method_topic_for_subscribe(), callback)
+        self._trig_add_action_to_pending_queue(action)
+        self.feature_enabled[constant.METHODS] = False
 
 
 def _is_c2d_topic(split_topic_str):

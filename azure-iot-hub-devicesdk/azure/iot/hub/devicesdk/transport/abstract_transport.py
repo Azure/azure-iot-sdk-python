@@ -27,20 +27,6 @@ class AbstractTransport:
         pass
 
     @abc.abstractmethod
-    def send_event(self, event, callback):
-        """
-        Send some telemetry, event or message.
-        """
-        pass
-
-    @abc.abstractmethod
-    def send_output_event(self, event, callback):
-        """
-        Send some event or message to a specific output
-        """
-        pass
-
-    @abc.abstractmethod
     def disconnect(self, callback):
         """
         Disconnect from the specific messaging system used by the specific transport protocol
@@ -58,5 +44,27 @@ class AbstractTransport:
     def disable_feature(self, feature_name, callback=None):
         """
         Disable a specific feature (c2d, input, etc.)
+        """
+        pass
+
+    @abc.abstractmethod
+    def send_event(self, event, callback):
+        """
+        Send some telemetry, event or message.
+        """
+        pass
+
+    @abc.abstractmethod
+    def send_output_event(self, event, callback):
+        """
+        Send some event or message to a specific output
+        """
+        pass
+
+    # TODO: consider changing this signature (should the response already be packaged?)
+    @abc.abstractmethod
+    def send_method_response(self, method, payload, status, callback=None):
+        """
+        Send a method response.
         """
         pass

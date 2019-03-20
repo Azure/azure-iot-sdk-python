@@ -9,3 +9,4 @@
 # Feature names
 C2D_MSG = "c2d"
 INPUT_MSG = "input"
+METHODS = "methods"

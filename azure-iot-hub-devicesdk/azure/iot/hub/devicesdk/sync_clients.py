@@ -13,7 +13,7 @@ import weakref
 from threading import Event
 from .transport.mqtt import MQTTTransport
 from .transport import constant
-from .message import Message
+from .common import Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox
 
@@ -31,14 +31,7 @@ class GenericClient(object):
         :param transport: The transport that the client will use.
         """
         self._transport = transport
-        self._transport.on_transport_connected = self._state_change
-        self._transport.on_transport_disconnected = self._state_change
         self.state = "initial"
-
-    def _state_change(self, new_state):
-        """Handler to be called by the transport upon a connection state change."""
-        self.state = new_state
-        logger.info("Connection State - {}".format(self.state))
 
     @classmethod
     def from_authentication_provider(cls, authentication_provider, transport_name):
@@ -88,6 +81,24 @@ class GenericClientSync(GenericClient):
         """
         super(GenericClientSync, self).__init__(transport)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
+        self._transport.on_transport_connected = self._on_state_change
+        self._transport.on_transport_disconnected = self._on_state_change
+        self._transport.on_transport_method_request_received = (
+            self._inbox_manager.route_method_request
+        )
+
+    def _on_state_change(self, new_state):
+        """Handler to be called by the transport upon a connection state change."""
+        self.state = new_state
+        logger.info("Connection State - {}".format(self.state))
+
+        if new_state == "disconnected":
+            self._on_disconnected()
+
+    def _on_disconnected(self):
+        """Helper handler that is called upon a a transport disconnect"""
+        self._inbox_manager.clear_all_method_requests()
+        logger.info("Cleared all pending method requests due to disconnect")
 
     def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -149,6 +160,50 @@ class GenericClientSync(GenericClient):
             logger.info("Successfully sent message to Hub")
 
         self._transport.send_event(message, callback=callback)
+        send_complete.wait()
+
+    def receive_method_request(self, method_name=None, block=True, timeout=None):
+        """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        :param str method_name: Optionally provide the name of the method to receive requests for.
+        If this parameter is not given, all methods not already being specifically targeted by
+        a different request to receive_method will be received.
+        :param bool block: Indicates if the operation should block until a request is received.
+        Default True.
+        :param int timeout: Optionally provide a number of seconds until blocking times out.
+
+        :raises: InboxEmpty if timeout occurs on a blocking operation.
+        :raises: InboxEmpty if no request is available on a non-blocking operation.
+
+        :returns: MethodRequest object representing the received method request.
+        """
+        if not self._transport.feature_enabled[constant.METHODS]:
+            self._enable_feature(constant.METHODS)
+
+        method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
+
+        logger.info("Waiting for method request...")
+        method_call = method_inbox.get(block=block, timeout=timeout)
+        logger.info("Received method request")
+        return method_call
+
+    def send_method_response(self, method_request, payload, status):
+        """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        :param method_request: MethodRequest object representing the method request being
+        responded to.
+        :param payload: The desired payload for the method response.
+        :param int status: The desired return status code for the method response.
+        """
+        logger.info("Sending method response to Hub...")
+        send_complete = Event()
+
+        def callback():
+            send_complete.set()
+            logger.info("Successfully sent method response to Hub")
+
+        # TODO: maybe consolidate method_request, result and status into a new object
+        self._transport.send_method_response(method_request, payload, status, callback=callback)
         send_complete.wait()
 
     def _enable_feature(self, feature_name):

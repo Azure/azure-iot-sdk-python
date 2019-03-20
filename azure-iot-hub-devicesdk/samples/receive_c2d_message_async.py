@@ -39,9 +39,9 @@ async def main():
     # define behavior for halting the application
     def stdin_listener():
         while True:
-            selection = input("Press Q: Quit for exiting\n")
+            selection = input("Press Q to quit\n")
             if selection == "Q" or selection == "q":
-                print("Quitting")
+                print("Quitting...")
                 break
 
     # Schedule task for C2D Listener

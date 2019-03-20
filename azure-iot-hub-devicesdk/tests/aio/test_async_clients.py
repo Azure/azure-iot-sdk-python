@@ -90,6 +90,28 @@ class ClientSharedTests(object):
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_receive_method_request_enables_methods_only_if_not_already_enabled(
+        self, client, transport
+    ):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_receive_method_request_called_without_method_name_returns_method_request_from_generic_method_inbox(
+        self, client, tranposrt
+    ):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_receive_method_request_called_with_method_name_returns_method_request_from_named_method_inbox(
+        self, client, transport
+    ):
+        pass
+
+    @pytest.mark.skip(reason="Not Implemented")
+    async def test_send_method_response_calls_transport(self, client, transport):
+        pass
+
 
 class TestModuleClient(ClientSharedTests):
     client_class = ModuleClient
