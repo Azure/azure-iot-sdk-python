@@ -48,7 +48,7 @@ class AbstractTransport:
         pass
 
     @abc.abstractmethod
-    def enable_feature(self, feature_name, callback=None, qos=1):
+    def enable_feature(self, feature_name, callback=None):
         """
         Enable a specific feature (c2d, input, etc.)
         """

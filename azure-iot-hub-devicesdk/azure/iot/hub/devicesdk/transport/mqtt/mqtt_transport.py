@@ -156,6 +156,11 @@ class MQTTTransport(AbstractTransport):
         # used to call back into the caller to indicate that an action is complete.
         self._in_progress_actions = {}
 
+        # Map of responses we receive with a MID that is not in the _in_progress_actions map.
+        # We need this because sometimes a SUBSCRIBE or a PUBLISH will complete before the call
+        # to subscribe() or publish() returns.
+        self._responses_with_unknown_mid = {}
+
         self._connect_callback = None
         self._disconnect_callback = None
 
@@ -338,8 +343,10 @@ class MQTTTransport(AbstractTransport):
             del self._in_progress_actions[mid]
             callback()
         else:
-            # TODO: tests for unkonwn MID cases
             logger.warning("PUBACK received with unknown MID: %s", str(mid))
+            self._responses_with_unknown_mid[
+                mid
+            ] = mid  # storing MID for now.  will probably store result code later.
 
     def _on_provider_subscribe_complete(self, mid):
         """
@@ -353,8 +360,10 @@ class MQTTTransport(AbstractTransport):
             del self._in_progress_actions[mid]
             callback()
         else:
-            # TODO: tests for unkonwn MID cases
             logger.warning("SUBACK received with unknown MID: %s", str(mid))
+            self._responses_with_unknown_mid[
+                mid
+            ] = mid  # storing MID for now.  will probably store result code later.
 
     def _on_provider_message_received_callback(self, topic, payload):
         """
@@ -395,8 +404,10 @@ class MQTTTransport(AbstractTransport):
             del self._in_progress_actions[mid]
             callback()
         else:
-            # TODO: tests for unkonwn MID cases
             logger.warning("UNSUBACK received with unknown MID: %s", str(mid))
+            self._responses_with_unknown_mid[
+                mid
+            ] = mid  # storing MID for now.  will probably store result code later.
 
     def _add_action_to_queue(self, event_data):
         """
@@ -407,11 +418,7 @@ class MQTTTransport(AbstractTransport):
 
         :param EventData event_data:  Object created by the Transitions library with information about the state transition
         """
-        action = event_data.args[0]
-        if isinstance(action, TransportAction):
-            self._pending_action_queue.put_nowait(event_data.args[0])
-        else:
-            assert False
+        self._pending_action_queue.put_nowait(event_data.args[0])
 
     def _execute_action(self, action):
         """
@@ -428,24 +435,40 @@ class MQTTTransport(AbstractTransport):
                 message_to_send, self._get_telemetry_topic_for_publish()
             )
             mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
-            self._in_progress_actions[mid] = action.callback
+            if mid in self._responses_with_unknown_mid:
+                del self._responses_with_unknown_mid[mid]
+                action.callback()
+            else:
+                self._in_progress_actions[mid] = action.callback
 
         elif isinstance(action, SubscribeAction):
             logger.info("running SubscribeAction topic=%s qos=%s", action.topic, action.qos)
             mid = self._mqtt_provider.subscribe(action.topic, action.qos)
             logger.info("subscribe mid = %s", mid)
-            self._in_progress_actions[mid] = action.callback
+            if mid in self._responses_with_unknown_mid:
+                del self._responses_with_unknown_mid[mid]
+                action.callback()
+            else:
+                self._in_progress_actions[mid] = action.callback
 
         elif isinstance(action, UnsubscribeAction):
             logger.info("running UnsubscribeAction")
             mid = self._mqtt_provider.unsubscribe(action.topic)
-            self._in_progress_actions[mid] = action.callback
+            if mid in self._responses_with_unknown_mid:
+                del self._responses_with_unknown_mid[mid]
+                action.callback()
+            else:
+                self._in_progress_actions[mid] = action.callback
 
         elif isinstance(action, MethodReponseAction):
             logger.info("running MethodResponseAction")
             topic = "TODO"
             mid = self._mqtt_provider.publish(topic, action.method_response)
-            self._in_progress_actions[mid] = action.callback
+            if mid in self._responses_with_unknown_mid:
+                del self._responses_with_unknown_mid[mid]
+                action.callback()
+            else:
+                self._in_progress_actions[mid] = action.callback
 
         else:
             logger.error("Removed unknown action type from queue.")
@@ -563,7 +586,7 @@ class MQTTTransport(AbstractTransport):
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
         action = SendMessageAction(message, callback)
-        self._trig_add_action_to_pending_queue(action, self._pending_action_queue)
+        self._trig_add_action_to_pending_queue(action)
 
     def send_output_event(self, message, callback=None):
         """
@@ -572,7 +595,7 @@ class MQTTTransport(AbstractTransport):
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
         action = SendMessageAction(message, callback)
-        self._trig_add_action_to_pending_queue(action, self._pending_action_queue)
+        self._trig_add_action_to_pending_queue(action)
 
     def _on_shared_access_string_updated(self):
         """
@@ -580,7 +603,7 @@ class MQTTTransport(AbstractTransport):
         """
         self._trig_on_shared_access_string_updated()
 
-    def enable_feature(self, feature_name, callback=None, qos=1):
+    def enable_feature(self, feature_name, callback=None):
         """
         Enable the given feature by subscribing to the appropriate topics.
 
@@ -589,9 +612,9 @@ class MQTTTransport(AbstractTransport):
         """
         logger.info("enable_feature %s called", feature_name)
         if feature_name == constant.INPUT_MSG:
-            self._enable_input_messages(callback, qos)
+            self._enable_input_messages(callback)
         elif feature_name == constant.C2D_MSG:
-            self._enable_c2d_messages(callback, qos)
+            self._enable_c2d_messages(callback)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -612,13 +635,15 @@ class MQTTTransport(AbstractTransport):
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
 
-    def _enable_input_messages(self, callback=None, qos=1):
+    def _enable_input_messages(self, callback=None):
         """
         Helper function to enable input messages
 
         :param callback: callback which is called when the feature is enabled
         """
-        action = SubscribeAction(self._get_input_topic_for_subscribe(), qos, callback)
+        action = SubscribeAction(
+            topic=self._get_input_topic_for_subscribe(), qos=1, callback=callback
+        )
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.INPUT_MSG] = True
 
@@ -628,17 +653,19 @@ class MQTTTransport(AbstractTransport):
 
         :param callback: callback which is called when the feature is disabled
         """
-        action = UnsubscribeAction(self._get_input_topic_for_subscribe(), callback)
+        action = UnsubscribeAction(topic=self._get_input_topic_for_subscribe(), callback=callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.INPUT_MSG] = False
 
-    def _enable_c2d_messages(self, callback=None, qos=1):
+    def _enable_c2d_messages(self, callback=None):
         """
         Helper function to enable c2de messages
 
         :param callback: callback which is called when the feature is enabled
         """
-        action = SubscribeAction(self._get_c2d_topic_for_subscribe(), qos, callback)
+        action = SubscribeAction(
+            topic=self._get_c2d_topic_for_subscribe(), qos=1, callback=callback
+        )
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.C2D_MSG] = True
 
@@ -648,7 +675,7 @@ class MQTTTransport(AbstractTransport):
 
         :param callback: callback which is called when the feature is disabled
         """
-        action = UnsubscribeAction(self._get_c2d_topic_for_subscribe(), callback)
+        action = UnsubscribeAction(topic=self._get_c2d_topic_for_subscribe(), callback=callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.C2D_MSG] = False
 
@@ -713,7 +740,7 @@ def _encode_properties(message_to_send, topic):
     :param message_to_send: The message to send
     :param topic: The topic which has not been encoded yet. For a device it looks like
     "devices/<deviceId>/messages/events/" and for a module it looks like
-    "devices/<deviceId>/<moduleId>/messages/events/
+    "devices/<deviceId>/modules/<moduleId>/messages/events/
     :return: The topic which has been uri-encoded
     """
     system_properties = {}
