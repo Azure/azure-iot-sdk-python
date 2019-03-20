@@ -12,8 +12,6 @@ from azure.iot.hub.devicesdk import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
 logging.basicConfig(level=logging.ERROR)
-
-
 # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
