@@ -79,7 +79,7 @@ class InboxManager(object):
     def clear_all_method_requests(self):
         """Delete all method requests currently in inboxes. Also delete named inboxes.
         """
-        self.generic_method_request_inbox.clear()
+        # self.generic_method_request_inbox.clear() TODO: fix this
         self.named_method_request_inboxes.clear()
 
     def route_input_message(self, input_name, incoming_message):
