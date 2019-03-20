@@ -6,6 +6,7 @@ This directory contains simple samples showing how to use the various features o
 
 * Send Telemetry from a Device
 * Receive Cloud-to-Device (C2D) messages
+* Receive Input messages on a Module
 * Send to Output from Module
 
 ## How to run the samples

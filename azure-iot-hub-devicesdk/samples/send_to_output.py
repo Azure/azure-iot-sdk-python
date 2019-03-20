@@ -5,12 +5,12 @@
 # --------------------------------------------------------------------------
 
 import time
-from azure.iot.hub.devicesdk import ModuleClient, Message
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_environment
 import uuid
+from azure.iot.hub.devicesdk import ModuleClient, Message
+from azure.iot.hub.devicesdk import auth
 
 # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the module client.
-auth_provider = from_environment()
+auth_provider = auth.from_environment()
 # For now, the SDK only supports MQTT as a protocol.
 # Inputs/Ouputs are only supported in the context of Azure IoT Edge and module client
 # The module client object acts as an Azure IoT Edge module and interacts with an Azure IoT Edge hub

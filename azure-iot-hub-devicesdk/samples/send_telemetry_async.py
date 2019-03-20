@@ -10,9 +10,7 @@ import logging
 import uuid
 from azure.iot.hub.devicesdk.aio import DeviceClient
 from azure.iot.hub.devicesdk import Message
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import (
-    from_connection_string,
-)  # this is a overlong import, fix
+from azure.iot.hub.devicesdk import auth
 
 messages_to_send = 10
 
@@ -23,7 +21,7 @@ async def main():
 
     # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
     # TODO: open question: do we want async versions of from_connection_string and from_authentication_provider?
-    auth_provider = from_connection_string(conn_str)
+    auth_provider = auth.from_connection_string(conn_str)
 
     # For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
     # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
@@ -49,6 +47,9 @@ async def main():
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-    loop.close()
+    asyncio.run(main())
+
+    # If using Python 3.6 or below, use the following code instead of asyncio.run(main()):
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(main())
+    # loop.close()
