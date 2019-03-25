@@ -6,16 +6,23 @@ This repository contains the code for the future v2.0.0 of the Azure IoT SDKs fo
 
 # How to install the SDKs
 
-There are currently no preview packages released on pip. The only way to install the SDKs is to clone the repository and install manually with pip from the repository root.
-```
-pip install azure-iot-common
-pip install azure-iot-hub-devicesdk
-```
+There are currently no preview packages released on pip. The only way to install the SDKs is to clone the repository and install manually with pip.
 
-To install all SDKs you can use the convenience script in the directory root.
-```
-python env_setup.py --no_dev
-```
+1. Clone the repository
+    ```
+    git clone https://github.com/Azure/azure-iot-sdk-python-preview.git
+    cd azure-iot-sdk-python-preview
+    ```
+
+2. Install manually
+    ```
+    pip install azure-iot-common
+    pip install azure-iot-hub-devicesdk
+    ```
+    Alternatively, to install all SDKs you can use the convenience script in the directory root.
+    ```
+    python env_setup.py --no_dev
+    ```
 
 # How to use the SDKs
 

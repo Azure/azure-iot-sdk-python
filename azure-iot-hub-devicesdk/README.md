@@ -16,8 +16,11 @@ The SDK provides the following clients:
 These clients are synchronous and communicate using the MQTT protocol
 
 ## Installation
-We currently do not provide a binary distribution of our package, which means you'll have to clone the [Azure IoT Python SDKs Repository](https://github.com/Azure/azure-iot-sdk-python-preview) and manually install by running the following commands from the directory root:
+We currently do not provide a binary distribution of our package, which means you'll have to clone the [Azure IoT Python SDKs Repository](https://github.com/Azure/azure-iot-sdk-python-preview) and manually install by running the following commands:
 ```
+git clone https://github.com/Azure/azure-iot-sdk-python-preview.git
+cd azure-iot-sdk-python-preview
+
 pip install azure-iot-common
 pip install azure-iot-hub-devicesdk
 ```
