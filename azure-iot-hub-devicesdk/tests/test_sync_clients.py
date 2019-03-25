@@ -56,6 +56,26 @@ class ClientSharedTests(object):
         with pytest.raises(ValueError):
             self.client_class.from_authentication_provider(auth_provider, "bad input")
 
+    def test_instantiation_sets_on_connected_handler_in_transport(self, client):
+        assert client._transport.on_transport_connected is not None
+        assert client._transport.on_transport_connected == client._on_state_change
+
+    def test_instantiation_sets_on_disconnected_handler_in_transport(self, client):
+        assert client._transport.on_transport_disconnected is not None
+        assert client._transport.on_transport_disconnected == client._on_state_change
+
+    def test_instantiation_sets_on_method_request_received_handler_in_transport(self, client):
+        assert client._transport.on_transport_method_request_received is not None
+        assert (
+            client._transport.on_transport_method_request_received
+            == client._inbox_manager.route_method_request
+        )
+
+    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
+        clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
+        client._on_state_change("disconnected")
+        assert clear_method_request_spy.call_count == 1
+
     def test_connect_calls_transport(self, client, transport):
         client.connect()
         assert transport.connect.call_count == 1
@@ -119,6 +139,13 @@ class TestModuleClient(ClientSharedTests):
     @pytest.fixture
     def client(self, transport):
         return ModuleClient(transport)
+
+    def test_instantiation_sets_on_input_message_received_handler_in_transport(self, client):
+        assert client._transport.on_transport_input_message_received is not None
+        assert (
+            client._transport.on_transport_input_message_received
+            == client._inbox_manager.route_input_message
+        )
 
     def test_send_to_output_calls_transport(self, client, transport):
         message = Message("this is a message")
@@ -201,6 +228,13 @@ class TestDeviceClient(ClientSharedTests):
     @pytest.fixture
     def client(self, transport):
         return DeviceClient(transport)
+
+    def test_instantiation_sets_on_c2d_message_received_handler_in_transport(self, client):
+        assert client._transport.on_transport_c2d_message_received is not None
+        assert (
+            client._transport.on_transport_c2d_message_received
+            == client._inbox_manager.route_c2d_message
+        )
 
     def test_receive_c2d_message_enables_c2d_messaging_only_if_not_already_enabled(
         self, mocker, client, transport

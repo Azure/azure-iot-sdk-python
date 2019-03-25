@@ -44,3 +44,12 @@ class AsyncClientInbox(AbstractInbox):
         :returns: Boolean indicating if the inbox is empty
         """
         return self._queue.async_q.empty()
+
+    def clear(self):
+        """Remove all items from the inbox.
+        """
+        while True:
+            try:
+                self._queue.sync_q.get_nowait()
+            except janus.SyncQueueEmpty:
+                break

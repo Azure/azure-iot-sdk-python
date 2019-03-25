@@ -9,7 +9,7 @@ import sys
 import six
 import abc
 from azure.iot.hub.devicesdk.inbox_manager import InboxManager
-from azure.iot.hub.devicesdk import Message
+from azure.iot.hub.devicesdk.common import Message, MethodRequest
 from azure.iot.hub.devicesdk.sync_inbox import SyncClientInbox
 
 
@@ -62,29 +62,63 @@ class InboxManagerSharedTests(object):
         assert input1 in manager.input_message_inboxes.keys()
         assert input_inbox1 in manager.input_message_inboxes.values()
 
-    @pytest.mark.skip(reason="Not Implemented")
-    def test_get_method_request_inbox_returns_expected_inbox(self, manager):
-        pass
+    @pytest.mark.parametrize(
+        "method_name",
+        [
+            pytest.param("some_method", id="Called with a method name"),
+            pytest.param(None, id="Called with no method name"),
+        ],
+    )
+    def test_get_method_request_inbox_returns_inbox(self, manager, method_name):
+        method_request_inbox = manager.get_method_request_inbox(method_name)
+        assert type(method_request_inbox) == self.inbox_type
 
-    @pytest.mark.skip(reason="Not Implemented")
+    @pytest.mark.parametrize(
+        "method_name",
+        [
+            pytest.param("some_method", id="Called with a method name"),
+            pytest.param(None, id="Called with no method name"),
+        ],
+    )
     def test_get_method_request_inbox_called_multiple_times_with_same_method_name_returns_same_inbox(
-        self, manager
+        self, manager, method_name
     ):
-        pass
+        message_request_inbox1 = manager.get_method_request_inbox(method_name)
+        message_request_inbox2 = manager.get_method_request_inbox(method_name)
+        assert message_request_inbox1 is message_request_inbox2
 
-    @pytest.mark.skip(reason="Not Implemented")
     def test_get_method_request_inbox_called_multiple_times_with_different_method_name_returns_different_inbox(
         self, manager
     ):
-        pass
+        message_request_inbox1 = manager.get_method_request_inbox("some_method")
+        message_request_inbox2 = manager.get_method_request_inbox("some_other_method")
+        message_request_inbox3 = manager.get_method_request_inbox()
+        assert message_request_inbox1 is not message_request_inbox2
+        assert message_request_inbox1 is not message_request_inbox3
+        assert message_request_inbox2 is not message_request_inbox3
 
-    @pytest.mark.skip(reason="Not Implemented")
     def test_clear_all_method_calls_clears_generic_method_call_inbox(self, manager):
-        pass
+        generic_method_request_inbox = manager.get_method_request_inbox()
+        assert generic_method_request_inbox.empty()
+        manager.route_method_request(MethodRequest("id", "unrecognized_method_name", "payload"))
+        assert not generic_method_request_inbox.empty()
 
-    @pytest.mark.skip(reason="Not Implemented")
-    def test_clear_all_method_calls_deletes_named_method_call_inboxes(self, manager):
-        pass
+        manager.clear_all_method_requests()
+        assert generic_method_request_inbox.empty()
+
+    def test_clear_all_method_calls_clears_named_method_call_inboxes(self, manager):
+        method_request_inbox1 = manager.get_method_request_inbox("some_method")
+        method_request_inbox2 = manager.get_method_request_inbox("some_other_method")
+        assert method_request_inbox1.empty()
+        assert method_request_inbox2.empty()
+        manager.route_method_request(MethodRequest("id1", "some_method", "payload"))
+        manager.route_method_request(MethodRequest("id2", "some_other_method", "payload"))
+        assert not method_request_inbox1.empty()
+        assert not method_request_inbox2.empty()
+
+        manager.clear_all_method_requests()
+        assert method_request_inbox1.empty()
+        assert method_request_inbox2.empty()
 
     @abc.abstractmethod
     def test_route_c2d_message_adds_message_to_c2d_message_inbox(self, manager, message):

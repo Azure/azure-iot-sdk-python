@@ -144,11 +144,6 @@ class MQTTTransport(AbstractTransport):
         AbstractTransport.__init__(self, auth_provider)
         self.topic = self._get_telemetry_topic_for_publish()
         self._mqtt_provider = None
-        self.on_transport_connected = None
-        self.on_transport_disconnected = None
-        self.on_transport_c2d_message_received = None
-        self.on_transport_input_message_received = None
-        self.on_transport_method_request_received = None
 
         # Queue of actions that will be executed once the transport is connected.
         # Currently, we use a queue, which is FIFO, but the actual order doesn't matter

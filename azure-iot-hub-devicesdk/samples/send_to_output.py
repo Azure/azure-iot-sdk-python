@@ -22,7 +22,7 @@ module_client = ModuleClient.from_authentication_provider(auth_provider, "mqtt")
 module_client.connect()
 
 # send 5 messages with a 1 second pause between each message
-for i in range(0, 5):
+for i in range(1, 6):
     print("sending message #" + str(i))
     msg = Message("test wind speed " + str(i))
     msg.message_id = uuid.uuid4()
@@ -32,7 +32,7 @@ for i in range(0, 5):
     time.sleep(1)
 
 # send only string messages
-for i in range(5, 10):
+for i in range(6, 11):
     print("sending message #" + str(i))
     module_client.send_to_output("test payload message " + str(i), "tracking")
     time.sleep(1)

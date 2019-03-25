@@ -81,3 +81,16 @@ class TestSyncClientInbox(object):
         assert not inbox.empty()
         inbox.get()
         assert inbox.empty()
+
+    def test_can_clear_all_items(self, mocker):
+        inbox = SyncClientInbox()
+        item1 = mocker.MagicMock()
+        item2 = mocker.MagicMock()
+        item3 = mocker.MagicMock()
+        inbox._put(item1)
+        inbox._put(item2)
+        inbox._put(item3)
+        assert not inbox.empty()
+
+        inbox.clear()
+        assert inbox.empty()

@@ -54,6 +54,12 @@ class AbstractInbox:
         """
         pass
 
+    @abstractmethod
+    def clear(self):
+        """Remove all items from the inbox.
+        """
+        pass
+
 
 class SyncClientInbox(AbstractInbox):
     """Holds generic incoming data for a synchronous client.
@@ -98,3 +104,9 @@ class SyncClientInbox(AbstractInbox):
         :returns: Boolean indicating if the inbox is empty
         """
         return self._queue.empty()
+
+    def clear(self):
+        """Remove all items from the inbox.
+        """
+        with self._queue.mutex:
+            self._queue.queue.clear()
