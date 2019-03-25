@@ -8,10 +8,8 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-import six
-import weakref
 from threading import Event
-from .transport.mqtt import MQTTTransport
+from .abstract_clients import AbstractClient, AbstractDeviceClient, AbstractModuleClient
 from .transport import constant
 from .common import Message
 from .inbox_manager import InboxManager
@@ -22,53 +20,9 @@ logger = logging.getLogger(__name__)
 __all__ = ["DeviceClient", "ModuleClient"]
 
 
-class GenericClient(object):
-    """A superclass representing a generic client. This class needs to be extended for specific clients."""
-
-    def __init__(self, transport):
-        """Initializer for a generic client.
-
-        :param transport: The transport that the client will use.
-        """
-        self._transport = transport
-        self.state = "initial"
-
-    @classmethod
-    def from_authentication_provider(cls, authentication_provider, transport_name):
-        """Creates a device client with the specified authentication provider and transport.
-
-        When creating the client, you need to pass in an authorization provider and a transport_name.
-
-        The authentication_provider parameter is an object created using the authentication_provider_factory
-        module.  It knows where to connect (a network address), how to authenticate with the service
-        (a set of credentials), and, if necessary, the protocol gateway to use when communicating
-        with the service.
-
-        The transport_name is a string which defines the name of the transport to use when connecting
-        with the service or the protocol gateway.
-
-        Currently "mqtt" is the only supported transport.
-
-        :param authentication_provider: The authentication provider.
-        :param transport_name: The name of the transport that the client will use.
-
-        :returns: Instance of the client.
-
-        :raises: ValueError if given an invalid transport_name.
-        :raises: NotImplementedError if transport_name is "amqp" or "http".
-        """
-        transport_name = transport_name.lower()
-        if transport_name == "mqtt":
-            transport = MQTTTransport(authentication_provider)
-        elif transport_name == "amqp" or transport_name == "http":
-            raise NotImplementedError("This transport has not yet been implemented")
-        else:
-            raise ValueError("No specific transport can be instantiated based on the choice.")
-        return cls(transport)
-
-
-class GenericClientSync(GenericClient):
-    """A superclass representing a generic synchronous client. This class needs to be extended for specific clients.
+class GenericClient(AbstractClient):
+    """A superclass representing a generic synchronous client.
+    This class needs to be extended for specific clients.
     """
 
     def __init__(self, transport):
@@ -79,7 +33,7 @@ class GenericClientSync(GenericClient):
 
         :param transport: The transport that the client will use.
         """
-        super(GenericClientSync, self).__init__(transport)
+        super(GenericClient, self).__init__(transport)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
         self._transport.on_transport_connected = self._on_state_change
         self._transport.on_transport_disconnected = self._on_state_change
@@ -89,8 +43,7 @@ class GenericClientSync(GenericClient):
 
     def _on_state_change(self, new_state):
         """Handler to be called by the transport upon a connection state change."""
-        self.state = new_state
-        logger.info("Connection State - {}".format(self.state))
+        logger.info("Connection State - {}".format(new_state))
 
         if new_state == "disconnected":
             self._on_disconnected()
@@ -226,12 +179,10 @@ class GenericClientSync(GenericClient):
         enable_complete.wait()
 
 
-class DeviceClient(GenericClientSync):
+class DeviceClient(GenericClient, AbstractDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance.
 
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
-
-    :ivar state: The current connection state
     """
 
     def __init__(self, transport):
@@ -267,12 +218,10 @@ class DeviceClient(GenericClientSync):
         return message
 
 
-class ModuleClient(GenericClientSync):
+class ModuleClient(GenericClient, AbstractModuleClient):
     """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
 
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
-
-    :ivar state: The current connection state.
     """
 
     def __init__(self, transport):

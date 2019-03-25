@@ -9,7 +9,11 @@ Azure IoTHub Device SDK for Python.
 
 import logging
 from azure.iot.common import async_adapter
-from azure.iot.hub.devicesdk.sync_clients import GenericClient
+from azure.iot.hub.devicesdk.abstract_clients import (
+    AbstractClient,
+    AbstractDeviceClient,
+    AbstractModuleClient,
+)
 from azure.iot.hub.devicesdk.common import Message
 from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.inbox_manager import InboxManager
@@ -20,8 +24,10 @@ logger = logging.getLogger(__name__)
 __all__ = ["DeviceClient", "ModuleClient"]
 
 
-class GenericClientAsync(GenericClient):
-    """A super class representing a generic asynchronous client. This class needs to be extended for specific clients."""
+class GenericClient(AbstractClient):
+    """A super class representing a generic asynchronous client.
+    This class needs to be extended for specific clients.
+    """
 
     def __init__(self, transport):
         """Initializer for a generic asynchronous client.
@@ -41,8 +47,7 @@ class GenericClientAsync(GenericClient):
 
     def _on_state_change(self, new_state):
         """Handler to be called by the transport upon a connection state change."""
-        self.state = new_state
-        logger.info("Connection State - {}".format(self.state))
+        logger.info("Connection State - {}".format(new_state))
 
         if new_state == "disconnected":
             self._on_disconnected()
@@ -166,12 +171,10 @@ class GenericClientAsync(GenericClient):
         await enable_feature_async(feature_name, callback=callback)
 
 
-class DeviceClient(GenericClientAsync):
+class DeviceClient(GenericClient, AbstractDeviceClient):
     """An asynchronous device client that connects to an Azure IoT Hub instance.
 
     Intended for usage with Python 3.5.3+
-
-    :ivar state: The current connection state
     """
 
     def __init__(self, transport):
@@ -195,12 +198,10 @@ class DeviceClient(GenericClientAsync):
         return message
 
 
-class ModuleClient(GenericClientAsync):
+class ModuleClient(GenericClient, AbstractModuleClient):
     """An asynchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
 
     Intended for usage with Python 3.5.3+
-
-    :ivar state: The current connection state
     """
 
     def __init__(self, transport):

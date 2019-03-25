@@ -44,7 +44,6 @@ class ClientSharedTests(object):
         client = self.client_class.from_authentication_provider(auth_provider, protocol)
         assert isinstance(client, self.client_class)
         assert isinstance(client._transport, expected_transport)
-        assert client.state == "initial"
 
     @pytest.mark.parametrize("auth_provider", ["SymmetricKey"], ids=[""], indirect=True)
     @pytest.mark.parametrize(
