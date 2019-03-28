@@ -47,7 +47,7 @@ This directory contains samples showing how to use the various features of the M
 
     ### Linux (bash)
     ```bash
-    IOTHUB_DEVICE_CONNECTION_STRING="<your connection string here>"
+    export IOTHUB_DEVICE_CONNECTION_STRING="<your connection string here>"
     ```
 
 6. Once the Device Connection String is set, run the following code from [simple_telemetry.py](simple_telemetry.py) on your device from the terminal or your IDE:

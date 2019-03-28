@@ -77,7 +77,7 @@ pip install ./azure-iot-hub-devicesdk
 
     ### Linux
     ```bash
-    IOTHUB_DEVICE_CONNECTION_STRING="<your connection string here>"
+    export IOTHUB_DEVICE_CONNECTION_STRING="<your connection string here>"
     ```
 
 3. Copy the following code that sends a single message to the IoT Hub into a new python file on your device, and run it from the terminal or IDE (**requires Python 3.7+**):
