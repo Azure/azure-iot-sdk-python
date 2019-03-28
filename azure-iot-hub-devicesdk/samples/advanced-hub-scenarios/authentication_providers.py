@@ -44,17 +44,6 @@ async def create_symmetric_key_auth_provider():
     print("Successfully authenticated!")
 
 
-async def create_environ_auth_provider():
-    """
-    This creates an authentication provider from the system's environment variables.
-    """
-    env_auth_provider = auth.from_environment()
-    device_client_env = DeviceClient.from_authentication_provider(env_auth_provider, "mqtt")
-    print("Authenticating from system environment...")
-    await device_client_env.connect()
-    print("Successfully authenticated!")
-
-
 if __name__ == "__main__":
     # Here we use option 1, but option 2 and 3 can be used interchangeably.
     asyncio.run(create_shared_access_sig_auth_provider())
