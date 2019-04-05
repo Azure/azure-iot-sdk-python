@@ -46,11 +46,11 @@ elseif(APPLE)
 else()
     # older boost-python libs didn't support versions
     if (${build_python} STREQUAL "2.7")
-        find_package(Boost 1.58 EXACT COMPONENTS python)
+        find_package(Boost 1.58.0 EXACT COMPONENTS python)
     else()
         # Remove the period from python version for boost component
         string(REPLACE "." "" boost_python ${build_python})
-        find_package(Boost 1.58 EXACT COMPONENTS "python-py${boost_python}")
+        find_package(Boost 1.58.0 EXACT COMPONENTS "python-py${boost_python}")
     endif()
 endif()
 
