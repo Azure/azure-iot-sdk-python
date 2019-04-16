@@ -14,7 +14,7 @@ if __name__ == "__main__":
     target_dir = "../dist"
     packages = [os.path.dirname(p) for p in glob.glob("azure*/setup.py")]
     for package_name in packages:
-        command_bdist_wheel = "setup.py sdist bdist_wheel --dist-dir={} --universal".format(
-            target_dir
-        )
+        command_sdist = "setup.py sdist --dist-dir={}".format(target_dir)
+        command_bdist_wheel = "setup.py bdist_wheel --dist-dir={} --universal".format(target_dir)
+        check_call([sys.executable] + command_sdist.split(), cwd=package_name)
         check_call([sys.executable] + command_bdist_wheel.split(), cwd=package_name)
