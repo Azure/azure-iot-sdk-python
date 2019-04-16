@@ -3,7 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
 """Prepare development environment
 """
 
@@ -12,8 +11,6 @@ import os
 import sys
 import argparse
 from subprocess import check_call, CalledProcessError
-
-COMMON_PKG_NAME = "azure-iot-common"
 
 
 def pip_command(command, error_ok=False):
@@ -39,10 +36,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     packages = [os.path.dirname(p) for p in glob.glob("azure*/setup.py")]
-
-    # Ensure common is installed first
-    packages.remove(COMMON_PKG_NAME)
-    packages.insert(0, COMMON_PKG_NAME)
 
     for package_name in packages:
         pip_command("install -e {}".format(package_name))
