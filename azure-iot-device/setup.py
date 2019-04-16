@@ -11,7 +11,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="azure-iot-device",
-    version="2.0.0-preview",
+    version="2.0.0-preview.1",
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python-preview",
@@ -23,7 +23,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "License :: OSI Approved :: MIT Software License",
+        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
