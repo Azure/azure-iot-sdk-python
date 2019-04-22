@@ -35,10 +35,23 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    packages = [os.path.dirname(p) for p in glob.glob("azure*/setup.py")]
+    ns_packages = [os.path.dirname(p) for p in glob.glob("azure*nspkg/setup.py")]
+    packages = [
+        os.path.dirname(p)
+        for p in glob.glob("azure*/setup.py")
+        if os.path.dirname(p) not in ns_packages
+    ]
 
+    # Install nspkgs first (2.7 only)
+    if sys.version_info < (3, 0, 0):
+        for package_name in ns_packages:
+            pip_command("install -e {}".format(package_name))
+
+    # Install packages
     for package_name in packages:
         pip_command("install -e {}".format(package_name))
+
+    # Install other development environment dependencies
     pip_command("install -r requirements.txt")
     if args.dev_mode:
         print("Installing pre-commit")

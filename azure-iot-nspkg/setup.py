@@ -4,7 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from setuptools import setup, find_packages
+import sys
+from setuptools import setup
 
 # azure v0.x is not compatible with this package
 # azure v0.x used to have a __version__ attribute (newer versions don't)
@@ -27,16 +28,24 @@ with open("README.md", "r") as fh:
     _long_description = fh.read()
 
 
+PACKAGES = []
+# Do an empty package on Python 3 and not python_requires, since not everybody is ready
+# https://github.com/Azure/azure-sdk-for-python/issues/3447
+# https://github.com/Azure/azure-sdk-for-python/issues/3481
+if sys.version_info[0] < 3:
+    PACKAGES = ["azure.iot"]
+
+
 setup(
-    name="azure-iot-device",
-    version="2.0.0-preview.4",
-    description="Microsoft Azure IoT Device Library",
-    license="MIT License",
-    url="https://github.com/Azure/azure-iot-sdk-python-preview",
-    author="Microsoft Corporation",
-    author_email="opensource@microsoft.com",
+    name="azure-iot-nspkg",
+    version="1.0.1",
+    description="Microsoft Azure IoT Namespace Package [Internal]",
     long_description=_long_description,
     long_description_content_type="text/markdown",
+    license="MIT License",
+    author="Microsoft Corporation",
+    author_email="opensource@microsoft.com",
+    url="https://github.com/Azure/azure-iot-sdk-python-preview",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
@@ -51,28 +60,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    install_requires=[
-        # Define sub-dependencies due to pip dependency resolution bug
-        # https://github.com/pypa/pip/issues/988
-        "urllib3>1.21.1,<1.25",
-        # Actual project dependencies
-        "six>=1.12.0,<2.0.0",
-        "paho-mqtt>=1.4.0,<2.0.0",
-        "transitions>=0.6.8,<1.0.0",
-        "requests>=2.20.0,<3.0.0",
-        "requests-unixsocket>=0.1.5,<1.0.0",
-        "janus>=0.4.0,<1.0.0;python_version>='3.5'",
-    ],
-    extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
-    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
-    packages=find_packages(
-        exclude=[
-            "tests",
-            "samples",
-            # Exclude packages that will be covered by PEP420 or nspkg
-            "azure",
-            "azure.iot",
-        ]
-    ),
+    install_requires=["azure-nspkg>=3.0.0"],
+    packages=PACKAGES,
     zip_safe=False,
 )
