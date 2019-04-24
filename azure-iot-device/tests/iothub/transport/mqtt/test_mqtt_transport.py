@@ -14,8 +14,6 @@ from azure.iot.device.iothub.auth.authentication_provider_factory import from_co
 from mock import MagicMock, patch
 from datetime import date
 
-logging.basicConfig(level=logging.INFO)
-
 connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
 connection_string_format_mod = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
 fake_shared_access_key = "Zm9vYmFy"
@@ -51,6 +49,8 @@ subscribe_input_message_qos = 1
 
 subscribe_c2d_topic = "devices/" + fake_device_id + "/messages/devicebound/#"
 subscribe_c2d_qos = 1
+
+send_msg_qos = 1
 
 
 def create_fake_message():
@@ -173,7 +173,9 @@ class TestSendEvent:
         mock_mqtt_provider.connect.assert_called_once_with(
             device_transport._auth_provider.get_current_sas_token()
         )
-        mock_mqtt_provider.publish.assert_called_once_with(fake_topic, fake_msg.data)
+        mock_mqtt_provider.publish.assert_called_once_with(
+            topic=fake_topic, payload=fake_msg.data, qos=send_msg_qos, callback=None
+        )
 
     def test_send_message_with_output_name(self, module_transport):
         fake_msg = Message("Petrificus Totalus")
@@ -205,7 +207,9 @@ class TestSendEvent:
         mock_mqtt_provider.connect.assert_called_once_with(
             module_transport._auth_provider.get_current_sas_token()
         )
-        mock_mqtt_provider.publish.assert_called_once_with(fake_output_topic, fake_msg.data)
+        mock_mqtt_provider.publish.assert_called_once_with(
+            topic=fake_output_topic, payload=fake_msg.data, qos=send_msg_qos, callback=None
+        )
 
     def test_sendevent_calls_publish_on_provider(self, device_transport):
         fake_msg = create_fake_message()
@@ -219,7 +223,9 @@ class TestSendEvent:
         mock_mqtt_provider.connect.assert_called_once_with(
             device_transport._auth_provider.get_current_sas_token()
         )
-        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg.data)
+        mock_mqtt_provider.publish.assert_called_once_with(
+            topic=encoded_fake_topic, payload=fake_msg.data, qos=send_msg_qos, callback=None
+        )
 
     def test_send_event_queues_and_connects_before_sending(self, device_transport):
         fake_msg = create_fake_message()
@@ -242,7 +248,9 @@ class TestSendEvent:
 
         # verify that our connected callback was called and verify that we published the event
         device_transport.on_transport_connected.assert_called_once_with("connected")
-        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg.data)
+        mock_mqtt_provider.publish.assert_called_once_with(
+            topic=encoded_fake_topic, payload=fake_msg.data, qos=send_msg_qos, callback=None
+        )
 
     def test_send_event_queues_if_waiting_for_connect_complete(self, device_transport):
         fake_msg = create_fake_message()
@@ -267,7 +275,9 @@ class TestSendEvent:
 
         # verify that our connected callback was called and verify that we published the event
         device_transport.on_transport_connected.assert_called_once_with("connected")
-        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg.data)
+        mock_mqtt_provider.publish.assert_called_once_with(
+            topic=encoded_fake_topic, payload=fake_msg.data, qos=send_msg_qos, callback=None
+        )
 
     def test_send_event_sends_overlapped_events(self, device_transport):
         fake_msg_1 = create_fake_message()
@@ -282,7 +292,9 @@ class TestSendEvent:
         # send an event
         callback_1 = MagicMock()
         device_transport.send_event(fake_msg_1, callback_1)
-        mock_mqtt_provider.publish.assert_called_once_with(encoded_fake_topic, fake_msg_1.data)
+        mock_mqtt_provider.publish.assert_called_once_with(
+            topic=encoded_fake_topic, payload=fake_msg_1.data, qos=send_msg_qos, callback=callback_1
+        )
 
         # while we're waiting for that send to complete, send another event
         callback_2 = MagicMock()
@@ -293,26 +305,6 @@ class TestSendEvent:
         assert mock_mqtt_provider.publish.call_count == 2
         callback_1.assert_not_called()
         callback_2.assert_not_called()
-
-    def test_puback_calls_client_callback(self, device_transport):
-        fake_msg = create_fake_message()
-
-        mock_mqtt_provider = device_transport._mqtt_provider
-        mock_mqtt_provider.publish = MagicMock(return_value=42)
-
-        # connect
-        device_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # send an event
-        callback = MagicMock()
-        device_transport.send_event(fake_msg, callback)
-
-        # fake the puback:
-        mock_mqtt_provider.on_mqtt_published(42)
-
-        # assert
-        callback.assert_called_once_with()
 
     def test_connect_send_disconnect(self, device_transport):
         fake_msg = create_fake_message()
@@ -370,27 +362,8 @@ class TestEnableInputMessage:
         module_transport.enable_feature(constant.INPUT_MSG)
 
         mock_mqtt_provider.subscribe.assert_called_once_with(
-            subscribe_input_message_topic, subscribe_input_message_qos
+            topic=subscribe_input_message_topic, qos=subscribe_input_message_qos, callback=None
         )
-
-    def test_suback_calls_client_callback(self, module_transport):
-
-        mock_mqtt_provider = module_transport._mqtt_provider
-        mock_mqtt_provider.subscribe = MagicMock(return_value=42)
-
-        # connect
-        module_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # subscribe
-        callback = MagicMock()
-        module_transport.enable_feature(constant.INPUT_MSG, callback)
-
-        # fake the suback:
-        mock_mqtt_provider.on_mqtt_subscribed(42)
-
-        # assert
-        callback.assert_called_once_with()
 
     def test_sets_input_message_status_to_enabled(self, module_transport):
         mock_mqtt_provider = module_transport._mqtt_provider
@@ -410,25 +383,9 @@ class TestDisableInputMessage:
         mock_mqtt_provider.on_mqtt_connected()
         module_transport.disable_feature(constant.INPUT_MSG)
 
-        mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_input_message_topic)
-
-    def test_unsuback_of_input_calls_client_callback(self, module_transport):
-        mock_mqtt_provider = module_transport._mqtt_provider
-        mock_mqtt_provider.unsubscribe = MagicMock(return_value=56)
-
-        # connect
-        module_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # unsubscribe
-        callback = MagicMock()
-        module_transport.disable_feature(constant.INPUT_MSG, callback)
-
-        # fake the unsuback:
-        mock_mqtt_provider.on_mqtt_unsubscribed(56)
-
-        # assert
-        callback.assert_called_once_with()
+        mock_mqtt_provider.unsubscribe.assert_called_once_with(
+            topic=subscribe_input_message_topic, callback=None
+        )
 
     def test_sets_input_message_status_to_disabled(self, module_transport):
         mock_mqtt_provider = module_transport._mqtt_provider
@@ -448,25 +405,9 @@ class TestEnableC2D:
         mock_mqtt_provider.on_mqtt_connected()
         device_transport.enable_feature(constant.C2D_MSG)
 
-        mock_mqtt_provider.subscribe.assert_called_once_with(subscribe_c2d_topic, subscribe_c2d_qos)
-
-    def test_suback_calls_client_callback(self, device_transport):
-        mock_mqtt_provider = device_transport._mqtt_provider
-        mock_mqtt_provider.subscribe = MagicMock(return_value=42)
-
-        # connect
-        device_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # subscribe
-        callback = MagicMock()
-        device_transport.enable_feature(constant.C2D_MSG, callback)
-
-        # fake the suback:
-        mock_mqtt_provider.on_mqtt_subscribed(42)
-
-        # assert
-        callback.assert_called_once_with()
+        mock_mqtt_provider.subscribe.assert_called_once_with(
+            topic=subscribe_c2d_topic, qos=subscribe_c2d_qos, callback=None
+        )
 
     def test_sets_c2d_message_status_to_enabled(self, device_transport):
         mock_mqtt_provider = device_transport._mqtt_provider
@@ -487,26 +428,9 @@ class TestDisableC2D:
         mock_mqtt_provider.on_mqtt_connected()
         device_transport.disable_feature(constant.C2D_MSG)
 
-        mock_mqtt_provider.unsubscribe.assert_called_once_with(subscribe_c2d_topic)
-
-    def test_unsuback_of_c2d_calls_client_callback(self, device_transport):
-        device_transport._c2d_topic = subscribe_c2d_topic
-        mock_mqtt_provider = device_transport._mqtt_provider
-        mock_mqtt_provider.unsubscribe = MagicMock(return_value=56)
-
-        # connect
-        device_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # unsubscribe
-        callback = MagicMock()
-        device_transport.disable_feature(constant.C2D_MSG, callback)
-
-        # fake the unsuback:
-        mock_mqtt_provider.on_mqtt_unsubscribed(56)
-
-        # assert
-        callback.assert_called_once_with()
+        mock_mqtt_provider.unsubscribe.assert_called_once_with(
+            topic=subscribe_c2d_topic, callback=None
+        )
 
     def test_sets_c2d_message_status_to_disabled(self, device_transport):
         device_transport._c2d_topic = subscribe_c2d_topic
@@ -546,94 +470,3 @@ class TestDisableMethods:
 @pytest.mark.skip(reason="Not implemented")
 class TestSendMethodResponse:
     pass
-
-
-@pytest.mark.parametrize(
-    "transport_function,parameters,provider_function,transport_callback",
-    [
-        ("send_event", (create_fake_message(),), "publish", "_on_provider_publish_complete"),
-        (
-            "send_output_event",
-            (create_fake_output_message(),),
-            "publish",
-            "_on_provider_publish_complete",
-        ),
-        ("enable_feature", (constant.C2D_MSG,), "subscribe", "_on_provider_subscribe_complete"),
-        (
-            "disable_feature",
-            (constant.C2D_MSG,),
-            "unsubscribe",
-            "_on_provider_unsubscribe_complete",
-        ),
-        ("enable_feature", (constant.INPUT_MSG,), "subscribe", "_on_provider_subscribe_complete"),
-        (
-            "disable_feature",
-            (constant.INPUT_MSG,),
-            "unsubscribe",
-            "_on_provider_unsubscribe_complete",
-        ),
-    ],
-)
-class TestProviderCallbacks:
-    def test_function_calls_callback_if_ack_received_early(
-        self,
-        device_transport,
-        transport_function,
-        parameters,
-        provider_function,
-        transport_callback,
-    ):
-        mock_mqtt_provider = device_transport._mqtt_provider
-        fake_mid = 42
-
-        # connect
-        device_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # define mock provider function that calls the transport callback with the mid first, then returns the mid second
-        def mock_provider_function_early_callback(*args, **kwargs):
-            getattr(device_transport, transport_callback)(fake_mid)
-            return fake_mid
-
-        setattr(mock_mqtt_provider, provider_function, mock_provider_function_early_callback)
-
-        # Call the transport function
-        callback = MagicMock()
-        getattr(device_transport, transport_function)(*parameters, callback=callback)
-
-        # verify that our callback was called
-        callback.assert_called_once_with()
-
-    def test_function_calls_callback_if_ack_received_later(
-        self,
-        device_transport,
-        transport_function,
-        parameters,
-        provider_function,
-        transport_callback,
-    ):
-        mock_mqtt_provider = device_transport._mqtt_provider
-        fake_mid = 42
-
-        # connect
-        device_transport.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-
-        # define mock provider function that returns the mid.  We'll fake the callback later, after the mid is returned
-        def mock_provider_function_returns_mid(*args, **kwargs):
-            return fake_mid
-
-        setattr(mock_mqtt_provider, provider_function, mock_provider_function_returns_mid)
-
-        # Call the transport function
-        callback = MagicMock()
-        getattr(device_transport, transport_function)(*parameters, callback=callback)
-
-        # verify that the transport hasn't called our callback yet
-        callback.assert_not_called()
-
-        # fake the provider callback
-        getattr(device_transport, transport_callback)(fake_mid)
-
-        # verify that our callback was finally called
-        callback.assert_called_once_with()

@@ -72,6 +72,8 @@ class uses the following conventions:
 
 """
 
+QOS_SEND_MESSAGE = 1
+QOS_SUBSCRIBE = 1
 
 TOPIC_POS_DEVICE = 4
 TOPIC_POS_MODULE = 6
@@ -102,6 +104,7 @@ class SendMessageAction(TransportAction):
     def __init__(self, message, callback):
         TransportAction.__init__(self, callback)
         self.message = message
+        self.qos = QOS_SEND_MESSAGE
 
 
 class SubscribeAction(TransportAction):
@@ -109,10 +112,10 @@ class SubscribeAction(TransportAction):
     TransportAction object used to subscribe to a specific MQTT topic
     """
 
-    def __init__(self, topic, qos, callback):
+    def __init__(self, topic, callback):
         TransportAction.__init__(self, callback)
         self.topic = topic
-        self.qos = qos
+        self.qos = QOS_SUBSCRIBE
 
 
 class UnsubscribeAction(TransportAction):
@@ -149,15 +152,6 @@ class MQTTTransport(AbstractTransport):
         # Currently, we use a queue, which is FIFO, but the actual order doesn't matter
         # since each action stands on its own.
         self._pending_action_queue = queue.Queue()
-
-        # Object which maps mid->callback for actions which are in flight.  This is
-        # used to call back into the caller to indicate that an action is complete.
-        self._in_progress_actions = {}
-
-        # Map of responses we receive with a MID that is not in the _in_progress_actions map.
-        # We need this because sometimes a SUBSCRIBE or a PUBLISH will complete before the call
-        # to subscribe() or publish() returns.
-        self._responses_with_unknown_mid = {}
 
         self._connect_callback = None
         self._disconnect_callback = None
@@ -329,40 +323,6 @@ class MQTTTransport(AbstractTransport):
             self._disconnect_callback = None
             callback()
 
-    def _on_provider_publish_complete(self, mid):
-        """
-        Callback that is called by the provider when it receives a PUBACK from the service
-
-        :param mid: message id that was returned by the provider when `publish` was called.  This is used to tie the
-            PUBLISH to the PUBACK.
-        """
-        if mid in self._in_progress_actions:
-            callback = self._in_progress_actions[mid]
-            del self._in_progress_actions[mid]
-            callback()
-        else:
-            logger.warning("PUBACK received with unknown MID: %s", str(mid))
-            self._responses_with_unknown_mid[
-                mid
-            ] = mid  # storing MID for now.  will probably store result code later.
-
-    def _on_provider_subscribe_complete(self, mid):
-        """
-        Callback that is called by the provider when it receives a SUBACK from the service
-
-        :param mid: message id that was returned by the provider when `subscribe` was called.  This is used to tie the
-            SUBSCRIBE to the SUBACK.
-        """
-        if mid in self._in_progress_actions:
-            callback = self._in_progress_actions[mid]
-            del self._in_progress_actions[mid]
-            callback()
-        else:
-            logger.warning("SUBACK received with unknown MID: %s", str(mid))
-            self._responses_with_unknown_mid[
-                mid
-            ] = mid  # storing MID for now.  will probably store result code later.
-
     def _on_provider_message_received_callback(self, topic, payload):
         """
         Callback that is called by the provider when a message is received.  This message can be any MQTT message,
@@ -370,42 +330,23 @@ class MQTTTransport(AbstractTransport):
         a method invocation.  This function needs to decide what kind of message it is based on the topic name and
         take the correct action.
 
-        :param topic: MQTT topic name that the message arrived on
-        :param payload: Payload of the message
+        :param str topic: MQTT topic name that the message arrived on
+        :param bytes payload: Payload of the message as a bytestring
         """
-        logger.info("Message received on topic %s", topic)
+        logger.info("Message received on topic {}".format(topic))
         message_received = Message(payload)
-        # TODO : Discuss everything in bytes , need to be changed, specially the topic
-        topic_str = topic.decode("utf-8")
-        topic_parts = topic_str.split("/")
+        topic_parts = topic.split("/")
 
-        if _is_input_topic(topic_str):
+        if _is_input_topic(topic):
             input_name = topic_parts[TOPIC_POS_INPUT_NAME]
             message_received.input_name = input_name
             _extract_properties(topic_parts[TOPIC_POS_MODULE], message_received)
             self.on_transport_input_message_received(input_name, message_received)
-        elif _is_c2d_topic(topic_str):
+        elif _is_c2d_topic(topic):
             _extract_properties(topic_parts[TOPIC_POS_DEVICE], message_received)
             self.on_transport_c2d_message_received(message_received)
         else:
             pass  # is there any other case
-
-    def _on_provider_unsubscribe_complete(self, mid):
-        """
-        Callback that is called by the provider when it receives an UNSUBACK from the service
-
-        :param mid: message id that was returned by the provider when `unsubscribe` was called.  This is used to tie the
-            UNSUBSCRIBE to the UNSUBACK.
-        """
-        if mid in self._in_progress_actions:
-            callback = self._in_progress_actions[mid]
-            del self._in_progress_actions[mid]
-            callback()
-        else:
-            logger.warning("UNSUBACK received with unknown MID: %s", str(mid))
-            self._responses_with_unknown_mid[
-                mid
-            ] = mid  # storing MID for now.  will probably store result code later.
 
     def _add_action_to_queue(self, event_data):
         """
@@ -432,41 +373,32 @@ class MQTTTransport(AbstractTransport):
             encoded_topic = _encode_properties(
                 message_to_send, self._get_telemetry_topic_for_publish()
             )
-            mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
-            if mid in self._responses_with_unknown_mid:
-                del self._responses_with_unknown_mid[mid]
-                action.callback()
-            else:
-                self._in_progress_actions[mid] = action.callback
+            self._mqtt_provider.publish(
+                topic=encoded_topic,
+                payload=message_to_send.data,
+                qos=action.qos,
+                callback=action.callback,
+            )
 
         elif isinstance(action, SubscribeAction):
             logger.info("running SubscribeAction topic=%s qos=%s", action.topic, action.qos)
-            mid = self._mqtt_provider.subscribe(action.topic, action.qos)
-            logger.info("subscribe mid = %s", mid)
-            if mid in self._responses_with_unknown_mid:
-                del self._responses_with_unknown_mid[mid]
-                action.callback()
-            else:
-                self._in_progress_actions[mid] = action.callback
+            self._mqtt_provider.subscribe(
+                topic=action.topic, qos=action.qos, callback=action.callback
+            )
 
         elif isinstance(action, UnsubscribeAction):
             logger.info("running UnsubscribeAction")
-            mid = self._mqtt_provider.unsubscribe(action.topic)
-            if mid in self._responses_with_unknown_mid:
-                del self._responses_with_unknown_mid[mid]
-                action.callback()
-            else:
-                self._in_progress_actions[mid] = action.callback
+            self._mqtt_provider.unsubscribe(topic=action.topic, callback=action.callback)
 
         elif isinstance(action, MethodReponseAction):
             logger.info("running MethodResponseAction")
             topic = "TODO"
-            mid = self._mqtt_provider.publish(topic, action.method_response)
-            if mid in self._responses_with_unknown_mid:
-                del self._responses_with_unknown_mid[mid]
-                action.callback()
-            else:
-                self._in_progress_actions[mid] = action.callback
+            self._mqtt_provider.publish(
+                topic=topic,
+                payload=action.method_response,
+                qos=action.qos,
+                callback=action.callback,
+            )
 
         else:
             logger.error("Removed unknown action type from queue.")
@@ -512,13 +444,12 @@ class MQTTTransport(AbstractTransport):
         else:
             ca_cert = None
 
-        self._mqtt_provider = MQTTProvider(client_id, hostname, username, ca_cert=ca_cert)
+        self._mqtt_provider = MQTTProvider(
+            client_id=client_id, hostname=hostname, username=username, ca_cert=ca_cert
+        )
 
         self._mqtt_provider.on_mqtt_connected = self._on_provider_connect_complete
         self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
-        self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
-        self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
-        self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
         self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
 
     def _get_topic_base(self):
@@ -583,7 +514,7 @@ class MQTTTransport(AbstractTransport):
 
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
-        action = SendMessageAction(message, callback)
+        action = SendMessageAction(message=message, callback=callback)
         self._trig_add_action_to_pending_queue(action)
 
     def send_output_event(self, message, callback=None):
@@ -592,7 +523,7 @@ class MQTTTransport(AbstractTransport):
 
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
-        action = SendMessageAction(message, callback)
+        action = SendMessageAction(message=message, callback=callback)
         self._trig_add_action_to_pending_queue(action)
 
     def send_method_response(self, method, payload, status, callback=None):
@@ -646,9 +577,7 @@ class MQTTTransport(AbstractTransport):
 
         :param callback: callback which is called when the feature is enabled
         """
-        action = SubscribeAction(
-            topic=self._get_input_topic_for_subscribe(), qos=1, callback=callback
-        )
+        action = SubscribeAction(topic=self._get_input_topic_for_subscribe(), callback=callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.INPUT_MSG] = True
 
@@ -668,9 +597,7 @@ class MQTTTransport(AbstractTransport):
 
         :param callback: callback which is called when the feature is enabled
         """
-        action = SubscribeAction(
-            topic=self._get_c2d_topic_for_subscribe(), qos=1, callback=callback
-        )
+        action = SubscribeAction(topic=self._get_c2d_topic_for_subscribe(), callback=callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.C2D_MSG] = True
 
@@ -684,14 +611,13 @@ class MQTTTransport(AbstractTransport):
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.C2D_MSG] = False
 
-    def _enable_methods(self, callback=None, qos=1):
+    def _enable_methods(self, callback=None):
         """
         Helper function to enable methods
 
         :param callback: callback which is called when the feature is enabled.
-        :param qos: Quality of Serivce level
         """
-        action = SubscribeAction(self._get_method_topic_for_subscribe(), qos, callback)
+        action = SubscribeAction(self._get_method_topic_for_subscribe(), callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.METHODS] = True
 
