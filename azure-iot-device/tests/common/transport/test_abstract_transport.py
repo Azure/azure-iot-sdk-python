@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.device.iothub.transport.abstract_transport import AbstractTransport
+from azure.iot.device.common.transport.abstract_transport import AbstractTransport
 
 
 def test_raises_exception_on_init_of_abstract_transport(mocker):

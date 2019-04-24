@@ -9,7 +9,7 @@
 import six
 import abc
 import logging
-from .transport import MQTTTransport
+from azure.iot.device.common.transport import MQTTTransport
 
 logger = logging.getLogger(__name__)
 

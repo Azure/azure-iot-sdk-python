@@ -5,8 +5,8 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.device.iothub.transport.abstract_transport import AbstractTransport
-from azure.iot.device.iothub.transport import constant
+from azure.iot.device.common.transport.abstract_transport import AbstractTransport
+from azure.iot.device.common.transport import constant
 
 """----Shared auth_provider fixture----"""
 

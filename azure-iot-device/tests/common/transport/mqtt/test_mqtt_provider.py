@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.iothub.transport.mqtt.mqtt_provider import MQTTProvider
+from azure.iot.device.common.transport.mqtt.mqtt_provider import MQTTProvider
 import paho.mqtt.client as mqtt
 import ssl
 import pytest

@@ -14,10 +14,10 @@ from .abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from .transport import constant
 from .models import Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox
+from azure.iot.device.common.transport import constant
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         has been enabled.
 
         :param feature_name: The name of the feature to enable.
-        See azure.iot.device.iothub.transport.constant for possible values
+        See azure.iot.device.common.transport.constant for possible values
         """
         logger.info("Enabling feature:" + feature_name + "...")
         enable_complete = Event()

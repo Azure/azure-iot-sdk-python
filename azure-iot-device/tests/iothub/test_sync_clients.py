@@ -6,10 +6,10 @@
 
 import pytest
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
-from azure.iot.device.iothub.transport.mqtt import MQTTTransport
+from azure.iot.device.common.transport.mqtt import MQTTTransport
 from azure.iot.device.iothub import Message
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
-from azure.iot.device.iothub.transport import constant
+from azure.iot.device.common.transport import constant
 
 # auth_provider and transport fixtures are implicitly included
 
