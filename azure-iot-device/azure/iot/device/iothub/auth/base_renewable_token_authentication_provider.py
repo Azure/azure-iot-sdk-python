@@ -161,6 +161,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
             self.generate_new_sas_token()
 
         self._token_update_timer = Timer(seconds_until_update, timerfunc)
+        self._token_update_timer.daemon = True
         self._token_update_timer.start()
 
     def _notify_token_updated(self):

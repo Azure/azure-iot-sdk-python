@@ -172,12 +172,12 @@ class MQTTProvider(object):
         self._mqtt_client.disconnect()
         self._mqtt_client.loop_stop()
 
-    def subscribe(self, topic, qos=0, callback=None):
+    def subscribe(self, topic, qos=1, callback=None):
         """
         This method subscribes the client to one topic from the MQTT broker.
 
         :param str topic: a single string specifying the subscription topic to subscribe to
-        :param int qos: the desired quality of service level for the subscription. Defaults to 0.
+        :param int qos: the desired quality of service level for the subscription. Defaults to 1.
         :param callback: A callback to be triggered upon completion (Optional).
 
         :return: message ID for the subscribe request
@@ -201,13 +201,13 @@ class MQTTProvider(object):
         (result, mid) = self._mqtt_client.unsubscribe(topic)
         self._set_operation_callback(mid, callback)
 
-    def publish(self, topic, payload, qos=0, callback=None):
+    def publish(self, topic, payload, qos=1, callback=None):
         """
         Send a message via the MQTT broker.
 
         :param str topic: topic: The topic that the message should be published on.
         :param str payload: The actual message to send.
-        :param int qos: the desired quality of service level for the subscription. Defaults to 0.
+        :param int qos: the desired quality of service level for the subscription. Defaults to 1.
         :param callback: A callback to be triggered upon completion (Optional).
 
         :raises: ValueError if qos is not 0, 1 or 2
