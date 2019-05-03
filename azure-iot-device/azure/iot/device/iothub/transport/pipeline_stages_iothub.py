@@ -5,9 +5,9 @@
 # --------------------------------------------------------------------------
 
 import logging
-from . import pipeline_ops_base
+from azure.iot.device.common.transport import pipeline_ops_base
+from azure.iot.device.common.transport.pipeline_stages_base import PipelineStage
 from . import pipeline_ops_iothub
-from .pipeline_stages_base import PipelineStage
 
 
 class UseSkAuthProvider(PipelineStage):

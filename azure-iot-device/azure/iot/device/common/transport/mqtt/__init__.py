@@ -1,8 +1,8 @@
-"""Azure IoT Hub Device SDK MQTT Transport
+"""Azure IoT Hub Device SDK MQTT Provider
 
-This package provides the MQTT transport for use with the Azure IoT Hub Device SDK.
+This package provides the MQTT provider for use with the Azure IoT Hub Device SDK.
 
 INTERNAL USAGE ONLY
 """
 
-from .mqtt_transport import MQTTTransport
+from .mqtt_provider import MQTTProvider

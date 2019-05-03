@@ -17,7 +17,7 @@ from .abstract_clients import (
 from .models import Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox
-from azure.iot.device.common.transport import constant
+from azure.iot.device.iothub.transport import constant
 
 logger = logging.getLogger(__name__)
 

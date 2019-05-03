@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from .pipeline_ops_base import PipelineOperation
+from azure.iot.device.common.transport.pipeline_ops_base import PipelineOperation
 
 
 class SetConnectionArgs(PipelineOperation):

@@ -5,15 +5,15 @@
 # --------------------------------------------------------------------------
 
 import logging
-from . import mqtt_topic
-from . import pipeline_ops_base
-from . import pipeline_ops_iothub
-from . import pipeline_ops_mqtt
-from . import pipeline_events_iothub
-from . import pipeline_events_mqtt
-from .pipeline_stages_base import PipelineStage
+from azure.iot.device.common.transport import pipeline_ops_base
+from azure.iot.device.common.transport.mqtt import pipeline_ops_mqtt
+from azure.iot.device.common.transport.mqtt import pipeline_events_mqtt
+from azure.iot.device.common.transport.pipeline_stages_base import PipelineStage
 from azure.iot.device.iothub.models import Message
-from azure.iot.device.common.transport import constant
+from azure.iot.device.iothub.transport import constant
+from azure.iot.device.iothub.transport import pipeline_ops_iothub
+from azure.iot.device.iothub.transport import pipeline_events_iothub
+from . import mqtt_topic
 
 logger = logging.getLogger(__name__)
 

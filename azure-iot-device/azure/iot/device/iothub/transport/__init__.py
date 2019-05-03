@@ -4,4 +4,4 @@ This package provides transports for use with the Azure IoT Hub Device SDK.
 
 INTERNAL USAGE ONLY
 """
-from .mqtt import MQTTProvider
+from .mqtt import MQTTTransport

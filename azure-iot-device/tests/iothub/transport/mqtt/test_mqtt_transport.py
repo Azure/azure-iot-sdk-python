@@ -8,8 +8,8 @@ import pytest
 import logging
 import six.moves.urllib as urllib
 from azure.iot.device.iothub import Message
-from azure.iot.device.common.transport.mqtt.mqtt_transport import MQTTTransport
-from azure.iot.device.common.transport import constant
+from azure.iot.device.iothub.transport.mqtt.mqtt_transport import MQTTTransport
+from azure.iot.device.iothub.transport import constant
 from azure.iot.device.iothub.auth.authentication_provider_factory import from_connection_string
 from mock import MagicMock, patch, ANY
 from datetime import date
@@ -77,7 +77,7 @@ def authentication_provider():
 @pytest.fixture(scope="function")
 def device_transport(authentication_provider):
     with patch(
-        "azure.iot.device.common.transport.mqtt.mqtt_transport.pipeline_stages_mqtt.MQTTProvider"
+        "azure.iot.device.iothub.transport.mqtt.mqtt_transport.pipeline_stages_mqtt.MQTTProvider"
     ):
         transport = MQTTTransport(authentication_provider)
     transport.on_transport_connected = MagicMock()
@@ -94,7 +94,7 @@ def module_transport():
     authentication_provider = from_connection_string(connection_string_mod)
 
     with patch(
-        "azure.iot.device.common.transport.mqtt.mqtt_transport.pipeline_stages_mqtt.MQTTProvider"
+        "azure.iot.device.iothub.transport.mqtt.mqtt_transport.pipeline_stages_mqtt.MQTTProvider"
     ):
         transport = MQTTTransport(authentication_provider)
     transport.on_transport_connected = MagicMock()
