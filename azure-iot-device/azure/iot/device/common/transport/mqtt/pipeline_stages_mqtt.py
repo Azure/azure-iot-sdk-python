@@ -29,8 +29,6 @@ class Provider(PipelineStage):
             self.hostname = op.hostname
             self.username = op.username
             self.client_id = op.client_id
-            self.device_id = op.device_id
-            self.module_id = op.module_id
             self.ca_cert = op.ca_cert
             self.provider = MQTTProvider(
                 client_id=self.client_id,

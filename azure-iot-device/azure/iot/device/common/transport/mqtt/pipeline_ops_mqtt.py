@@ -13,12 +13,15 @@ class SetConnectionArgs(PipelineOperation):
     This operation is in the group of MQTT operations because its attributes are very specific to the MQTT protocol.
     """
 
-    def __init__(
-        self, client_id, hostname, username, device_id, module_id=None, ca_cert=None, callback=None
-    ):
+    def __init__(self, client_id, hostname, username, ca_cert=None, callback=None):
         """
         Initializer for SetConnectionArgs objects.
 
+        :param str client_id: The client identifier to use when connecting to the MQTT server
+        :param str hostname: The hostname of the MQTT server we will eventually connect to
+        :param str username: The username to use when connecting to the MQTT server
+        :param str ca_cert: (Optional) The CA certificate to use if the MQTT server that we're going to
+          connect to uses server-side TLS
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
@@ -27,8 +30,6 @@ class SetConnectionArgs(PipelineOperation):
         self.client_id = client_id
         self.hostname = hostname
         self.username = username
-        self.device_id = device_id
-        self.module_id = module_id
         self.ca_cert = ca_cert
 
     pass
@@ -45,6 +46,8 @@ class Publish(PipelineOperation):
         """
         Initializer for Publish objects.
 
+        :param str topic: The name of the topic to publish to
+        :param str payload: The payload to publish
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
@@ -65,6 +68,7 @@ class Subscribe(PipelineOperation):
         """
         Initializer for Subscribe objects.
 
+        :param str topic: The name of the topic to subscribe to
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
@@ -84,6 +88,7 @@ class Unsubscribe(PipelineOperation):
         """
         Initializer for Unsubscribe objects.
 
+        :param str topic: The name of the topic to unsubscribe from
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.

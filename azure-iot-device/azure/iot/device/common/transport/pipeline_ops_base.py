@@ -16,8 +16,7 @@ class PipelineOperation(object):
     next stage.  If the operation gets to the end of the pipeline without being handled
     (completed), then it is treated as an error.
 
-    :ivar name: The name of the operation.  This, rather than the `isinstance` function, is
-      used by stages to decide if they want to handle on a particular operation object.
+    :ivar name: The name of the operation.  This is used primarily for logging
     :type name: str
     :ivar callback: The callback that is called when the operation is completed, either
       successfully or with a failure.
@@ -102,6 +101,8 @@ class EnableFeature(PipelineOperation):
         """
         Initializer for EnableFeature objects.
 
+        :param str feature_name: Name of the feature that is being enabled.  The meaning of this
+          string is defined in the stage which handles this operation.
         :param Function callback: The function that gets called when this operation is complete or has
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
@@ -128,6 +129,8 @@ class DisableFeature(PipelineOperation):
         """
         Initializer for DisableFeature objects.
 
+        :param str feature_name: Name of the feature that is being disabled.  The meaning of this
+          string is defined in the stage which handles this operation.
         :param Function callback: The function that gets called when this operation is complete or has
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
@@ -151,6 +154,8 @@ class SetSasToken(PipelineOperation):
         """
         Initializer for SetSasToken objects.
 
+        :param str sas_token: The token string which will be used to authenticate with whatever
+          service this pipeline connects with.
         :param Function callback: The function that gets called when this operation is complete or has
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.

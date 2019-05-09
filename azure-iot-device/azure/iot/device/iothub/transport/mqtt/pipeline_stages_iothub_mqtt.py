@@ -53,12 +53,7 @@ class IotHubMQTTConverter(PipelineStage):
             self.continue_with_different_op(
                 original_op=op,
                 new_op=pipeline_ops_mqtt.SetConnectionArgs(
-                    client_id=client_id,
-                    hostname=hostname,
-                    username=username,
-                    device_id=op.device_id,
-                    module_id=op.module_id,
-                    ca_cert=op.ca_cert,
+                    client_id=client_id, hostname=hostname, username=username, ca_cert=op.ca_cert
                 ),
             )
 

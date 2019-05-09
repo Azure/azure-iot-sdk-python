@@ -12,6 +12,12 @@ class IncomingMessage(PipelineEvent):
     """
 
     def __init__(self, topic, payload):
+        """
+        Initializer for IncomingMessage objects.
+
+        :param str topic: The name of the topic that the incoming message arrived on.
+        :param str payload: The payload of the message
+        """
         super(IncomingMessage, self).__init__()
         self.topic = topic
         self.payload = payload

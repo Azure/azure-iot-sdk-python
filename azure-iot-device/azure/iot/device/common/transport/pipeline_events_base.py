@@ -17,8 +17,13 @@ class PipelineEvent(object):
     should pass it up to the next stage (this is the default behavior).  Stages
     have the opportunity to tie a PipelineEvent to a PipelineOperation object
     if they are waiting for a response for that particular operation.
+
+    :ivar name: The name of the event.  This is used primarily for logging
+    :type name: str
     """
 
     def __init__(self):
+        """
+        Initializer for PipelineEvent objects.
+        """
         self.name = self.__class__.__name__
-        self.error = None
