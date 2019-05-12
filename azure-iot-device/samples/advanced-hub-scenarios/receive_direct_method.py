@@ -6,12 +6,12 @@
 
 import os
 import asyncio
-import json
 import logging
 import threading
 from six.moves import input
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import auth
+from azure.iot.device import MethodResponse
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -31,35 +31,42 @@ async def main():
     # define behavior for handling methods
     async def method1_listener(device_client):
         while True:
-            method_request = await device_client.receive_method("method1")  # Wait for method1 calls
-            payload = json.dumps({"result": True, "data": "some data"})  # set response payload
+            method_request = await device_client.receive_method_request(
+                "method1"
+            )  # Wait for method1 calls
+            payload = {"result": True, "data": "some data"}  # set response payload
             status = 200  # set return status code
             print("executed method1")
-            await device_client.send_method_response(
-                method_request, payload, status
-            )  # send response
+            method_response = MethodResponse.create_from_method_request(
+                method_request, status, payload
+            )
+            await device_client.send_method_response(method_response)  # send response
 
     async def method2_listener(device_client):
         while True:
-            method_request = await device_client.receive_method("method2")  # Wait for method2 calls
-            payload = json.dumps({"result": True, "data": 1234})  # set response payload
+            method_request = await device_client.receive_method_request(
+                "method2"
+            )  # Wait for method2 calls
+            payload = {"result": True, "data": 1234}  # set response payload
             status = 200  # set return status code
             print("executed method2")
-            await device_client.send_method_response(
-                method_request, payload, status
-            )  # send response
+            method_response = MethodResponse.create_from_method_request(
+                method_request, status, payload
+            )
+            await device_client.send_method_response(method_response)  # send response
 
     async def generic_method_listener(device_client):
         while True:
-            method_request = await device_client.receive_method()  # Wait for unknown method calls
-            payload = json.dumps(
-                {"result": False, "data": "unknown method"}  # set response payload
-            )
+            method_request = (
+                await device_client.receive_method_request()
+            )  # Wait for unknown method calls
+            payload = {"result": False, "data": "unknown method"}  # set response payload
             status = 400  # set return status code
             print("executed unknown method: " + method_request.name)
-            await device_client.send_method_response(
-                method_request, payload, status
-            )  # send response
+            method_response = MethodResponse.create_from_method_request(
+                method_request, status, payload
+            )
+            await device_client.send_method_response(method_response)  # send response
 
     # define behavior for halting the application
     def stdin_listener():

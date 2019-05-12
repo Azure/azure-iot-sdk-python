@@ -14,8 +14,6 @@ from azure.iot.device.iothub.auth.authentication_provider_factory import from_co
 from mock import MagicMock, patch, ANY
 from datetime import date
 
-logging.basicConfig(level=logging.INFO)
-
 connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
 connection_string_format_mod = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
 fake_shared_access_key = "Zm9vYmFy"
@@ -49,6 +47,9 @@ subscribe_input_message_topic = (
 )
 
 subscribe_c2d_topic = "devices/" + fake_device_id + "/messages/devicebound/#"
+subscribe_methods_topic = "$iothub/methods/POST/#"
+
+send_msg_qos = 1
 
 
 def create_fake_message():
@@ -445,28 +446,48 @@ class TestDisableC2D:
         assert not device_transport.feature_enabled[constant.C2D_MSG]
 
 
-@pytest.mark.skip(reason="Not implemented")
 class TestEnableMethods:
-    def test_subscribe_calls_subscribe_on_provider(self, transport):
-        pass
+    def test_subscribe_calls_subscribe_on_provider(self, device_transport):
+        mock_mqtt_provider = device_transport._pipeline.provider
 
-    def test_suback_calls_client_callback(self, transport):
-        pass
+        device_transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        device_transport.enable_feature(constant.METHODS)
 
-    def test_sets_methods_status_to_enabled(self, transport):
-        pass
+        mock_mqtt_provider.subscribe.assert_called_once_with(
+            topic=subscribe_methods_topic, callback=ANY
+        )
+
+    def test_sets_methods_status_to_enabled(self, device_transport):
+        mock_mqtt_provider = device_transport._pipeline.provider
+
+        device_transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        device_transport.enable_feature(constant.METHODS)
+
+        assert device_transport.feature_enabled[constant.METHODS]
 
 
-@pytest.mark.skip(reason="Not implemented")
 class TestDisableMethods:
-    def test_unsubscribe_calls_unsubscribe_on_provider(self, transport):
-        pass
+    def test_unsubscribe_calls_unsubscribe_on_provider(self, device_transport):
+        mock_mqtt_provider = device_transport._pipeline.provider
 
-    def test_unsuback_of_methods_calls_client_callback(self, transport):
-        pass
+        device_transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        device_transport.disable_feature(constant.METHODS)
 
-    def test_sets_method_status_to_disabled(self, transport):
-        pass
+        mock_mqtt_provider.unsubscribe.assert_called_once_with(
+            topic=subscribe_methods_topic, callback=ANY
+        )
+
+    def test_sets_method_status_to_disabled(self, device_transport):
+        mock_mqtt_provider = device_transport._pipeline.provider
+
+        device_transport.connect()
+        mock_mqtt_provider.on_mqtt_connected()
+        device_transport.disable_feature(constant.METHODS)
+
+        assert not device_transport.feature_enabled[constant.METHODS]
 
 
 @pytest.mark.skip(reason="Not implemented")

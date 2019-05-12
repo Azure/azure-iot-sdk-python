@@ -17,7 +17,11 @@ class AbstractTransport:
 
     def __init__(self, auth_provider):
         self._auth_provider = auth_provider
-        self.feature_enabled = {constant.C2D_MSG: False, constant.INPUT_MSG: False}
+        self.feature_enabled = {
+            constant.C2D_MSG: False,
+            constant.INPUT_MSG: False,
+            constant.METHODS: False,
+        }
 
         # Event Handlers - Will be set by Client after instantiation of Transport
         self.on_transport_connected = None
@@ -68,9 +72,8 @@ class AbstractTransport:
         """
         pass
 
-    # TODO: consider changing this signature (should the response already be packaged?)
     @abc.abstractmethod
-    def send_method_response(self, method, payload, status, callback=None):
+    def send_method_response(self, method_response, callback=None):
         """
         Send a method response.
         """

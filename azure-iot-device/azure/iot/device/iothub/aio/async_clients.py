@@ -130,13 +130,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Received method request")
         return method_request
 
-    async def send_method_response(self, method_request, payload, status):
+    async def send_method_response(self, method_response):
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
-        :param method_request: MethodRequest object representing the method request being
-        responded to.
-        :param payload: The desired payload for the method response.
-        :param int status: The desired return status code for the method response.
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the event.
+
+        :param method_response: The MethodResponse to send
         """
         logger.info("Sending method response to Hub...")
         send_method_response_async = async_adapter.emulate_async(
@@ -149,7 +149,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         callback = async_adapter.AwaitableCallback(sync_callback)
 
         # TODO: maybe consolidate method_request, result and status into a new object
-        await send_method_response_async(method_request, payload, status, callback=callback)
+        await send_method_response_async(method_response, callback=callback)
         await callback.completion()
 
     async def _enable_feature(self, feature_name):

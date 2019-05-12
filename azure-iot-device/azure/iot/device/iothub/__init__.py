@@ -6,6 +6,6 @@ as a Device or Module.
 
 from .sync_clients import IoTHubDeviceClient, IoTHubModuleClient
 from .sync_inbox import InboxEmpty
-from .models import Message
+from .models import Message, MethodResponse
 
-__all__ = ["IoTHubDeviceClient", "IoTHubModuleClient", "Message", "InboxEmpty"]
+__all__ = ["IoTHubDeviceClient", "IoTHubModuleClient", "Message", "InboxEmpty", "MethodResponse"]

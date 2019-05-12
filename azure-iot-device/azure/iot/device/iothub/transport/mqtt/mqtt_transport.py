@@ -45,6 +45,12 @@ class MQTTTransport(AbstractTransport):
                 else:
                     logger.warning("input mesage event received with no handler.  dropping.")
 
+            elif isinstance(event, pipeline_events_iothub.MethodRequest):
+                if self.on_transport_method_request_received(event.method_request):
+                    self.on_transport_method_request_received(event.method_request)
+                else:
+                    logger.warning("Method request event received with no handler. Dropping.")
+
             else:
                 logger.warning("Dropping unknown pipeline event {}".format(event.name))
 
@@ -140,8 +146,21 @@ class MQTTTransport(AbstractTransport):
             pipeline_ops_iothub.SendOutputEvent(message=message, callback=pipeline_callback)
         )
 
-    def send_method_response(self, method, payload, status, callback=None):
-        raise NotImplementedError
+    def send_method_response(self, method_response, callback=None):
+        logger.info("Transport send_method_response called")
+
+        def pipeline_callback(call):
+            if call.error:
+                # TODO we need error semantics on the client
+                exit(1)
+            if callback:
+                callback()
+
+        self._pipeline.run_op(
+            pipeline_ops_iothub.SendMethodResponse(
+                method_response=method_response, callback=pipeline_callback
+            )
+        )
 
     def enable_feature(self, feature_name, callback=None):
         """

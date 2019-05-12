@@ -46,6 +46,24 @@ def get_input_topic_for_subscribe(device_id, module_id):
     return _get_topic_base(device_id, module_id) + "/inputs/#"
 
 
+def get_method_topic_for_publish(request_id, status):
+    """
+    :return: The topic for publishing method responses. It is of the format
+    "$iothub/methods/res/<status>/?$rid=<requestId>
+    """
+    return "$iothub/methods/res/{status}/?$rid={rid}".format(
+        status=urllib.parse.quote_plus(status), rid=urllib.parse.quote_plus(request_id)
+    )
+
+
+def get_method_topic_for_subscribe():
+    """
+    :return: The topic for ALL incoming methods. It is of the format
+    "$iothub/methods/POST/#"
+    """
+    return "$iothub/methods/POST/#"
+
+
 def is_c2d_topic(topic):
     """
     Topics for c2d message are of the following format:
@@ -82,6 +100,70 @@ def get_input_name_from_topic(topic):
         raise ValueError("topic has incorrect format")
 
 
+def is_method_topic(topic):
+    """
+    Topics for methods are of the following format:
+    "$iothub/methods/POST/{method name}/?$rid={request id}"
+
+    :param str topic: The topic string.
+    """
+    if "$iothub/methods/POST" in topic:
+        return True
+    return False
+
+
+def get_method_name_from_topic(topic):
+    """
+    Extract the method name from the method topic.
+    Topics for methods are of the following format:
+    "$iothub/methods/POST/{method name}/?$rid={request id}"
+
+    :param str topic: The topic string
+    """
+    parts = topic.split("/")
+    if is_method_topic(topic) and len(parts) >= 4:
+        return parts[3]
+    else:
+        raise ValueError("topic has incorrect format")
+
+
+# TODO: leverage this helper in all property extraction functions
+def _extract_properties(properties_str):
+    """Return a dictionary of properties from a string in the format
+    ${key1}={value1}&${key2}={value2}&...{keyn}={valuen}
+    """
+    d = {}
+    kv_pairs = properties_str.split("&")
+
+    for entry in kv_pairs:
+        pair = entry.split("=")
+        key = urllib.parse.unquote_plus(pair[0]).lstrip("$")
+        value = urllib.parse.unquote_plus(pair[1])
+        d[key] = value
+
+    return d
+
+
+def get_method_request_id_from_topic(topic):
+    """
+    Extract the Request ID (RID) from the method topic.
+    Topics for methods are of the following format:
+    "$iothub/methods/POST/{method name}/?$rid={request id}"
+
+    :param str stopic: the topic string
+    :raises: ValueError if topic has incorrect format
+    :returns: request id from topic string
+    """
+    parts = topic.split("/")
+    if is_method_topic(topic) and len(parts) >= 4:
+
+        properties = _extract_properties(topic.split("?")[1])
+        return properties["rid"]
+    else:
+        raise ValueError("topic has incorrect format")
+
+
+# TODO: this has too generic a name, given that it's only for messages
 def extract_properties_from_topic(topic, message_received):
     """
     Extract key=value pairs from custom properties and set the properties on the received message.
@@ -120,6 +202,7 @@ def extract_properties_from_topic(topic, message_received):
             message_received.custom_properties[key] = value
 
 
+# TODO: this has too generic a name, given that it's only for messages
 def encode_properties(message_to_send, topic):
     """
     uri-encode the system properties of a message as key-value pairs on the topic with defined keys.

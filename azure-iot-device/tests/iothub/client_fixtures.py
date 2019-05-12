@@ -59,7 +59,7 @@ class FakeTransport(AbstractTransport):
     def send_output_event(self, event, callback):
         callback()
 
-    def send_method_response(self, method, payload, status, callback=None):
+    def send_method_response(self, method_response, callback=None):
         callback()
 
 

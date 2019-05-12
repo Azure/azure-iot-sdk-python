@@ -38,3 +38,14 @@ class InputMessage(PipelineEvent):
         super(InputMessage, self).__init__()
         self.input_name = input_name
         self.message = message
+
+
+class MethodRequest(PipelineEvent):
+    """
+    A PipelineEvent object which represents an incoming MethodRequest event.
+    This object is probably created by some converter stage based on a transport-specific event.
+    """
+
+    def __init__(self, method_request):
+        super(MethodRequest, self).__init__()
+        self.method_request = method_request

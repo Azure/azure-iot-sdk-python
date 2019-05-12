@@ -15,12 +15,21 @@ class TestSyncClientInbox(object):
         inbox = SyncClientInbox()
         assert inbox.empty()
 
+    def test_check_item_is_in_inbox(self, mocker):
+        inbox = SyncClientInbox()
+        assert inbox.empty()
+        item = mocker.MagicMock()
+        assert item not in inbox
+        inbox._put(item)
+        assert item in inbox
+
     def test__put_adds_item_to_inbox(self, mocker):
         inbox = SyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
         inbox._put(item)
         assert not inbox.empty()
+        assert item in inbox
 
     def test_get_removes_item_from_inbox_if_already_there(self, mocker):
         inbox = SyncClientInbox()

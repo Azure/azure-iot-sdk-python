@@ -23,8 +23,8 @@ class SetAuthProvider(PipelineOperation):
         :param object auth_provider: The authorization provider object to use to retrieve connection parameters
           which can be used to connect to the service.
         :param Function callback: The function that gets called when this operation is complete or has failed.
-          The callback function must accept A PipelineOperation object which indicates the specific operation which
-          has completed or failed.
+         The callback function must accept A PipelineOperation object which indicates the specific operation which
+         has completed or failed.
         """
         super(SetAuthProvider, self).__init__(callback=callback)
         self.auth_provider = auth_provider
@@ -60,8 +60,8 @@ class SetAuthProviderArgs(PipelineOperation):
         :param str ca_cert: (Optional) The CA certificate to use if theMQTT server that we're going to
           connect to uses server-side TLS
         :param Function callback: The function that gets called when this operation is complete or has failed.
-          The callback function must accept A PipelineOperation object which indicates the specific operation which
-          has completed or failed.
+         The callback function must accept A PipelineOperation object which indicates the specific operation which
+         has completed or failed.
         """
         super(SetAuthProviderArgs, self).__init__(callback=callback)
         self.device_id = device_id
@@ -84,8 +84,8 @@ class SendTelemetry(PipelineOperation):
 
         :param Message message: The message that we're sending to the service
         :param Function callback: The function that gets called when this operation is complete or has failed.
-          The callback function must accept A PipelineOperation object which indicates the specific operation which
-          has completed or failed.
+         The callback function must accept A PipelineOperation object which indicates the specific operation which
+         has completed or failed.
         """
         super(SendTelemetry, self).__init__(callback=callback)
         self.message = message
@@ -106,9 +106,32 @@ class SendOutputEvent(PipelineOperation):
         :param Message message: The output message that we're sending to the service. The name of the output is
           expected to be stored in the output_name attribute of this object
         :param Function callback: The function that gets called when this operation is complete or has failed.
-          The callback function must accept A PipelineOperation object which indicates the specific operation which
-          has completed or failed.
+         The callback function must accept A PipelineOperation object which indicates the specific operation which
+         has completed or failed.
         """
         super(SendOutputEvent, self).__init__(callback=callback)
         self.message = message
+        self.needs_connection = True
+
+
+class SendMethodResponse(PipelineOperation):
+    """
+    A PipleineOperation object which contains arguments used to send a method response to an IoTHub or EdgeHub server.
+
+    This operation is in the group of IoTHub operations because it is very specific to the IoTHub client.
+    """
+
+    def __init__(self, method_response, callback=None):
+        """
+        Initializer for SendMethodResponse objects.
+
+        :param method_response: The method response to be sent to IoTHub/EdgeHub
+        :type method_response: MethodResponse
+        :param callback: The function that gets called when this operation is complete or has failed.
+         The callback function must accept a PipelineOperation object which indicates the specific operation has which
+         has completed or failed.
+        :type callback: Function/callable
+        """
+        super(SendMethodResponse, self).__init__(callback=callback)
+        self.method_response = method_response
         self.needs_connection = True

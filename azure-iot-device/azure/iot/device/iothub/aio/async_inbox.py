@@ -19,6 +19,14 @@ class AsyncClientInbox(AbstractInbox):
         """Initializer for AsyncClientInbox."""
         self._queue = janus.Queue()
 
+    def __contains__(self, item):
+        """Return True if item is in Inbox, False otherwise"""
+        # Note that this function accesses private attributes of janus, thus it is somewhat
+        # dangerous. Unforutnately, it is the only way to implement this functionality.
+        # However, because this function is only used in tests, I feel it is acceptable.
+        with self._queue._sync_mutex:
+            return item in self._queue._queue
+
     def _put(self, item):
         """Put an item into the Inbox.
 

@@ -71,6 +71,11 @@ class SyncClientInbox(AbstractInbox):
         """Initializer for SyncClientInbox"""
         self._queue = queue.Queue()
 
+    def __contains__(self, item):
+        """Return True if item is in Inbox, False otherwise"""
+        with self._queue.mutex:
+            return item in self._queue.queue
+
     def _put(self, item):
         """Put an item into the inbox.
 

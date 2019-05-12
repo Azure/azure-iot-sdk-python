@@ -18,6 +18,14 @@ class TestAsyncClientInbox(object):
         inbox = AsyncClientInbox()
         assert inbox.empty()
 
+    def test_check_item_is_in_inbox(self, mocker):
+        inbox = AsyncClientInbox()
+        assert inbox.empty()
+        item = mocker.MagicMock()
+        assert item not in inbox
+        inbox._put(item)
+        assert item in inbox
+
     # this test also raises runtime warning if it's asynchronous
     def test__put_adds_item_to_inbox(self, mocker):
         inbox = AsyncClientInbox()
@@ -25,6 +33,7 @@ class TestAsyncClientInbox(object):
         item = mocker.MagicMock()
         inbox._put(item)
         assert not inbox.empty()
+        assert item in inbox
 
     @pytest.mark.asyncio
     async def test_get_removes_item_from_inbox_if_already_there(self, mocker):
