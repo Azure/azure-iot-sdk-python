@@ -23,7 +23,14 @@ def assert_all_base_defaults(obj):
 
 @pytest.mark.describe("SetConnectionArgs object")
 class TestSetConnectionArgs(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
+    @pytest.mark.it("Sets client_id attribute on instantiation")
+    @pytest.mark.it("Sets hostname attribute on instantiation")
+    @pytest.mark.it("Sets username attribute on instantiation")
+    @pytest.mark.it("Sets ca_cert attribute to None if not provided on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_mqtt.SetConnectionArgs(
             client_id=fake_client_id, hostname=fake_hostname, username=fake_username
@@ -35,7 +42,8 @@ class TestSetConnectionArgs(object):
         assert obj.ca_cert is None
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets ca_cert attribute if provided on instantiation")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_mqtt.SetConnectionArgs(
             client_id=fake_client_id,
@@ -44,17 +52,18 @@ class TestSetConnectionArgs(object):
             ca_cert=fake_ca_cert,
             callback=fake_callback,
         )
-        assert_all_base_defaults(obj)
-        assert obj.client_id is fake_client_id
-        assert obj.hostname is fake_hostname
-        assert obj.username is fake_username
         assert obj.ca_cert is fake_ca_cert
         assert obj.callback is fake_callback
 
 
 @pytest.mark.describe("Publish object")
 class TestPublish(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
+    @pytest.mark.it("Sets topic attribute on instantiation")
+    @pytest.mark.it("Sets payload attribute on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_mqtt.Publish(topic=fake_topic, payload=fake_payload)
         assert_all_base_defaults(obj)
@@ -62,46 +71,47 @@ class TestPublish(object):
         assert obj.payload is fake_payload
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_mqtt.Publish(
             topic=fake_topic, payload=fake_payload, callback=fake_callback
         )
-        assert_all_base_defaults(obj)
-        assert obj.topic is fake_topic
-        assert obj.payload is fake_payload
         assert obj.callback is fake_callback
 
 
 @pytest.mark.describe("Subscribe object")
 class TestSubscribe(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
+    @pytest.mark.it("Sets topic attribute on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_mqtt.Subscribe(topic=fake_topic)
         assert_all_base_defaults(obj)
         assert obj.topic is fake_topic
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_mqtt.Subscribe(topic=fake_topic, callback=fake_callback)
-        assert_all_base_defaults(obj)
-        assert obj.topic is fake_topic
         assert obj.callback is fake_callback
 
 
 @pytest.mark.describe("Unsubscribe object")
 class TestUnsubscribe(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
+    @pytest.mark.it("Sets topic attribute on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_mqtt.Unsubscribe(topic=fake_topic)
         assert_all_base_defaults(obj)
         assert obj.topic is fake_topic
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_mqtt.Unsubscribe(topic=fake_topic, callback=fake_callback)
-        assert_all_base_defaults(obj)
-        assert obj.topic is fake_topic
         assert obj.callback is fake_callback

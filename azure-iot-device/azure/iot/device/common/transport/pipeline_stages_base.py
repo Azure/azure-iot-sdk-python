@@ -48,7 +48,7 @@ class PipelineStage(object):
     there's no connection.
 
     One way to think about stages is to look at every "block of functionality" in your code and ask yourself
-    "is this the one and only time I will need this code"?  If the answer is no, it migth be worthwhile to
+    "is this the one and only time I will need this code"?  If the answer is no, it might be worthwhile to
     implement that code in it's own stage in a very generic way.
 
 
@@ -79,7 +79,7 @@ class PipelineStage(object):
         operation.  Derived classes should override the private _run_op function to implement
         stage-specific behavior.  When run_op returns, that doesn't mean that the operation has executed
         to completion.  Rather, it means that the pipeline has done something that will cause the
-        operation to eventually execute to completion.  That migth mean that something was sent over
+        operation to eventually execute to completion.  That might mean that something was sent over
         the network and some stage is waiting for a reply, or it might mean that the operation is sitting
         in a queue until something happens, or it could mean something entirely different.  The only
         thing you can assume is that the operation will _eventually_ complete successfully or fail, and the

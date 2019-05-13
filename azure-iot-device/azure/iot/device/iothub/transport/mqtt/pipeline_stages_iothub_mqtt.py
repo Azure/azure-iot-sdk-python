@@ -118,13 +118,15 @@ class IotHubMQTTConverter(PipelineStage):
             if mqtt_topic.is_c2d_topic(topic):
                 message = Message(event.payload)
                 mqtt_topic.extract_properties_from_topic(topic, message)
-                self.handle_pipeline_event(pipeline_events_iothub.C2DMessage(message))
+                self.handle_pipeline_event(pipeline_events_iothub.C2DMessageEvent(message))
 
             elif mqtt_topic.is_input_topic(topic):
                 message = Message(event.payload)
                 mqtt_topic.extract_properties_from_topic(topic, message)
                 input_name = mqtt_topic.get_input_name_from_topic(topic)
-                self.handle_pipeline_event(pipeline_events_iothub.InputMessage(input_name, message))
+                self.handle_pipeline_event(
+                    pipeline_events_iothub.InputMessageEvent(input_name, message)
+                )
 
             elif mqtt_topic.is_method_topic(topic):
                 rid = mqtt_topic.get_method_request_id_from_topic(topic)

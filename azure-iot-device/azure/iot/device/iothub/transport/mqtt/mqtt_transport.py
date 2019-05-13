@@ -33,13 +33,13 @@ class MQTTTransport(AbstractTransport):
         )
 
         def _handle_pipeline_event(event):
-            if isinstance(event, pipeline_events_iothub.C2DMessage):
+            if isinstance(event, pipeline_events_iothub.C2DMessageEvent):
                 if self.on_transport_c2d_message_received:
                     self.on_transport_c2d_message_received(event.message)
                 else:
                     logger.warning("C2D event received with no handler.  dropping.")
 
-            elif isinstance(event, pipeline_events_iothub.InputMessage):
+            elif isinstance(event, pipeline_events_iothub.InputMessageEvent):
                 if self.on_transport_input_message_received:
                     self.on_transport_input_message_received(event.input_name, event.message)
                 else:

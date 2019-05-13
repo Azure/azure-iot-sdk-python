@@ -9,7 +9,7 @@ from azure.iot.device.common.transport import pipeline_events_base
 
 @pytest.mark.describe("PipelineEvent object")
 class TestPipelineEvent(object):
-    @pytest.mark.it("Sets arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
     def test_default_arguments(self):
         obj = pipeline_events_base.PipelineEvent()
         assert obj.name is obj.__class__.__name__

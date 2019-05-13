@@ -24,26 +24,36 @@ def assert_all_base_defaults(obj, needs_connection=False):
 
 @pytest.mark.describe("SetAuthProvider object")
 class TestSetAuthProvider(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
+    @pytest.mark.it("Sets auth_provider attribute on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_iothub.SetAuthProvider(auth_provider=fake_auth_provider)
         assert_all_base_defaults(obj)
         assert obj.auth_provider is fake_auth_provider
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_iothub.SetAuthProvider(
             auth_provider=fake_auth_provider, callback=fake_callback
         )
-        assert_all_base_defaults(obj)
-        assert obj.auth_provider is fake_auth_provider
         assert obj.callback is fake_callback
 
 
 @pytest.mark.describe("SetAuthProviderArgs object")
 class TestSetAuthProviderArgs(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
+    @pytest.mark.it("Sets device_id attribute on instantiation")
+    @pytest.mark.it("Sets hostname attribute on instantiation")
+    @pytest.mark.it("Sets module_id attribute to None if not provided on instantiation")
+    @pytest.mark.it("Sets gateway_hostname attribute to None if not provided on instantiation")
+    @pytest.mark.it("Sets ca_cert attribute to None if not provided on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_iothub.SetAuthProviderArgs(
             device_id=fake_device_id, hostname=fake_hostname
@@ -53,7 +63,10 @@ class TestSetAuthProviderArgs(object):
         assert obj.hostname is fake_hostname
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets module_id attribute if provided on instantiation")
+    @pytest.mark.it("Sets gateway_hostname attribute if provided on instantiation")
+    @pytest.mark.it("Sets fake_ca_cert attribute if provided on instantiation")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_iothub.SetAuthProviderArgs(
             device_id=fake_device_id,
@@ -63,9 +76,6 @@ class TestSetAuthProviderArgs(object):
             ca_cert=fake_ca_cert,
             callback=fake_callback,
         )
-        assert_all_base_defaults(obj)
-        assert obj.device_id is fake_device_id
-        assert obj.hostname is fake_hostname
         assert obj.module_id is fake_module_id
         assert obj.gateway_hostname is fake_gateway_hostname
         assert obj.ca_cert is fake_ca_cert
@@ -74,33 +84,37 @@ class TestSetAuthProviderArgs(object):
 
 @pytest.mark.describe("SendTelemetry object")
 class TestSendTelemetry(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute to None on instantiation")
+    @pytest.mark.it("Sets needs_connection to True attribute on instantiation")
+    @pytest.mark.it("Sets message attribute on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_iothub.SendTelemetry(message=fake_message)
         assert_all_base_defaults(obj, needs_connection=True)
         assert obj.message is fake_message
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_iothub.SendTelemetry(message=fake_message, callback=fake_callback)
-        assert_all_base_defaults(obj, needs_connection=True)
-        assert obj.message is fake_message
         assert obj.callback is fake_callback
 
 
 @pytest.mark.describe("SendOutputEvent object")
 class TestSendOutputEvent(object):
-    @pytest.mark.it("Sets required and default arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets error attribute on to None instantiation")
+    @pytest.mark.it("Sets needs_connection attribute to True on instantiation")
+    @pytest.mark.it("Sets message attribute on instantiation")
+    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_iothub.SendOutputEvent(message=fake_message)
         assert_all_base_defaults(obj, needs_connection=True)
         assert obj.message is fake_message
         assert obj.callback is None
 
-    @pytest.mark.it("Sets optional arguments correctly")
+    @pytest.mark.it("Sets callback attribute if provided on instantiation")
     def test_optional_arguments(self):
         obj = pipeline_ops_iothub.SendOutputEvent(message=fake_message, callback=fake_callback)
-        assert_all_base_defaults(obj, needs_connection=True)
-        assert obj.message is fake_message
         assert obj.callback is fake_callback

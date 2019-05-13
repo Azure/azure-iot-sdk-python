@@ -12,7 +12,9 @@ fake_payload = "__fake_payload__"
 
 @pytest.mark.describe("IncomingMessage object")
 class TestIncomingMessage(object):
-    @pytest.mark.it("Sets arguments correctly")
+    @pytest.mark.it("Sets name attribute on instantiation")
+    @pytest.mark.it("Sets topic attribute on instantiation")
+    @pytest.mark.it("Sets payload attribute on instantiation")
     def test_default_arguments(self):
         obj = pipeline_events_mqtt.IncomingMessage(topic=fake_topic, payload=fake_payload)
         assert obj.name is obj.__class__.__name__
