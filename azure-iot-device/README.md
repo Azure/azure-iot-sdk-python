@@ -6,14 +6,19 @@ The Azure IoT Device SDK for Python provides functionality for communicating wit
 ## Features
 The SDK provides the following clients:
 
-* ### Device Client
+* ### Provisioning Device Client
+    * Creates a device identity on the Azure IoT Hub
+
+* ### IoT Hub Device Client
     * Send telemetry messages to Azure IoT Hub
     * Receive Cloud-to-Device (C2D) messages from the Azure IoT Hub
+    * Receive and respond to direct method invocations from the Azure IoT Hub 
 
-* ### Module Client
+* ### IoT Hub Module Client
     * Supports Azure IoT Edge Hub and Azure IoT Hub
     * Send telemetry messages to a Hub or to another Module
     * Receive Input messages from a Hub or other Modules
+    * Receive and respond to direct method invocations from a Hub or other Modules
 
 These clients are available with an asynchronous API, as well as a blocking synchronous API for compatibility scenarios. **We recommend you use Python 3.7+ and the asynchronous API.**
 

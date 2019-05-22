@@ -23,8 +23,11 @@ In order to use these samples, you **must** set your Device Connection String in
         ```
         az iot device c2d-message send --device-id <your device id> --hub-name <your IoT Hub name> --data <your message here>
         ```
-* [receive_direct_method.py](receive_direct_method.py) - Receive a direct method invocation request on a device from the Azure IoT Hub
-    * **THIS FEATURE IS NOT YET COMPLETED, THIS SAMPLE WILL NOT WORK**
+* [receive_direct_method.py](receive_direct_method.py) - Receive direct method requests on a device from the Azure IoT Hub and send responses back
+    * In order to invoke a direct method, use the following Azure CLI command:
+        ```
+        az iot hub invoke-device-method --device-id <your device id> --hub-name <your IoT Hub name> --method-name <desired method>
+        ```
 * [send_telemetry.py](send_telemetry.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
     * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
         ```bash
