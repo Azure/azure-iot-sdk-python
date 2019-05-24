@@ -7,6 +7,7 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
+import threading
 import traceback
 
 logger = logging.getLogger(__name__)
@@ -42,15 +43,7 @@ class MQTTProvider(object):
         self.on_mqtt_disconnected = None
         self.on_mqtt_message_received = None
 
-        # Maps mid->callback for operations where a control packet has been sent
-        # but the reponse has not yet been received
-        self._pending_operation_callbacks = {}
-
-        # Maps mid->mid for responses received that are in the _pending_operation_callbacks dict.
-        # Necessary because sometimes an operation will complete with a response before the
-        # Paho call returns.
-        # TODO: make this map mid to something more useful (result code?)
-        self._unknown_operation_responses = {}
+        self._op_manager = OperationManager()
 
         self._create_mqtt_client()
 
@@ -66,8 +59,8 @@ class MQTTProvider(object):
 
         def on_connect(client, userdata, flags, rc):
             logger.info("connected with result code: {}".format(rc))
+
             # TODO: how to do failed connection?
-            # MUST do LBYL here to avoid confusion with errors thrown in calling callback
             if self.on_mqtt_connected:
                 try:
                     self.on_mqtt_connected()
@@ -79,7 +72,7 @@ class MQTTProvider(object):
 
         def on_disconnect(client, userdata, rc):
             logger.info("disconnected with result code: {}".format(rc))
-            # MUST do LBYL here to avoid confusion with errors thrown in calling callback
+
             if self.on_mqtt_disconnected:
                 try:
                     self.on_mqtt_disconnected()
@@ -92,24 +85,23 @@ class MQTTProvider(object):
         def on_subscribe(client, userdata, mid, granted_qos):
             logger.info("suback received for {}".format(mid))
             # TODO: how to do failure?
-            self._resolve_pending_callback(mid)
+            self._op_manager.complete_operation(mid)
 
         def on_unsubscribe(client, userdata, mid):
             logger.info("UNSUBACK received for {}".format(mid))
             # TODO: how to do failure?
-            self._resolve_pending_callback(mid)
+            self._op_manager.complete_operation(mid)
 
         def on_publish(client, userdata, mid):
             logger.info("payload published for {}".format(mid))
             # TODO: how to do failed publish
-            self._resolve_pending_callback(mid)
+            self._op_manager.complete_operation(mid)
 
         def on_message(client, userdata, mqtt_message):
             logger.info("message received on {}".format(mqtt_message.topic))
-            # MUST do LBYL here to avoid confusion with errors thrown in calling callback
+
             if self.on_mqtt_message_received:
                 try:
-                    # TODO: Why is this returning _topic instead of topic?
                     self.on_mqtt_message_received(mqtt_message.topic, mqtt_message.payload)
                 except:  # noqa: E722 do not use bare 'except'
                     logger.error("Unexpected error calling on_mqtt_message_received")
@@ -186,7 +178,7 @@ class MQTTProvider(object):
         """
         logger.info("subscribing to {} with qos {}".format(topic, qos))
         (result, mid) = self._mqtt_client.subscribe(topic, qos=qos)
-        self._set_operation_callback(mid, callback)
+        self._op_manager.establish_operation(mid, callback)
 
     def unsubscribe(self, topic, callback=None):
         """
@@ -199,7 +191,7 @@ class MQTTProvider(object):
         """
         logger.info("unsubscribing from {}".format(topic))
         (result, mid) = self._mqtt_client.unsubscribe(topic)
-        self._set_operation_callback(mid, callback)
+        self._op_manager.establish_operation(mid, callback)
 
     def publish(self, topic, payload, qos=1, callback=None):
         """
@@ -217,14 +209,53 @@ class MQTTProvider(object):
         """
         logger.info("sending")
         message_info = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
-        self._set_operation_callback(message_info.mid, callback)
+        self._op_manager.establish_operation(message_info.mid, callback)
 
-    def _set_operation_callback(self, mid, callback):
-        if mid in self._unknown_operation_responses:
-            # If response already came back, trigger the callback
+
+class OperationManager(object):
+    """Tracks pending operations and thier associated callbacks until completion.
+    """
+
+    def __init__(self):
+        # Maps mid->callback for operations where a request has been sent
+        # but the reponse has not yet been received
+        self._pending_operation_callbacks = {}
+
+        # Maps mid->mid for responses received that are NOT established in the _pending_operation_callbacks dict.
+        # Necessary because sometimes an operation will complete with a response before the
+        # Paho call returns.
+        # TODO: make this map mid to something more useful (result code?)
+        self._unknown_operation_completions = {}
+
+        self._lock = threading.Lock()
+
+    def establish_operation(self, mid, callback=None):
+        """Establish a pending operation identified by MID, and store its completion callback.
+
+        If the operation has already been completed, the callback will be triggered.
+        """
+        trigger_callback = False
+
+        with self._lock:
+            # Check to see if a response was already received for this MID before this method was
+            # able to be called due to threading shenanigans
+            if mid in self._unknown_operation_completions:
+
+                # Clear the recorded unknown response now that it has been resolved
+                del self._unknown_operation_completions[mid]
+
+                # Since the operation has already completed, indicate callback should trigger
+                trigger_callback = True
+
+            else:
+                # Store the operation as pending, along with callback
+                self._pending_operation_callbacks[mid] = callback
+                logger.info("Waiting for response on MID: {}".format(mid))
+
+        # Now that the lock has been released, if the callback should be triggered,
+        # go ahead and trigger it now.
+        if trigger_callback:
             logger.info("Response for MID: {} was received early - triggering callback".format(mid))
-            del self._unknown_operation_responses[mid]
-            # MUST do LBYL here to avoid confusion with errors thrown in calling callback
             if callback:
                 try:
                     callback()
@@ -233,20 +264,40 @@ class MQTTProvider(object):
                     logger.error(traceback.format_exc())
             else:
                 logger.info("No callback for MID: {}".format(mid))
-        else:
-            # Otherwise, set the callback to use later
-            logger.info("Waiting for response on MID: {}".format(mid))
-            self._pending_operation_callbacks[mid] = callback
 
-    def _resolve_pending_callback(self, mid):
-        if mid in self._pending_operation_callbacks:
-            # If mid is known, trigger it's associated callback
+    def complete_operation(self, mid):
+        """Complete an operation identified by MID and trigger the associated completion callback.
+
+        If the operation MID is unknown, the completion status will be stored until
+        the operation is established.
+        """
+        callback = None
+        trigger_callback = False
+
+        with self._lock:
+            # If the mid is associated with an established pending operation, trigger the associated callback
+            if mid in self._pending_operation_callbacks:
+
+                # Retrieve the callback, and clear the pending operation now that it has been completed
+                callback = self._pending_operation_callbacks[mid]
+                del self._pending_operation_callbacks[mid]
+
+                # Since the operation is complete, indicate the callback should be triggered
+                trigger_callback = True
+
+            else:
+                # Otherwise, store the mid as an unknown response
+                logger.warning("Response received for unknown MID: {}".format(mid))
+                self._unknown_operation_completions[
+                    mid
+                ] = mid  # TODO: set something more useful here
+
+        # Now that the lock has been released, if the callback should be triggered,
+        # go ahead and trigger it now.
+        if trigger_callback:
             logger.info(
                 "Response received for recognized MID: {} - triggering callback".format(mid)
             )
-            callback = self._pending_operation_callbacks[mid]
-            del self._pending_operation_callbacks[mid]
-            # MUST do LBYL here to avoid confusion with errors thrown in calling callback
             if callback:
                 try:
                     callback()
@@ -255,7 +306,3 @@ class MQTTProvider(object):
                     logger.error(traceback.format_exc())
             else:
                 logger.info("No callback set for MID: {}".format(mid))
-        else:
-            # Otherwise, store the mid as an unknown response
-            logger.warning("Response received for unknown MID: {}".format(mid))
-            self._unknown_operation_responses[mid] = mid  # TODO: set something more useful here
