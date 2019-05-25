@@ -9,12 +9,11 @@ import asyncio
 import abc
 import six
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
-from azure.iot.device.iothub.transport.mqtt import MQTTTransport
+from azure.iot.device.iothub.pipeline import PipelineAdapter, constant
 from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
-from azure.iot.device.iothub.transport import constant
 
-# auth_provider and transport fixtures are implicitly included
+# auth_provider and pipeline fixtures are implicitly included
 
 
 pytestmark = pytest.mark.asyncio
@@ -31,34 +30,34 @@ class ClientSharedTests(object):
     xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
 
     @pytest.mark.parametrize(
-        "protocol,expected_transport",
+        "protocol,expected_pipeline",
         [
-            pytest.param("mqtt", MQTTTransport, id="mqtt"),
+            pytest.param("mqtt", PipelineAdapter, id="mqtt"),
             pytest.param("amqp", None, id="amqp", marks=xfail_notimplemented),
             pytest.param("http", None, id="http", marks=xfail_notimplemented),
         ],
     )
     async def test_from_authentication_provider_instantiates_client(
-        self, auth_provider, protocol, expected_transport
+        self, auth_provider, protocol, expected_pipeline
     ):
         client = self.client_class.from_authentication_provider(auth_provider, protocol)
         assert isinstance(client, self.client_class)
-        assert isinstance(client._transport, expected_transport)
+        assert isinstance(client._pipeline, expected_pipeline)
 
     @pytest.mark.parametrize("auth_provider", ["SymmetricKey"], ids=[""], indirect=True)
     @pytest.mark.parametrize(
-        "protocol,expected_transport",
+        "protocol,expected_pipeline",
         [
-            pytest.param("MQTT", MQTTTransport, id="ALL CAPS"),
-            pytest.param("MqTt", MQTTTransport, id="mIxEd CaSe"),
+            pytest.param("MQTT", PipelineAdapter, id="ALL CAPS"),
+            pytest.param("MqTt", PipelineAdapter, id="mIxEd CaSe"),
         ],
     )
     async def test_from_authentication_provider_boundary_case_transport_name(
-        self, auth_provider, protocol, expected_transport
+        self, auth_provider, protocol, expected_pipeline
     ):
         client = self.client_class.from_authentication_provider(auth_provider, protocol)
         assert isinstance(client, self.client_class)
-        assert isinstance(client._transport, expected_transport)
+        assert isinstance(client._pipeline, expected_pipeline)
 
     @pytest.mark.parametrize("auth_provider", ["SymmetricKey"], ids=[""], indirect=True)
     async def test_from_authentication_provider_bad_input_raises_error_transport_name(
@@ -67,18 +66,18 @@ class ClientSharedTests(object):
         with pytest.raises(ValueError):
             self.client_class.from_authentication_provider(auth_provider, "bad input")
 
-    async def test_instantiation_sets_on_connected_handler_in_transport(self, client):
-        assert client._transport.on_transport_connected is not None
-        assert client._transport.on_transport_connected == client._on_state_change
+    async def test_instantiation_sets_on_connected_handler_in_pipeline(self, client):
+        assert client._pipeline.on_transport_connected is not None
+        assert client._pipeline.on_transport_connected == client._on_state_change
 
-    async def test_instantiation_sets_on_disconnected_handler_in_transport(self, client):
-        assert client._transport.on_transport_disconnected is not None
-        assert client._transport.on_transport_disconnected == client._on_state_change
+    async def test_instantiation_sets_on_disconnected_handler_in_pipeline(self, client):
+        assert client._pipeline.on_transport_disconnected is not None
+        assert client._pipeline.on_transport_disconnected == client._on_state_change
 
     async def test_instantiation_sets_on_method_request_received_handler_in_transport(self, client):
-        assert client._transport.on_transport_method_request_received is not None
+        assert client._pipeline.on_transport_method_request_received is not None
         assert (
-            client._transport.on_transport_method_request_received
+            client._pipeline.on_transport_method_request_received
             == client._inbox_manager.route_method_request
         )
 
@@ -89,25 +88,25 @@ class ClientSharedTests(object):
         client._on_state_change("disconnected")
         assert clear_method_request_spy.call_count == 1
 
-    async def test_connect_calls_transport(self, client, transport):
+    async def test_connect_calls_pipeline(self, client, pipeline):
         await client.connect()
-        assert transport.connect.call_count == 1
+        assert pipeline.connect.call_count == 1
 
-    async def test_disconnect_calls_transport(self, client, transport):
+    async def test_disconnect_calls_pipeline(self, client, pipeline):
         await client.disconnect()
-        assert transport.disconnect.call_count == 1
+        assert pipeline.disconnect.call_count == 1
 
-    async def test_send_event_calls_transport(self, client, transport):
+    async def test_send_event_calls_pipeline(self, client, pipeline):
         message = Message("this is a message")
         await client.send_event(message)
-        assert transport.send_event.call_count == 1
-        assert transport.send_event.call_args[0][0] is message
+        assert pipeline.send_event.call_count == 1
+        assert pipeline.send_event.call_args[0][0] is message
 
-    async def test_send_event_calls_transport_wraps_data_in_message(self, client, transport):
+    async def test_send_event_calls_pipeline_wraps_data_in_message(self, client, pipeline):
         naked_string = "this is a message"
         await client.send_event(naked_string)
-        assert transport.send_event.call_count == 1
-        sent_message = transport.send_event.call_args[0][0]
+        assert pipeline.send_event.call_count == 1
+        sent_message = pipeline.send_event.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
@@ -116,7 +115,7 @@ class ClientSharedTests(object):
         [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
     )
     async def test_receive_method_request_enables_methods_only_if_not_already_enabled(
-        self, mocker, client, transport, method_name
+        self, mocker, client, pipeline, method_name
     ):
         # patch this so receive_method_request won't block
         mocker.patch.object(
@@ -124,21 +123,21 @@ class ClientSharedTests(object):
         )
 
         # Verify Input Messaging enabled if not enabled
-        transport.feature_enabled.__getitem__.return_value = (
+        pipeline.feature_enabled.__getitem__.return_value = (
             False
         )  # Method Requests will appear disabled
         await client.receive_method_request(method_name)
-        assert transport.enable_feature.call_count == 1
-        assert transport.enable_feature.call_args[0][0] == constant.METHODS
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.METHODS
 
-        transport.enable_feature.reset_mock()
+        pipeline.enable_feature.reset_mock()
 
         # Verify Input Messaging not enabled if already enabled
-        transport.feature_enabled.__getitem__.return_value = (
+        pipeline.feature_enabled.__getitem__.return_value = (
             True
         )  # Input Messages will appear enabled
         await client.receive_method_request(method_name)
-        assert transport.enable_feature.call_count == 0
+        assert pipeline.enable_feature.call_count == 0
 
     async def test_receive_method_request_called_without_method_name_returns_method_request_from_generic_method_inbox(
         self, mocker, client
@@ -177,11 +176,11 @@ class ClientSharedTests(object):
         assert inbox_mock.get.call_count == 1
         assert received_request is received_request
 
-    async def test_send_method_response_calls_transport(self, client, transport):
+    async def test_send_method_response_calls_pipeline(self, client, pipeline):
         response = MethodResponse(request_id="1", status=200, payload={"key": "value"})
         await client.send_method_response(response)
-        assert transport.send_method_response.call_count == 1
-        assert transport.send_method_response.call_args[0][0] is response
+        assert pipeline.send_method_response.call_count == 1
+        assert pipeline.send_method_response.call_args[0][0] is response
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous)")
@@ -189,35 +188,35 @@ class TestIoTHubModuleClient(ClientSharedTests):
     client_class = IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, transport):
-        return IoTHubModuleClient(transport)
+    def client(self, pipeline):
+        return IoTHubModuleClient(pipeline)
 
     async def test_instantiation_sets_on_input_message_received_handler_in_transport(self, client):
-        assert client._transport.on_transport_input_message_received is not None
+        assert client._pipeline.on_transport_input_message_received is not None
         assert (
-            client._transport.on_transport_input_message_received
+            client._pipeline.on_transport_input_message_received
             == client._inbox_manager.route_input_message
         )
 
-    async def test_send_to_output_calls_transport(self, client, transport):
+    async def test_send_to_output_calls_pipeline(self, client, pipeline):
         message = Message("this is a message")
         output_name = "some_output"
         await client.send_to_output(message, output_name)
-        assert transport.send_output_event.call_count == 1
-        assert transport.send_output_event.call_args[0][0] is message
+        assert pipeline.send_output_event.call_count == 1
+        assert pipeline.send_output_event.call_args[0][0] is message
         assert message.output_name == output_name
 
-    async def test_send_to_output_calls_transport_wraps_data_in_message(self, client, transport):
+    async def test_send_to_output_calls_pipeline_wraps_data_in_message(self, client, pipeline):
         naked_string = "this is a message"
         output_name = "some_output"
         await client.send_to_output(naked_string, output_name)
-        assert transport.send_output_event.call_count == 1
-        sent_message = transport.send_output_event.call_args[0][0]
+        assert pipeline.send_output_event.call_count == 1
+        sent_message = pipeline.send_output_event.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == naked_string
 
     async def test_receive_input_message_enables_input_messaging_only_if_not_already_enabled(
-        self, mocker, client, transport
+        self, mocker, client, pipeline
     ):
         # patch this receive_input_message won't block
         mocker.patch.object(
@@ -226,21 +225,21 @@ class TestIoTHubModuleClient(ClientSharedTests):
         input_name = "some_input"
 
         # Verify Input Messaging enabled if not enabled
-        transport.feature_enabled.__getitem__.return_value = (
+        pipeline.feature_enabled.__getitem__.return_value = (
             False
         )  # Input Messages will appear disabled
         await client.receive_input_message(input_name)
-        assert transport.enable_feature.call_count == 1
-        assert transport.enable_feature.call_args[0][0] == constant.INPUT_MSG
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.INPUT_MSG
 
-        transport.enable_feature.reset_mock()
+        pipeline.enable_feature.reset_mock()
 
         # Verify Input Messaging not enabled if already enabled
-        transport.feature_enabled.__getitem__.return_value = (
+        pipeline.feature_enabled.__getitem__.return_value = (
             True
         )  # Input Messages will appear enabled
         await client.receive_input_message(input_name)
-        assert transport.enable_feature.call_count == 0
+        assert pipeline.enable_feature.call_count == 0
 
     async def test_receive_input_message_returns_message_from_input_inbox(self, mocker, client):
         message = Message("this is a message")
@@ -263,18 +262,18 @@ class TestIoTHubDeviceClient(ClientSharedTests):
     client_class = IoTHubDeviceClient
 
     @pytest.fixture
-    async def client(self, transport):
-        return IoTHubDeviceClient(transport)
+    async def client(self, pipeline):
+        return IoTHubDeviceClient(pipeline)
 
-    async def test_instantiation_sets_on_c2d_message_received_handler_in_transport(self, client):
-        assert client._transport.on_transport_c2d_message_received is not None
+    async def test_instantiation_sets_on_c2d_message_received_handler_in_pipeline(self, client):
+        assert client._pipeline.on_transport_c2d_message_received is not None
         assert (
-            client._transport.on_transport_c2d_message_received
+            client._pipeline.on_transport_c2d_message_received
             == client._inbox_manager.route_c2d_message
         )
 
     async def test_receive_c2d_message_enables_c2d_messaging_only_if_not_already_enabled(
-        self, mocker, client, transport
+        self, mocker, client, pipeline
     ):
         # patch this receive_c2d_message won't block
         mocker.patch.object(
@@ -282,17 +281,17 @@ class TestIoTHubDeviceClient(ClientSharedTests):
         )
 
         # Verify C2D Messaging enabled if not enabled
-        transport.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
+        pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
         await client.receive_c2d_message()
-        assert transport.enable_feature.call_count == 1
-        assert transport.enable_feature.call_args[0][0] == constant.C2D_MSG
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.C2D_MSG
 
-        transport.enable_feature.reset_mock()
+        pipeline.enable_feature.reset_mock()
 
         # Verify C2D Messaging not enabled if already enabled
-        transport.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
+        pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
         await client.receive_c2d_message()
-        assert transport.enable_feature.call_count == 0
+        assert pipeline.enable_feature.call_count == 0
 
     async def test_receive_c2d_message_returns_message_from_c2d_inbox(self, mocker, client):
         message = Message("this is a message")

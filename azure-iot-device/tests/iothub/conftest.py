@@ -8,7 +8,7 @@ import sys
 import pytest
 
 # These fixtures are shared between sync and async clients
-from .client_fixtures import auth_provider, transport
+from .client_fixtures import auth_provider, pipeline
 
 collect_ignore = []
 

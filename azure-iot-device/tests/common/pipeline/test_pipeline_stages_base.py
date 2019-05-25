@@ -6,9 +6,11 @@
 import logging
 import pytest
 import functools
-from azure.iot.device.common.transport import pipeline_stages_base
-from azure.iot.device.common.transport import pipeline_ops_base
-from azure.iot.device.common.transport import pipeline_events_base
+from azure.iot.device.common.pipeline import (
+    pipeline_stages_base,
+    pipeline_ops_base,
+    pipeline_events_base,
+)
 
 logging.basicConfig(level=logging.INFO)
 

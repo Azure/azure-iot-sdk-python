@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from azure.iot.device.iothub.transport import pipeline_events_iothub
+from azure.iot.device.iothub.pipeline import pipeline_events_iothub
 
 fake_message = "__fake_messsage__"
 fake_input_name = "__fake_input_name__"

@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from azure.iot.device.common.transport.mqtt import pipeline_ops_mqtt
+from azure.iot.device.common.pipeline import pipeline_ops_mqtt
 
 fake_callback = "__fake_callback__"
 fake_client_id = "__fake_client_id__"

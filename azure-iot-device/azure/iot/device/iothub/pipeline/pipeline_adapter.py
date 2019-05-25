@@ -5,25 +5,42 @@
 # --------------------------------------------------------------------------
 
 import logging
-from azure.iot.device.common.transport import pipeline_stages_base
-from azure.iot.device.common.transport import pipeline_ops_base
-from azure.iot.device.common.transport.mqtt import pipeline_stages_mqtt
-from azure.iot.device.iothub.transport.abstract_transport import AbstractTransport
-from azure.iot.device.iothub.transport import pipeline_stages_iothub
-from azure.iot.device.iothub.transport import pipeline_events_iothub
-from azure.iot.device.iothub.transport import pipeline_ops_iothub
-from . import pipeline_stages_iothub_mqtt
+from azure.iot.device.common.pipeline import (
+    pipeline_stages_base,
+    pipeline_ops_base,
+    pipeline_stages_mqtt,
+)
+from . import (
+    constant,
+    pipeline_stages_iothub,
+    pipeline_events_iothub,
+    pipeline_ops_iothub,
+    pipeline_stages_iothub_mqtt,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class MQTTTransport(AbstractTransport):
+class PipelineAdapter(object):
     def __init__(self, auth_provider):
         """
-        Constructor for instantiating a transport
+        Constructor for instantiating a pipeline adapter object
         :param auth_provider: The authentication provider
         """
-        AbstractTransport.__init__(self, auth_provider)
+        self._auth_provider = auth_provider
+        self.feature_enabled = {
+            constant.C2D_MSG: False,
+            constant.INPUT_MSG: False,
+            constant.METHODS: False,
+        }
+
+        # Event Handlers - Will be set by Client after instantiation of this object
+        self.on_transport_connected = None
+        self.on_transport_disconnected = None
+        self.on_transport_c2d_message_received = None
+        self.on_transport_input_message_received = None
+        self.on_transport_method_request_received = None
+
         self._pipeline = (
             pipeline_stages_base.PipelineRoot()
             .append_stage(pipeline_stages_iothub.UseSkAuthProvider())
@@ -147,7 +164,7 @@ class MQTTTransport(AbstractTransport):
         )
 
     def send_method_response(self, method_response, callback=None):
-        logger.info("Transport send_method_response called")
+        logger.info("PipelineAdapter send_method_response called")
 
         def pipeline_callback(call):
             if call.error:

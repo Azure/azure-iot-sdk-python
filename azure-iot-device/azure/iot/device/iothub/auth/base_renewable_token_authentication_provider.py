@@ -76,7 +76,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self.token_renewal_margin into account when deciding when to renew a token.
 
         If self.token_udpate_callback is set, this callback will be called to notify the
-        transport that a new token is available.  The transport is responsible for doing
+        pipeline that a new token is available.  The pipeline is responsible for doing
         whatever is necessary to leverage the new token when the token_update_callback
         function is called.
 
@@ -84,7 +84,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         renewal interval and the token renewal margin.  When a token is first generated, the
         authorization provider object will set a timer which will be responsible for renewing
         the token before the it expires.  When this timer fires, it will automatically generate
-        a new sas token and notify the transport by calling self.token_update_callback.
+        a new sas token and notify the pipeline by calling self.token_update_callback.
 
         The token update timer is set based on two numbers: self.token_validity_period and
         self.token_renewal_margin

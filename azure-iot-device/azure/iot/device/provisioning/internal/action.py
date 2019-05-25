@@ -8,7 +8,7 @@
 class Action(object):
     """
     Base class representing various actions that can be taken
-    when the state_based_provider is connected.  When the MqttTransport user
+    when the state_based_provider is connected.  When the PipelineAdapter user
     calls a function that requires the state_based_provider to be connected,
     a StateBasedProviderAction object is created and added to the action
     queue.  Then, when the state_based_provider is actually connected, it

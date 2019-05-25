@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from azure.iot.device.common.transport import pipeline_events_base
+from azure.iot.device.common.pipeline import pipeline_events_base
 
 
 @pytest.mark.describe("PipelineEvent object")

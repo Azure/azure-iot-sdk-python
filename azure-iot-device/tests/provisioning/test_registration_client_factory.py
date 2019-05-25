@@ -32,7 +32,7 @@ def security_client():
 
 @pytest.mark.it("creates provisioning client")
 @pytest.mark.parametrize(
-    "protocol,expected_transport",
+    "protocol,expected_pipeline_adapter",
     [
         pytest.param("mqtt", StateBasedMQTTProvider, id="mqtt"),
         pytest.param("amqp", None, id="amqp", marks=xfail_notimplemented),
@@ -40,7 +40,7 @@ def security_client():
     ],
 )
 def test_create_from_security_provider_instantiates_client(
-    provisioning_host, security_client, protocol, expected_transport
+    provisioning_host, security_client, protocol, expected_pipeline_adapter
 ):
     client = create_from_security_client(provisioning_host, security_client, protocol)
     assert isinstance(client, SymmetricKeyProvisioningDeviceClient)

@@ -6,15 +6,14 @@
 
 import logging
 import json
-from azure.iot.device.common.transport import pipeline_ops_base
-from azure.iot.device.common.transport.mqtt import pipeline_ops_mqtt
-from azure.iot.device.common.transport.mqtt import pipeline_events_mqtt
-from azure.iot.device.common.transport.pipeline_stages_base import PipelineStage
+from azure.iot.device.common.pipeline import (
+    pipeline_ops_base,
+    pipeline_ops_mqtt,
+    pipeline_events_mqtt,
+    PipelineStage,
+)
 from azure.iot.device.iothub.models import Message, MethodRequest
-from azure.iot.device.iothub.transport import constant
-from azure.iot.device.iothub.transport import pipeline_ops_iothub
-from azure.iot.device.iothub.transport import pipeline_events_iothub
-from . import mqtt_topic
+from . import constant, pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +61,7 @@ class IotHubMQTTConverter(PipelineStage):
             op, pipeline_ops_iothub.SendOutputEvent
         ):
             # Convert SendTelementry and SendOutputEvent operations into Mqtt Publish operations
-            topic = mqtt_topic.encode_properties(op.message, self.telemetry_topic)
+            topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
             self.continue_with_different_op(
                 original_op=op,
                 new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.message.data),
@@ -70,7 +69,7 @@ class IotHubMQTTConverter(PipelineStage):
 
         elif isinstance(op, pipeline_ops_iothub.SendMethodResponse):
             # Sending a Method Response gets translated into an MQTT Publish operation
-            topic = mqtt_topic.get_method_topic_for_publish(
+            topic = mqtt_topic_iothub.get_method_topic_for_publish(
                 op.method_response.request_id, str(op.method_response.status)
             )
             payload = json.dumps(op.method_response.payload)
@@ -100,11 +99,15 @@ class IotHubMQTTConverter(PipelineStage):
         """
         Build topic names based on the device_id and module_id passed.
         """
-        self.telemetry_topic = mqtt_topic.get_telemetry_topic_for_publish(device_id, module_id)
+        self.telemetry_topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(
+            device_id, module_id
+        )
         self.feature_to_topic = {
-            constant.C2D_MSG: (mqtt_topic.get_c2d_topic_for_subscribe(device_id, module_id)),
-            constant.INPUT_MSG: (mqtt_topic.get_input_topic_for_subscribe(device_id, module_id)),
-            constant.METHODS: (mqtt_topic.get_method_topic_for_subscribe()),
+            constant.C2D_MSG: (mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id, module_id)),
+            constant.INPUT_MSG: (
+                mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
+            ),
+            constant.METHODS: (mqtt_topic_iothub.get_method_topic_for_subscribe()),
         }
 
     def _handle_pipeline_event(self, event):
@@ -115,22 +118,22 @@ class IotHubMQTTConverter(PipelineStage):
         if isinstance(event, pipeline_events_mqtt.IncomingMessage):
             topic = event.topic
 
-            if mqtt_topic.is_c2d_topic(topic):
+            if mqtt_topic_iothub.is_c2d_topic(topic):
                 message = Message(event.payload)
-                mqtt_topic.extract_properties_from_topic(topic, message)
+                mqtt_topic_iothub.extract_properties_from_topic(topic, message)
                 self.handle_pipeline_event(pipeline_events_iothub.C2DMessageEvent(message))
 
-            elif mqtt_topic.is_input_topic(topic):
+            elif mqtt_topic_iothub.is_input_topic(topic):
                 message = Message(event.payload)
-                mqtt_topic.extract_properties_from_topic(topic, message)
-                input_name = mqtt_topic.get_input_name_from_topic(topic)
+                mqtt_topic_iothub.extract_properties_from_topic(topic, message)
+                input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
                 self.handle_pipeline_event(
                     pipeline_events_iothub.InputMessageEvent(input_name, message)
                 )
 
-            elif mqtt_topic.is_method_topic(topic):
-                rid = mqtt_topic.get_method_request_id_from_topic(topic)
-                method_name = mqtt_topic.get_method_name_from_topic(topic)
+            elif mqtt_topic_iothub.is_method_topic(topic):
+                rid = mqtt_topic_iothub.get_method_request_id_from_topic(topic)
+                method_name = mqtt_topic_iothub.get_method_name_from_topic(topic)
                 method_received = MethodRequest(
                     request_id=rid, name=method_name, payload=json.loads(event.payload)
                 )

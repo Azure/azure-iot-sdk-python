@@ -9,7 +9,7 @@
 import six
 import abc
 import logging
-from azure.iot.device.iothub.transport import MQTTTransport
+from .pipeline import PipelineAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -18,16 +18,16 @@ logger = logging.getLogger(__name__)
 class AbstractIoTHubClient(object):
     """A superclass representing a generic client. This class needs to be extended for specific clients."""
 
-    def __init__(self, transport):
+    def __init__(self, pipeline):
         """Initializer for a generic client.
 
-        :param transport: The transport that the client will use.
+        :param pipeline: The pipeline that the client will use.
         """
-        self._transport = transport
+        self._pipeline = pipeline
 
     @classmethod
     def from_authentication_provider(cls, authentication_provider, transport_name):
-        """Creates a client with the specified authentication provider and transport.
+        """Creates a client with the specified authentication provider and pipeline.
 
         When creating the client, you need to pass in an authorization provider and a transport_name.
 
@@ -51,12 +51,12 @@ class AbstractIoTHubClient(object):
         """
         transport_name = transport_name.lower()
         if transport_name == "mqtt":
-            transport = MQTTTransport(authentication_provider)
+            pipeline = PipelineAdapter(authentication_provider)
         elif transport_name == "amqp" or transport_name == "http":
             raise NotImplementedError("This transport has not yet been implemented")
         else:
             raise ValueError("No specific transport can be instantiated based on the choice.")
-        return cls(transport)
+        return cls(pipeline)
 
     @abc.abstractmethod
     def connect(self):

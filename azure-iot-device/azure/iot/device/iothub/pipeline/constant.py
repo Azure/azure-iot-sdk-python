@@ -3,12 +3,10 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+"""This module contains constants realted to the pipeline package.
+"""
 
-import pytest
-from azure.iot.device.iothub.transport.abstract_transport import AbstractTransport
-
-
-def test_raises_exception_on_init_of_abstract_transport(mocker):
-    auth_provider = mocker.MagicMock
-    with pytest.raises(TypeError):
-        AbstractTransport(auth_provider)
+# Feature names
+C2D_MSG = "c2d"
+INPUT_MSG = "input"
+METHODS = "methods"

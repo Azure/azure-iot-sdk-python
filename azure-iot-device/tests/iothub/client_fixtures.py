@@ -5,8 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.device.iothub.transport.abstract_transport import AbstractTransport
-from azure.iot.device.iothub.transport import constant
+from azure.iot.device.iothub.pipeline import constant
 
 """----Shared auth_provider fixture----"""
 
@@ -37,10 +36,17 @@ def auth_provider(request):
         return from_shared_access_signature(sastoken_format.format(uri, signature, expiry))
 
 
-"""----Shared mock transport fixture----"""
+"""----Shared mock pipeline adapter fixture----"""
 
 
-class FakeTransport(AbstractTransport):
+class FakePipelineAdapter:
+    def __init__(self):
+        self.feature_enabled = {
+            constant.C2D_MSG: False,
+            constant.INPUT_MSG: False,
+            constant.METHODS: False,
+        }
+
     def connect(self, callback):
         callback()
 
@@ -64,5 +70,5 @@ class FakeTransport(AbstractTransport):
 
 
 @pytest.fixture
-def transport(mocker):
-    return mocker.MagicMock(wraps=FakeTransport(mocker.MagicMock()))
+def pipeline(mocker):
+    return mocker.MagicMock(wraps=FakePipelineAdapter())

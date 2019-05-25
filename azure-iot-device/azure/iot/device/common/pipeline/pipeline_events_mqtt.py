@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from azure.iot.device.common.transport.pipeline_events_base import PipelineEvent
+from . import PipelineEvent
 
 
 class IncomingMessage(PipelineEvent):

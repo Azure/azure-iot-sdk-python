@@ -150,7 +150,7 @@ def get_method_request_id_from_topic(topic):
     Topics for methods are of the following format:
     "$iothub/methods/POST/{method name}/?$rid={request id}"
 
-    :param str stopic: the topic string
+    :param str topic: the topic string
     :raises: ValueError if topic has incorrect format
     :returns: request id from topic string
     """
