@@ -35,7 +35,7 @@ class UseSkAuthProvider(PipelineStage):
             self.run_ops_serial(
                 pipeline_ops_iothub.SetAuthProviderArgs(
                     device_id=auth_provider.device_id,
-                    module_id=auth_provider.module_id,
+                    module_id=getattr(auth_provider, "module_id", None),
                     hostname=auth_provider.hostname,
                     gateway_hostname=getattr(auth_provider, "gateway_hostname", None),
                     ca_cert=getattr(auth_provider, "ca_cert", None),

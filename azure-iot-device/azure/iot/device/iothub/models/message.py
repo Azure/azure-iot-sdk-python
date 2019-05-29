@@ -6,10 +6,6 @@
 """This module contains a class representing messages that are sent or received.
 """
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class Message(object):
     """Represents a message to or from IoTHub
@@ -27,16 +23,20 @@ class Message(object):
     :ivar ack: A feedback message generator. This property is used in C2D messages to request IoT Hub to generate feedback messages as a result of the consumption of the message by the device
     :ivar content_encoding: Content encoding of the message data. Can be 'utf-8', 'utf-16' or 'utf-32'
     :ivar content_type: Content type property used to route messages with the message-body. Can be 'application/json'
+    :ivar output_name: Name of the output that the is being sent to.
     """
 
-    def __init__(self, data, message_id=None, content_encoding=None, content_type=None):
+    def __init__(
+        self, data, message_id=None, content_encoding=None, content_type=None, output_name=None
+    ):
         """
         Initializer for Message
 
         :param data: The  data that constitutes the payload
-        :param message_id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
-        :param content_encoding: Content encoding of the message data. Can be 'utf-8', 'utf-16' or 'utf-32'
-        :param content_type: Content type property used to routes with the message body. Can be 'application/json'
+        :param str message_id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
+        :param str content_encoding: Content encoding of the message data. Can be 'utf-8', 'utf-16' or 'utf-32'
+        :param str content_type: Content type property used to routes with the message body. Can be 'application/json'
+        :param str output_name: Name of the output that the is being sent to.
         """
         self.data = data
         self.custom_properties = {}
@@ -51,4 +51,4 @@ class Message(object):
         self.ack = None
         self.content_encoding = content_encoding
         self.content_type = content_type
-        self.output_name = None
+        self.output_name = output_name

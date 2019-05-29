@@ -54,8 +54,55 @@ class Provider(PipelineStage):
                 self.on_connected()
                 self.complete_op(op)
 
+            # A note on exceptions handling in Connect, Disconnct, and Reconnet:
+            #
+            # All calls into self.provider can raise an exception, and this is OK.
+            # The exception handler in PipelineStage.run_op() will catch these errors
+            # and propagate them to the caller.  This is an intentional design of the
+            # pipeline, that stages, etc, don't need to worry about catching exceptions
+            # except for special cases.
+            #
+            # The code right below this comment is This is a special case.  In addition
+            # to this "normal" exception handling, we add another exception handler
+            # into this class' Connect, Reconnect, and Disconnect code.  We need to
+            # do this because provider.on_mqtt_connected and provider.on_mqtt_disconnected
+            # are both _handler_ functions instead of _callbacks_.
+            #
+            # Because they're handlers instead of callbacks, we need to change the
+            # handlers while the connection is established.  We do this so we can
+            # know when the provider is connected so we can move on to the next step.
+            # Once the connection is established, we change the handler back to its
+            # old value before finishing.
+            #
+            # The exception handling below is to reset the handler back to its original
+            # value in the case where provider.connect raises an exception.  Again,
+            # this extra exception handling is only necessary in the Connect, Disconnect,
+            # and Reconnect case because they're the only cases that use handlers instead
+            # of callbacks.
+            #
             self.provider.on_mqtt_connected = on_connected
-            self.provider.connect(self.sas_token)
+            try:
+                self.provider.connect(self.sas_token)
+            except BaseException:
+                self.provider.on_mqtt_connected = self.on_connected
+                raise
+
+        elif isinstance(op, pipeline_ops_base.Reconnect):
+            logger.info("{}({}): reconnecting".format(self.name, op.name))
+
+            def on_connected():
+                logger.info("{}({}): on_connected.  completing op.".format(self.name, op.name))
+                self.provider.on_mqtt_connected = self.on_connected
+                self.on_connected()
+                self.complete_op(op)
+
+            # See "A note on exception handling" above
+            self.provider.on_mqtt_connected = on_connected
+            try:
+                self.provider.reconnect(self.sas_token)
+            except BaseException:
+                self.provider.on_mqtt_connected = self.on_connected
+                raise
 
         elif isinstance(op, pipeline_ops_base.Disconnect):
             logger.info("{}({}): disconneting".format(self.name, op.name))
@@ -66,8 +113,13 @@ class Provider(PipelineStage):
                 self.on_disconnected()
                 self.complete_op(op)
 
+            # See "A note on exception handling" above
             self.provider.on_mqtt_disconnected = on_disconnected
-            self.provider.disconnect()
+            try:
+                self.provider.disconnect()
+            except BaseException:
+                self.provider.on_mqtt_disconnected = self.on_disconnected
+                raise
 
         elif isinstance(op, pipeline_ops_mqtt.Publish):
             logger.info("{}({}): publishing on {}".format(self.name, op.name, op.topic))

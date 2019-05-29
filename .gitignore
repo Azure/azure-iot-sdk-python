@@ -114,3 +114,6 @@ coverage/
 
 # Pycharm
 .idea/
+
+# vim
+*.swp

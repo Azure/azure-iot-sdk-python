@@ -5,130 +5,60 @@
 # --------------------------------------------------------------------------
 import logging
 import pytest
-import functools
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_events_base,
 )
+from tests.common.pipeline_test import (
+    assert_default_stage_attributes,
+    ConcretePipelineStage,
+    make_mock_stage,
+    assert_callback_failed,
+    assert_callback_succeeded,
+)
 
 logging.basicConfig(level=logging.INFO)
 
 
-def assert_default_attributes(obj):
-    assert obj.name is obj.__class__.__name__
-    assert obj.next is None
-    assert obj.previous is None
-    assert obj.pipeline_root is None
-
-
-# because PipelineStage is abstract, we need something concrete
-class PipelineStage(pipeline_stages_base.PipelineStage):
-    def _run_op(self, op):
-        pass
-
-
-def Op():
-    return pipeline_ops_base.PipelineOperation()
-
-
-def get_fake_error():
-    return BaseException()
-
-
 @pytest.fixture
 def stage(mocker):
-    def stage_run_op(self, op):
-        if getattr(op, "action", None) is None or op.action == "pass":
-            self.complete_op(op)
-        elif op.action == "fail":
-            raise get_fake_error()
-        elif op.action == "pend":
-            pass
-        else:
-            assert False
-
-    first_stage = PipelineStage()
-    first_stage.unhandled_error_handler = mocker.Mock()
-    first_stage._run_op = functools.partial(stage_run_op, first_stage)
-    mocker.spy(first_stage, "_run_op")
-    mocker.spy(first_stage, "run_op")
-
-    next_stage = PipelineStage()
-    next_stage._run_op = functools.partial(stage_run_op, next_stage)
-    mocker.spy(next_stage, "_run_op")
-    mocker.spy(next_stage, "run_op")
-
-    first_stage.next = next_stage
-    first_stage.pipeline_root = first_stage
-
-    next_stage.previous = first_stage
-    next_stage.pipeline_root = first_stage
-
-    return first_stage
-
-
-@pytest.fixture
-def callback(mocker):
-    return mocker.Mock()
+    return make_mock_stage(mocker, ConcretePipelineStage)
 
 
 @pytest.fixture
 def op():
-    op = Op()
+    op = pipeline_ops_base.PipelineOperation()
     op.name = "op"
     return op
 
 
 @pytest.fixture
 def op2():
-    op = Op()
+    op = pipeline_ops_base.PipelineOperation()
     op.name = "op2"
     return op
 
 
 @pytest.fixture
 def op3():
-    op = Op()
+    op = pipeline_ops_base.PipelineOperation()
     op.name = "op3"
     return op
 
 
 @pytest.fixture
 def finally_op():
-    op = Op()
+    op = pipeline_ops_base.PipelineOperation()
     op.name = "finally_op"
     return op
 
 
 @pytest.fixture
-def fake_error():
-    return get_fake_error()
-
-
-@pytest.fixture
-def event():
-    ev = pipeline_events_base.PipelineEvent()
-    ev.name = "test event"
-    return ev
-
-
-def assert_callback_succeeded(callback, op):
-    assert callback.call_count == 1
-    callback_arg = callback.call_args[0][0]
-    assert callback_arg == op
-    assert op.error is None
-
-
-def assert_callback_failed(callback, op, error=None):
-    assert callback.call_count == 1
-    callback_arg = callback.call_args[0][0]
-    assert callback_arg == op
-
-    if error:
-        assert op.error is error
-    else:
-        assert op.error is not None
+def new_op():
+    op = pipeline_ops_base.PipelineOperation()
+    op.name = "new_op"
+    return op
 
 
 @pytest.mark.describe("PipelineStage initializer")
@@ -138,8 +68,8 @@ class TestPipelineStageInitializer(object):
     @pytest.mark.it("Sets previous attribute to None on instantiation")
     @pytest.mark.it("Sets pipeline_root attribute to None on instantiation")
     def test_initializer(self):
-        obj = PipelineStage()
-        assert_default_attributes(obj)
+        obj = ConcretePipelineStage()
+        assert_default_stage_attributes(obj)
 
 
 @pytest.mark.describe("PipelineStage RunOp function")
@@ -155,28 +85,28 @@ class TestPipelineStageRunOp(object):
         op.action = "fail"
         op.callback = callback
         stage.run_op(op)
-        assert_callback_failed(callback, op)
+        assert_callback_failed(op=op)
 
 
 @pytest.mark.describe("PipelineStage run_ops_serial function")
 class TestPipelineStageRunOpsSerial(object):
     @pytest.mark.it("accepts a list of operators and a callback")
-    def test_accepts_default_args(self, stage, callback):
-        stage.run_ops_serial(Op(), Op(), callback=callback)
+    def test_accepts_default_args(self, stage, op, op2, callback):
+        stage.run_ops_serial(op, op2, callback=callback)
 
     @pytest.mark.it("accepts finally_op as an optional keyword args")
-    def test_accepts_finally_op(self, stage, callback):
-        stage.run_ops_serial(Op(), Op(), callback=callback, finally_op=Op())
+    def test_accepts_finally_op(self, stage, op, op2, finally_op, callback):
+        stage.run_ops_serial(op, op2, callback=callback, finally_op=finally_op)
 
     @pytest.mark.it("throws TypeError for any keyword args besides finally_op and callback")
-    def test_throws_for_unknown_keyword_args(self, stage, callback):
+    def test_throws_for_unknown_keyword_args(self, stage, op, op2, op3, callback):
         with pytest.raises(TypeError):
-            stage.run_ops_serial(Op(), Op(), callback=callback, unknown_arg=Op())
+            stage.run_ops_serial(op, op2, callback=callback, unknown_arg=op3)
 
     @pytest.mark.it("requires the callback arg")
-    def test_throws_on_missing_callback(self, stage):
+    def test_throws_on_missing_callback(self, stage, op, op2):
         with pytest.raises(TypeError):
-            stage.run_ops_serial(Op(), Op())
+            stage.run_ops_serial(op, op2)
 
 
 @pytest.mark.describe("PipelineStage run_ops_serial function with one op and without finally op")
@@ -191,14 +121,14 @@ class TestPipelineStageRunOpsSerialOneOpButNoFinallyOp(object):
     @pytest.mark.it("calls the callback with no error if the op succeeds")
     def test_successful_operation(self, stage, callback, op):
         stage.run_ops_serial(op, callback=callback)
-        assert_callback_succeeded(callback, op)
+        assert_callback_succeeded(op=op, callback=callback)
 
     @pytest.mark.it("calls the callback with the op if the op fails")
     @pytest.mark.it("calls the callback with the op error if the op fails")
     def test_failed_operation(self, stage, callback, op):
         op.action = "fail"
         stage.run_ops_serial(op, callback=callback)
-        assert_callback_failed(callback, op)
+        assert_callback_failed(op=op, callback=callback)
 
     @pytest.mark.it("protects the callback with a try/except block")
     def test_exception_in_callback(self, stage, mocker, fake_error, op):
@@ -237,7 +167,7 @@ class TestPipelineStageRunOpsSerialOneOpAndFinallyOp(object):
     ):
         finally_op.action = "fail"
         stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=finally_op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=finally_op.error)
 
     @pytest.mark.it("calls the callback with the finally_op if op succeeds and finally_op succeeds")
     @pytest.mark.it("calls the callback with no error if op succeeds and finally_op succeeds")
@@ -245,7 +175,7 @@ class TestPipelineStageRunOpsSerialOneOpAndFinallyOp(object):
         self, stage, callback, op, finally_op
     ):
         stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
-        assert_callback_succeeded(callback, finally_op)
+        assert_callback_succeeded(callback=callback, op=finally_op)
 
     @pytest.mark.it("calls the callback with the finally_op if op fails and finally_op also fails")
     @pytest.mark.it("calls the callback with op error if op fails and finally_op also fails")
@@ -255,7 +185,7 @@ class TestPipelineStageRunOpsSerialOneOpAndFinallyOp(object):
         op.action = "fail"
         finally_op.action = "fail"
         stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=op.error)
 
     @pytest.mark.it("calls the callback with the finally_op if op fails and finally_op succeeds")
     @pytest.mark.it("calls the callback with op error if op fails and finally_op succeeds")
@@ -264,7 +194,7 @@ class TestPipelineStageRunOpsSerialOneOpAndFinallyOp(object):
     ):
         op.action = "fail"
         stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=op.error)
 
     @pytest.mark.it("protects the callback with a try/except block")
     def test_exception_in_callback(self, stage, op, finally_op, fake_error, mocker):
@@ -299,7 +229,7 @@ class TestPipelineStageRunOpsSerialThreeOpsButNoFinallyOp(object):
     def test_calls_callback_when_first_op_fails(self, stage, op, op2, op3, callback):
         op.action = "fail"
         stage.run_ops_serial(op, op2, op3, callback=callback)
-        assert_callback_failed(callback, op)
+        assert_callback_failed(callback=callback, op=op)
 
     @pytest.mark.it("protects the callback with a try/except block")
     def test_exception_in_callback(self, stage, op, op2, op3, fake_error, mocker):
@@ -334,7 +264,7 @@ class TestPipelineStageRunOpsSerialThreeOpsButNoFinallyOp(object):
     def test_calls_callback_when_second_op_fails(self, stage, op, op2, op3, callback):
         op2.action = "fail"
         stage.run_ops_serial(op, op2, op3, callback=callback)
-        assert_callback_failed(callback, op2)
+        assert_callback_failed(callback=callback, op=op2)
 
     @pytest.mark.it("calls the third op only after the second op succeeds")
     def test_calls_third_op_after_second_op_succeeds(self, mocker, stage, op, op2, op3, callback):
@@ -351,14 +281,14 @@ class TestPipelineStageRunOpsSerialThreeOpsButNoFinallyOp(object):
     @pytest.mark.it("calls the callback with success if the third op succeeds")
     def test_calls_callback_with_third_op_succeeds(self, stage, op, op2, op3, callback):
         stage.run_ops_serial(op, op2, op3, callback=callback)
-        assert_callback_succeeded(callback, op3)
+        assert_callback_succeeded(callback=callback, op=op3)
 
     @pytest.mark.it("calls the callback with the third op if the third op fails")
     @pytest.mark.it("calls the callback with the third op error if the third op fails")
     def test_calls_callback_when_third_op_fails(self, stage, op, op2, op3, callback):
         op3.action = "fail"
         stage.run_ops_serial(op, op2, op3, callback=callback)
-        assert_callback_failed(callback, op3)
+        assert_callback_failed(callback=callback, op=op3)
 
 
 @pytest.mark.describe("PipelineStage run_ops_serial function with three ops and finally op")
@@ -392,7 +322,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op.action = "fail"
         stage.run_ops_serial(op, op2, op3, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=op.error)
 
     @pytest.mark.it(
         "calls the callback with the finally_op if the first op fails and finally_op also fails"
@@ -406,7 +336,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
         op.action = "fail"
         finally_op.action = "fail"
         stage.run_ops_serial(op, op2, op3, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=finally_op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=finally_op.error)
 
     @pytest.mark.it("protects the callback with a try/except block")
     def test_exception_in_callback(self, stage, op, op2, op3, finally_op, fake_error, mocker):
@@ -448,7 +378,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op2.action = "fail"
         stage.run_ops_serial(op, op2, op3, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=op.error)
 
     @pytest.mark.it(
         "calls the callback with the finally_op if the second op fails and finally_op also fails"
@@ -462,7 +392,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
         op2.action = "fail"
         finally_op.action = "fail"
         stage.run_ops_serial(op, op2, op3, finally_op=finally_op, callback=callback)
-        assert_callback_failed(callback, finally_op, error=finally_op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=finally_op.error)
         pass
 
     @pytest.mark.it("runs the third op only after the second op succeeds")
@@ -497,7 +427,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
         assert stage.next._run_op.call_args_list[3] == mocker.call(finally_op)
 
     @pytest.mark.it(
-        "calls the callback with no the finally_op if the third op succeeds and finally_op also succeeds"
+        "calls the callback with the finally_op if the third op succeeds and finally_op also succeeds"
     )
     @pytest.mark.it(
         "calls the callback with no error if the third op succeeds and finally_op also succeeds"
@@ -506,7 +436,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
         self, stage, op, op2, op3, finally_op, callback
     ):
         stage.run_ops_serial(op, op2, op3, callback=callback, finally_op=finally_op)
-        assert_callback_succeeded(callback, finally_op)
+        assert_callback_succeeded(callback=callback, op=finally_op)
 
     @pytest.mark.it(
         "calls the callback with the finally_op if the third op succeeds and finally_op fails"
@@ -519,7 +449,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         finally_op.action = "fail"
         stage.run_ops_serial(op, op2, op3, callback=callback, finally_op=finally_op)
-        assert_callback_failed(callback, finally_op, error=finally_op.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=finally_op.error)
 
     @pytest.mark.it(
         "calls the callback with the finally_op if the third op fails and finally_op succeeds"
@@ -532,7 +462,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op3.action = "fail"
         stage.run_ops_serial(op, op2, op3, callback=callback, finally_op=finally_op)
-        assert_callback_failed(callback, finally_op, error=op3.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=op3.error)
 
     @pytest.mark.it(
         "calls the callback with the finally_op if the third op fails and finally_op also fails"
@@ -546,7 +476,7 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
         op3.action = "fail"
         finally_op.action = "fail"
         stage.run_ops_serial(op, op2, op3, callback=callback, finally_op=finally_op)
-        assert_callback_failed(callback, finally_op, error=op3.error)
+        assert_callback_failed(callback=callback, op=finally_op, error=op3.error)
 
 
 @pytest.mark.describe("PipelineStage handle_pipeline_event function")
@@ -599,7 +529,7 @@ class TestPipelineStageContinueOp(object):
         op.callback = callback
         stage.next = None
         stage.continue_op(op)
-        assert_callback_failed(callback, op)
+        assert_callback_failed(op=op)
         pass
 
     @pytest.mark.it("passes the op to the next stage if no error")
@@ -615,14 +545,14 @@ class TestPipelineStageCompleteOp(object):
     def test_calls_callback_on_success(self, stage, op, callback):
         op.callback = callback
         stage.complete_op(op)
-        assert_callback_succeeded(callback, op)
+        assert_callback_succeeded(op)
 
     @pytest.mark.it("calls the op callback on failure")
     def test_calls_callback_on_error(self, stage, op, callback, fake_error):
         op.error = fake_error
         op.callback = callback
         stage.complete_op(op)
-        assert_callback_failed(callback, op, fake_error)
+        assert_callback_failed(op=op, error=fake_error)
 
     @pytest.mark.it("protects the op callback with a try/except handler")
     def test_exception_in_callback(self, stage, op, fake_error, mocker):
@@ -638,28 +568,25 @@ class TestPipelineStageCompleteOp(object):
 class TestPipelineStageContineWithDifferntOp(object):
     @pytest.mark.it("does not continue running the original op")
     @pytest.mark.it("runs the new op")
-    def test_runs_new_op(self, mocker, stage, op):
-        new_op = Op()
+    def test_runs_new_op(self, mocker, stage, op, new_op):
         stage.continue_with_different_op(original_op=op, new_op=new_op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args == mocker.call(new_op)
 
     @pytest.mark.it("completes the original op after the new op completes")
-    def test_completes_original_op_after_new_op_completes(self, stage, op, callback):
+    def test_completes_original_op_after_new_op_completes(self, stage, op, new_op, callback):
         op.callback = callback
-        new_op = Op()
         new_op.action = "pend"
 
         stage.continue_with_different_op(original_op=op, new_op=new_op)
         assert callback.call_count == 0  # because new_op is pending
 
         stage.next.complete_op(new_op)
-        assert_callback_succeeded(callback, op)
+        assert_callback_succeeded(op=op)
 
     @pytest.mark.it("returns the new op failure in the original op if new op fails")
-    def test_returns_new_op_failure_in_original_op(self, stage, op, callback):
+    def test_returns_new_op_failure_in_original_op(self, stage, op, new_op, callback):
         op.callback = callback
-        new_op = Op()
         new_op.action = "fail"
         stage.continue_with_different_op(original_op=op, new_op=new_op)
-        assert_callback_failed(callback, op, new_op.error)
+        assert_callback_failed(op=op, error=new_op.error)

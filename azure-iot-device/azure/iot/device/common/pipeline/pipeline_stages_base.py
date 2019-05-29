@@ -294,7 +294,7 @@ class PipelineStage(object):
         elif not self.next:
             logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
             op.error = NotImplementedError(
-                "{} still handled after {} stage with no next stage".format(op.name, self.name)
+                "{} not handled after {} stage with no next stage".format(op.name, self.name)
             )
             self.complete_op(op)
         else:

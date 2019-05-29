@@ -31,6 +31,9 @@ class IotHubMQTTConverter(PipelineStage):
     def _run_op(self, op):
 
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgs):
+            self.device_id = op.device_id
+            self.module_id = op.module_id
+
             # if we get auth provider args from above, we save some, use some to build topic names,
             # and always pass it down because we know that the MQTT Provider stage will also want
             # to receive these args.
@@ -118,12 +121,12 @@ class IotHubMQTTConverter(PipelineStage):
         if isinstance(event, pipeline_events_mqtt.IncomingMessage):
             topic = event.topic
 
-            if mqtt_topic_iothub.is_c2d_topic(topic):
+            if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_properties_from_topic(topic, message)
                 self.handle_pipeline_event(pipeline_events_iothub.C2DMessageEvent(message))
 
-            elif mqtt_topic_iothub.is_input_topic(topic):
+            elif mqtt_topic_iothub.is_input_topic(topic, self.device_id, self.module_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_properties_from_topic(topic, message)
                 input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
@@ -140,7 +143,8 @@ class IotHubMQTTConverter(PipelineStage):
                 self._handle_pipeline_event(pipeline_events_iothub.MethodRequest(method_received))
 
             else:
-                logger.warning("Warning: dropping message with topic {}".format(topic))
+                logger.info("Uunknown topic: {} passing up to next handler".format(topic))
+                PipelineStage._handle_pipeline_event(self, event)
 
         else:
             # all other messages get passed up

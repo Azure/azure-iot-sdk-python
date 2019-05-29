@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import sys
+from .pipeline_test_fixtures import callback, fake_error, event
 
 collect_ignore = []
 
