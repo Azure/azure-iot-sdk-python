@@ -183,6 +183,58 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._pipeline.enable_feature(feature_name, callback=callback)
         enable_complete.wait()
 
+    def get_twin(self):
+        """
+        Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the twin
+        has been retrieved from the service.
+
+        :returns: Twin object which was retrieved from the hub
+        """
+        # OPEN QUESTON: does this have a timeout parameter and does it raise on timeout?
+        pass
+
+    def patch_twin_reported_properties(self, reported_properties_patch):
+        """
+        Update reported properties with the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the patch
+        has been sent to the service and acknowledged.
+
+        If the service returns an error on the patch operation, this function will raise the
+        appropriate error.
+
+        :param reported_properties_patch:
+        :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
+        """
+        pass
+
+    def receive_twin_desired_properties_patch(self, block=True, timeout=None):
+        """
+        Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        This is a synchronous call, which means the following:
+        1. If block=True, this function will block until one of the following happens:
+           * a desired proprety patch is received from the Azure IoT Hub or Azure IoT Edge Hub.
+           * the timeout period, if provided, elapses.  If a timeout happens, this function will
+             raise a InboxEmpty exception
+        2. If block=False, this function will return any desired property patches which may have
+           been received by the transport, but not yet returned to the application.  If no
+           desired property patches have been received by the transport, this function will raise
+           an InboxEmpty exception
+
+        :param bool block: Indicates if the operation should block until a request is received.
+           Default True.
+        :param int timeout: Optionally provide a number of seconds until blocking times out.
+
+        :raises: InboxEmpty if timeout occurs on a blocking operation.
+        :raises: InboxEmpty if no request is available on a non-blocking operation.
+
+        :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values)
+        """
+        pass
+
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance.

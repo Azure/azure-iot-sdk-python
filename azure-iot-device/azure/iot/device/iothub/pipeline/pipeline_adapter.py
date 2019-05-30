@@ -32,6 +32,8 @@ class PipelineAdapter(object):
             constant.C2D_MSG: False,
             constant.INPUT_MSG: False,
             constant.METHODS: False,
+            constant.TWIN: False,
+            constant.TWIN_PATCHES: False,
         }
 
         # Event Handlers - Will be set by Client after instantiation of this object
@@ -44,6 +46,8 @@ class PipelineAdapter(object):
         self._pipeline = (
             pipeline_stages_base.PipelineRoot()
             .append_stage(pipeline_stages_iothub.UseSkAuthProvider())
+            .append_stage(pipeline_stages_iothub.HandleTwinOperations())
+            .append_stage(pipeline_stages_base.CoordinateRequestAndResponse())
             .append_stage(pipeline_stages_base.EnsureConnection())
             .append_stage(pipeline_stages_iothub_mqtt.IotHubMQTTConverter())
             .append_stage(pipeline_stages_mqtt.Provider())
@@ -199,6 +203,15 @@ class PipelineAdapter(object):
         self._pipeline.run_op(
             pipeline_ops_base.EnableFeature(feature_name=feature_name, callback=pipeline_callback)
         )
+
+    def get_twin(self, callback):
+        def pipeline_callback(call):
+            if call.error:
+                exit(1)
+            if callback:
+                callback(call.twin)
+
+        self._pipeline.run_op(pipeline_ops_iothub.GetTwin())
 
     def disable_feature(self, feature_name, callback=None):
         """

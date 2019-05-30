@@ -162,3 +162,84 @@ class SetSasToken(PipelineOperation):
         """
         super(SetSasToken, self).__init__(callback=callback)
         self.sas_token = sas_token
+
+
+class SendIotRequestAndWaitForResponse(PipelineOperation):
+    """
+    A PipelineOperation object which wraps the common operation of sending a request to iothub with a request_id ($rid)
+    value and waiting for a response with the same $rid value.  This convention is used by both Twin and Provisioning
+    features.
+
+    Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
+    (such as IotHub or Mqtt stages).
+
+    The type of the request payload and the response payload is undefined at this level.  The type of the payload is defined
+    based on the type of request that is being executed.  If types need to be converted, that is the responsibility of
+    the stage which creates this operation, and also the stage which executes on the operation.
+
+    :ivar status_code: The status code returned by the response.  Any value under 300 is considered success.
+    :type status_code: int
+    :ivar response_body: The body of the response.
+    :type response_payload: Undefined
+    """
+
+    def __init__(self, request_type, method, resource_location, request_body, callback=None):
+        """
+        Initializer for SendIotRequestAndWaitForResponse objects
+
+        :param str request_type: The type of request.  This is a string which is used by transport-specific stages to
+          generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
+          the request into an MQTT publish with topic that begins with $iothub/twin
+        :param str method: The method for the request, in the REST sense of the word, such as "POST", "GET", etc.
+        :param str resource_location: The resource that the method is acting on, in the REST sense of the word.
+          For twin request with method "GET", this is most likely the string "/" which retrieves the entire twin
+        :param request_body: The body of the request.  This is a required field, and a single space can be used to denote
+          an empty body.
+        :type request_body: Undefined
+        :param Function callback: The function that gets called when this operation is complete or has
+          failed.  The callback function must accept A PipelineOperation object which indicates
+          the specific operation which has completed or failed.
+        """
+        super(SendIotRequestAndWaitForResponse, self).__init(callback=callback)
+        self.request_type = request_type
+        self.method = method
+        self.resource_location = resource_location
+        self.request_body = request_body
+        self.status_code = None
+        self.response_body = None
+
+
+class SendIotRequest(PipelineOperation):
+    """
+    A PipelineOperation object which is the first part of an SendIotRequestAndWaitForResponse operation (the request). The second
+    part of the SendIotRequestAndWaitForResponse operation (the response) is returned via an IotResponseEvent event.
+
+    Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
+    (such as IotHub or Mqtt stages).
+    """
+
+    def __init__(
+        self, request_type, method, resource_location, request_body, request_id, callback=None
+    ):
+        """
+        Initializer for SendIotRequest objects
+
+        :param str request_type: The type of request.  This is a string which is used by transport-specific stages to
+          generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
+          the request into an MQTT publish with topic that begins with $iothub/twin
+        :param str method: The method for the request, in the REST sense of the word, such as "POST", "GET", etc.
+        :param str resource_location: The resource that the method is acting on, in the REST sense of the word.
+          For twin request with method "GET", this is most likely the string "/" which retrieves the entire twin
+        :param request_body: The body of the request.  This is a required field, and a single space can be used to denote
+          an empty body.
+        :type request_body: dict, str, int, float, bool, or None (JSON compatible values)
+        :param Function callback: The function that gets called when this operation is complete or has
+          failed.  The callback function must accept A PipelineOperation object which indicates
+          the specific operation which has completed or failed.
+        """
+        super(SendIotRequest, self).__init(callback=callback)
+        self.method = method
+        self.resource_location = resource_location
+        self.request_type = request_type
+        self.request_body = request_body
+        self.request_id = request_id

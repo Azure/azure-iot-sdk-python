@@ -78,6 +78,18 @@ class AbstractIoTHubClient(object):
     def send_method_response(self, method_request, payload, status):
         pass
 
+    @abc.abstractmethod
+    def get_twin(self):
+        pass
+
+    @abc.abstractmethod
+    def patch_twin_reported_properties(self, reported_properties_patch):
+        pass
+
+    @abc.abstractmethod
+    def receive_twin_desired_properties_patch(self):
+        pass
+
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):

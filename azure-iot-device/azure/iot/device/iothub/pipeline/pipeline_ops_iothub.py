@@ -135,3 +135,37 @@ class SendMethodResponse(PipelineOperation):
         super(SendMethodResponse, self).__init__(callback=callback)
         self.method_response = method_response
         self.needs_connection = True
+
+
+class GetTwin(PipelineOperation):
+    """
+    A PipelineOperation object which represents a request to get a device twin or a module twin from an Azure
+    IoT Hub or Azure Iot Edge Hub service.
+
+    :ivar twin: Upon completion, this contains the twin which was retrieved from the service.
+    :type twin: Twin
+    """
+
+    def __init__(self):
+        """
+        Initializer for GetTwin objects.
+        """
+        super(GetTwin, self).__init()
+        self.twin = None
+
+
+class PatchTwinReportedProperties(PipelineOperation):
+    """
+    A PipelineOperation object which contains arguments used to send a reported properties patch to the Azure
+    IoT Hub or Azure IoT Edge Hub service.
+    """
+
+    def __init__(self, patch):
+        """
+        Initializer for PatchTwinReportedProperties object
+
+        :param patch: The reported properties patch to send to the service.
+        :type patch: dict, str, int, float, bool, or None (JSON compatible values)
+        """
+        super(PatchTwinReportedProperties, self).__init()
+        self.patch = patch

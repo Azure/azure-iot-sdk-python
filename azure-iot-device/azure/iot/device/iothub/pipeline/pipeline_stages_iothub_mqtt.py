@@ -7,6 +7,7 @@
 import logging
 import json
 from azure.iot.device.common.pipeline import (
+    pipeline_events_base,
     pipeline_ops_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
@@ -94,6 +95,22 @@ class IotHubMQTTConverter(PipelineStage):
                 original_op=op, new_op=pipeline_ops_mqtt.Unsubscribe(topic=topic)
             )
 
+        elif isinstance(op, pipeline_ops_base.SendIotRequest):
+            if op.request_type == constant.TWIN:
+                topic = mqtt_topic_iothub.get_twin_topic_for_publish(
+                    method=op.method,
+                    resource_location=op.resource_location,
+                    request_id=op.request_id,
+                )
+                payload = json.dumps(op.request_body)
+                self.continue_with_different_op(
+                    original_op=op, new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload)
+                )
+            else:
+                raise NotImplementedError(
+                    "SendIotRequest request_type {} not supported".format(op.request_type)
+                )
+
         else:
             # All other operations get passed down
             self.continue_op(op)
@@ -111,6 +128,8 @@ class IotHubMQTTConverter(PipelineStage):
                 mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
             ),
             constant.METHODS: (mqtt_topic_iothub.get_method_topic_for_subscribe()),
+            constant.TWIN: (mqtt_topic_iothub.get_twin_response_topic_for_subscribe()),
+            constant.TWIN_PATCHES: (mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()),
         }
 
     def _handle_pipeline_event(self, event):
@@ -140,7 +159,20 @@ class IotHubMQTTConverter(PipelineStage):
                 method_received = MethodRequest(
                     request_id=rid, name=method_name, payload=json.loads(event.payload)
                 )
-                self._handle_pipeline_event(pipeline_events_iothub.MethodRequest(method_received))
+                self.handle_pipeline_event(pipeline_events_iothub.MethodRequest(method_received))
+
+            elif mqtt_topic_iothub.is_twin_response_topic(topic):
+                rid = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
+                status_code = mqtt_topic_iothub.get_twin_status_code_from_topic(topic)
+                self.handle_pipeline_event(
+                    pipeline_events_base.IotResponseEvent(
+                        request_id=rid, status_code=status_code, response_body=event.payload
+                    )
+                )
+
+            elif mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic):
+                # TODO: create TwinDesiredPropertiesEvent and pass up
+                pass
 
             else:
                 logger.info("Uunknown topic: {} passing up to next handler".format(topic))

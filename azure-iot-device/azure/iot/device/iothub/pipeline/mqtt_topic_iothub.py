@@ -262,3 +262,38 @@ def encode_properties(message_to_send, topic):
         topic += user_properties_encoded
 
     return topic
+
+
+def get_twin_response_topic_for_subscribe():
+    return "$iothub/twin/res/#"
+
+
+def get_twin_patch_topic_for_subscribe():
+    "$iothub/twin/PATCH/properties/desired/#"
+
+
+def get_twin_topic_for_publish(method, resource_location, request_id):
+    return "$iothub/twin/{}{}?$rid={}".format(method, resource_location, request_id)
+
+
+def is_twin_response_topic(topic):
+    return topic.startswith("$iothub/twin/res/")
+
+
+def get_twin_request_id_from_topic(topic):
+    parts = topic.split("/")
+    if is_twin_response_topic(topic) and len(parts) >= 4:
+        properties = _extract_properties(topic.split("?")[1])
+        return properties["rid"]
+    else:
+        raise ValueError("topic has incorrect format")
+
+
+def get_twin_status_code_from_topic(topic):
+    # TODO: extract the twin status code from the topic and return
+    pass
+
+
+def is_twin_desired_property_patch_topic(topic):
+    # TODO: return true if this topic is for a twin desired property patch
+    pass

@@ -168,6 +168,18 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         await enable_feature_async(feature_name, callback=callback)
 
+    async def get_twin(self):
+        # TODO: copy doc from sync impl once it's finalized
+        pass
+
+    async def patch_twin_reported_properties(self, reported_properties_patch):
+        # TODO: copy doc from sync impl once it's finalized
+        pass
+
+    async def receive_twin_desired_properties_patch(self):
+        # TODO: copy doc from sync impl once it's finalized
+        pass
+
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """An asynchronous device client that connects to an Azure IoT Hub instance.

@@ -49,3 +49,14 @@ class MethodRequest(PipelineEvent):
     def __init__(self, method_request):
         super(MethodRequest, self).__init__()
         self.method_request = method_request
+
+
+class TwinDesiredPropertiesPatchEvent(PipelineEvent):
+    """
+    A PipelineEvent object which represents an incoming twin desired properties patch.  This
+    object is probably created by some converter stage based on a transport-specific event.
+    """
+
+    def __init__(self, patch):
+        super(TwinDesiredPropertiesPatchEvent, self).__init__()
+        self.patch = patch

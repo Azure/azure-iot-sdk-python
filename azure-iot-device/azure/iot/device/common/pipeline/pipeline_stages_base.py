@@ -8,7 +8,9 @@ import logging
 import abc
 import six
 import sys
+import uuid
 from six.moves import queue
+from . import pipeline_events_base
 from . import pipeline_ops_base
 
 logger = logging.getLogger(__name__)
@@ -611,3 +613,62 @@ class EnsureConnection(PipelineStage):
     def on_disconnected(self):
         self.connected = False
         PipelineStage.on_disconnected(self)
+
+
+class CoordinateRequestAndResponse(PipelineStage):
+    """
+    Pipeline stage which is responsible for coordinating SendIotRequestAndWaitForResponse operations.  For each
+    SendIotRequestAndWaitForResponse operation, this stage passes down a SendIotRequest operation and waits for
+    an IotResponseEvent event.  All other events are passed down unmodified.
+    """
+
+    def __init__(self):
+        super(CoordinateRequestAndResponse, self).__init__()
+        self.pending_responses = {}
+
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponse):
+            # Convert SendIotRequestAndWaitForResponse operation into a SendIotRequest operation
+            # and send it down.  A lower level will convert the SendIotRequest into an
+            # actual transport operation.  The SendIotRequestAndWaitForResponse operation will be
+            # completed when the corresponding IotResponse event is received in this stage.
+
+            request_id = str(uuid.uuid4())
+
+            def on_send_request_done(send_request_op):
+                if send_request_op.error:
+                    op.error = send_request_op.error
+                    del (self.pending_responses[request_id])
+                else:
+                    # request sent.  Nothing to do except wait for the response
+                    pass
+
+            new_op = pipeline_ops_base.SendIotRequest(
+                method=op.method,
+                resource_locatoin=op.resource_location,
+                request_body=op.request_body,
+                request_id=request_id,
+                callback=on_send_request_done,
+            )
+            self.continue_op(new_op)
+
+        else:
+            self.continue_op(op)
+
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_base.IotResponseEvent):
+            # match IotResponseEvent events to the saved dictionary of SendIotRequestAndWaitForResponse
+            # operations which have not received responses yet.  If the operation is found,
+            # complete it.
+
+            if event.request_id in self.pending_responses:
+                op = self.pending_responses[event.request_id]
+                del (self.pending_responses[event.request_id])
+                op.status_code = event.status_code
+                op.response_body = event.response_body
+            else:
+                logger.warning(
+                    "IotResponseEvent with unknown RID received.  Nothing to do. Dropping"
+                )
+        else:
+            super(CoordinateRequestAndResponse, self)._handle_pipeline_event(event)
