@@ -9,10 +9,13 @@ import json
 import traceback
 from threading import Timer
 from transitions import Machine
-from ..transport import constant
+from azure.iot.device.provisioning.pipeline import constant
 import six.moves.urllib as urllib
 from .request_response_provider import RequestResponseProvider
-from ..models.registration_result import RegistrationResult, RegistrationState
+from azure.iot.device.provisioning.models.registration_result import (
+    RegistrationResult,
+    RegistrationState,
+)
 from .registration_query_status_result import RegistrationQueryStatusResult
 
 
@@ -26,13 +29,11 @@ class PollingMachine(object):
     """
     Class that is responsible for sending the initial registration request and polling the
     registration process for constant updates.
-    ivar:on_registration_complete: Event handler called upon status update of registration process
-    :type on_registration_complete: Function
     """
 
-    def __init__(self, state_based_provider):
+    def __init__(self, provisioning_pipeline):
         """
-        :param state_based_provider: The state machine based provider.
+        :param provisioning_pipeline: The pipeline for provisioning.
         """
         self._polling_timer = None
         self._query_timer = None
@@ -40,14 +41,12 @@ class PollingMachine(object):
         self._register_callback = None
         self._cancel_callback = None
 
-        # self.on_registration_complete = None
-
         self._registration_error = None
         self._registration_result = None
 
         self._operations = {}
 
-        self._request_response_provider = RequestResponseProvider(state_based_provider)
+        self._request_response_provider = RequestResponseProvider(provisioning_pipeline)
 
         states = [
             "disconnected",
@@ -178,9 +177,7 @@ class PollingMachine(object):
 
     def _initialize_register(self, event_data):
         logger.info("Initializing the registration process.")
-        self._request_response_provider.subscribe(
-            topic=constant.SUBSCRIBE_TOPIC_PROVISIONING, callback=self._on_subscribe_completed
-        )
+        self._request_response_provider.enable_responses(callback=self._on_subscribe_completed)
 
     def _send_register_request(self, event_data):
         """
@@ -194,9 +191,9 @@ class PollingMachine(object):
         self._operations[rid] = constant.PUBLISH_TOPIC_REGISTRATION.format(rid)
         self._request_response_provider.send_request(
             rid=rid,
-            topic=constant.PUBLISH_TOPIC_REGISTRATION.format(rid),
-            request=" ",
-            callback=self._on_register_response_received,
+            request_payload=" ",
+            operation_id=None,
+            callback_on_response=self._on_register_response_received,
         )
 
     def _query_operation_status(self, event_data):
@@ -213,23 +210,21 @@ class PollingMachine(object):
         self._operations[rid] = constant.PUBLISH_TOPIC_QUERYING.format(rid, operation_id)
         self._request_response_provider.send_request(
             rid=rid,
-            topic=constant.PUBLISH_TOPIC_QUERYING.format(rid, operation_id),
-            request=" ",
-            callback=self._on_query_response_received,
+            request_payload=" ",
+            operation_id=operation_id,
+            callback_on_response=self._on_query_response_received,
         )
 
-    def _on_register_response_received(self, url_portion, key_values_dict, response):
+    def _on_register_response_received(self, rid, status_code, key_values_dict, response):
         """
         The function to call in case of a response from a registration request.
-        :param url_portion: The portion of the url containing the status code.
+        :param rid: The id of the original register request.
+        :param status_code: The status code in the response.
         :param key_values_dict: The dictionary containing the query parameters of the returned topic.
         :param response: The complete response from the service.
         """
         self._query_timer.cancel()
 
-        url_parts = url_portion.split("/")
-        status_code = url_parts[POS_STATUS_CODE_IN_TOPIC]
-        rid = str(key_values_dict["rid"][0])
         retry_after = (
             None if "retry-after" not in key_values_dict else str(key_values_dict["retry-after"][0])
         )
@@ -244,19 +239,17 @@ class PollingMachine(object):
         else:  # successful case, transition into complete or poll status
             self._process_successful_response(rid, retry_after, response)
 
-    def _on_query_response_received(self, url_portion, key_values_dict, response):
+    def _on_query_response_received(self, rid, status_code, key_values_dict, response):
         """
         The function to call in case of a response from a polling/query request.
-        :param url_portion: The portion of the url containing the status code.
+        :param rid: The id of the original query request.
+        :param status_code: The status code in the response.
         :param key_values_dict: The dictionary containing the query parameters of the returned topic.
         :param response: The complete response from the service.
         """
         self._query_timer.cancel()
         self._polling_timer.cancel()
 
-        url_parts = url_portion.split("/")
-        status_code = url_parts[POS_STATUS_CODE_IN_TOPIC]
-        rid = str(key_values_dict["rid"][0])
         retry_after = (
             None if "retry-after" not in key_values_dict else str(key_values_dict["retry-after"][0])
         )
@@ -338,7 +331,7 @@ class PollingMachine(object):
         def time_up_query():
             logger.error("Time is up for query timer")
             self._query_timer.cancel()
-            # TimeoutError no defined in python 2
+            # TimeoutError not defined in python 2
             self._registration_error = ValueError("Time is up for query timer")
             self._trig_error()
 

@@ -10,9 +10,9 @@ fake_callback = "__fake_callback__"
 fake_feature_name = "__fake_feature_name__"
 
 
-def assert_all_base_defaults(obj):
+def assert_all_base_defaults(obj, needs_connections):
     assert obj.name is obj.__class__.__name__
-    assert obj.needs_connection is False
+    assert obj.needs_connection is needs_connections
     assert obj.error is None
 
 
@@ -24,7 +24,7 @@ class TestPipelineOperation(object):
     @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_base.PipelineOperation()
-        assert_all_base_defaults(obj)
+        assert_all_base_defaults(obj, False)
         assert obj.callback is None
 
     @pytest.mark.it("Sets callback attribute if provided on instantiation")
@@ -41,7 +41,7 @@ class TestConnect(object):
     @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_base.Connect()
-        assert_all_base_defaults(obj)
+        assert_all_base_defaults(obj, False)
         assert obj.callback is None
 
     @pytest.mark.it("Sets callback attribute if provided on instantiation")
@@ -58,7 +58,7 @@ class TestDisconnect(object):
     @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_base.Disconnect()
-        assert_all_base_defaults(obj)
+        assert_all_base_defaults(obj, False)
         assert obj.callback is None
 
     @pytest.mark.it("Sets callback attribute if provided on instantiation")
@@ -75,7 +75,7 @@ class TestReconnect(object):
     @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_base.Reconnect()
-        assert_all_base_defaults(obj)
+        assert_all_base_defaults(obj, False)
         assert obj.callback is None
 
     @pytest.mark.it("Sets callback attribute if provided on instantiation")
@@ -93,7 +93,7 @@ class TestEnableFeature(object):
     @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_base.EnableFeature(feature_name=fake_feature_name)
-        assert_all_base_defaults(obj)
+        assert_all_base_defaults(obj, True)
         assert obj.callback is None
         assert obj.feature_name is fake_feature_name
 
@@ -114,7 +114,7 @@ class TestDisableFeature(object):
     @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
     def test_required_arguments(self):
         obj = pipeline_ops_base.DisableFeature(feature_name=fake_feature_name)
-        assert_all_base_defaults(obj)
+        assert_all_base_defaults(obj, True)
         assert obj.callback is None
         assert obj.feature_name is fake_feature_name
 

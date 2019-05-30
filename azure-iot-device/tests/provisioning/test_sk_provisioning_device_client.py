@@ -11,7 +11,6 @@ from azure.iot.device.provisioning.sk_provisioning_device_client import (
     SymmetricKeyProvisioningDeviceClient,
 )
 from azure.iot.device.provisioning.models import RegistrationResult
-from azure.iot.device.provisioning.transport.state_based_mqtt_provider import StateBasedMQTTProvider
 
 fake_request_id = "Request1234"
 fake_retry_after = "3"
@@ -29,16 +28,6 @@ fake_failure_response_topic = "$dps/registrations/res/400/?"
 fake_greater_429_response_topic = "$dps/registrations/res/430/?"
 fake_assigning_status = "assigning"
 fake_assigned_status = "assigned"
-
-
-@pytest.fixture
-def state_based_mqtt(mocker):
-    return mocker.MagicMock(spec=StateBasedMQTTProvider)
-
-
-@pytest.fixture
-def client(transport):
-    return SymmetricKeyProvisioningDeviceClient(transport)
 
 
 def create_success_result():
@@ -68,8 +57,9 @@ def mock_polling_machine_success(mocker):
 
 @pytest.mark.it("register calls register on polling machine with passed in callback")
 def test_client_register_success_calls_polling_machine_register_with_callback(
-    mocker, state_based_mqtt, mock_polling_machine_success
+    mocker, mock_polling_machine_success
 ):
+    state_based_mqtt = mocker.MagicMock()
     mock_polling_machine_init = mocker.patch(
         "azure.iot.device.provisioning.sk_provisioning_device_client.PollingMachine"
     )
@@ -82,8 +72,9 @@ def test_client_register_success_calls_polling_machine_register_with_callback(
 
 @pytest.mark.it("cancel calls cancel on polling machine with passed in callback")
 def test_client_cancel_calls_polling_machine_cancel_with_callback(
-    mocker, state_based_mqtt, mock_polling_machine_success
+    mocker, mock_polling_machine_success
 ):
+    state_based_mqtt = mocker.MagicMock()
     mock_polling_machine_init = mocker.patch(
         "azure.iot.device.provisioning.sk_provisioning_device_client.PollingMachine"
     )

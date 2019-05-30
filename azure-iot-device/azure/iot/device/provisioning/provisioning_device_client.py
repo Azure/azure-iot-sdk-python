@@ -18,12 +18,12 @@ class ProvisioningDeviceClient(object):
     Super class for any client that can be used to register devices to Device Provisioning Service.
     """
 
-    def __init__(self, transport):
+    def __init__(self, provisioning_pipeline):
         """
         Initializes the registration client.
-        :param transport: Instance of the Transport object.
+        :param provisioning_pipeline: Instance of the provisioning pipeline object.
         """
-        self._transport = transport
+        self._provisioning_pipeline = provisioning_pipeline
 
     @abc.abstractmethod
     def register(self):

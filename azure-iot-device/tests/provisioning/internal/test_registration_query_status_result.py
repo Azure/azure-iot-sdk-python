@@ -22,21 +22,22 @@ fake_last_update_dttm = datetime.datetime(2020, 10, 17)
 fake_etag = "HighQualityFlyingBroom"
 
 
-@pytest.mark.it("registration status query result instantiates")
-def test_registration_status_query_result_instantiated_correctly():
-    intermediate_result = RegistrationQueryStatusResult(
-        fake_request_id, fake_retry_after, fake_operation_id, fake_status
-    )
-    assert intermediate_result.rid == fake_request_id
-    assert intermediate_result.retry_after == fake_retry_after
-    assert intermediate_result.operation_id == fake_operation_id
-    assert intermediate_result.status == fake_status
+@pytest.mark.describe("RegistrationQueryStatusResult")
+class TestRegistrationQueryStatusResult:
+    @pytest.mark.it("instantiates correctly")
+    def test_registration_status_query_result_instantiated_correctly(self):
+        intermediate_result = RegistrationQueryStatusResult(
+            fake_request_id, fake_retry_after, fake_operation_id, fake_status
+        )
+        assert intermediate_result.rid == fake_request_id
+        assert intermediate_result.retry_after == fake_retry_after
+        assert intermediate_result.operation_id == fake_operation_id
+        assert intermediate_result.status == fake_status
 
-
-@pytest.mark.it("request id does not have setter")
-def test_rid_is_not_settable():
-    registration_result = RegistrationQueryStatusResult(
-        "RequestId123", "Operation456", "emitted", None
-    )
-    with pytest.raises(AttributeError, match="can't set attribute"):
-        registration_result.rid = "MyNimbus2000"
+    @pytest.mark.it("has request id that does not have setter")
+    def test_rid_is_not_settable(self):
+        registration_result = RegistrationQueryStatusResult(
+            "RequestId123", "Operation456", "emitted", None
+        )
+        with pytest.raises(AttributeError, match="can't set attribute"):
+            registration_result.rid = "MyNimbus2000"

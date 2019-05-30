@@ -8,7 +8,6 @@ This module contains one of the implementations of the Provisioning Device Clien
 """
 import logging
 from threading import Event
-import traceback
 from .provisioning_device_client import ProvisioningDeviceClient
 from .internal.polling_machine import PollingMachine
 
@@ -21,13 +20,13 @@ class SymmetricKeyProvisioningDeviceClient(ProvisioningDeviceClient):
     using Symmetric Key authentication.
     """
 
-    def __init__(self, mqtt_state_based_provider):
+    def __init__(self, provisioning_pipeline):
         """
         Initializer for the Symmetric Key Registration Client
-        :param mqtt_state_based_provider: The state-based protocol provider. As of now this only supports MQTT.
+        :param provisioning_pipeline: The protocol pipeline for provisioning. As of now this only supports MQTT.
         """
-        super(SymmetricKeyProvisioningDeviceClient, self).__init__(mqtt_state_based_provider)
-        self._polling_machine = PollingMachine(mqtt_state_based_provider)
+        super(SymmetricKeyProvisioningDeviceClient, self).__init__(provisioning_pipeline)
+        self._polling_machine = PollingMachine(provisioning_pipeline)
 
     def register(self):
         """

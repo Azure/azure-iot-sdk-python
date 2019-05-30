@@ -4,11 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import sys
 import pytest
-from azure.iot.device.provisioning.provisioning_device_client import ProvisioningDeviceClient
 
+# These fixtures are shared between sync and async clients
+from tests.common.pipeline_test_fixtures import callback, fake_error, event
 
-def test_raises_exception_on_init_of_abstract_client(mocker):
-    fake_pipeline = mocker.MagicMock()
-    with pytest.raises(TypeError):
-        ProvisioningDeviceClient(fake_pipeline)
+collect_ignore = []

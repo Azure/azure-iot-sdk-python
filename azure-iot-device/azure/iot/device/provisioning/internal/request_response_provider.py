@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six.moves.urllib as urllib
 
 logger = logging.getLogger(__name__)
 
@@ -19,76 +18,77 @@ class RequestResponseProvider(object):
     Class that processes requests sent from device and responses received at device.
     """
 
-    def __init__(self, state_based_provider):
+    def __init__(self, provisioning_pipeline):
 
-        self._state_based_provider = state_based_provider
+        self._provisioning_pipeline = provisioning_pipeline
 
-        self._state_based_provider.on_state_based_provider_message_received = self._receive_response
+        self._provisioning_pipeline.on_provisioning_pipeline_message_received = (
+            self._receive_response
+        )
 
         self._pending_requests = {}
 
-    def send_request(self, rid, topic, request, callback):
-        self._pending_requests[rid] = callback
-        self.publish(topic=topic, request=request)
+    def send_request(self, rid, request_payload, operation_id=None, callback_on_response=None):
+        """
+        Sends a request
+        :param rid: Id of the request
+        :param request_payload: The payload of the request.
+        :param operation_id: A id of the operation in case it is an ongoing process.
+        :param callback_on_response: callback which is called when response comes back for this request.
+        """
+        self._pending_requests[rid] = callback_on_response
+        self._provisioning_pipeline.send_request(
+            rid=rid,
+            request_payload=request_payload,
+            operation_id=operation_id,
+            callback=self._on_publish_completed,
+        )
 
     def connect(self, callback=None):
         if callback is None:
             callback = self._on_connection_state_change
-        self._state_based_provider.connect(callback=callback)
+        self._provisioning_pipeline.connect(callback=callback)
 
     def disconnect(self, callback=None):
         if callback is None:
             callback = self._on_connection_state_change
-        self._state_based_provider.disconnect(callback=callback)
+        self._provisioning_pipeline.disconnect(callback=callback)
 
-    def publish(self, topic, request, callback=None):
-        if callback is None:
-            callback = self._on_publish_completed
-        self._state_based_provider.publish(topic=topic, message=request, callback=callback)
-
-    def subscribe(self, topic, callback=None):
+    def enable_responses(self, callback=None):
         if callback is None:
             callback = self._on_subscribe_completed
-        self._state_based_provider.subscribe(topic=topic, callback=callback)
+        self._provisioning_pipeline.enable_responses(callback=callback)
 
-    def unsubscribe(self, topic, callback=None):
+    def disable_responses(self, callback=None):
         if callback is None:
             callback = self._on_unsubscribe_completed
-        self._state_based_provider.unsubscribe(topic=topic, callback=callback)
+        self._provisioning_pipeline.disable_responses(callback=callback)
 
-    def _receive_response(self, topic, payload):
+    def _receive_response(self, rid, status_code, key_value_dict, response_payload):
         """
         Handler that processes the response from the service.
-        :param topic: The topic in bytes name on which the message arrived on.
-        :param payload: Payload in bytes of the message received.
+        :param rid: The id of the request which is being responded to.
+        :param status_code: The status code inside the response
+        :param key_value_dict: A dictionary of keys mapped to a list of values extracted from the topic of the response.
+        :param response_payload: String payload of the message received.
+        :return:
         """
         # """ Sample topic and payload
         # $dps/registrations/res/200/?$rid=28c32371-608c-4390-8da7-c712353c1c3b
         # {"operationId":"4.550cb20c3349a409.390d2957-7b58-4701-b4f9-7fe848348f4a","status":"assigning"}
         # """
-        logger.info("Received payload:")
-        logger.info(payload)
-        # topic_str = topic.decode("utf-8")
-        if payload is not None:  # In cases of empty erroneous response from service
-            response = payload.decode("utf-8")
-
-        # There may be no response when status code is >= 300
-        logger.info("Received response:{} on topic:{}".format(response, topic))
-
-        if topic.startswith("$dps/registrations/res/"):
-            topic_parts = topic.split("$")
-            key_value_dict = urllib.parse.parse_qs(topic_parts[POS_QUERY_PARAM_PORTION])
-            rid = key_value_dict["rid"][0]
-        # TODO Not DPS may have other ways to retrieve rid
+        logger.info("Received response {}:".format(response_payload))
 
         if rid in self._pending_requests:
             callback = self._pending_requests[rid]
-            # Only send the status code and the portion of the topic containing query parameters
-            callback(topic_parts[POS_URL_PORTION], key_value_dict, response)
+            # Only send the status code and the extracted topic
+            callback(rid, status_code, key_value_dict, response_payload)
             del self._pending_requests[rid]
 
+        # TODO : What happens when rid if not there ? trigger error ?
+
     def _on_connection_state_change(self, new_state):
-        """Handler to be called by the transport upon a connection state change."""
+        """Handler to be called by the pipeline upon a connection state change."""
         logger.info("Connection State - {}".format(new_state))
 
     def _on_publish_completed(self):

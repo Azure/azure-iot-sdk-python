@@ -109,6 +109,7 @@ class EnableFeature(PipelineOperation):
         """
         super(EnableFeature, self).__init__(callback=callback)
         self.feature_name = feature_name
+        self.needs_connection = True
 
 
 class DisableFeature(PipelineOperation):
@@ -137,6 +138,7 @@ class DisableFeature(PipelineOperation):
         """
         super(DisableFeature, self).__init__(callback=callback)
         self.feature_name = feature_name
+        self.needs_connection = True
 
 
 class SetSasToken(PipelineOperation):

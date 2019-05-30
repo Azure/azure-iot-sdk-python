@@ -17,31 +17,33 @@ signature = "IsolemnlySwearThatIamuUptoNogood"
 expiry = "1539043658"
 
 
-@pytest.mark.it("properties have getters")
-def test_properties_are_gettable_after_create_security_client():
-    security_client = SymmetricKeySecurityClient(
-        fake_registration_id, fake_symmetric_key, fake_id_scope
-    )
-    assert security_client.id_scope == fake_id_scope
-    assert security_client.registration_id == fake_registration_id
+@pytest.mark.describe("SymmetricKeySecurityClient")
+class TestSymmetricKeySecurityClient:
+    @pytest.mark.it("properties have getters")
+    def test_properties_are_gettable_after_instantiation_security_client(self):
+        security_client = SymmetricKeySecurityClient(
+            fake_provisioning_host, fake_registration_id, fake_symmetric_key, fake_id_scope
+        )
+        assert security_client.provisioning_host == fake_provisioning_host
+        assert security_client.id_scope == fake_id_scope
+        assert security_client.registration_id == fake_registration_id
 
+    @pytest.mark.it("properties do not have setter")
+    def test_properties_are_not_settable_after_instantiation_security_client(self):
+        security_client = SymmetricKeySecurityClient(
+            fake_provisioning_host, fake_registration_id, fake_symmetric_key, fake_id_scope
+        )
+        with pytest.raises(AttributeError, match="can't set attribute"):
+            security_client.registration_id = "MyNimbus2000"
+            security_client.id_scope = "WhompingWillow"
+            security_client.provisioning_host = "hogwarts.com"
 
-@pytest.mark.it("properties do not have setter")
-def test_properties_are_not_settable():
-    security_client = SymmetricKeySecurityClient(
-        fake_registration_id, fake_symmetric_key, fake_id_scope
-    )
-    with pytest.raises(AttributeError, match="can't set attribute"):
-        security_client.registration_id = "MyNimbus2000"
-        security_client.id_scope = "WhompingWillow"
-
-
-@pytest.mark.it("create sas token")
-def test_create_sas():
-    security_client = SymmetricKeySecurityClient(
-        fake_registration_id, fake_symmetric_key, fake_id_scope
-    )
-    sas_value = security_client.get_current_sas_token()
-    assert key_name in sas_value
-    assert fake_registration_id in sas_value
-    assert fake_id_scope in sas_value
+    @pytest.mark.it("create sas token")
+    def test_create_sas(self):
+        security_client = SymmetricKeySecurityClient(
+            fake_provisioning_host, fake_registration_id, fake_symmetric_key, fake_id_scope
+        )
+        sas_value = security_client.get_current_sas_token()
+        assert key_name in sas_value
+        assert fake_registration_id in sas_value
+        assert fake_id_scope in sas_value
