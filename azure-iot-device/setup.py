@@ -29,7 +29,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="azure-iot-device",
-    version="2.0.0-preview.4",
+    version="2.0.0-preview.5",
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python-preview",

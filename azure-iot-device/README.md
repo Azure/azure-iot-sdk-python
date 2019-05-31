@@ -24,7 +24,7 @@ These clients are available with an asynchronous API, as well as a blocking sync
 
 | Python Version | Asynchronous API | Synchronous API |
 | -------------- | ---------------- | --------------- |
-| Python 3.5+    | **YES**          | **YES**         |
+| Python 3.5.3+  | **YES**          | **YES**         |
 | Python 3.4     | NO               | **YES**         |
 | Python 2.7     | NO               | **YES**         |
 
@@ -131,6 +131,7 @@ Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python
 * Sending multiple telemetry messages at once.
 * Receiving Cloud-to-Device messages.
 * Using Edge Modules with the Azure IoT Edge Hub.
+* Register a device with the Device Provisioning Service
 * Legacy scenarios for Python 2.7 and 3.4
 
 ## Getting help and finding API docs
