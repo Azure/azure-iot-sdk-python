@@ -5,3 +5,4 @@ from an IoT device.
 """
 
 from azure.iot.device.iothub.aio import *
+from azure.iot.device.provisioning.aio import *

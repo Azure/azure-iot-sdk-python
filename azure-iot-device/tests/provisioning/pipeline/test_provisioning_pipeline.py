@@ -66,7 +66,13 @@ class TestConnect:
     def test_connect_calls_connect_on_provider(self, mocker, mock_provisioning_pipeline, sas_token):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.connect.assert_called_once_with(sas_token)
+
+        assert mock_mqtt_provider.connect.call_count == 1
+        "SharedAccessSignature" in mock_mqtt_provider.connect.call_args[0][0]
+        assert "skn=registration" in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_id_scope in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_registration_id in mock_mqtt_provider.connect.call_args[0][0]
+
         mock_mqtt_provider.on_mqtt_connected()
 
     def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
@@ -90,7 +96,12 @@ class TestConnect:
         mock_provisioning_pipeline.connect()
         mock_mqtt_provider.on_mqtt_connected()
 
-        mock_mqtt_provider.connect.assert_called_once_with(sas_token)
+        assert mock_mqtt_provider.connect.call_count == 1
+        "SharedAccessSignature" in mock_mqtt_provider.connect.call_args[0][0]
+        assert "skn=registration" in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_id_scope in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_registration_id in mock_mqtt_provider.connect.call_args[0][0]
+
         mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_called_once_with(
             "connected"
         )
@@ -128,7 +139,12 @@ class TestSendRegister:
             rid=fake_request_id, request_payload=fake_mqtt_payload
         )
 
-        mock_mqtt_provider.connect.assert_called_once_with(sas_token)
+        assert mock_mqtt_provider.connect.call_count == 1
+        "SharedAccessSignature" in mock_mqtt_provider.connect.call_args[0][0]
+        assert "skn=registration" in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_id_scope in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_registration_id in mock_mqtt_provider.connect.call_args[0][0]
+
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id
         )
@@ -149,7 +165,11 @@ class TestSendRegister:
         )
 
         # verify that we called connect
-        mock_mqtt_provider.connect.assert_called_once_with(sas_token)
+        assert mock_mqtt_provider.connect.call_count == 1
+        "SharedAccessSignature" in mock_mqtt_provider.connect.call_args[0][0]
+        assert "skn=registration" in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_id_scope in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_registration_id in mock_mqtt_provider.connect.call_args[0][0]
 
         # verify that we're not connected yet and verify that we havent't published yet
         mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_not_called()
@@ -178,7 +198,11 @@ class TestSendRegister:
 
         # start connecting and verify that we've called into the provider
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.connect.assert_called_once_with(sas_token)
+        assert mock_mqtt_provider.connect.call_count == 1
+        "SharedAccessSignature" in mock_mqtt_provider.connect.call_args[0][0]
+        assert "skn=registration" in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_id_scope in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_registration_id in mock_mqtt_provider.connect.call_args[0][0]
 
         # send an event
         mock_provisioning_pipeline.send_request(
@@ -269,7 +293,12 @@ class TestSendQuery:
             rid=fake_request_id, request_payload=fake_mqtt_payload, operation_id=fake_operation_id
         )
 
-        mock_mqtt_provider.connect.assert_called_once_with(sas_token)
+        assert mock_mqtt_provider.connect.call_count == 1
+        "SharedAccessSignature" in mock_mqtt_provider.connect.call_args[0][0]
+        assert "skn=registration" in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_id_scope in mock_mqtt_provider.connect.call_args[0][0]
+        assert fake_registration_id in mock_mqtt_provider.connect.call_args[0][0]
+
         fake_publish_topic = "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={}&operationId={}".format(
             fake_request_id, fake_operation_id
         )

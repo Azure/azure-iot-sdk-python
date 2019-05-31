@@ -7,11 +7,9 @@ human intervention, enabling customers to provision millions of devices in a sec
 from .sk_provisioning_device_client import SymmetricKeyProvisioningDeviceClient
 from .security import SymmetricKeySecurityClient
 from .models import RegistrationResult
-from .provisioning_device_client_factory import create_from_security_client
 
 __all__ = [
     "SymmetricKeyProvisioningDeviceClient",
     "SymmetricKeySecurityClient",
     "RegistrationResult",
-    "create_from_security_client",
 ]

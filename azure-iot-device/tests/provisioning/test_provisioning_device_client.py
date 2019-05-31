@@ -5,10 +5,12 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.device.provisioning.provisioning_device_client import ProvisioningDeviceClient
+from azure.iot.device.provisioning.abstract_provisioning_device_client import (
+    AbstractProvisioningDeviceClient,
+)
 
 
 def test_raises_exception_on_init_of_abstract_client(mocker):
     fake_pipeline = mocker.MagicMock()
     with pytest.raises(TypeError):
-        ProvisioningDeviceClient(fake_pipeline)
+        AbstractProvisioningDeviceClient(fake_pipeline)

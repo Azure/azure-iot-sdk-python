@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 import types
 from azure.iot.device.provisioning.internal.polling_machine import PollingMachine
-from azure.iot.device.provisioning.sk_provisioning_device_client import (
+from azure.iot.device.provisioning.aio.async_sk_provisioning_device_client import (
     SymmetricKeyProvisioningDeviceClient,
 )
 from azure.iot.device.provisioning.models import RegistrationResult
@@ -13,6 +13,7 @@ import pytest
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
 
+pytestmark = pytest.mark.asyncio
 
 fake_request_id = "Request1234"
 fake_retry_after = "3"
@@ -75,7 +76,7 @@ class TestClientCreate:
             pytest.param("http", None, id="http", marks=xfail_notimplemented),
         ],
     )
-    def test_create_from_security_client_instantiates_client(
+    async def test_create_from_security_client_instantiates_client(
         self, security_client, protocol, expected_pipeline
     ):
         client = SymmetricKeyProvisioningDeviceClient.create_from_security_client(
@@ -84,7 +85,9 @@ class TestClientCreate:
         assert isinstance(client, SymmetricKeyProvisioningDeviceClient)
 
     @pytest.mark.it("raises error on creation if it is not symmetric security client")
-    def test_raises_when_client_created_from_security_client_with_not_symmetric_security(self):
+    async def test_raises_when_client_created_from_security_client_with_not_symmetric_security(
+        self
+    ):
         with pytest.raises(
             ValueError, match="A symmetric key security provider must be provided for MQTT"
         ):
@@ -106,7 +109,7 @@ class TesClientCallsPollingMachine:
         return mocker.MagicMock(wraps=FakePollingMachineSuccess(mocker.MagicMock()))
 
     @pytest.mark.it("register calls register on polling machine with passed in callback")
-    def test_client_register_success_calls_polling_machine_register_with_callback(
+    async def test_client_register_success_calls_polling_machine_register_with_callback(
         self, mocker, mock_polling_machine_success
     ):
         state_based_mqtt = mocker.MagicMock()
@@ -116,11 +119,11 @@ class TesClientCallsPollingMachine:
         mock_polling_machine_init.return_value = mock_polling_machine_success
 
         client = SymmetricKeyProvisioningDeviceClient(state_based_mqtt)
-        client.register()
+        await client.register()
         assert mock_polling_machine_success.register.call_count == 1
 
     @pytest.mark.it("cancel calls cancel on polling machine with passed in callback")
-    def test_client_cancel_calls_polling_machine_cancel_with_callback(
+    async def test_client_cancel_calls_polling_machine_cancel_with_callback(
         self, mocker, mock_polling_machine_success
     ):
         state_based_mqtt = mocker.MagicMock()
@@ -130,7 +133,7 @@ class TesClientCallsPollingMachine:
         mock_polling_machine_init.return_value = mock_polling_machine_success
 
         client = SymmetricKeyProvisioningDeviceClient(state_based_mqtt)
-        client.cancel()
+        await client.cancel()
         assert mock_polling_machine_success.cancel.call_count == 1
         assert "callback" in mock_polling_machine_success.cancel.call_args[1]
         assert isinstance(
