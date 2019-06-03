@@ -157,7 +157,9 @@ class IotHubMQTTConverter(PipelineStage):
                 rid = mqtt_topic_iothub.get_method_request_id_from_topic(topic)
                 method_name = mqtt_topic_iothub.get_method_name_from_topic(topic)
                 method_received = MethodRequest(
-                    request_id=rid, name=method_name, payload=json.loads(event.payload)
+                    request_id=rid,
+                    name=method_name,
+                    payload=json.loads(event.payload.decode("utf-8")),
                 )
                 self.handle_pipeline_event(pipeline_events_iothub.MethodRequest(method_received))
 

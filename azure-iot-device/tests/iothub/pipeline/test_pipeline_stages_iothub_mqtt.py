@@ -79,7 +79,7 @@ fake_input_message_topic_for_another_device = "devices/__other_device__/modules/
 fake_method_request_topic = "$iothub/methods/POST/{}/?$rid={}".format(
     fake_method_name, fake_request_id
 )
-fake_method_request_payload = "{}"
+fake_method_request_payload = "{}".encode("utf-8")
 
 
 api_version = "2018-06-30"
@@ -702,4 +702,6 @@ class TestIotHubMQTTConverterHandlePipelineEventMethodRequets(object):
     ):
         stage.handle_pipeline_event(method_request_event)
         new_event = stage.previous.handle_pipeline_event.call_args[0][0]
-        assert new_event.method_request.payload == json.loads(fake_method_request_payload)
+        assert new_event.method_request.payload == json.loads(
+            fake_method_request_payload.decode("utf-8")
+        )
