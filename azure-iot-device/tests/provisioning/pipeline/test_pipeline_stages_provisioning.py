@@ -15,9 +15,12 @@ from azure.iot.device.common.pipeline import pipeline_ops_base
 
 from tests.common.pipeline_test import (
     assert_default_stage_attributes,
+    assert_callback_succeeded,
+    assert_callback_failed,
     all_common_ops,
     all_except,
     make_mock_stage,
+    UnhandledException,
 )
 from tests.common import pipeline_test
 from azure.iot.device.common.pipeline import pipeline_events_base
@@ -31,23 +34,6 @@ fake_provisioning_host = "hogwarts.com"
 fake_id_scope = "weasley_wizard_wheezes"
 fake_ca_cert = "fake_certificate"
 fake_sas_token = "horcrux_token"
-
-
-@pytest.fixture
-def callback(mocker):
-    return mocker.Mock()
-
-
-@pytest.fixture
-def fake_error():
-    return pipeline_test.get_fake_error()
-
-
-@pytest.fixture
-def event():
-    ev = pipeline_events_base.PipelineEvent()
-    ev.name = "test event"
-    return ev
 
 
 @pytest.fixture
@@ -126,25 +112,32 @@ class TestUseSymmetricKeySecurityClientRunOpWithSetSymmetricKeySecurityClient(ob
 
     @pytest.mark.it(
         "calls the SetSymmetricKeySecurityClient callback with the SetSymmetricKeySecurityClientArgs error"
-        "when the SetSymmetricKeySecurityClientArgs op fails"
+        "when the SetSymmetricKeySecurityClientArgs op raises an Exception"
     )
-    def test_returns_error_on_set_security_client_args_failure(
-        self, mocker, mock_stage, fake_error, set_security_client
+    def test_set_security_client_raises_exception(
+        self, mocker, mock_stage, fake_exception, set_security_client
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_error)
+        mock_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
         mock_stage.run_op(set_security_client)
-        assert set_security_client.callback.call_count == 1
-        callback_arg = set_security_client.callback.call_args[0][0]
-        assert isinstance(callback_arg, pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs)
-        assert callback_arg.error == fake_error
+        assert_callback_failed(op=set_security_client, error=fake_exception)
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised by SetSymmetricKeySecurityClientArgs operations to propagate"
+    )
+    def test_set_security_client_raises_base_exception(
+        self, mocker, mock_stage, fake_base_exception, set_security_client
+    ):
+        mock_stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            mock_stage.run_op(set_security_client)
 
     @pytest.mark.it(
         "does not run a SetSasToken op on the next stage when the SetSymmetricKeySecurityClientArgs op fails"
     )
     def test_does_not_set_sas_token_on_set_security_client_args_failure(
-        self, mocker, mock_stage, fake_error, set_security_client
+        self, mocker, mock_stage, fake_exception, set_security_client
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_error)
+        mock_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
         mock_stage.run_op(set_security_client)
         assert mock_stage.next._run_op.call_count == 1
 
@@ -182,39 +175,40 @@ class TestUseSymmetricKeySecurityClientRunOpWithSetSymmetricKeySecurityClient(ob
     @pytest.mark.it(
         "calls the SetSymmetricKeySecurityClient callback with no error when the SetSasToken operation succeeds"
     )
-    def returns_success_if_set_sas_token_succeeds(self, stage, set_security_client):
-        stage.run_op(set_security_client)
-        assert set_security_client.callback.call_count == 1
-        callback_arg = set_security_client.callback.call_args[0][0]
-        assert callback_arg == set_security_client
-        assert callback_arg.error is None
+    def test_returns_success_if_set_sas_token_succeeds(self, mock_stage, set_security_client):
+        mock_stage.run_op(set_security_client)
+        assert_callback_succeeded(op=set_security_client)
 
-    @pytest.mark.it("returns error when get_current_sas_token raises")
-    def handles_exception_in_get_current_sas_token(
-        self, mocker, fake_error, stage, set_security_client
+    @pytest.mark.it("returns error when get_current_sas_token raises an exception")
+    def test_get_current_sas_token_raises_exception(
+        self, mocker, fake_exception, mock_stage, set_security_client
     ):
         set_security_client.security_client.get_current_sas_token = mocker.Mock(
-            side_effect=fake_error
+            side_effect=fake_exception
         )
-        stage.run_op(set_security_client)
-        assert set_security_client.callback.call_count == 1
-        callback_arg = set_security_client.callback.call_args[0][0]
-        assert isinstance(callback_arg, pipeline_ops_provisioning.SetSymmetricKeySecurityClient)
-        assert callback_arg.error == fake_error
+        mock_stage.run_op(set_security_client)
+        assert_callback_failed(op=set_security_client, error=fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised by get_current_sas_token to propagate")
+    def test_get_current_sas_token_raises_base_exception(
+        self, mocker, fake_base_exception, mock_stage, set_security_client
+    ):
+        set_security_client.security_client.get_current_sas_token = mocker.Mock(
+            side_effect=fake_base_exception
+        )
+        with pytest.raises(UnhandledException):
+            mock_stage.run_op(set_security_client)
 
     @pytest.mark.it(
         "calls the SetSymmetricKeySecurityClient callback with the SetSasToken error when the SetSasToken operation fails"
     )
-    def test_returns_set_sas_token_failure(self, fake_error, mock_stage, set_security_client):
+    def test_returns_set_sas_token_failure(self, fake_exception, mock_stage, set_security_client):
         def next_run_op(self, op):
             if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs):
                 op.callback(op)
             else:
-                raise fake_error
+                raise fake_exception
 
         mock_stage.next._run_op = functools.partial(next_run_op, mock_stage)
         mock_stage.run_op(set_security_client)
-        assert set_security_client.callback.call_count == 1
-        callback_arg = set_security_client.callback.call_args[0][0]
-        assert isinstance(callback_arg, pipeline_ops_base.SetSasToken)
-        assert callback_arg.error == fake_error
+        assert_callback_failed(op=set_security_client, error=fake_exception)

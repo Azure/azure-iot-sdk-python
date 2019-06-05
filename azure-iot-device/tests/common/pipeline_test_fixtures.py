@@ -14,8 +14,13 @@ def callback(mocker):
 
 
 @pytest.fixture
-def fake_error():
-    return pipeline_test.get_fake_error()
+def fake_exception():
+    return Exception()
+
+
+@pytest.fixture
+def fake_base_exception():
+    return pipeline_test.UnhandledException()
 
 
 @pytest.fixture

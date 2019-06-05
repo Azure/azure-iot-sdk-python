@@ -16,6 +16,7 @@ from tests.common.pipeline_test import (
     make_mock_stage,
     assert_callback_failed,
     assert_callback_succeeded,
+    UnhandledException,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -130,14 +131,22 @@ class TestPipelineStageRunOpsSerialOneOpButNoFinallyOp(object):
         stage.run_ops_serial(op, callback=callback)
         assert_callback_failed(op=op, callback=callback)
 
-    @pytest.mark.it("protects the callback with a try/except block")
-    def test_exception_in_callback(self, stage, mocker, fake_error, op):
-        callback = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles Exceptions raised in the callback and passes them to the unhandled error handler"
+    )
+    def test_callback_throws_exception(self, stage, mocker, fake_exception, op):
+        callback = mocker.Mock(side_effect=fake_exception)
         stage.run_ops_serial(op, callback=callback)
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(op)
         assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_error)
+        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
+    def test_callback_throws_base_exception(self, stage, mocker, fake_base_exception, op):
+        callback = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_ops_serial(op, callback=callback)
 
 
 @pytest.mark.describe("PipelineStage run_ops_serial function with one op and finally op")
@@ -196,14 +205,24 @@ class TestPipelineStageRunOpsSerialOneOpAndFinallyOp(object):
         stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
         assert_callback_failed(callback=callback, op=finally_op, error=op.error)
 
-    @pytest.mark.it("protects the callback with a try/except block")
-    def test_exception_in_callback(self, stage, op, finally_op, fake_error, mocker):
-        callback = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles Exceptions raised in the callback and passes them to the unhandled error handler"
+    )
+    def test_callback_raises_exception(self, stage, op, finally_op, fake_exception, mocker):
+        callback = mocker.Mock(side_effect=fake_exception)
         stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(finally_op)
         assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_error)
+        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
+    def test_callback_raises_base_exception(
+        self, stage, op, finally_op, fake_base_exception, mocker
+    ):
+        callback = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_ops_serial(op, finally_op=finally_op, callback=callback)
 
 
 @pytest.mark.describe("PipelineStage run_ops_serial function with three ops and without finally op")
@@ -231,14 +250,22 @@ class TestPipelineStageRunOpsSerialThreeOpsButNoFinallyOp(object):
         stage.run_ops_serial(op, op2, op3, callback=callback)
         assert_callback_failed(callback=callback, op=op)
 
-    @pytest.mark.it("protects the callback with a try/except block")
-    def test_exception_in_callback(self, stage, op, op2, op3, fake_error, mocker):
-        callback = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles Exceptions raised in the callback and passes them to the unhandled error handler"
+    )
+    def test_callback_raises_exception(self, stage, op, op2, op3, fake_exception, mocker):
+        callback = mocker.Mock(side_effect=fake_exception)
         stage.run_ops_serial(op, op2, op3, callback=callback)
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(op3)
         assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_error)
+        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
+    def test_callback_raises_base_exception(self, stage, op, op2, op3, fake_base_exception, mocker):
+        callback = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_ops_serial(op, op2, op3, callback=callback)
 
     @pytest.mark.it("runs the second op only after the first op succeeds")
     def test_runs_second_op_after_first_op_succceeds(self, mocker, stage, op, op2, op3, callback):
@@ -338,12 +365,24 @@ class TestPipelineStageRunOpsSerialThreeOpsAndFinallyOp(object):
         stage.run_ops_serial(op, op2, op3, finally_op=finally_op, callback=callback)
         assert_callback_failed(callback=callback, op=finally_op, error=finally_op.error)
 
-    @pytest.mark.it("protects the callback with a try/except block")
-    def test_exception_in_callback(self, stage, op, op2, op3, finally_op, fake_error, mocker):
-        callback = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles Exceptions raised in the callback and passes them to the unhandled error handler"
+    )
+    def test_callback_raises_exception(
+        self, stage, op, op2, op3, finally_op, fake_exception, mocker
+    ):
+        callback = mocker.Mock(side_effect=fake_exception)
         stage.run_ops_serial(op, op2, op3, callback=callback, finally_op=finally_op)
         assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_error)
+        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
+    def test_callback_raises_base_exception(
+        self, stage, op, op2, op3, finally_op, fake_base_exception, mocker
+    ):
+        callback = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_ops_serial(op, op2, op3, callback=callback, finally_op=finally_op)
 
     @pytest.mark.it("runs the second op only after the first op succeeds")
     def test_runs_second_op(self, mocker, stage, op, op2, op3, finally_op, callback):
@@ -488,12 +527,22 @@ class TestPipelineStageHandlePipelineEvent(object):
         assert stage._handle_pipeline_event.call_count == 1
         assert stage._handle_pipeline_event.call_args == mocker.call(event)
 
-    @pytest.mark.it("protects _handle_pipeline_event with a try/except block")
-    def test_exception_in_provate_handle_pipeline_event(self, stage, event, fake_error, mocker):
-        stage._handle_pipeline_event = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles Exceptions raised in _handle_pipeline_Event and passes them to the unhandled error handler"
+    )
+    def test_handle_pipeline_events_raises_exception(self, stage, event, fake_exception, mocker):
+        stage._handle_pipeline_event = mocker.Mock(side_effect=fake_exception)
         stage.handle_pipeline_event(event)
         assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_error)
+        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised in _handle_pipeline_event to propagate")
+    def test_handle_pipeline_events_raises_base_exception(
+        self, stage, event, fake_base_exception, mocker
+    ):
+        stage._handle_pipeline_event = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.handle_pipeline_event(event)
 
 
 @pytest.mark.describe("PipelineStage _handle_pipeline_event function")
@@ -516,12 +565,11 @@ class TestPipelineStageHandlePrivatePipelineEvent(object):
 @pytest.mark.describe("PipelineStage continue_op function")
 class TestPipelineStageContinueOp(object):
     @pytest.mark.it("completes the op without continuing if the op has an error")
-    def test_completes_op_with_error(self, mocker, stage, op, fake_error, callback):
-        op.error = fake_error
+    def test_completes_op_with_error(self, mocker, stage, op, fake_exception, callback):
+        op.error = fake_exception
         op.callback = callback
         stage.continue_op(op)
-        assert callback.call_count == 1
-        assert callback.call_args == mocker.call(op)
+        assert_callback_failed(op=op, error=fake_exception)
         assert stage.next.run_op.call_count == 0
 
     @pytest.mark.it("fails the op if there is no next stage")
@@ -548,20 +596,28 @@ class TestPipelineStageCompleteOp(object):
         assert_callback_succeeded(op)
 
     @pytest.mark.it("calls the op callback on failure")
-    def test_calls_callback_on_error(self, stage, op, callback, fake_error):
-        op.error = fake_error
+    def test_calls_callback_on_error(self, stage, op, callback, fake_exception):
+        op.error = fake_exception
         op.callback = callback
         stage.complete_op(op)
-        assert_callback_failed(op=op, error=fake_error)
+        assert_callback_failed(op=op, error=fake_exception)
 
-    @pytest.mark.it("protects the op callback with a try/except handler")
-    def test_exception_in_callback(self, stage, op, fake_error, mocker):
-        op.callback = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles Exceptions raised in operation callback and passes them to the unhandled error handler"
+    )
+    def test_op_callback_raises_exception(self, stage, op, fake_exception, mocker):
+        op.callback = mocker.Mock(side_effect=fake_exception)
         stage.complete_op(op)
         assert op.callback.call_count == 1
         assert op.callback.call_args == mocker.call(op)
         assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_error)
+        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised in operation callback to propagate")
+    def test_op_callback_raises_base_exception(self, stage, op, fake_base_exception, mocker):
+        op.callback = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.complete_op(op)
 
 
 @pytest.mark.describe("PipelineStage continue_with_different_op function")

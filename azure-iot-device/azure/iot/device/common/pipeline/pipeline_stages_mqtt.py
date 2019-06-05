@@ -83,9 +83,9 @@ class Provider(PipelineStage):
             self.provider.on_mqtt_connected = on_connected
             try:
                 self.provider.connect(self.sas_token)
-            except BaseException:
+            except Exception as e:
                 self.provider.on_mqtt_connected = self.on_connected
-                raise
+                raise e
 
         elif isinstance(op, pipeline_ops_base.Reconnect):
             logger.info("{}({}): reconnecting".format(self.name, op.name))
@@ -100,9 +100,9 @@ class Provider(PipelineStage):
             self.provider.on_mqtt_connected = on_connected
             try:
                 self.provider.reconnect(self.sas_token)
-            except BaseException:
+            except Exception as e:
                 self.provider.on_mqtt_connected = self.on_connected
-                raise
+                raise e
 
         elif isinstance(op, pipeline_ops_base.Disconnect):
             logger.info("{}({}): disconneting".format(self.name, op.name))
@@ -117,9 +117,9 @@ class Provider(PipelineStage):
             self.provider.on_mqtt_disconnected = on_disconnected
             try:
                 self.provider.disconnect()
-            except BaseException:
+            except Exception as e:
                 self.provider.on_mqtt_disconnected = self.on_disconnected
-                raise
+                raise e
 
         elif isinstance(op, pipeline_ops_mqtt.Publish):
             logger.info("{}({}): publishing on {}".format(self.name, op.name, op.topic))

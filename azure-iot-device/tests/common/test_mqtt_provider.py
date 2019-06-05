@@ -27,6 +27,10 @@ class DummyException(Exception):
     pass
 
 
+class UnhandledException(BaseException):
+    pass
+
+
 @pytest.fixture
 def mock_mqtt_client(mocker):
     mock = mocker.patch.object(mqtt, "Client")
@@ -195,7 +199,7 @@ class TestConnect(object):
         # No further asserts required - this is a test to show that it skips a callback.
         # Not raising an exception == test passed
 
-    @pytest.mark.it("Recovers from exception in on_mqtt_connected event handler callback")
+    @pytest.mark.it("Recovers from Exception in on_mqtt_connected event handler callback")
     def test_event_handler_callback_raises_exception(self, mocker, mock_mqtt_client, provider):
         event_cb = mocker.MagicMock(side_effect=DummyException)
         provider.on_mqtt_connected = event_cb
@@ -205,6 +209,19 @@ class TestConnect(object):
 
         # Callback was called, but exception did not propagate
         assert event_cb.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in on_mqtt_connected event handler callback to propagate"
+    )
+    def test_event_handler_callback_raises_base_exception(self, mocker, mock_mqtt_client, provider):
+        event_cb = mocker.MagicMock(side_effect=UnhandledException)
+        provider.on_mqtt_connected = event_cb
+
+        provider.connect(fake_password)
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_connect(
+                client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc
+            )
 
 
 @pytest.mark.describe("MQTTProvider - .reconnect() / EVENT: Reconnect")
@@ -271,7 +288,7 @@ class TestReconnect(object):
         # No further asserts required - this is a test to show that it skips a callback.
         # Not raising an exception == test passed
 
-    @pytest.mark.it("Recovers from exception in on_mqtt_connected event handler callback")
+    @pytest.mark.it("Recovers from Exception in on_mqtt_connected event handler callback")
     def test_event_handler_callback_raises_exception(self, mocker, mock_mqtt_client, provider):
         event_cb = mocker.MagicMock(side_effect=DummyException)
         provider.on_mqtt_connected = event_cb
@@ -281,6 +298,19 @@ class TestReconnect(object):
 
         # Callback was called, but exception did not propagate
         assert event_cb.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in on_mqtt_connected event handler callback to propagate"
+    )
+    def test_event_handler_callback_raises_base_exception(self, mocker, mock_mqtt_client, provider):
+        event_cb = mocker.MagicMock(side_effect=UnhandledException)
+        provider.on_mqtt_connected = event_cb
+
+        provider.reconnect(fake_password)
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_connect(
+                client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc
+            )
 
 
 @pytest.mark.describe("MQTTProvider - .disconnect() / EVENT: Disconnect")
@@ -348,7 +378,7 @@ class TestDisconnect(object):
         # No further asserts required - this is a test to show that it skips a callback.
         # Not raising an exception == test passed
 
-    @pytest.mark.it("Recovers from exception in on_mqtt_disconnected event handler callback")
+    @pytest.mark.it("Recovers from Exception in on_mqtt_disconnected event handler callback")
     def test_event_handler_callback_raises_exception(self, mocker, mock_mqtt_client, provider):
         event_cb = mocker.MagicMock(side_effect=DummyException)
         provider.on_mqtt_disconnected = event_cb
@@ -358,6 +388,17 @@ class TestDisconnect(object):
 
         # Callback was called, but exception did not propagate
         assert event_cb.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in on_mqtt_disconnected event handler callback to propagate"
+    )
+    def test_event_handler_callback_raises_base_exception(self, mocker, mock_mqtt_client, provider):
+        event_cb = mocker.MagicMock(side_effect=UnhandledException)
+        provider.on_mqtt_disconnected = event_cb
+
+        provider.disconnect()
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
 
 @pytest.mark.describe("MQTTProvider - .subscribe()")
@@ -527,7 +568,7 @@ class TestSubscribe(object):
         assert callback2.call_count == 1
         assert callback3.call_count == 1
 
-    @pytest.mark.it("Recovers from exception in callback")
+    @pytest.mark.it("Recovers from Exception in callback")
     def test_callback_raises_exception(self, mocker, mock_mqtt_client, provider):
         callback = mocker.MagicMock(side_effect=DummyException)
         mock_mqtt_client.subscribe.return_value = (fake_rc, fake_mid)
@@ -540,7 +581,18 @@ class TestSubscribe(object):
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
 
-    @pytest.mark.it("Recovers from exception in callback when Paho event handler triggered early")
+    @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
+    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, provider):
+        callback = mocker.MagicMock(side_effect=UnhandledException)
+        mock_mqtt_client.subscribe.return_value = (fake_rc, fake_mid)
+
+        provider.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_subscribe(
+                client=mock_mqtt_client, userdata=None, mid=fake_mid, granted_qos=fake_qos
+            )
+
+    @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
     def test_callback_rasies_exception_when_paho_on_subscribe_triggered_early(
         self, mocker, mock_mqtt_client, provider
     ):
@@ -563,6 +615,30 @@ class TestSubscribe(object):
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
+    )
+    def test_callback_raises_base_exception_when_paho_on_subscribe_triggered_early(
+        self, mocker, mock_mqtt_client, provider
+    ):
+        callback = mocker.MagicMock(side_effect=UnhandledException)
+
+        def trigger_early_on_subscribe(topic, qos):
+            mock_mqtt_client.on_subscribe(
+                client=mock_mqtt_client, userdata=None, mid=fake_mid, granted_qos=fake_qos
+            )
+
+            # Should not have yet called callback
+            assert callback.call_count == 0
+
+            return (fake_rc, fake_mid)
+
+        mock_mqtt_client.subscribe.side_effect = trigger_early_on_subscribe
+
+        # Initiate subscribe
+        with pytest.raises(UnhandledException):
+            provider.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
 
 @pytest.mark.describe("MQTTProvider - .unsubscribe()")
@@ -708,7 +784,7 @@ class TestUnsubscribe(object):
         assert callback2.call_count == 1
         assert callback3.call_count == 1
 
-    @pytest.mark.it("Recovers from exception in callback")
+    @pytest.mark.it("Recovers from Exception in callback")
     def test_callback_raises_exception(self, mocker, mock_mqtt_client, provider):
         callback = mocker.MagicMock(side_effect=DummyException)
         mock_mqtt_client.unsubscribe.return_value = (fake_rc, fake_mid)
@@ -719,7 +795,16 @@ class TestUnsubscribe(object):
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
 
-    @pytest.mark.it("Recovers from exception in callback when Paho event handler triggered early")
+    @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
+    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, provider):
+        callback = mocker.MagicMock(side_effect=UnhandledException)
+        mock_mqtt_client.unsubscribe.return_value = (fake_rc, fake_mid)
+
+        provider.unsubscribe(topic=fake_topic, callback=callback)
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_unsubscribe(client=mock_mqtt_client, userdata=None, mid=fake_mid)
+
+    @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
     def test_callback_rasies_exception_when_paho_on_unsubscribe_triggered_early(
         self, mocker, mock_mqtt_client, provider
     ):
@@ -740,6 +825,28 @@ class TestUnsubscribe(object):
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
+    )
+    def test_callback_rasies_base_exception_when_paho_on_unsubscribe_triggered_early(
+        self, mocker, mock_mqtt_client, provider
+    ):
+        callback = mocker.MagicMock(side_effect=UnhandledException)
+
+        def trigger_early_on_unsubscribe(topic):
+            mock_mqtt_client.on_unsubscribe(client=mock_mqtt_client, userdata=None, mid=fake_mid)
+
+            # Should not have yet called callback
+            assert callback.call_count == 0
+
+            return (fake_rc, fake_mid)
+
+        mock_mqtt_client.unsubscribe.side_effect = trigger_early_on_unsubscribe
+
+        # Initiate unsubscribe
+        with pytest.raises(UnhandledException):
+            provider.unsubscribe(topic=fake_topic, callback=callback)
 
 
 @pytest.mark.describe("MQTTProvider - .publish()")
@@ -930,7 +1037,7 @@ class TestPublish(object):
         assert callback2.call_count == 1
         assert callback3.call_count == 1
 
-    @pytest.mark.it("Recovers from exception in callback")
+    @pytest.mark.it("Recovers from Exception in callback")
     def test_callback_raises_exception(self, mocker, mock_mqtt_client, provider, message_info):
         callback = mocker.MagicMock(side_effect=DummyException)
         mock_mqtt_client.publish.return_value = message_info
@@ -941,7 +1048,18 @@ class TestPublish(object):
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
 
-    @pytest.mark.it("Recovers from exception in callback when Paho event handler triggered early")
+    @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
+    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, provider, message_info):
+        callback = mocker.MagicMock(side_effect=UnhandledException)
+        mock_mqtt_client.publish.return_value = message_info
+
+        provider.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_publish(
+                client=mock_mqtt_client, userdata=None, mid=message_info.mid
+            )
+
+    @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
     def test_callback_rasies_exception_when_paho_on_publish_triggered_early(
         self, mocker, mock_mqtt_client, provider, message_info
     ):
@@ -964,6 +1082,30 @@ class TestPublish(object):
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
+    )
+    def test_callback_rasies_base_exception_when_paho_on_publish_triggered_early(
+        self, mocker, mock_mqtt_client, provider, message_info
+    ):
+        callback = mocker.MagicMock(side_effect=UnhandledException)
+
+        def trigger_early_on_publish(topic, payload, qos):
+            mock_mqtt_client.on_publish(
+                client=mock_mqtt_client, userdata=None, mid=message_info.mid
+            )
+
+            # Should not have yet called callback
+            assert callback.call_count == 0
+
+            return message_info
+
+        mock_mqtt_client.publish.side_effect = trigger_early_on_publish
+
+        # Initiate publish
+        with pytest.raises(UnhandledException):
+            provider.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
 
 @pytest.mark.describe("MQTTProvider - EVENT: Message Received")
@@ -1001,7 +1143,7 @@ class TestMessageReceived(object):
         # No further asserts required - this is a test to show that it skips a callback.
         # Not raising an exception == test passed
 
-    @pytest.mark.it("Recovers from exception in on_mqtt_message_received event handler callback")
+    @pytest.mark.it("Recovers from Exception in on_mqtt_message_received event handler callback")
     def test_event_handler_callback_raises_exception(
         self, mocker, mock_mqtt_client, provider, message
     ):
@@ -1012,6 +1154,20 @@ class TestMessageReceived(object):
 
         # Callback was called, but exception did not propagate
         assert event_cb.call_count == 1
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised in on_mqtt_message_received event handler callback to propagate"
+    )
+    def test_event_handler_callback_raises_base_exception(
+        self, mocker, mock_mqtt_client, provider, message
+    ):
+        event_cb = mocker.MagicMock(side_effect=UnhandledException)
+        provider.on_mqtt_message_received = event_cb
+
+        with pytest.raises(UnhandledException):
+            mock_mqtt_client.on_message(
+                client=mock_mqtt_client, userdata=None, mqtt_message=message
+            )
 
 
 @pytest.mark.describe("MQTTProvider - Misc.")
@@ -1130,7 +1286,7 @@ class TestOperationManagerEstablishOperation(object):
 
         assert cb_mock.call_count == 1
 
-    @pytest.mark.it("Recovers from exception thrown in callback")
+    @pytest.mark.it("Recovers from Exception thrown in callback")
     def test_callback_raises_exception(self, mocker):
         manager = OperationManager()
         mid = 1
@@ -1144,6 +1300,19 @@ class TestOperationManagerEstablishOperation(object):
 
         # Callback was called, but exception did not propagate
         assert cb_mock.call_count == 1
+
+    @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
+    def test_callback_raises_base_exception(self, mocker):
+        manager = OperationManager()
+        mid = 1
+        cb_mock = mocker.MagicMock(side_effect=UnhandledException)
+
+        # Cause early completion of an unknown operation
+        manager.complete_operation(mid)
+
+        # Establish operation that was already completed
+        with pytest.raises(UnhandledException):
+            manager.establish_operation(mid, cb_mock)
 
     @pytest.mark.it("Does not trigger the callback until after thread lock has been released")
     def test_callback_called_after_lock_release(self, mocker):
@@ -1210,7 +1379,7 @@ class TestOperationManagerCompleteOperation(object):
         manager.complete_operation(mid)
         assert cb_mock.call_count == 1
 
-    @pytest.mark.it("Recovers from exception thrown in callback")
+    @pytest.mark.it("Recovers from Exception thrown in callback")
     def test_callback_raises_exception(self, mocker):
         manager = OperationManager()
         mid = 1
@@ -1222,6 +1391,18 @@ class TestOperationManagerCompleteOperation(object):
         manager.complete_operation(mid)
         # Callback was called but exception did not propagate
         assert cb_mock.call_count == 1
+
+    @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
+    def test_callback_raises_base_exception(self, mocker):
+        manager = OperationManager()
+        mid = 1
+        cb_mock = mocker.MagicMock(side_effect=UnhandledException)
+
+        manager.establish_operation(mid, cb_mock)
+        assert cb_mock.call_count == 0
+
+        with pytest.raises(UnhandledException):
+            manager.complete_operation(mid)
 
     @pytest.mark.it(
         "Begins tracking an unknown completion if MID does not correspond to a pending operation"

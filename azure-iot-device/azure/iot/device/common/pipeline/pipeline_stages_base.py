@@ -92,8 +92,7 @@ class PipelineStage(object):
         logger.info("{}({}): running".format(self.name, op.name))
         try:
             self._run_op(op)
-        except:  # noqa: E722 do not use bare 'except'
-            _, e, _ = sys.exc_info()
+        except Exception as e:
             logger.error(msg="Error in {}._run_op() call".format(self), exc_info=e)
             op.error = e
             self.complete_op(op)
@@ -177,8 +176,7 @@ class PipelineStage(object):
                             )
                         )
                         callback(finally_op)
-                    except:  # noqa: E722 do not use bare 'except'
-                        _, e, _ = sys.exc_info()
+                    except Exception as e:
                         logger.error(
                             msg="{}({}):run_ops_serial: Unhandled error in callback".format(
                                 self.name, finally_op.name
@@ -200,8 +198,7 @@ class PipelineStage(object):
                         )
                     )
                     callback(last_op)
-                except:  # noqa: E722 do not use bare 'except'
-                    _, e, _ = sys.exc_info()
+                except Exception as e:
                     logger.error(
                         msg="{}({}):run_ops_serial: Unhandled error in callback".format(
                             self.name, last_op.name
@@ -257,8 +254,7 @@ class PipelineStage(object):
         """
         try:
             self._handle_pipeline_event(event)
-        except:  # noqa: E722 do not use bare 'except'
-            _, e, _ = sys.exc_info()
+        except Exception as e:
             logger.error(
                 msg="Error in %s._handle_pipeline_event call".format(self.name), exc_info=e
             )
@@ -317,7 +313,7 @@ class PipelineStage(object):
         )
         try:
             op.callback(op)
-        except:  # noqa: E722 do not use bare 'except'
+        except Exception as e:
             _, e, _ = sys.exc_info()
             logger.error(
                 msg="Unhandled error calling back inside {}.complete_op() after {} complete".format(

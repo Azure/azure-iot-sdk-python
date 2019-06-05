@@ -33,6 +33,11 @@ class UseSymmetricKeySecurityClient(PipelineStage):
 
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClient):
+
+            def pipeline_ops_done(completed_op):
+                op.error = completed_op.error
+                op.callback(op)
+
             security_client = op.security_client
             self.run_ops_serial(
                 pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs(
@@ -41,7 +46,7 @@ class UseSymmetricKeySecurityClient(PipelineStage):
                     id_scope=security_client.id_scope,
                 ),
                 pipeline_ops_base.SetSasToken(sas_token=security_client.get_current_sas_token()),
-                callback=op.callback,
+                callback=pipeline_ops_done,
             )
         else:
             self.continue_op(op)

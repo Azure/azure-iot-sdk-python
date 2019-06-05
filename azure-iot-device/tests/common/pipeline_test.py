@@ -56,10 +56,6 @@ class ConcretePipelineStage(pipeline_stages_base.PipelineStage):
         self.continue_op(op)
 
 
-def get_fake_error():
-    return BaseException()
-
-
 def make_mock_stage(mocker, stage_to_make):
     """
     make a stage object that we can use in testing.  This stage object is popsulated
@@ -72,7 +68,7 @@ def make_mock_stage(mocker, stage_to_make):
         if getattr(op, "action", None) is None or op.action == "pass":
             self.complete_op(op)
         elif op.action == "fail":
-            raise get_fake_error()
+            raise Exception()
         elif op.action == "pend":
             pass
         else:
@@ -117,3 +113,7 @@ def assert_callback_failed(op, callback=None, error=None):
         assert op.error is error
     else:
         assert op.error is not None
+
+
+class UnhandledException(BaseException):
+    pass

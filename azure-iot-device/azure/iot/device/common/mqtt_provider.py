@@ -64,7 +64,7 @@ class MQTTProvider(object):
             if self.on_mqtt_connected:
                 try:
                     self.on_mqtt_connected()
-                except:  # noqa: E722 do not use bare 'except'
+                except Exception:
                     logger.error("Unexpected error calling on_mqtt_connected")
                     logger.error(traceback.format_exc())
             else:
@@ -76,7 +76,7 @@ class MQTTProvider(object):
             if self.on_mqtt_disconnected:
                 try:
                     self.on_mqtt_disconnected()
-                except:  # noqa: E722 do not use bare 'except'
+                except Exception:
                     logger.error("Unexpected error calling on_mqtt_disconnected")
                     logger.error(traceback.format_exc())
             else:
@@ -103,7 +103,7 @@ class MQTTProvider(object):
             if self.on_mqtt_message_received:
                 try:
                     self.on_mqtt_message_received(mqtt_message.topic, mqtt_message.payload)
-                except:  # noqa: E722 do not use bare 'except'
+                except Exception:
                     logger.error("Unexpected error calling on_mqtt_message_received")
                     logger.error(traceback.format_exc())
             else:
@@ -259,7 +259,7 @@ class OperationManager(object):
             if callback:
                 try:
                     callback()
-                except:  # noqa: E722 do not use bare 'except'
+                except Exception:
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
@@ -301,7 +301,7 @@ class OperationManager(object):
             if callback:
                 try:
                     callback()
-                except:  # noqa: E722 do not use bare 'except'
+                except Exception:
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:

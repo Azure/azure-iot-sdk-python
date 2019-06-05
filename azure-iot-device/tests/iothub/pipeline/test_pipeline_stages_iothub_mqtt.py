@@ -29,6 +29,7 @@ from tests.common.pipeline_test import (
     all_common_events,
     all_except,
     make_mock_stage,
+    UnhandledException,
 )
 from tests.iothub.pipeline_test import all_iothub_ops, all_iothub_events
 
@@ -270,21 +271,29 @@ class TestIotHubMQTTConverterWithSetAuthProviderArgs(object):
         assert new_op.ca_cert == fake_ca_cert
 
     @pytest.mark.it(
-        "calls the SetAuthProviderArgs callback with error if the SetConnectionArgs operation fails"
+        "calls the SetAuthProviderArgs callback with error if the SetConnectionArgs raises an Exception"
     )
-    def test_returns_failure_if_set_connection_args_fails(
-        self, stage, mocker, fake_error, set_auth_provider_args
+    def test_set_connection_args_raises_exception(
+        self, stage, mocker, fake_exception, set_auth_provider_args
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_error)
+        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
         stage.run_op(set_auth_provider_args)
-        assert_callback_failed(op=set_auth_provider_args, error=fake_error)
+        assert_callback_failed(op=set_auth_provider_args, error=fake_exception)
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised inside the SetConnectionArgs operation to propagate"
+    )
+    def test_set_connection_args_raises_base_exception(
+        self, stage, mocker, fake_base_exception, set_auth_provider_args
+    ):
+        stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_op(set_auth_provider_args)
 
     @pytest.mark.it(
         "calls the SetAuthProviderArgs callback with no error if the SetConnectionArgs operation succeeds"
     )
-    def test_returns_success_if_set_connection_args_succeeds(
-        self, stage, mocker, set_auth_provider_args
-    ):
+    def test_set_connection_args_succeeds(self, stage, mocker, set_auth_provider_args):
         stage.run_op(set_auth_provider_args)
         assert_callback_succeeded(op=set_auth_provider_args)
 
@@ -338,18 +347,24 @@ class TestIotHubMQTTConverterBasicOperations(object):
         new_op = stage.next._run_op.call_args[0][0]
         assert isinstance(new_op, params["new_op_class"])
 
-    @pytest.mark.it("calls the original op callback with error if the new_op fails")
-    def test_returns_failure_if_publish_fails(
-        self, params, mocker, stage, stages_configured_for_both, op, fake_error
+    @pytest.mark.it("calls the original op callback with error if the new_op raises an exception")
+    def test_operation_raises_exception(
+        self, params, mocker, stage, stages_configured_for_both, op, fake_exception
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_error)
+        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=fake_error)
+        assert_callback_failed(op=op, error=fake_exception)
+
+    @pytest.mark.it("Allows any any BaseExceptions raised in the new_op to propagate")
+    def test_operation_raises_base_exception(
+        self, params, mocker, stage, stages_configured_for_both, op, fake_base_exception
+    ):
+        stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_op(op)
 
     @pytest.mark.it("calls the original op callback with no error if the new_op operation succeeds")
-    def test_returns_success_if_publish_succeeds(
-        self, params, stage, stages_configured_for_both, op
-    ):
+    def test_operation_succeeds(self, params, stage, stages_configured_for_both, op):
         stage.run_op(op)
         assert_callback_succeeded(op)
 

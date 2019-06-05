@@ -10,10 +10,13 @@ from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
 from tests.common.pipeline_test import (
     assert_default_stage_attributes,
+    assert_callback_succeeded,
+    assert_callback_failed,
     ConcretePipelineStage,
     all_common_ops,
     all_except,
     make_mock_stage,
+    UnhandledException,
 )
 from tests.iothub.pipeline_test import all_iothub_ops
 
@@ -147,25 +150,29 @@ class TestUseSkAuthProviderRunOpWithSetAuthProvider(object):
         assert set_args.module_id == fake_module_id
 
     @pytest.mark.it(
-        "If the SetAuthProviderArgs op fails, _run_op passes calls the SetAuthProvider callback with the SetAuthProviderArgs error"
+        "handles any Exceptions raised by SetAuthProviderArgs and returns them through the op callback"
     )
-    def test_returns_error_on_set_auth_provider_args_failure(
-        self, mocker, stage, fake_error, set_auth_provider
+    def test_set_auth_provider_raises_exception(
+        self, mocker, stage, fake_exception, set_auth_provider
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_error)
+        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
         stage.run_op(set_auth_provider)
-        assert set_auth_provider.callback.call_count == 1
-        callback_arg = set_auth_provider.callback.call_args[0][0]
-        assert isinstance(callback_arg, pipeline_ops_iothub.SetAuthProviderArgs)
-        assert callback_arg.error == fake_error
+        assert_callback_failed(op=set_auth_provider, error=fake_exception)
+
+    def test_set_auth_provider_raises_base_exception(
+        self, mocker, stage, fake_base_exception, set_auth_provider
+    ):
+        stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        with pytest.raises(UnhandledException):
+            stage.run_op(set_auth_provider)
 
     @pytest.mark.it(
         "If the SetAuthProviderArgs op fails, _run_op does not un a SetSasToken op on the next stage"
     )
     def test_does_not_set_sas_token_on_set_auth_provider_args_failure(
-        self, mocker, stage, fake_error, set_auth_provider
+        self, mocker, stage, fake_exception, set_auth_provider
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_error)
+        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
         stage.run_op(set_auth_provider)
         assert stage.next._run_op.call_count == 1
 
@@ -200,37 +207,40 @@ class TestUseSkAuthProviderRunOpWithSetAuthProvider(object):
     @pytest.mark.it(
         "if the SetSasToken operation succeeds, _run_op calls the SetAuthProvider callback with no error"
     )
-    def returns_success_if_set_sas_token_succeeds(self, stage, set_auth_provider):
+    def test_returns_success_if_set_sas_token_succeeds(self, stage, set_auth_provider):
         stage.run_op(set_auth_provider)
-        assert set_auth_provider.callback.call_count == 1
-        callback_arg = set_auth_provider.callback.call_args[0][0]
-        assert callback_arg == set_auth_provider
-        assert callback_arg.error is None
+        assert_callback_succeeded(op=set_auth_provider)
 
-    @pytest.mark.it("returns error if get_current_sas_token throws")
-    def handles_exception_in_get_current_sas_token(
-        self, mocker, fake_error, stage, set_auth_provider
-    ):
-        set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(side_effect=fake_error)
+    @pytest.mark.it(
+        "handles any Exceptions raised by SetSasToken and returns them through the op callback"
+    )
+    def test_set_sas_token_raises_exception(self, mocker, fake_exception, stage, set_auth_provider):
+        set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
+            side_effect=fake_exception
+        )
         stage.run_op(set_auth_provider)
-        assert set_auth_provider.callback.call_count == 1
-        callback_arg = set_auth_provider.callback.call_args[0][0]
-        assert isinstance(callback_arg, pipeline_ops_iothub.SetAuthProvider)
-        assert callback_arg.error == fake_error
+        assert_callback_failed(op=set_auth_provider, error=fake_exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised by SetSasToken to propagate")
+    def test_set_sas_token_raises_base_exception(
+        self, mocker, fake_base_exception, stage, set_auth_provider
+    ):
+        set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
+            side_effect=fake_base_exception
+        )
+        with pytest.raises(UnhandledException):
+            stage.run_op(set_auth_provider)
 
     @pytest.mark.it(
         "if the SetSasToken operation fails, _run_op calls the SetAuthProvider callback with the SetSasToken error"
     )
-    def test_returns_set_sas_token_failure(self, fake_error, stage, set_auth_provider):
+    def test_returns_set_sas_token_failure(self, fake_exception, stage, set_auth_provider):
         def next_run_op(self, op):
             if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgs):
                 op.callback(op)
             else:
-                raise fake_error
+                raise fake_exception
 
         stage.next._run_op = functools.partial(next_run_op, stage)
         stage.run_op(set_auth_provider)
-        assert set_auth_provider.callback.call_count == 1
-        callback_arg = set_auth_provider.callback.call_args[0][0]
-        assert isinstance(callback_arg, pipeline_ops_base.SetSasToken)
-        assert callback_arg.error == fake_error
+        assert_callback_failed(op=set_auth_provider, error=fake_exception)

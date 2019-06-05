@@ -32,6 +32,11 @@ class UseSkAuthProvider(PipelineStage):
 
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProvider):
+
+            def pipeline_ops_done(completed_op):
+                op.error = completed_op.error
+                op.callback(op)
+
             auth_provider = op.auth_provider
             self.run_ops_serial(
                 pipeline_ops_iothub.SetAuthProviderArgs(
@@ -42,7 +47,7 @@ class UseSkAuthProvider(PipelineStage):
                     ca_cert=getattr(auth_provider, "ca_cert", None),
                 ),
                 pipeline_ops_base.SetSasToken(sas_token=auth_provider.get_current_sas_token()),
-                callback=op.callback,
+                callback=pipeline_ops_done,
             )
         else:
             self.continue_op(op)

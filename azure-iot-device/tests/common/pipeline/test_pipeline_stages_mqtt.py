@@ -19,6 +19,7 @@ from tests.common.pipeline_test import (
     all_common_ops,
     all_common_events,
     all_except,
+    UnhandledException,
 )
 from tests.iothub.pipeline_test import all_iothub_ops, all_iothub_events
 
@@ -284,8 +285,15 @@ def provider_function_succeeds(params, stage):
 
 
 @pytest.fixture
-def provider_function_fails(params, stage, mocker, fake_error):
-    setattr(stage.provider, params["provider_function"], mocker.Mock(side_effect=fake_error))
+def provider_function_throws_exception(params, stage, mocker, fake_exception):
+    setattr(stage.provider, params["provider_function"], mocker.Mock(side_effect=fake_exception))
+
+
+@pytest.fixture
+def provider_function_throws_base_exception(params, stage, mocker, fake_base_exception):
+    setattr(
+        stage.provider, params["provider_function"], mocker.Mock(side_effect=fake_base_exception)
+    )
 
 
 @pytest.mark.parametrize("params", connection_ops + pubsub_ops)
@@ -311,13 +319,21 @@ class TestMQTTProviderBasicFunctionality(object):
         stage.run_op(op)
         assert_callback_succeeded(op=op)
 
-    @pytest.mark.it("returns failure if there is an exception in the provider function")
-    def test_returns_failure_on_provider_exception(
-        self, stage, create_provider, params, fake_error, mocker, op, provider_function_fails
+    @pytest.mark.it("returns failure if there is an Exception in the provider function")
+    def test_provider_function_throws_exception(
+        self, stage, create_provider, params, fake_exception, op, provider_function_throws_exception
     ):
         op.callback.reset_mock()
         stage.run_op(op)
-        assert_callback_failed(op=op, error=fake_error)
+        assert_callback_failed(op=op, error=fake_exception)
+
+    @pytest.mark.it("Allows any BaseException raised by the provider function to propagate")
+    def test_provider_function_throws_base_exception(
+        self, stage, create_provider, params, op, provider_function_throws_base_exception
+    ):
+        op.callback.reset_mock()
+        with pytest.raises(UnhandledException):
+            stage.run_op(op)
 
 
 @pytest.mark.parametrize("params", connection_ops)
@@ -339,16 +355,32 @@ class TestMQTTProviderRunOpWithConnect(object):
         handler_after = getattr(stage.provider, params["provider_handler"])
         assert handler_before == handler_after
 
-    @pytest.mark.it("does not call connectred/disconnected handler if provider function fails")
-    def test_does_not_call_handler_on_failure(
-        self, params, stage, create_provider, op, mocker, fake_error, provider_function_fails
+    @pytest.mark.it(
+        "does not call connected/disconnected handler if there is an Exception in the provider function"
+    )
+    def test_provider_function_throws_exception(
+        self,
+        params,
+        stage,
+        create_provider,
+        op,
+        mocker,
+        fake_exception,
+        provider_function_throws_exception,
     ):
         stage.run_op(op)
         assert getattr(stage.provider, params["provider_handler"]).call_count == 0
 
-    @pytest.mark.it("restores provider handler if provider function fails")
-    def test_restores_handler_on_failure(
-        self, params, stage, create_provider, op, mocker, fake_error, provider_function_fails
+    @pytest.mark.it("restores provider handler if there is an Exception in the provider function")
+    def test_provider_function_throws_exception_2(
+        self,
+        params,
+        stage,
+        create_provider,
+        op,
+        mocker,
+        fake_exception,
+        provider_function_throws_exception,
     ):
         handler_before = getattr(stage.provider, params["provider_handler"])
         stage.run_op(op)
