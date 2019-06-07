@@ -7,6 +7,7 @@
 """
 
 
+# TODO: Revise this class. Does all of this REALLY need to be here?
 class Message(object):
     """Represents a message to or from IoTHub
 
@@ -52,3 +53,6 @@ class Message(object):
         self.content_encoding = content_encoding
         self.content_type = content_type
         self.output_name = output_name
+
+    def __str__(self):
+        return str(self.data)

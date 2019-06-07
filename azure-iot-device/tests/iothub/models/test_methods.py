@@ -86,7 +86,7 @@ class TestMethodResponseInstantiation(object):
         assert response.payload is None
 
 
-@pytest.mark.describe("MethodResponse - create_from_method_request")
+@pytest.mark.describe("MethodResponse - .create_from_method_request()")
 class TestMethodResponseCreateFromMethodRequest(object):
     @pytest.mark.it("Instantiates using a MethodRequest to provide the 'request_id'")
     def test_instantiates_from_method_request(self):

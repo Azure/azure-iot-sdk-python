@@ -243,7 +243,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         callback = async_adapter.AwaitableCallback(sync_callback)
 
-        await send_output_event_async(message, callback)
+        await send_output_event_async(message, callback=callback)
         await callback.completion()
 
     async def receive_input_message(self, input_name):

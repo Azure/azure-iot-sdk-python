@@ -10,8 +10,10 @@ import azure.iot.device.common.asyncio_compat as asyncio_compat
 
 
 def emulate_async(fn):
-    """Apply as a decorator to emulate async behavior with a sync function/method
-    via usage of multithreading.
+    """Returns a coroutine function that calls a given function with emulated asynchronous
+    behavior via use of mulithreading.
+
+    Can be applied as a decorator.
 
     :param fn: The sync function to be run in async.
     :returns: A coroutine function that will call the given sync function.

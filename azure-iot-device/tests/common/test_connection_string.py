@@ -8,29 +8,31 @@ import pytest
 from azure.iot.device.common.connection_string import ConnectionString
 
 
+@pytest.mark.describe("ConnectionString")
 class TestConnectionString(object):
+    @pytest.mark.it("Instantiates from a given connection string")
     @pytest.mark.parametrize(
         "input_string",
         [
             pytest.param(
                 "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy",
-                id="service string",
+                id="Service connection string",
             ),
             pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;SharedAccessKey=Zm9vYmFy",
-                id="device string",
+                id="Device connection string",
             ),
             pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;SharedAccessKey=Zm9vYmFy;GatewayHostName=mygateway",
-                id="device string with gatewayhostname",
+                id="Device connection string w/ gatewayhostname",
             ),
             pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy",
-                id="module string",
+                id="Module connection string",
             ),
             pytest.param(
                 "HostName=my.host.name;DeviceId=my-device;ModuleId=my-module;SharedAccessKey=Zm9vYmFy;GatewayHostName=mygateway",
-                id="module string with gatewayhostname",
+                id="Module connection string w/ gatewayhostname",
             ),
         ],
     )
@@ -38,19 +40,20 @@ class TestConnectionString(object):
         cs = ConnectionString(input_string)
         assert isinstance(cs, ConnectionString)
 
+    @pytest.mark.it("Raises ValueError on bad input")
     @pytest.mark.parametrize(
         "input_string",
         [
-            pytest.param("", id="empty string"),
-            pytest.param("garbage", id="garbage"),
-            pytest.param("HostName=my.host.name", id="incomplete connection string"),
+            pytest.param("", id="Empty string"),
+            pytest.param("garbage", id="Not a connection string"),
+            pytest.param("HostName=my.host.name", id="Incomplete connection string"),
             pytest.param(
                 "InvalidKey=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy",
-                id="invalid key",
+                id="Invalid key",
             ),
             pytest.param(
                 "HostName=my.host.name;HostName=my.host.name;SharedAccessKey=mykeyname;SharedAccessKey=Zm9vYmFy",
-                id="duplicate key",
+                id="Duplicate key",
             ),
         ],
     )
@@ -58,11 +61,13 @@ class TestConnectionString(object):
         with pytest.raises(ValueError):
             ConnectionString(input_string)
 
+    @pytest.mark.it("Uses the input connection string as a string representation")
     def test_string_representation_of_object_is_the_input_string(self):
         string = "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
         cs = ConnectionString(string)
         assert str(cs) == string
 
+    @pytest.mark.it("Supports indexing syntax to return the stored value for a given key")
     def test_indexing_key_returns_corresponding_value(self):
         cs = ConnectionString(
             "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
@@ -71,6 +76,7 @@ class TestConnectionString(object):
         assert cs["SharedAccessKeyName"] == "mykeyname"
         assert cs["SharedAccessKey"] == "Zm9vYmFy"
 
+    @pytest.mark.it("Raises KeyError if indexing on a key not contained in the ConnectionString")
     def test_indexing_key_raises_key_error_if_key_not_in_string(self):
         with pytest.raises(KeyError):
             cs = ConnectionString(
@@ -78,20 +84,26 @@ class TestConnectionString(object):
             )
             cs["SharedAccessSignature"]
 
+
+@pytest.mark.describe("ConnectionString - .get()")
+class TestConnectionStringGet(object):
+    @pytest.mark.it("Returns the stored value for a given key")
     def test_calling_get_with_key_returns_corresponding_value(self):
         cs = ConnectionString(
             "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
         )
         assert cs.get("HostName") == "my.host.name"
 
-    def test_calling_get_with_invalid_key_and_a_default_value_returns_default_value(self):
-        cs = ConnectionString(
-            "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
-        )
-        assert cs.get("invalidkey", "defaultval") == "defaultval"
-
+    @pytest.mark.it("Returns None if the given key is invalid")
     def test_calling_get_with_invalid_key_and_no_default_value_returns_none(self):
         cs = ConnectionString(
             "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
         )
         assert cs.get("invalidkey") is None
+
+    @pytest.mark.it("Returns an optionally provided default value if the given key is invalid")
+    def test_calling_get_with_invalid_key_and_a_default_value_returns_default_value(self):
+        cs = ConnectionString(
+            "HostName=my.host.name;SharedAccessKeyName=mykeyname;SharedAccessKey=Zm9vYmFy"
+        )
+        assert cs.get("invalidkey", "defaultval") == "defaultval"

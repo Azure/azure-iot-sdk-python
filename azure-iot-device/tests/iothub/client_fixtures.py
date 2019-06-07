@@ -41,28 +41,24 @@ def auth_provider(request):
 
 class FakePipelineAdapter:
     def __init__(self):
-        self.feature_enabled = {
-            constant.C2D_MSG: False,
-            constant.INPUT_MSG: False,
-            constant.METHODS: False,
-        }
+        self.feature_enabled = {}  # This just has to be here for the spec
 
-    def connect(self, callback):
+    def connect(self, callback=None):
         callback()
 
-    def disconnect(self, callback):
+    def disconnect(self, callback=None):
         callback()
 
-    def enable_feature(self, feature_name, callback=None, qos=1):
+    def enable_feature(self, feature_name, callback=None):
         callback()
 
     def disable_feature(self, feature_name, callback=None):
         callback()
 
-    def send_event(self, event, callback):
+    def send_event(self, event, callback=None):
         callback()
 
-    def send_output_event(self, event, callback):
+    def send_output_event(self, event, callback=None):
         callback()
 
     def send_method_response(self, method_response, callback=None):
@@ -71,4 +67,15 @@ class FakePipelineAdapter:
 
 @pytest.fixture
 def pipeline(mocker):
+    """This fixture will automatically handle callbacks and should be
+    used in the majority of tests.
+    """
     return mocker.MagicMock(wraps=FakePipelineAdapter())
+
+
+@pytest.fixture
+def pipeline_manual_cb(mocker):
+    """This fixture is for use in tests where manual triggering of a
+    callback is required
+    """
+    return mocker.MagicMock()

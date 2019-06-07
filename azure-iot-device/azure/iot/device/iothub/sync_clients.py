@@ -8,7 +8,7 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-from threading import Event
+import threading
 from .abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -66,7 +66,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Connecting to Hub...")
 
-        connect_complete = Event()
+        connect_complete = threading.Event()
 
         def callback():
             connect_complete.set()
@@ -83,7 +83,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Disconnecting from Hub...")
 
-        disconnect_complete = Event()
+        disconnect_complete = threading.Event()
 
         def callback():
             disconnect_complete.set()
@@ -108,7 +108,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             message = Message(message)
 
         logger.info("Sending message to Hub...")
-        send_complete = Event()
+        send_complete = threading.Event()
 
         def callback():
             send_complete.set()
@@ -155,7 +155,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :type method_response: MethodResponse
         """
         logger.info("Sending method response to Hub...")
-        send_complete = Event()
+        send_complete = threading.Event()
 
         def callback():
             send_complete.set()
@@ -174,7 +174,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         See azure.iot.device.common.pipeline.constant for possible values
         """
         logger.info("Enabling feature:" + feature_name + "...")
-        enable_complete = Event()
+        enable_complete = threading.Event()
 
         def callback():
             enable_complete.set()
@@ -312,13 +312,13 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         message.output_name = output_name
 
         logger.info("Sending message to output:" + output_name + "...")
-        send_complete = Event()
+        send_complete = threading.Event()
 
         def callback():
             logger.info("Successfully sent message to output: " + output_name)
             send_complete.set()
 
-        self._pipeline.send_output_event(message, callback)
+        self._pipeline.send_output_event(message, callback=callback)
         send_complete.wait()
 
     def receive_input_message(self, input_name, block=True, timeout=None):

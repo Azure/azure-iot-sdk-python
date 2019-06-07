@@ -8,7 +8,7 @@ import sys
 import pytest
 
 # These fixtures are shared between sync and async clients
-from .client_fixtures import auth_provider, pipeline
+from .client_fixtures import auth_provider, pipeline, pipeline_manual_cb
 from tests.common.pipeline_test_fixtures import callback, fake_exception, fake_base_exception, event
 
 collect_ignore = []

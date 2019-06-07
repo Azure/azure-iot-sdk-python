@@ -11,8 +11,6 @@ import hashlib
 import time
 import six.moves.urllib as urllib
 
-__all__ = ["SasToken", "SasTokenError"]
-
 
 class SasTokenError(Exception):
     """Error in SasToken"""
@@ -55,7 +53,7 @@ class SasToken(object):
         self.ttl = ttl
         self.refresh()
 
-    def __repr__(self):
+    def __str__(self):
         return self._token
 
     def refresh(self):

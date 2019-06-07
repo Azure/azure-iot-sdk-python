@@ -38,7 +38,9 @@ def sastoken(request):
         return SasToken(uri, key, key_name)
 
 
+@pytest.mark.describe("SasToken")
 class TestSasToken(object):
+    @pytest.mark.it("Instantiates with default TTL of 3600 seconds")
     @pytest.mark.parametrize(
         "kwargs",
         [
@@ -53,6 +55,7 @@ class TestSasToken(object):
         assert s._key_name == kwargs.get("key_name")
         assert s.ttl == 3600
 
+    @pytest.mark.it("Instantiates with a custom TTL")
     @pytest.mark.parametrize(
         "kwargs",
         [
@@ -69,6 +72,7 @@ class TestSasToken(object):
         assert s._key_name == kwargs.get("key_name")
         assert s.ttl == 9000
 
+    @pytest.mark.it("URL encodes UTF-8 characters in provided URI")
     def test_url_encodes_utf8_characters_in_uri(self):
         utf8_uri = "my châteu.host.name"
         s = SasToken(utf8_uri, key)
@@ -76,11 +80,13 @@ class TestSasToken(object):
         expected_uri = "my+ch%C3%A2teu.host.name"
         assert s._uri == expected_uri
 
+    @pytest.mark.it("Raises SasTokenError if provided a key that is not base64 encoded")
     def test_raises_sastoken_error_if_key_is_not_base64(self):
         non_b64_key = "this is not base64"
         with pytest.raises(SasTokenError):
             SasToken(uri, non_b64_key)
 
+    @pytest.mark.it("Converting object to string returns the SasToken string")
     @pytest.mark.parametrize(
         "sastoken,token_pattern",
         [
@@ -106,13 +112,7 @@ class TestSasToken(object):
         strrep = str(sastoken)
         assert strrep == expected_string
 
-    def test_refreshing_token_extends_expiry_time(self, sastoken):
-        old_expiry = sastoken.expiry_time
-        time.sleep(1)
-        sastoken.refresh()
-        new_expiry = sastoken.expiry_time
-        assert new_expiry > old_expiry
-
+    @pytest.mark.it("Can be refreshed to extend the expiry time by the TTL")
     def test_refreshing_token_sets_expiry_time_to_be_ttl_seconds_in_the_future(
         self, mocker, sastoken
     ):
@@ -121,6 +121,7 @@ class TestSasToken(object):
         sastoken.refresh()
         assert sastoken.expiry_time == current_time + sastoken.ttl
 
+    @pytest.mark.it("Updates SasToken string upon refresh")
     def test_refreshing_token_changes_string_representation(self, sastoken):
         # This should happen because refreshing updates expiry time
         old_token_string = str(sastoken)
