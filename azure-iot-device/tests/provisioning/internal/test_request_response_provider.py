@@ -10,11 +10,11 @@ from mock import MagicMock
 from azure.iot.device.provisioning.internal.request_response_provider import RequestResponseProvider
 
 
-fake_rid = "Request1234"
+fake_request_id = "Request1234"
 fake_operation_id = "Operation4567"
-fake_request_topic = "$ministryservices/wizardregistrations/rid={}"
+fake_request_topic = "$ministryservices/wizardregistrations/$rid={}"
 fake_subscribe_topic = "$dps/registrations/res/#"
-fake_success_response_topic = "$dps/registrations/res/9999/?$rid={}".format(fake_rid)
+fake_success_response_topic = "$dps/registrations/res/9999/?$rid={}".format(fake_request_id)
 POS_STATUS_CODE_IN_TOPIC = 3
 POS_QUERY_PARAM_PORTION = 2
 POS_URL_PORTION = 1
@@ -70,7 +70,7 @@ class TestRequestResponseProvider:
         req = "Leviosa"
         mock_callback = MagicMock()
         request_response_provider.send_request(
-            rid=fake_rid,
+            request_id=fake_request_id,
             request_payload=req,
             operation_id=fake_operation_id,
             callback_on_response=mock_callback,
@@ -81,7 +81,7 @@ class TestRequestResponseProvider:
             mock_provisioning_pipeline.send_request.call_args[1]["operation_id"]
             == fake_operation_id
         )
-        assert mock_provisioning_pipeline.send_request.call_args[1]["rid"] == fake_rid
+        assert mock_provisioning_pipeline.send_request.call_args[1]["request_id"] == fake_request_id
 
         assert mock_provisioning_pipeline.send_request.call_args[1]["request_payload"] == req
 
@@ -138,7 +138,7 @@ class TestRequestResponseProvider:
 
         mock_callback = MagicMock()
         request_response_provider.send_request(
-            rid=fake_rid,
+            request_id=fake_request_id,
             request_payload=req,
             operation_id=fake_operation_id,
             callback_on_response=mock_callback,
@@ -152,7 +152,7 @@ class TestRequestResponseProvider:
 
         mock_payload = payload.encode("utf-8")
         mock_provisioning_pipeline.on_provisioning_pipeline_message_received(
-            fake_rid, "202", key_value_dict, mock_payload
+            fake_request_id, "202", key_value_dict, mock_payload
         )
 
-        mock_callback.assert_called_once_with(fake_rid, "202", key_value_dict, mock_payload)
+        mock_callback.assert_called_once_with(fake_request_id, "202", key_value_dict, mock_payload)

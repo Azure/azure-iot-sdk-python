@@ -20,7 +20,7 @@ from azure.iot.device.iothub.pipeline import (
 )
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from tests.common.pipeline_test import (
+from tests.common.pipeline.helpers import (
     assert_default_stage_attributes,
     ConcretePipelineStage,
     assert_callback_failed,
@@ -31,7 +31,7 @@ from tests.common.pipeline_test import (
     make_mock_stage,
     UnhandledException,
 )
-from tests.iothub.pipeline_test import all_iothub_ops, all_iothub_events
+from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 
 logging.basicConfig(level=logging.INFO)
 

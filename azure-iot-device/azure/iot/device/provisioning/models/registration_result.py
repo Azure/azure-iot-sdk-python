@@ -16,16 +16,16 @@ class RegistrationResult(object):
     from the provisioning service.
     """
 
-    def __init__(self, rid, operation_id, status, registration_state=None):
+    def __init__(self, request_id, operation_id, status, registration_state=None):
         """
-        :param rid: The request id to which the response is being obtained
+        :param request_id: The request id to which the response is being obtained
         :param operation_id: The id of the operation as returned by the initial registration request.
         :param status: The status of the registration process.
         Values can be "unassigned", "assigning", "assigned", "failed", "disabled"
         :param registration_state : Details like device id, assigned hub , date times etc returned
         from the provisioning service.
         """
-        self._request_id = rid
+        self._request_id = request_id
         self._operation_id = operation_id
         self._status = status
         self._registration_state = registration_state

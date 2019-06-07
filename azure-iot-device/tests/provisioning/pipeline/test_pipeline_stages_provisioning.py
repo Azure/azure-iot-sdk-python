@@ -13,7 +13,7 @@ from azure.iot.device.provisioning.pipeline import (
 )
 from azure.iot.device.common.pipeline import pipeline_ops_base
 
-from tests.common.pipeline_test import (
+from tests.common.pipeline.helpers import (
     assert_default_stage_attributes,
     assert_callback_succeeded,
     assert_callback_failed,
@@ -22,9 +22,8 @@ from tests.common.pipeline_test import (
     make_mock_stage,
     UnhandledException,
 )
-from tests.common import pipeline_test
 from azure.iot.device.common.pipeline import pipeline_events_base
-from tests.provisioning.pipeline_test import all_provisioning_ops
+from tests.provisioning.pipeline.helpers import all_provisioning_ops
 
 logging.basicConfig(level=logging.INFO)
 

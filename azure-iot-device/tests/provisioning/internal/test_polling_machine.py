@@ -35,9 +35,9 @@ fake_assigned_status = "assigned"
 
 
 class SomeRequestResponseProvider(RequestResponseProvider):
-    def receive_response(self, rid, status_code, key_values, payload_str):
+    def receive_response(self, request_id, status_code, key_values, payload_str):
         return super(SomeRequestResponseProvider, self)._receive_response(
-            rid=rid,
+            request_id=request_id,
             status_code=status_code,
             key_value_dict=key_values,
             response_payload=payload_str,
@@ -95,7 +95,7 @@ class TestRegister:
 
         assert mock_request_response_provider.send_request.call_count == 1
         assert (
-            mock_request_response_provider.send_request.call_args_list[0][1]["rid"]
+            mock_request_response_provider.send_request.call_args_list[0][1]["request_id"]
             == fake_request_id
         )
         assert (
@@ -128,7 +128,7 @@ class TestRegisterResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
         key_value_dict["retry-after"] = [fake_retry_after, " "]
 
         # to transition into registering
@@ -159,10 +159,13 @@ class TestRegisterResponse:
         time_up_call()
 
         assert state_based_mqtt.send_request.call_count == 2
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[1][1]["rid"] == fake_request_id_query
+        assert (
+            state_based_mqtt.send_request.call_args_list[1][1]["request_id"]
+            == fake_request_id_query
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[1][1]["operation_id"] == fake_operation_id
         )
@@ -190,7 +193,7 @@ class TestRegisterResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
         key_value_dict["retry-after"] = [fake_retry_after, " "]
 
         # to transition into registering
@@ -225,7 +228,7 @@ class TestRegisterResponse:
         polling_machine._on_disconnect_completed_register()
 
         assert state_based_mqtt.send_request.call_count == 1
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
         assert mock_callback.call_count == 1
@@ -260,7 +263,7 @@ class TestRegisterResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -273,7 +276,7 @@ class TestRegisterResponse:
         polling_machine._on_disconnect_completed_error()
 
         assert state_based_mqtt.send_request.call_count == 1
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
         assert mock_callback.call_count == 1
@@ -304,7 +307,7 @@ class TestRegisterResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -343,7 +346,7 @@ class TestRegisterResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
         key_value_dict["retry-after"] = [fake_retry_after, " "]
 
         # to transition into registering
@@ -369,10 +372,10 @@ class TestRegisterResponse:
         time_up_call()
 
         assert state_based_mqtt.send_request.call_count == 2
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[1][1]["rid"] == fake_request_id_2
+        assert state_based_mqtt.send_request.call_args_list[1][1]["request_id"] == fake_request_id_2
         assert state_based_mqtt.send_request.call_args_list[1][1]["request_payload"] == " "
 
     @pytest.mark.it("calls callback of register with error when there is a time out")
@@ -405,7 +408,7 @@ class TestRegisterResponse:
         polling_machine._on_disconnect_completed_error()
 
         assert state_based_mqtt.send_request.call_count == 1
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert mock_callback.call_count == 1
         assert mock_callback.call_args[0][1].args[0] == "Time is up for query timer"
 
@@ -436,7 +439,7 @@ class TestQueryResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -446,7 +449,7 @@ class TestQueryResponse:
         fake_request_id_query = "Request4567"
         mock_init_uuid.return_value = fake_request_id_query
         key_value_dict_2 = {}
-        key_value_dict_2["rid"] = [fake_request_id_query, " "]
+        key_value_dict_2["request_id"] = [fake_request_id_query, " "]
 
         # fake_register_topic = fake_success_response_topic + "$rid={}".format(fake_request_id)
         fake_register_payload_result = (
@@ -486,16 +489,22 @@ class TestQueryResponse:
         time_up_call()
 
         assert state_based_mqtt.send_request.call_count == 3
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[1][1]["rid"] == fake_request_id_query
+        assert (
+            state_based_mqtt.send_request.call_args_list[1][1]["request_id"]
+            == fake_request_id_query
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[1][1]["operation_id"] == fake_operation_id
         )
         assert state_based_mqtt.send_request.call_args_list[1][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[2][1]["rid"] == fake_request_id_query_2
+        assert (
+            state_based_mqtt.send_request.call_args_list[2][1]["request_id"]
+            == fake_request_id_query_2
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[2][1]["operation_id"] == fake_operation_id
         )
@@ -523,7 +532,7 @@ class TestQueryResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -533,7 +542,7 @@ class TestQueryResponse:
         fake_request_id_query = "Request4567"
         mock_init_uuid.return_value = fake_request_id_query
         key_value_dict_2 = {}
-        key_value_dict_2["rid"] = [fake_request_id_query, " "]
+        key_value_dict_2["request_id"] = [fake_request_id_query, " "]
 
         fake_register_payload_result = (
             '{"operationId":"' + fake_operation_id + '","status":"' + fake_assigning_status + '"}'
@@ -582,10 +591,13 @@ class TestQueryResponse:
         polling_machine._on_disconnect_completed_register()
 
         assert state_based_mqtt.send_request.call_count == 2
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[1][1]["rid"] == fake_request_id_query
+        assert (
+            state_based_mqtt.send_request.call_args_list[1][1]["request_id"]
+            == fake_request_id_query
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[1][1]["operation_id"] == fake_operation_id
         )
@@ -616,7 +628,7 @@ class TestQueryResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -626,7 +638,7 @@ class TestQueryResponse:
         fake_request_id_query = "Request4567"
         mock_init_uuid.return_value = fake_request_id_query
         key_value_dict_2 = {}
-        key_value_dict_2["rid"] = [fake_request_id_query, " "]
+        key_value_dict_2["request_id"] = [fake_request_id_query, " "]
 
         fake_register_payload_result = (
             '{"operationId":"' + fake_operation_id + '","status":"' + fake_assigning_status + '"}'
@@ -655,10 +667,13 @@ class TestQueryResponse:
         polling_machine._on_disconnect_completed_error()
 
         assert state_based_mqtt.send_request.call_count == 2
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[1][1]["rid"] == fake_request_id_query
+        assert (
+            state_based_mqtt.send_request.call_args_list[1][1]["request_id"]
+            == fake_request_id_query
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[1][1]["operation_id"] == fake_operation_id
         )
@@ -689,7 +704,7 @@ class TestQueryResponse:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -699,7 +714,7 @@ class TestQueryResponse:
         fake_request_id_query = "Request4567"
         mock_init_uuid.return_value = fake_request_id_query
         key_value_dict_2 = {}
-        key_value_dict_2["rid"] = [fake_request_id_query, " "]
+        key_value_dict_2["request_id"] = [fake_request_id_query, " "]
 
         # fake_register_topic = fake_success_response_topic + "$rid={}".format(fake_request_id)
         fake_register_payload_result = (
@@ -738,16 +753,22 @@ class TestQueryResponse:
         time_up_call()
 
         assert state_based_mqtt.send_request.call_count == 3
-        assert state_based_mqtt.send_request.call_args_list[0][1]["rid"] == fake_request_id
+        assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[1][1]["rid"] == fake_request_id_query
+        assert (
+            state_based_mqtt.send_request.call_args_list[1][1]["request_id"]
+            == fake_request_id_query
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[1][1]["operation_id"] == fake_operation_id
         )
         assert state_based_mqtt.send_request.call_args_list[1][1]["request_payload"] == " "
 
-        assert state_based_mqtt.send_request.call_args_list[2][1]["rid"] == fake_request_id_query_2
+        assert (
+            state_based_mqtt.send_request.call_args_list[2][1]["request_id"]
+            == fake_request_id_query_2
+        )
         assert (
             state_based_mqtt.send_request.call_args_list[2][1]["operation_id"] == fake_operation_id
         )
@@ -798,7 +819,7 @@ class TestCancel:
         )
         mock_init_uuid.return_value = fake_request_id
         key_value_dict = {}
-        key_value_dict["rid"] = [fake_request_id, " "]
+        key_value_dict["request_id"] = [fake_request_id, " "]
 
         # to transition into registering
         polling_machine._on_subscribe_completed()
@@ -808,7 +829,7 @@ class TestCancel:
         fake_request_id_query = "Request4567"
         mock_init_uuid.return_value = fake_request_id_query
         key_value_dict_2 = {}
-        key_value_dict_2["rid"] = [fake_request_id_query, " "]
+        key_value_dict_2["request_id"] = [fake_request_id_query, " "]
 
         fake_payload_result = (
             '{"operationId":"' + fake_operation_id + '","status":"' + fake_assigning_status + '"}'

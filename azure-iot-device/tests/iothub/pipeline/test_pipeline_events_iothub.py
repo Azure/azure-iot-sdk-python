@@ -3,32 +3,33 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import pytest
+import sys
 from azure.iot.device.iothub.pipeline import pipeline_events_iothub
+from tests.common.pipeline import pipeline_data_object_test
 
-fake_message = "__fake_messsage__"
-fake_input_name = "__fake_input_name__"
+this_module = sys.modules[__name__]
 
-
-@pytest.mark.describe("C2DMessageEvent object")
-class TestC2DMessageEvent(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets message attribute on instantiation")
-    def test_default_arguments(self):
-        obj = pipeline_events_iothub.C2DMessageEvent(message=fake_message)
-        assert obj.name is obj.__class__.__name__
-        assert obj.message is fake_message
-
-
-@pytest.mark.describe("InputMessageEvent object")
-class TestInputMessageEvent(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets message attribute on instantiation")
-    @pytest.mark.it("Sets input_name attribute on instantiation")
-    def test_default_arguments(self):
-        obj = pipeline_events_iothub.InputMessageEvent(
-            message=fake_message, input_name=fake_input_name
-        )
-        assert obj.name is obj.__class__.__name__
-        assert obj.message is fake_message
-        assert obj.input_name is fake_input_name
+pipeline_data_object_test.add_event_test(
+    obj=pipeline_events_iothub.C2DMessageEvent,
+    module=this_module,
+    positional_arguments=["message"],
+    keyword_arguments={},
+)
+pipeline_data_object_test.add_event_test(
+    obj=pipeline_events_iothub.InputMessageEvent,
+    module=this_module,
+    positional_arguments=["input_name", "message"],
+    keyword_arguments={},
+)
+pipeline_data_object_test.add_event_test(
+    obj=pipeline_events_iothub.MethodRequest,
+    module=this_module,
+    positional_arguments=["method_request"],
+    keyword_arguments={},
+)
+pipeline_data_object_test.add_event_test(
+    obj=pipeline_events_iothub.TwinDesiredPropertiesPatchEvent,
+    module=this_module,
+    positional_arguments=["patch"],
+    keyword_arguments={},
+)

@@ -186,11 +186,11 @@ class PollingMachine(object):
         logger.info("Sending registration request")
         self._set_query_timer()
 
-        rid = str(uuid.uuid4())
+        request_id = str(uuid.uuid4())
 
-        self._operations[rid] = constant.PUBLISH_TOPIC_REGISTRATION.format(rid)
+        self._operations[request_id] = constant.PUBLISH_TOPIC_REGISTRATION.format(request_id)
         self._request_response_provider.send_request(
-            rid=rid,
+            request_id=request_id,
             request_payload=" ",
             operation_id=None,
             callback_on_response=self._on_register_response_received,
@@ -203,22 +203,24 @@ class PollingMachine(object):
         logger.info("Querying operation status from polling machine")
         self._set_query_timer()
 
-        rid = str(uuid.uuid4())
+        request_id = str(uuid.uuid4())
         result = event_data.args[0].args[0]
 
         operation_id = result.operation_id
-        self._operations[rid] = constant.PUBLISH_TOPIC_QUERYING.format(rid, operation_id)
+        self._operations[request_id] = constant.PUBLISH_TOPIC_QUERYING.format(
+            request_id, operation_id
+        )
         self._request_response_provider.send_request(
-            rid=rid,
+            request_id=request_id,
             request_payload=" ",
             operation_id=operation_id,
             callback_on_response=self._on_query_response_received,
         )
 
-    def _on_register_response_received(self, rid, status_code, key_values_dict, response):
+    def _on_register_response_received(self, request_id, status_code, key_values_dict, response):
         """
         The function to call in case of a response from a registration request.
-        :param rid: The id of the original register request.
+        :param request_id: The id of the original register request.
         :param status_code: The status code in the response.
         :param key_values_dict: The dictionary containing the query parameters of the returned topic.
         :param response: The complete response from the service.
@@ -228,21 +230,21 @@ class PollingMachine(object):
         retry_after = (
             None if "retry-after" not in key_values_dict else str(key_values_dict["retry-after"][0])
         )
-        intermediate_registration_result = RegistrationQueryStatusResult(rid, retry_after)
+        intermediate_registration_result = RegistrationQueryStatusResult(request_id, retry_after)
 
         if int(status_code, 10) >= 429:
-            del self._operations[rid]
+            del self._operations[request_id]
             self._trig_wait(intermediate_registration_result)
         elif int(status_code, 10) >= 300:  # pure failure
             self._registration_error = ValueError("Incoming message failure")
             self._trig_error()
         else:  # successful case, transition into complete or poll status
-            self._process_successful_response(rid, retry_after, response)
+            self._process_successful_response(request_id, retry_after, response)
 
-    def _on_query_response_received(self, rid, status_code, key_values_dict, response):
+    def _on_query_response_received(self, request_id, status_code, key_values_dict, response):
         """
         The function to call in case of a response from a polling/query request.
-        :param rid: The id of the original query request.
+        :param request_id: The id of the original query request.
         :param status_code: The status code in the response.
         :param key_values_dict: The dictionary containing the query parameters of the returned topic.
         :param response: The complete response from the service.
@@ -253,12 +255,12 @@ class PollingMachine(object):
         retry_after = (
             None if "retry-after" not in key_values_dict else str(key_values_dict["retry-after"][0])
         )
-        intermediate_registration_result = RegistrationQueryStatusResult(rid, retry_after)
+        intermediate_registration_result = RegistrationQueryStatusResult(request_id, retry_after)
 
         if int(status_code, 10) >= 429:
-            if rid in self._operations:
-                publish_query_topic = self._operations[rid]
-                del self._operations[rid]
+            if request_id in self._operations:
+                publish_query_topic = self._operations[request_id]
+                del self._operations[request_id]
                 topic_parts = publish_query_topic.split("$")
                 key_values_publish_topic = urllib.parse.parse_qs(
                     topic_parts[POS_QUERY_PARAM_PORTION]
@@ -273,17 +275,17 @@ class PollingMachine(object):
             self._registration_error = ValueError("Incoming message failure")
             self._trig_error()
         else:  # successful status code case, transition into complete or another poll status
-            self._process_successful_response(rid, retry_after, response)
+            self._process_successful_response(request_id, retry_after, response)
 
-    def _process_successful_response(self, rid, retry_after, response):
+    def _process_successful_response(self, request_id, retry_after, response):
         """
         Fucntion to call in case of 200 response from the service
-        :param rid: The request id
+        :param request_id: The request id
         :param retry_after: The time after which to try again.
         :param response: The complete response
         """
-        del self._operations[rid]
-        successful_result = self._decode_json_response(rid, retry_after, response)
+        del self._operations[request_id]
+        successful_result = self._decode_json_response(request_id, retry_after, response)
         if successful_result.status == "assigning":
             self._trig_wait(successful_result)
         elif successful_result.status == "assigned" or successful_result.status == "failed":
@@ -389,17 +391,17 @@ class PollingMachine(object):
             )
 
         registration_result = RegistrationResult(
-            rid=query_result.rid,
+            request_id=query_result.request_id,
             operation_id=query_result.operation_id,
             status=query_result.status,
             registration_state=registration_state,
         )
         return registration_result
 
-    def _decode_json_response(self, rid, retry_after, response):
+    def _decode_json_response(self, request_id, retry_after, response):
         """
         Decodes the json response for operation id and status
-        :param rid: The request id.
+        :param request_id: The request id.
         :param retry_after: The time in secs after which to retry.
         :param response: The complete response from the service.
         """
@@ -410,7 +412,7 @@ class PollingMachine(object):
         )
         status = None if "status" not in decoded_result else str(decoded_result["status"])
 
-        return RegistrationQueryStatusResult(rid, retry_after, operation_id, status)
+        return RegistrationQueryStatusResult(request_id, retry_after, operation_id, status)
 
     def _on_disconnect_completed_error(self):
         logger.info("on_disconnect_completed for Device Provisioning Service")

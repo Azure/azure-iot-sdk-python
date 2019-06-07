@@ -3,31 +3,15 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import pytest
+import sys
 from azure.iot.device.provisioning.pipeline import pipeline_events_provisioning
+from tests.common.pipeline import pipeline_data_object_test
 
-fake_request_id = "req1234"
-fake_response = "HelloHogwarts"
-fake_status_code = 900
+this_module = sys.modules[__name__]
 
-
-@pytest.mark.describe("RegistrationResponseEvent")
-class TestRegistrationResponseEvent(object):
-    @pytest.mark.it("Sets certain attributes on instantiation")
-    def test_default_arguments(self):
-        fake_key_values = {}
-        fake_key_values["rid"] = [fake_request_id, " "]
-        fake_key_values["retry-after"] = ["300", " "]
-        fake_key_values["key1"] = ["value1", " "]
-
-        obj = pipeline_events_provisioning.RegistrationResponseEvent(
-            request_id=fake_key_values["rid"][0],
-            status_code=fake_status_code,
-            key_values=fake_key_values,
-            response_payload=fake_response,
-        )
-        assert obj.rid is fake_request_id
-        assert obj.status_code == fake_status_code
-        assert obj.key_values == fake_key_values
-        assert obj.response_payload is fake_response
-        assert obj.name is obj.__class__.__name__
+pipeline_data_object_test.add_event_test(
+    obj=pipeline_events_provisioning.RegistrationResponseEvent,
+    module=this_module,
+    positional_arguments=["request_id", "status_code", "key_values", "response_payload"],
+    keyword_arguments={},
+)

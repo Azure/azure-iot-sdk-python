@@ -116,7 +116,7 @@ class TestConnect:
         mock_provisioning_pipeline.on_provisioning_pipeline_connected.reset_mock()
 
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id, request_payload=fake_mqtt_payload
+            request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
         mock_provisioning_pipeline.connect()
 
@@ -136,7 +136,7 @@ class TestSendRegister:
         mock_provisioning_pipeline.connect()
         mock_mqtt_provider.on_mqtt_connected()
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id, request_payload=fake_mqtt_payload
+            request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
 
         assert mock_mqtt_provider.connect.call_count == 1
@@ -161,7 +161,7 @@ class TestSendRegister:
 
         # send an event
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id, request_payload=fake_mqtt_payload
+            request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
 
         # verify that we called connect
@@ -206,7 +206,7 @@ class TestSendRegister:
 
         # send an event
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id, request_payload=fake_mqtt_payload
+            request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
 
         # verify that we're not connected yet and verify that we havent't published yet
@@ -242,7 +242,7 @@ class TestSendRegister:
         # send an event
         callback_1 = MagicMock()
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id_1, request_payload=fake_msg_1, callback=callback_1
+            request_id=fake_request_id_1, request_payload=fake_msg_1, callback=callback_1
         )
 
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
@@ -256,7 +256,7 @@ class TestSendRegister:
         callback_2 = MagicMock()
         # provisioning_pipeline.send_event(fake_msg_2, callback_2)
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id_2, request_payload=fake_msg_2, callback=callback_2
+            request_id=fake_request_id_2, request_payload=fake_msg_2, callback=callback_2
         )
 
         # verify that we've called publish twice and verify that neither send_event
@@ -274,7 +274,7 @@ class TestSendRegister:
 
         # send an event
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id, request_payload=fake_mqtt_payload
+            request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
         mock_mqtt_provider.on_mqtt_published(0)
 
@@ -290,7 +290,9 @@ class TestSendQuery:
         mock_provisioning_pipeline.connect()
         mock_mqtt_provider.on_mqtt_connected()
         mock_provisioning_pipeline.send_request(
-            rid=fake_request_id, request_payload=fake_mqtt_payload, operation_id=fake_operation_id
+            request_id=fake_request_id,
+            request_payload=fake_mqtt_payload,
+            operation_id=fake_operation_id,
         )
 
         assert mock_mqtt_provider.connect.call_count == 1

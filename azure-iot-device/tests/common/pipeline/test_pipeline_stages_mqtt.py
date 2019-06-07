@@ -12,7 +12,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_events_mqtt,
     pipeline_stages_mqtt,
 )
-from tests.common.pipeline_test import (
+from tests.common.pipeline.helpers import (
     assert_default_stage_attributes,
     assert_callback_failed,
     assert_callback_succeeded,
@@ -21,7 +21,7 @@ from tests.common.pipeline_test import (
     all_except,
     UnhandledException,
 )
-from tests.iothub.pipeline_test import all_iothub_ops, all_iothub_events
+from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 
 logging.basicConfig(level=logging.INFO)
 

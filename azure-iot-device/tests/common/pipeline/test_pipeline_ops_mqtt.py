@@ -3,115 +3,33 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import pytest
+import sys
 from azure.iot.device.common.pipeline import pipeline_ops_mqtt
+from tests.common.pipeline import pipeline_data_object_test
 
-fake_callback = "__fake_callback__"
-fake_client_id = "__fake_client_id__"
-fake_hostname = "__fake_hostname__"
-fake_username = "__fake_username__"
-fake_ca_cert = "__fake_ca_cert__"
-fake_topic = "__fake_topic__"
-fake_payload = "__fake_payload__"
+this_module = sys.modules[__name__]
 
-
-def assert_all_base_defaults(obj):
-    assert obj.name is obj.__class__.__name__
-    assert obj.needs_connection is False
-    assert obj.error is None
-
-
-@pytest.mark.describe("SetConnectionArgs object")
-class TestSetConnectionArgs(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets error attribute to None on instantiation")
-    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
-    @pytest.mark.it("Sets client_id attribute on instantiation")
-    @pytest.mark.it("Sets hostname attribute on instantiation")
-    @pytest.mark.it("Sets username attribute on instantiation")
-    @pytest.mark.it("Sets ca_cert attribute to None if not provided on instantiation")
-    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
-    def test_required_arguments(self):
-        obj = pipeline_ops_mqtt.SetConnectionArgs(
-            client_id=fake_client_id, hostname=fake_hostname, username=fake_username
-        )
-        assert_all_base_defaults(obj)
-        assert obj.client_id is fake_client_id
-        assert obj.hostname is fake_hostname
-        assert obj.username is fake_username
-        assert obj.ca_cert is None
-        assert obj.callback is None
-
-    @pytest.mark.it("Sets ca_cert attribute if provided on instantiation")
-    @pytest.mark.it("Sets callback attribute if provided on instantiation")
-    def test_optional_arguments(self):
-        obj = pipeline_ops_mqtt.SetConnectionArgs(
-            client_id=fake_client_id,
-            hostname=fake_hostname,
-            username=fake_username,
-            ca_cert=fake_ca_cert,
-            callback=fake_callback,
-        )
-        assert obj.ca_cert is fake_ca_cert
-        assert obj.callback is fake_callback
-
-
-@pytest.mark.describe("Publish object")
-class TestPublish(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets error attribute to None on instantiation")
-    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
-    @pytest.mark.it("Sets topic attribute on instantiation")
-    @pytest.mark.it("Sets payload attribute on instantiation")
-    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
-    def test_required_arguments(self):
-        obj = pipeline_ops_mqtt.Publish(topic=fake_topic, payload=fake_payload)
-        assert_all_base_defaults(obj)
-        assert obj.topic is fake_topic
-        assert obj.payload is fake_payload
-        assert obj.callback is None
-
-    @pytest.mark.it("Sets callback attribute if provided on instantiation")
-    def test_optional_arguments(self):
-        obj = pipeline_ops_mqtt.Publish(
-            topic=fake_topic, payload=fake_payload, callback=fake_callback
-        )
-        assert obj.callback is fake_callback
-
-
-@pytest.mark.describe("Subscribe object")
-class TestSubscribe(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets error attribute to None on instantiation")
-    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
-    @pytest.mark.it("Sets topic attribute on instantiation")
-    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
-    def test_required_arguments(self):
-        obj = pipeline_ops_mqtt.Subscribe(topic=fake_topic)
-        assert_all_base_defaults(obj)
-        assert obj.topic is fake_topic
-        assert obj.callback is None
-
-    @pytest.mark.it("Sets callback attribute if provided on instantiation")
-    def test_optional_arguments(self):
-        obj = pipeline_ops_mqtt.Subscribe(topic=fake_topic, callback=fake_callback)
-        assert obj.callback is fake_callback
-
-
-@pytest.mark.describe("Unsubscribe object")
-class TestUnsubscribe(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets error attribute to None on instantiation")
-    @pytest.mark.it("Sets needs_connection attribute to False on instantiation")
-    @pytest.mark.it("Sets topic attribute on instantiation")
-    @pytest.mark.it("Sets callback attribute to None if not provided on instantiation")
-    def test_required_arguments(self):
-        obj = pipeline_ops_mqtt.Unsubscribe(topic=fake_topic)
-        assert_all_base_defaults(obj)
-        assert obj.topic is fake_topic
-        assert obj.callback is None
-
-    @pytest.mark.it("Sets callback attribute if provided on instantiation")
-    def test_optional_arguments(self):
-        obj = pipeline_ops_mqtt.Unsubscribe(topic=fake_topic, callback=fake_callback)
-        assert obj.callback is fake_callback
+pipeline_data_object_test.add_operation_test(
+    obj=pipeline_ops_mqtt.SetConnectionArgs,
+    module=this_module,
+    positional_arguments=["client_id", "hostname", "username"],
+    keyword_arguments={"ca_cert": None, "callback": None},
+)
+pipeline_data_object_test.add_operation_test(
+    obj=pipeline_ops_mqtt.Publish,
+    module=this_module,
+    positional_arguments=["topic", "payload"],
+    keyword_arguments={"callback": None},
+)
+pipeline_data_object_test.add_operation_test(
+    obj=pipeline_ops_mqtt.Subscribe,
+    module=this_module,
+    positional_arguments=["topic"],
+    keyword_arguments={"callback": None},
+)
+pipeline_data_object_test.add_operation_test(
+    obj=pipeline_ops_mqtt.Unsubscribe,
+    module=this_module,
+    positional_arguments=["topic"],
+    keyword_arguments={"callback": None},
+)

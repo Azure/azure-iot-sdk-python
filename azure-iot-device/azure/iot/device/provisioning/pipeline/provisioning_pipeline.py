@@ -41,7 +41,10 @@ class ProvisioningPipeline(object):
             if isinstance(event, pipeline_events_provisioning.RegistrationResponseEvent):
                 if self.on_provisioning_pipeline_message_received:
                     self.on_provisioning_pipeline_message_received(
-                        event.rid, event.status_code, event.key_values, event.response_payload
+                        event.request_id,
+                        event.status_code,
+                        event.key_values,
+                        event.response_payload,
                     )
                 else:
                     logger.warning("C2D event received with no handler.  dropping.")
@@ -105,10 +108,10 @@ class ProvisioningPipeline(object):
 
         self._pipeline.run_op(pipeline_ops_base.Disconnect(callback=pipeline_callback))
 
-    def send_request(self, rid, request_payload, operation_id=None, callback=None):
+    def send_request(self, request_id, request_payload, operation_id=None, callback=None):
         """
         Send a request to the Device Provisioning Service.
-        :param rid: The id of the request
+        :param request_id: The id of the request
         :param request_payload: The request which is to be sent.
         :param operation_id: The id of the operation.
         :param callback: callback which is called when the message publish has been acknowledged by the service.
@@ -124,14 +127,14 @@ class ProvisioningPipeline(object):
         op = None
         if operation_id is not None:
             op = pipeline_ops_provisioning.SendQueryRequest(
-                rid=rid,
+                request_id=request_id,
                 operation_id=operation_id,
                 request_payload=request_payload,
                 callback=pipeline_callback,
             )
         else:
             op = pipeline_ops_provisioning.SendRegistrationRequest(
-                rid=rid, request_payload=request_payload, callback=pipeline_callback
+                request_id=request_id, request_payload=request_payload, callback=pipeline_callback
             )
 
         self._pipeline.run_op(op)

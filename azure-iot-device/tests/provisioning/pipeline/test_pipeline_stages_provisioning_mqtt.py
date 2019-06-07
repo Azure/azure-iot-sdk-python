@@ -17,7 +17,7 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_ops_provisioning,
     pipeline_stages_provisioning_mqtt,
 )
-from tests.common.pipeline_test import (
+from tests.common.pipeline.helpers import (
     assert_default_stage_attributes,
     ConcretePipelineStage,
     assert_callback_failed,
@@ -28,7 +28,7 @@ from tests.common.pipeline_test import (
     make_mock_stage,
     UnhandledException,
 )
-from tests.provisioning.pipeline_test import all_provisioning_ops, all_provisioning_events
+from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
 
 logging.basicConfig(level=logging.INFO)
 
@@ -195,13 +195,13 @@ class TestProvisioningMQTTConverterWithSetAuthProviderArgs(object):
 basic_ops = [
     {
         "op_class": pipeline_ops_provisioning.SendRegistrationRequest,
-        "op_init_kwargs": {"rid": fake_request_id, "request_payload": fake_mqtt_payload},
+        "op_init_kwargs": {"request_id": fake_request_id, "request_payload": fake_mqtt_payload},
         "new_op_class": pipeline_ops_mqtt.Publish,
     },
     {
         "op_class": pipeline_ops_provisioning.SendQueryRequest,
         "op_init_kwargs": {
-            "rid": fake_request_id,
+            "request_id": fake_request_id,
             "operation_id": fake_operation_id,
             "request_payload": fake_mqtt_payload,
         },
@@ -266,20 +266,22 @@ publish_ops = [
     {
         "name": "send register request",
         "op_class": pipeline_ops_provisioning.SendRegistrationRequest,
-        "op_init_kwargs": {"rid": fake_request_id, "request_payload": fake_mqtt_payload},
-        "topic": "$dps/registrations/PUT/iotdps-register/?$rid={rid}".format(rid=fake_request_id),
+        "op_init_kwargs": {"request_id": fake_request_id, "request_payload": fake_mqtt_payload},
+        "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
+            request_id=fake_request_id
+        ),
         "publish_payload": fake_mqtt_payload,
     },
     {
         "name": "send query request",
         "op_class": pipeline_ops_provisioning.SendQueryRequest,
         "op_init_kwargs": {
-            "rid": fake_request_id,
+            "request_id": fake_request_id,
             "operation_id": fake_operation_id,
             "request_payload": fake_mqtt_payload,
         },
-        "topic": "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={rid}&operationId={operation_id}".format(
-            rid=fake_request_id, operation_id=fake_operation_id
+        "topic": "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={request_id}&operationId={operation_id}".format(
+            request_id=fake_request_id, operation_id=fake_operation_id
         ),
         "publish_payload": fake_mqtt_payload,
     },
@@ -387,7 +389,7 @@ class TestProvisioningMQTTConverterHandlePipelineEventRegistrationResponse(objec
     ):
         mock_stage.handle_pipeline_event(dps_response_event)
         new_event = mock_stage.previous.handle_pipeline_event.call_args[0][0]
-        assert new_event.rid == fake_request_id
+        assert new_event.request_id == fake_request_id
         assert new_event.status_code == "200"
 
     @pytest.mark.it("passes up other messages")

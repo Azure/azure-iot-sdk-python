@@ -25,7 +25,7 @@ all_provisioning_ops = [
 ]
 
 fake_key_values = {}
-fake_key_values["rid"] = ["request_1234", " "]
+fake_key_values["request_id"] = ["request_1234", " "]
 fake_key_values["retry-after"] = ["300", " "]
 fake_key_values["name"] = ["hermione", " "]
 

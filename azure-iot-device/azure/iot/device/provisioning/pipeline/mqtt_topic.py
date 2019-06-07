@@ -24,21 +24,24 @@ def get_topic_for_subscribe():
     return _get_topic_base() + "res/#"
 
 
-def get_topic_for_register(rid):
+def get_topic_for_register(request_id):
     """
     return the topic string used to publish telemetry
     """
-    return (_get_topic_base() + "PUT/iotdps-register/?$rid={rid}").format(rid=rid)
+    return (_get_topic_base() + "PUT/iotdps-register/?$rid={request_id}").format(
+        request_id=request_id
+    )
 
 
-def get_topic_for_query(rid, operation_id):
+def get_topic_for_query(request_id, operation_id):
     """
     :return: The topic for cloud to device messages.It is of the format
     "devices/<deviceid>/messages/devicebound/#"
     """
     return (
-        _get_topic_base() + "GET/iotdps-get-operationstatus/?$rid={rid}&operationId={operation_id}"
-    ).format(rid=rid, operation_id=operation_id)
+        _get_topic_base()
+        + "GET/iotdps-get-operationstatus/?$rid={request_id}&operationId={operation_id}"
+    ).format(request_id=request_id, operation_id=operation_id)
 
 
 def get_topic_for_response():

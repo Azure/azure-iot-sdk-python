@@ -4,11 +4,4 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
-import pytest
-
-collect_ignore = []
-
-# Ignore Async tests if below Python 3.5
-if sys.version_info < (3, 5):
-    collect_ignore.append("aio")
+from tests.common.pipeline.fixtures import callback, fake_exception, fake_base_exception, event

@@ -51,8 +51,8 @@ def get_method_topic_for_publish(request_id, status):
     :return: The topic for publishing method responses. It is of the format
     "$iothub/methods/res/<status>/?$rid=<requestId>
     """
-    return "$iothub/methods/res/{status}/?$rid={rid}".format(
-        status=urllib.parse.quote_plus(status), rid=urllib.parse.quote_plus(request_id)
+    return "$iothub/methods/res/{status}/?$rid={request_id}".format(
+        status=urllib.parse.quote_plus(status), request_id=urllib.parse.quote_plus(request_id)
     )
 
 

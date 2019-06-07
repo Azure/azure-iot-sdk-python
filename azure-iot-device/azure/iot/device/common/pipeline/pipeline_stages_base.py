@@ -664,7 +664,7 @@ class CoordinateRequestAndResponse(PipelineStage):
                 op.response_body = event.response_body
             else:
                 logger.warning(
-                    "IotResponseEvent with unknown RID received.  Nothing to do. Dropping"
+                    "IotResponseEvent with unknown request_id received.  Nothing to do. Dropping"
                 )
         else:
             super(CoordinateRequestAndResponse, self)._handle_pipeline_event(event)

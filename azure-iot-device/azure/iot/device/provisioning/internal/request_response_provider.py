@@ -28,17 +28,19 @@ class RequestResponseProvider(object):
 
         self._pending_requests = {}
 
-    def send_request(self, rid, request_payload, operation_id=None, callback_on_response=None):
+    def send_request(
+        self, request_id, request_payload, operation_id=None, callback_on_response=None
+    ):
         """
         Sends a request
-        :param rid: Id of the request
+        :param request_id: Id of the request
         :param request_payload: The payload of the request.
         :param operation_id: A id of the operation in case it is an ongoing process.
         :param callback_on_response: callback which is called when response comes back for this request.
         """
-        self._pending_requests[rid] = callback_on_response
+        self._pending_requests[request_id] = callback_on_response
         self._provisioning_pipeline.send_request(
-            rid=rid,
+            request_id=request_id,
             request_payload=request_payload,
             operation_id=operation_id,
             callback=self._on_publish_completed,
@@ -64,10 +66,10 @@ class RequestResponseProvider(object):
             callback = self._on_unsubscribe_completed
         self._provisioning_pipeline.disable_responses(callback=callback)
 
-    def _receive_response(self, rid, status_code, key_value_dict, response_payload):
+    def _receive_response(self, request_id, status_code, key_value_dict, response_payload):
         """
         Handler that processes the response from the service.
-        :param rid: The id of the request which is being responded to.
+        :param request_id: The id of the request which is being responded to.
         :param status_code: The status code inside the response
         :param key_value_dict: A dictionary of keys mapped to a list of values extracted from the topic of the response.
         :param response_payload: String payload of the message received.
@@ -79,13 +81,13 @@ class RequestResponseProvider(object):
         # """
         logger.info("Received response {}:".format(response_payload))
 
-        if rid in self._pending_requests:
-            callback = self._pending_requests[rid]
+        if request_id in self._pending_requests:
+            callback = self._pending_requests[request_id]
             # Only send the status code and the extracted topic
-            callback(rid, status_code, key_value_dict, response_payload)
-            del self._pending_requests[rid]
+            callback(request_id, status_code, key_value_dict, response_payload)
+            del self._pending_requests[request_id]
 
-        # TODO : What happens when rid if not there ? trigger error ?
+        # TODO : What happens when request_id if not there ? trigger error ?
 
     def _on_connection_state_change(self, new_state):
         """Handler to be called by the pipeline upon a connection state change."""

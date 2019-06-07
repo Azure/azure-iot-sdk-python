@@ -56,7 +56,7 @@ class IotResponseEvent(PipelineEvent):
     """
 
     def __init__(self, request_id, status_code, response_body):
-        super(IotResponseEvent, self).__init()
+        super(IotResponseEvent, self).__init__()
         self.request_id = request_id
         self.status_code = status_code
         self.response_body = response_body

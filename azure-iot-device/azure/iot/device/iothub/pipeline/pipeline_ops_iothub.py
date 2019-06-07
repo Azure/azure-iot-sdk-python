@@ -146,12 +146,13 @@ class GetTwin(PipelineOperation):
     :type twin: Twin
     """
 
-    def __init__(self):
+    def __init__(self, callback=None):
         """
         Initializer for GetTwin objects.
         """
-        super(GetTwin, self).__init()
+        super(GetTwin, self).__init__(callback=callback)
         self.twin = None
+        self.needs_connection = True
 
 
 class PatchTwinReportedProperties(PipelineOperation):
@@ -160,12 +161,13 @@ class PatchTwinReportedProperties(PipelineOperation):
     IoT Hub or Azure IoT Edge Hub service.
     """
 
-    def __init__(self, patch):
+    def __init__(self, patch, callback=None):
         """
         Initializer for PatchTwinReportedProperties object
 
         :param patch: The reported properties patch to send to the service.
         :type patch: dict, str, int, float, bool, or None (JSON compatible values)
         """
-        super(PatchTwinReportedProperties, self).__init()
+        super(PatchTwinReportedProperties, self).__init__(callback=callback)
         self.patch = patch
+        self.needs_connection = True

@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from . import pipeline_test
+from tests.common.pipeline import helpers
 from azure.iot.device.common.pipeline import pipeline_events_base
 
 
@@ -20,7 +20,7 @@ def fake_exception():
 
 @pytest.fixture
 def fake_base_exception():
-    return pipeline_test.UnhandledException()
+    return helpers.UnhandledException()
 
 
 @pytest.fixture

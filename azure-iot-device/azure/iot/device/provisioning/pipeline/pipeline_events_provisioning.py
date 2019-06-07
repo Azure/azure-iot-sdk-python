@@ -20,7 +20,7 @@ class RegistrationResponseEvent(PipelineEvent):
         :param response_payload: The response received from a registration process
         """
         super(RegistrationResponseEvent, self).__init__()
-        self.rid = request_id
+        self.request_id = request_id
         self.status_code = status_code
         self.key_values = key_values
         self.response_payload = response_payload

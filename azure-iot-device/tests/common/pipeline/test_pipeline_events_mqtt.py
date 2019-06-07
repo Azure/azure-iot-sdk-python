@@ -3,20 +3,15 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import pytest
+import sys
 from azure.iot.device.common.pipeline import pipeline_events_mqtt
+from tests.common.pipeline import pipeline_data_object_test
 
-fake_topic = "__fake_topic__"
-fake_payload = "__fake_payload__"
+this_module = sys.modules[__name__]
 
-
-@pytest.mark.describe("IncomingMessage object")
-class TestIncomingMessage(object):
-    @pytest.mark.it("Sets name attribute on instantiation")
-    @pytest.mark.it("Sets topic attribute on instantiation")
-    @pytest.mark.it("Sets payload attribute on instantiation")
-    def test_default_arguments(self):
-        obj = pipeline_events_mqtt.IncomingMessage(topic=fake_topic, payload=fake_payload)
-        assert obj.name is obj.__class__.__name__
-        assert obj.topic is fake_topic
-        assert obj.payload is fake_payload
+pipeline_data_object_test.add_event_test(
+    obj=pipeline_events_mqtt.IncomingMessage,
+    module=this_module,
+    positional_arguments=["topic", "payload"],
+    keyword_arguments={},
+)

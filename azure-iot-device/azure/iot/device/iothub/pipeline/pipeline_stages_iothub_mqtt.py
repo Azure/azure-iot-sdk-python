@@ -154,21 +154,21 @@ class IotHubMQTTConverter(PipelineStage):
                 )
 
             elif mqtt_topic_iothub.is_method_topic(topic):
-                rid = mqtt_topic_iothub.get_method_request_id_from_topic(topic)
+                request_id = mqtt_topic_iothub.get_method_request_id_from_topic(topic)
                 method_name = mqtt_topic_iothub.get_method_name_from_topic(topic)
                 method_received = MethodRequest(
-                    request_id=rid,
+                    request_id=request_id,
                     name=method_name,
                     payload=json.loads(event.payload.decode("utf-8")),
                 )
                 self.handle_pipeline_event(pipeline_events_iothub.MethodRequest(method_received))
 
             elif mqtt_topic_iothub.is_twin_response_topic(topic):
-                rid = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
+                request_id = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
                 status_code = mqtt_topic_iothub.get_twin_status_code_from_topic(topic)
                 self.handle_pipeline_event(
                     pipeline_events_base.IotResponseEvent(
-                        request_id=rid, status_code=status_code, response_body=event.payload
+                        request_id=request_id, status_code=status_code, response_body=event.payload
                     )
                 )
 

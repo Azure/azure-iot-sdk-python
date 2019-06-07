@@ -8,7 +8,7 @@ import pytest
 import functools
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
-from tests.common.pipeline_test import (
+from tests.common.pipeline.helpers import (
     assert_default_stage_attributes,
     assert_callback_succeeded,
     assert_callback_failed,
@@ -18,7 +18,7 @@ from tests.common.pipeline_test import (
     make_mock_stage,
     UnhandledException,
 )
-from tests.iothub.pipeline_test import all_iothub_ops
+from tests.iothub.pipeline.helpers import all_iothub_ops
 
 logging.basicConfig(level=logging.INFO)
 

@@ -29,7 +29,7 @@ class TestRegistrationQueryStatusResult:
         intermediate_result = RegistrationQueryStatusResult(
             fake_request_id, fake_retry_after, fake_operation_id, fake_status
         )
-        assert intermediate_result.rid == fake_request_id
+        assert intermediate_result.request_id == fake_request_id
         assert intermediate_result.retry_after == fake_retry_after
         assert intermediate_result.operation_id == fake_operation_id
         assert intermediate_result.status == fake_status
@@ -40,4 +40,4 @@ class TestRegistrationQueryStatusResult:
             "RequestId123", "Operation456", "emitted", None
         )
         with pytest.raises(AttributeError, match="can't set attribute"):
-            registration_result.rid = "MyNimbus2000"
+            registration_result.request_id = "MyNimbus2000"

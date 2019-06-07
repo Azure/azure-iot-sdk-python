@@ -55,7 +55,7 @@ class ProvisioningMQTTConverter(PipelineStage):
 
         elif isinstance(op, pipeline_ops_provisioning.SendRegistrationRequest):
             # Convert Sending the request into Mqtt Publish operations
-            topic = mqtt_topic.get_topic_for_register(op.rid)
+            topic = mqtt_topic.get_topic_for_register(op.request_id)
             self.continue_with_different_op(
                 original_op=op,
                 new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.request_payload),
@@ -63,7 +63,7 @@ class ProvisioningMQTTConverter(PipelineStage):
 
         elif isinstance(op, pipeline_ops_provisioning.SendQueryRequest):
             # Convert Sending the request into Mqtt Publish operations
-            topic = mqtt_topic.get_topic_for_query(op.rid, op.operation_id)
+            topic = mqtt_topic.get_topic_for_query(op.request_id, op.operation_id)
             self.continue_with_different_op(
                 original_op=op,
                 new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.request_payload),
@@ -105,14 +105,14 @@ class ProvisioningMQTTConverter(PipelineStage):
                 )
                 key_values = mqtt_topic.extract_properties_from_topic(topic)
                 status_code = mqtt_topic.extract_status_code_from_topic(topic)
-                rid = key_values["rid"][0]
+                request_id = key_values["rid"][0]
                 if event.payload is not None:
                     response = event.payload.decode("utf-8")
                 # Extract pertinent information from mqtt topic
-                # like status code rid and send it upwards.
+                # like status code request_id and send it upwards.
                 self.handle_pipeline_event(
                     pipeline_events_provisioning.RegistrationResponseEvent(
-                        rid, status_code, key_values, response
+                        request_id, status_code, key_values, response
                     )
                 )
             else:

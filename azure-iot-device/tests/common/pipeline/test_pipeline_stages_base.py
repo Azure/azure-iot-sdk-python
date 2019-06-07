@@ -10,7 +10,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_events_base,
 )
-from tests.common.pipeline_test import (
+from tests.common.pipeline.helpers import (
     assert_default_stage_attributes,
     ConcretePipelineStage,
     make_mock_stage,

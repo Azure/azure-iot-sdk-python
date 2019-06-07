@@ -15,22 +15,22 @@ class RegistrationQueryStatusResult(object):
     from the provisioning service.
     """
 
-    def __init__(self, rid=None, retry_after=None, operation_id=None, status=None):
+    def __init__(self, request_id=None, retry_after=None, operation_id=None, status=None):
         """
-        :param rid: The request id to which the response is being obtained
+        :param request_id: The request id to which the response is being obtained
         :param retry_after : Number of secs after which to retry again.
         :param operation_id: The id of the operation as returned by the initial registration request.
         :param status: The status of the registration process.
         Values can be "unassigned", "assigning", "assigned", "failed", "disabled"
         from the provisioning service.
         """
-        self._request_id = rid
+        self._request_id = request_id
         self._operation_id = operation_id
         self._status = status
         self._retry_after = retry_after
 
     @property
-    def rid(self):
+    def request_id(self):
         return self._request_id
 
     @property
