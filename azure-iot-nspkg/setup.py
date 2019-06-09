@@ -6,6 +6,7 @@
 
 import sys
 from setuptools import setup
+from io import open  # io.open needed for Python 2 compat
 
 # azure v0.x is not compatible with this package
 # azure v0.x used to have a __version__ attribute (newer versions don't)

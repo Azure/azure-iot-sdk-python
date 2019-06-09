@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
+from io import open  # io.open needed for Python 2 compat
 
 # azure v0.x is not compatible with this package
 # azure v0.x used to have a __version__ attribute (newer versions don't)
@@ -29,7 +30,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="azure-iot-device",
-    version="2.0.0-preview.5",
+    version="2.0.0-preview.6",
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python-preview",
