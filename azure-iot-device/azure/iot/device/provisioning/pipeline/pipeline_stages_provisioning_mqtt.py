@@ -31,7 +31,9 @@ class ProvisioningMQTTConverter(PipelineStage):
 
     def _run_op(self, op):
 
-        if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs):
+        if isinstance(
+            op, pipeline_ops_provisioning.SetSecurityClientArgs
+        ):  # TODO Generic Args , then only 1 case ?
             # get security client args from above, save some, use some to build topic names,
             # always pass it down because MQTT Provider stage will also want to receive these args.
 

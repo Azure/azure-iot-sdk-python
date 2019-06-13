@@ -115,7 +115,7 @@ class TestConnect:
         mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
         device_pipeline_adapter.connect()
         mock_mqtt_provider.connect.assert_called_once_with(
-            device_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
         mock_mqtt_provider.on_mqtt_connected()
 
@@ -137,7 +137,7 @@ class TestConnect:
         mock_mqtt_provider.on_mqtt_connected()
 
         mock_mqtt_provider.connect.assert_called_once_with(
-            device_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
         device_pipeline_adapter.on_transport_connected.assert_called_once_with("connected")
 
@@ -173,7 +173,7 @@ class TestSendEvent:
         device_pipeline_adapter.send_event(fake_msg)
 
         mock_mqtt_provider.connect.assert_called_once_with(
-            device_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
         mock_mqtt_provider.publish.assert_called_once_with(
             topic=fake_topic, payload=fake_msg.data, callback=ANY
@@ -207,7 +207,7 @@ class TestSendEvent:
         module_pipeline_adapter.send_event(fake_msg)
 
         mock_mqtt_provider.connect.assert_called_once_with(
-            module_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=module_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
         mock_mqtt_provider.publish.assert_called_once_with(
             topic=fake_output_topic, payload=fake_msg.data, callback=ANY
@@ -223,7 +223,7 @@ class TestSendEvent:
         device_pipeline_adapter.send_event(fake_msg)
 
         mock_mqtt_provider.connect.assert_called_once_with(
-            device_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
         mock_mqtt_provider.publish.assert_called_once_with(
             topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
@@ -238,7 +238,7 @@ class TestSendEvent:
 
         # verify that we called connect
         mock_mqtt_provider.connect.assert_called_once_with(
-            device_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
 
         # verify that we're not connected yet and verify that we havent't published yet
@@ -262,7 +262,7 @@ class TestSendEvent:
         # start connecting and verify that we've called into the provider
         device_pipeline_adapter.connect()
         mock_mqtt_provider.connect.assert_called_once_with(
-            device_pipeline_adapter._auth_provider.get_current_sas_token()
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
         )
 
         # send an event

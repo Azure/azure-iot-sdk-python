@@ -120,23 +120,40 @@ class MQTTProvider(object):
 
         logger.info("Created MQTT provider, assigned callbacks")
 
-    def connect(self, password):
+    def _create_ssl_context(self, x509=None):
         """
-        Connect to the MQTT broker, using hostname and username set at instantiation.
-
-        This method should be called as an entry point before sending any telemetry.
-
-        :param str password: The password for connecting with the MQTT broker.
+        This method creates the SSLContext object used by Paho to authenticate the connection.
+        :param x509: The x509 certificate. If present then the SSLContext is created using x509.
         """
-        logger.info("connecting to mqtt broker")
-
+        logger.info("creating a SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+
         if self._ca_cert:
             ssl_context.load_verify_locations(cadata=self._ca_cert)
         else:
             ssl_context.load_default_certs()
         ssl_context.verify_mode = ssl.CERT_REQUIRED
         ssl_context.check_hostname = True
+
+        if x509 is not None:
+            logger.info("configuring SSL context with client-side certificate and key")
+            ssl_context.load_cert_chain(x509.certificate_file, x509.key_file, x509.pass_phrase)
+
+        return ssl_context
+
+    def connect(self, password=None, client_certificate=None):
+        """
+        Connect to the MQTT broker, using hostname and username set at instantiation.
+
+        This method should be called as an entry point before sending any telemetry.
+        One of the parameters out of password and x509 must be present to ensure a successful connection.
+
+        :param str password: The password for connecting with the MQTT broker.
+        :param client_certificate: The x509 certificate. If present then the SSLContext is created using x509.
+        """
+        logger.info("connecting to mqtt broker")
+
+        ssl_context = self._create_ssl_context(client_certificate)
         self._mqtt_client.tls_set_context(context=ssl_context)
         self._mqtt_client.tls_insecure_set(False)
         self._mqtt_client.username_pw_set(username=self._username, password=password)

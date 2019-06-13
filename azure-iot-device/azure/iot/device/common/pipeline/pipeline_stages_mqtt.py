@@ -27,6 +27,8 @@ class Provider(PipelineStage):
             self.username = op.username
             self.client_id = op.client_id
             self.ca_cert = op.ca_cert
+            self.sas_token = None
+            self.trusted_certificate_chain = None
             self.provider = MQTTProvider(
                 client_id=self.client_id,
                 hostname=self.hostname,
@@ -43,6 +45,12 @@ class Provider(PipelineStage):
             # When we get a sas token from above, we just save it for later
             logger.info("{}({}): got password".format(self.name, op.name))
             self.sas_token = op.sas_token
+            self.complete_op(op)
+
+        elif isinstance(op, pipeline_ops_base.SetClientAuthenticationCertificate):
+            # When we get a certificate from above, we just save it for later
+            logger.info("{}({}): got certificate".format(self.name, op.name))
+            self.trusted_certificate_chain = op.certificate
             self.complete_op(op)
 
         elif isinstance(op, pipeline_ops_base.Connect):
@@ -82,7 +90,7 @@ class Provider(PipelineStage):
             #
             self.provider.on_mqtt_connected = on_connected
             try:
-                self.provider.connect(self.sas_token)
+                self.provider.connect(password=self.sas_token, client_certificate=self.trusted_certificate_chain)
             except Exception as e:
                 self.provider.on_mqtt_connected = self.on_connected
                 raise e

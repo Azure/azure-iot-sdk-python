@@ -32,6 +32,7 @@ fake_ca_cert = "__fake_ca_cert__"
 fake_sas_token = "__fake_sas_token__"
 fake_topic = "__fake_topic__"
 fake_payload = "__fake_payload__"
+fake_certificate = "__fake_certificate__"
 
 ops_handled_by_this_stage = [
     pipeline_ops_base.SetSasToken,
@@ -181,6 +182,11 @@ def op_set_sas_token(callback):
     return pipeline_ops_base.SetSasToken(sas_token=fake_sas_token, callback=callback)
 
 
+@pytest.fixture
+def op_set_client_certificate(callback):
+    return pipeline_ops_base.SetClientAuthenticationCertificate(certificate=fake_certificate)
+
+
 @pytest.mark.describe("MQTT Provider pipeline stage _runOp function with SetSasToken operations")
 class TestMQTTProviderRunOpWithSetSasToken(object):
     @pytest.mark.it("saves the sas token")
@@ -195,9 +201,12 @@ class TestMQTTProviderRunOpWithSetSasToken(object):
 
 
 @pytest.fixture
-def create_provider(stage, provider, op_set_connection_args, op_set_sas_token):
+def create_provider(
+    stage, provider, op_set_connection_args, op_set_sas_token, op_set_client_certificate
+):
     stage.run_op(op_set_connection_args)
     stage.run_op(op_set_sas_token)
+    stage.run_op(op_set_client_certificate)
 
 
 connection_ops = [

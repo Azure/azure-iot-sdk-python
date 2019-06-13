@@ -5,5 +5,6 @@ as a Device or Module.
 """
 
 from .async_sk_provisioning_device_client import SymmetricKeyProvisioningDeviceClient
+from .async_x509_provisioning_device_client import X509ProvisioningDeviceClient
 
-__all__ = ["SymmetricKeyProvisioningDeviceClient"]
+__all__ = ["SymmetricKeyProvisioningDeviceClient", "X509ProvisioningDeviceClient"]

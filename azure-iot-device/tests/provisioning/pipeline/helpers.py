@@ -11,7 +11,7 @@ from azure.iot.device.provisioning.pipeline import (
 all_provisioning_ops = [
     [pipeline_ops_provisioning.SetSymmetricKeySecurityClient, [None]],
     [
-        pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs,
+        pipeline_ops_provisioning.SetSecurityClientArgs,
         ["hogwarts.com", "remembrall", "anyone_inside_hogwarts"],
     ],
     [

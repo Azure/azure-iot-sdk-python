@@ -24,7 +24,7 @@ fake_etag = "HighQualityFlyingBroom"
 
 @pytest.mark.describe("RegistrationResult")
 class TestRegistrationResult:
-    @pytest.mark.it("instantiates correctly")
+    @pytest.mark.it("Instantiates correctly")
     def test_registration_result_instantiated_correctly(self):
         fake_registration_state = RegistrationState(
             fake_device_id,
@@ -50,7 +50,7 @@ class TestRegistrationResult:
         assert registration_result.registration_state.last_update_date_time == fake_last_update_dttm
         assert registration_result.registration_state.etag == fake_etag
 
-    @pytest.mark.it("has attributes that do not have setter")
+    @pytest.mark.it("Has attributes that do not have setter")
     def test_some_properties_of_result_are_not_settable(self):
         registration_result = RegistrationResult("RequestId123", "Operation456", "emitted", None)
         with pytest.raises(AttributeError, match="can't set attribute"):
@@ -59,7 +59,7 @@ class TestRegistrationResult:
             registration_result.status = "Flying"
             registration_result.registration_state = "FakeRegistrationState"
 
-    @pytest.mark.it("it has `RegistrationState` with properties that do not have setter")
+    @pytest.mark.it("Has `RegistrationState` with properties that do not have setter")
     def test_some_properties_of_state_are_not_settable(self):
         registration_state = RegistrationState(
             fake_device_id,

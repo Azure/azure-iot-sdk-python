@@ -16,7 +16,7 @@ pipeline_data_object_test.add_operation_test(
     keyword_arguments={"callback": None},
 )
 pipeline_data_object_test.add_operation_test(
-    obj=pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs,
+    obj=pipeline_ops_provisioning.SetSecurityClientArgs,
     module=this_module,
     positional_arguments=["provisioning_host", "registration_id", "id_scope"],
     keyword_arguments={"callback": None},

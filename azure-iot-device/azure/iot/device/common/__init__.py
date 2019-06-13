@@ -4,3 +4,5 @@ This package provides shared modules for use with various Azure IoT device-side 
 
 INTERNAL USAGE ONLY
 """
+
+from .models import X509

@@ -14,6 +14,7 @@ from azure.iot.device.provisioning.pipeline import (
 )
 from azure.iot.device.provisioning.pipeline import pipeline_events_provisioning
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
+from azure.iot.device.provisioning.security import SymmetricKeySecurityClient, X509SecurityClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class ProvisioningPipeline(object):
 
         self._pipeline = (
             pipeline_stages_base.PipelineRoot()
-            .append_stage(pipeline_stages_provisioning.UseSymmetricKeySecurityClient())
+            .append_stage(pipeline_stages_provisioning.UseSymmetricKeyOrX509SecurityClient())
             .append_stage(pipeline_stages_base.EnsureConnection())
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverter())
             .append_stage(pipeline_stages_mqtt.Provider())
@@ -68,11 +69,18 @@ class ProvisioningPipeline(object):
             if call.error:
                 raise call.error
 
-        self._pipeline.run_op(
-            pipeline_ops_provisioning.SetSymmetricKeySecurityClient(
+        if isinstance(security_client, X509SecurityClient):
+            op = pipeline_ops_provisioning.SetX509SecurityClient(
                 security_client=security_client, callback=remove_this_code
             )
-        )
+        elif isinstance(security_client, SymmetricKeySecurityClient):
+            op = pipeline_ops_provisioning.SetSymmetricKeySecurityClient(
+                security_client=security_client, callback=remove_this_code
+            )
+        else:
+            logger.error("Provisioning not equipped to handle other security client.")
+
+        self._pipeline.run_op(op)
 
     def connect(self, callback=None):
         """

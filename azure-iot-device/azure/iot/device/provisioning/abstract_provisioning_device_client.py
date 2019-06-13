@@ -12,6 +12,7 @@ import abc
 import six
 import logging
 from .security.sk_security_client import SymmetricKeySecurityClient
+from .security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
 
 logger = logging.getLogger(__name__)
@@ -41,12 +42,16 @@ class AbstractProvisioningDeviceClient(object):
         """
         protocol_name = protocol_name.lower()
         if protocol_name == "mqtt":
-            if isinstance(security_client, SymmetricKeySecurityClient):
+            if isinstance(security_client, SymmetricKeySecurityClient) or isinstance(
+                security_client, X509SecurityClient
+            ):
                 mqtt_provisioning_pipeline = ProvisioningPipeline(security_client)
                 return cls(mqtt_provisioning_pipeline)
                 # TODO : other instances of security provider can also be checked before creating mqtt and client
             else:
-                raise ValueError("A symmetric key security provider must be provided for MQTT")
+                raise ValueError(
+                    "A symmetric key security client or a X509 security client must be provided for MQTT"
+                )
 
         else:
             raise NotImplementedError("This communication protocol has not yet been implemented")

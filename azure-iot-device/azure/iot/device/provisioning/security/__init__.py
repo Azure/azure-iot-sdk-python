@@ -5,3 +5,4 @@ Azure Provisioning Device SDK.
 """
 
 from .sk_security_client import SymmetricKeySecurityClient
+from .x509_security_client import X509SecurityClient

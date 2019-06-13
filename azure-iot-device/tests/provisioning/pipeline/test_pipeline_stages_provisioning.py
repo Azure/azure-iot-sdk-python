@@ -6,7 +6,9 @@
 import logging
 import pytest
 import functools
+from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
+from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
     pipeline_ops_provisioning,
@@ -22,7 +24,6 @@ from tests.common.pipeline.helpers import (
     make_mock_stage,
     UnhandledException,
 )
-from azure.iot.device.common.pipeline import pipeline_events_base
 from tests.provisioning.pipeline.helpers import all_provisioning_ops
 
 logging.basicConfig(level=logging.INFO)
@@ -33,181 +34,255 @@ fake_provisioning_host = "hogwarts.com"
 fake_id_scope = "weasley_wizard_wheezes"
 fake_ca_cert = "fake_certificate"
 fake_sas_token = "horcrux_token"
+fake_symmetric_key = "Zm9vYmFy"
+fake_x509_cert_file = "fantastic_beasts"
+fake_x509_cert_key_file = "where_to_find_them"
+fake_pass_phrase = "alohomora"
 
 
-@pytest.fixture
-def mock_stage(mocker):
-    return make_mock_stage(mocker, pipeline_stages_provisioning.UseSymmetricKeySecurityClient)
-
-
-def mock_symmetric_security_client(mocker):
-    class MockSymmetricKeySecurityClient(SymmetricKeySecurityClient):
-        def provisioning_host(self):
-            return fake_provisioning_host
-
-        def id_scope(self):
-            return fake_id_scope
-
-        def registration_id(self):
-            return fake_registration_id
-
-    security_client = MockSymmetricKeySecurityClient(
-        fake_provisioning_host, fake_registration_id, fake_sas_token, fake_id_scope
+def create_x509_security_client():
+    mock_x509 = X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
+    return X509SecurityClient(
+        provisioning_host=fake_provisioning_host,
+        registration_id=fake_registration_id,
+        id_scope=fake_id_scope,
+        x509=mock_x509,
     )
-    security_client.get_current_sas_token = mocker.Mock(return_value=fake_sas_token)
-    return security_client
+
+
+def create_symmetric_security_client():
+    return SymmetricKeySecurityClient(
+        provisioning_host=fake_provisioning_host,
+        registration_id=fake_registration_id,
+        id_scope=fake_id_scope,
+        symmetric_key=fake_symmetric_key,
+    )
+
+
+different_security_ops = [
+    {
+        "name": "set symmetric key security",
+        "current_op_class": pipeline_ops_provisioning.SetSymmetricKeySecurityClient,
+        "security_client_function_name": create_symmetric_security_client,
+        "next_op_class": pipeline_ops_base.SetSasToken,
+    },
+    {
+        "name": "set x509 security",
+        "current_op_class": pipeline_ops_provisioning.SetX509SecurityClient,
+        "security_client_function_name": create_x509_security_client,
+        "next_op_class": pipeline_ops_base.SetClientAuthenticationCertificate,
+    },
+]
 
 
 @pytest.fixture
-def set_security_client(mocker, callback):
-    op = pipeline_ops_provisioning.SetSymmetricKeySecurityClient(
-        security_client=mock_symmetric_security_client(mocker)
+def security_stage(mocker):
+    return make_mock_stage(mocker, pipeline_stages_provisioning.UseSymmetricKeyOrX509SecurityClient)
+
+
+@pytest.fixture
+def set_security_client(callback, params_security_ops):
+    # Create new security client every time to pass into fixture to avoid re-use of old security client
+    # Otherwise the exception/failure raised by one test is makes the next test fail.
+    op = params_security_ops["current_op_class"](
+        security_client=params_security_ops["security_client_function_name"]()
     )
     op.callback = callback
     return op
 
 
-@pytest.mark.describe("UseSymmetricKeySecurityClient initializer")
-class TestUseSymmetricKeySecurityClientInitializer(object):
+@pytest.mark.describe("UseSymmetricKeyOrX509SecurityClient initializer")
+class TestUseSymmetricKeyOrX509SecurityClientInitializer(object):
     @pytest.mark.it("Sets name, next, previous and pipeline root attributes on instantiation")
     def test_initializer(self):
-        obj = pipeline_stages_provisioning.UseSymmetricKeySecurityClient()
+        obj = pipeline_stages_provisioning.UseSymmetricKeyOrX509SecurityClient()
         assert_default_stage_attributes(obj)
 
 
 unknown_ops = all_except(
     all_items=(all_common_ops + all_provisioning_ops),
-    items_to_exclude=[pipeline_ops_provisioning.SetSymmetricKeySecurityClient],
+    items_to_exclude=[
+        pipeline_ops_provisioning.SetSymmetricKeySecurityClient,
+        pipeline_ops_provisioning.SetX509SecurityClient,
+    ],
 )
 
 
-@pytest.mark.describe("UseSymmetricKeySecurityClient run_op function with unhandled operations")
-class TestUseSymmetricKeySecurityClientRunOpWithUnknownOperation(object):
+@pytest.mark.describe(
+    "UseSymmetricKeyOrX509SecurityClient run_op function with unhandled operations"
+)
+class TestUseSymmetricKeyOrX509SecurityClientRunOpWithUnknownOperation(object):
     @pytest.mark.parametrize(
         "op_init,op_init_args", unknown_ops, ids=[x[0].__name__ for x in unknown_ops]
     )
     @pytest.mark.it("passes unknown operations to the next stage")
-    def test_passes_unknown_op_down(self, mocker, mock_stage, op_init, op_init_args):
-        print(op_init)
-        print(op_init_args)
+    def test_passes_unknown_op_down(self, mocker, security_stage, op_init, op_init_args):
         op = op_init(*op_init_args)
         op.action = "pend"
-        mock_stage.run_op(op)
-        assert mock_stage.next._run_op.call_count == 1
-        assert mock_stage.next._run_op.call_args == mocker.call(op)
+        security_stage.run_op(op)
+        assert security_stage.next._run_op.call_count == 1
+        assert security_stage.next._run_op.call_args == mocker.call(op)
 
 
-@pytest.mark.describe(
-    "UseSymmetricKeySecurityClient run_op function with SetSymmetricKeySecurityClientArgs operations"
+@pytest.mark.parametrize(
+    "params_security_ops",
+    different_security_ops,
+    ids=[
+        "{}->{}".format(x["current_op_class"].__name__, x["next_op_class"].__name__)
+        for x in different_security_ops
+    ],
 )
-class TestUseSymmetricKeySecurityClientRunOpWithSetSymmetricKeySecurityClient(object):
-    @pytest.mark.it("runs SetSymmetricKeySecurityClientArgs op on the next stage")
-    def test_runs_set_symmetric_security_client_args(self, mocker, mock_stage, set_security_client):
-        mock_stage.next._run_op = mocker.Mock()
-        mock_stage.run_op(set_security_client)
-        assert mock_stage.next._run_op.call_count == 1
-        set_args = mock_stage.next._run_op.call_args[0][0]
-        assert isinstance(set_args, pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs)
+@pytest.mark.describe(
+    "UseSymmetricKeyOrX509SecurityClient run_op function with SetSecurityClientArgs operations"
+)
+class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
+    @pytest.mark.it("runs SetSecurityClientArgs op on the next stage")
+    def test_runs_set_security_client_args(self, mocker, security_stage, set_security_client):
+        security_stage.next._run_op = mocker.Mock()
+        security_stage.run_op(set_security_client)
+        assert security_stage.next._run_op.call_count == 1
+        set_args = security_stage.next._run_op.call_args[0][0]
+        assert isinstance(set_args, pipeline_ops_provisioning.SetSecurityClientArgs)
 
     @pytest.mark.it(
-        "calls the SetSymmetricKeySecurityClient callback with the SetSymmetricKeySecurityClientArgs error"
-        "when the SetSymmetricKeySecurityClientArgs op raises an Exception"
+        "calls the SetSecurityClient callback with the SetSecurityClientArgs error"
+        "when the SetSecurityClientArgs op raises an Exception"
     )
     def test_set_security_client_raises_exception(
-        self, mocker, mock_stage, fake_exception, set_security_client
+        self, mocker, security_stage, fake_exception, set_security_client
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
-        mock_stage.run_op(set_security_client)
+        security_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
+        security_stage.run_op(set_security_client)
         assert_callback_failed(op=set_security_client, error=fake_exception)
 
     @pytest.mark.it(
-        "Allows any BaseExceptions raised by SetSymmetricKeySecurityClientArgs operations to propagate"
+        "Allows any BaseExceptions raised by SetSecurityClientArgs operations to propagate"
     )
     def test_set_security_client_raises_base_exception(
-        self, mocker, mock_stage, fake_base_exception, set_security_client
+        self, mocker, security_stage, fake_base_exception, set_security_client
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        security_stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
-            mock_stage.run_op(set_security_client)
+            security_stage.run_op(set_security_client)
 
     @pytest.mark.it(
-        "does not run a SetSasToken op on the next stage when the SetSymmetricKeySecurityClientArgs op fails"
+        "does not run a SetSasToken or a SetClientAuthenticationCertificate op on the next stage when the SetSecurityClientArgs op fails"
     )
-    def test_does_not_set_sas_token_on_set_security_client_args_failure(
-        self, mocker, mock_stage, fake_exception, set_security_client
+    def test_does_not_set_sas_token_or_set_certificate_after_set_security_client_args_failure(
+        self, mocker, security_stage, fake_exception, set_security_client
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
-        mock_stage.run_op(set_security_client)
-        assert mock_stage.next._run_op.call_count == 1
+        security_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
+        security_stage.run_op(set_security_client)
+        assert security_stage.next._run_op.call_count == 1
 
     @pytest.mark.it(
-        "runs a SetSasToken op on the next stage when the SetSymmetricKeySecurityClientArgs op succeeds"
+        "runs the next operation of setting token or certificate on the next stage when the SetSecurityClientArgs op succeeds"
     )
-    def test_runs_set_sas_token(self, mocker, mock_stage, set_security_client):
+    def test_runs_set_sas_token_or_set_client_certificate(
+        self, mocker, security_stage, set_security_client, params_security_ops
+    ):
         def next_run_op(self, op):
-            if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs):
+            if isinstance(op, pipeline_ops_provisioning.SetSecurityClientArgs):
                 op.callback(op)
             else:
                 pass
 
-        mock_stage.next._run_op = functools.partial(next_run_op, mock_stage)
-        mocker.spy(mock_stage.next, "_run_op")
-        mock_stage.run_op(set_security_client)
-        assert mock_stage.next._run_op.call_count == 2
+        security_stage.next._run_op = functools.partial(next_run_op, security_stage)
+        mocker.spy(security_stage.next, "_run_op")
+        security_stage.run_op(set_security_client)
+        assert security_stage.next._run_op.call_count == 2
         assert isinstance(
-            mock_stage.next._run_op.call_args_list[0][0][0],
-            pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs,
+            security_stage.next._run_op.call_args_list[0][0][0],
+            pipeline_ops_provisioning.SetSecurityClientArgs,
         )
         assert isinstance(
-            mock_stage.next._run_op.call_args_list[1][0][0], pipeline_ops_base.SetSasToken
+            security_stage.next._run_op.call_args_list[1][0][0],
+            params_security_ops["next_op_class"],
         )
 
     @pytest.mark.it(
-        "calls get_current_sas_token on the security_client and passes the result as a SetSasToken attribute"
+        "retrieves sas_token or x509_certificate on the security_client and passes the result as the attribute of the next operation"
     )
-    def test_calls_get_current_sas_token(self, mock_stage, set_security_client):
-        mock_stage.run_op(set_security_client)
-        assert set_security_client.security_client.get_current_sas_token.call_count == 1
-        set_sas_token_op = mock_stage.next._run_op.call_args_list[1][0][0]
-        assert set_sas_token_op.sas_token == fake_sas_token
+    def test_calls_get_current_sas_token_or_get_x509_certificate(
+        self, mocker, security_stage, set_security_client, params_security_ops
+    ):
+        if params_security_ops["current_op_class"].__name__ == "SetSymmetricKeySecurityClient":
+            spy_method = mocker.spy(set_security_client.security_client, "get_current_sas_token")
+        elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClient":
+            spy_method = mocker.spy(set_security_client.security_client, "get_x509_certificate")
+
+        security_stage.run_op(set_security_client)
+        assert spy_method.call_count == 1
+
+        if params_security_ops["next_op_class"].__name__ == "SetSasToken":
+            set_sas_token_op = security_stage.next._run_op.call_args_list[1][0][0]
+            assert "SharedAccessSignature" in set_sas_token_op.sas_token
+            assert "skn=registration" in set_sas_token_op.sas_token
+            assert fake_id_scope in set_sas_token_op.sas_token
+            assert fake_registration_id in set_sas_token_op.sas_token
+
+        elif params_security_ops["next_op_class"].__name__ == "SetClientAuthenticationCertificate":
+            set_cert_op = security_stage.next._run_op.call_args_list[1][0][0]
+            assert set_cert_op.certificate.certificate_file == fake_x509_cert_file
+            assert set_cert_op.certificate.key_file == fake_x509_cert_key_file
+            assert set_cert_op.certificate.pass_phrase == fake_pass_phrase
 
     @pytest.mark.it(
-        "calls the SetSymmetricKeySecurityClient callback with no error when the SetSasToken operation succeeds"
+        "calls the callback of setting security client with no error when the next operation of "
+        "setting token or setting certificate operation succeeds"
     )
-    def test_returns_success_if_set_sas_token_succeeds(self, mock_stage, set_security_client):
-        mock_stage.run_op(set_security_client)
+    def test_returns_success_if_set_sas_token_or_set_client_certificate_succeeds(
+        self, security_stage, set_security_client
+    ):
+        security_stage.run_op(set_security_client)
         assert_callback_succeeded(op=set_security_client)
 
-    @pytest.mark.it("returns error when get_current_sas_token raises an exception")
-    def test_get_current_sas_token_raises_exception(
-        self, mocker, fake_exception, mock_stage, set_security_client
+    @pytest.mark.it(
+        "returns error when get_current_sas_token or get_x509_certificate raises an exception"
+    )
+    def test_get_current_sas_token_or_get_x509_certificate_raises_exception(
+        self, mocker, fake_exception, security_stage, set_security_client, params_security_ops
     ):
-        set_security_client.security_client.get_current_sas_token = mocker.Mock(
-            side_effect=fake_exception
-        )
-        mock_stage.run_op(set_security_client)
+        if params_security_ops["current_op_class"].__name__ == "SetSymmetricKeySecurityClient":
+            set_security_client.security_client.get_current_sas_token = mocker.Mock(
+                side_effect=fake_exception
+            )
+        elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClient":
+            set_security_client.security_client.get_x509_certificate = mocker.Mock(
+                side_effect=fake_exception
+            )
+        security_stage.run_op(set_security_client)
         assert_callback_failed(op=set_security_client, error=fake_exception)
 
-    @pytest.mark.it("Allows any BaseExceptions raised by get_current_sas_token to propagate")
-    def test_get_current_sas_token_raises_base_exception(
-        self, mocker, fake_base_exception, mock_stage, set_security_client
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised by get_current_sas_token or get_x509_certificate to propagate"
+    )
+    def test_get_current_sas_token_get_x509_certificate_raises_base_exception(
+        self, mocker, fake_base_exception, security_stage, set_security_client, params_security_ops
     ):
-        set_security_client.security_client.get_current_sas_token = mocker.Mock(
-            side_effect=fake_base_exception
-        )
+        if params_security_ops["current_op_class"].__name__ == "SetSymmetricKeySecurityClient":
+            set_security_client.security_client.get_current_sas_token = mocker.Mock(
+                side_effect=fake_base_exception
+            )
+        elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClient":
+            set_security_client.security_client.get_x509_certificate = mocker.Mock(
+                side_effect=fake_base_exception
+            )
         with pytest.raises(UnhandledException):
-            mock_stage.run_op(set_security_client)
+            security_stage.run_op(set_security_client)
 
     @pytest.mark.it(
-        "calls the SetSymmetricKeySecurityClient callback with the SetSasToken error when the SetSasToken operation fails"
+        "calls the callback of the current operation with the next operation error when the next operation fails"
     )
-    def test_returns_set_sas_token_failure(self, fake_exception, mock_stage, set_security_client):
+    def test_returns_set_sas_token_failure(
+        self, fake_exception, security_stage, set_security_client
+    ):
         def next_run_op(self, op):
-            if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientArgs):
+            if isinstance(op, pipeline_ops_provisioning.SetSecurityClientArgs):
                 op.callback(op)
             else:
                 raise fake_exception
 
-        mock_stage.next._run_op = functools.partial(next_run_op, mock_stage)
-        mock_stage.run_op(set_security_client)
+        security_stage.next._run_op = functools.partial(next_run_op, security_stage)
+        security_stage.run_op(set_security_client)
         assert_callback_failed(op=set_security_client, error=fake_exception)

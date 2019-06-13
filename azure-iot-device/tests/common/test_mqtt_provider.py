@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 from azure.iot.device.common.mqtt_provider import MQTTProvider, OperationManager
+from azure.iot.device.common.models.x509 import X509
 import paho.mqtt.client as mqtt
 import ssl
 import copy
@@ -147,6 +148,27 @@ class TestConnect(object):
 
         assert mock_ssl_context.load_verify_locations.call_count == 1
         assert mock_ssl_context.load_verify_locations.call_args == mocker.call(cadata=ca_cert)
+
+    @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
+    def test_configures_tls_context_with_client_provided_certificate_chain(
+        self, mocker, mock_mqtt_client, provider
+    ):
+        mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
+        mock_ssl_context = mock_ssl_context_constructor.return_value
+        fake_client_cert = X509("fantastic_beasts", "where_to_find_them", "alohomora")
+
+        provider = MQTTProvider(
+            client_id=fake_device_id, hostname=fake_hostname, username=fake_username
+        )
+        provider.connect(password=None, client_certificate=fake_client_cert)
+
+        assert mock_ssl_context.load_default_certs.call_count == 1
+        assert mock_ssl_context.load_cert_chain.call_count == 1
+        assert mock_ssl_context.load_cert_chain.call_args == mocker.call(
+            fake_client_cert.certificate_file,
+            fake_client_cert.key_file,
+            fake_client_cert.pass_phrase,
+        )
 
     @pytest.mark.it("Sets username and password")
     def test_sets_username_and_password(self, mocker, mock_mqtt_client, provider):
