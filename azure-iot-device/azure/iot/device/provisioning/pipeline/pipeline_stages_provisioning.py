@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline import pipeline_ops_base
+from azure.iot.device.common.pipeline import pipeline_ops_base, operation_flow
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from . import pipeline_ops_provisioning
 
@@ -45,7 +45,8 @@ class UseSymmetricKeyOrX509SecurityClient(PipelineStage):
         if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClient):
 
             security_client = op.security_client
-            self.run_ops_serial(
+            operation_flow.run_ops_in_serial(
+                self,
                 pipeline_ops_provisioning.SetSecurityClientArgs(
                     provisioning_host=security_client.provisioning_host,
                     registration_id=security_client.registration_id,
@@ -56,7 +57,8 @@ class UseSymmetricKeyOrX509SecurityClient(PipelineStage):
             )
         elif isinstance(op, pipeline_ops_provisioning.SetX509SecurityClient):
             security_client = op.security_client
-            self.run_ops_serial(
+            operation_flow.run_ops_in_serial(
+                self,
                 pipeline_ops_provisioning.SetSecurityClientArgs(
                     provisioning_host=security_client.provisioning_host,
                     registration_id=security_client.registration_id,
@@ -69,4 +71,4 @@ class UseSymmetricKeyOrX509SecurityClient(PipelineStage):
             )
 
         else:
-            self.continue_op(op)
+            operation_flow.pass_op_to_next_stage(self, op)

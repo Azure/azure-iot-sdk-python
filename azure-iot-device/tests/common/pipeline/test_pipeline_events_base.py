@@ -10,7 +10,7 @@ from tests.common.pipeline import pipeline_data_object_test
 this_module = sys.modules[__name__]
 
 pipeline_data_object_test.add_event_test(
-    obj=pipeline_events_base.IotResponseEvent,
+    cls=pipeline_events_base.IotResponseEvent,
     module=this_module,
     positional_arguments=["request_id", "status_code", "response_body"],
     keyword_arguments={},

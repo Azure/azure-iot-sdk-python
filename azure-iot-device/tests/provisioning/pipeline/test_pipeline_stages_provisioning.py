@@ -6,6 +6,7 @@
 import logging
 import pytest
 import functools
+import sys
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
@@ -16,17 +17,21 @@ from azure.iot.device.provisioning.pipeline import (
 from azure.iot.device.common.pipeline import pipeline_ops_base
 
 from tests.common.pipeline.helpers import (
-    assert_default_stage_attributes,
     assert_callback_succeeded,
     assert_callback_failed,
     all_common_ops,
+    all_common_events,
     all_except,
     make_mock_stage,
     UnhandledException,
 )
-from tests.provisioning.pipeline.helpers import all_provisioning_ops
+from azure.iot.device.common.pipeline import pipeline_events_base
+from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
+from tests.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.INFO)
+
+this_module = sys.modules[__name__]
 
 fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
@@ -34,6 +39,21 @@ fake_provisioning_host = "hogwarts.com"
 fake_id_scope = "weasley_wizard_wheezes"
 fake_ca_cert = "fake_certificate"
 fake_sas_token = "horcrux_token"
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    cls=pipeline_stages_provisioning.UseSymmetricKeyOrX509SecurityClient,
+    module=this_module,
+    all_ops=all_common_ops + all_provisioning_ops,
+    handled_ops=[
+        pipeline_ops_provisioning.SetSymmetricKeySecurityClient,
+        pipeline_ops_provisioning.SetX509SecurityClient,
+    ],
+    all_events=all_common_events + all_provisioning_events,
+    handled_events=[],
+)
+
+
 fake_symmetric_key = "Zm9vYmFy"
 fake_x509_cert_file = "fantastic_beasts"
 fake_x509_cert_key_file = "where_to_find_them"
@@ -89,39 +109,6 @@ def set_security_client(callback, params_security_ops):
     )
     op.callback = callback
     return op
-
-
-@pytest.mark.describe("UseSymmetricKeyOrX509SecurityClient initializer")
-class TestUseSymmetricKeyOrX509SecurityClientInitializer(object):
-    @pytest.mark.it("Sets name, next, previous and pipeline root attributes on instantiation")
-    def test_initializer(self):
-        obj = pipeline_stages_provisioning.UseSymmetricKeyOrX509SecurityClient()
-        assert_default_stage_attributes(obj)
-
-
-unknown_ops = all_except(
-    all_items=(all_common_ops + all_provisioning_ops),
-    items_to_exclude=[
-        pipeline_ops_provisioning.SetSymmetricKeySecurityClient,
-        pipeline_ops_provisioning.SetX509SecurityClient,
-    ],
-)
-
-
-@pytest.mark.describe(
-    "UseSymmetricKeyOrX509SecurityClient run_op function with unhandled operations"
-)
-class TestUseSymmetricKeyOrX509SecurityClientRunOpWithUnknownOperation(object):
-    @pytest.mark.parametrize(
-        "op_init,op_init_args", unknown_ops, ids=[x[0].__name__ for x in unknown_ops]
-    )
-    @pytest.mark.it("passes unknown operations to the next stage")
-    def test_passes_unknown_op_down(self, mocker, security_stage, op_init, op_init_args):
-        op = op_init(*op_init_args)
-        op.action = "pend"
-        security_stage.run_op(op)
-        assert security_stage.next._run_op.call_count == 1
-        assert security_stage.next._run_op.call_args == mocker.call(op)
 
 
 @pytest.mark.parametrize(

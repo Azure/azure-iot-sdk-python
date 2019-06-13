@@ -12,6 +12,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
     PipelineStage,
+    operation_flow,
 )
 from azure.iot.device.iothub.models import Message, MethodRequest
 from . import constant, pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
@@ -54,7 +55,8 @@ class IotHubMQTTConverter(PipelineStage):
             else:
                 hostname = op.hostname
 
-            self.continue_with_different_op(
+            operation_flow.delegate_to_different_op(
+                stage=self,
                 original_op=op,
                 new_op=pipeline_ops_mqtt.SetConnectionArgs(
                     client_id=client_id, hostname=hostname, username=username, ca_cert=op.ca_cert
@@ -66,7 +68,8 @@ class IotHubMQTTConverter(PipelineStage):
         ):
             # Convert SendTelementry and SendOutputEvent operations into Mqtt Publish operations
             topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
-            self.continue_with_different_op(
+            operation_flow.delegate_to_different_op(
+                stage=self,
                 original_op=op,
                 new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.message.data),
             )
@@ -77,22 +80,24 @@ class IotHubMQTTConverter(PipelineStage):
                 op.method_response.request_id, str(op.method_response.status)
             )
             payload = json.dumps(op.method_response.payload)
-            self.continue_with_different_op(
-                original_op=op, new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload)
+            operation_flow.delegate_to_different_op(
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload),
             )
 
         elif isinstance(op, pipeline_ops_base.EnableFeature):
             # Enabling a feature gets translated into an Mqtt subscribe operation
             topic = self.feature_to_topic[op.feature_name]
-            self.continue_with_different_op(
-                original_op=op, new_op=pipeline_ops_mqtt.Subscribe(topic=topic)
+            operation_flow.delegate_to_different_op(
+                stage=self, original_op=op, new_op=pipeline_ops_mqtt.Subscribe(topic=topic)
             )
 
         elif isinstance(op, pipeline_ops_base.DisableFeature):
             # Disabling a feature gets turned into an Mqtt unsubscribe operation
             topic = self.feature_to_topic[op.feature_name]
-            self.continue_with_different_op(
-                original_op=op, new_op=pipeline_ops_mqtt.Unsubscribe(topic=topic)
+            operation_flow.delegate_to_different_op(
+                stage=self, original_op=op, new_op=pipeline_ops_mqtt.Unsubscribe(topic=topic)
             )
 
         elif isinstance(op, pipeline_ops_base.SendIotRequest):
@@ -103,8 +108,10 @@ class IotHubMQTTConverter(PipelineStage):
                     request_id=op.request_id,
                 )
                 payload = json.dumps(op.request_body)
-                self.continue_with_different_op(
-                    original_op=op, new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload)
+                operation_flow.delegate_to_different_op(
+                    stage=self,
+                    original_op=op,
+                    new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload),
                 )
             else:
                 raise NotImplementedError(
@@ -113,7 +120,7 @@ class IotHubMQTTConverter(PipelineStage):
 
         else:
             # All other operations get passed down
-            self.continue_op(op)
+            operation_flow.pass_op_to_next_stage(self, op)
 
     def _set_topic_names(self, device_id, module_id):
         """

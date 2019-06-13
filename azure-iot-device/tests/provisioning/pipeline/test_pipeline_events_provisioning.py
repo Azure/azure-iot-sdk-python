@@ -10,7 +10,7 @@ from tests.common.pipeline import pipeline_data_object_test
 this_module = sys.modules[__name__]
 
 pipeline_data_object_test.add_event_test(
-    obj=pipeline_events_provisioning.RegistrationResponseEvent,
+    cls=pipeline_events_provisioning.RegistrationResponseEvent,
     module=this_module,
     positional_arguments=["request_id", "status_code", "key_values", "response_payload"],
     keyword_arguments={},

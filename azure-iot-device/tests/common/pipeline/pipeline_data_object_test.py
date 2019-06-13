@@ -25,47 +25,47 @@ base_event_defaults = {}
 
 
 def add_operation_test(
-    obj, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}
+    cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}
 ):
     """
     Add a test class to test the given PipelineOperation class.  The class that
-    we're testing is passed in the obj parameter, and the different initialization
+    we're testing is passed in the cls parameter, and the different initialization
     constants are passed with the named arguments that follow.
     """
     all_extra_defaults = extra_defaults.copy()
-    all_extra_defaults.update(name=obj.__name__)
+    all_extra_defaults.update(name=cls.__name__)
 
-    _add_data_object_test(
-        obj=obj,
+    add_instantiation_test(
+        cls=cls,
         module=module,
-        base_defaults=base_operation_defaults,
+        defaults=base_operation_defaults,
         extra_defaults=all_extra_defaults,
         positional_arguments=positional_arguments,
         keyword_arguments=keyword_arguments,
     )
 
 
-def add_event_test(obj, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}):
+def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}):
     """
     Add a test class to test the given PipelineOperation class.  The class that
-    we're testing is passed in the obj parameter, and the different initialization
+    we're testing is passed in the cls parameter, and the different initialization
     constants are passed with the named arguments that follow.
     """
     all_extra_defaults = extra_defaults.copy()
-    all_extra_defaults.update(name=obj.__name__)
+    all_extra_defaults.update(name=cls.__name__)
 
-    _add_data_object_test(
-        obj=obj,
+    add_instantiation_test(
+        cls=cls,
         module=module,
-        base_defaults=base_event_defaults,
+        defaults=base_event_defaults,
         extra_defaults=all_extra_defaults,
         positional_arguments=positional_arguments,
         keyword_arguments=keyword_arguments,
     )
 
 
-def _add_data_object_test(
-    obj, module, base_defaults, extra_defaults={}, positional_arguments=[], keyword_arguments={}
+def add_instantiation_test(
+    cls, module, defaults, extra_defaults={}, positional_arguments=[], keyword_arguments={}
 ):
     """
     internal function that takes the class and attribute details and adds a test class which
@@ -76,11 +76,11 @@ def _add_data_object_test(
     # we call the initializer will all of the required positional arguments
     # and none of the optional keyword arguments.
 
-    defaults = base_defaults.copy()
+    all_defaults = defaults.copy()
     for key in extra_defaults:
-        defaults[key] = extra_defaults[key]
+        all_defaults[key] = extra_defaults[key]
     for key in keyword_arguments:
-        defaults[key] = keyword_arguments[key]
+        all_defaults[key] = keyword_arguments[key]
 
     # `args` contains an array of positional argument that we are passing to test that they
     # get assigned to the correct attribute.
@@ -97,7 +97,7 @@ def _add_data_object_test(
     # LocalTestObject is a local class which tests the object that was passed in.  pytest doesn't test
     # against this local object, but it does test against it when we put it into the module namespace
     # for the module that was passed in.
-    @pytest.mark.describe("{} - Instantiation".format(obj.__name__))
+    @pytest.mark.describe("{} - Instantiation".format(cls.__name__))
     class LocalTestObject(object):
         @pytest.mark.it(
             "Accepts {} positional arguments that get assigned to attributes of the same name: {}".format(
@@ -107,7 +107,7 @@ def _add_data_object_test(
             else "Accepts no positional arguments"
         )
         def test_positional_arguments(self):
-            instance = obj(*args)
+            instance = cls(*args)
             for i in range(len(args)):
                 assert getattr(instance, positional_arguments[i]) == args[i]
 
@@ -117,20 +117,20 @@ def _add_data_object_test(
             )
         )
         def test_keyword_arguments(self):
-            instance = obj(**kwargs)
+            instance = cls(**kwargs)
             for key in kwargs:
                 assert getattr(instance, key) == kwargs[key]
 
         @pytest.mark.it(
             "Has the following default attributes: {}".format(
-                ", ".join(["{}={}".format(key, repr(defaults[key])) for key in defaults])
+                ", ".join(["{}={}".format(key, repr(all_defaults[key])) for key in all_defaults])
             )
         )
         def test_defaults(self):
-            instance = obj(*args)
-            for key in defaults:
-                assert getattr(instance, key) == defaults[key]
+            instance = cls(*args)
+            for key in all_defaults:
+                assert getattr(instance, key) == all_defaults[key]
 
     # Adding this object to the namespace of the module that was passed in (using a name that starts with "Test")
     # will cause pytest to pick it up.
-    setattr(module, "Test{}Instantiation".format(obj.__name__), LocalTestObject)
+    setattr(module, "Test{}Instantiation".format(cls.__name__), LocalTestObject)

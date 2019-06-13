@@ -38,6 +38,10 @@ class PipelineOperation(object):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
+        if self.__class__ == PipelineOperation:
+            raise TypeError(
+                "Cannot instantiate PipelineOperation object.  You need to use a derived class"
+            )
         self.name = self.__class__.__name__
         self.callback = callback
         self.needs_connection = False

@@ -9,19 +9,11 @@ from azure.iot.device.provisioning.pipeline import (
 )
 
 all_provisioning_ops = [
-    [pipeline_ops_provisioning.SetSymmetricKeySecurityClient, [None]],
-    [
-        pipeline_ops_provisioning.SetSecurityClientArgs,
-        ["hogwarts.com", "remembrall", "anyone_inside_hogwarts"],
-    ],
-    [
-        pipeline_ops_provisioning.SendRegistrationRequest,
-        ["fake_request_1234", "assemble the order of phoenix"],
-    ],
-    [
-        pipeline_ops_provisioning.SendQueryRequest,
-        ["fake_request_1234", "fake_operation_9876", "hello hogwarts"],
-    ],
+    pipeline_ops_provisioning.SetSymmetricKeySecurityClient,
+    pipeline_ops_provisioning.SetX509SecurityClient,
+    pipeline_ops_provisioning.SetSecurityClientArgs,
+    pipeline_ops_provisioning.SendRegistrationRequest,
+    pipeline_ops_provisioning.SendQueryRequest,
 ]
 
 fake_key_values = {}
@@ -29,9 +21,4 @@ fake_key_values["request_id"] = ["request_1234", " "]
 fake_key_values["retry-after"] = ["300", " "]
 fake_key_values["name"] = ["hermione", " "]
 
-all_provisioning_events = [
-    [
-        pipeline_events_provisioning.RegistrationResponseEvent,
-        ["request_1234", "999", fake_key_values, "expecto patronum"],
-    ]
-]
+all_provisioning_events = [pipeline_events_provisioning.RegistrationResponseEvent]

@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 import logging
 import pytest
+import sys
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -18,8 +19,6 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning_mqtt,
 )
 from tests.common.pipeline.helpers import (
-    assert_default_stage_attributes,
-    ConcretePipelineStage,
     assert_callback_failed,
     assert_callback_succeeded,
     all_common_ops,
@@ -29,9 +28,11 @@ from tests.common.pipeline.helpers import (
     UnhandledException,
 )
 from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
+from tests.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.INFO)
 
+this_module = sys.modules[__name__]
 
 fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
@@ -60,15 +61,15 @@ ops_handled_by_this_stage = [
     pipeline_ops_base.DisableFeature,
 ]
 
-unknown_ops = all_except(
-    all_items=(all_common_ops + all_provisioning_ops), items_to_exclude=ops_handled_by_this_stage
-)
-
 events_handled_by_this_stage = [pipeline_events_mqtt.IncomingMessage]
 
-unknown_events = all_except(
-    all_items=all_common_events + all_provisioning_events,
-    items_to_exclude=events_handled_by_this_stage,
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    cls=pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverter,
+    module=this_module,
+    all_ops=all_common_ops + all_provisioning_ops,
+    handled_ops=ops_handled_by_this_stage,
+    all_events=all_common_events + all_provisioning_events,
+    handled_events=events_handled_by_this_stage,
 )
 
 
@@ -98,30 +99,6 @@ def stages_configured(mock_stage, set_security_client_args, mocker):
     set_security_client_args.callback = None
     mock_stage.run_op(set_security_client_args)
     mocker.resetall()
-
-
-@pytest.mark.describe("ProvisioningMQTTConverter initializer")
-class TestProvisioningMQTTConverterInitializer(object):
-    @pytest.mark.it("Sets name, next, previous, pipeline_root attributes on instantiation")
-    def test_initializer(self):
-        obj = pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverter()
-        assert_default_stage_attributes(obj)
-
-
-@pytest.mark.describe("ProvisioningMQTTConverter run_op function with unhandled operations")
-class TestProvisioningMQTTConverterRunOpWithUnknownOperations(object):
-    @pytest.mark.parametrize(
-        "op_class,init_args", unknown_ops, ids=[x[0].__name__ for x in unknown_ops]
-    )
-    @pytest.mark.it("Passes unknown operations to the next stage")
-    def test_passes_unknown_op_down(
-        self, mocker, mock_stage, stages_configured, op_class, init_args
-    ):
-        op = op_class(*init_args)
-        op.action = "pend"
-        mock_stage.run_op(op)
-        assert mock_stage.next._run_op.call_count == 1
-        assert mock_stage.next._run_op.call_args == mocker.call(op)
 
 
 @pytest.mark.describe(
@@ -344,18 +321,6 @@ def add_pipeline_root(mock_stage, mocker):
 
 @pytest.mark.describe("ProvisioningMQTTConverter _handle_pipeline_event")
 class TestProvisioningMQTTConverterHandlePipelineEvent(object):
-    @pytest.mark.parametrize(
-        "event_class,event_init_args", unknown_events, ids=[x[0].__name__ for x in unknown_events]
-    )
-    @pytest.mark.it("Passes unknown events up to the previous stage")
-    def test_unknown_events_get_passed_up(
-        self, mock_stage, stages_configured, add_pipeline_root, mocker, event_class, event_init_args
-    ):
-        event = event_class(*event_init_args)
-        mock_stage.handle_pipeline_event(event)
-        assert mock_stage.previous.handle_pipeline_event.call_count == 1
-        assert mock_stage.previous.handle_pipeline_event.call_args == mocker.call(event)
-
     @pytest.mark.it("Passes up any mqtt messages with topics that aren't matched by this stage")
     def test_passes_up_mqtt_message_with_unknown_topic(
         self, mock_stage, stages_configured, add_pipeline_root, mocker

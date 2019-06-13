@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline import pipeline_ops_base, PipelineStage
+from azure.iot.device.common.pipeline import pipeline_ops_base, PipelineStage, operation_flow
 from . import pipeline_ops_iothub
 from . import constant
 
@@ -38,7 +38,8 @@ class UseSkAuthProvider(PipelineStage):
                 op.callback(op)
 
             auth_provider = op.auth_provider
-            self.run_ops_serial(
+            operation_flow.run_ops_in_serial(
+                self,
                 pipeline_ops_iothub.SetAuthProviderArgs(
                     device_id=auth_provider.device_id,
                     module_id=getattr(auth_provider, "module_id", None),
@@ -50,7 +51,7 @@ class UseSkAuthProvider(PipelineStage):
                 callback=pipeline_ops_done,
             )
         else:
-            self.continue_op(op)
+            operation_flow.pass_op_to_next_stage(self, op)
 
 
 class HandleTwinOperations(PipelineStage):
@@ -69,11 +70,11 @@ class HandleTwinOperations(PipelineStage):
             def on_twin_response(twin_op):
                 if new_op.error:
                     op.error = new_op.error
-                    self.complete_op(op)
+                    operation_flow.complete_op(self, op)
                 else:
                     # TODO: status code check here?
                     op.twin = twin_op.response_body
-                    self.complete_op(op)
+                    operation_flow.complete_op(self, op)
 
             new_op = pipeline_ops_base.SendIotRequestAndWaitForResponse(
                 request_type=constant.twin,
@@ -82,11 +83,11 @@ class HandleTwinOperations(PipelineStage):
                 request_body=" ",
                 callback=on_twin_response,
             )
-            self.continue_op(new_op)
+            operation_flow.pass_op_to_next_stage(self, new_op)
 
         elif isinstance(op, pipeline_ops_iothub.PatchTwinReportedProperties):
             # TODO: convert this into SendIotRequestAndWaitForResponse operation
             pass
 
         else:
-            self.continue_op(op)
+            operation_flow.pass_op_to_next_stage(self, op)

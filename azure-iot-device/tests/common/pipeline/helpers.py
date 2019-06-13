@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import inspect
 import pytest
 import functools
 from azure.iot.device.common.pipeline import (
@@ -11,25 +12,28 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_events_mqtt,
     pipeline_ops_mqtt,
+    operation_flow,
 )
 
+try:
+    from inspect import getfullargspec as getargspec
+except ImportError:
+    from inspect import getargspec
+
 all_common_ops = [
-    [pipeline_ops_base.Connect, []],
-    [pipeline_ops_base.Reconnect, []],
-    [pipeline_ops_base.Disconnect, []],
-    [pipeline_ops_base.EnableFeature, [""]],
-    [pipeline_ops_base.DisableFeature, [""]],
-    [pipeline_ops_base.SetSasToken, [""]],
-    [pipeline_ops_mqtt.SetConnectionArgs, ["", "", ""]],
-    [pipeline_ops_mqtt.Publish, ["", ""]],
-    [pipeline_ops_mqtt.Subscribe, [""]],
-    [pipeline_ops_mqtt.Unsubscribe, [""]],
+    pipeline_ops_base.Connect,
+    pipeline_ops_base.Reconnect,
+    pipeline_ops_base.Disconnect,
+    pipeline_ops_base.EnableFeature,
+    pipeline_ops_base.DisableFeature,
+    pipeline_ops_base.SetSasToken,
+    pipeline_ops_mqtt.SetConnectionArgs,
+    pipeline_ops_mqtt.Publish,
+    pipeline_ops_mqtt.Subscribe,
+    pipeline_ops_mqtt.Unsubscribe,
 ]
 
-all_common_events = [
-    [pipeline_events_base.PipelineEvent, []],
-    [pipeline_events_mqtt.IncomingMessage, ["", ""]],
-]
+all_common_events = [pipeline_events_mqtt.IncomingMessage]
 
 
 def all_except(all_items, items_to_exclude):
@@ -40,20 +44,7 @@ def all_except(all_items, items_to_exclude):
     :param list all_items: list of all operations or events
     :param list items_to_exclude: ops or events to exclude
     """
-    return [x for x in all_items if x[0] not in items_to_exclude]
-
-
-def assert_default_stage_attributes(obj):
-    assert obj.name is obj.__class__.__name__
-    assert obj.next is None
-    assert obj.previous is None
-    assert obj.pipeline_root is None
-
-
-# because PipelineStage is abstract, we need something concrete
-class ConcretePipelineStage(pipeline_stages_base.PipelineStage):
-    def _run_op(self, op):
-        self.continue_op(op)
+    return [x for x in all_items if x not in items_to_exclude]
 
 
 def make_mock_stage(mocker, stage_to_make):
@@ -63,12 +54,18 @@ def make_mock_stage(mocker, stage_to_make):
     by detfault, have a previous stage or a pipeline root that can receive events
     coming back up.  The previous stage is added by the tests which which require it.
     """
+    # because PipelineStage is abstract, we need something concrete
+    class NextStageForTest(pipeline_stages_base.PipelineStage):
+        def _run_op(self, op):
+            operation_flow.pass_op_to_next_stage(self, op)
 
     def stage_run_op(self, op):
         if getattr(op, "action", None) is None or op.action == "pass":
-            self.complete_op(op)
-        elif op.action == "fail":
+            operation_flow.complete_op(self, op)
+        elif op.action == "fail" or op.action == "exception":
             raise Exception()
+        elif op.action == "base_exception":
+            raise UnhandledException()
         elif op.action == "pend":
             pass
         else:
@@ -79,7 +76,7 @@ def make_mock_stage(mocker, stage_to_make):
     mocker.spy(first_stage, "_run_op")
     mocker.spy(first_stage, "run_op")
 
-    next_stage = ConcretePipelineStage()
+    next_stage = NextStageForTest()
     next_stage._run_op = functools.partial(stage_run_op, next_stage)
     mocker.spy(next_stage, "_run_op")
     mocker.spy(next_stage, "run_op")
@@ -117,3 +114,16 @@ def assert_callback_failed(op, callback=None, error=None):
 
 class UnhandledException(BaseException):
     pass
+
+
+def get_arg_count(fn):
+    """
+    return the number of arguments (args) passed into a
+    particular function.  Returned value not include kwargs.
+    """
+    return len(getargspec(fn).args)
+
+
+def make_mock_op_or_event(cls):
+    args = [None for i in (range(get_arg_count(cls.__init__) - 1))]
+    return cls(*args)

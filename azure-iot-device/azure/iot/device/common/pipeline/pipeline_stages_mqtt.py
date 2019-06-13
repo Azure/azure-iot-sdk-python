@@ -5,7 +5,13 @@
 # --------------------------------------------------------------------------
 
 import logging
-from . import pipeline_ops_base, PipelineStage, pipeline_ops_mqtt, pipeline_events_mqtt
+from . import (
+    pipeline_ops_base,
+    PipelineStage,
+    pipeline_ops_mqtt,
+    pipeline_events_mqtt,
+    operation_flow,
+)
 from azure.iot.device.common.mqtt_provider import MQTTProvider
 
 logger = logging.getLogger(__name__)
@@ -39,13 +45,13 @@ class Provider(PipelineStage):
             self.provider.on_mqtt_disconnected = self.on_disconnected
             self.provider.on_mqtt_message_received = self._on_message_received
             self.pipeline_root.provider = self.provider
-            self.complete_op(op)
+            operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.SetSasToken):
             # When we get a sas token from above, we just save it for later
             logger.info("{}({}): got password".format(self.name, op.name))
             self.sas_token = op.sas_token
-            self.complete_op(op)
+            operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.SetClientAuthenticationCertificate):
             # When we get a certificate from above, we just save it for later
@@ -60,7 +66,7 @@ class Provider(PipelineStage):
                 logger.info("{}({}): on_connected.  completing op.".format(self.name, op.name))
                 self.provider.on_mqtt_connected = self.on_connected
                 self.on_connected()
-                self.complete_op(op)
+                operation_flow.complete_op(self, op)
 
             # A note on exceptions handling in Connect, Disconnct, and Reconnet:
             #
@@ -90,7 +96,9 @@ class Provider(PipelineStage):
             #
             self.provider.on_mqtt_connected = on_connected
             try:
-                self.provider.connect(password=self.sas_token, client_certificate=self.trusted_certificate_chain)
+                self.provider.connect(
+                    password=self.sas_token, client_certificate=self.trusted_certificate_chain
+                )
             except Exception as e:
                 self.provider.on_mqtt_connected = self.on_connected
                 raise e
@@ -102,7 +110,7 @@ class Provider(PipelineStage):
                 logger.info("{}({}): on_connected.  completing op.".format(self.name, op.name))
                 self.provider.on_mqtt_connected = self.on_connected
                 self.on_connected()
-                self.complete_op(op)
+                operation_flow.complete_op(self, op)
 
             # See "A note on exception handling" above
             self.provider.on_mqtt_connected = on_connected
@@ -113,13 +121,13 @@ class Provider(PipelineStage):
                 raise e
 
         elif isinstance(op, pipeline_ops_base.Disconnect):
-            logger.info("{}({}): disconneting".format(self.name, op.name))
+            logger.info("{}({}): disconnecting".format(self.name, op.name))
 
             def on_disconnected():
                 logger.info("{}({}): on_disconnected.  completing op.".format(self.name, op.name))
                 self.provider.on_mqtt_disconnected = self.on_disconnected
                 self.on_disconnected()
-                self.complete_op(op)
+                operation_flow.complete_op(self, op)
 
             # See "A note on exception handling" above
             self.provider.on_mqtt_disconnected = on_disconnected
@@ -134,7 +142,7 @@ class Provider(PipelineStage):
 
             def on_published():
                 logger.info("{}({}): PUBACK received. completing op.".format(self.name, op.name))
-                self.complete_op(op)
+                operation_flow.complete_op(self, op)
 
             self.provider.publish(topic=op.topic, payload=op.payload, callback=on_published)
 
@@ -143,7 +151,7 @@ class Provider(PipelineStage):
 
             def on_subscribed():
                 logger.info("{}({}): SUBACK received. completing op.".format(self.name, op.name))
-                self.complete_op(op)
+                operation_flow.complete_op(self, op)
 
             self.provider.subscribe(topic=op.topic, callback=on_subscribed)
 
@@ -152,12 +160,12 @@ class Provider(PipelineStage):
 
             def on_unsubscribed():
                 logger.info("{}({}): UNSUBACK received.  completing op.".format(self.name, op.name))
-                self.complete_op(op)
+                operation_flow.complete_op(self, op)
 
             self.provider.unsubscribe(topic=op.topic, callback=on_unsubscribed)
 
         else:
-            self.continue_op(op)
+            operation_flow.pass_op_to_next_stage(self, op)
 
     def _on_message_received(self, topic, payload):
         """

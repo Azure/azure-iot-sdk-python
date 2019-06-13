@@ -26,6 +26,10 @@ class PipelineEvent(object):
         """
         Initializer for PipelineEvent objects.
         """
+        if self.__class__ == PipelineEvent:
+            raise TypeError(
+                "Cannot instantiate PipelineEvent object.  You need to use a derived class"
+            )
         self.name = self.__class__.__name__
 
 
