@@ -1,4 +1,4 @@
-FROM resin/raspberrypi3-python:2.7.13
+FROM balenalib/raspberrypi3-python:2.7.13
 
 ENV INITSYSTEM=on
 
