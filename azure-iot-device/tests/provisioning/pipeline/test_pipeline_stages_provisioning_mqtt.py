@@ -216,13 +216,13 @@ def op(params, callback):
 )
 @pytest.mark.describe("ProvisioningMQTTConverter basic operation tests")
 class TestProvisioningMQTTConverterBasicOperations(object):
-    @pytest.mark.it("runs an operation on the next stage")
+    @pytest.mark.it("Runs an operation on the next stage")
     def test_runs_publish(self, params, mock_stage, stages_configured, op):
         mock_stage.run_op(op)
         new_op = mock_stage.next._run_op.call_args[0][0]
         assert isinstance(new_op, params["new_op_class"])
 
-    @pytest.mark.it("calls the original op callback with error if the new_op raises an Exception")
+    @pytest.mark.it("Calls the original op callback with error if the new_op raises an Exception")
     def test_new_op_raises_exception(
         self, params, mocker, mock_stage, stages_configured, op, some_exception
     ):
@@ -238,7 +238,7 @@ class TestProvisioningMQTTConverterBasicOperations(object):
         with pytest.raises(UnhandledException):
             mock_stage.run_op(op)
 
-    @pytest.mark.it("calls the original op callback with no error if the new_op operation succeeds")
+    @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
     def test_returns_success_if_publish_succeeds(self, params, mock_stage, stages_configured, op):
         mock_stage.run_op(op)
         assert_callback_succeeded(op)
@@ -279,6 +279,7 @@ class TestProvisioningMQTTConverterForPublishOps(object):
         new_op = mock_stage.next._run_op.call_args[0][0]
         assert new_op.topic == params["topic"]
 
+    @pytest.mark.it("Sends correct payload when publishing")
     def test_sends_correct_body(self, mock_stage, stages_configured, params, op):
         mock_stage.run_op(op)
         new_op = mock_stage.next._run_op.call_args[0][0]

@@ -10,7 +10,7 @@ class RegistrationQueryStatusResult(object):
     The result of any registration attempt
     :ivar:request_id: The request id to which the response is being obtained
     :ivar:operation_id: The id of the operation as returned by the registration request.
-    :ivar status: The status of the registration process as returned by the Hub
+    :ivar status: The status of the registration process as returned by provisioning service.
     Values can be "unassigned", "assigning", "assigned", "failed", "disabled"
     from the provisioning service.
     """

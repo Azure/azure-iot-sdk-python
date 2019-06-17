@@ -29,8 +29,8 @@ def request_response_provider():
 
 
 @pytest.mark.describe("RequestResponseProvider")
-class TestRequestResponseProvider:
-    @pytest.mark.it("connect calls connect on state based provider with given callback")
+class TestRequestResponseProvider(object):
+    @pytest.mark.it("Connect calls connect on state based provider with given callback")
     def test_connect_calls_connect_on_provisioning_pipeline_with_provided_callback(
         self, request_response_provider
     ):
@@ -39,7 +39,7 @@ class TestRequestResponseProvider:
         request_response_provider.connect(mock_callback)
         mock_provisioning_pipeline.connect.assert_called_once_with(callback=mock_callback)
 
-    @pytest.mark.it("connect calls connect on state based provider with defined callback")
+    @pytest.mark.it("Connect calls connect on state based provider with defined callback")
     def test_connect_calls_connect_on_provisioning_pipeline(self, request_response_provider):
         mock_provisioning_pipeline = request_response_provider._provisioning_pipeline
         request_response_provider.connect()
@@ -47,7 +47,7 @@ class TestRequestResponseProvider:
             callback=request_response_provider._on_connection_state_change
         )
 
-    @pytest.mark.it("disconnect calls disconnect on state based provider with given callback")
+    @pytest.mark.it("Disconnect calls disconnect on state based provider with given callback")
     def test_disconnect_calls_disconnect_on_provisioning_pipeline_with_provided_callback(
         self, request_response_provider
     ):
@@ -56,7 +56,7 @@ class TestRequestResponseProvider:
         request_response_provider.disconnect(mock_callback)
         mock_provisioning_pipeline.disconnect.assert_called_once_with(callback=mock_callback)
 
-    @pytest.mark.it("disconnect calls disconnect on state based provider with defined callback")
+    @pytest.mark.it("Disconnect calls disconnect on state based provider with defined callback")
     def test_disconnect_calls_disconnect_on_provisioning_pipeline(self, request_response_provider):
         mock_provisioning_pipeline = request_response_provider._provisioning_pipeline
         request_response_provider.disconnect()
@@ -64,7 +64,7 @@ class TestRequestResponseProvider:
             callback=request_response_provider._on_connection_state_change
         )
 
-    @pytest.mark.it("send request calls send request on pipeline with request")
+    @pytest.mark.it("Send request calls send request on pipeline with request")
     def test_send_request_calls_publish_on_provisioning_pipeline(self, request_response_provider):
         mock_provisioning_pipeline = request_response_provider._provisioning_pipeline
         req = "Leviosa"
@@ -86,7 +86,7 @@ class TestRequestResponseProvider:
         assert mock_provisioning_pipeline.send_request.call_args[1]["request_payload"] == req
 
     @pytest.mark.it(
-        "enable_responses calls enable_responses on pipeline with topic and given callback"
+        "Enable_responses calls enable_responses on pipeline with topic and given callback"
     )
     def test_enable_responses_calls_enable_responses_on_provisioning_pipeline_with_provided_callback(
         self, request_response_provider
@@ -97,7 +97,7 @@ class TestRequestResponseProvider:
         mock_provisioning_pipeline.enable_responses.assert_called_once_with(callback=mock_callback)
 
     @pytest.mark.it(
-        "enable_responses calls enable_responses on pipeline with topic and defined callback"
+        "Enable_responses calls enable_responses on pipeline with topic and defined callback"
     )
     def test_enable_responses_calls_enable_responses_on_provisioning_pipeline(
         self, request_response_provider
@@ -108,7 +108,7 @@ class TestRequestResponseProvider:
             callback=request_response_provider._on_subscribe_completed
         )
 
-    @pytest.mark.it("unsubscribe calls unsubscribe on pipeline with topic and given callback")
+    @pytest.mark.it("Unsubscribe calls unsubscribe on pipeline with topic and given callback")
     def test_disable_responses_calls_disable_responses_on_provisioning_pipeline_with_provided_callback(
         self, request_response_provider
     ):
@@ -118,7 +118,7 @@ class TestRequestResponseProvider:
         mock_provisioning_pipeline.disable_responses.assert_called_once_with(callback=mock_callback)
 
     @pytest.mark.it(
-        "disable_response calls disable_response on pipeline with topic and defined callback"
+        "Disable_response calls disable_response on pipeline with topic and defined callback"
     )
     def test_disable_responses_calls_disable_responses_on_provisioning_pipeline(
         self, request_response_provider
@@ -129,7 +129,7 @@ class TestRequestResponseProvider:
             callback=request_response_provider._on_unsubscribe_completed
         )
 
-    @pytest.mark.it("receives message and calls callback passed with payload")
+    @pytest.mark.it("Receives message and calls callback passed with payload")
     def test_on_provider_message_received_receives_response_and_calls_callback(
         self, request_response_provider
     ):

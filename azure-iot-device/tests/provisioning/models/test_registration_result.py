@@ -23,7 +23,7 @@ fake_etag = "HighQualityFlyingBroom"
 
 
 @pytest.mark.describe("RegistrationResult")
-class TestRegistrationResult:
+class TestRegistrationResult(object):
     @pytest.mark.it("Instantiates correctly")
     def test_registration_result_instantiated_correctly(self):
         fake_registration_state = RegistrationState(

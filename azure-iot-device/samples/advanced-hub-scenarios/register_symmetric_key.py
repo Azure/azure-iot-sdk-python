@@ -7,8 +7,7 @@
 import os
 import logging
 import asyncio
-from azure.iot.device import SymmetricKeySecurityClient
-from azure.iot.device.aio import SymmetricKeyProvisioningDeviceClient
+from azure.iot.device.aio import ProvisioningDeviceClient
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -21,11 +20,11 @@ symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
 
 async def main():
     async def register_device():
-        symmetric_key_security_client = SymmetricKeySecurityClient(
-            provisioning_host, registration_id, symmetric_key, id_scope
-        )
-        provisioning_device_client = SymmetricKeyProvisioningDeviceClient.create_from_security_client(
-            symmetric_key_security_client, "mqtt"
+        provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=provisioning_host,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            symmetric_key=symmetric_key,
         )
 
         await provisioning_device_client.register()

@@ -22,7 +22,7 @@ class TestSymmetricKeySecurityClient(object):
     @pytest.mark.it("Properties have getters")
     def test_properties_are_gettable_after_instantiation_security_client(self):
         security_client = SymmetricKeySecurityClient(
-            fake_provisioning_host, fake_registration_id, fake_symmetric_key, fake_id_scope
+            fake_provisioning_host, fake_registration_id, fake_id_scope, fake_symmetric_key
         )
         assert security_client.provisioning_host == fake_provisioning_host
         assert security_client.id_scope == fake_id_scope
@@ -31,7 +31,7 @@ class TestSymmetricKeySecurityClient(object):
     @pytest.mark.it("Properties do not have setter")
     def test_properties_are_not_settable_after_instantiation_security_client(self):
         security_client = SymmetricKeySecurityClient(
-            fake_provisioning_host, fake_registration_id, fake_symmetric_key, fake_id_scope
+            fake_provisioning_host, fake_registration_id, fake_id_scope, fake_symmetric_key
         )
         with pytest.raises(AttributeError, match="can't set attribute"):
             security_client.registration_id = "MyNimbus2000"
@@ -41,7 +41,7 @@ class TestSymmetricKeySecurityClient(object):
     @pytest.mark.it("Can create sas token")
     def test_create_sas(self):
         security_client = SymmetricKeySecurityClient(
-            fake_provisioning_host, fake_registration_id, fake_symmetric_key, fake_id_scope
+            fake_provisioning_host, fake_registration_id, fake_id_scope, fake_symmetric_key
         )
         sas_value = security_client.get_current_sas_token()
         assert key_name in sas_value

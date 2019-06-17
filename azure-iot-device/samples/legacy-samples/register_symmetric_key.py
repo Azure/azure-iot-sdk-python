@@ -7,8 +7,7 @@
 
 import os
 import logging
-from azure.iot.device import SymmetricKeySecurityClient
-from azure.iot.device import SymmetricKeyProvisioningDeviceClient
+from azure.iot.device import ProvisioningDeviceClient
 
 
 logging.basicConfig(level=logging.INFO)
@@ -18,11 +17,11 @@ id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
 symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
 
-symmetric_key_security_client = SymmetricKeySecurityClient(
-    provisioning_host, registration_id, symmetric_key, id_scope
-)
-provisioning_device_client = SymmetricKeyProvisioningDeviceClient.create_from_security_client(
-    symmetric_key_security_client, "mqtt"
+provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+    provisioning_host=provisioning_host,
+    registration_id=registration_id,
+    id_scope=id_scope,
+    symmetric_key=symmetric_key,
 )
 
 provisioning_device_client.register()

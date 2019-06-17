@@ -23,8 +23,8 @@ fake_etag = "HighQualityFlyingBroom"
 
 
 @pytest.mark.describe("RegistrationQueryStatusResult")
-class TestRegistrationQueryStatusResult:
-    @pytest.mark.it("instantiates correctly")
+class TestRegistrationQueryStatusResult(object):
+    @pytest.mark.it("Instantiates correctly")
     def test_registration_status_query_result_instantiated_correctly(self):
         intermediate_result = RegistrationQueryStatusResult(
             fake_request_id, fake_retry_after, fake_operation_id, fake_status
@@ -34,7 +34,7 @@ class TestRegistrationQueryStatusResult:
         assert intermediate_result.operation_id == fake_operation_id
         assert intermediate_result.status == fake_status
 
-    @pytest.mark.it("has request id that does not have setter")
+    @pytest.mark.it("Has request id that does not have setter")
     def test_rid_is_not_settable(self):
         registration_result = RegistrationQueryStatusResult(
             "RequestId123", "Operation456", "emitted", None

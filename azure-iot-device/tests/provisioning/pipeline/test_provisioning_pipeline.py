@@ -130,7 +130,7 @@ class TestInit(object):
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Connect")
-class TestConnect:
+class TestConnect(object):
     @pytest.mark.it("Calls connect on provider")
     def test_connect_calls_connect_on_provider(
         self, params_security_clients, mock_provisioning_pipeline
@@ -211,8 +211,9 @@ class TestConnect:
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Send Register")
-class TestSendRegister:
-    def test_send_request_calls_publish_on_provider(
+class TestSendRegister(object):
+    @pytest.mark.it("Request calls publish on provider")
+    def test_send_register_request_calls_publish_on_provider(
         self, mock_provisioning_pipeline, params_security_clients
     ):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
@@ -240,6 +241,7 @@ class TestSendRegister:
         assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
 
+    @pytest.mark.it("Request queues and connects before calling publish on provider")
     def test_send_request_queues_and_connects_before_sending(
         self, mock_provisioning_pipeline, params_security_clients
     ):
@@ -280,6 +282,7 @@ class TestSendRegister:
         assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
 
+    @pytest.mark.it("Request queues and waits for connect to be completed")
     def test_send_request_queues_if_waiting_for_connect_complete(
         self, mock_provisioning_pipeline, params_security_clients
     ):
@@ -319,6 +322,7 @@ class TestSendRegister:
         assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
 
+    @pytest.mark.it("Request can be sent multiple times overlapping each other")
     def test_send_event_sends_overlapped_events(self, mock_provisioning_pipeline):
         fake_request_id_1 = fake_request_id
         fake_msg_1 = fake_mqtt_payload
@@ -357,6 +361,7 @@ class TestSendRegister:
         callback_1.assert_not_called()
         callback_2.assert_not_called()
 
+    @pytest.mark.it("Connects , sends request queues and then disconnects")
     def test_connect_send_disconnect(self, mock_provisioning_pipeline):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
 
@@ -377,7 +382,8 @@ class TestSendRegister:
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Send Query")
-class TestSendQuery:
+class TestSendQuery(object):
+    @pytest.mark.it("Request calls publish on provider")
     def test_send_query_calls_publish_on_provider(
         self, mock_provisioning_pipeline, params_security_clients
     ):
@@ -411,7 +417,8 @@ class TestSendQuery:
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Disconnect")
-class TestDisconnect:
+class TestDisconnect(object):
+    @pytest.mark.it("Calls disconnect on provider")
     def test_disconnect_calls_disconnect_on_provider(self, mock_provisioning_pipeline):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
 
@@ -421,6 +428,7 @@ class TestDisconnect:
 
         mock_mqtt_provider.disconnect.assert_called_once_with()
 
+    @pytest.mark.it("Is ignored if already disconnected")
     def test_disconnect_ignored_if_already_disconnected(self, mock_provisioning_pipeline):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
 
@@ -428,6 +436,7 @@ class TestDisconnect:
 
         mock_mqtt_provider.disconnect.assert_not_called()
 
+    @pytest.mark.it("After complete calls handler with `disconnected` state")
     def test_disconnect_calls_client_disconnect_callback(self, mock_provisioning_pipeline):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
 
@@ -444,7 +453,8 @@ class TestDisconnect:
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Enable")
-class TestEnable:
+class TestEnable(object):
+    @pytest.mark.it("Calls subscribe on provider")
     def test_subscribe_calls_subscribe_on_provider(self, mock_provisioning_pipeline):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
 
@@ -458,7 +468,8 @@ class TestEnable:
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Disable")
-class TestDisable:
+class TestDisable(object):
+    @pytest.mark.it("Calls unsubscribe on provider")
     def test_unsubscribe_calls_unsubscribe_on_provider(self, mock_provisioning_pipeline):
         mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
 

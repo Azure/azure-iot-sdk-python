@@ -11,8 +11,8 @@
 class X509SecurityClient(object):
     """
     An X509 Security Client. This uses the certificate and key provided to authenticate a device
-    with an Azure IOT/DPS Hub instance.X509 Authentication is only supported for device identities
-    connecting directly to an Azure IOT/DPS hub.
+    with an Azure DPS instance.X509 Authentication is only supported for device identities
+    connecting directly to an Azure DPS.
     """
 
     def __init__(self, provisioning_host, registration_id, id_scope, x509):

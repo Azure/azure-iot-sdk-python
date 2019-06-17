@@ -77,8 +77,6 @@ class ProvisioningMQTTConverter(PipelineStage):
                 new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.request_payload),
             )
 
-        # TODO : In the iothub case the enable and disable operations are defined in base.
-        # TODO: I felt this is very specific to DPS so this is defined in provisioning
         elif isinstance(op, pipeline_ops_base.EnableFeature):
             # Enabling for register gets translated into an Mqtt subscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
@@ -99,7 +97,7 @@ class ProvisioningMQTTConverter(PipelineStage):
 
     def _handle_pipeline_event(self, event):
         """
-        Pipeline Event handler function to convert incoming Mqtt messages into the appropriate IotHub
+        Pipeline Event handler function to convert incoming Mqtt messages into the appropriate DPS
         events, based on the topic of the message
         """
         if isinstance(event, pipeline_events_mqtt.IncomingMessage):

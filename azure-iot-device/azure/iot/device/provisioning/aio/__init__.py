@@ -1,10 +1,9 @@
-"""Azure IoT Hub Device SDK - Asynchronous
+"""Azure IoT Provisioning Service SDK - Asynchronous
 
-This SDK provides asynchronous functionality for communicating with the Azure IoT Hub
-as a Device or Module.
+This SDK provides asynchronous functionality for communicating with the Azure Provisioning Service
+as a Device.
 """
 
-from .async_sk_provisioning_device_client import SymmetricKeyProvisioningDeviceClient
-from .async_x509_provisioning_device_client import X509ProvisioningDeviceClient
+from .async_provisioning_device_client import ProvisioningDeviceClient
 
-__all__ = ["SymmetricKeyProvisioningDeviceClient", "X509ProvisioningDeviceClient"]
+__all__ = ["ProvisioningDeviceClient"]

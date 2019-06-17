@@ -15,7 +15,7 @@ from .internal.polling_machine import PollingMachine
 logger = logging.getLogger(__name__)
 
 
-class X509ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
+class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     """
     Client which can be used to run the registration of a device with provisioning service
     using Symmetric Key authentication.
@@ -23,23 +23,23 @@ class X509ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
     def __init__(self, provisioning_pipeline):
         """
-        Initializer for the Symmetric Key Provisioning Client.
+        Initializer for the Provisioning Client.
         NOTE : This initializer should not be called directly.
-        Instead, the class method `create_from_security_client` should be used to create a client object.
+        Instead, the class methods that start with `create_from_` should be used to create a client object.
         :param provisioning_pipeline: The protocol pipeline for provisioning. As of now this only supports MQTT.
         """
-        super(X509ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
+        super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
         self._polling_machine = PollingMachine(provisioning_pipeline)
 
     def register(self):
         """
-        Register the device with the provisioning service.
+        Register the device with the with thw provisioning service
         This is a synchronous call, meaning that this function will not return until the registration
         process has completed successfully or the attempt has resulted in a failure. Before returning
-        the client will also disconnect from the Hub.
+        the client will also disconnect from the provisioning service.
         If a registration attempt is made while a previous registration is in progress it may throw an error.
         """
-        logger.info("Registering with Hub...")
+        logger.info("Registering with Provisioning Service...")
         register_complete = Event()
 
         def on_register_complete(result=None, error=None):
@@ -54,7 +54,7 @@ class X509ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         This is a synchronous call, meaning that this function will not return until the cancellation
         process has completed successfully or the attempt has resulted in a failure. Before returning
-        the client will also disconnect from the Hub.
+        the client will also disconnect from the provisioning service.
 
         In case there is no registration in process it will throw an error as there is
         no registration process to cancel.

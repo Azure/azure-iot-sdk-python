@@ -10,7 +10,7 @@ class RegistrationResult(object):
     The final result of a completed or failed registration attempt
     :ivar:request_id: The request id to which the response is being obtained
     :ivar:operation_id: The id of the operation as returned by the registration request.
-    :ivar status: The status of the registration process as returned by the Hub
+    :ivar status: The status of the registration process as returned by the provisioning service.
     Values can be "unassigned", "assigning", "assigned", "failed", "disabled"
     :ivar registration_state : Details like device id, assigned hub , date times etc returned
     from the provisioning service.
@@ -51,7 +51,7 @@ class RegistrationState(object):
     """
     The registration state regarding the device.
     :ivar device_id: Desired device id for the provisioned device
-    :ivar assigned_hub: Desired  IoT Hub where the provisioned device is located
+    :ivar assigned_hub: Desired IoT Hub to which the device is linked.
     :ivar sub_status: Substatus for 'Assigned' devices. Possible values are
     "initialAssignment", "deviceDataMigrated", "deviceDataReset"
     :ivar created_date_time: Registration create date time (in UTC).
@@ -70,7 +70,7 @@ class RegistrationState(object):
     ):
         """
         :param device_id: Desired device id for the provisioned device
-        :param assigned_hub: Desired  IoT Hub where the provisioned device is located
+        :param assigned_hub: Desired  IoT Hub to which the device is linked.
         :param sub_status: Substatus for 'Assigned' devices. Possible values are
         "initialAssignment", "deviceDataMigrated", "deviceDataReset"
         :param created_date_time: Registration create date time (in UTC).

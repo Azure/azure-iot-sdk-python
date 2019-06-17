@@ -87,7 +87,7 @@ class SetSecurityClientArgs(PipelineOperation):
 class SendRegistrationRequest(PipelineOperation):
     """
     A PipelineOperation object which contains arguments used to send a registration request
-    to an Device Provisioning Hub.
+    to an Device Provisioning Service.
 
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
@@ -111,7 +111,7 @@ class SendRegistrationRequest(PipelineOperation):
 class SendQueryRequest(PipelineOperation):
     """
     A PipelineOperation object which contains arguments used to send a registration request
-    to an Device Provisioning Hub.
+    to an Device Provisioning Service.
 
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """

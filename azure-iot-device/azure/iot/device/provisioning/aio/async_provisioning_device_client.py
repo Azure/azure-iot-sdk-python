@@ -20,7 +20,7 @@ from azure.iot.device.provisioning.internal.polling_machine import PollingMachin
 logger = logging.getLogger(__name__)
 
 
-class SymmetricKeyProvisioningDeviceClient(AbstractProvisioningDeviceClient):
+class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     """
     Client which can be used to run the registration of a device with provisioning service
     using Symmetric Key authentication.
@@ -28,21 +28,21 @@ class SymmetricKeyProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
     def __init__(self, provisioning_pipeline):
         """
-        Initializer for the Symmetric Key Provisioning Client.
+        Initializer for the Provisioning Client.
         NOTE : This initializer should not be called directly.
         Instead, the class method `create_from_security_client` should be used to create a client object.
         :param provisioning_pipeline: The protocol pipeline for provisioning. As of now this only supports MQTT.
         """
-        super(SymmetricKeyProvisioningDeviceClient, self).__init__(provisioning_pipeline)
+        super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
         self._polling_machine = PollingMachine(provisioning_pipeline)
 
     async def register(self):
         """
         Register the device with the provisioning service.
-        Before returning the client will also disconnect from the Hub.
+        Before returning the client will also disconnect from the provisioning service.
         If a registration attempt is made while a previous registration is in progress it may throw an error.
         """
-        logger.info("Registering with Hub...")
+        logger.info("Registering with Provisioning Service...")
         register_async = async_adapter.emulate_async(self._polling_machine.register)
 
         def sync_on_register_complete(result=None, error=None):
@@ -55,12 +55,12 @@ class SymmetricKeyProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
     async def cancel(self):
         """
-        Before returning the client will also disconnect from the Hub.
+        Before returning the client will also disconnect from the provisioning service.
 
         In case there is no registration in process it will throw an error as there is
         no registration process to cancel.
         """
-        logger.info("Disconnecting from Hub...")
+        logger.info("Disconnecting from Provisioning Service...")
         cancel_async = async_adapter.emulate_async(self._polling_machine.cancel)
 
         def sync_on_cancel_complete():
