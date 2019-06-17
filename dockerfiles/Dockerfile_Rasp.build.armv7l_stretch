@@ -1,4 +1,4 @@
-FROM resin/raspberrypi3-debian:stretch
+FROM balenalib/raspberrypi3-debian:stretch
 
 ENV INITSYSTEM=on
 
