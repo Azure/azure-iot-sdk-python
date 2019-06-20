@@ -16,12 +16,8 @@ messages_to_send = 10
 
 
 async def main():
-    # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
-    auth_provider = auth.from_environment()
-
-    # For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
-    # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
-    device_client = IoTHubModuleClient.from_authentication_provider(auth_provider, "mqtt")
+    # The client object is used to interact with your Azure IoT hub.
+    device_client = IoTHubModuleClient.create_from_edge_environment()
 
     # Connect the client.
     await device_client.connect()

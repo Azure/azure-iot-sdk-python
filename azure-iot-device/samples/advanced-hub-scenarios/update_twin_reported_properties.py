@@ -16,8 +16,7 @@ from azure.iot.device import auth
 
 async def main():
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-    auth_provider = auth.from_connection_string(conn_str)
-    device_client = IoTHubDeviceClient.from_authentication_provider(auth_provider, "mqtt")
+    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
     # connect the client.
     await device_client.connect()

@@ -8,11 +8,13 @@ import pytest
 import asyncio
 import threading
 import time
+import os
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device.iothub.pipeline import PipelineAdapter, constant
 from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
+from azure.iot.device.iothub.auth import IoTEdgeError
 
 # auth_provider and pipeline fixtures are implicitly included
 
@@ -46,46 +48,93 @@ class SharedClientInstantiationTests(object):
         )
 
 
-class SharedClientFromAuthenticationProviderTests(object):
-    xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
-    client_class = None  # Will be set in child classes
+class SharedClientCreateFromConnectionStringTests(object):
+    @pytest.mark.it("Instantiates the client, given a valid connection string")
+    async def test_instantiates_client(self, client_class, connection_string):
+        client = client_class.create_from_connection_string(connection_string)
+        assert isinstance(client, client_class)
 
-    @pytest.mark.it("Instantiates the client with desired authentication/protocol combination")
+    # TODO: If auth package was refactored to use ConnectionString class, tests from that
+    # class would increase the coverage
+    @pytest.mark.it("Raises ValueError when given an invalid connection string")
     @pytest.mark.parametrize(
-        "protocol,expected_pipeline",
+        "bad_cs",
         [
-            pytest.param("mqtt", PipelineAdapter, id="mqtt"),
-            pytest.param("amqp", None, id="amqp", marks=xfail_notimplemented),
-            pytest.param("http", None, id="http", marks=xfail_notimplemented),
+            pytest.param("not-a-connection-string", id="Garbage string"),
+            pytest.param("", id="Empty string"),
+            pytest.param(object(), id="Non-string input"),
+            pytest.param(
+                "HostName=Invalid;DeviceId=Invalid;SharedAccessKey=Invalid",
+                id="Malformed Connection String",
+                marks=pytest.mark.xfail(reason="Bug in pipeline + need for auth refactor"),  # TODO
+                # Note that this sometimes prints warning text (only for async) - I think it's a bug in pytest-asyncio
+            ),
         ],
     )
-    async def test_instantiates_client(self, auth_provider, protocol, expected_pipeline):
-        client = self.client_class.from_authentication_provider(auth_provider, protocol)
-        assert isinstance(client, self.client_class)
-        assert isinstance(client._pipeline, expected_pipeline)
-
-    @pytest.mark.it("Handles variant protocol input")
-    @pytest.mark.parametrize("auth_provider", ["SymmetricKey"], ids=[""], indirect=True)
-    @pytest.mark.parametrize(
-        "protocol,expected_pipeline",
-        [
-            pytest.param("MQTT", PipelineAdapter, id="ALL CAPS"),
-            pytest.param("MqTt", PipelineAdapter, id="mIxEd CaSe"),
-        ],
-    )
-    async def test_boundary_case_protocol_name_format(
-        self, auth_provider, protocol, expected_pipeline
-    ):
-        client = self.client_class.from_authentication_provider(auth_provider, protocol)
-        assert isinstance(client, self.client_class)
-        assert isinstance(client._pipeline, expected_pipeline)
-
-    @pytest.mark.it("Raises ValueError on invalid protocol input")
-    @pytest.mark.parametrize("auth_provider", ["SymmetricKey"], ids=[""], indirect=True)
-    # TODO: handle the auth_provider fixture differently so it doesn't result in empty [] in output
-    async def test_bad_protocol_input_raises_error(self, auth_provider):
+    async def test_raises_value_error_on_bad_connection_string(self, client_class, bad_cs):
         with pytest.raises(ValueError):
-            self.client_class.from_authentication_provider(auth_provider, "bad input")
+            client_class.create_from_connection_string(bad_cs)
+
+    @pytest.mark.it(
+        "Uses a SymmetricKeyAuthenticationProvider to create the client's IoTHub pipeline"
+    )
+    async def test_auth_provider_and_pipeline(self, mocker, client_class):
+        mock_auth_parse = mocker.patch(
+            "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
+        ).parse
+        mock_pipeline_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.PipelineAdapter"
+        )
+
+        client = client_class.create_from_connection_string(mocker.MagicMock())
+
+        assert mock_auth_parse.call_count == 1
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth_parse.return_value)
+        assert client._pipeline == mock_pipeline_init.return_value
+
+
+class SharedClientFromCreateFromSharedAccessSignature(object):
+    @pytest.mark.it("Instantiates the client, given a valid SAS token")
+    async def test_instantiates_client(self, client_class, sas_token_string):
+        client = client_class.create_from_shared_access_signature(sas_token_string)
+        assert isinstance(client, client_class)
+
+    # TODO: If auth package was refactored to use SasToken class, tests from that
+    # class would increase the coverage here.
+    @pytest.mark.it("Raises ValueError when given an invalid SAS token")
+    @pytest.mark.parametrize(
+        "bad_sas",
+        [
+            pytest.param("not-a-sas-token", id="Garbage string"),
+            pytest.param("", id="Empty string"),
+            pytest.param(object(), id="Non-string input"),
+            pytest.param(
+                "SharedAccessSignature sr=Invalid&sig=Invalid&se=Invalid", id="Malformed SAS token"
+            ),
+        ],
+    )
+    async def test_raises_value_error_on_bad_sas_token(self, client_class, bad_sas):
+        with pytest.raises(ValueError):
+            client_class.create_from_shared_access_signature(bad_sas)
+
+    @pytest.mark.it(
+        "Uses a SharedAccessSignatureAuthenticationProvider to create the client's IoTHub pipeline"
+    )
+    async def test_auth_provider_and_pipeline(self, mocker, client_class):
+        mock_auth_parse = mocker.patch(
+            "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
+        ).parse
+        mock_pipeline_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.PipelineAdapter"
+        )
+
+        client = client_class.create_from_shared_access_signature(mocker.MagicMock())
+
+        assert mock_auth_parse.call_count == 1
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth_parse.return_value)
+        assert client._pipeline == mock_pipeline_init.return_value
 
 
 class SharedClientConnectTests(object):
@@ -289,7 +338,9 @@ class SharedClientSendMethodResponseTests(object):
 # DEVICE TESTS #
 ################
 class IoTHubDeviceClientTestsConfig(object):
-    client_class = IoTHubDeviceClient
+    @pytest.fixture
+    def client_class(self):
+        return IoTHubDeviceClient
 
     @pytest.fixture
     def client(self, pipeline):
@@ -297,6 +348,17 @@ class IoTHubDeviceClientTestsConfig(object):
         It should be used for the majority of tests.
         """
         return IoTHubDeviceClient(pipeline)
+
+    @pytest.fixture
+    def connection_string(self, device_connection_string):
+        """This fixture is parametrized to provie all valid device connection strings.
+        See client_fixtures.py
+        """
+        return device_connection_string
+
+    @pytest.fixture
+    def sas_token_string(self, device_sas_token_string):
+        return device_sas_token_string
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - Instantiation")
@@ -312,9 +374,16 @@ class TestIoTHubDeviceClientInstantiation(
         )
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .from_authentication_provider()")
-class TestIoTHubDeviceClientFromAuthenticationProvider(
-    IoTHubDeviceClientTestsConfig, SharedClientFromAuthenticationProviderTests
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_connection_string()")
+class TestIoTHubDeviceClientCreateFromConnectionString(
+    IoTHubDeviceClientTestsConfig, SharedClientCreateFromConnectionStringTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_shared_access_signature()")
+class TestIoTHubDeviceClientCreateFromSharedAccessSignature(
+    IoTHubDeviceClientTestsConfig, SharedClientFromCreateFromSharedAccessSignature
 ):
     pass
 
@@ -398,7 +467,9 @@ class TestIoTHubDeviceClientSendMethodResponse(
 # MODULE TESTS #
 ################
 class IoTHubModuleClientTestsConfig(object):
-    client_class = IoTHubModuleClient
+    @pytest.fixture
+    def client_class(self):
+        return IoTHubModuleClient
 
     @pytest.fixture
     def client(self, pipeline):
@@ -406,6 +477,17 @@ class IoTHubModuleClientTestsConfig(object):
         It should be used for the majority of tests.
         """
         return IoTHubModuleClient(pipeline)
+
+    @pytest.fixture
+    def connection_string(self, module_connection_string):
+        """This fixture is parametrized to provie all valid device connection strings.
+        See client_fixtures.py
+        """
+        return module_connection_string
+
+    @pytest.fixture
+    def sas_token_string(self, module_sas_token_string):
+        return module_sas_token_string
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - Instantiation")
@@ -421,11 +503,78 @@ class TestIoTHubModuleClientInstantiation(
         )
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .from_authentication_provider()")
-class TestIoTHubModuleClientFromAuthenticationProvider(
-    IoTHubModuleClientTestsConfig, SharedClientFromAuthenticationProviderTests
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_connection_string()")
+class TestIoTHubModuleClientCreateFromConnectionString(
+    IoTHubModuleClientTestsConfig, SharedClientCreateFromConnectionStringTests
 ):
     pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_shared_access_signature()")
+class TestIoTHubModuleClientCreateFromSharedAccessSignature(
+    IoTHubModuleClientTestsConfig, SharedClientFromCreateFromSharedAccessSignature
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .create_from_edge_environment()")
+class TestIoTHubModuleClientCreateFromEdgeEnvironment(IoTHubModuleClientTestsConfig):
+    @pytest.mark.it("Instantiates the client, given a valid Edge container environment")
+    async def test_instantiates_client(self, mocker, client_class, edge_container_env_vars):
+        mocker.patch.dict(os.environ, edge_container_env_vars)
+        # must patch auth provider because it immediately tries to access Edge HSM
+        mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
+        client = client_class.create_from_edge_environment()
+        assert isinstance(client, client_class)
+
+    @pytest.mark.it("Uses an IoTEdgeAuthenticationProvider to create the client's IoTHub pipeline")
+    async def test_auth_provider_and_pipeline(self, mocker, client_class, edge_container_env_vars):
+        mocker.patch.dict(os.environ, edge_container_env_vars)
+        mock_auth_init = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
+        mock_pipeline_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.PipelineAdapter"
+        )
+
+        client = client_class.create_from_edge_environment()
+
+        assert mock_auth_init.call_count == 1
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth_init.return_value)
+        assert client._pipeline == mock_pipeline_init.return_value
+
+    @pytest.mark.it(
+        "Raises IoTEdgeError if the Edge container is missing required environment variables"
+    )
+    @pytest.mark.parametrize(
+        "missing_env_var",
+        [
+            "IOTEDGE_MODULEID",
+            "IOTEDGE_DEVICEID",
+            "IOTEDGE_IOTHUBHOSTNAME",
+            "IOTEDGE_GATEWAYHOSTNAME",
+            "IOTEDGE_APIVERSION",
+            "IOTEDGE_MODULEGENERATIONID",
+            "IOTEDGE_WORKLOADURI",
+        ],
+    )
+    async def test_bad_environment(
+        self, mocker, client_class, edge_container_env_vars, missing_env_var
+    ):
+        # Remove a variable from the fixture
+        del edge_container_env_vars[missing_env_var]
+        mocker.patch.dict(os.environ, edge_container_env_vars)
+
+        with pytest.raises(IoTEdgeError):
+            client_class.create_from_edge_environment()
+
+    @pytest.mark.it("Raises IoTEdgeError if there is an error using the Edge for authentication")
+    async def test_bad_edge_auth(self, mocker, client_class, edge_container_env_vars):
+        mocker.patch.dict(os.environ, edge_container_env_vars)
+        mock_auth = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
+        mock_auth.side_effect = IoTEdgeError
+
+        with pytest.raises(IoTEdgeError):
+            client_class.create_from_edge_environment()
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .connect()")
@@ -438,7 +587,7 @@ class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClie
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Aynchronous) - EVENT: Disconnect")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - EVENT: Disconnect")
 class TestIoTHubModuleClientDisconnectEvent(
     IoTHubModuleClientTestsConfig, SharedClientDisconnectEventTests
 ):

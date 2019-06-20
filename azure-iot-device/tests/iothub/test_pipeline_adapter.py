@@ -9,7 +9,7 @@ import logging
 import six.moves.urllib as urllib
 from azure.iot.device.iothub import Message
 from azure.iot.device.iothub.pipeline import PipelineAdapter, constant
-from azure.iot.device.iothub.auth.authentication_provider_factory import from_connection_string
+from azure.iot.device.iothub.auth import SymmetricKeyAuthenticationProvider
 from mock import MagicMock, patch, ANY
 from datetime import date
 
@@ -70,7 +70,7 @@ def authentication_provider():
     connection_string = connection_string_format.format(
         fake_hostname, fake_device_id, fake_shared_access_key
     )
-    auth_provider = from_connection_string(connection_string)
+    auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
     return auth_provider
 
 
@@ -91,7 +91,7 @@ def module_pipeline_adapter():
     connection_string_mod = connection_string_format_mod.format(
         fake_hostname, fake_device_id, fake_module_id, fake_shared_access_key
     )
-    authentication_provider = from_connection_string(connection_string_mod)
+    authentication_provider = SymmetricKeyAuthenticationProvider.parse(connection_string_mod)
 
     with patch(
         "azure.iot.device.iothub.pipeline.pipeline_adapter.pipeline_stages_mqtt.MQTTProvider"

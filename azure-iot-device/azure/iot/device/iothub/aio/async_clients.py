@@ -31,7 +31,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Initializer for a generic asynchronous client.
 
         This initializer should not be called directly.
-        Instead, the class method `from_authentication_provider` should be used to create a client object.
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param pipeline: The pipeline that the client will use.
         """
@@ -188,6 +188,13 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """
 
     def __init__(self, pipeline):
+        """Initializer for a IoTHubDeviceClient.
+
+        This initializer should not be called directly.
+        Instead, use one of the 'create_from_' classmethods to instantiate
+
+        :param pipeline: The pipeline that the client will use.
+        """
         super().__init__(pipeline)
         self._pipeline.on_transport_c2d_message_received = self._inbox_manager.route_c2d_message
 
@@ -215,6 +222,13 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     """
 
     def __init__(self, pipeline):
+        """Intializer for a IoTHubModuleClient.
+
+        This initializer should not be called directly.
+        Instead, use one of the 'create_from_' classmethods to instantiate
+
+        :param pipeline: The pipeline that the client will use.
+        """
         super().__init__(pipeline)
         self._pipeline.on_transport_input_message_received = self._inbox_manager.route_input_message
 

@@ -29,16 +29,6 @@ class AuthenticationProvider(object):
         self.device_id = device_id
         self.module_id = module_id
 
-    @abc.abstractmethod
-    def get_current_sas_token(self):
-        """Get the current SharedAuthenticationSignature string.
-        """
-        pass
 
-    # @abc.abstractstaticmethod
-    @abc.abstractmethod
-    def parse(source):
-        """Method needs to be implemented as static method in child authentications providers.
-        :param:source The source in string. This could be connections string or a shared access signature string.
-        """
-        pass
+# TODO: Potentially some additional abstract class that defines an abstract .get_current_sas_token()
+# in order to enforce sas token retrieval in various sas-affiliated auths (sas, sk)?

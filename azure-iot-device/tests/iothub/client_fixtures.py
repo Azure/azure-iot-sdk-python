@@ -7,33 +7,106 @@
 import pytest
 from azure.iot.device.iothub.pipeline import constant
 
-"""----Shared auth_provider fixture----"""
+"""---Constants---"""
 
-
-connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
-sastoken_format = "SharedAccessSignature sr={}&sig={}&se={}"
 shared_access_key = "Zm9vYmFy"
+# shared_access_key_name = "alohomora" # do we need this?
 hostname = "beauxbatons.academy-net"
 device_id = "MyPensieve"
-signature = "IsolemnlySwearThatIamuUptoNogood"
+module_id = "Divination"
+gateway_hostname = "EnchantedCeiling"
+signature = "IsolemnlySwearThatIamuUptoNogood"  # does this need to be something else?
 expiry = "1539043658"
 
 
-@pytest.fixture(params=["SymmetricKey", "SharedAccessSignature"])
-def auth_provider(request):
-    from azure.iot.device.iothub.auth.authentication_provider_factory import (
-        from_connection_string,
-        from_shared_access_signature,
-    )
+"""----Shared connection string fixtures """
 
-    auth_type = request.param
-    if auth_type == "SymmetricKey":
-        return from_connection_string(
-            connection_string_format.format(hostname, device_id, shared_access_key)
+device_connection_string_format = (
+    "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}"
+)
+device_connection_string_gateway_format = "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}"
+
+module_connection_string_format = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key}"
+module_connection_string_gateway_format = "HostName={hostname};DeviceId={device_id};ModuleId={module_id};SharedAccessKey={shared_access_key};GatewayHostName={gateway_hostname}"
+
+
+@pytest.fixture(params=["Device Connection String", "Device Connection String w/ Protocol Gateway"])
+def device_connection_string(request):
+    string_type = request.param
+    if string_type == "Device Connection String":
+        return device_connection_string_format.format(
+            hostname=hostname, device_id=device_id, shared_access_key=shared_access_key
         )
-    elif auth_type == "SharedAccessSignature":
-        uri = hostname + "/devices/" + device_id
-        return from_shared_access_signature(sastoken_format.format(uri, signature, expiry))
+    else:
+        return device_connection_string_gateway_format.format(
+            hostname=hostname,
+            device_id=device_id,
+            shared_access_key=shared_access_key,
+            gateway_hostname=gateway_hostname,
+        )
+
+
+@pytest.fixture(params=["Module Connection String", "Module Connection String w/ Protocol Gateway"])
+def module_connection_string(request):
+    string_type = request.param
+    if string_type == "Module Connection String":
+        return module_connection_string_format.format(
+            hostname=hostname,
+            device_id=device_id,
+            module_id=module_id,
+            shared_access_key=shared_access_key,
+        )
+    else:
+        return module_connection_string_gateway_format.format(
+            hostname=hostname,
+            device_id=device_id,
+            module_id=module_id,
+            shared_access_key=shared_access_key,
+            gateway_hostname=gateway_hostname,
+        )
+
+
+"""----Shared sas token fixtures---"""
+
+sas_token_format = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}"
+# when to use the skn format?
+sas_token_skn_format = (
+    "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}&skn={shared_access_key_name}"
+)
+
+# what about variant input with different ordered attributes
+# SharedAccessSignature sig={signature-string}&se={expiry}&skn={policyName}&sr={URL-encoded-resourceURI}
+
+
+@pytest.fixture()
+def device_sas_token_string():
+    uri = hostname + "/devices/" + device_id
+    return sas_token_format.format(uri=uri, signature=signature, expiry=expiry)
+
+
+@pytest.fixture()
+def module_sas_token_string():
+    uri = hostname + "/devices/" + device_id + "/modules/" + module_id
+    return sas_token_format.format(uri=uri, signature=signature, expiry=expiry)
+
+
+"""----Shared Edge Container configuration---"""
+
+fake_ca_cert = "__FAKE_CA_CERTIFICATE__"
+fake_digest = "__FAKE_DIGEST__"
+
+
+@pytest.fixture()
+def edge_container_env_vars():
+    return {
+        "IOTEDGE_MODULEID": "__FAKE_MODULE_ID__",
+        "IOTEDGE_DEVICEID": "__FAKE_DEVICE_ID__",
+        "IOTEDGE_IOTHUBHOSTNAME": "__FAKE_HOSTNAME__",
+        "IOTEDGE_GATEWAYHOSTNAME": "__FAKE_GATEWAY_HOSTNAME__",
+        "IOTEDGE_APIVERSION": "__FAKE_API_VERSION__",
+        "IOTEDGE_MODULEGENERATIONID": "__FAKE_MODULE_GENERATION_ID__",
+        "IOTEDGE_WORKLOADURI": "http://__FAKE_WORKLOAD_URI__/",
+    }
 
 
 """----Shared mock pipeline adapter fixture----"""

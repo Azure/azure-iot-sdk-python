@@ -39,7 +39,9 @@ class SharedAccessSignatureAuthenticationProvider(AuthenticationProvider):
         Constructor for Shared Access Signature Authentication Provider
         """
         logger.info("Using SAS authentication for {%s, %s, %s}", hostname, device_id, module_id)
-        AuthenticationProvider.__init__(self, hostname, device_id, module_id)
+        super(SharedAccessSignatureAuthenticationProvider, self).__init__(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
         self.sas_token_str = sas_token_str
 
     def get_current_sas_token(self):

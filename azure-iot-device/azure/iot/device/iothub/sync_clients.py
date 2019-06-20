@@ -31,7 +31,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Initializer for a generic synchronous client.
 
         This initializer should not be called directly.
-        Instead, the class method `from_authentication_provider` should be used to create a client object.
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param pipeline: The pipeline that the client will use.
         """
@@ -246,7 +246,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
-        Instead, the class method `from_authentication_provider` should be used to create a client object.
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param pipeline: The pipeline that the client will use.
         """
@@ -285,7 +285,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
-        Instead, the class method `from_authentication_provider` should be used to create a client object.
+        Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param pipeline: The pipeline that the client will use.
         """

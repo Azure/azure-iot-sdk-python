@@ -58,11 +58,13 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
             "Using Shared Key authentication for {%s, %s, %s}", hostname, device_id, module_id
         )
 
-        BaseRenewableTokenAuthenticationProvider.__init__(self, hostname, device_id, module_id)
+        super(SymmetricKeyAuthenticationProvider, self).__init__(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
         self.shared_access_key = shared_access_key
         self.shared_access_key_name = shared_access_key_name
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = None
+        self.ca_cert = None  # TODO: rename to trusted_certificate_chain?
 
     @staticmethod
     def parse(connection_string):
@@ -112,8 +114,8 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
             signing_key = base64.b64decode(self.shared_access_key.encode("utf-8"))
             signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
             signature = urllib.parse.quote(base64.b64encode(signed_hmac.digest()))
-        except (TypeError, base64.binascii.Error) as e:
-            raise TypeError("Unable to build shared access signature from given values", e)
+        except (TypeError, base64.binascii.Error):
+            raise ValueError("Unable to build shared access signature from given values")
         return signature
 
 

@@ -8,7 +8,15 @@ import sys
 import pytest
 
 # These fixtures are shared between sync and async clients
-from .client_fixtures import auth_provider, pipeline, pipeline_manual_cb
+from .client_fixtures import (
+    pipeline,
+    pipeline_manual_cb,
+    device_connection_string,
+    module_connection_string,
+    device_sas_token_string,
+    module_sas_token_string,
+    edge_container_env_vars,
+)
 
 collect_ignore = []
 

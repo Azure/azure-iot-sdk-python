@@ -9,7 +9,10 @@
 import six
 import abc
 import logging
+import os
+from . import auth
 from .pipeline import PipelineAdapter
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,39 +26,44 @@ class AbstractIoTHubClient(object):
 
         :param pipeline: The pipeline that the client will use.
         """
+        # TODO: Refactor this to be an iothub_pipeline, and instantiate here instead of
+        # in the factory methods
         self._pipeline = pipeline
 
     @classmethod
-    def from_authentication_provider(cls, authentication_provider, transport_name):
-        """Creates a client with the specified authentication provider and pipeline.
-
-        When creating the client, you need to pass in an authorization provider and a transport_name.
-
-        The authentication_provider parameter is an object created using the authentication_provider_factory
-        module.  It knows where to connect (a network address), how to authenticate with the service
-        (a set of credentials), and, if necessary, the protocol gateway to use when communicating
-        with the service.
-
-        The transport_name is a string which defines the name of the transport to use when connecting
-        with the service or the protocol gateway.
-
-        Currently "mqtt" is the only supported transport.
-
-        :param authentication_provider: The authentication provider.
-        :param transport_name: The name of the transport that the client will use.
-
-        :returns: Instance of the client.
-
-        :raises: ValueError if given an invalid transport_name.
-        :raises: NotImplementedError if transport_name is "amqp" or "http".
+    def create_from_connection_string(cls, connection_string, trusted_certificate_chain=None):
         """
-        transport_name = transport_name.lower()
-        if transport_name == "mqtt":
-            pipeline = PipelineAdapter(authentication_provider)
-        elif transport_name == "amqp" or transport_name == "http":
-            raise NotImplementedError("This transport has not yet been implemented")
-        else:
-            raise ValueError("No specific transport can be instantiated based on the choice.")
+        Instantiate the client from a IoTHub device or module connection string.
+
+        :param str connection_string: The connection string for the IoTHub you wish to connect to.
+        :param str trusted_certificate_chain: The trusted certificate chain. Necessary when using a
+        connection string with a GatewayHostName parameter. DEFAULT: None
+
+        :raises: ValueError if given an invalid connection_string.
+        """
+        # TODO: Make this device/module specific and reject non-matching connection strings.
+        # This will require refactoring of the auth package to use common objects (e.g. ConnectionString)
+        # in order to differentiate types of connection strings.
+        authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
+        authentication_provider.ca_cert = (
+            trusted_certificate_chain
+        )  # TODO: make this part of the instantiation
+        pipeline = PipelineAdapter(authentication_provider)
+        return cls(pipeline)
+
+    @classmethod
+    def create_from_shared_access_signature(cls, sas_token):
+        """
+        Instantiate the client from a Shared Access Signature (SAS) token.
+
+        This method of instantiation is not recommended for general usage.
+
+        :param str sas_token: The string representation of a SAS token.
+
+        :raises: ValueError if given an invalid sas_token
+        """
+        authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
+        pipeline = PipelineAdapter(authentication_provider)
         return cls(pipeline)
 
     @abc.abstractmethod
@@ -100,6 +108,38 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
+    @classmethod
+    def create_from_edge_environment(cls):
+        """
+        Instantiate the client from the IoT Edge environment.
+
+        This method can only be run from inside an IoT Edge container.
+
+        :raises: IoTEdgeError if the IoT Edge container is not configured correctly.
+        """
+        try:
+            hostname = os.environ["IOTEDGE_IOTHUBHOSTNAME"]
+            device_id = os.environ["IOTEDGE_DEVICEID"]
+            module_id = os.environ["IOTEDGE_MODULEID"]
+            gateway_hostname = os.environ["IOTEDGE_GATEWAYHOSTNAME"]
+            module_generation_id = os.environ["IOTEDGE_MODULEGENERATIONID"]
+            workload_uri = os.environ["IOTEDGE_WORKLOADURI"]
+            api_version = os.environ["IOTEDGE_APIVERSION"]
+        except KeyError:
+            raise auth.IoTEdgeError("IoT Edge container not configured correctly")
+
+        authentication_provider = auth.IoTEdgeAuthenticationProvider(
+            hostname=hostname,
+            device_id=device_id,
+            module_id=module_id,
+            gateway_hostname=gateway_hostname,
+            module_generation_id=module_generation_id,
+            workload_uri=workload_uri,
+            api_version=api_version,
+        )
+        pipeline = PipelineAdapter(authentication_provider)
+        return cls(pipeline)
+
     @abc.abstractmethod
     def send_to_output(self, message, output_name):
         pass

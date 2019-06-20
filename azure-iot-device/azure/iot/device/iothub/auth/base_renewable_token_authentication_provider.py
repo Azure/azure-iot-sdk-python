@@ -9,6 +9,7 @@ import time
 import abc
 import logging
 import math
+import six
 from threading import Timer
 import six.moves.urllib as urllib
 from .authentication_provider import AuthenticationProvider
@@ -25,6 +26,7 @@ DEFAULT_TOKEN_VALIDITY_PERIOD = 3600
 DEFAULT_TOKEN_RENEWAL_MARGIN = 120
 
 
+@six.add_metaclass(abc.ABCMeta)
 class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
     """A base class for authentication providers which are based on SAS (Shared
     Authentication Signature) strings which are able to be renewed.
@@ -42,7 +44,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
 
         This object is intended as a base class and cannot be used directly.
         A derived class which provides a signing function (such as
-        SymmetricKeyAuthenticationProvider or IotEdgeAuthenticationProvider)
+        SymmetricKeyAuthenticationProvider or IoTEdgeAuthenticationProvider)
         should be used instead.
 
         :param str hostname: The hostname
@@ -50,7 +52,9 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         :param str module_id: The module ID (optional)
         """
 
-        AuthenticationProvider.__init__(self, hostname, device_id, module_id)
+        super(BaseRenewableTokenAuthenticationProvider, self).__init__(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
         self.token_validity_period = DEFAULT_TOKEN_VALIDITY_PERIOD
         self.token_renewal_margin = DEFAULT_TOKEN_RENEWAL_MARGIN
         self._token_update_timer = None

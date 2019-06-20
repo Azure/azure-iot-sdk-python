@@ -14,11 +14,8 @@ async def main():
     # Fetch the connection string from an enviornment variable
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
-    # Create an authentication provider using the connection string
-    auth_provider = auth.from_connection_string(conn_str)
-
-    # Create instance of the device client using the authentication provider
-    device_client = IoTHubDeviceClient.from_authentication_provider(auth_provider, "mqtt")
+    # Create instance of the device client using the connection string
+    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
     # Connect the device client.
     await device_client.connect()
