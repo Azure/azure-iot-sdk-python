@@ -57,7 +57,7 @@ class Provider(PipelineStage):
             # When we get a certificate from above, we just save it for later
             logger.info("{}({}): got certificate".format(self.name, op.name))
             self.trusted_certificate_chain = op.certificate
-            self.complete_op(op)
+            operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.Connect):
             logger.info("{}({}): conneting".format(self.name, op.name))
