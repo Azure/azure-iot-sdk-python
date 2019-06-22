@@ -28,7 +28,7 @@ async def main():
         msg.message_id = uuid.uuid4()
         msg.correlation_id = "correlation-1234"
         msg.custom_properties["tornado-warning"] = "yes"
-        await device_client.send_event(msg)
+        await device_client.send_d2c_message(msg)
         print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel

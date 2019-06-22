@@ -6,18 +6,18 @@
 from . import PipelineEvent
 
 
-class IncomingMessage(PipelineEvent):
+class IncomingMQTTMessageEvent(PipelineEvent):
     """
-    A PipelineEvent object which represents an incoming Mqtt message on some Mqtt topic
+    A PipelineEvent object which represents an incoming MQTT message on some MQTT topic
     """
 
     def __init__(self, topic, payload):
         """
-        Initializer for IncomingMessage objects.
+        Initializer for IncomingMQTTMessageEvent objects.
 
         :param str topic: The name of the topic that the incoming message arrived on.
         :param str payload: The payload of the message
         """
-        super(IncomingMessage, self).__init__()
+        super(IncomingMQTTMessageEvent, self).__init__()
         self.topic = topic
         self.payload = payload

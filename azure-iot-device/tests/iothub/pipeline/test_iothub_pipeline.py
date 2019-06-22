@@ -8,7 +8,7 @@ import pytest
 import logging
 import six.moves.urllib as urllib
 from azure.iot.device.iothub import Message
-from azure.iot.device.iothub.pipeline import PipelineAdapter, constant
+from azure.iot.device.iothub.pipeline import IoTHubPipeline, constant
 from azure.iot.device.iothub.auth import SymmetricKeyAuthenticationProvider
 from mock import MagicMock, patch, ANY
 from datetime import date
@@ -77,13 +77,13 @@ def authentication_provider():
 @pytest.fixture(scope="function")
 def device_pipeline_adapter(authentication_provider):
     with patch(
-        "azure.iot.device.iothub.pipeline.pipeline_adapter.pipeline_stages_mqtt.MQTTProvider"
+        "azure.iot.device.iothub.pipeline.iothub_pipeline.pipeline_stages_mqtt.MQTTClientOperator"
     ):
-        pipeline_adapter = PipelineAdapter(authentication_provider)
-    pipeline_adapter.on_transport_connected = MagicMock()
-    pipeline_adapter.on_transport_disconnected = MagicMock()
-    yield pipeline_adapter
-    pipeline_adapter.disconnect()
+        iothub_pipeline = IoTHubPipeline(authentication_provider)
+    iothub_pipeline.on_connected = MagicMock()
+    iothub_pipeline.on_disconnected = MagicMock()
+    yield iothub_pipeline
+    iothub_pipeline.disconnect()
 
 
 @pytest.fixture(scope="function")
@@ -94,88 +94,91 @@ def module_pipeline_adapter():
     authentication_provider = SymmetricKeyAuthenticationProvider.parse(connection_string_mod)
 
     with patch(
-        "azure.iot.device.iothub.pipeline.pipeline_adapter.pipeline_stages_mqtt.MQTTProvider"
+        "azure.iot.device.iothub.pipeline.iothub_pipeline.pipeline_stages_mqtt.MQTTClientOperator"
     ):
-        pipeline_adapter = PipelineAdapter(authentication_provider)
-    pipeline_adapter.on_transport_connected = MagicMock()
-    pipeline_adapter.on_transport_disconnected = MagicMock()
-    yield pipeline_adapter
-    pipeline_adapter.disconnect()
+        iothub_pipeline = IoTHubPipeline(authentication_provider)
+    iothub_pipeline.on_connected = MagicMock()
+    iothub_pipeline.on_disconnected = MagicMock()
+    yield iothub_pipeline
+    iothub_pipeline.disconnect()
 
 
 class TestInstantiation(object):
     def test_instantiates_correctly(self, authentication_provider):
-        trans = PipelineAdapter(authentication_provider)
+        trans = IoTHubPipeline(authentication_provider)
         assert trans._auth_provider == authentication_provider
         assert trans._pipeline is not None
 
 
 class TestConnect:
     def test_connect_calls_connect_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
     def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
         self, device_pipeline_adapter
     ):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
-        device_pipeline_adapter.on_transport_connected.assert_called_once_with("connected")
+        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
 
     def test_connect_ignored_if_waiting_for_connect_complete(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
-        device_pipeline_adapter.on_transport_connected.assert_called_once_with("connected")
+        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
 
     def test_connect_ignored_if_waiting_for_send_complete(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
-        mock_mqtt_provider.reset_mock()
-        device_pipeline_adapter.on_transport_connected.reset_mock()
+        mock_mqtt_client_operator.reset_mock()
+        device_pipeline_adapter.on_connected.reset_mock()
 
-        device_pipeline_adapter.send_event(create_fake_message())
+        device_pipeline_adapter.send_d2c_message(create_fake_message())
         device_pipeline_adapter.connect()
 
-        mock_mqtt_provider.connect.assert_not_called()
-        device_pipeline_adapter.on_transport_connected.assert_not_called()
+        mock_mqtt_client_operator.connect.assert_not_called()
+        device_pipeline_adapter.on_connected.assert_not_called()
 
-        mock_mqtt_provider.on_mqtt_published(0)
+        mock_mqtt_client_operator.on_mqtt_published(0)
 
-        mock_mqtt_provider.connect.assert_not_called()
-        device_pipeline_adapter.on_transport_connected.assert_not_called()
+        mock_mqtt_client_operator.connect.assert_not_called()
+        device_pipeline_adapter.on_connected.assert_not_called()
 
 
 class TestSendEvent:
     def test_send_message_with_no_properties(self, device_pipeline_adapter):
         fake_msg = Message("Petrificus Totalus")
 
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-        device_pipeline_adapter.send_event(fake_msg)
+        mock_mqtt_client_operator.on_mqtt_connected()
+        device_pipeline_adapter.send_d2c_message(fake_msg)
 
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
-        mock_mqtt_provider.publish.assert_called_once_with(
+        mock_mqtt_client_operator.publish.assert_called_once_with(
             topic=fake_topic, payload=fake_msg.data, callback=ANY
         )
 
@@ -200,178 +203,182 @@ class TestSendEvent:
             + custom_property_value
         )
 
-        mock_mqtt_provider = module_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
 
         module_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-        module_pipeline_adapter.send_event(fake_msg)
+        mock_mqtt_client_operator.on_mqtt_connected()
+        module_pipeline_adapter.send_d2c_message(fake_msg)
 
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=module_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=module_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
-        mock_mqtt_provider.publish.assert_called_once_with(
+        mock_mqtt_client_operator.publish.assert_called_once_with(
             topic=fake_output_topic, payload=fake_msg.data, callback=ANY
         )
 
     def test_sendevent_calls_publish_on_provider(self, device_pipeline_adapter):
         fake_msg = create_fake_message()
 
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
-        device_pipeline_adapter.send_event(fake_msg)
+        mock_mqtt_client_operator.on_mqtt_connected()
+        device_pipeline_adapter.send_d2c_message(fake_msg)
 
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
-        mock_mqtt_provider.publish.assert_called_once_with(
+        mock_mqtt_client_operator.publish.assert_called_once_with(
             topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
         )
 
-    def test_send_event_queues_and_connects_before_sending(self, device_pipeline_adapter):
+    def test_send_d2c_message_queues_and_connects_before_sending(self, device_pipeline_adapter):
         fake_msg = create_fake_message()
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         # send an event
-        device_pipeline_adapter.send_event(fake_msg)
+        device_pipeline_adapter.send_d2c_message(fake_msg)
 
         # verify that we called connect
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
 
         # verify that we're not connected yet and verify that we havent't published yet
-        device_pipeline_adapter.on_transport_connected.assert_not_called()
-        mock_mqtt_provider.publish.assert_not_called()
+        device_pipeline_adapter.on_connected.assert_not_called()
+        mock_mqtt_client_operator.publish.assert_not_called()
 
         # finish the connection
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # verify that our connected callback was called and verify that we published the event
-        device_pipeline_adapter.on_transport_connected.assert_called_once_with("connected")
-        mock_mqtt_provider.publish.assert_called_once_with(
+        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
+        mock_mqtt_client_operator.publish.assert_called_once_with(
             topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
         )
 
-    def test_send_event_queues_if_waiting_for_connect_complete(self, device_pipeline_adapter):
+    def test_send_d2c_message_queues_if_waiting_for_connect_complete(self, device_pipeline_adapter):
         fake_msg = create_fake_message()
 
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
-        # start connecting and verify that we've called into the provider
+        # start connecting and verify that we've called into the protocol wrapper
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(), client_certificate=None
+        mock_mqtt_client_operator.connect.assert_called_once_with(
+            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
+            client_certificate=None,
         )
 
         # send an event
-        device_pipeline_adapter.send_event(fake_msg)
+        device_pipeline_adapter.send_d2c_message(fake_msg)
 
         # verify that we're not connected yet and verify that we havent't published yet
-        device_pipeline_adapter.on_transport_connected.assert_not_called()
-        mock_mqtt_provider.publish.assert_not_called()
+        device_pipeline_adapter.on_connected.assert_not_called()
+        mock_mqtt_client_operator.publish.assert_not_called()
 
         # finish the connection
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # verify that our connected callback was called and verify that we published the event
-        device_pipeline_adapter.on_transport_connected.assert_called_once_with("connected")
-        mock_mqtt_provider.publish.assert_called_once_with(
+        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
+        mock_mqtt_client_operator.publish.assert_called_once_with(
             topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
         )
 
-    def test_send_event_sends_overlapped_events(self, device_pipeline_adapter):
+    def test_send_d2c_message_sends_overlapped_events(self, device_pipeline_adapter):
         fake_msg_1 = create_fake_message()
         fake_msg_2 = Message(fake_event_2)
 
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         # connect
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # send an event
         callback_1 = MagicMock()
-        device_pipeline_adapter.send_event(fake_msg_1, callback_1)
-        mock_mqtt_provider.publish.assert_called_once_with(
+        device_pipeline_adapter.send_d2c_message(fake_msg_1, callback_1)
+        mock_mqtt_client_operator.publish.assert_called_once_with(
             topic=encoded_fake_topic, payload=fake_msg_1.data, callback=ANY
         )
 
         # while we're waiting for that send to complete, send another event
         callback_2 = MagicMock()
-        device_pipeline_adapter.send_event(fake_msg_2, callback_2)
+        device_pipeline_adapter.send_d2c_message(fake_msg_2, callback_2)
 
-        # verify that we've called publish twice and verify that neither send_event
+        # verify that we've called publish twice and verify that neither send_d2c_message
         # has completed (because we didn't do anything here to complete it).
-        assert mock_mqtt_provider.publish.call_count == 2
+        assert mock_mqtt_client_operator.publish.call_count == 2
         callback_1.assert_not_called()
         callback_2.assert_not_called()
 
     def test_connect_send_disconnect(self, device_pipeline_adapter):
         fake_msg = create_fake_message()
 
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         # connect
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # send an event
-        device_pipeline_adapter.send_event(fake_msg)
-        mock_mqtt_provider.on_mqtt_published(0)
+        device_pipeline_adapter.send_d2c_message(fake_msg)
+        mock_mqtt_client_operator.on_mqtt_published(0)
 
         # disconnect
         device_pipeline_adapter.disconnect()
-        mock_mqtt_provider.disconnect.assert_called_once_with()
+        mock_mqtt_client_operator.disconnect.assert_called_once_with()
 
 
 class TestDisconnect:
     def test_disconnect_calls_disconnect_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.disconnect()
 
-        mock_mqtt_provider.disconnect.assert_called_once_with()
+        mock_mqtt_client_operator.disconnect.assert_called_once_with()
 
     def test_disconnect_ignored_if_already_disconnected(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.disconnect(None)
 
-        mock_mqtt_provider.disconnect.assert_not_called()
+        mock_mqtt_client_operator.disconnect.assert_not_called()
 
     def test_disconnect_calls_client_disconnect_callback(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         device_pipeline_adapter.disconnect()
-        mock_mqtt_provider.on_mqtt_disconnected()
+        mock_mqtt_client_operator.on_mqtt_disconnected()
 
-        device_pipeline_adapter.on_transport_disconnected.assert_called_once_with("disconnected")
+        device_pipeline_adapter.on_disconnected.assert_called_once_with("disconnected")
 
 
 class TestEnableInputMessage:
     def test_subscribe_calls_subscribe_on_provider(self, module_pipeline_adapter):
-        mock_mqtt_provider = module_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
 
         module_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         module_pipeline_adapter.enable_feature(constant.INPUT_MSG)
 
-        mock_mqtt_provider.subscribe.assert_called_once_with(
+        mock_mqtt_client_operator.subscribe.assert_called_once_with(
             topic=subscribe_input_message_topic, callback=ANY
         )
 
     def test_sets_input_message_status_to_enabled(self, module_pipeline_adapter):
-        mock_mqtt_provider = module_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
 
         module_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         module_pipeline_adapter.enable_feature(constant.INPUT_MSG)
 
         assert module_pipeline_adapter.feature_enabled[constant.INPUT_MSG]
@@ -379,21 +386,21 @@ class TestEnableInputMessage:
 
 class TestDisableInputMessage:
     def test_unsubscribe_of_input_calls_unsubscribe_on_provider(self, module_pipeline_adapter):
-        mock_mqtt_provider = module_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
 
         module_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         module_pipeline_adapter.disable_feature(constant.INPUT_MSG)
 
-        mock_mqtt_provider.unsubscribe.assert_called_once_with(
+        mock_mqtt_client_operator.unsubscribe.assert_called_once_with(
             topic=subscribe_input_message_topic, callback=ANY
         )
 
     def test_sets_input_message_status_to_disabled(self, module_pipeline_adapter):
-        mock_mqtt_provider = module_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
 
         module_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         module_pipeline_adapter.disable_feature(constant.INPUT_MSG)
 
         assert not module_pipeline_adapter.feature_enabled[constant.INPUT_MSG]
@@ -401,21 +408,21 @@ class TestDisableInputMessage:
 
 class TestEnableC2D:
     def test_subscribe_calls_subscribe_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.enable_feature(constant.C2D_MSG)
 
-        mock_mqtt_provider.subscribe.assert_called_once_with(
+        mock_mqtt_client_operator.subscribe.assert_called_once_with(
             topic=subscribe_c2d_topic, callback=ANY
         )
 
     def test_sets_c2d_message_status_to_enabled(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.enable_feature(constant.C2D_MSG)
 
         assert device_pipeline_adapter.feature_enabled[constant.C2D_MSG]
@@ -424,22 +431,22 @@ class TestEnableC2D:
 class TestDisableC2D:
     def test_unsubscribe_calls_unsubscribe_on_provider(self, device_pipeline_adapter):
         device_pipeline_adapter._c2d_topic = subscribe_c2d_topic
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.disable_feature(constant.C2D_MSG)
 
-        mock_mqtt_provider.unsubscribe.assert_called_once_with(
+        mock_mqtt_client_operator.unsubscribe.assert_called_once_with(
             topic=subscribe_c2d_topic, callback=ANY
         )
 
     def test_sets_c2d_message_status_to_disabled(self, device_pipeline_adapter):
         device_pipeline_adapter._c2d_topic = subscribe_c2d_topic
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.disable_feature(constant.C2D_MSG)
 
         assert not device_pipeline_adapter.feature_enabled[constant.C2D_MSG]
@@ -447,21 +454,21 @@ class TestDisableC2D:
 
 class TestEnableMethods:
     def test_subscribe_calls_subscribe_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.enable_feature(constant.METHODS)
 
-        mock_mqtt_provider.subscribe.assert_called_once_with(
+        mock_mqtt_client_operator.subscribe.assert_called_once_with(
             topic=subscribe_methods_topic, callback=ANY
         )
 
     def test_sets_methods_status_to_enabled(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.enable_feature(constant.METHODS)
 
         assert device_pipeline_adapter.feature_enabled[constant.METHODS]
@@ -469,21 +476,21 @@ class TestEnableMethods:
 
 class TestDisableMethods:
     def test_unsubscribe_calls_unsubscribe_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.disable_feature(constant.METHODS)
 
-        mock_mqtt_provider.unsubscribe.assert_called_once_with(
+        mock_mqtt_client_operator.unsubscribe.assert_called_once_with(
             topic=subscribe_methods_topic, callback=ANY
         )
 
     def test_sets_method_status_to_disabled(self, device_pipeline_adapter):
-        mock_mqtt_provider = device_pipeline_adapter._pipeline.provider
+        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
 
         device_pipeline_adapter.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         device_pipeline_adapter.disable_feature(constant.METHODS)
 
         assert not device_pipeline_adapter.feature_enabled[constant.METHODS]

@@ -29,7 +29,7 @@ This directory contains samples showing how to use the various features of the M
     It should be in the format:
     ```
     HostName=<your IoT Hub name>.azure-devices.net;DeviceId=<your device id>;SharedAccessKey=<some value>
-    ``` 
+    ```
 
 4. [Begin monitoring for telemetry](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-monitor-events) on your IoT Hub using the Azure CLI
 
@@ -71,7 +71,7 @@ This directory contains samples showing how to use the various features of the M
 
         # Send a single message
         print("Sending message...")
-        await device_client.send_event("This is a message that is being sent")
+        await device_client.send_d2c_message("This is a message that is being sent")
         print("Message successfully sent!")
 
         # finally, disconnect

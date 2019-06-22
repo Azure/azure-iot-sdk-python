@@ -21,7 +21,7 @@ from . import (
 logger = logging.getLogger(__name__)
 
 
-class PipelineAdapter(object):
+class IoTHubPipeline(object):
     def __init__(self, auth_provider):
         """
         Constructor for instantiating a pipeline adapter object
@@ -37,38 +37,38 @@ class PipelineAdapter(object):
         }
 
         # Event Handlers - Will be set by Client after instantiation of this object
-        self.on_transport_connected = None
-        self.on_transport_disconnected = None
-        self.on_transport_c2d_message_received = None
-        self.on_transport_input_message_received = None
-        self.on_transport_method_request_received = None
+        self.on_connected = None
+        self.on_disconnected = None
+        self.on_c2d_message_received = None
+        self.on_input_message_received = None
+        self.on_method_request_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRoot()
-            .append_stage(pipeline_stages_iothub.UseSkAuthProvider())
-            .append_stage(pipeline_stages_iothub.HandleTwinOperations())
-            .append_stage(pipeline_stages_base.CoordinateRequestAndResponse())
-            .append_stage(pipeline_stages_base.EnsureConnection())
-            .append_stage(pipeline_stages_iothub_mqtt.IotHubMQTTConverter())
-            .append_stage(pipeline_stages_mqtt.Provider())
+            pipeline_stages_base.PipelineRootStage()
+            .append_stage(pipeline_stages_iothub.UseSkAuthProviderStage())
+            .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
+            .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
+            .append_stage(pipeline_stages_base.EnsureConnectionStage())
+            .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage())
+            .append_stage(pipeline_stages_mqtt.MQTTClientStage())
         )
 
         def _handle_pipeline_event(event):
             if isinstance(event, pipeline_events_iothub.C2DMessageEvent):
-                if self.on_transport_c2d_message_received:
-                    self.on_transport_c2d_message_received(event.message)
+                if self.on_c2d_message_received:
+                    self.on_c2d_message_received(event.message)
                 else:
                     logger.warning("C2D event received with no handler.  dropping.")
 
             elif isinstance(event, pipeline_events_iothub.InputMessageEvent):
-                if self.on_transport_input_message_received:
-                    self.on_transport_input_message_received(event.input_name, event.message)
+                if self.on_input_message_received:
+                    self.on_input_message_received(event.input_name, event.message)
                 else:
                     logger.warning("input mesage event received with no handler.  dropping.")
 
-            elif isinstance(event, pipeline_events_iothub.MethodRequest):
-                if self.on_transport_method_request_received(event.method_request):
-                    self.on_transport_method_request_received(event.method_request)
+            elif isinstance(event, pipeline_events_iothub.MethodRequestEvent):
+                if self.on_method_request_received(event.method_request):
+                    self.on_method_request_received(event.method_request)
                 else:
                     logger.warning("Method request event received with no handler. Dropping.")
 
@@ -76,12 +76,12 @@ class PipelineAdapter(object):
                 logger.warning("Dropping unknown pipeline event {}".format(event.name))
 
         def _handle_connected():
-            if self.on_transport_connected:
-                self.on_transport_connected("connected")
+            if self.on_connected:
+                self.on_connected("connected")
 
         def _handle_disconnected():
-            if self.on_transport_disconnected:
-                self.on_transport_disconnected("disconnected")
+            if self.on_disconnected:
+                self.on_disconnected("disconnected")
 
         self._pipeline.on_pipeline_event = _handle_pipeline_event
         self._pipeline.on_connected = _handle_connected
@@ -92,7 +92,7 @@ class PipelineAdapter(object):
                 raise call.error
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SetAuthProvider(
+            pipeline_ops_iothub.SetAuthProviderOperation(
                 auth_provider=auth_provider, callback=remove_this_code
             )
         )
@@ -112,7 +112,7 @@ class PipelineAdapter(object):
             if callback:
                 callback()
 
-        self._pipeline.run_op(pipeline_ops_base.Connect(callback=pipeline_callback))
+        self._pipeline.run_op(pipeline_ops_base.ConnectOperation(callback=pipeline_callback))
 
     def disconnect(self, callback=None):
         """
@@ -129,9 +129,9 @@ class PipelineAdapter(object):
             if callback:
                 callback()
 
-        self._pipeline.run_op(pipeline_ops_base.Disconnect(callback=pipeline_callback))
+        self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=pipeline_callback))
 
-    def send_event(self, message, callback=None):
+    def send_d2c_message(self, message, callback=None):
         """
         Send a telemetry message to the service.
 
@@ -146,7 +146,7 @@ class PipelineAdapter(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendTelemetry(message=message, callback=pipeline_callback)
+            pipeline_ops_iothub.SendD2CMessageOperation(message=message, callback=pipeline_callback)
         )
 
     def send_output_event(self, message, callback=None):
@@ -164,11 +164,13 @@ class PipelineAdapter(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendOutputEvent(message=message, callback=pipeline_callback)
+            pipeline_ops_iothub.SendOutputEventOperation(
+                message=message, callback=pipeline_callback
+            )
         )
 
     def send_method_response(self, method_response, callback=None):
-        logger.info("PipelineAdapter send_method_response called")
+        logger.info("IoTHubPipeline send_method_response called")
 
         def pipeline_callback(call):
             if call.error:
@@ -178,7 +180,7 @@ class PipelineAdapter(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendMethodResponse(
+            pipeline_ops_iothub.SendMethodResponseOperation(
                 method_response=method_response, callback=pipeline_callback
             )
         )
@@ -201,7 +203,9 @@ class PipelineAdapter(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_base.EnableFeature(feature_name=feature_name, callback=pipeline_callback)
+            pipeline_ops_base.EnableFeatureOperation(
+                feature_name=feature_name, callback=pipeline_callback
+            )
         )
 
     def get_twin(self, callback):
@@ -211,7 +215,7 @@ class PipelineAdapter(object):
             if callback:
                 callback(call.twin)
 
-        self._pipeline.run_op(pipeline_ops_iothub.GetTwin())
+        self._pipeline.run_op(pipeline_ops_iothub.GetTwinOperation())
 
     def disable_feature(self, feature_name, callback=None):
         """
@@ -231,5 +235,7 @@ class PipelineAdapter(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_base.DisableFeature(feature_name=feature_name, callback=pipeline_callback)
+            pipeline_ops_base.DisableFeatureOperation(
+                feature_name=feature_name, callback=pipeline_callback
+            )
         )

@@ -21,19 +21,19 @@ except ImportError:
     from inspect import getargspec
 
 all_common_ops = [
-    pipeline_ops_base.Connect,
-    pipeline_ops_base.Reconnect,
-    pipeline_ops_base.Disconnect,
-    pipeline_ops_base.EnableFeature,
-    pipeline_ops_base.DisableFeature,
-    pipeline_ops_base.SetSasToken,
-    pipeline_ops_mqtt.SetConnectionArgs,
-    pipeline_ops_mqtt.Publish,
-    pipeline_ops_mqtt.Subscribe,
-    pipeline_ops_mqtt.Unsubscribe,
+    pipeline_ops_base.ConnectOperation,
+    pipeline_ops_base.ReconnectOperation,
+    pipeline_ops_base.DisconnectOperation,
+    pipeline_ops_base.EnableFeatureOperation,
+    pipeline_ops_base.DisableFeatureOperation,
+    pipeline_ops_base.SetSasTokenOperation,
+    pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
+    pipeline_ops_mqtt.MQTTPublishOperation,
+    pipeline_ops_mqtt.MQTTSubscribeOperation,
+    pipeline_ops_mqtt.MQTTUnsubscribeOperation,
 ]
 
-all_common_events = [pipeline_events_mqtt.IncomingMessage]
+all_common_events = [pipeline_events_mqtt.IncomingMQTTMessageEvent]
 
 
 def all_except(all_items, items_to_exclude):

@@ -27,24 +27,24 @@ logging.basicConfig(level=logging.INFO)
 this_module = sys.modules[__name__]
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.EnsureConnection,
+    cls=pipeline_stages_base.EnsureConnectionStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=[
-        pipeline_ops_base.Connect,
-        pipeline_ops_base.Disconnect,
-        pipeline_ops_base.EnableFeature,
-        pipeline_ops_base.DisableFeature,
+        pipeline_ops_base.ConnectOperation,
+        pipeline_ops_base.DisconnectOperation,
+        pipeline_ops_base.EnableFeatureOperation,
+        pipeline_ops_base.DisableFeatureOperation,
     ],
     all_events=all_common_events,
     handled_events=[],
 )
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.CoordinateRequestAndResponse,
+    cls=pipeline_stages_base.CoordinateRequestAndResponseStage,
     module=this_module,
     all_ops=all_common_ops,
-    handled_ops=[pipeline_ops_base.SendIotRequestAndWaitForResponse],
+    handled_ops=[pipeline_ops_base.SendIotRequestAndWaitForResponseOperation],
     all_events=all_common_events,
     handled_events=[pipeline_events_base.IotResponseEvent],
 )

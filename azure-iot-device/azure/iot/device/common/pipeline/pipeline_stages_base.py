@@ -37,15 +37,15 @@ class PipelineStage(object):
     multiple cases.  The best way to do this is with "converter" stages that convert a specific operation to
     a more general one and with other converter stages that convert general operations to more specific ones.
 
-    An example of a specific-to-generic stage is UseSkAuthProvider which takes a specific operation
+    An example of a specific-to-generic stage is UseSkAuthProviderStage which takes a specific operation
     (use an auth provider) and converts it into something more generic (here is your device_id, etc, and use
     this SAS token when connecting).
 
-    An example of a generic-to-specific stage is IotHubMQTTConverter which converts IotHub operations
-    (such as SendTelemetry) to MQTT operations (such as Publish).
+    An example of a generic-to-specific stage is IoTHubMQTTConverterStage which converts IoTHub operations
+    (such as SendD2CMessageOperation) to MQTT operations (such as Publish).
 
     Each stage should also work in the broadest domain possible.  For example a generic stage (say
-    "EnsureConnection") that initiates a connection if any arbitrary operation needs a connection is more useful
+    "EnsureConnectionStage") that initiates a connection if any arbitrary operation needs a connection is more useful
     than having some MQTT-specific code that re-connects to the MQTT broker if the user calls Publish and
     there's no connection.
 
@@ -146,20 +146,20 @@ class PipelineStage(object):
 
     def on_connected(self):
         """
-        Called by lower layers when the transport connects
+        Called by lower layers when the protocol client connects
         """
         if self.previous:
             self.previous.on_connected()
 
     def on_disconnected(self):
         """
-        Called by lower layers when the transport disconnects
+        Called by lower layers when the protocol client disconnects
         """
         if self.previous:
             self.previous.on_disconnected()
 
 
-class PipelineRoot(PipelineStage):
+class PipelineRootStage(PipelineStage):
     """
     Object representing the root of a pipeline.  This is where the functions to build
     the pipeline exist.  This is also where clients can add event handlers to receive
@@ -173,7 +173,7 @@ class PipelineRoot(PipelineStage):
     """
 
     def __init__(self):
-        super(PipelineRoot, self).__init__()
+        super(PipelineRootStage, self).__init__()
         self.on_pipeline_event = None
 
     def _run_op(self, op):
@@ -228,21 +228,12 @@ class PipelineRoot(PipelineStage):
             logger.warning("incoming pipeline event with no handler.  dropping.")
 
 
-class EnsureConnection(PipelineStage):
+class EnsureConnectionStage(PipelineStage):
     # TODO: additional documentation and tests for this class are not being implemented because a significant rewriting to support more scenarios is pending
     """
-    This stage is responsible for ensuring that the transport is connected when
+    This stage is responsible for ensuring that the protocol is connected when
     it needs to be connected, and it's responsible for queueing operations
     while we're waiting for the connect operation to complete.
-
-    Operations Handled:
-    * Connect
-    * Disconnect
-    * all operations with needs_connection set to True (connects if necessary)
-    * all operations (queues while waiting for connection)
-
-    Operations Produced:
-    * Connect
 
     Note: this stage will likely be replaced by a more full-featured stage to handle
     other "block while we're setting something up" operations, such as subscribing to
@@ -251,7 +242,7 @@ class EnsureConnection(PipelineStage):
     """
 
     def __init__(self):
-        super(EnsureConnection, self).__init__()
+        super(EnsureConnectionStage, self).__init__()
         self.connected = False
         self.queue = queue.Queue()
         self.blocked = False
@@ -271,10 +262,10 @@ class EnsureConnection(PipelineStage):
         # connected) or we do the connect operation, which is pulled out into a helper
         # function because starting the connection also means blocking this stage until
         # the connect is complete.
-        elif isinstance(op, pipeline_ops_base.Connect):
+        elif isinstance(op, pipeline_ops_base.ConnectOperation):
             if self.connected:
                 logger.info(
-                    "{}({}): transport is already conencted.  completing early.".format(
+                    "{}({}): protocol client is already conencted.  completing early.".format(
                         self.name, op.name
                     )
                 )
@@ -284,10 +275,10 @@ class EnsureConnection(PipelineStage):
 
         # If we get a request to disconnect, we either complete the request immediately
         # (if we're already disconencted) or we pass the disconnect request down.
-        elif isinstance(op, pipeline_ops_base.Disconnect):
+        elif isinstance(op, pipeline_ops_base.DisconnectOperation):
             if not self.connected:
                 logger.info(
-                    "{}({}): transport is already disconencted.  completing early.".format(
+                    "{}({}): procotol client is already disconencted.  completing early.".format(
                         self.name, op.name
                     )
                 )
@@ -346,14 +337,14 @@ class EnsureConnection(PipelineStage):
 
     def _do_connect(self, op):
         """
-        Start connecting the transport in response to some operation (which may or may not be a Connect operation)
+        Start connecting the protocol client in response to some operation (which may or may not be a Connect operation)
         """
         # first, we block all future operations queue while we're connecting
         self._block(op=op)
 
         # If we're connecting as a side-effect of some other operation (that is not Connect), then we queue
         # that operation to run after the connection is complete.
-        if not isinstance(op, pipeline_ops_base.Connect):
+        if not isinstance(op, pipeline_ops_base.ConnectOperation):
             logger.info("{}({}): queueing until connection complete".format(self.name, op.name))
             self.queue.put_nowait(op)
 
@@ -362,7 +353,7 @@ class EnsureConnection(PipelineStage):
             logger.info("{}({}): connection is complete".format(self.name, op.name))
             # if we're connecting because some layer above us asked us to connect, we complete that operation
             # once the connection is established.
-            if isinstance(op, pipeline_ops_base.Connect):
+            if isinstance(op, pipeline_ops_base.ConnectOperation):
                 op.error = op_connect.error
                 operation_flow.complete_op(self, op)
             # and, no matter what, we always unblock the stage when we're done connecting.
@@ -372,7 +363,9 @@ class EnsureConnection(PipelineStage):
         # extra code that needs to run (unblocking the queue) when the connect is complete and
         # delegate_to_different_op can't do that.
         logger.info("{}({}): calling down with Connect operation".format(self.name, op.name))
-        operation_flow.pass_op_to_next_stage(self, pipeline_ops_base.Connect(callback=on_connected))
+        operation_flow.pass_op_to_next_stage(
+            self, pipeline_ops_base.ConnectOperation(callback=on_connected)
+        )
 
     def on_connected(self):
         self.connected = True
@@ -383,7 +376,7 @@ class EnsureConnection(PipelineStage):
         PipelineStage.on_disconnected(self)
 
 
-class CoordinateRequestAndResponse(PipelineStage):
+class CoordinateRequestAndResponseStage(PipelineStage):
     """
     Pipeline stage which is responsible for coordinating SendIotRequestAndWaitForResponse operations.  For each
     SendIotRequestAndWaitForResponse operation, this stage passes down a SendIotRequest operation and waits for
@@ -391,14 +384,14 @@ class CoordinateRequestAndResponse(PipelineStage):
     """
 
     def __init__(self):
-        super(CoordinateRequestAndResponse, self).__init__()
+        super(CoordinateRequestAndResponseStage, self).__init__()
         self.pending_responses = {}
 
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponse):
+        if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation):
             # Convert SendIotRequestAndWaitForResponse operation into a SendIotRequest operation
             # and send it down.  A lower level will convert the SendIotRequest into an
-            # actual transport operation.  The SendIotRequestAndWaitForResponse operation will be
+            # actual protocol client operation.  The SendIotRequestAndWaitForResponse operation will be
             # completed when the corresponding IotResponse event is received in this stage.
 
             request_id = str(uuid.uuid4())
@@ -411,7 +404,7 @@ class CoordinateRequestAndResponse(PipelineStage):
                     # request sent.  Nothing to do except wait for the response
                     pass
 
-            new_op = pipeline_ops_base.SendIotRequest(
+            new_op = pipeline_ops_base.SendIotRequestOperation(
                 method=op.method,
                 resource_locatoin=op.resource_location,
                 request_body=op.request_body,
@@ -439,4 +432,4 @@ class CoordinateRequestAndResponse(PipelineStage):
                     "IotResponseEvent with unknown request_id received.  Nothing to do. Dropping"
                 )
         else:
-            super(CoordinateRequestAndResponse, self)._handle_pipeline_event(event)
+            super(CoordinateRequestAndResponseStage, self)._handle_pipeline_event(event)

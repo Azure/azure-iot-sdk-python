@@ -22,7 +22,7 @@ pipeline_data_object_test.add_event_test(
     keyword_arguments={},
 )
 pipeline_data_object_test.add_event_test(
-    cls=pipeline_events_iothub.MethodRequest,
+    cls=pipeline_events_iothub.MethodRequestEvent,
     module=this_module,
     positional_arguments=["method_request"],
     keyword_arguments={},

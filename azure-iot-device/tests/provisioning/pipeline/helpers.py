@@ -9,11 +9,11 @@ from azure.iot.device.provisioning.pipeline import (
 )
 
 all_provisioning_ops = [
-    pipeline_ops_provisioning.SetSymmetricKeySecurityClient,
-    pipeline_ops_provisioning.SetX509SecurityClient,
-    pipeline_ops_provisioning.SetSecurityClientArgs,
-    pipeline_ops_provisioning.SendRegistrationRequest,
-    pipeline_ops_provisioning.SendQueryRequest,
+    pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
+    pipeline_ops_provisioning.SetX509SecurityClientOperation,
+    pipeline_ops_provisioning.SetSecurityClientArgsOperation,
+    pipeline_ops_provisioning.SendRegistrationRequestOperation,
+    pipeline_ops_provisioning.SendQueryRequestOperation,
 ]
 
 fake_key_values = {}

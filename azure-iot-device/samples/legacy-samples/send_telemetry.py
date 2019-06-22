@@ -25,13 +25,13 @@ for i in range(1, 6):
     msg.message_id = uuid.uuid4()
     msg.correlation_id = "correlation-1234"
     msg.custom_properties["tornado-warning"] = "yes"
-    device_client.send_event(msg)
+    device_client.send_d2c_message(msg)
     time.sleep(1)
 
 # send only string messages
 for i in range(6, 11):
     print("sending message #" + str(i))
-    device_client.send_event("test payload message " + str(i))
+    device_client.send_d2c_message("test payload message " + str(i))
     time.sleep(1)
 
 

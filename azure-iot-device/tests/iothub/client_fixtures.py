@@ -112,7 +112,7 @@ def edge_container_env_vars():
 """----Shared mock pipeline adapter fixture----"""
 
 
-class FakePipelineAdapter:
+class FakeIoTHubPipeline:
     def __init__(self):
         self.feature_enabled = {}  # This just has to be here for the spec
 
@@ -128,7 +128,7 @@ class FakePipelineAdapter:
     def disable_feature(self, feature_name, callback=None):
         callback()
 
-    def send_event(self, event, callback=None):
+    def send_d2c_message(self, event, callback=None):
         callback()
 
     def send_output_event(self, event, callback=None):
@@ -143,7 +143,7 @@ def pipeline(mocker):
     """This fixture will automatically handle callbacks and should be
     used in the majority of tests.
     """
-    return mocker.MagicMock(wraps=FakePipelineAdapter())
+    return mocker.MagicMock(wraps=FakeIoTHubPipeline())
 
 
 @pytest.fixture

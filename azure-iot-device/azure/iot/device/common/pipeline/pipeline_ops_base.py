@@ -22,7 +22,7 @@ class PipelineOperation(object):
       successfully or with a failure.
     :type callback: Function
     :ivar needs_connection: This is an attribute that indicates whether a particular operation
-      requires a connection to operate.  This is currently used by the EnsureConnection
+      requires a connection to operate.  This is currently used by the EnsureConnectionStage
       stage, but this functionality will be revamped shortly.
     :type needs_connection: Boolean
     :ivar error: The presence of a value in the error attribute indicates that the operation failed,
@@ -48,46 +48,46 @@ class PipelineOperation(object):
         self.error = None
 
 
-class Connect(PipelineOperation):
+class ConnectOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to connect to whatever service it needs to connect to.
 
     This operation is in the group of base operations because connecting is a common operation that many clients might need to do.
 
-    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IotHub or Mqtt stage).
+    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
     pass
 
 
-class Reconnect(PipelineOperation):
+class ReconnectOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to reconnect to whatever service it is connected to.
 
-    Clients will most-likely submit a Reconnect operation when some credential (such as a sas token) has changed and the transport
+    Clients will most-likely submit a Reconnect operation when some credential (such as a sas token) has changed and the protocol client
     needs to re-establish the connection to refresh the credentials
 
     This operation is in the group of base operations because reconnecting is a common operation that many clients might need to do.
 
-    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IotHub or Mqtt stage).
+    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
     pass
 
 
-class Disconnect(PipelineOperation):
+class DisconnectOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to disconnect from whatever service it might be connected to.
 
     This operation is in the group of base operations because disconnecting is a common operation that many clients might need to do.
 
-    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IotHub or Mqtt stage).
+    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
     pass
 
 
-class EnableFeature(PipelineOperation):
+class EnableFeatureOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to "enable" a particular feature.
 
@@ -98,12 +98,12 @@ class EnableFeature(PipelineOperation):
 
     This operation is in the group of base operations because disconnecting is a common operation that many clients might need to do.
 
-    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IotHub or Mqtt stage).
+    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
     def __init__(self, feature_name, callback=None):
         """
-        Initializer for EnableFeature objects.
+        Initializer for EnableFeatureOperation objects.
 
         :param str feature_name: Name of the feature that is being enabled.  The meaning of this
           string is defined in the stage which handles this operation.
@@ -111,12 +111,12 @@ class EnableFeature(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(EnableFeature, self).__init__(callback=callback)
+        super(EnableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
         self.needs_connection = True
 
 
-class DisableFeature(PipelineOperation):
+class DisableFeatureOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to "disable" a particular feature.
 
@@ -127,12 +127,12 @@ class DisableFeature(PipelineOperation):
 
     This operation is in the group of base operations because disconnecting is a common operation that many clients might need to do.
 
-    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IotHub or Mqtt stage).
+    Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
     def __init__(self, feature_name, callback=None):
         """
-        Initializer for DisableFeature objects.
+        Initializer for DisableFeatureOperation objects.
 
         :param str feature_name: Name of the feature that is being disabled.  The meaning of this
           string is defined in the stage which handles this operation.
@@ -140,21 +140,21 @@ class DisableFeature(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(DisableFeature, self).__init__(callback=callback)
+        super(DisableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
         self.needs_connection = True
 
 
-class SetSasToken(PipelineOperation):
+class SetSasTokenOperation(PipelineOperation):
     """
     A PipelineOperation object which contains a SAS token used for connecting.  This operation was likely initiated
-    by a pipeline stage that knows how to generate SAS tokens based on some other operation (such as SetAuthProvider
+    by a pipeline stage that knows how to generate SAS tokens based on some other operation (such as SetAuthProviderOperation
     or SetSecurityClient)
 
     This operation is in the group of base operations because many different clients use the concept of a SAS token.
 
     Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IotHub or Mqtt stages).
+    (such as IoTHub or MQTT stages).
     """
 
     def __init__(self, sas_token, callback=None):
@@ -167,25 +167,25 @@ class SetSasToken(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SetSasToken, self).__init__(callback=callback)
+        super(SetSasTokenOperation, self).__init__(callback=callback)
         self.sas_token = sas_token
 
 
-class SetClientAuthenticationCertificate(PipelineOperation):
+class SetClientAuthenticationCertificateOperation(PipelineOperation):
     """
     A PipelineOperation object which contains a client provided certificate used for connecting.  This operation was
     likely initiated by a pipeline stage that knows how to generate certificates based on some other operation
-    (such as SetAuthProvider or SetSecurityClient)
+    (such as SetAuthProviderOperation or SetSecurityClientOperation)
 
     This operation is in the group of base operations because many different clients use the concept of certificate.
 
     Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IotHub or Mqtt stages).
+    (such as IoTHub or MQTT stages).
     """
 
     def __init__(self, certificate, callback=None):
         """
-        Initializer for SetCertificate objects.
+        Initializer for SetClientAuthenticationCertificateOperation objects.
 
         :param certificate: The certificate which will be used to authenticate with whatever service
         this pipeline connects with. This certificate has the value as well as the key and
@@ -194,18 +194,18 @@ class SetClientAuthenticationCertificate(PipelineOperation):
         or has failed.  The callback function must accept A PipelineOperation object which indicates
         the specific operation which has completed or failed.
         """
-        super(SetClientAuthenticationCertificate, self).__init__(callback=callback)
+        super(SetClientAuthenticationCertificateOperation, self).__init__(callback=callback)
         self.certificate = certificate
 
 
-class SendIotRequestAndWaitForResponse(PipelineOperation):
+class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
     """
     A PipelineOperation object which wraps the common operation of sending a request to iothub with a request_id ($rid)
     value and waiting for a response with the same $rid value.  This convention is used by both Twin and Provisioning
     features.
 
     Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IotHub or Mqtt stages).
+    (such as IoTHub or MQTT stages).
 
     The type of the request payload and the response payload is undefined at this level.  The type of the payload is defined
     based on the type of request that is being executed.  If types need to be converted, that is the responsibility of
@@ -219,9 +219,9 @@ class SendIotRequestAndWaitForResponse(PipelineOperation):
 
     def __init__(self, request_type, method, resource_location, request_body, callback=None):
         """
-        Initializer for SendIotRequestAndWaitForResponse objects
+        Initializer for SendIotRequestAndWaitForResponseOperation objects
 
-        :param str request_type: The type of request.  This is a string which is used by transport-specific stages to
+        :param str request_type: The type of request.  This is a string which is used by protocol-specific stages to
           generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
           the request into an MQTT publish with topic that begins with $iothub/twin
         :param str method: The method for the request, in the REST sense of the word, such as "POST", "GET", etc.
@@ -234,7 +234,7 @@ class SendIotRequestAndWaitForResponse(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SendIotRequestAndWaitForResponse, self).__init(callback=callback)
+        super(SendIotRequestAndWaitForResponseOperation, self).__init(callback=callback)
         self.request_type = request_type
         self.method = method
         self.resource_location = resource_location
@@ -243,22 +243,22 @@ class SendIotRequestAndWaitForResponse(PipelineOperation):
         self.response_body = None
 
 
-class SendIotRequest(PipelineOperation):
+class SendIotRequestOperation(PipelineOperation):
     """
     A PipelineOperation object which is the first part of an SendIotRequestAndWaitForResponse operation (the request). The second
     part of the SendIotRequestAndWaitForResponse operation (the response) is returned via an IotResponseEvent event.
 
     Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IotHub or Mqtt stages).
+    (such as IoTHub or MQTT stages).
     """
 
     def __init__(
         self, request_type, method, resource_location, request_body, request_id, callback=None
     ):
         """
-        Initializer for SendIotRequest objects
+        Initializer for SendIotRequestOperation objects
 
-        :param str request_type: The type of request.  This is a string which is used by transport-specific stages to
+        :param str request_type: The type of request.  This is a string which is used by protocol-specific stages to
           generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
           the request into an MQTT publish with topic that begins with $iothub/twin
         :param str method: The method for the request, in the REST sense of the word, such as "POST", "GET", etc.
@@ -271,7 +271,7 @@ class SendIotRequest(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SendIotRequest, self).__init(callback=callback)
+        super(SendIotRequestOperation, self).__init(callback=callback)
         self.method = method
         self.resource_location = resource_location
         self.request_type = request_type

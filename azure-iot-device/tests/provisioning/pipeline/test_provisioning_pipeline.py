@@ -104,12 +104,12 @@ def mock_provisioning_pipeline(params_security_clients):
         **params_security_clients["init_kwargs"]
     )
     with patch(
-        "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTProvider"
+        "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTClientOperator"
     ):
         provisioning_pipeline = ProvisioningPipeline(input_security_client)
-    provisioning_pipeline.on_provisioning_pipeline_connected = MagicMock()
-    provisioning_pipeline.on_provisioning_pipeline_disconnected = MagicMock()
-    provisioning_pipeline.on_provisioning_pipeline_message_received = MagicMock()
+    provisioning_pipeline.on_connected = MagicMock()
+    provisioning_pipeline.on_disconnected = MagicMock()
+    provisioning_pipeline.on_message_received = MagicMock()
     yield provisioning_pipeline
     provisioning_pipeline.disconnect()
 
@@ -131,82 +131,82 @@ class TestInit(object):
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Connect")
 class TestConnect(object):
-    @pytest.mark.it("Calls connect on provider")
+    @pytest.mark.it("Calls connect on client_operator")
     def test_connect_calls_connect_on_provider(
         self, params_security_clients, mock_provisioning_pipeline
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
         mock_provisioning_pipeline.connect()
 
-        assert mock_mqtt_provider.connect.call_count == 1
+        assert mock_mqtt_client_operator.connect.call_count == 1
 
         if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_provider.connect.call_args[1]["password"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["password"] is not None
+            assert_for_symmetric_key(mock_mqtt_client_operator.connect.call_args[1]["password"])
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["client_certificate"] is not None
-            assert_for_client_x509(mock_mqtt_provider.connect.call_args[1]["client_certificate"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["client_certificate"] is not None
+            assert_for_client_x509(
+                mock_mqtt_client_operator.connect.call_args[1]["client_certificate"]
+            )
 
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
     @pytest.mark.it("After complete calls handler with new state")
     def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
         self, mock_provisioning_pipeline
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_called_once_with(
-            "connected"
-        )
+        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
 
     @pytest.mark.it("Is ignored if waiting for completion of previous one")
     def test_connect_ignored_if_waiting_for_connect_complete(
         self, mock_provisioning_pipeline, params_security_clients
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
-        assert mock_mqtt_provider.connect.call_count == 1
+        assert mock_mqtt_client_operator.connect.call_count == 1
 
         if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_provider.connect.call_args[1]["password"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["password"] is not None
+            assert_for_symmetric_key(mock_mqtt_client_operator.connect.call_args[1]["password"])
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["client_certificate"] is not None
-            assert_for_client_x509(mock_mqtt_provider.connect.call_args[1]["client_certificate"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["client_certificate"] is not None
+            assert_for_client_x509(
+                mock_mqtt_client_operator.connect.call_args[1]["client_certificate"]
+            )
 
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_called_once_with(
-            "connected"
-        )
+        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
 
     @pytest.mark.it("Is ignored if waiting for completion of send")
     def test_connect_ignored_if_waiting_for_send_complete(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
-        mock_mqtt_provider.reset_mock()
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.reset_mock()
+        mock_mqtt_client_operator.reset_mock()
+        mock_provisioning_pipeline.on_connected.reset_mock()
 
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
         mock_provisioning_pipeline.connect()
 
-        mock_mqtt_provider.connect.assert_not_called()
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_not_called()
+        mock_mqtt_client_operator.connect.assert_not_called()
+        mock_provisioning_pipeline.on_connected.assert_not_called()
 
-        mock_mqtt_provider.on_mqtt_published(0)
+        mock_mqtt_client_operator.on_mqtt_published(0)
 
-        mock_mqtt_provider.connect.assert_not_called()
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_not_called()
+        mock_mqtt_client_operator.connect.assert_not_called()
+        mock_provisioning_pipeline.on_connected.assert_not_called()
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
@@ -216,36 +216,38 @@ class TestSendRegister(object):
     def test_send_register_request_calls_publish_on_provider(
         self, mock_provisioning_pipeline, params_security_clients
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
 
-        assert mock_mqtt_provider.connect.call_count == 1
+        assert mock_mqtt_client_operator.connect.call_count == 1
 
         if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_provider.connect.call_args[1]["password"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["password"] is not None
+            assert_for_symmetric_key(mock_mqtt_client_operator.connect.call_args[1]["password"])
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["client_certificate"] is not None
-            assert_for_client_x509(mock_mqtt_provider.connect.call_args[1]["client_certificate"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["client_certificate"] is not None
+            assert_for_client_x509(
+                mock_mqtt_client_operator.connect.call_args[1]["client_certificate"]
+            )
 
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id
         )
 
-        assert mock_mqtt_provider.publish.call_count == 1
-        assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_client_operator.publish.call_count == 1
+        assert mock_mqtt_client_operator.publish.call_args[1]["topic"] == fake_publish_topic
+        assert mock_mqtt_client_operator.publish.call_args[1]["payload"] == fake_mqtt_payload
 
     @pytest.mark.it("Request queues and connects before calling publish on provider")
     def test_send_request_queues_and_connects_before_sending(
         self, mock_provisioning_pipeline, params_security_clients
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         # send an event
         mock_provisioning_pipeline.send_request(
@@ -253,51 +255,53 @@ class TestSendRegister(object):
         )
 
         # verify that we called connect
-        assert mock_mqtt_provider.connect.call_count == 1
+        assert mock_mqtt_client_operator.connect.call_count == 1
 
         if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_provider.connect.call_args[1]["password"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["password"] is not None
+            assert_for_symmetric_key(mock_mqtt_client_operator.connect.call_args[1]["password"])
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["client_certificate"] is not None
-            assert_for_client_x509(mock_mqtt_provider.connect.call_args[1]["client_certificate"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["client_certificate"] is not None
+            assert_for_client_x509(
+                mock_mqtt_client_operator.connect.call_args[1]["client_certificate"]
+            )
 
         # verify that we're not connected yet and verify that we havent't published yet
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_not_called()
-        mock_mqtt_provider.publish.assert_not_called()
+        mock_provisioning_pipeline.on_connected.assert_not_called()
+        mock_mqtt_client_operator.publish.assert_not_called()
 
         # finish the connection
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # verify that our connected callback was called and verify that we published the event
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_called_once_with(
-            "connected"
-        )
+        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
 
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id
         )
 
-        assert mock_mqtt_provider.publish.call_count == 1
-        assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_client_operator.publish.call_count == 1
+        assert mock_mqtt_client_operator.publish.call_args[1]["topic"] == fake_publish_topic
+        assert mock_mqtt_client_operator.publish.call_args[1]["payload"] == fake_mqtt_payload
 
     @pytest.mark.it("Request queues and waits for connect to be completed")
     def test_send_request_queues_if_waiting_for_connect_complete(
         self, mock_provisioning_pipeline, params_security_clients
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
-        # start connecting and verify that we've called into the provider
+        # start connecting and verify that we've called into the client_operator
         mock_provisioning_pipeline.connect()
-        assert mock_mqtt_provider.connect.call_count == 1
+        assert mock_mqtt_client_operator.connect.call_count == 1
 
         if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_provider.connect.call_args[1]["password"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["password"] is not None
+            assert_for_symmetric_key(mock_mqtt_client_operator.connect.call_args[1]["password"])
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["client_certificate"] is not None
-            assert_for_client_x509(mock_mqtt_provider.connect.call_args[1]["client_certificate"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["client_certificate"] is not None
+            assert_for_client_x509(
+                mock_mqtt_client_operator.connect.call_args[1]["client_certificate"]
+            )
 
         # send an event
         mock_provisioning_pipeline.send_request(
@@ -305,35 +309,33 @@ class TestSendRegister(object):
         )
 
         # verify that we're not connected yet and verify that we havent't published yet
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_not_called()
-        mock_mqtt_provider.publish.assert_not_called()
+        mock_provisioning_pipeline.on_connected.assert_not_called()
+        mock_mqtt_client_operator.publish.assert_not_called()
 
         # finish the connection
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # verify that our connected callback was called and verify that we published the event
-        mock_provisioning_pipeline.on_provisioning_pipeline_connected.assert_called_once_with(
-            "connected"
-        )
+        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id
         )
-        assert mock_mqtt_provider.publish.call_count == 1
-        assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_client_operator.publish.call_count == 1
+        assert mock_mqtt_client_operator.publish.call_args[1]["topic"] == fake_publish_topic
+        assert mock_mqtt_client_operator.publish.call_args[1]["payload"] == fake_mqtt_payload
 
     @pytest.mark.it("Request can be sent multiple times overlapping each other")
-    def test_send_event_sends_overlapped_events(self, mock_provisioning_pipeline):
+    def test_send_request_sends_overlapped_events(self, mock_provisioning_pipeline):
         fake_request_id_1 = fake_request_id
         fake_msg_1 = fake_mqtt_payload
         fake_request_id_2 = "request_4567"
         fake_msg_2 = "Petrificus Totalus"
 
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         # connect
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # send an event
         callback_1 = MagicMock()
@@ -344,40 +346,40 @@ class TestSendRegister(object):
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id_1
         )
-        assert mock_mqtt_provider.publish.call_count == 1
-        assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_msg_1
+        assert mock_mqtt_client_operator.publish.call_count == 1
+        assert mock_mqtt_client_operator.publish.call_args[1]["topic"] == fake_publish_topic
+        assert mock_mqtt_client_operator.publish.call_args[1]["payload"] == fake_msg_1
 
         # while we're waiting for that send to complete, send another event
         callback_2 = MagicMock()
-        # provisioning_pipeline.send_event(fake_msg_2, callback_2)
+        # provisioning_pipeline.send_d2c_message(fake_msg_2, callback_2)
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id_2, request_payload=fake_msg_2, callback=callback_2
         )
 
-        # verify that we've called publish twice and verify that neither send_event
+        # verify that we've called publish twice and verify that neither send_d2c_message
         # has completed (because we didn't do anything here to complete it).
-        assert mock_mqtt_provider.publish.call_count == 2
+        assert mock_mqtt_client_operator.publish.call_count == 2
         callback_1.assert_not_called()
         callback_2.assert_not_called()
 
     @pytest.mark.it("Connects , sends request queues and then disconnects")
     def test_connect_send_disconnect(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         # connect
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         # send an event
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
-        mock_mqtt_provider.on_mqtt_published(0)
+        mock_mqtt_client_operator.on_mqtt_published(0)
 
         # disconnect
         mock_provisioning_pipeline.disconnect()
-        mock_mqtt_provider.disconnect.assert_called_once_with()
+        mock_mqtt_client_operator.disconnect.assert_called_once_with()
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
@@ -387,32 +389,34 @@ class TestSendQuery(object):
     def test_send_query_calls_publish_on_provider(
         self, mock_provisioning_pipeline, params_security_clients
     ):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id,
             request_payload=fake_mqtt_payload,
             operation_id=fake_operation_id,
         )
 
-        assert mock_mqtt_provider.connect.call_count == 1
+        assert mock_mqtt_client_operator.connect.call_count == 1
 
         if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_provider.connect.call_args[1]["password"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["password"] is not None
+            assert_for_symmetric_key(mock_mqtt_client_operator.connect.call_args[1]["password"])
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_provider.connect.call_args[1]["client_certificate"] is not None
-            assert_for_client_x509(mock_mqtt_provider.connect.call_args[1]["client_certificate"])
+            assert mock_mqtt_client_operator.connect.call_args[1]["client_certificate"] is not None
+            assert_for_client_x509(
+                mock_mqtt_client_operator.connect.call_args[1]["client_certificate"]
+            )
 
         fake_publish_topic = "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={}&operationId={}".format(
             fake_request_id, fake_operation_id
         )
 
-        assert mock_mqtt_provider.publish.call_count == 1
-        assert mock_mqtt_provider.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_provider.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_client_operator.publish.call_count == 1
+        assert mock_mqtt_client_operator.publish.call_args[1]["topic"] == fake_publish_topic
+        assert mock_mqtt_client_operator.publish.call_args[1]["payload"] == fake_mqtt_payload
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
@@ -420,35 +424,33 @@ class TestSendQuery(object):
 class TestDisconnect(object):
     @pytest.mark.it("Calls disconnect on provider")
     def test_disconnect_calls_disconnect_on_provider(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         mock_provisioning_pipeline.disconnect()
 
-        mock_mqtt_provider.disconnect.assert_called_once_with()
+        mock_mqtt_client_operator.disconnect.assert_called_once_with()
 
     @pytest.mark.it("Is ignored if already disconnected")
     def test_disconnect_ignored_if_already_disconnected(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.disconnect(None)
 
-        mock_mqtt_provider.disconnect.assert_not_called()
+        mock_mqtt_client_operator.disconnect.assert_not_called()
 
     @pytest.mark.it("After complete calls handler with `disconnected` state")
     def test_disconnect_calls_client_disconnect_callback(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
 
         mock_provisioning_pipeline.disconnect()
-        mock_mqtt_provider.on_mqtt_disconnected()
+        mock_mqtt_client_operator.on_mqtt_disconnected()
 
-        mock_provisioning_pipeline.on_provisioning_pipeline_disconnected.assert_called_once_with(
-            "disconnected"
-        )
+        mock_provisioning_pipeline.on_disconnected.assert_called_once_with("disconnected")
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
@@ -456,14 +458,14 @@ class TestDisconnect(object):
 class TestEnable(object):
     @pytest.mark.it("Calls subscribe on provider")
     def test_subscribe_calls_subscribe_on_provider(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         mock_provisioning_pipeline.enable_responses()
 
-        assert mock_mqtt_provider.subscribe.call_count == 1
-        assert mock_mqtt_provider.subscribe.call_args[1]["topic"] == fake_sub_unsub_topic
+        assert mock_mqtt_client_operator.subscribe.call_count == 1
+        assert mock_mqtt_client_operator.subscribe.call_args[1]["topic"] == fake_sub_unsub_topic
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
@@ -471,11 +473,11 @@ class TestEnable(object):
 class TestDisable(object):
     @pytest.mark.it("Calls unsubscribe on provider")
     def test_unsubscribe_calls_unsubscribe_on_provider(self, mock_provisioning_pipeline):
-        mock_mqtt_provider = mock_provisioning_pipeline._pipeline.provider
+        mock_mqtt_client_operator = mock_provisioning_pipeline._pipeline.client_operator
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_provider.on_mqtt_connected()
+        mock_mqtt_client_operator.on_mqtt_connected()
         mock_provisioning_pipeline.disable_responses(None)
 
-        assert mock_mqtt_provider.unsubscribe.call_count == 1
-        assert mock_mqtt_provider.unsubscribe.call_args[1]["topic"] == fake_sub_unsub_topic
+        assert mock_mqtt_client_operator.unsubscribe.call_count == 1
+        assert mock_mqtt_client_operator.unsubscribe.call_args[1]["topic"] == fake_sub_unsub_topic

@@ -8,7 +8,7 @@ from azure.iot.device.common.pipeline import PipelineEvent
 class C2DMessageEvent(PipelineEvent):
     """
     A PipelineEvent object which represents an incoming C2D event.  This object is probably
-    created by some converter stage based on a transport-specific event
+    created by some converter stage based on a protocol-specific event
     """
 
     def __init__(self, message):
@@ -24,7 +24,7 @@ class C2DMessageEvent(PipelineEvent):
 class InputMessageEvent(PipelineEvent):
     """
     A PipelineEvent object which represents an incoming input message event.  This object is probably
-    created by some converter stage based on a transport-specific event
+    created by some converter stage based on a protocol-specific event
     """
 
     def __init__(self, input_name, message):
@@ -40,21 +40,21 @@ class InputMessageEvent(PipelineEvent):
         self.message = message
 
 
-class MethodRequest(PipelineEvent):
+class MethodRequestEvent(PipelineEvent):
     """
     A PipelineEvent object which represents an incoming MethodRequest event.
-    This object is probably created by some converter stage based on a transport-specific event.
+    This object is probably created by some converter stage based on a protocol-specific event.
     """
 
     def __init__(self, method_request):
-        super(MethodRequest, self).__init__()
+        super(MethodRequestEvent, self).__init__()
         self.method_request = method_request
 
 
 class TwinDesiredPropertiesPatchEvent(PipelineEvent):
     """
     A PipelineEvent object which represents an incoming twin desired properties patch.  This
-    object is probably created by some converter stage based on a transport-specific event.
+    object is probably created by some converter stage based on a protocol-specific event.
     """
 
     def __init__(self, patch):

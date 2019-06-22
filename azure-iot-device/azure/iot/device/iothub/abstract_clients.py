@@ -11,7 +11,7 @@ import abc
 import logging
 import os
 from . import auth
-from .pipeline import PipelineAdapter
+from .pipeline import IoTHubPipeline
 
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class AbstractIoTHubClient(object):
         authentication_provider.ca_cert = (
             trusted_certificate_chain
         )  # TODO: make this part of the instantiation
-        pipeline = PipelineAdapter(authentication_provider)
+        pipeline = IoTHubPipeline(authentication_provider)
         return cls(pipeline)
 
     @classmethod
@@ -63,7 +63,7 @@ class AbstractIoTHubClient(object):
         :raises: ValueError if given an invalid sas_token
         """
         authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
-        pipeline = PipelineAdapter(authentication_provider)
+        pipeline = IoTHubPipeline(authentication_provider)
         return cls(pipeline)
 
     @abc.abstractmethod
@@ -75,7 +75,7 @@ class AbstractIoTHubClient(object):
         pass
 
     @abc.abstractmethod
-    def send_event(self, message):
+    def send_d2c_message(self, message):
         pass
 
     @abc.abstractmethod
@@ -137,7 +137,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             workload_uri=workload_uri,
             api_version=api_version,
         )
-        pipeline = PipelineAdapter(authentication_provider)
+        pipeline = IoTHubPipeline(authentication_provider)
         return cls(pipeline)
 
     @abc.abstractmethod

@@ -22,7 +22,7 @@ async def main():
 
     # Send a single message
     print("Sending message...")
-    await device_client.send_event("This is a message that is being sent")
+    await device_client.send_d2c_message("This is a message that is being sent")
     print("Message successfully sent!")
 
     # finally, disconnect

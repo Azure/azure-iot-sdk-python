@@ -48,7 +48,7 @@ class TestClientCreate(object):
     )
     def test_create_from_symmetric_key(self, mocker, protocol):
         patch_set_sym_client = mocker.patch.object(
-            pipeline_ops_provisioning, "SetSymmetricKeySecurityClient"
+            pipeline_ops_provisioning, "SetSymmetricKeySecurityClientOperation"
         )
         client = ProvisioningDeviceClient.create_from_symmetric_key(
             fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
@@ -69,7 +69,7 @@ class TestClientCreate(object):
     )
     def test_create_from_x509_cert(self, mocker, protocol):
         patch_set_x509_client = mocker.patch.object(
-            pipeline_ops_provisioning, "SetX509SecurityClient"
+            pipeline_ops_provisioning, "SetX509SecurityClientOperation"
         )
         client = ProvisioningDeviceClient.create_from_x509_certificate(
             fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()

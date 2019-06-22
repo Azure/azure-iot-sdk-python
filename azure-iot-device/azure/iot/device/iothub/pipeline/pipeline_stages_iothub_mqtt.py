@@ -20,24 +20,24 @@ from . import constant, pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_
 logger = logging.getLogger(__name__)
 
 
-class IotHubMQTTConverter(PipelineStage):
+class IoTHubMQTTConverterStage(PipelineStage):
     """
-    PipelineStage which converts other Iot and IotHub operations into Mqtt operations.  This stage also
-    converts mqtt pipeline events into Iot and IotHub pipeline events.
+    PipelineStage which converts other Iot and IoTHub operations into MQTT operations.  This stage also
+    converts mqtt pipeline events into Iot and IoTHub pipeline events.
     """
 
     def __init__(self):
-        super(IotHubMQTTConverter, self).__init__()
+        super(IoTHubMQTTConverterStage, self).__init__()
         self.feature_to_topic = {}
 
     def _run_op(self, op):
 
-        if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgs):
+        if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id
 
             # if we get auth provider args from above, we save some, use some to build topic names,
-            # and always pass it down because we know that the MQTT Provider stage will also want
+            # and always pass it down because we know that the MQTT protocol stage will also want
             # to receive these args.
             self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
 
@@ -58,23 +58,23 @@ class IotHubMQTTConverter(PipelineStage):
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
-                new_op=pipeline_ops_mqtt.SetConnectionArgs(
+                new_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
                     client_id=client_id, hostname=hostname, username=username, ca_cert=op.ca_cert
                 ),
             )
 
-        elif isinstance(op, pipeline_ops_iothub.SendTelemetry) or isinstance(
-            op, pipeline_ops_iothub.SendOutputEvent
+        elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
+            op, pipeline_ops_iothub.SendOutputEventOperation
         ):
-            # Convert SendTelementry and SendOutputEvent operations into Mqtt Publish operations
+            # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
             topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
-                new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.message.data),
+                new_op=pipeline_ops_mqtt.MQTTPublishOperation(topic=topic, payload=op.message.data),
             )
 
-        elif isinstance(op, pipeline_ops_iothub.SendMethodResponse):
+        elif isinstance(op, pipeline_ops_iothub.SendMethodResponseOperation):
             # Sending a Method Response gets translated into an MQTT Publish operation
             topic = mqtt_topic_iothub.get_method_topic_for_publish(
                 op.method_response.request_id, str(op.method_response.status)
@@ -83,24 +83,28 @@ class IotHubMQTTConverter(PipelineStage):
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
-                new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload),
+                new_op=pipeline_ops_mqtt.MQTTPublishOperation(topic=topic, payload=payload),
             )
 
-        elif isinstance(op, pipeline_ops_base.EnableFeature):
-            # Enabling a feature gets translated into an Mqtt subscribe operation
+        elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+            # Enabling a feature gets translated into an MQTT subscribe operation
             topic = self.feature_to_topic[op.feature_name]
             operation_flow.delegate_to_different_op(
-                stage=self, original_op=op, new_op=pipeline_ops_mqtt.Subscribe(topic=topic)
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_mqtt.MQTTSubscribeOperation(topic=topic),
             )
 
-        elif isinstance(op, pipeline_ops_base.DisableFeature):
-            # Disabling a feature gets turned into an Mqtt unsubscribe operation
+        elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
+            # Disabling a feature gets turned into an MQTT unsubscribe operation
             topic = self.feature_to_topic[op.feature_name]
             operation_flow.delegate_to_different_op(
-                stage=self, original_op=op, new_op=pipeline_ops_mqtt.Unsubscribe(topic=topic)
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(topic=topic),
             )
 
-        elif isinstance(op, pipeline_ops_base.SendIotRequest):
+        elif isinstance(op, pipeline_ops_base.SendIotRequestOperation):
             if op.request_type == constant.TWIN:
                 topic = mqtt_topic_iothub.get_twin_topic_for_publish(
                     method=op.method,
@@ -111,7 +115,7 @@ class IotHubMQTTConverter(PipelineStage):
                 operation_flow.delegate_to_different_op(
                     stage=self,
                     original_op=op,
-                    new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=payload),
+                    new_op=pipeline_ops_mqtt.MQTTPublishOperation(topic=topic, payload=payload),
                 )
             else:
                 raise NotImplementedError(
@@ -141,10 +145,10 @@ class IotHubMQTTConverter(PipelineStage):
 
     def _handle_pipeline_event(self, event):
         """
-        Pipeline Event handler function to convert incoming Mqtt messages into the appropriate IotHub
+        Pipeline Event handler function to convert incoming MQTT messages into the appropriate IoTHub
         events, based on the topic of the message
         """
-        if isinstance(event, pipeline_events_mqtt.IncomingMessage):
+        if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
             topic = event.topic
 
             if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
@@ -168,7 +172,9 @@ class IotHubMQTTConverter(PipelineStage):
                     name=method_name,
                     payload=json.loads(event.payload.decode("utf-8")),
                 )
-                self.handle_pipeline_event(pipeline_events_iothub.MethodRequest(method_received))
+                self.handle_pipeline_event(
+                    pipeline_events_iothub.MethodRequestEvent(method_received)
+                )
 
             elif mqtt_topic_iothub.is_twin_response_topic(topic):
                 request_id = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)

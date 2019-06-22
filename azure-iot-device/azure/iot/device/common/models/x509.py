@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 """This module represents a certificate that is responsible for providing client provided x509 certificates
-that will eventually establish the authenticity of devices to IotHub and Provisioning Services.
+that will eventually establish the authenticity of devices to IoTHub and Provisioning Services.
 """
 
 

@@ -41,7 +41,7 @@ class IotResponseEvent(PipelineEvent):
     the same $rid value.  This convention is used by both Twin and Provisioning features.
 
     The response represented by this event has not yet been matched to the corresponding
-    SendIotRequest operation.  That matching is done by the CoordinateRequestAndResponse
+    SendIotRequest operation.  That matching is done by the CoordinateRequestAndResponseStage
     stage which takes the contents of this event and puts it into the SendIotRequestAndWaitForResponse
     operation with the matching $rid value.
 

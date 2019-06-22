@@ -26,40 +26,40 @@ class ProvisioningPipeline(object):
         :param security_client: The security client which stores credentials
         """
         # Event Handlers - Will be set by Client after instantiation of pipeline
-        self.on_provisioning_pipeline_connected = None
-        self.on_provisioning_pipeline_disconnected = None
-        self.on_provisioning_pipeline_message_received = None
+        self.on_connected = None
+        self.on_disconnected = None
+        self.on_message_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRoot()
-            .append_stage(pipeline_stages_provisioning.UseSymmetricKeyOrX509SecurityClient())
-            .append_stage(pipeline_stages_base.EnsureConnection())
-            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverter())
-            .append_stage(pipeline_stages_mqtt.Provider())
+            pipeline_stages_base.PipelineRootStage()
+            .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
+            .append_stage(pipeline_stages_base.EnsureConnectionStage())
+            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage())
+            .append_stage(pipeline_stages_mqtt.MQTTClientStage())
         )
 
         def _handle_pipeline_event(event):
             if isinstance(event, pipeline_events_provisioning.RegistrationResponseEvent):
-                if self.on_provisioning_pipeline_message_received:
-                    self.on_provisioning_pipeline_message_received(
+                if self.on_message_received:
+                    self.on_message_received(
                         event.request_id,
                         event.status_code,
                         event.key_values,
                         event.response_payload,
                     )
                 else:
-                    logger.warning("C2D event received with no handler.  dropping.")
+                    logger.warning("Provisioning event received with no handler.  dropping.")
 
             else:
                 logger.warning("Dropping unknown pipeline event {}".format(event.name))
 
         def _handle_connected():
-            if self.on_provisioning_pipeline_connected:
-                self.on_provisioning_pipeline_connected("connected")
+            if self.on_connected:
+                self.on_connected("connected")
 
         def _handle_disconnected():
-            if self.on_provisioning_pipeline_disconnected:
-                self.on_provisioning_pipeline_disconnected("disconnected")
+            if self.on_disconnected:
+                self.on_disconnected("disconnected")
 
         self._pipeline.on_pipeline_event = _handle_pipeline_event
         self._pipeline.on_connected = _handle_connected
@@ -70,11 +70,11 @@ class ProvisioningPipeline(object):
                 raise call.error
 
         if isinstance(security_client, X509SecurityClient):
-            op = pipeline_ops_provisioning.SetX509SecurityClient(
+            op = pipeline_ops_provisioning.SetX509SecurityClientOperation(
                 security_client=security_client, callback=remove_this_code
             )
         elif isinstance(security_client, SymmetricKeySecurityClient):
-            op = pipeline_ops_provisioning.SetSymmetricKeySecurityClient(
+            op = pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation(
                 security_client=security_client, callback=remove_this_code
             )
         else:
@@ -97,7 +97,7 @@ class ProvisioningPipeline(object):
             if callback:
                 callback()
 
-        self._pipeline.run_op(pipeline_ops_base.Connect(callback=pipeline_callback))
+        self._pipeline.run_op(pipeline_ops_base.ConnectOperation(callback=pipeline_callback))
 
     def disconnect(self, callback=None):
         """
@@ -114,7 +114,7 @@ class ProvisioningPipeline(object):
             if callback:
                 callback()
 
-        self._pipeline.run_op(pipeline_ops_base.Disconnect(callback=pipeline_callback))
+        self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=pipeline_callback))
 
     def send_request(self, request_id, request_payload, operation_id=None, callback=None):
         """
@@ -134,14 +134,14 @@ class ProvisioningPipeline(object):
 
         op = None
         if operation_id is not None:
-            op = pipeline_ops_provisioning.SendQueryRequest(
+            op = pipeline_ops_provisioning.SendQueryRequestOperation(
                 request_id=request_id,
                 operation_id=operation_id,
                 request_payload=request_payload,
                 callback=pipeline_callback,
             )
         else:
-            op = pipeline_ops_provisioning.SendRegistrationRequest(
+            op = pipeline_ops_provisioning.SendRegistrationRequestOperation(
                 request_id=request_id, request_payload=request_payload, callback=pipeline_callback
             )
 
@@ -163,7 +163,7 @@ class ProvisioningPipeline(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_base.EnableFeature(feature_name=None, callback=pipeline_callback)
+            pipeline_ops_base.EnableFeatureOperation(feature_name=None, callback=pipeline_callback)
         )
 
     def disable_responses(self, callback=None):
@@ -182,5 +182,5 @@ class ProvisioningPipeline(object):
                 callback()
 
         self._pipeline.run_op(
-            pipeline_ops_base.DisableFeature(feature_name=None, callback=pipeline_callback)
+            pipeline_ops_base.DisableFeatureOperation(feature_name=None, callback=pipeline_callback)
         )

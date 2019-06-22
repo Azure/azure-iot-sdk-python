@@ -12,7 +12,7 @@ The SDK provides the following clients:
 * ### IoT Hub Device Client
     * Send telemetry messages to Azure IoT Hub
     * Receive Cloud-to-Device (C2D) messages from the Azure IoT Hub
-    * Receive and respond to direct method invocations from the Azure IoT Hub 
+    * Receive and respond to direct method invocations from the Azure IoT Hub
 
 * ### IoT Hub Module Client
     * Supports Azure IoT Edge Hub and Azure IoT Hub
@@ -57,7 +57,7 @@ pip install azure-iot-device
     It should be in the format:
     ```
     HostName=<your IoT Hub name>.azure-devices.net;DeviceId=<your device id>;SharedAccessKey=<some value>
-    ``` 
+    ```
 
 ## Send a simple telemetry message
 
@@ -104,7 +104,7 @@ pip install azure-iot-device
 
         # Send a single message
         print("Sending message...")
-        await device_client.send_event("This is a message that is being sent")
+        await device_client.send_d2c_message("This is a message that is being sent")
         print("Message successfully sent!")
 
         # finally, disconnect

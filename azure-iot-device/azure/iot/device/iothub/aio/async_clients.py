@@ -37,11 +37,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         super().__init__(pipeline)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
-        self._pipeline.on_transport_connected = self._on_state_change
-        self._pipeline.on_transport_disconnected = self._on_state_change
-        self._pipeline.on_transport_method_request_received = (
-            self._inbox_manager.route_method_request
-        )
+        self._pipeline.on_connected = self._on_state_change
+        self._pipeline.on_disconnected = self._on_state_change
+        self._pipeline.on_method_request_received = self._inbox_manager.route_method_request
 
     def _on_state_change(self, new_state):
         """Handler to be called by the pipeline upon a connection state change."""
@@ -86,7 +84,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await disconnect_async(callback=callback)
         await callback.completion()
 
-    async def send_event(self, message):
+    async def send_d2c_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         If the connection to the service has not previously been opened by a call to connect, this
@@ -99,14 +97,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             message = Message(message)
 
         logger.info("Sending message to Hub...")
-        send_event_async = async_adapter.emulate_async(self._pipeline.send_event)
+        send_d2c_message_async = async_adapter.emulate_async(self._pipeline.send_d2c_message)
 
         def sync_callback():
             logger.info("Successfully sent message to Hub")
 
         callback = async_adapter.AwaitableCallback(sync_callback)
 
-        await send_event_async(message, callback=callback)
+        await send_d2c_message_async(message, callback=callback)
         await callback.completion()
 
     async def receive_method_request(self, method_name=None):
@@ -196,7 +194,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param pipeline: The pipeline that the client will use.
         """
         super().__init__(pipeline)
-        self._pipeline.on_transport_c2d_message_received = self._inbox_manager.route_c2d_message
+        self._pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     async def receive_c2d_message(self):
         """Receive a C2D message that has been sent from the Azure IoT Hub.
@@ -230,7 +228,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param pipeline: The pipeline that the client will use.
         """
         super().__init__(pipeline)
-        self._pipeline.on_transport_input_message_received = self._inbox_manager.route_input_message
+        self._pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     async def send_to_output(self, message, output_name):
         """Sends an event/message to the given module output.

@@ -6,19 +6,19 @@
 from azure.iot.device.common.pipeline import PipelineOperation
 
 
-class SetAuthProvider(PipelineOperation):
+class SetAuthProviderOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to use a particular authorization provider.
     Some pipeline stage is expected to extract arguments out of the auth provider and pass them
     on so an even lower stage can use those arguments to connect.
 
-    This operation is in the group of IotHub operations because autorization providers are currently
-    very IotHub-specific
+    This operation is in the group of IoTHub operations because autorization providers are currently
+    very IoTHub-specific
     """
 
     def __init__(self, auth_provider, callback=None):
         """
-        Initializer for SetAuthProvider objects.
+        Initializer for SetAuthProviderOperation objects.
 
         :param object auth_provider: The authorization provider object to use to retrieve connection parameters
           which can be used to connect to the service.
@@ -26,17 +26,17 @@ class SetAuthProvider(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SetAuthProvider, self).__init__(callback=callback)
+        super(SetAuthProviderOperation, self).__init__(callback=callback)
         self.auth_provider = auth_provider
 
 
-class SetAuthProviderArgs(PipelineOperation):
+class SetAuthProviderArgsOperation(PipelineOperation):
     """
     A PipelineOperation object which contains connection arguments which were retrieved from an authorization provider,
-    likely by a pipeline stage which handles the SetAuthProvider operation.
+    likely by a pipeline stage which handles the SetAuthProviderOperation operation.
 
     This operation is in the group of IoTHub operations because the arguments which it accepts are very specific to
-    IotHub connections and would not apply to other types of client connections (such as a DPS client).
+    IoTHub connections and would not apply to other types of client connections (such as a DPS client).
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class SetAuthProviderArgs(PipelineOperation):
         callback=None,
     ):
         """
-        Initializer for SetAuthProviderArgs objects.
+        Initializer for SetAuthProviderArgsOperation objects.
 
         :param str device_id: The device id for the device that we are connecting.
         :param str hostname: The hostname of the iothub service we are connecting to.
@@ -63,7 +63,7 @@ class SetAuthProviderArgs(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SetAuthProviderArgs, self).__init__(callback=callback)
+        super(SetAuthProviderArgsOperation, self).__init__(callback=callback)
         self.device_id = device_id
         self.module_id = module_id
         self.hostname = hostname
@@ -71,37 +71,37 @@ class SetAuthProviderArgs(PipelineOperation):
         self.ca_cert = ca_cert
 
 
-class SendTelemetry(PipelineOperation):
+class SendD2CMessageOperation(PipelineOperation):
     """
-    A PipelineOperation object which contains arguments used to send a telemetry message to an IotHub or EdegHub server.
+    A PipelineOperation object which contains arguments used to send a telemetry message to an IoTHub or EdegHub server.
 
-    This operation is in the group of IoTHub operations because it is very specific to the IotHub client
+    This operation is in the group of IoTHub operations because it is very specific to the IoTHub client
     """
 
     def __init__(self, message, callback=None):
         """
-        Initializer for SendTelemetry objects.
+        Initializer for SendD2CMessageOperation objects.
 
         :param Message message: The message that we're sending to the service
         :param Function callback: The function that gets called when this operation is complete or has failed.
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SendTelemetry, self).__init__(callback=callback)
+        super(SendD2CMessageOperation, self).__init__(callback=callback)
         self.message = message
         self.needs_connection = True
 
 
-class SendOutputEvent(PipelineOperation):
+class SendOutputEventOperation(PipelineOperation):
     """
     A PipelineOperation object which contains arguments used to send an output message to an EdgeHub server.
 
-    This operation is in the group of IoTHub operations because it is very specific to the IotHub client
+    This operation is in the group of IoTHub operations because it is very specific to the IoTHub client
     """
 
     def __init__(self, message, callback=None):
         """
-        Initializer for SendOutputEvent objects.
+        Initializer for SendOutputEventOperation objects.
 
         :param Message message: The output message that we're sending to the service. The name of the output is
           expected to be stored in the output_name attribute of this object
@@ -109,12 +109,12 @@ class SendOutputEvent(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SendOutputEvent, self).__init__(callback=callback)
+        super(SendOutputEventOperation, self).__init__(callback=callback)
         self.message = message
         self.needs_connection = True
 
 
-class SendMethodResponse(PipelineOperation):
+class SendMethodResponseOperation(PipelineOperation):
     """
     A PipleineOperation object which contains arguments used to send a method response to an IoTHub or EdgeHub server.
 
@@ -123,7 +123,7 @@ class SendMethodResponse(PipelineOperation):
 
     def __init__(self, method_response, callback=None):
         """
-        Initializer for SendMethodResponse objects.
+        Initializer for SendMethodResponseOperation objects.
 
         :param method_response: The method response to be sent to IoTHub/EdgeHub
         :type method_response: MethodResponse
@@ -132,12 +132,12 @@ class SendMethodResponse(PipelineOperation):
          has completed or failed.
         :type callback: Function/callable
         """
-        super(SendMethodResponse, self).__init__(callback=callback)
+        super(SendMethodResponseOperation, self).__init__(callback=callback)
         self.method_response = method_response
         self.needs_connection = True
 
 
-class GetTwin(PipelineOperation):
+class GetTwinOperation(PipelineOperation):
     """
     A PipelineOperation object which represents a request to get a device twin or a module twin from an Azure
     IoT Hub or Azure Iot Edge Hub service.
@@ -148,14 +148,14 @@ class GetTwin(PipelineOperation):
 
     def __init__(self, callback=None):
         """
-        Initializer for GetTwin objects.
+        Initializer for GetTwinOperation objects.
         """
-        super(GetTwin, self).__init__(callback=callback)
+        super(GetTwinOperation, self).__init__(callback=callback)
         self.twin = None
         self.needs_connection = True
 
 
-class PatchTwinReportedProperties(PipelineOperation):
+class PatchTwinReportedPropertiesOperation(PipelineOperation):
     """
     A PipelineOperation object which contains arguments used to send a reported properties patch to the Azure
     IoT Hub or Azure IoT Edge Hub service.
@@ -163,11 +163,11 @@ class PatchTwinReportedProperties(PipelineOperation):
 
     def __init__(self, patch, callback=None):
         """
-        Initializer for PatchTwinReportedProperties object
+        Initializer for PatchTwinReportedPropertiesOperation object
 
         :param patch: The reported properties patch to send to the service.
         :type patch: dict, str, int, float, bool, or None (JSON compatible values)
         """
-        super(PatchTwinReportedProperties, self).__init__(callback=callback)
+        super(PatchTwinReportedPropertiesOperation, self).__init__(callback=callback)
         self.patch = patch
         self.needs_connection = True

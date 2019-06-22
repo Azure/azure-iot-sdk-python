@@ -30,7 +30,7 @@ def request_response_provider():
 
 @pytest.mark.describe("RequestResponseProvider")
 class TestRequestResponseProvider(object):
-    @pytest.mark.it("Connect calls connect on state based provider with given callback")
+    @pytest.mark.it("connect calls connect on state based provider with given callback")
     def test_connect_calls_connect_on_provisioning_pipeline_with_provided_callback(
         self, request_response_provider
     ):
@@ -39,7 +39,7 @@ class TestRequestResponseProvider(object):
         request_response_provider.connect(mock_callback)
         mock_provisioning_pipeline.connect.assert_called_once_with(callback=mock_callback)
 
-    @pytest.mark.it("Connect calls connect on state based provider with defined callback")
+    @pytest.mark.it("connect calls connect on state based provider with defined callback")
     def test_connect_calls_connect_on_provisioning_pipeline(self, request_response_provider):
         mock_provisioning_pipeline = request_response_provider._provisioning_pipeline
         request_response_provider.connect()
@@ -47,7 +47,7 @@ class TestRequestResponseProvider(object):
             callback=request_response_provider._on_connection_state_change
         )
 
-    @pytest.mark.it("Disconnect calls disconnect on state based provider with given callback")
+    @pytest.mark.it("disconnect calls disconnect on state based provider with given callback")
     def test_disconnect_calls_disconnect_on_provisioning_pipeline_with_provided_callback(
         self, request_response_provider
     ):
@@ -56,7 +56,7 @@ class TestRequestResponseProvider(object):
         request_response_provider.disconnect(mock_callback)
         mock_provisioning_pipeline.disconnect.assert_called_once_with(callback=mock_callback)
 
-    @pytest.mark.it("Disconnect calls disconnect on state based provider with defined callback")
+    @pytest.mark.it("disconnect calls disconnect on state based provider with defined callback")
     def test_disconnect_calls_disconnect_on_provisioning_pipeline(self, request_response_provider):
         mock_provisioning_pipeline = request_response_provider._provisioning_pipeline
         request_response_provider.disconnect()
@@ -151,7 +151,7 @@ class TestRequestResponseProvider(object):
         key_value_dict = urllib.parse.parse_qs(topic_parts[POS_QUERY_PARAM_PORTION])
 
         mock_payload = payload.encode("utf-8")
-        mock_provisioning_pipeline.on_provisioning_pipeline_message_received(
+        mock_provisioning_pipeline.on_message_received(
             fake_request_id, "202", key_value_dict, mock_payload
         )
 

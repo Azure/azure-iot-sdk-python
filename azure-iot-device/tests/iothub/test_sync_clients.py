@@ -9,7 +9,7 @@ import threading
 import time
 import os
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
-from azure.iot.device.iothub.pipeline import PipelineAdapter, constant
+from azure.iot.device.iothub.pipeline import IoTHubPipeline, constant
 from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox, InboxEmpty
 from azure.iot.device.iothub.auth import IoTEdgeError
@@ -23,19 +23,19 @@ from azure.iot.device.iothub.auth import IoTEdgeError
 class SharedClientInstantiationTests(object):
     @pytest.mark.it("Sets on_connected handler in pipeline")
     def test_sets_on_connected_handler_in_pipeline(self, client):
-        assert client._pipeline.on_transport_connected is not None
-        assert client._pipeline.on_transport_connected == client._on_state_change
+        assert client._pipeline.on_connected is not None
+        assert client._pipeline.on_connected == client._on_state_change
 
     @pytest.mark.it("Sets on_disconnected handler in pipeline")
     def test_sets_on_disconnected_handler_in_pipeline(self, client):
-        assert client._pipeline.on_transport_disconnected is not None
-        assert client._pipeline.on_transport_disconnected == client._on_state_change
+        assert client._pipeline.on_disconnected is not None
+        assert client._pipeline.on_disconnected == client._on_state_change
 
     @pytest.mark.it("Sets on_method_request_received handler in pipeline")
     def test_sets_on_method_request_received_handler_in_pipleline(self, client):
-        assert client._pipeline.on_transport_method_request_received is not None
+        assert client._pipeline.on_method_request_received is not None
         assert (
-            client._pipeline.on_transport_method_request_received
+            client._pipeline.on_method_request_received
             == client._inbox_manager.route_method_request
         )
 
@@ -53,7 +53,6 @@ class SharedClientFromCreateFromConnectionStringTests(object):
         "bad_cs",
         [
             pytest.param("not-a-connection-string", id="Garbage string"),
-            pytest.param("", id="Empty string"),
             pytest.param(object(), id="Non-string input"),
             pytest.param(
                 "HostName=Invalid;DeviceId=Invalid;SharedAccessKey=Invalid",
@@ -73,9 +72,7 @@ class SharedClientFromCreateFromConnectionStringTests(object):
         mock_auth_parse = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse
-        mock_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.PipelineAdapter"
-        )
+        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.abstract_clients.IoTHubPipeline")
 
         client = client_class.create_from_connection_string(mocker.MagicMock())
 
@@ -97,8 +94,6 @@ class SharedClientFromCreateFromSharedAccessSignature(object):
     @pytest.mark.parametrize(
         "bad_sas",
         [
-            pytest.param("not-a-sas-token", id="Garbage string"),
-            pytest.param("", id="Empty string"),
             pytest.param(object(), id="Non-string input"),
             pytest.param(
                 "SharedAccessSignature sr=Invalid&sig=Invalid&se=Invalid", id="Malformed SAS token"
@@ -116,9 +111,7 @@ class SharedClientFromCreateFromSharedAccessSignature(object):
         mock_auth_parse = mocker.patch(
             "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
         ).parse
-        mock_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.PipelineAdapter"
-        )
+        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.abstract_clients.IoTHubPipeline")
 
         client = client_class.create_from_shared_access_signature(mocker.MagicMock())
 
@@ -208,15 +201,15 @@ class SharedClientDisconnectEventTests(object):
 
 # TODO: rename
 class SharedClientSendEventTests(object):
-    @pytest.mark.it("Begins a 'send_event' pipeline operation")
-    def test_calls_pipeline_send_event(self, client, pipeline):
+    @pytest.mark.it("Begins a 'send_d2c_message' pipeline operation")
+    def test_calls_pipeline_send_d2c_message(self, client, pipeline):
         message = Message("this is a message")
-        client.send_event(message)
-        assert pipeline.send_event.call_count == 1
-        assert pipeline.send_event.call_args[0][0] is message
+        client.send_d2c_message(message)
+        assert pipeline.send_d2c_message.call_count == 1
+        assert pipeline.send_d2c_message.call_args[0][0] is message
 
     @pytest.mark.it(
-        "Waits for the completion of the 'send_event' pipeline operation before returning"
+        "Waits for the completion of the 'send_d2c_message' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(self, mocker, client_manual_cb, pipeline_manual_cb):
         client = client_manual_cb
@@ -234,7 +227,7 @@ class SharedClientSendEventTests(object):
             assert event_mock.set.call_count == 0
 
             # Manually trigger callback
-            cb = pipeline.send_event.call_args[1]["callback"]
+            cb = pipeline.send_d2c_message.call_args[1]["callback"]
             cb()
 
             # Assert Event is now completed
@@ -242,7 +235,7 @@ class SharedClientSendEventTests(object):
 
         event_mock.wait.side_effect = check_callback_completes_event
 
-        client.send_event(Message("this is a message"))
+        client.send_d2c_message(Message("this is a message"))
 
     @pytest.mark.it(
         "Wraps 'message' input parameter in a Message object if it is not a Message object"
@@ -258,12 +251,12 @@ class SharedClientSendEventTests(object):
             pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
-    def test_wraps_data_in_message_and_calls_pipeline_send_event(
+    def test_wraps_data_in_message_and_calls_pipeline_send_d2c_message(
         self, client, pipeline, message_input
     ):
-        client.send_event(message_input)
-        assert pipeline.send_event.call_count == 1
-        sent_message = pipeline.send_event.call_args[0][0]
+        client.send_d2c_message(message_input)
+        assert pipeline.send_d2c_message.call_count == 1
+        sent_message = pipeline.send_d2c_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
@@ -509,11 +502,8 @@ class TestIoTHubDeviceClientInstantiation(
 ):
     @pytest.mark.it("Sets on_c2d_message_received handler in pipeline")
     def test_sets_on_c2d_message_received_handler_in_pipeline(self, client):
-        assert client._pipeline.on_transport_c2d_message_received is not None
-        assert (
-            client._pipeline.on_transport_c2d_message_received
-            == client._inbox_manager.route_c2d_message
-        )
+        assert client._pipeline.on_c2d_message_received is not None
+        assert client._pipeline.on_c2d_message_received == client._inbox_manager.route_c2d_message
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .create_from_connection_string()")
@@ -547,7 +537,7 @@ class TestIoTHubDeviceClientDisconnectEvent(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .send_event()")
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .send_d2c_message()")
 class TestIoTHubDeviceClientSendEvent(IoTHubDeviceClientTestsConfig, SharedClientSendEventTests):
     pass
 
@@ -701,10 +691,9 @@ class TestIoTHubModuleClientInstantiation(
 ):
     @pytest.mark.it("Sets on_input_message_received handler in pipeline")
     def test_sets_on_input_message_received_handler_in_pipeline(self, client):
-        assert client._pipeline.on_transport_input_message_received is not None
+        assert client._pipeline.on_input_message_received is not None
         assert (
-            client._pipeline.on_transport_input_message_received
-            == client._inbox_manager.route_input_message
+            client._pipeline.on_input_message_received == client._inbox_manager.route_input_message
         )
 
 
@@ -736,9 +725,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironment(IoTHubModuleClientTestsCon
     def test_auth_provider_and_pipeline(self, mocker, client_class, edge_container_env_vars):
         mocker.patch.dict(os.environ, edge_container_env_vars)
         mock_auth_init = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
-        mock_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.PipelineAdapter"
-        )
+        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.abstract_clients.IoTHubPipeline")
 
         client = client_class.create_from_edge_environment()
 
@@ -797,7 +784,7 @@ class TestIoTHubModuleClientDisconnectEvent(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_event()")
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_d2c_message()")
 class TestIoTHubNModuleClientSendEvent(IoTHubModuleClientTestsConfig, SharedClientSendEventTests):
     pass
 

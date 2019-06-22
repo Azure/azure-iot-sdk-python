@@ -13,7 +13,7 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
-class MQTTProvider(object):
+class MQTTClientOperator(object):
     """
     A wrapper class that provides an implementation-agnostic MQTT message broker interface.
 
@@ -27,7 +27,7 @@ class MQTTProvider(object):
 
     def __init__(self, client_id, hostname, username, ca_cert=None):
         """
-        Constructor to instantiate a mqtt provider.
+        Constructor to instantiate an MQTT protocol wrapper.
         :param str client_id: The id of the client connecting to the broker.
         :param str hostname: Hostname or IP address of the remote broker.
         :param str username: Username for login to the remote broker.
@@ -118,7 +118,7 @@ class MQTTProvider(object):
         self._mqtt_client.on_publish = on_publish
         self._mqtt_client.on_message = on_message
 
-        logger.info("Created MQTT provider, assigned callbacks")
+        logger.info("Created MQTT protocol client, assigned callbacks")
 
     def _create_ssl_context(self, x509=None):
         """
@@ -169,7 +169,7 @@ class MQTTProvider(object):
 
         :param str password: The password for reconnecting with the MQTT broker.
         """
-        logger.info("reconnecting transport")
+        logger.info("reconnecting MQTT client")
         self._mqtt_client.username_pw_set(username=self._username, password=password)
         self._mqtt_client.reconnect()
 
@@ -177,7 +177,7 @@ class MQTTProvider(object):
         """
         Disconnect from the MQTT broker.
         """
-        logger.info("disconnecting transport")
+        logger.info("disconnecting MQTT client")
         self._mqtt_client.disconnect()
         self._mqtt_client.loop_stop()
 

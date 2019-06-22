@@ -10,7 +10,7 @@ from tests.common.pipeline import pipeline_data_object_test
 this_module = sys.modules[__name__]
 
 pipeline_data_object_test.add_event_test(
-    cls=pipeline_events_mqtt.IncomingMessage,
+    cls=pipeline_events_mqtt.IncomingMQTTMessageEvent,
     module=this_module,
     positional_arguments=["topic", "payload"],
     keyword_arguments={},

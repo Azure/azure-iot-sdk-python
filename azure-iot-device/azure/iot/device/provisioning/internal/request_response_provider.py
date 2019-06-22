@@ -22,9 +22,7 @@ class RequestResponseProvider(object):
 
         self._provisioning_pipeline = provisioning_pipeline
 
-        self._provisioning_pipeline.on_provisioning_pipeline_message_received = (
-            self._receive_response
-        )
+        self._provisioning_pipeline.on_message_received = self._receive_response
 
         self._pending_requests = {}
 

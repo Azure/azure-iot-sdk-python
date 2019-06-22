@@ -119,11 +119,11 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
 
         @pytest.fixture
         def unhandled_error_handler(self, stage, mocker):
-            class MockPipelineRoot(object):
+            class MockPipelineRootStage(object):
                 def __init__(self):
                     self.unhandled_error_handler = mocker.MagicMock()
 
-            root = MockPipelineRoot()
+            root = MockPipelineRootStage()
             stage.pipeline_root = root
             return root.unhandled_error_handler
 

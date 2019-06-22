@@ -37,11 +37,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         super(GenericIoTHubClient, self).__init__(pipeline)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
-        self._pipeline.on_transport_connected = self._on_state_change
-        self._pipeline.on_transport_disconnected = self._on_state_change
-        self._pipeline.on_transport_method_request_received = (
-            self._inbox_manager.route_method_request
-        )
+        self._pipeline.on_connected = self._on_state_change
+        self._pipeline.on_disconnected = self._on_state_change
+        self._pipeline.on_method_request_received = self._inbox_manager.route_method_request
 
     def _on_state_change(self, new_state):
         """Handler to be called by the pipeline upon a connection state change."""
@@ -92,7 +90,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._pipeline.disconnect(callback=callback)
         disconnect_complete.wait()
 
-    def send_event(self, message):
+    def send_d2c_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         This is a synchronous event, meaning that this function will not return until the event
@@ -114,7 +112,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             send_complete.set()
             logger.info("Successfully sent message to Hub")
 
-        self._pipeline.send_event(message, callback=callback)
+        self._pipeline.send_d2c_message(message, callback=callback)
         send_complete.wait()
 
     def receive_method_request(self, method_name=None, block=True, timeout=None):
@@ -220,8 +218,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
            * the timeout period, if provided, elapses.  If a timeout happens, this function will
              raise a InboxEmpty exception
         2. If block=False, this function will return any desired property patches which may have
-           been received by the transport, but not yet returned to the application.  If no
-           desired property patches have been received by the transport, this function will raise
+           been received by the pipeline, but not yet returned to the application.  If no
+           desired property patches have been received by the pipeline, this function will raise
            an InboxEmpty exception
 
         :param bool block: Indicates if the operation should block until a request is received.
@@ -251,7 +249,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param pipeline: The pipeline that the client will use.
         """
         super(IoTHubDeviceClient, self).__init__(pipeline)
-        self._pipeline.on_transport_c2d_message_received = self._inbox_manager.route_c2d_message
+        self._pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     def receive_c2d_message(self, block=True, timeout=None):
         """Receive a C2D message that has been sent from the Azure IoT Hub.
@@ -290,7 +288,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param pipeline: The pipeline that the client will use.
         """
         super(IoTHubModuleClient, self).__init__(pipeline)
-        self._pipeline.on_transport_input_message_received = self._inbox_manager.route_input_message
+        self._pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     def send_to_output(self, message, output_name):
         """Sends an event/message to the given module output.

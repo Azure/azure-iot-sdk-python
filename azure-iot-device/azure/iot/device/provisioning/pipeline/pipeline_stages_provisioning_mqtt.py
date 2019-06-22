@@ -22,23 +22,23 @@ from azure.iot.device.provisioning.pipeline import (
 logger = logging.getLogger(__name__)
 
 
-class ProvisioningMQTTConverter(PipelineStage):
+class ProvisioningMQTTConverterStage(PipelineStage):
     """
-    PipelineStage which converts other Provisioning pipeline operations into Mqtt operations. This stage also
-    converts pipelinemqtt pipeline events into Provisioning pipeline events.
+    PipelineStage which converts other Provisioning pipeline operations into MQTT operations. This stage also
+    converts MQTT pipeline events into Provisioning pipeline events.
     """
 
     def __init__(self):
-        super(ProvisioningMQTTConverter, self).__init__()
+        super(ProvisioningMQTTConverterStage, self).__init__()
         self.action_to_topic = {}
 
     def _run_op(self, op):
 
         if isinstance(
-            op, pipeline_ops_provisioning.SetSecurityClientArgs
+            op, pipeline_ops_provisioning.SetSecurityClientArgsOperation
         ):  # TODO Generic Args , then only 1 case ?
             # get security client args from above, save some, use some to build topic names,
-            # always pass it down because MQTT Provider stage will also want to receive these args.
+            # always pass it down because MQTT protocol stage will also want to receive these args.
 
             client_id = op.registration_id
             client_version = urllib.parse.quote_plus(constant.USER_AGENT)
@@ -54,41 +54,49 @@ class ProvisioningMQTTConverter(PipelineStage):
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
-                new_op=pipeline_ops_mqtt.SetConnectionArgs(
+                new_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
                     client_id=client_id, hostname=hostname, username=username
                 ),
             )
 
-        elif isinstance(op, pipeline_ops_provisioning.SendRegistrationRequest):
-            # Convert Sending the request into Mqtt Publish operations
+        elif isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
+            # Convert Sending the request into MQTT Publish operations
             topic = mqtt_topic.get_topic_for_register(op.request_id)
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
-                new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.request_payload),
+                new_op=pipeline_ops_mqtt.MQTTPublishOperation(
+                    topic=topic, payload=op.request_payload
+                ),
             )
 
-        elif isinstance(op, pipeline_ops_provisioning.SendQueryRequest):
-            # Convert Sending the request into Mqtt Publish operations
+        elif isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
+            # Convert Sending the request into MQTT Publish operations
             topic = mqtt_topic.get_topic_for_query(op.request_id, op.operation_id)
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
-                new_op=pipeline_ops_mqtt.Publish(topic=topic, payload=op.request_payload),
+                new_op=pipeline_ops_mqtt.MQTTPublishOperation(
+                    topic=topic, payload=op.request_payload
+                ),
             )
 
-        elif isinstance(op, pipeline_ops_base.EnableFeature):
-            # Enabling for register gets translated into an Mqtt subscribe operation
+        elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+            # Enabling for register gets translated into an MQTT subscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
             operation_flow.delegate_to_different_op(
-                stage=self, original_op=op, new_op=pipeline_ops_mqtt.Subscribe(topic=topic)
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_mqtt.MQTTSubscribeOperation(topic=topic),
             )
 
-        elif isinstance(op, pipeline_ops_base.DisableFeature):
-            # Disabling a register response gets turned into an Mqtt unsubscribe operation
+        elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
+            # Disabling a register response gets turned into an MQTT unsubscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
             operation_flow.delegate_to_different_op(
-                stage=self, original_op=op, new_op=pipeline_ops_mqtt.Unsubscribe(topic=topic)
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(topic=topic),
             )
 
         else:
@@ -97,10 +105,10 @@ class ProvisioningMQTTConverter(PipelineStage):
 
     def _handle_pipeline_event(self, event):
         """
-        Pipeline Event handler function to convert incoming Mqtt messages into the appropriate DPS
+        Pipeline Event handler function to convert incoming MQTT messages into the appropriate DPS
         events, based on the topic of the message
         """
-        if isinstance(event, pipeline_events_mqtt.IncomingMessage):
+        if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
             topic = event.topic
 
             if mqtt_topic.is_dps_response_topic(topic):
