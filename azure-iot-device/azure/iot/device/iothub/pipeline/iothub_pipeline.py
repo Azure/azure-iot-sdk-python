@@ -67,7 +67,7 @@ class IoTHubPipeline(object):
                     logger.warning("input mesage event received with no handler.  dropping.")
 
             elif isinstance(event, pipeline_events_iothub.MethodRequestEvent):
-                if self.on_method_request_received(event.method_request):
+                if self.on_method_request_received:
                     self.on_method_request_received(event.method_request)
                 else:
                     logger.warning("Method request event received with no handler. Dropping.")
