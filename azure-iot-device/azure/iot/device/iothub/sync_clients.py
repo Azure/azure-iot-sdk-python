@@ -40,6 +40,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._pipeline.on_connected = self._on_state_change
         self._pipeline.on_disconnected = self._on_state_change
         self._pipeline.on_method_request_received = self._inbox_manager.route_method_request
+        self._pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
     def _on_state_change(self, new_state):
         """Handler to be called by the pipeline upon a connection state change."""
@@ -190,8 +191,24 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :returns: Twin object which was retrieved from the hub
         """
-        # OPEN QUESTON: does this have a timeout parameter and does it raise on timeout?
-        pass
+        if not self._pipeline.feature_enabled[constant.TWIN]:
+            self._enable_feature(constant.TWIN)
+
+        # hack to work aroud lack of the "nonlocal" keyword in 2.7.  The non-local "context"
+        # object can be read and modified inside the inner function.
+        # (https://stackoverflow.com/a/28433571)
+        class context:
+            twin = None
+
+        op_complete = threading.Event()
+
+        def on_pipeline_op_complete(retrieved_twin):
+            context.twin = retrieved_twin
+            op_complete.set()
+
+        self._pipeline.get_twin(callback=on_pipeline_op_complete)
+        op_complete.wait()
+        return context.twin
 
     def patch_twin_reported_properties(self, reported_properties_patch):
         """
@@ -206,7 +223,19 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param reported_properties_patch:
         :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
         """
-        pass
+        if not self._pipeline.feature_enabled[constant.TWIN]:
+            self._enable_feature(constant.TWIN)
+
+        op_complete = threading.Event()
+
+        def on_pipeline_op_complete():
+            op_complete.set()
+
+        self._pipeline.patch_twin_reported_properties(
+            patch=reported_properties_patch, callback=on_pipeline_op_complete
+        )
+        op_complete.wait()
+        print("Done with patch")
 
     def receive_twin_desired_properties_patch(self, block=True, timeout=None):
         """
@@ -231,7 +260,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values)
         """
-        pass
+        if not self._pipeline.feature_enabled[constant.TWIN_PATCHES]:
+            self._enable_feature(constant.TWIN_PATCHES)
+        twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
+
+        logger.info("Waiting for twin patches...")
+        patch = twin_patch_inbox.get(block=block, timeout=timeout)
+        logger.info("twin patch received")
+        return patch
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):

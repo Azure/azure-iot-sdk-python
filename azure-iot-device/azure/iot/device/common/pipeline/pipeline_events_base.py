@@ -35,20 +35,20 @@ class PipelineEvent(object):
 
 class IotResponseEvent(PipelineEvent):
     """
-    A PipelineEvent object which is the second part of an SendIotRequestAndWaitForResponse operation
-    (the response).  The SendIotRequestAndWaitForResponse represents the common operation of sending
+    A PipelineEvent object which is the second part of an SendIotRequestAndWaitForResponseOperation operation
+    (the response).  The SendIotRequestAndWaitForResponseOperation represents the common operation of sending
     a request to iothub with a request_id ($rid) value and waiting for a response with
     the same $rid value.  This convention is used by both Twin and Provisioning features.
 
     The response represented by this event has not yet been matched to the corresponding
-    SendIotRequest operation.  That matching is done by the CoordinateRequestAndResponseStage
-    stage which takes the contents of this event and puts it into the SendIotRequestAndWaitForResponse
+    SendIotRequestOperation operation.  That matching is done by the CoordinateRequestAndResponseStage
+    stage which takes the contents of this event and puts it into the SendIotRequestAndWaitForResponseOperation
     operation with the matching $rid value.
 
     :ivar status_code: The status code returned by the response.  Any value under 300 is
       considered success.
     :type status_code: int
-    :ivar request_id: The request ID which will eventually be used to match a SendIotRequest
+    :ivar request_id: The request ID which will eventually be used to match a SendIotRequestOperation
       operation to this event.
     :type request: str
     :ivar response_body: The body of the response.

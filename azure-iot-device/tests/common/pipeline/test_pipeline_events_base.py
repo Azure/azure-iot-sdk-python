@@ -4,10 +4,20 @@
 # license information.
 # --------------------------------------------------------------------------
 import sys
+import pytest
 from azure.iot.device.common.pipeline import pipeline_events_base
 from tests.common.pipeline import pipeline_data_object_test
 
 this_module = sys.modules[__name__]
+
+
+@pytest.mark.describe("PipelineEvent")
+class TestPipelineOperation(object):
+    @pytest.mark.it("Can't be instantiated")
+    def test_instantiate(self):
+        with pytest.raises(TypeError):
+            pipeline_events_base.PipelineEvent()
+
 
 pipeline_data_object_test.add_event_test(
     cls=pipeline_events_base.IotResponseEvent,

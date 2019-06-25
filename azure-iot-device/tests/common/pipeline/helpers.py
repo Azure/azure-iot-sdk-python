@@ -27,6 +27,8 @@ all_common_ops = [
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,
     pipeline_ops_base.SetSasTokenOperation,
+    pipeline_ops_base.SendIotRequestAndWaitForResponseOperation,
+    pipeline_ops_base.SendIotRequestOperation,
     pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
     pipeline_ops_mqtt.MQTTPublishOperation,
     pipeline_ops_mqtt.MQTTSubscribeOperation,
@@ -107,7 +109,10 @@ def assert_callback_failed(op, callback=None, error=None):
     assert callback_arg == op
 
     if error:
-        assert op.error is error
+        if isinstance(error, type):
+            assert isinstance(op.error, error)
+        else:
+            assert op.error is error
     else:
         assert op.error is not None
 

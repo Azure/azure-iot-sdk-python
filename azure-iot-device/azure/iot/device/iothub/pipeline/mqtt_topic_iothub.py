@@ -269,7 +269,7 @@ def get_twin_response_topic_for_subscribe():
 
 
 def get_twin_patch_topic_for_subscribe():
-    "$iothub/twin/PATCH/properties/desired/#"
+    return "$iothub/twin/PATCH/properties/desired/#"
 
 
 def get_twin_topic_for_publish(method, resource_location, request_id):
@@ -290,10 +290,12 @@ def get_twin_request_id_from_topic(topic):
 
 
 def get_twin_status_code_from_topic(topic):
-    # TODO: extract the twin status code from the topic and return
-    pass
+    parts = topic.split("/")
+    if is_twin_response_topic(topic) and len(parts) >= 4:
+        return parts[3]
+    else:
+        raise ValueError("topic has incorrect format")
 
 
 def is_twin_desired_property_patch_topic(topic):
-    # TODO: return true if this topic is for a twin desired property patch
-    pass
+    return topic.startswith("$iothub/twin/PATCH/properties/desired")

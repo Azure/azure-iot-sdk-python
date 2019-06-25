@@ -241,3 +241,22 @@ def complete_op(stage, op):
             exc_info=e,
         )
         stage.pipeline_root.unhandled_error_handler(e)
+
+
+def pass_event_to_previous_stage(stage, event):
+    """
+    Helper function to pass an event to the previous stage of the pipeline.  This is the default
+    behavior of events while traveling through the pipeline. They start somewhere (maybe the
+    bottom) and move up the pipeline until they're handled or until they error out.
+    """
+    if stage.previous:
+        logger.info(
+            "{}({}): pushing event up to {}".format(stage.name, event.name, stage.previous.name)
+        )
+        stage.previous.handle_pipeline_event(event)
+    else:
+        logger.error("{}({}): Error: unhandled event".format(stage.name, event.name))
+        error = NotImplementedError(
+            "{} unhandled at {} stage with no previous stage".format(event.name, stage.name)
+        )
+        stage.pipeline_root.unhandled_error_handler(error)

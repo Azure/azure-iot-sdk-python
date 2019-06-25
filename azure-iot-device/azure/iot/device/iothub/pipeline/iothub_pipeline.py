@@ -42,6 +42,7 @@ class IoTHubPipeline(object):
         self.on_c2d_message_received = None
         self.on_input_message_received = None
         self.on_method_request_received = None
+        self.on_twin_patch_received = None
 
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage()
@@ -71,6 +72,12 @@ class IoTHubPipeline(object):
                     self.on_method_request_received(event.method_request)
                 else:
                     logger.warning("Method request event received with no handler. Dropping.")
+
+            elif isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+                if self.on_twin_patch_received:
+                    self.on_twin_patch_received(event.patch)
+                else:
+                    logger.warning("Twin patch event received with no handler. Dropping.")
 
             else:
                 logger.warning("Dropping unknown pipeline event {}".format(event.name))
@@ -215,7 +222,20 @@ class IoTHubPipeline(object):
             if callback:
                 callback(call.twin)
 
-        self._pipeline.run_op(pipeline_ops_iothub.GetTwinOperation())
+        self._pipeline.run_op(pipeline_ops_iothub.GetTwinOperation(callback=pipeline_callback))
+
+    def patch_twin_reported_properties(self, patch, callback):
+        def pipeline_callback(call):
+            if call.error:
+                exit(1)
+            if callback:
+                callback()
+
+        self._pipeline.run_op(
+            pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
+                patch=patch, callback=pipeline_callback
+            )
+        )
 
     def disable_feature(self, feature_name, callback=None):
         """

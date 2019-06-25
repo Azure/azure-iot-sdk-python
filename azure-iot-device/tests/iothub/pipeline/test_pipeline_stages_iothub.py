@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import functools
+import json
 import logging
 import pytest
 import sys
@@ -24,11 +25,6 @@ from tests.common.pipeline import pipeline_stage_test
 logging.basicConfig(level=logging.INFO)
 
 this_module = sys.modules[__name__]
-
-
-@pytest.fixture
-def stage(mocker):
-    return make_mock_stage(mocker, pipeline_stages_iothub.UseSkAuthProviderStage)
 
 
 fake_device_id = "__fake_device_id__"
@@ -59,33 +55,38 @@ def make_mock_auth_provider(mocker):
     return auth_provider
 
 
-@pytest.fixture
-def set_auth_provider(mocker, callback):
-    op = pipeline_ops_iothub.SetAuthProviderOperation(auth_provider=make_mock_auth_provider(mocker))
-    op.callback = callback
-    return op
+@pytest.mark.describe("UseSkAuthProvider - .run_op() -- called with SetAuthProviderOperation")
+class TestUseSkAuthProviderRunOpWithSetAuthProviderOperation(object):
+    @pytest.fixture
+    def stage(self, mocker):
+        return make_mock_stage(mocker, pipeline_stages_iothub.UseSkAuthProviderStage)
 
+    @pytest.fixture
+    def set_auth_provider(self, mocker, callback):
+        op = pipeline_ops_iothub.SetAuthProviderOperation(
+            auth_provider=make_mock_auth_provider(mocker)
+        )
+        op.callback = callback
+        return op
 
-@pytest.fixture
-def set_auth_provider_required_args_only(mocker, callback):
-    op = pipeline_ops_iothub.SetAuthProviderOperation(auth_provider=make_mock_auth_provider(mocker))
-    op.callback = callback
-    return op
+    @pytest.fixture
+    def set_auth_provider_required_args_only(self, mocker, callback):
+        op = pipeline_ops_iothub.SetAuthProviderOperation(
+            auth_provider=make_mock_auth_provider(mocker)
+        )
+        op.callback = callback
+        return op
 
+    @pytest.fixture
+    def set_auth_provider_all_args(self, mocker, callback):
+        auth_provider = make_mock_auth_provider(mocker)
+        auth_provider.module_id = fake_module_id
+        auth_provider.ca_cert = fake_ca_cert
+        auth_provider.gateway_hostname = fake_gateway_hostname
+        op = pipeline_ops_iothub.SetAuthProviderOperation(auth_provider=auth_provider)
+        op.callback = callback
+        return op
 
-@pytest.fixture
-def set_auth_provider_all_args(mocker, callback):
-    auth_provider = make_mock_auth_provider(mocker)
-    auth_provider.module_id = fake_module_id
-    auth_provider.ca_cert = fake_ca_cert
-    auth_provider.gateway_hostname = fake_gateway_hostname
-    op = pipeline_ops_iothub.SetAuthProviderOperation(auth_provider=auth_provider)
-    op.callback = callback
-    return op
-
-
-@pytest.mark.describe("UseSkAuthProviderStage - .run_op() -- called with SetAuthProviderOperation")
-class TestUseSkAuthProviderRunOpWithSetAuthProvider(object):
     @pytest.mark.it("Runs SetAuthProviderArgsOperation op on the next stage")
     def test_runs_set_auth_provider_args(self, mocker, stage, set_auth_provider_required_args_only):
         stage.next._run_op = mocker.Mock()
@@ -227,3 +228,204 @@ class TestUseSkAuthProviderRunOpWithSetAuthProvider(object):
         stage.next._run_op = functools.partial(next_run_op, stage)
         stage.run_op(set_auth_provider)
         assert_callback_failed(op=set_auth_provider, error=fake_exception)
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    cls=pipeline_stages_iothub.HandleTwinOperationsStage,
+    module=this_module,
+    all_ops=all_common_ops + all_iothub_ops,
+    handled_ops=[
+        pipeline_ops_iothub.GetTwinOperation,
+        pipeline_ops_iothub.PatchTwinReportedPropertiesOperation,
+    ],
+    all_events=all_common_events + all_iothub_events,
+    handled_events=[],
+)
+
+
+@pytest.mark.describe("HandleTwinOperationsStage - .run_op() -- called with GetTwinOperation")
+class TestHandleTwinOperationsRunOpWithGetTwin(object):
+    @pytest.fixture
+    def stage(self, mocker):
+        return make_mock_stage(mocker, pipeline_stages_iothub.HandleTwinOperationsStage)
+
+    @pytest.fixture
+    def op(self, stage, callback):
+        return pipeline_ops_iothub.GetTwinOperation(callback=callback)
+
+    @pytest.fixture
+    def twin(self):
+        return {"Am I a twin": "You bet I am"}
+
+    @pytest.fixture
+    def twin_as_bytes(self, twin):
+        return json.dumps(twin).encode("utf-8")
+
+    @pytest.mark.it(
+        "Runs a SendIotRequestAndWaitForResponseOperation operation on the next stage with request_type='twin', method='GET', resource_location='/', and request_body=' '"
+    )
+    def test_sends_new_operation(self, stage, op):
+        stage.run_op(op)
+        assert stage.next.run_op.call_count == 1
+        new_op = stage.next.run_op.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation)
+        assert new_op.request_type == "twin"
+        assert new_op.method == "GET"
+        assert new_op.resource_location == "/"
+        assert new_op.request_body == " "
+
+    @pytest.mark.it("Returns an Exception through the op callback if there is no next stage")
+    def test_runs_with_no_next_stage(self, stage, op):
+        stage.next = None
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
+    )
+    def test_next_stage_raises_exception(self, stage, op, mocker):
+        stage.next.run_op.side_effect = Exception
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
+    )
+    def test_next_stage_raises_base_exception(self, stage, op):
+        stage.next.run_op.side_effect = UnhandledException
+        with pytest.raises(UnhandledException):
+            stage.run_op(op)
+
+    @pytest.mark.it(
+        "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
+    )
+    def test_next_stage_returns_error(self, stage, op):
+        error = Exception()
+
+        def next_stage_run_op(self, op):
+            op.error = error
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=error)
+
+    @pytest.mark.it(
+        "Returns an error in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
+    )
+    def test_next_stage_returns_status_over_300(self, stage, op):
+        def next_stage_run_op(self, op):
+            op.status_code = 400
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Decodes, deserializes, and returns the request_body from SendIotRequestAndWaitForResponseOperation as the twin attribute on the op along with no error if the status code < 300"
+    )
+    def test_next_stage_completes_correctly(self, stage, op, twin, twin_as_bytes):
+        def next_stage_run_op(self, op):
+            op.status_code = 200
+            op.response_body = twin_as_bytes
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_succeeded(op=op)
+        assert op.twin == twin
+
+
+@pytest.mark.describe(
+    "HandleTwinOperationsStage - .run_op() -- called with PatchTwinReportedPropertiesOperation"
+)
+class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
+    @pytest.fixture
+    def stage(self, mocker):
+        return make_mock_stage(mocker, pipeline_stages_iothub.HandleTwinOperationsStage)
+
+    @pytest.fixture
+    def patch(self):
+        return {"__fake_patch__": "yes"}
+
+    @pytest.fixture
+    def patch_as_string(self, patch):
+        return json.dumps(patch)
+
+    @pytest.fixture
+    def op(self, stage, callback, patch):
+        return pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
+            patch=patch, callback=callback
+        )
+
+    @pytest.mark.it(
+        "Runs a SendIotRequestAndWaitForResponseOperation operation on the next stage with request_type='twin', method='PATCH', resource_location='/properties/reported/', and the request_body attribute set to a stringification of the patch"
+    )
+    def test_sends_new_operation(self, stage, op, patch_as_string):
+        stage.run_op(op)
+        assert stage.next.run_op.call_count == 1
+        new_op = stage.next.run_op.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation)
+        assert new_op.request_type == "twin"
+        assert new_op.method == "PATCH"
+        assert new_op.resource_location == "/properties/reported/"
+        assert new_op.request_body == patch_as_string
+
+    @pytest.mark.it("Returns an Exception through the op callback if there is no next stage")
+    def test_runs_with_no_next_stage(self, stage, op):
+        stage.next = None
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
+    )
+    def test_next_stage_raises_exception(self, stage, op):
+        stage.next.run_op.side_effect = Exception
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
+    )
+    def test_next_stage_raises_base_exception(self, stage, op):
+        stage.next.run_op.side_effect = UnhandledException
+        with pytest.raises(UnhandledException):
+            stage.run_op(op)
+
+    @pytest.mark.it(
+        "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
+    )
+    def test_next_stage_returns_error(self, stage, op):
+        error = Exception()
+
+        def next_stage_run_op(self, op):
+            op.error = error
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=error)
+
+    @pytest.mark.it(
+        "Returns an error in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
+    )
+    def test_next_stage_returns_status_over_300(self, stage, op):
+        def next_stage_run_op(self, op):
+            op.status_code = 400
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it("Returns no error on the op callback if the status code < 300")
+    def test_next_stage_completes_correctly(self, stage, op):
+        def next_stage_run_op(self, op):
+            op.status_code = 200
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_succeeded(op=op)

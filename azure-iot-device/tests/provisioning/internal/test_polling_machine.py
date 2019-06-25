@@ -107,8 +107,8 @@ class TestRegister(object):
 @pytest.mark.describe("PollingMachine - Register Response")
 class TestRegisterResponse(object):
     # Change the timeout so that the test does not hang for more time
-    constant.DEFAULT_TIMEOUT_INTERVAL = 3
-    constant.DEFAULT_POLLING_INTERVAL = 0.2
+    constant.DEFAULT_TIMEOUT_INTERVAL = 0.2
+    constant.DEFAULT_POLLING_INTERVAL = 0.01
 
     @pytest.mark.it("Starts querying when there is a response with 'assigning' registration status")
     def test_receive_register_response_assigning_does_query_with_operation_id(self, mocker):
@@ -403,7 +403,7 @@ class TestRegisterResponse(object):
         polling_machine._on_subscribe_completed()
 
         # sleep so that it times out query
-        time.sleep(constant.DEFAULT_TIMEOUT_INTERVAL + 1)
+        time.sleep(constant.DEFAULT_TIMEOUT_INTERVAL + 0.2)
 
         polling_machine._on_disconnect_completed_error()
 
@@ -416,8 +416,8 @@ class TestRegisterResponse(object):
 @pytest.mark.describe("PollingMachine - Query Response")
 class TestQueryResponse(object):
     # Change the timeout so that the test does not hang for more time
-    constant.DEFAULT_TIMEOUT_INTERVAL = 3
-    constant.DEFAULT_POLLING_INTERVAL = 0.2
+    constant.DEFAULT_TIMEOUT_INTERVAL = 0.2
+    constant.DEFAULT_POLLING_INTERVAL = 0.01
 
     @pytest.mark.it(
         "Does query again when there is a response with 'assigning' registration status"
@@ -778,8 +778,8 @@ class TestQueryResponse(object):
 @pytest.mark.describe("PollingMachine - Cancel")
 class TestCancel(object):
     # Change the timeout so that the test does not hang for more time
-    constant.DEFAULT_TIMEOUT_INTERVAL = 3
-    constant.DEFAULT_POLLING_INTERVAL = 0.2
+    constant.DEFAULT_TIMEOUT_INTERVAL = 0.2
+    constant.DEFAULT_POLLING_INTERVAL = 0.01
 
     @pytest.mark.it("Calls disconnect on RequestResponseProvider and calls callback")
     def test_cancel_disconnects_on_request_response_provider_and_calls_callback(

@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import logging
 import pytest
 import asyncio
 import threading
@@ -39,7 +40,7 @@ class SharedClientInstantiationTests(object):
         assert client._pipeline.on_disconnected is not None
         assert client._pipeline.on_disconnected == client._on_state_change
 
-    @pytest.mark.it("Sets on_method_request_received handler in pipeline")
+    @pytest.mark.it("Sets on_method_request_eeceived handler in pipeline")
     async def test_sets_on_method_request_received_handler_in_pipleline(self, client):
         assert client._pipeline.on_method_request_received is not None
         assert (
@@ -328,6 +329,155 @@ class SharedClientSendMethodResponseTests(object):
         assert cb_mock.completion.call_count == 1
 
 
+class SharedClientGetTwinTests(object):
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    async def test_enables_twin_only_if_not_already_enabled(self, mocker, client, pipeline):
+        # patch this so get_twin won't block
+        def immediate_callback(callback):
+            callback(None)
+
+        mocker.patch.object(pipeline, "get_twin", side_effect=immediate_callback)
+
+        # Verify twin enabled if not enabled
+        pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        await client.get_twin()
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.TWIN
+
+        pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        await client.get_twin()
+        assert pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it("Begins a 'get_twin' pipeline operation")
+    async def test_get_twin_calls_pipeline(self, client, pipeline):
+        await client.get_twin()
+        assert pipeline.get_twin.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'get_twin' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(self, mocker, client, pipeline):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+
+        await client.get_twin()
+
+        # Assert callback is sent to pipeline
+        pipeline.get_twin.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it("Returns the twin that the pipeline returned")
+    async def test_verifies_twin_returned(self, mocker, client, pipeline):
+        twin = {"reported": {"foo": "bar"}}
+
+        # make the pipeline the twin
+        def immediate_callback(callback):
+            callback(twin)
+
+        mocker.patch.object(pipeline, "get_twin", side_effect=immediate_callback)
+
+        returned_twin = await client.get_twin()
+        assert returned_twin == twin
+
+
+class SharedClientPatchTwinReportedPropertiesTests(object):
+    @pytest.fixture
+    def patch(self):
+        return {"properties": {"reported": {"foo": 1}}}
+
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    async def test_enables_twin_only_if_not_already_enabled(self, mocker, client, pipeline):
+        # patch this so x_get_twin won't block
+        def immediate_callback(patch, callback):
+            callback(None)
+
+        mocker.patch.object(
+            pipeline, "patch_twin_reported_properties", side_effect=immediate_callback
+        )
+
+        # Verify twin enabled if not enabled
+        pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        await client.get_twin()
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.TWIN
+
+        pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        await client.get_twin()
+        assert pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it("Begins a 'patch_twin_reported_properties' pipeline operation")
+    async def test_patch_twin_reported_properties_calls_pipeline(self, client, pipeline, patch):
+        await client.patch_twin_reported_properties(patch)
+        assert pipeline.patch_twin_reported_properties.call_count == 1
+        assert pipeline.patch_twin_reported_properties.call_args[1]["patch"] is patch
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'patch_twin_reported_properties' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(self, mocker, client, pipeline, patch):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+
+        await client.patch_twin_reported_properties(patch)
+
+        # Assert callback is sent to pipeline
+        assert pipeline.patch_twin_reported_properties.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+
+class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
+    @pytest.fixture
+    def patch(self):
+        return {"properties": {"desired": {"foo": 1}}}
+
+    @pytest.mark.it("Implicitly enables twin patch messaging feature if not already enabled")
+    async def test_enables_c2d_messaging_only_if_not_already_enabled(
+        self, mocker, client, pipeline
+    ):
+        # patch this receive_twin_desired_properites_patch won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        # Verify twin patches are enabled if not enabled
+        pipeline.feature_enabled.__getitem__.return_value = (
+            False
+        )  # twin patches will appear disabled
+        await client.receive_twin_desired_properties_patch()
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.TWIN_PATCHES
+
+        pipeline.enable_feature.reset_mock()
+
+        # Verify twin patches are not enabled if already enabled
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin patches will appear enabled
+        await client.receive_twin_desired_properties_patch()
+        assert pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it("Returns a message from the twin patch inbox, if available")
+    async def test_returns_message_from_twin_patch_inbox(self, mocker, client, patch):
+        inbox_mock = mocker.MagicMock(autospec=AsyncClientInbox)
+        inbox_mock.get.return_value = await create_completed_future(patch)
+        manager_get_inbox_mock = mocker.patch.object(
+            client._inbox_manager, "get_twin_patch_inbox", return_value=inbox_mock
+        )
+
+        received_patch = await client.receive_twin_desired_properties_patch()
+        assert manager_get_inbox_mock.call_count == 1
+        assert inbox_mock.get.call_count == 1
+        assert received_patch is patch
+
+
 ################
 # DEVICE TESTS #
 ################
@@ -454,6 +604,27 @@ class TestIoTHubDeviceClientSendMethodResponse(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_twin()")
+class TestIoTHubDeviceClientGetTwin(IoTHubDeviceClientTestsConfig, SharedClientGetTwinTests):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .patch_twin_reported_properties()")
+class TestIoTHubDeviceClientPatchTwinReportedProperties(
+    IoTHubDeviceClientTestsConfig, SharedClientPatchTwinReportedPropertiesTests
+):
+    pass
+
+
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - .receive_twin_desired_properties_patch()"
+)
+class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
+    IoTHubDeviceClientTestsConfig, SharedClientReceiveTwinDesiredPropertiesPatchTests
+):
+    pass
+
+
 ################
 # MODULE TESTS #
 ################
@@ -507,7 +678,7 @@ class TestIoTHubModuleClientCreateFromSharedAccessSignature(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .create_from_edge_environment()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_edge_environment()")
 class TestIoTHubModuleClientCreateFromEdgeEnvironment(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Instantiates the client, given a valid Edge container environment")
     async def test_instantiates_client(self, mocker, client_class, edge_container_env_vars):
@@ -683,3 +854,38 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert manager_get_inbox_mock.call_args == mocker.call(input_name)
         assert inbox_mock.get.call_count == 1
         assert received_message is message
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .receive_method_request()")
+class TestIoTHubModuleClientReceiveMethodRequest(
+    IoTHubModuleClientTestsConfig, SharedClientReceiveMethodRequestTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_method_response()")
+class TestIoTHubModuleClientSendMethodResponse(
+    IoTHubModuleClientTestsConfig, SharedClientSendMethodResponseTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .get_twin()")
+class TestIoTHubModuleClientGetTwin(IoTHubModuleClientTestsConfig, SharedClientGetTwinTests):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .patch_twin_reported_properties()")
+class TestIoTHubModuleClientPatchTwinReportedProperties(
+    IoTHubModuleClientTestsConfig, SharedClientPatchTwinReportedPropertiesTests
+):
+    pass
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - .receive_twin_desired_properties_patch()"
+)
+class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
+    IoTHubModuleClientTestsConfig, SharedClientReceiveTwinDesiredPropertiesPatchTests
+):
+    pass

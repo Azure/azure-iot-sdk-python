@@ -12,6 +12,7 @@ from tests.common.pipeline.helpers import (
     assert_callback_failed,
     UnhandledException,
 )
+from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
 
 logging.basicConfig(level=logging.INFO)
@@ -109,9 +110,13 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
 
         @pytest.fixture
         def previous(self, stage, mocker):
-            class PreviousStage(object):
+            class PreviousStage(PipelineStage):
                 def __init__(self):
+                    super(PreviousStage, self).__init__()
                     self.handle_pipeline_event = mocker.MagicMock()
+
+                def _run_op(self, op):
+                    pass
 
             previous = PreviousStage()
             stage.previous = previous

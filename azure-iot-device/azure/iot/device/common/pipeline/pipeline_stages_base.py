@@ -136,13 +136,7 @@ class PipelineStage(object):
 
         :param PipelineEvent event: The event that is being passed back up the pipeline
         """
-        if self.previous:
-            self.previous.handle_pipeline_event(event)
-        else:
-            error = NotImplementedError(
-                "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
-            )
-            self.pipeline_root.unhandled_error_handler(error)
+        operation_flow.pass_event_to_previous_stage(self, event)
 
     def on_connected(self):
         """
@@ -378,8 +372,8 @@ class EnsureConnectionStage(PipelineStage):
 
 class CoordinateRequestAndResponseStage(PipelineStage):
     """
-    Pipeline stage which is responsible for coordinating SendIotRequestAndWaitForResponse operations.  For each
-    SendIotRequestAndWaitForResponse operation, this stage passes down a SendIotRequest operation and waits for
+    Pipeline stage which is responsible for coordinating SendIotRequestAndWaitForResponseOperation operations.  For each
+    SendIotRequestAndWaitForResponseOperation operation, this stage passes down a SendIotRequestOperation operation and waits for
     an IotResponseEvent event.  All other events are passed down unmodified.
     """
 
@@ -389,26 +383,49 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation):
-            # Convert SendIotRequestAndWaitForResponse operation into a SendIotRequest operation
-            # and send it down.  A lower level will convert the SendIotRequest into an
-            # actual protocol client operation.  The SendIotRequestAndWaitForResponse operation will be
+            # Convert SendIotRequestAndWaitForResponseOperation operation into a SendIotRequestOperation operation
+            # and send it down.  A lower level will convert the SendIotRequestOperation into an
+            # actual protocol client operation.  The SendIotRequestAndWaitForResponseOperation operation will be
             # completed when the corresponding IotResponse event is received in this stage.
 
             request_id = str(uuid.uuid4())
 
             def on_send_request_done(send_request_op):
+                logger.info(
+                    "{}({}): Finished sending {} request to {} resource {}".format(
+                        self.name, op.name, op.request_type, op.method, op.resource_location
+                    )
+                )
                 if send_request_op.error:
                     op.error = send_request_op.error
+                    logger.info(
+                        "{}({}): removing request {} from pending list".format(
+                            self.name, op.name, request_id
+                        )
+                    )
                     del (self.pending_responses[request_id])
+                    operation_flow.complete_op(self, op)
                 else:
                     # request sent.  Nothing to do except wait for the response
                     pass
 
+            logger.info(
+                "{}({}): Sending {} request to {} resource {}".format(
+                    self.name, op.name, op.request_type, op.method, op.resource_location
+                )
+            )
+
+            logger.info(
+                "{}({}): adding request {} to pending list".format(self.name, op.name, request_id)
+            )
+            self.pending_responses[request_id] = op
+
             new_op = pipeline_ops_base.SendIotRequestOperation(
                 method=op.method,
-                resource_locatoin=op.resource_location,
+                resource_location=op.resource_location,
                 request_body=op.request_body,
                 request_id=request_id,
+                request_type=op.request_type,
                 callback=on_send_request_done,
             )
             operation_flow.pass_op_to_next_stage(self, new_op)
@@ -418,18 +435,36 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
     def _handle_pipeline_event(self, event):
         if isinstance(event, pipeline_events_base.IotResponseEvent):
-            # match IotResponseEvent events to the saved dictionary of SendIotRequestAndWaitForResponse
+            # match IotResponseEvent events to the saved dictionary of SendIotRequestAndWaitForResponseOperation
             # operations which have not received responses yet.  If the operation is found,
             # complete it.
 
+            logger.info(
+                "{}({}): Handling event with request_id {}".format(
+                    self.name, event.name, event.request_id
+                )
+            )
             if event.request_id in self.pending_responses:
                 op = self.pending_responses[event.request_id]
                 del (self.pending_responses[event.request_id])
                 op.status_code = event.status_code
                 op.response_body = event.response_body
+                logger.info(
+                    "{}({}): Completing {} request to {} resource {} with status {}".format(
+                        self.name,
+                        op.name,
+                        op.request_type,
+                        op.method,
+                        op.resource_location,
+                        op.status_code,
+                    )
+                )
+                operation_flow.complete_op(self, op)
             else:
                 logger.warning(
-                    "IotResponseEvent with unknown request_id received.  Nothing to do. Dropping"
+                    "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
+                        self.name, event.name, event.request_id
+                    )
                 )
         else:
-            super(CoordinateRequestAndResponseStage, self)._handle_pipeline_event(event)
+            operation_flow.pass_event_to_previous_stage(self, event)

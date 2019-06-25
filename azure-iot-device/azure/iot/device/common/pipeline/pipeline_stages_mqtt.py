@@ -172,6 +172,7 @@ class MQTTClientStage(PipelineStage):
         Handler that gets called by the protocol library when an incoming message arrives.
         Convert that message into a pipeline event and pass it up for someone to handle.
         """
-        self.handle_pipeline_event(
-            pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=payload)
+        operation_flow.pass_event_to_previous_stage(
+            stage=self,
+            event=pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=payload),
         )

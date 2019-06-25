@@ -85,7 +85,7 @@ class TestSyncClientInboxGet(object):
         item = mocker.MagicMock()
 
         def insert_item():
-            time.sleep(1)  # wait before inserting
+            time.sleep(0.01)  # wait before inserting
             inbox._put(item)
 
         insertion_thread = threading.Thread(target=insert_item)
@@ -102,7 +102,7 @@ class TestSyncClientInboxGet(object):
         inbox = SyncClientInbox()
         assert inbox.empty()
         with pytest.raises(InboxEmpty):
-            inbox.get(block=True, timeout=1)
+            inbox.get(block=True, timeout=0.01)
 
     @pytest.mark.it(
         "Raises InboxEmpty exception if the inbox is empty, when using non-blocking mode"

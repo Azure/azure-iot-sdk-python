@@ -234,19 +234,20 @@ class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SendIotRequestAndWaitForResponseOperation, self).__init(callback=callback)
+        super(SendIotRequestAndWaitForResponseOperation, self).__init__(callback=callback)
         self.request_type = request_type
         self.method = method
         self.resource_location = resource_location
         self.request_body = request_body
         self.status_code = None
         self.response_body = None
+        self.needs_connection = True
 
 
 class SendIotRequestOperation(PipelineOperation):
     """
-    A PipelineOperation object which is the first part of an SendIotRequestAndWaitForResponse operation (the request). The second
-    part of the SendIotRequestAndWaitForResponse operation (the response) is returned via an IotResponseEvent event.
+    A PipelineOperation object which is the first part of an SendIotRequestAndWaitForResponseOperation operation (the request). The second
+    part of the SendIotRequestAndWaitForResponseOperation operation (the response) is returned via an IotResponseEvent event.
 
     Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
     (such as IoTHub or MQTT stages).
@@ -271,9 +272,10 @@ class SendIotRequestOperation(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SendIotRequestOperation, self).__init(callback=callback)
+        super(SendIotRequestOperation, self).__init__(callback=callback)
         self.method = method
         self.resource_location = resource_location
         self.request_type = request_type
         self.request_body = request_body
         self.request_id = request_id
+        self.needs_connection = True

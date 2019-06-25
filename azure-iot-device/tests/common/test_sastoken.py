@@ -129,6 +129,3 @@ class TestSasToken(object):
         sastoken.refresh()
         new_token_string = str(sastoken)
         assert old_token_string != new_token_string
-
-
-pytest.main()

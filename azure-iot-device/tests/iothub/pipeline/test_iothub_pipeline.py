@@ -497,5 +497,15 @@ class TestDisableMethods:
 
 
 @pytest.mark.skip(reason="Not implemented")
-class TestSendMethodResponse:
+class TestSendMethodResponse(object):
+    pass
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestGetTwin(object):
+    pass
+
+
+@pytest.mark.skip(reason="Not implmented")
+class TestPatchTwinReportedProperties(object):
     pass

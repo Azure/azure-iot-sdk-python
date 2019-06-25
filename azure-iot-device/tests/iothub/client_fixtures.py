@@ -137,6 +137,12 @@ class FakeIoTHubPipeline:
     def send_method_response(self, method_response, callback=None):
         callback()
 
+    def get_twin(self, callback=None):
+        callback(None)
+
+    def patch_twin_reported_properties(self, patch, callback=None):
+        callback()
+
 
 @pytest.fixture
 def pipeline(mocker):

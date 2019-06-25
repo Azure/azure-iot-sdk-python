@@ -29,6 +29,7 @@ class InboxManager(object):
         self.input_message_inboxes = {}
         self.generic_method_request_inbox = self._create_inbox()
         self.named_method_request_inboxes = {}
+        self.twin_patch_inbox = self._create_inbox()
 
     def get_input_message_inbox(self, input_name):
         """Retrieve the input message Inbox for a given input.
@@ -75,6 +76,13 @@ class InboxManager(object):
             inbox = self.generic_method_request_inbox
 
         return inbox
+
+    def get_twin_patch_inbox(self):
+        """Retrieve the Inbox for twin patches that arrive from the service
+
+        :returns: An Inbox for twin patches
+        """
+        return self.twin_patch_inbox
 
     def clear_all_method_requests(self):
         """Delete all method requests currently in inboxes.
@@ -129,4 +137,15 @@ class InboxManager(object):
         except KeyError:
             inbox = self.generic_method_request_inbox
         inbox._put(incoming_method_request)
+        return True
+
+    def route_twin_patch(self, incoming_patch):
+        """Route an incoming twin patch to the twin patch Inbox.
+
+        :param incoming_patch: The patch to be routed.
+
+        :returns: Boolean indicating if patch was successfully routed or not.
+        """
+        self.twin_patch_inbox._put(incoming_patch)
+        logger.info("twin patch message sent to inbox")
         return True

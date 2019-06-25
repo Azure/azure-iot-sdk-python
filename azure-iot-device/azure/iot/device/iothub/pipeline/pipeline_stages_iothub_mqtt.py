@@ -111,15 +111,16 @@ class IoTHubMQTTConverterStage(PipelineStage):
                     resource_location=op.resource_location,
                     request_id=op.request_id,
                 )
-                payload = json.dumps(op.request_body)
                 operation_flow.delegate_to_different_op(
                     stage=self,
                     original_op=op,
-                    new_op=pipeline_ops_mqtt.MQTTPublishOperation(topic=topic, payload=payload),
+                    new_op=pipeline_ops_mqtt.MQTTPublishOperation(
+                        topic=topic, payload=op.request_body
+                    ),
                 )
             else:
                 raise NotImplementedError(
-                    "SendIotRequest request_type {} not supported".format(op.request_type)
+                    "SendIotRequestOperation request_type {} not supported".format(op.request_type)
                 )
 
         else:
@@ -154,14 +155,16 @@ class IoTHubMQTTConverterStage(PipelineStage):
             if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_properties_from_topic(topic, message)
-                self.handle_pipeline_event(pipeline_events_iothub.C2DMessageEvent(message))
+                operation_flow.pass_event_to_previous_stage(
+                    self, pipeline_events_iothub.C2DMessageEvent(message)
+                )
 
             elif mqtt_topic_iothub.is_input_topic(topic, self.device_id, self.module_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_properties_from_topic(topic, message)
                 input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
-                self.handle_pipeline_event(
-                    pipeline_events_iothub.InputMessageEvent(input_name, message)
+                operation_flow.pass_event_to_previous_stage(
+                    self, pipeline_events_iothub.InputMessageEvent(input_name, message)
                 )
 
             elif mqtt_topic_iothub.is_method_topic(topic):
@@ -172,27 +175,32 @@ class IoTHubMQTTConverterStage(PipelineStage):
                     name=method_name,
                     payload=json.loads(event.payload.decode("utf-8")),
                 )
-                self.handle_pipeline_event(
-                    pipeline_events_iothub.MethodRequestEvent(method_received)
+                operation_flow.pass_event_to_previous_stage(
+                    self, pipeline_events_iothub.MethodRequestEvent(method_received)
                 )
 
             elif mqtt_topic_iothub.is_twin_response_topic(topic):
                 request_id = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
-                status_code = mqtt_topic_iothub.get_twin_status_code_from_topic(topic)
-                self.handle_pipeline_event(
+                status_code = int(mqtt_topic_iothub.get_twin_status_code_from_topic(topic))
+                operation_flow.pass_event_to_previous_stage(
+                    self,
                     pipeline_events_base.IotResponseEvent(
                         request_id=request_id, status_code=status_code, response_body=event.payload
-                    )
+                    ),
                 )
 
             elif mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic):
-                # TODO: create TwinDesiredPropertiesEvent and pass up
-                pass
+                operation_flow.pass_event_to_previous_stage(
+                    self,
+                    pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
+                        patch=json.loads(event.payload.decode("utf-8"))
+                    ),
+                )
 
             else:
                 logger.info("Uunknown topic: {} passing up to next handler".format(topic))
-                PipelineStage._handle_pipeline_event(self, event)
+                operation_flow.pass_event_to_previous_stage(self, event)
 
         else:
             # all other messages get passed up
-            PipelineStage._handle_pipeline_event(self, event)
+            operation_flow.pass_event_to_previous_stage(self, event)

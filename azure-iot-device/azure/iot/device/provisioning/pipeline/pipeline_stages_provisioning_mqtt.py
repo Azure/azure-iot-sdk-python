@@ -124,15 +124,16 @@ class ProvisioningMQTTConverterStage(PipelineStage):
                     response = event.payload.decode("utf-8")
                 # Extract pertinent information from mqtt topic
                 # like status code request_id and send it upwards.
-                self.handle_pipeline_event(
+                operation_flow.pass_event_to_previous_stage(
+                    self,
                     pipeline_events_provisioning.RegistrationResponseEvent(
                         request_id, status_code, key_values, response
-                    )
+                    ),
                 )
             else:
                 logger.warning("Unknown topic: {} passing up to next handler".format(topic))
-                PipelineStage._handle_pipeline_event(self, event)
+                operation_flow.pass_event_to_previous_stage(self, event)
 
         else:
             # all other messages get passed up
-            PipelineStage._handle_pipeline_event(self, event)
+            operation_flow.pass_event_to_previous_stage(self, event)

@@ -3,11 +3,13 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import functools
 import logging
 import pytest
 import json
 import sys
 from azure.iot.device.common.pipeline import (
+    pipeline_events_base,
     pipeline_ops_base,
     pipeline_stages_base,
     pipeline_ops_mqtt,
@@ -93,6 +95,7 @@ ops_handled_by_this_stage = [
     pipeline_ops_iothub.SendD2CMessageOperation,
     pipeline_ops_iothub.SendOutputEventOperation,
     pipeline_ops_iothub.SendMethodResponseOperation,
+    pipeline_ops_base.SendIotRequestOperation,
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,
 ]
@@ -307,13 +310,6 @@ basic_ops = [
 ]
 
 
-@pytest.fixture
-def op(params, callback):
-    op = params["op_class"](**params["op_init_kwargs"])
-    op.callback = callback
-    return op
-
-
 @pytest.mark.parametrize(
     "params",
     basic_ops,
@@ -321,6 +317,12 @@ def op(params, callback):
 )
 @pytest.mark.describe("IoTHubMQTTConverterStage - .run_op() -- called with basic MQTT operations")
 class TestIoTHubMQTTConverterBasicOperations(object):
+    @pytest.fixture
+    def op(self, params, callback):
+        op = params["op_class"](**params["op_init_kwargs"])
+        op.callback = callback
+        return op
+
     @pytest.mark.it("Runs an operation on the next stage")
     def test_runs_publish(self, params, stage, stages_configured_for_both, op):
         stage.run_op(op)
@@ -404,6 +406,12 @@ publish_ops = [
 @pytest.mark.parametrize("params", publish_ops, ids=[x["name"] for x in publish_ops])
 @pytest.mark.describe("IoTHubMQTTConverterStage - .run_op() -- called with publish operations")
 class TestIoTHubMQTTConverterForPublishOps(object):
+    @pytest.fixture
+    def op(self, params, callback):
+        op = params["op_class"](**params["op_init_kwargs"])
+        op.callback = callback
+        return op
+
     @pytest.mark.it("Uses the correct topic and encodes message properties string when publishing")
     def test_uses_device_topic_for_devices(self, stage, stages_configured_for_both, params, op):
         if params["stage_type"] == "device" and stage.module_id:
@@ -501,7 +509,9 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
 def add_pipeline_root(stage, mocker):
     root = pipeline_stages_base.PipelineRootStage()
     mocker.spy(root, "handle_pipeline_event")
+    mocker.spy(root, "unhandled_error_handler")
     stage.previous = root
+    stage.pipeline_root = root
 
 
 @pytest.mark.describe(
@@ -571,6 +581,120 @@ class TestIoTHubMQTTConverterHandlePipelineEventC2D(object):
         stage.handle_pipeline_event(event)
         assert stage.previous.handle_pipeline_event.call_count == 1
         assert stage.previous.handle_pipeline_event.call_args == mocker.call(event)
+
+
+@pytest.mark.describe("IotHubMQTTConverter - .run_op() -- called with SendIotRequestOperation")
+class TestIotHubMQTTConverterWithSendIotRequest(object):
+    @pytest.fixture
+    def fake_request_type(self):
+        return "twin"
+
+    @pytest.fixture
+    def fake_method(self):
+        return "__fake_method__"
+
+    @pytest.fixture
+    def fake_resource_location(self):
+        return "__fake_resource_location__"
+
+    @pytest.fixture
+    def fake_request_body(self):
+        return "__fake_request_body__"
+
+    @pytest.fixture
+    def fake_request_body_as_string(self, fake_request_body):
+        return json.dumps(fake_request_body)
+
+    @pytest.fixture
+    def fake_request_id(self):
+        return "__fake_request_id__"
+
+    @pytest.fixture
+    def op(
+        self,
+        fake_request_type,
+        fake_method,
+        fake_resource_location,
+        fake_request_body,
+        fake_request_id,
+        callback,
+    ):
+        return pipeline_ops_base.SendIotRequestOperation(
+            request_type=fake_request_type,
+            method=fake_method,
+            resource_location=fake_resource_location,
+            request_body=fake_request_body,
+            request_id=fake_request_id,
+            callback=callback,
+        )
+
+    @pytest.mark.it(
+        "calls the op callback with a NotImplementedError if request_type is not 'twin'"
+    )
+    def test_sends_bad_request_type(self, stage, op):
+        op.request_type = "not_twin"
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=NotImplementedError)
+
+    @pytest.mark.it(
+        "Runs an MQTTPublishOperation on the next stage with the topic formated as '$iothub/twin/{method}{resource_location}?$rid={request_id}' and the payload as the request_body"
+    )
+    def test_sends_new_operation(
+        self, stage, op, fake_method, fake_resource_location, fake_request_id, fake_request_body
+    ):
+        stage.run_op(op)
+        assert stage.next.run_op.call_count == 1
+        new_op = stage.next.run_op.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
+        assert new_op.topic == "$iothub/twin/{method}{resource_location}?$rid={request_id}".format(
+            method=fake_method, resource_location=fake_resource_location, request_id=fake_request_id
+        )
+        assert new_op.payload == fake_request_body
+
+    @pytest.mark.it("Returns an Exception through the op callback if there is no next stage")
+    def test_runs_with_no_next_stage(self, stage, op):
+        stage.next = None
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Handles any Exceptions raised by the MQTTPublishOperation and returns them through the op callback"
+    )
+    def test_next_stage_raises_exception(self, stage, op):
+        stage.next.run_op.side_effect = Exception
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it("Allows any BaseExceptions raised by the MQTTPublishOperation to propagate")
+    def test_next_stage_raises_base_exception(self, stage, op):
+        stage.next.run_op.side_effect = UnhandledException
+        with pytest.raises(UnhandledException):
+            stage.run_op(op)
+
+    @pytest.mark.it(
+        "Returns op.error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
+    )
+    def test_publish_op_returns_failure(self, stage, op):
+        error = Exception()
+
+        def next_stage_run_op(self, op):
+            op.error = error
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=error)
+
+    @pytest.mark.it(
+        "Returns op.error=None in the operation callback if the MQTTPublishOperation returned op.error=None in its operation callback"
+    )
+    def test_publish_op_returns_success(self, stage, op):
+        def next_stage_run_op(self, op):
+            op.callback(op)
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert_callback_succeeded(op=op)
 
 
 @pytest.fixture
@@ -696,3 +820,194 @@ class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(object):
         assert new_event.method_request.payload == json.loads(
             fake_method_request_payload.decode("utf-8")
         )
+
+
+@pytest.mark.describe(
+    "IotHubMQTTConverter - .handle_pipeline_event() -- called with twin response topic"
+)
+class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
+    @pytest.fixture
+    def fake_request_id(self):
+        return "__fake_request_id__"
+
+    @pytest.fixture
+    def fake_status_code(self):
+        return 200
+
+    @pytest.fixture
+    def bad_status_code(self):
+        return "__bad_status_code__"
+
+    @pytest.fixture
+    def fake_topic_name(self, fake_request_id, fake_status_code):
+        return "$iothub/twin/res/{status_code}/?$rid={request_id}".format(
+            status_code=fake_status_code, request_id=fake_request_id
+        )
+
+    @pytest.fixture
+    def fake_topic_name_with_missing_request_id(self, fake_status_code):
+        return "$iothub/twin/res/{status_code}".format(status_code=fake_status_code)
+
+    @pytest.fixture
+    def fake_topic_name_with_missing_status_code(self, fake_request_id):
+        return "$iothub/twin/res/?$rid={request_id}".format(request_id=fake_request_id)
+
+    @pytest.fixture
+    def fake_topic_name_with_bad_status_code(self, fake_request_id, bad_status_code):
+        return "$iothub/twin/res/{status_code}/?$rid={request_id}".format(
+            request_id=fake_request_id, status_code=bad_status_code
+        )
+
+    @pytest.fixture
+    def fake_payload(self):
+        return "__fake_payload__"
+
+    @pytest.fixture
+    def fake_event(self, fake_topic_name, fake_payload):
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=fake_topic_name, payload=fake_payload
+        )
+
+    @pytest.fixture
+    def fixup_stage_for_test(self, stage, add_pipeline_root):
+        print("Adding module")
+        stage.module_id = fake_module_id
+        stage.device_id = fake_device_id
+
+    @pytest.mark.it(
+        "Calls .handle_pipeline_event() on the previous stage with an IotResponseEvent, with request_id and status_code as attributes extracted from the topic and the response_body attirbute set to the payload"
+    )
+    def test_extracts_request_id_status_code_and_payload(
+        self,
+        stage,
+        fixup_stage_for_test,
+        fake_request_id,
+        fake_status_code,
+        fake_payload,
+        fake_event,
+    ):
+        stage.handle_pipeline_event(event=fake_event)
+        assert stage.previous.handle_pipeline_event.call_count == 1
+        new_event = stage.previous.handle_pipeline_event.call_args[0][0]
+        assert isinstance(new_event, pipeline_events_base.IotResponseEvent)
+        assert new_event.status_code == fake_status_code
+        assert new_event.request_id == fake_request_id
+        assert new_event.response_body == fake_payload
+
+    @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
+    def test_no_previous_stage(self, stage, fixup_stage_for_test, fake_event):
+        stage.previous = None
+        stage.handle_pipeline_event(fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert isinstance(
+            stage.pipeline_root.unhandled_error_handler.call_args[0][0], NotImplementedError
+        )
+
+    @pytest.mark.it(
+        "Calls the unhandled exception handler if the requet_id is missing from the topic name"
+    )
+    def test_invalid_topic_with_missing_request_id(
+        self, stage, fixup_stage_for_test, fake_event, fake_topic_name_with_missing_request_id
+    ):
+        fake_event.topic = fake_topic_name_with_missing_request_id
+        stage.handle_pipeline_event(event=fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], IndexError)
+
+    @pytest.mark.it(
+        "Calls the unhandled exception handler if the status code is missing from the topic name"
+    )
+    def test_invlid_topic_with_missing_status_code(
+        self, stage, fixup_stage_for_test, fake_event, fake_topic_name_with_missing_status_code
+    ):
+        fake_event.topic = fake_topic_name_with_missing_status_code
+        stage.handle_pipeline_event(event=fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+
+    @pytest.mark.it(
+        "Calls the unhandled exception handler if the status code in the topic name is not numeric"
+    )
+    def test_invlid_topic_with_bad_status_code(
+        self, stage, fixup_stage_for_test, fake_event, fake_topic_name_with_bad_status_code
+    ):
+        fake_event.topic = fake_topic_name_with_bad_status_code
+        stage.handle_pipeline_event(event=fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+
+
+@pytest.mark.describe(
+    "IotHubMQTTConverter - .handle_pipeline_event() -- called with twin patch topic"
+)
+class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(object):
+    @pytest.fixture
+    def fake_topic_name(self):
+        return "$iothub/twin/PATCH/properties/desired"
+
+    @pytest.fixture
+    def fake_patch(self):
+        return {"__fake_patch__": "yes"}
+
+    @pytest.fixture
+    def fake_patch_as_bytes(self, fake_patch):
+        return json.dumps(fake_patch).encode("utf-8")
+
+    @pytest.fixture
+    def fake_patch_not_bytes(self):
+        return "__fake_patch_that_is_not_bytes__"
+
+    @pytest.fixture
+    def fake_patch_not_json(self):
+        return "__fake_patch_that_is_not_json__".encode("utf-8")
+
+    @pytest.fixture
+    def fake_event(self, fake_topic_name, fake_patch_as_bytes):
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(
+            topic=fake_topic_name, payload=fake_patch_as_bytes
+        )
+
+    @pytest.fixture
+    def fixup_stage_for_test(self, stage, add_pipeline_root):
+        print("Adding module")
+        stage.module_id = fake_module_id
+        stage.device_id = fake_device_id
+
+    @pytest.mark.it(
+        "Calls .handle_pipeline_event() on the previous stage with an TwinDesiredPropertiesPatchEvent, with the patch set to the payload after decoding and deserializing it"
+    )
+    def test_calls_previous_stage(self, stage, fixup_stage_for_test, fake_event, fake_patch):
+        stage.handle_pipeline_event(fake_event)
+        assert stage.previous.handle_pipeline_event.call_count == 1
+        new_event = stage.previous.handle_pipeline_event.call_args[0][0]
+        assert isinstance(new_event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent)
+        assert new_event.patch == fake_patch
+
+    @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
+    def test_no_previous_stage(self, stage, fixup_stage_for_test, fake_event):
+        stage.previous = None
+        stage.handle_pipeline_event(fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert isinstance(
+            stage.pipeline_root.unhandled_error_handler.call_args[0][0], NotImplementedError
+        )
+
+    @pytest.mark.it("Calls the unhandled exception handler if the payload is not a Bytes object")
+    def test_payload_not_bytes(self, stage, fixup_stage_for_test, fake_event, fake_patch_not_bytes):
+        fake_event.payload = fake_patch_not_bytes
+        stage.handle_pipeline_event(fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        if not (
+            isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], AttributeError)
+            or isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+        ):
+            assert False
+
+    @pytest.mark.it(
+        "Calls the unhandled exception handler if the payload cannot be deserialized as a JSON object"
+    )
+    def test_payload_not_json(self, stage, fixup_stage_for_test, fake_event, fake_patch_not_json):
+        fake_event.payload = fake_patch_not_json
+        stage.handle_pipeline_event(fake_event)
+        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)

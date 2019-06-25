@@ -40,6 +40,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._pipeline.on_connected = self._on_state_change
         self._pipeline.on_disconnected = self._on_state_change
         self._pipeline.on_method_request_received = self._inbox_manager.route_method_request
+        self._pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
     def _on_state_change(self, new_state):
         """Handler to be called by the pipeline upon a connection state change."""
@@ -165,18 +166,78 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         callback = async_adapter.AwaitableCallback(sync_callback)
 
         await enable_feature_async(feature_name, callback=callback)
+        await callback.completion()
 
     async def get_twin(self):
-        # TODO: copy doc from sync impl once it's finalized
-        pass
+        """
+        Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        :returns: Twin object which was retrieved from the hub
+        """
+        logger.info("Getting twin")
+
+        if not self._pipeline.feature_enabled[constant.TWIN]:
+            await self._enable_feature(constant.TWIN)
+
+        get_twin_async = async_adapter.emulate_async(self._pipeline.get_twin)
+
+        twin = None
+
+        def sync_callback(received_twin):
+            nonlocal twin
+            logger.info("Successfully retrieved twin")
+            twin = received_twin
+
+        callback = async_adapter.AwaitableCallback(sync_callback)
+
+        await get_twin_async(callback=callback)
+        await callback.completion()
+
+        return twin
 
     async def patch_twin_reported_properties(self, reported_properties_patch):
-        # TODO: copy doc from sync impl once it's finalized
-        pass
+        """
+        Update reported properties with the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        If the service returns an error on the patch operation, this function will raise the
+        appropriate error.
+
+        :param reported_properties_patch:
+        :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
+        """
+        logger.info("Patching twin reported properties")
+
+        if not self._pipeline.feature_enabled[constant.TWIN]:
+            await self._enable_feature(constant.TWIN)
+
+        patch_twin_async = async_adapter.emulate_async(
+            self._pipeline.patch_twin_reported_properties
+        )
+
+        def sync_callback():
+            logger.info("Successfully sent twin patch")
+
+        callback = async_adapter.AwaitableCallback(sync_callback)
+
+        await patch_twin_async(patch=reported_properties_patch, callback=callback)
+        await callback.completion()
 
     async def receive_twin_desired_properties_patch(self):
-        # TODO: copy doc from sync impl once it's finalized
-        pass
+        """
+        Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        If no method request is yet available, will wait until it is available.
+
+        :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values)
+        """
+        if not self._pipeline.feature_enabled[constant.TWIN_PATCHES]:
+            await self._enable_feature(constant.TWIN_PATCHES)
+        twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
+
+        logger.info("Waiting for twin patches...")
+        patch = await twin_patch_inbox.get()
+        logger.info("twin patch received")
+        return patch
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
