@@ -778,8 +778,8 @@ class TestQueryResponse(object):
 @pytest.mark.describe("PollingMachine - Cancel")
 class TestCancel(object):
     # Change the timeout so that the test does not hang for more time
-    constant.DEFAULT_TIMEOUT_INTERVAL = 0.2
-    constant.DEFAULT_POLLING_INTERVAL = 0.01
+    constant.DEFAULT_TIMEOUT_INTERVAL = 0.9
+    constant.DEFAULT_POLLING_INTERVAL = 0.09
 
     @pytest.mark.it("Calls disconnect on RequestResponseProvider and calls callback")
     def test_cancel_disconnects_on_request_response_provider_and_calls_callback(
