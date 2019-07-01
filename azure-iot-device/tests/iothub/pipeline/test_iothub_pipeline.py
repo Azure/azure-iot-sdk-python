@@ -7,505 +7,917 @@
 import pytest
 import logging
 import six.moves.urllib as urllib
+from azure.iot.device.common.pipeline import (
+    pipeline_stages_base,
+    pipeline_stages_mqtt,
+    pipeline_ops_base,
+)
+from azure.iot.device.iothub.pipeline import (
+    pipeline_stages_iothub,
+    pipeline_stages_iothub_mqtt,
+    pipeline_ops_iothub,
+    pipeline_events_iothub,
+)
 from azure.iot.device.iothub import Message
 from azure.iot.device.iothub.pipeline import IoTHubPipeline, constant
-from azure.iot.device.iothub.auth import SymmetricKeyAuthenticationProvider
-from mock import MagicMock, patch, ANY
-from datetime import date
-
-connection_string_format = "HostName={};DeviceId={};SharedAccessKey={}"
-connection_string_format_mod = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
-fake_shared_access_key = "Zm9vYmFy"
-fake_hostname = "beauxbatons.academy-net"
-fake_device_id = "MyPensieve"
-fake_module_id = "MemoryCharms"
-fake_event = "Wingardian Leviosa"
-fake_event_2 = fake_event + " again!"
-
-before_sys_key = "%24."
-after_sys_key = "="
-topic_separator = "&"
-message_id_key = "mid"
-fake_message_id = "spell-1234"
-custom_property_value = "yes"
-custom_property_name = "dementor_alert"
-fake_topic = "devices/" + fake_device_id + "/messages/events/"
-encoded_fake_topic = (
-    fake_topic
-    + before_sys_key
-    + message_id_key
-    + after_sys_key
-    + fake_message_id
-    + topic_separator
-    + custom_property_name
-    + after_sys_key
-    + custom_property_value
-)
-subscribe_input_message_topic = (
-    "devices/" + fake_device_id + "/modules/" + fake_module_id + "/inputs/#"
+from azure.iot.device.iothub.auth import (
+    SymmetricKeyAuthenticationProvider,
+    X509AuthenticationProvider,
 )
 
-subscribe_c2d_topic = "devices/" + fake_device_id + "/messages/devicebound/#"
-subscribe_methods_topic = "$iothub/methods/POST/#"
 
-send_msg_qos = 1
-
-
-def create_fake_message():
-    msg = Message(fake_event)
-    msg.message_id = fake_message_id
-    msg.custom_properties[custom_property_name] = custom_property_value
-    return msg
+# Update this list with features as they are added to the SDK
+all_features = [
+    constant.C2D_MSG,
+    constant.INPUT_MSG,
+    constant.METHODS,
+    constant.TWIN,
+    constant.TWIN_PATCHES,
+]
 
 
-def create_fake_output_message():
-    msg = Message(fake_event)
-    msg.message_id = fake_message_id
-    msg.output_name = "fake_output_name"
-    return msg
+@pytest.fixture
+def auth_provider(mocker):
+    return mocker.MagicMock()
 
 
-@pytest.fixture(scope="function")
-def authentication_provider():
-    connection_string = connection_string_format.format(
-        fake_hostname, fake_device_id, fake_shared_access_key
+@pytest.fixture
+def pipeline(mocker, auth_provider):
+    pipeline = IoTHubPipeline(auth_provider)
+    mocker.patch.object(pipeline._pipeline, "run_op")
+    return pipeline
+
+
+@pytest.fixture
+def twin_patch():
+    return {"key": "value"}
+
+
+@pytest.mark.describe("IoTHubPipeline - Instantiation")
+class TestIoTHubPipelineInstantiation(object):
+    @pytest.mark.it("Begins tracking the enabled/disabled status of features")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_features(self, auth_provider, feature):
+        pipeline = IoTHubPipeline(auth_provider)
+        pipeline.feature_enabled[feature]
+        # No assertion required - if this doesn't raise a KeyError, it is a success
+
+    @pytest.mark.it("Marks all features as disabled")
+    def test_features_disabled(self, auth_provider):
+        pipeline = IoTHubPipeline(auth_provider)
+        for key in pipeline.feature_enabled:
+            assert not pipeline.feature_enabled[key]
+
+    @pytest.mark.it("Sets all handlers to an initial value of None")
+    def test_handlers_set_to_none(self, auth_provider):
+        pipeline = IoTHubPipeline(auth_provider)
+        assert pipeline.on_connected is None
+        assert pipeline.on_disconnected is None
+        assert pipeline.on_c2d_message_received is None
+        assert pipeline.on_input_message_received is None
+        assert pipeline.on_method_request_received is None
+        assert pipeline.on_twin_patch_received is None
+
+    @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
+    def test_handlers_configured(self, auth_provider):
+        pipeline = IoTHubPipeline(auth_provider)
+        assert pipeline._pipeline.on_pipeline_event is not None
+        assert pipeline._pipeline.on_connected is not None
+        assert pipeline._pipeline.on_disconnected is not None
+
+    @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
+    def test_pipeline_configuration(self, auth_provider):
+        pipeline = IoTHubPipeline(auth_provider)
+        curr_stage = pipeline._pipeline
+
+        expected_stage_order = [
+            pipeline_stages_base.PipelineRootStage,
+            pipeline_stages_iothub.UseAuthProviderStage,
+            pipeline_stages_iothub.HandleTwinOperationsStage,
+            pipeline_stages_base.CoordinateRequestAndResponseStage,
+            pipeline_stages_base.EnsureConnectionStage,
+            pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
+            pipeline_stages_mqtt.MQTTClientStage,
+        ]
+
+        # Assert that all PipelineStages are there, and they are in the right order
+        for i in range(len(expected_stage_order)):
+            expected_stage = expected_stage_order[i]
+            assert isinstance(curr_stage, expected_stage)
+            curr_stage = curr_stage.next
+
+        # Assert there are no more additional stages
+        assert curr_stage is None
+
+    # TODO: revist these tests after auth revision
+    # They are too tied to auth types (and there's too much variance in auths to effectively test)
+    # Ideally IoTHubPipeline is entirely insulated from any auth differential logic (and module/device distinctions)
+    # In the meantime, we are using a device auth with connection string to stand in for generic SAS auth
+    # and device auth with X509 certs to stand in for generic X509 auth
+    @pytest.mark.it(
+        "Runs a SetAuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
     )
-    auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
-    return auth_provider
+    def test_sas_auth(self, mocker, device_connection_string):
+        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
+        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
+        pipeline = IoTHubPipeline(auth_provider)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation)
+        assert op.auth_provider is auth_provider
 
-
-@pytest.fixture(scope="function")
-def device_pipeline_adapter(authentication_provider):
-    with patch(
-        "azure.iot.device.iothub.pipeline.iothub_pipeline.pipeline_stages_mqtt.MQTTClientOperator"
-    ):
-        iothub_pipeline = IoTHubPipeline(authentication_provider)
-    iothub_pipeline.on_connected = MagicMock()
-    iothub_pipeline.on_disconnected = MagicMock()
-    yield iothub_pipeline
-    iothub_pipeline.disconnect()
-
-
-@pytest.fixture(scope="function")
-def module_pipeline_adapter():
-    connection_string_mod = connection_string_format_mod.format(
-        fake_hostname, fake_device_id, fake_module_id, fake_shared_access_key
+    @pytest.mark.it(
+        "Propagates exceptions that occured in execution upon unsuccessful completion of the SetAuthProviderOperation"
     )
-    authentication_provider = SymmetricKeyAuthenticationProvider.parse(connection_string_mod)
+    def test_sas_auth_op_fail(self, mocker, device_connection_string):
+        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
+        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
+        pipeline = IoTHubPipeline(auth_provider)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
 
-    with patch(
-        "azure.iot.device.iothub.pipeline.iothub_pipeline.pipeline_stages_mqtt.MQTTClientOperator"
-    ):
-        iothub_pipeline = IoTHubPipeline(authentication_provider)
-    iothub_pipeline.on_connected = MagicMock()
-    iothub_pipeline.on_disconnected = MagicMock()
-    yield iothub_pipeline
-    iothub_pipeline.disconnect()
+        with pytest.raises(Exception):
+            op.callback(op)
 
+    @pytest.mark.it(
+        "Runs a SetX509AuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
+    )
+    def test_cert_auth(self, mocker, x509):
+        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
+        auth_provider = X509AuthenticationProvider("somehostname", "somedevice", x509)
+        pipeline = IoTHubPipeline(auth_provider)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation)
+        assert op.auth_provider is auth_provider
 
-class TestInstantiation(object):
-    def test_instantiates_correctly(self, authentication_provider):
-        trans = IoTHubPipeline(authentication_provider)
-        assert trans._auth_provider == authentication_provider
-        assert trans._pipeline is not None
+    @pytest.mark.it(
+        "Propagates exceptions that occured in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
+    )
+    def test_cert_auth_op_fail(self, mocker, x509):
+        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
+        auth_provider = X509AuthenticationProvider("somehostname", "somedevice", x509)
+        pipeline = IoTHubPipeline(auth_provider)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
 
-
-class TestConnect:
-    def test_connect_calls_connect_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-    def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
-        self, device_pipeline_adapter
-    ):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
-
-    def test_connect_ignored_if_waiting_for_connect_complete(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
-
-    def test_connect_ignored_if_waiting_for_send_complete(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        mock_mqtt_client_operator.reset_mock()
-        device_pipeline_adapter.on_connected.reset_mock()
-
-        device_pipeline_adapter.send_d2c_message(create_fake_message())
-        device_pipeline_adapter.connect()
-
-        mock_mqtt_client_operator.connect.assert_not_called()
-        device_pipeline_adapter.on_connected.assert_not_called()
-
-        mock_mqtt_client_operator.on_mqtt_published(0)
-
-        mock_mqtt_client_operator.connect.assert_not_called()
-        device_pipeline_adapter.on_connected.assert_not_called()
+        with pytest.raises(Exception):
+            op.callback(op)
 
 
-class TestSendEvent:
-    def test_send_message_with_no_properties(self, device_pipeline_adapter):
-        fake_msg = Message("Petrificus Totalus")
-
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.send_d2c_message(fake_msg)
-
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-        mock_mqtt_client_operator.publish.assert_called_once_with(
-            topic=fake_topic, payload=fake_msg.data, callback=ANY
+@pytest.mark.describe("IoTHubPipeline - .connect()")
+class TestIoTHubPipelineConnect(object):
+    @pytest.mark.it("Runs a ConnectOperation on the pipeline")
+    def test_runs_op(self, pipeline):
+        pipeline.connect()
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ConnectOperation
         )
 
-    def test_send_message_with_output_name(self, module_pipeline_adapter):
-        fake_msg = Message("Petrificus Totalus")
-        fake_msg.custom_properties[custom_property_name] = custom_property_value
-        fake_msg.output_name = "fake_output_name"
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the ConnectOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
 
-        fake_output_topic = (
-            "devices/"
-            + fake_device_id
-            + "/modules/"
-            + fake_module_id
-            + "/messages/events/"
-            + before_sys_key
-            + "on"
-            + after_sys_key
-            + "fake_output_name"
-            + topic_separator
-            + custom_property_name
-            + after_sys_key
-            + custom_property_value
+        # Begin operation
+        pipeline.connect(callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the ConnectOperation if no callback is provided"
+    )
+    def test_op_success_no_callback(self, pipeline):
+        pipeline.connect()
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the ConnectOperation")
+    def test_op_fail(self, mocker, pipeline):
+        pipeline.connect()
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the ConnectOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+        pipeline.connect(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .disconnect()")
+class TestIoTHubPipelineDisconnect(object):
+    @pytest.mark.it("Runs a DisconnectOperation on the pipeline")
+    def test_runs_op(self, pipeline):
+        pipeline.disconnect()
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
         )
 
-        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
-
-        module_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        module_pipeline_adapter.send_d2c_message(fake_msg)
-
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=module_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-        mock_mqtt_client_operator.publish.assert_called_once_with(
-            topic=fake_output_topic, payload=fake_msg.data, callback=ANY
-        )
-
-    def test_sendevent_calls_publish_on_provider(self, device_pipeline_adapter):
-        fake_msg = create_fake_message()
-
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.send_d2c_message(fake_msg)
-
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-        mock_mqtt_client_operator.publish.assert_called_once_with(
-            topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
-        )
-
-    def test_send_d2c_message_queues_and_connects_before_sending(self, device_pipeline_adapter):
-        fake_msg = create_fake_message()
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        # send an event
-        device_pipeline_adapter.send_d2c_message(fake_msg)
-
-        # verify that we called connect
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-
-        # verify that we're not connected yet and verify that we havent't published yet
-        device_pipeline_adapter.on_connected.assert_not_called()
-        mock_mqtt_client_operator.publish.assert_not_called()
-
-        # finish the connection
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        # verify that our connected callback was called and verify that we published the event
-        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
-        mock_mqtt_client_operator.publish.assert_called_once_with(
-            topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
-        )
-
-    def test_send_d2c_message_queues_if_waiting_for_connect_complete(self, device_pipeline_adapter):
-        fake_msg = create_fake_message()
-
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        # start connecting and verify that we've called into the protocol wrapper
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.connect.assert_called_once_with(
-            password=device_pipeline_adapter._auth_provider.get_current_sas_token(),
-            client_certificate=None,
-        )
-
-        # send an event
-        device_pipeline_adapter.send_d2c_message(fake_msg)
-
-        # verify that we're not connected yet and verify that we havent't published yet
-        device_pipeline_adapter.on_connected.assert_not_called()
-        mock_mqtt_client_operator.publish.assert_not_called()
-
-        # finish the connection
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        # verify that our connected callback was called and verify that we published the event
-        device_pipeline_adapter.on_connected.assert_called_once_with("connected")
-        mock_mqtt_client_operator.publish.assert_called_once_with(
-            topic=encoded_fake_topic, payload=fake_msg.data, callback=ANY
-        )
-
-    def test_send_d2c_message_sends_overlapped_events(self, device_pipeline_adapter):
-        fake_msg_1 = create_fake_message()
-        fake_msg_2 = Message(fake_event_2)
-
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        # connect
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        # send an event
-        callback_1 = MagicMock()
-        device_pipeline_adapter.send_d2c_message(fake_msg_1, callback_1)
-        mock_mqtt_client_operator.publish.assert_called_once_with(
-            topic=encoded_fake_topic, payload=fake_msg_1.data, callback=ANY
-        )
-
-        # while we're waiting for that send to complete, send another event
-        callback_2 = MagicMock()
-        device_pipeline_adapter.send_d2c_message(fake_msg_2, callback_2)
-
-        # verify that we've called publish twice and verify that neither send_d2c_message
-        # has completed (because we didn't do anything here to complete it).
-        assert mock_mqtt_client_operator.publish.call_count == 2
-        callback_1.assert_not_called()
-        callback_2.assert_not_called()
-
-    def test_connect_send_disconnect(self, device_pipeline_adapter):
-        fake_msg = create_fake_message()
-
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        # connect
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        # send an event
-        device_pipeline_adapter.send_d2c_message(fake_msg)
-        mock_mqtt_client_operator.on_mqtt_published(0)
-
-        # disconnect
-        device_pipeline_adapter.disconnect()
-        mock_mqtt_client_operator.disconnect.assert_called_once_with()
-
-
-class TestDisconnect:
-    def test_disconnect_calls_disconnect_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.disconnect()
-
-        mock_mqtt_client_operator.disconnect.assert_called_once_with()
-
-    def test_disconnect_ignored_if_already_disconnected(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.disconnect(None)
-
-        mock_mqtt_client_operator.disconnect.assert_not_called()
-
-    def test_disconnect_calls_client_disconnect_callback(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-
-        device_pipeline_adapter.disconnect()
-        mock_mqtt_client_operator.on_mqtt_disconnected()
-
-        device_pipeline_adapter.on_disconnected.assert_called_once_with("disconnected")
-
-
-class TestEnableInputMessage:
-    def test_subscribe_calls_subscribe_on_provider(self, module_pipeline_adapter):
-        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
-
-        module_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        module_pipeline_adapter.enable_feature(constant.INPUT_MSG)
-
-        mock_mqtt_client_operator.subscribe.assert_called_once_with(
-            topic=subscribe_input_message_topic, callback=ANY
-        )
-
-    def test_sets_input_message_status_to_enabled(self, module_pipeline_adapter):
-        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
-
-        module_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        module_pipeline_adapter.enable_feature(constant.INPUT_MSG)
-
-        assert module_pipeline_adapter.feature_enabled[constant.INPUT_MSG]
-
-
-class TestDisableInputMessage:
-    def test_unsubscribe_of_input_calls_unsubscribe_on_provider(self, module_pipeline_adapter):
-        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
-
-        module_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        module_pipeline_adapter.disable_feature(constant.INPUT_MSG)
-
-        mock_mqtt_client_operator.unsubscribe.assert_called_once_with(
-            topic=subscribe_input_message_topic, callback=ANY
-        )
-
-    def test_sets_input_message_status_to_disabled(self, module_pipeline_adapter):
-        mock_mqtt_client_operator = module_pipeline_adapter._pipeline.client_operator
-
-        module_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        module_pipeline_adapter.disable_feature(constant.INPUT_MSG)
-
-        assert not module_pipeline_adapter.feature_enabled[constant.INPUT_MSG]
-
-
-class TestEnableC2D:
-    def test_subscribe_calls_subscribe_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.enable_feature(constant.C2D_MSG)
-
-        mock_mqtt_client_operator.subscribe.assert_called_once_with(
-            topic=subscribe_c2d_topic, callback=ANY
-        )
-
-    def test_sets_c2d_message_status_to_enabled(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.enable_feature(constant.C2D_MSG)
-
-        assert device_pipeline_adapter.feature_enabled[constant.C2D_MSG]
-
-
-class TestDisableC2D:
-    def test_unsubscribe_calls_unsubscribe_on_provider(self, device_pipeline_adapter):
-        device_pipeline_adapter._c2d_topic = subscribe_c2d_topic
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.disable_feature(constant.C2D_MSG)
-
-        mock_mqtt_client_operator.unsubscribe.assert_called_once_with(
-            topic=subscribe_c2d_topic, callback=ANY
-        )
-
-    def test_sets_c2d_message_status_to_disabled(self, device_pipeline_adapter):
-        device_pipeline_adapter._c2d_topic = subscribe_c2d_topic
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.disable_feature(constant.C2D_MSG)
-
-        assert not device_pipeline_adapter.feature_enabled[constant.C2D_MSG]
-
-
-class TestEnableMethods:
-    def test_subscribe_calls_subscribe_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
-
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.enable_feature(constant.METHODS)
-
-        mock_mqtt_client_operator.subscribe.assert_called_once_with(
-            topic=subscribe_methods_topic, callback=ANY
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the DisconnectOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.disconnect(callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the DisconnectOperation if no callback is provided"
+    )
+    def test_op_success_no_callback(self, pipeline):
+        pipeline.disconnect()
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the DisconnectOperation")
+    def test_op_fail(self, mocker, pipeline):
+        pipeline.disconnect()
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the DisconnectOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+        pipeline.disconnect(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .send_d2c_message()")
+class TestIoTHubPipelineSendD2CMessage(object):
+    @pytest.mark.it("Runs a SendD2CMessageOperation with the provided message on the pipeline")
+    def test_runs_op(self, pipeline, message):
+        pipeline.send_d2c_message(message)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation)
+        assert op.message == message
+
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the SendD2CMessageOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline, message):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.send_d2c_message(message, callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the SendD2CMessageOperation if no callback is provided"
+    )
+    def test_op_success_no_callback(self, pipeline, message):
+        pipeline.send_d2c_message(message)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the SendD2CMessageOperation")
+    def test_op_fail(self, mocker, pipeline, message):
+        pipeline.send_d2c_message(message)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the SendD2CMessageOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline, message):
+        cb = mocker.MagicMock()
+        pipeline.send_d2c_message(message, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .send_output_event()")
+class TestIoTHubPipelineSendOutputEvent(object):
+    @pytest.fixture
+    def message(self, message):
+        """Modify message fixture to have an output"""
+        message.output_name = "some output"
+        return message
+
+    @pytest.mark.it("Runs a SendOutputEventOperation with the provided Message on the pipeline")
+    def test_runs_op(self, pipeline, message):
+        pipeline.send_output_event(message)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_iothub.SendOutputEventOperation)
+        assert op.message == message
+
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the SendOutputEventOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline, message):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.send_output_event(message, callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the SendOutputEventOperation if no callback is provided"
+    )
+    def test_op_success_no_callback(self, pipeline, message):
+        pipeline.send_output_event(message)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the SendOutputEventOperation")
+    def test_op_fail(self, mocker, pipeline, message):
+        pipeline.send_output_event(message)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the SendOutputEventOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline, message):
+        cb = mocker.MagicMock()
+        pipeline.send_output_event(message, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .send_method_response()")
+class TestIoTHubPipelineSendMethodResponse(object):
+    @pytest.mark.it(
+        "Runs a SendMethodResponseOperation with the provided MethodResponse on the pipeline"
+    )
+    def test_runs_op(self, pipeline, method_response):
+        pipeline.send_method_response(method_response)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_iothub.SendMethodResponseOperation)
+        assert op.method_response == method_response
+
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the SendMethodResponseOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline, method_response):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.send_method_response(method_response, callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the SendMethodResponseOperation if no callback is provided"
+    )
+    def test_op_success_no_callback(self, pipeline, method_response):
+        pipeline.send_method_response(method_response)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it(
+        "Raise SystemExit upon unsuccessful completion of the SendMethodResponseOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, method_response):
+        pipeline.send_method_response(method_response)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the SendMethodResponseOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline, method_response):
+        cb = mocker.MagicMock()
+        pipeline.send_method_response(method_response, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .get_twin()")
+class TestIoTHubPipelineGetTwin(object):
+    @pytest.mark.it("Runs a GetTwinOperation on the pipeline")
+    def test_runs_op(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+        pipeline.get_twin(callback=cb)
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_iothub.GetTwinOperation
         )
 
-    def test_sets_methods_status_to_enabled(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
+    @pytest.mark.it(
+        "Triggers the provided callback upon successful completion of the GetTwinOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
 
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.enable_feature(constant.METHODS)
+        # Begin operation
+        pipeline.get_twin(callback=cb)
+        assert cb.call_count == 0
 
-        assert device_pipeline_adapter.feature_enabled[constant.METHODS]
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
 
+        assert cb.call_count == 1
 
-class TestDisableMethods:
-    def test_unsubscribe_calls_unsubscribe_on_provider(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the GetTwinOperation")
+    def test_op_fail(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+        pipeline.get_twin(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
 
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.disable_feature(constant.METHODS)
+        with pytest.raises(SystemExit):
+            op.callback(op)
 
-        mock_mqtt_client_operator.unsubscribe.assert_called_once_with(
-            topic=subscribe_methods_topic, callback=ANY
-        )
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the GetTwinOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+        pipeline.get_twin(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
 
-    def test_sets_method_status_to_disabled(self, device_pipeline_adapter):
-        mock_mqtt_client_operator = device_pipeline_adapter._pipeline.client_operator
+        with pytest.raises(SystemExit):
+            op.callback(op)
 
-        device_pipeline_adapter.connect()
-        mock_mqtt_client_operator.on_mqtt_connected()
-        device_pipeline_adapter.disable_feature(constant.METHODS)
-
-        assert not device_pipeline_adapter.feature_enabled[constant.METHODS]
-
-
-@pytest.mark.skip(reason="Not implemented")
-class TestSendMethodResponse(object):
-    pass
-
-
-@pytest.mark.skip(reason="Not implemented")
-class TestGetTwin(object):
-    pass
+        assert cb.call_count == 0
 
 
-@pytest.mark.skip(reason="Not implmented")
-class TestPatchTwinReportedProperties(object):
-    pass
+@pytest.mark.describe("IoTHubPipeline - .patch_twin_reported_properties()")
+class TestIoTHubPipelinePatchTwinReportedProperties(object):
+    @pytest.mark.it(
+        "Runs a PatchTwinReportedPropertiesOperation with the provided twin patch on the pipeline"
+    )
+    def test_runs_op(self, pipeline, twin_patch):
+        pipeline.patch_twin_reported_properties(twin_patch)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_iothub.PatchTwinReportedPropertiesOperation)
+        assert op.patch == twin_patch
+
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the PatchTwinReportedPropertiesOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline, twin_patch):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.patch_twin_reported_properties(twin_patch, callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the PatchTwinReportedPropertiesOperation if no callback is provided"
+    )
+    def test_op_success_no_callback(self, pipeline, twin_patch):
+        pipeline.patch_twin_reported_properties(twin_patch)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it(
+        "Raise SystemExit upon unsuccessful completion of the PatchTwinReportedPropertiesOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, twin_patch):
+        pipeline.patch_twin_reported_properties(twin_patch)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the PatchTwinReportedPropertiesOperation"
+    )
+    def test_op_fail_no_callback(self, mocker, pipeline, twin_patch):
+        cb = mocker.MagicMock()
+        pipeline.patch_twin_reported_properties(twin_patch, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .enable_feature()")
+class TestIoTHubPipelineEnableFeature(object):
+    @pytest.mark.it("Marks the feature as enabled")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_enabled(self, pipeline, feature):
+        assert not pipeline.feature_enabled[feature]
+        pipeline.enable_feature(feature)
+        assert pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Raises ValueError if the feature_name is invalid")
+    def test_invalid_feature_name(self, pipeline):
+        bad_feature = "not-a-feature-name"
+        assert bad_feature not in pipeline.feature_enabled
+        with pytest.raises(ValueError):
+            pipeline.enable_feature(bad_feature)
+        assert bad_feature not in pipeline.feature_enabled
+
+    # TODO: what about features that are already disabled?
+
+    @pytest.mark.it("Runs a EnableFeatureOperation with the provided feature_name on the pipeline")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_runs_op(self, pipeline, feature):
+        pipeline.enable_feature(feature)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
+        assert op.feature_name == feature
+
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the EnableFeatureOperation"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_success_with_callback(self, mocker, pipeline, feature):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.enable_feature(feature, callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the EnableFeatureOperation if no callback is provided"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_success_no_callback(self, pipeline, feature):
+        pipeline.enable_feature(feature)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the EnableFeatureOperation")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_fail(self, mocker, pipeline, feature):
+        pipeline.enable_feature(feature)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the EnableFeatureOperation"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_fail_no_callback(self, mocker, pipeline, feature):
+        cb = mocker.MagicMock()
+        pipeline.enable_feature(feature, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - .disable_feature()")
+class TestIoTHubPipelineDisableFeature(object):
+    @pytest.mark.it("Marks the feature as disabled")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_disabled(self, pipeline, feature):
+        # enable feature first
+        pipeline.feature_enabled[feature] = True
+        assert pipeline.feature_enabled[feature]
+        pipeline.disable_feature(feature)
+        assert not pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Raises ValueError if the feature_name is invalid")
+    def test_invalid_feature_name(self, pipeline):
+        bad_feature = "not-a-feature-name"
+        assert bad_feature not in pipeline.feature_enabled
+        with pytest.raises(ValueError):
+            pipeline.disable_feature(bad_feature)
+        assert bad_feature not in pipeline.feature_enabled
+
+    # TODO: what about features that are already disabled?
+
+    @pytest.mark.it("Runs a DisableFeatureOperation with the provided feature_name on the pipeline")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_runs_op(self, pipeline, feature):
+        pipeline.disable_feature(feature)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
+        assert op.feature_name == feature
+
+    @pytest.mark.it(
+        "Triggers an optionally provided callback upon successful completion of the DisableFeatureOperation"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_success_with_callback(self, mocker, pipeline, feature):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.disable_feature(feature, callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        assert cb.call_count == 1
+
+    @pytest.mark.it(
+        "Does nothing upon successful completion of the DisableFeatureOperation if no callback is provided"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_success_no_callback(self, pipeline, feature):
+        pipeline.disable_feature(feature)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.callback(op)
+
+        # No assertions required - if the code executes without error, the test passes
+
+    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the DisableFeatureOperation")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_fail(self, mocker, pipeline, feature):
+        pipeline.disable_feature(feature)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+    @pytest.mark.it(
+        "Does not trigger callback upon unsuccessful completion of the DisableFeatureOperation"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_op_fail_no_callback(self, mocker, pipeline, feature):
+        cb = mocker.MagicMock()
+        pipeline.disable_feature(feature, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.error = Exception()
+
+        with pytest.raises(SystemExit):
+            op.callback(op)
+
+        assert cb.call_count == 0
+
+
+@pytest.mark.describe("IoTHubPipeline - EVENT: Connected")
+class TestIoTHubPipelineEVENTConnect(object):
+    @pytest.mark.it("Triggers the 'on_connected' handler")
+    def test_with_handler(self, mocker, pipeline):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_connected = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Trigger the connect
+        pipeline._pipeline.on_connected()
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call()
+
+    @pytest.mark.it("Does nothing if the 'on_connected' handler is not set")
+    def test_without_handler(self, pipeline):
+        pipeline._pipeline.on_connected()
+
+        # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - EVENT: Disconnected")
+class TestIoTHubPipelineEVENTDisconnect(object):
+    @pytest.mark.it("Triggers the 'on_disconnected' handler")
+    def test_with_handler(self, mocker, pipeline):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_disconnected = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Trigger the connect
+        pipeline._pipeline.on_disconnected()
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call()
+
+    @pytest.mark.it("Does nothing if the 'on_disconnected' handler is not set")
+    def test_without_handler(self, pipeline):
+        pipeline._pipeline.on_disconnected()
+
+        # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - EVENT: C2D Message Received")
+class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
+    @pytest.mark.it(
+        "Triggers the 'on_c2d_message_received' handler, passing the received message as an argument"
+    )
+    def test_with_handler(self, mocker, pipeline, message):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_c2d_message_received = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Create the event
+        c2d_event = pipeline_events_iothub.C2DMessageEvent(message)
+
+        # Trigger the event
+        pipeline._pipeline.on_pipeline_event(c2d_event)
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(message)
+
+    @pytest.mark.it("Drops the message if the 'on_c2d_message_received' handler is not set")
+    def test_no_handler(self, pipeline, message):
+        c2d_event = pipeline_events_iothub.C2DMessageEvent(message)
+        pipeline._pipeline.on_pipeline_event(c2d_event)
+
+        # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - EVENT: Input Message Received")
+class TestIoTHubPipelineEVENTReceiveInputMessage(object):
+    @pytest.mark.it(
+        "Triggers the 'on_input_message_received' handler, passing the received message and input name as arguments"
+    )
+    def test_with_handler(self, mocker, pipeline, message):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_input_message_received = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Create the event
+        input_name = "some_input"
+        input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
+
+        # Trigger the event
+        pipeline._pipeline.on_pipeline_event(input_message_event)
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(input_name, message)
+
+    @pytest.mark.it("Drops the message if the 'on_input_message_received' handler is not set")
+    def test_no_handler(self, pipeline, message):
+        input_name = "some_input"
+        input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
+        pipeline._pipeline.on_pipeline_event(input_message_event)
+
+        # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - EVENT: Method Request Received")
+class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
+    @pytest.mark.it(
+        "Triggers the 'on_method_request_received' handler, passing the received method request as an argument"
+    )
+    def test_with_handler(self, mocker, pipeline, method_request):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_method_request_received = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Create the event
+        method_request_event = pipeline_events_iothub.MethodRequestEvent(method_request)
+
+        # Trigger the event
+        pipeline._pipeline.on_pipeline_event(method_request_event)
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(method_request)
+
+    @pytest.mark.it(
+        "Drops the method request if the 'on_method_request_received' handler is not set"
+    )
+    def test_no_handler(self, pipeline, method_request):
+        method_request_event = pipeline_events_iothub.MethodRequestEvent(method_request)
+        pipeline._pipeline.on_pipeline_event(method_request_event)
+
+        # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - EVENT: Twin Desired Properties Patch Received")
+class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
+    @pytest.mark.it(
+        "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"
+    )
+    def test_with_handler(self, mocker, pipeline, twin_patch):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_twin_patch_received = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Create the event
+        twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(twin_patch)
+
+        # Trigger the event
+        pipeline._pipeline.on_pipeline_event(twin_patch_event)
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(twin_patch)
+
+    @pytest.mark.it("Drops the twin patch if the 'on_twin_patch_received' handler is not set")
+    def test_no_handler(self, pipeline, twin_patch):
+        twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(twin_patch)
+        pipeline._pipeline.on_pipeline_event(twin_patch_event)
+
+        # No assertions required - not throwing an exception means the test passed

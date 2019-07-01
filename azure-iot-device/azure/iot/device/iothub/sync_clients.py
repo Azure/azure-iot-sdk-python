@@ -37,20 +37,18 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         super(GenericIoTHubClient, self).__init__(pipeline)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
-        self._pipeline.on_connected = self._on_state_change
-        self._pipeline.on_disconnected = self._on_state_change
+        self._pipeline.on_connected = self._on_connected
+        self._pipeline.on_disconnected = self._on_disconnected
         self._pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
-    def _on_state_change(self, new_state):
-        """Handler to be called by the pipeline upon a connection state change."""
-        logger.info("Connection State - {}".format(new_state))
-
-        if new_state == "disconnected":
-            self._on_disconnected()
+    def _on_connected(self):
+        """Helper handler that is called upon a pipeline connect"""
+        logger.info("Connection State - Connected")
 
     def _on_disconnected(self):
-        """Helper handler that is called upon a a pipeline disconnect"""
+        """Helper handler that is called upon a pipeline disconnect"""
+        logger.info("Connection State - Disconnected")
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
 

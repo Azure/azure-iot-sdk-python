@@ -41,11 +41,6 @@ def manager(inbox_type):
 
 
 @pytest.fixture
-def message():
-    return Message("some message")
-
-
-@pytest.fixture
 def method_request():
     return MethodRequest(request_id="1", name="some_method", payload="{'key': 'value'}")
 

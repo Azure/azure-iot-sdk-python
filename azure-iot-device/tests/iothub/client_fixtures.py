@@ -6,12 +6,12 @@
 
 import pytest
 from azure.iot.device.iothub.pipeline import constant
+from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest
 from azure.iot.device.common.models.x509 import X509
 
 """---Constants---"""
 
 shared_access_key = "Zm9vYmFy"
-# shared_access_key_name = "alohomora" # do we need this?
 hostname = "beauxbatons.academy-net"
 device_id = "MyPensieve"
 module_id = "Divination"
@@ -23,7 +23,38 @@ fake_x509_cert_key = "where_to_find_them"
 fake_pass_phrase = "alohomora"
 
 
-"""----Shared connection string fixtures """
+"""----Shared model fixtures----"""
+
+
+@pytest.fixture
+def message():
+    return Message("Wingardium Leviosa")
+
+
+@pytest.fixture
+def method_response():
+    return MethodResponse(request_id="1", status=200, payload={"key": "value"})
+
+
+@pytest.fixture
+def method_request():
+    return MethodRequest(request_id="1", name="some_method", payload={"key": "value"})
+
+
+"""----Shared Twin fixtures----"""
+
+
+@pytest.fixture
+def twin_patch_desired():
+    return {"properties": {"desired": {"foo": 1}}}
+
+
+@pytest.fixture
+def twin_patch_reported():
+    return {"properties": {"reported": {"bar": 2}}}
+
+
+"""----Shared connection string fixtures----"""
 
 device_connection_string_format = (
     "HostName={hostname};DeviceId={device_id};SharedAccessKey={shared_access_key}"
@@ -94,6 +125,9 @@ def module_sas_token_string():
     return sas_token_format.format(uri=uri, signature=signature, expiry=expiry)
 
 
+"""----Shared certificate fixtures----"""
+
+
 @pytest.fixture()
 def x509():
     return X509(fake_x509_cert_value, fake_x509_cert_key, fake_pass_phrase)
@@ -118,7 +152,7 @@ def edge_container_env_vars():
     }
 
 
-"""----Shared mock pipeline adapter fixture----"""
+"""----Shared mock pipeline fixture----"""
 
 
 class FakeIoTHubPipeline:

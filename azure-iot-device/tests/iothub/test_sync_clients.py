@@ -10,7 +10,7 @@ import time
 import os
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device.iothub.pipeline import IoTHubPipeline, constant
-from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse
+from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox, InboxEmpty
 from azure.iot.device.iothub.auth import IoTEdgeError
 
@@ -24,12 +24,12 @@ class SharedClientInstantiationTests(object):
     @pytest.mark.it("Sets on_connected handler in pipeline")
     def test_sets_on_connected_handler_in_pipeline(self, client):
         assert client._pipeline.on_connected is not None
-        assert client._pipeline.on_connected == client._on_state_change
+        assert client._pipeline.on_connected == client._on_connected
 
     @pytest.mark.it("Sets on_disconnected handler in pipeline")
     def test_sets_on_disconnected_handler_in_pipeline(self, client):
         assert client._pipeline.on_disconnected is not None
-        assert client._pipeline.on_disconnected == client._on_state_change
+        assert client._pipeline.on_disconnected == client._on_disconnected
 
     @pytest.mark.it("Sets on_method_request_received handler in pipeline")
     def test_sets_on_method_request_received_handler_in_pipleline(self, client):
@@ -202,15 +202,14 @@ class SharedClientDisconnectEventTests(object):
     @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
     def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
         clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
-        client._on_state_change("disconnected")
+        client._on_disconnected()
         assert clear_method_request_spy.call_count == 1
 
 
 # TODO: rename
 class SharedClientSendEventTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'send_d2c_message' pipeline operation")
-    def test_calls_pipeline_send_d2c_message(self, client, pipeline):
-        message = Message("this is a message")
+    def test_calls_pipeline_send_d2c_message(self, client, pipeline, message):
         client.send_d2c_message(message)
         assert pipeline.send_d2c_message.call_count == 1
         assert pipeline.send_d2c_message.call_args[0][0] is message
@@ -218,11 +217,13 @@ class SharedClientSendEventTests(WaitsForEventCompletion):
     @pytest.mark.it(
         "Waits for the completion of the 'send_d2c_message' pipeline operation before returning"
     )
-    def test_waits_for_pipeline_op_completion(self, mocker, client_manual_cb, pipeline_manual_cb):
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, pipeline_manual_cb, message
+    ):
         self.add_event_completion_checks(
             mocker=mocker, pipeline_function=pipeline_manual_cb.send_d2c_message
         )
-        client_manual_cb.send_d2c_message(Message("this is a message"))
+        client_manual_cb.send_d2c_message(message)
 
     @pytest.mark.it(
         "Wraps 'message' input parameter in a Message object if it is not a Message object"
@@ -412,24 +413,46 @@ class SharedClientReceiveMethodRequestTests(object):
 
 class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'send_method_response' pipeline operation")
-    def test_send_method_response_calls_pipeline(self, client, pipeline):
-        response = MethodResponse(request_id="1", status=200, payload={"key": "value"})
-        client.send_method_response(response)
+    def test_send_method_response_calls_pipeline(self, client, pipeline, method_response):
+
+        client.send_method_response(method_response)
         assert pipeline.send_method_response.call_count == 1
-        assert pipeline.send_method_response.call_args[0][0] is response
+        assert pipeline.send_method_response.call_args[0][0] is method_response
 
     @pytest.mark.it(
         "Waits for the completion of the 'send_method_response' pipeline operation before returning"
     )
-    def test_waits_for_pipeline_op_completion(self, mocker, client_manual_cb, pipeline_manual_cb):
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, pipeline_manual_cb, method_response
+    ):
         self.add_event_completion_checks(
             mocker=mocker, pipeline_function=pipeline_manual_cb.send_method_response
         )
-        response = MethodResponse(request_id="1", status=200, payload={"key": "value"})
-        client_manual_cb.send_method_response(response)
+        client_manual_cb.send_method_response(method_response)
 
 
 class SharedClientGetTwinTests(WaitsForEventCompletion):
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    def test_enables_twin_only_if_not_already_enabled(self, mocker, client, pipeline):
+        # patch this so get_twin won't block
+        def immediate_callback(callback):
+            callback(None)
+
+        mocker.patch.object(pipeline, "get_twin", side_effect=immediate_callback)
+
+        # Verify twin enabled if not enabled
+        pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        client.get_twin()
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.TWIN
+
+        pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        client.get_twin()
+        assert pipeline.enable_feature.call_count == 0
+
     @pytest.mark.it("Begins a 'get_twin' pipeline operation")
     def test_get_twin_calls_pipeline(self, client, pipeline):
         client.get_twin()
@@ -455,29 +478,52 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
 
 
 class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    def test_enables_twin_only_if_not_already_enabled(
+        self, mocker, client, pipeline, twin_patch_reported
+    ):
+        # patch this so x_get_twin won't block
+        def immediate_callback(patch, callback):
+            callback()
+
+        mocker.patch.object(
+            pipeline, "patch_twin_reported_properties", side_effect=immediate_callback
+        )
+
+        # Verify twin enabled if not enabled
+        pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        client.patch_twin_reported_properties(twin_patch_reported)
+        assert pipeline.enable_feature.call_count == 1
+        assert pipeline.enable_feature.call_args[0][0] == constant.TWIN
+
+        pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        client.patch_twin_reported_properties(twin_patch_reported)
+        assert pipeline.enable_feature.call_count == 0
+
     @pytest.mark.it("Begins a 'patch_twin_reported_properties' pipeline operation")
-    def test_patch_twin_reported_properties_calls_pipeline(self, client, pipeline):
-        reported_properties = {"key": "value"}
-        client.patch_twin_reported_properties(reported_properties)
+    def test_patch_twin_reported_properties_calls_pipeline(
+        self, client, pipeline, twin_patch_reported
+    ):
+        client.patch_twin_reported_properties(twin_patch_reported)
         assert pipeline.patch_twin_reported_properties.call_count == 1
-        assert pipeline.patch_twin_reported_properties.call_args[1]["patch"] is reported_properties
+        assert pipeline.patch_twin_reported_properties.call_args[1]["patch"] is twin_patch_reported
 
     @pytest.mark.it(
         "Waits for the completion of the 'send_method_response' pipeline operation before returning"
     )
-    def test_waits_for_pipeline_op_completion(self, mocker, client_manual_cb, pipeline_manual_cb):
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, pipeline_manual_cb, twin_patch_reported
+    ):
         self.add_event_completion_checks(
             mocker=mocker, pipeline_function=pipeline_manual_cb.patch_twin_reported_properties
         )
-        reported_properties = {"key": "value"}
-        client_manual_cb.patch_twin_reported_properties(reported_properties)
+        client_manual_cb.patch_twin_reported_properties(twin_patch_reported)
 
 
 class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
-    @pytest.fixture
-    def patch(self):
-        return {"properties": {"desired": {"foo": 1}}}
-
     @pytest.mark.it(
         "Implicitly enables Twin desired properties patch feature if not already enabled"
     )
@@ -502,9 +548,9 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a patch from the twin patch inbox, if available")
-    def test_returns_message_from_twin_patch_inbox(self, mocker, client, patch):
+    def test_returns_message_from_twin_patch_inbox(self, mocker, client, twin_patch_desired):
         inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
-        inbox_mock.get.return_value = patch
+        inbox_mock.get.return_value = twin_patch_desired
         manager_get_inbox_mock = mocker.patch.object(
             client._inbox_manager, "get_twin_patch_inbox", return_value=inbox_mock
         )
@@ -512,7 +558,7 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         received_patch = client.receive_twin_desired_properties_patch()
         assert manager_get_inbox_mock.call_count == 1
         assert inbox_mock.get.call_count == 1
-        assert received_patch is patch
+        assert received_patch is twin_patch_desired
 
     @pytest.mark.it("Can be called in various modes")
     @pytest.mark.parametrize(
@@ -541,23 +587,23 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a patch is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client, patch):
+    def test_no_message_in_inbox_blocking_mode(self, client, twin_patch_desired):
 
         twin_patch_inbox = client._inbox_manager.get_twin_patch_inbox()
         assert twin_patch_inbox.empty()
 
         def insert_item_after_delay():
             time.sleep(0.01)
-            twin_patch_inbox._put(patch)
+            twin_patch_inbox._put(twin_patch_desired)
 
         insertion_thread = threading.Thread(target=insert_item_after_delay)
         insertion_thread.start()
 
         received_patch = client.receive_twin_desired_properties_patch(block=True)
-        assert received_patch is patch
+        assert received_patch is twin_patch_desired
         # This proves that the blocking happens because 'received_patch' can't be
-        # 'patch' until after a 10 millisecond delay on the insert. But because the
-        # 'received_patch' IS 'patch', it means that client.receive_twin_desired_properties_patch
+        # 'twin_patch_desired' until after a 10 millisecond delay on the insert. But because the
+        # 'received_patch' IS 'twin_patch_desired', it means that client.receive_twin_desired_properties_patch
         # did not return until after the delay.
 
     @pytest.mark.it(
@@ -682,8 +728,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         assert pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the C2D inbox, if available")
-    def test_returns_message_from_c2d_inbox(self, mocker, client):
-        message = Message("this is a message")
+    def test_returns_message_from_c2d_inbox(self, mocker, client, message):
         inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
         inbox_mock.get.return_value = message
         manager_get_inbox_mock = mocker.patch.object(
@@ -722,9 +767,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a message is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client):
-        message = Message("this is a message")
-
+    def test_no_message_in_inbox_blocking_mode(self, client, message):
         c2d_inbox = client._inbox_manager.get_c2d_message_inbox()
         assert c2d_inbox.empty()
 
@@ -931,8 +974,7 @@ class TestIoTHubNModuleClientSendEvent(IoTHubModuleClientTestsConfig, SharedClie
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_to_output()")
 class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'send_output_event' pipeline operation")
-    def test_calls_pipeline_send_to_output(self, client, pipeline):
-        message = Message("this is a message")
+    def test_calls_pipeline_send_to_output(self, client, pipeline, message):
         output_name = "some_output"
         client.send_to_output(message, output_name)
         assert pipeline.send_output_event.call_count == 1
@@ -942,11 +984,12 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
     @pytest.mark.it(
         "Waits for the completion of the 'send_output_event' pipeline operation before returning"
     )
-    def test_waits_for_pipeline_op_completion(self, mocker, client_manual_cb, pipeline_manual_cb):
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, pipeline_manual_cb, message
+    ):
         self.add_event_completion_checks(
             mocker=mocker, pipeline_function=pipeline_manual_cb.send_output_event
         )
-        message = Message("this is a message")
         output_name = "some_output"
         client_manual_cb.send_to_output(message, output_name)
 
@@ -1000,8 +1043,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the input inbox, if available")
-    def test_returns_message_from_input_inbox(self, mocker, client):
-        message = Message("this is a message")
+    def test_returns_message_from_input_inbox(self, mocker, client, message):
         inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
         inbox_mock.get.return_value = message
         manager_get_inbox_mock = mocker.patch.object(
@@ -1048,9 +1090,8 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert inbox_mock.get.call_args == mocker.call(block=True, timeout=None)
 
     @pytest.mark.it("Blocks until a message is available, in blocking mode")
-    def test_no_message_in_inbox_blocking_mode(self, client):
+    def test_no_message_in_inbox_blocking_mode(self, client, message):
         input_name = "some_input"
-        message = Message("this is a message")
 
         input_inbox = client._inbox_manager.get_input_message_inbox(input_name)
         assert input_inbox.empty()

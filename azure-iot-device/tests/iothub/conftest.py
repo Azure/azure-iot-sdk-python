@@ -9,6 +9,11 @@ import pytest
 
 # These fixtures are shared between sync and async clients
 from .client_fixtures import (
+    message,
+    method_response,
+    method_request,
+    twin_patch_desired,
+    twin_patch_reported,
     pipeline,
     pipeline_manual_cb,
     device_connection_string,
