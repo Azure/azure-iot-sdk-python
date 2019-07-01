@@ -16,6 +16,7 @@ from .client_fixtures import (
     device_sas_token_string,
     module_sas_token_string,
     edge_container_env_vars,
+    x509,
 )
 
 collect_ignore = []

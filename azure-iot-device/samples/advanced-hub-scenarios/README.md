@@ -33,3 +33,14 @@ In order to use these samples, you **must** set your Device Connection String in
         ```bash
         az iot hub monitor-events --hub-name <your IoT Hub name> --output table
         ```
+### DPS Samples     
+In order to use these samples, you **must** have the following environment variables :-
+
+* PROVISIONING_HOST
+* PROVISIONING_IDSCOPE
+* PROVISIONING_REGISTRATION_ID
+
+There are 2 ways that your device can get registered to the provisioning service differing in authentication mechanisms and another additional environment variable is needed to for the samples:-
+
+* [register_symmetric_key.py](register_symmetric_key.py) - Register to provisioning service using a symmetric key. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [register_x509.py](register_x509.py) - Register to provisioning service using a symmetric key. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.

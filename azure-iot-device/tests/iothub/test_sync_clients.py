@@ -121,6 +121,29 @@ class SharedClientFromCreateFromSharedAccessSignature(object):
         assert client._pipeline == mock_pipeline_init.return_value
 
 
+class SharedClientFromCreateFromX509Certificate(object):
+    @pytest.mark.it("Instantiates the client, given a valid X509 certificate object")
+    def test_instantiates_client(self, client_class, x509):
+        client = client_class.create_from_x509_certificate(
+            hostname="durmstranginstitute.farend", device_id="MySnitch", x509=x509
+        )
+        assert isinstance(client, client_class)
+
+    @pytest.mark.it("Uses a X509AuthenticationProvider to create the client's IoTHub pipeline")
+    def test_auth_provider_and_pipeline(self, mocker, client_class):
+        mock_auth = mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
+        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.abstract_clients.IoTHubPipeline")
+
+        client = client_class.create_from_x509_certificate(
+            hostname="durmstranginstitute.farend", device_id="MySnitch", x509=mocker.MagicMock()
+        )
+
+        assert mock_auth.call_count == 1
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth.return_value)
+        assert client._pipeline == mock_pipeline_init.return_value
+
+
 class WaitsForEventCompletion(object):
     def add_event_completion_checks(self, mocker, pipeline_function, args=[], kwargs={}):
         event_init_mock = mocker.patch.object(threading, "Event")
@@ -606,6 +629,13 @@ class TestIoTHubDeviceClientCreateFromConnectionString(
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .create_from_shared_access_signature()")
 class TestIoTHubDeviceClientCreateFromSharedAccessSignature(
     IoTHubDeviceClientTestsConfig, SharedClientFromCreateFromSharedAccessSignature
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .create_from_x509_certificate()")
+class TestIoTHubDeviceClientCreateFromX509Certificate(
+    IoTHubDeviceClientTestsConfig, SharedClientFromCreateFromX509Certificate
 ):
     pass
 

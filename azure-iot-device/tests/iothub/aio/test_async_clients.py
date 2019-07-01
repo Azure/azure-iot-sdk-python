@@ -16,9 +16,9 @@ from azure.iot.device.iothub.models import Message, MethodRequest, MethodRespons
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.auth import IoTEdgeError
+from azure.iot.device.common.models.x509 import X509
 
 # auth_provider and pipeline fixtures are implicitly included
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -129,6 +129,29 @@ class SharedClientFromCreateFromSharedAccessSignature(object):
         assert mock_auth_parse.call_count == 1
         assert mock_pipeline_init.call_count == 1
         assert mock_pipeline_init.call_args == mocker.call(mock_auth_parse.return_value)
+        assert client._pipeline == mock_pipeline_init.return_value
+
+
+class SharedClientFromCreateFromX509Certificate(object):
+    @pytest.mark.it("Instantiates the client, given a valid X509 certificate object")
+    async def test_instantiates_client(self, client_class, x509):
+        client = client_class.create_from_x509_certificate(
+            hostname="durmstranginstitute.farend", device_id="MySnitch", x509=x509
+        )
+        assert isinstance(client, client_class)
+
+    @pytest.mark.it("Uses a X509AuthenticationProvider to create the client's IoTHub pipeline")
+    async def test_auth_provider_and_pipeline(self, mocker, client_class):
+        mock_auth = mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
+        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.abstract_clients.IoTHubPipeline")
+
+        client = client_class.create_from_x509_certificate(
+            hostname="durmstranginstitute.farend", device_id="MySnitch", x509=mocker.MagicMock()
+        )
+
+        assert mock_auth.call_count == 1
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth.return_value)
         assert client._pipeline == mock_pipeline_init.return_value
 
 
@@ -525,6 +548,13 @@ class TestIoTHubDeviceClientCreateFromConnectionString(
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_shared_access_signature()")
 class TestIoTHubDeviceClientCreateFromSharedAccessSignature(
     IoTHubDeviceClientTestsConfig, SharedClientFromCreateFromSharedAccessSignature
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_x509_certificate()")
+class TestIoTHubDeviceClientCreateFromX509Certificate(
+    IoTHubDeviceClientTestsConfig, SharedClientFromCreateFromX509Certificate
 ):
     pass
 

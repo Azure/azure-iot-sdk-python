@@ -6,6 +6,7 @@
 
 import pytest
 from azure.iot.device.iothub.pipeline import constant
+from azure.iot.device.common.models.x509 import X509
 
 """---Constants---"""
 
@@ -17,6 +18,9 @@ module_id = "Divination"
 gateway_hostname = "EnchantedCeiling"
 signature = "IsolemnlySwearThatIamuUptoNogood"  # does this need to be something else?
 expiry = "1539043658"
+fake_x509_cert_value = "fantastic_beasts"
+fake_x509_cert_key = "where_to_find_them"
+fake_pass_phrase = "alohomora"
 
 
 """----Shared connection string fixtures """
@@ -88,6 +92,11 @@ def device_sas_token_string():
 def module_sas_token_string():
     uri = hostname + "/devices/" + device_id + "/modules/" + module_id
     return sas_token_format.format(uri=uri, signature=signature, expiry=expiry)
+
+
+@pytest.fixture()
+def x509():
+    return X509(fake_x509_cert_value, fake_x509_cert_key, fake_pass_phrase)
 
 
 """----Shared Edge Container configuration---"""

@@ -13,7 +13,7 @@ from . import constant
 logger = logging.getLogger(__name__)
 
 
-class UseSkAuthProviderStage(PipelineStage):
+class UseAuthProviderStage(PipelineStage):
     """
     PipelineStage which handles operations on a Shared Key Authentication Provider.
 
@@ -28,12 +28,11 @@ class UseSkAuthProviderStage(PipelineStage):
     """
 
     def _run_op(self, op):
+        def pipeline_ops_done(completed_op):
+            op.error = completed_op.error
+            op.callback(op)
+
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
-
-            def pipeline_ops_done(completed_op):
-                op.error = completed_op.error
-                op.callback(op)
-
             auth_provider = op.auth_provider
             operation_flow.run_ops_in_serial(
                 self,
@@ -46,6 +45,22 @@ class UseSkAuthProviderStage(PipelineStage):
                 ),
                 pipeline_ops_base.SetSasTokenOperation(
                     sas_token=auth_provider.get_current_sas_token()
+                ),
+                callback=pipeline_ops_done,
+            )
+        elif isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
+            auth_provider = op.auth_provider
+            operation_flow.run_ops_in_serial(
+                self,
+                pipeline_ops_iothub.SetAuthProviderArgsOperation(
+                    device_id=auth_provider.device_id,
+                    module_id=getattr(auth_provider, "module_id", None),
+                    hostname=auth_provider.hostname,
+                    gateway_hostname=getattr(auth_provider, "gateway_hostname", None),
+                    ca_cert=getattr(auth_provider, "ca_cert", None),
+                ),
+                pipeline_ops_base.SetClientAuthenticationCertificateOperation(
+                    certificate=auth_provider.get_x509_certificate()
                 ),
                 callback=pipeline_ops_done,
             )

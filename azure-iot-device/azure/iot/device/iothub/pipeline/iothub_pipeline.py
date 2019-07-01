@@ -17,6 +17,7 @@ from . import (
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
 )
+from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class IoTHubPipeline(object):
 
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage()
-            .append_stage(pipeline_stages_iothub.UseSkAuthProviderStage())
+            .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
             .append_stage(pipeline_stages_base.EnsureConnectionStage())
@@ -98,11 +99,16 @@ class IoTHubPipeline(object):
             if call.error:
                 raise call.error
 
-        self._pipeline.run_op(
-            pipeline_ops_iothub.SetAuthProviderOperation(
+        if isinstance(auth_provider, X509AuthenticationProvider):
+            op = pipeline_ops_iothub.SetX509AuthProviderOperation(
                 auth_provider=auth_provider, callback=remove_this_code
             )
-        )
+        else:  # Currently everything else goes via this block.
+            op = pipeline_ops_iothub.SetAuthProviderOperation(
+                auth_provider=auth_provider, callback=remove_this_code
+            )
+
+        self._pipeline.run_op(op)
 
     def connect(self, callback=None):
         """

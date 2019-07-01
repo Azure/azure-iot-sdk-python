@@ -16,6 +16,12 @@ pipeline_data_object_test.add_operation_test(
     keyword_arguments={"callback": None},
 )
 pipeline_data_object_test.add_operation_test(
+    cls=pipeline_ops_iothub.SetX509AuthProviderOperation,
+    module=this_module,
+    positional_arguments=["auth_provider"],
+    keyword_arguments={"callback": None},
+)
+pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_iothub.SetAuthProviderArgsOperation,
     module=this_module,
     positional_arguments=["device_id", "hostname"],

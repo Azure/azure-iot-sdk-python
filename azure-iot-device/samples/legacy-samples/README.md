@@ -26,3 +26,16 @@ In order to use these samples, they **must** be run from inside an Edge containe
 
 * [receive_input_message.py](receive_input_message.py) - Receive messages sent to an Edge module on a specific module input.
 * [send_to_output.py](send_to_output.py) - Send multiple messages in parallel from an Edge module to a specific output
+
+## DPS Samples
+
+In order to use these samples, you **must** have the following environment variables :-
+
+* PROVISIONING_HOST
+* PROVISIONING_IDSCOPE
+* PROVISIONING_REGISTRATION_ID
+
+There are 2 ways that your device can get registered to the provisioning service differing in authentication mechanisms and another additional environment variable is needed to for the samples:-
+
+* [register_symmetric_key.py](register_symmetric_key.py) - Register to provisioning service using a symmetric key. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [register_x509.py](register_x509.py) - Register to provisioning service using a symmetric key. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
