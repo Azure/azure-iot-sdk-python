@@ -1,0 +1,53 @@
+name: ReleaseBuild_$(BuildID)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+- master
+
+steps:
+
+- task: DownloadBuildArtifacts@0
+  inputs:
+    buildType: 'specific'
+    project: 'f9b79625-2860-4d92-a4ee-57b03fabfd10'
+    pipeline: '311'
+    buildVersionToDownload: 'latest'
+    downloadType: 'single'
+    downloadPath: '$(System.ArtifactsDirectory)/scripts'
+    artifactName: 'python'
+
+- checkout: self  # self represents the repo where the initial Pipelines YAML file was found
+  persistCredentials: 'true'  # set to 'true' to leave the OAuth token in the Git config after the initial fetch
+  clean: 'resources'
+  
+- task: UsePythonVersion@0
+  displayName: 'Use Python 3.x'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      . $(System.ArtifactsDirectory)/scripts/python/azure-iot-sdk-bump-version.ps1
+      Update-PythonVersions
+  env:
+    sources: $(Build.SourcesDirectory)
+    githubemail: aziotclb@microsoft.com
+    githubname: 'Azure IoT Client Build'
+    tagname: $(tagname)
+    
+- task: CmdLine@2
+  inputs:
+    script: |
+      pip install wheel
+      cd %sources%\azure-iot-device
+      python setup.py sdist
+      python setup.py bdist_wheel
+  env:
+    sources: $(Build.SourcesDirectory)
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifacts'
+  inputs:
+      PathtoPublish: '$(Build.SourcesDirectory)/azure-iot-device/dist'
+      ArtifactName: 'dist'
+      publishLocation: 'Container'
+
