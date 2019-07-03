@@ -1,7 +1,6 @@
 name: ReleaseBuild_$(BuildID)_$(Date:yyyyMMdd)$(Rev:.r)
 
-trigger:
-- master
+trigger: none
 
 steps:
 
