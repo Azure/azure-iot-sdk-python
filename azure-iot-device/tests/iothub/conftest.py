@@ -20,7 +20,8 @@ from .client_fixtures import (
     module_connection_string,
     device_sas_token_string,
     module_sas_token_string,
-    edge_container_env_vars,
+    edge_container_environment,
+    edge_local_debug_environment,
     x509,
 )
 

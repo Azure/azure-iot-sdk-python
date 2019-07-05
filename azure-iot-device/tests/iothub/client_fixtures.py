@@ -135,12 +135,9 @@ def x509():
 
 """----Shared Edge Container configuration---"""
 
-fake_ca_cert = "__FAKE_CA_CERTIFICATE__"
-fake_digest = "__FAKE_DIGEST__"
-
 
 @pytest.fixture()
-def edge_container_env_vars():
+def edge_container_environment():
     return {
         "IOTEDGE_MODULEID": "__FAKE_MODULE_ID__",
         "IOTEDGE_DEVICEID": "__FAKE_DEVICE_ID__",
@@ -150,6 +147,18 @@ def edge_container_env_vars():
         "IOTEDGE_MODULEGENERATIONID": "__FAKE_MODULE_GENERATION_ID__",
         "IOTEDGE_WORKLOADURI": "http://__FAKE_WORKLOAD_URI__/",
     }
+
+
+@pytest.fixture()
+def edge_local_debug_environment():
+    cs = module_connection_string_gateway_format.format(
+        hostname=hostname,
+        device_id=device_id,
+        module_id=module_id,
+        shared_access_key=shared_access_key,
+        gateway_hostname=gateway_hostname,
+    )
+    return {"EdgeHubConnectionString": cs, "EdgeModuleCACertificateFile": "__FAKE_CA_CERTIFICATE__"}
 
 
 """----Shared mock pipeline fixture----"""

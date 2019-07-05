@@ -10,6 +10,7 @@ import six
 import abc
 import logging
 import os
+import io
 from . import auth
 from .pipeline import IoTHubPipeline
 
@@ -130,10 +131,13 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         """
         Instantiate the client from the IoT Edge environment.
 
-        This method can only be run from inside an IoT Edge container.
+        This method can only be run from inside an IoT Edge container, or in a debugging
+        environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
 
         :raises: IoTEdgeError if the IoT Edge container is not configured correctly.
+        :raises: ValueError if debug variables are invalid
         """
+        # First try the regular Edge container variables
         try:
             hostname = os.environ["IOTEDGE_IOTHUBHOSTNAME"]
             device_id = os.environ["IOTEDGE_DEVICEID"]
@@ -143,17 +147,46 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             workload_uri = os.environ["IOTEDGE_WORKLOADURI"]
             api_version = os.environ["IOTEDGE_APIVERSION"]
         except KeyError:
-            raise auth.IoTEdgeError("IoT Edge container not configured correctly")
+            # As a fallback, try the Edge local dev variables for debugging.
+            # These variables are set by VS/VS Code in order to allow debugging
+            # of Edge application code in a non-Edge dev environment.
+            try:
+                connection_string = os.environ["EdgeHubConnectionString"]
+                ca_cert_filepath = os.environ["EdgeModuleCACertificateFile"]
+            except KeyError:
+                # TODO: consider using a different error here. (OSError?)
+                raise auth.IoTEdgeError("IoT Edge environment not configured correctly")
 
-        authentication_provider = auth.IoTEdgeAuthenticationProvider(
-            hostname=hostname,
-            device_id=device_id,
-            module_id=module_id,
-            gateway_hostname=gateway_hostname,
-            module_generation_id=module_generation_id,
-            workload_uri=workload_uri,
-            api_version=api_version,
-        )
+            # Read the certificate file to pass it on as a string
+            try:
+                with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
+                    ca_cert = ca_cert_file.read()
+            except (OSError, IOError):
+                # In Python 2, a non-existent file raises IOError, and an invalid file raises an IOError.
+                # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
+                # However, FileNotFoundError inherits from OSError, and IOError has been turned into an alias for OSError,
+                # thus we can catch the errors for both versions in this block.
+                # Unfortunately, we can't distinguish cause of error from error type, so the raised ValueError has a generic
+                # message. If, in the future, we want to add detail, this could be accomplished by inspecting the e.errno
+                # attribute
+                raise ValueError("Invalid CA certificate file")
+            # Use Symmetric Key authentication for local dev experience.
+            authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(
+                connection_string
+            )
+            authentication_provider.ca_cert = ca_cert
+        else:
+            # Use an HSM for authentication in the general case
+            authentication_provider = auth.IoTEdgeAuthenticationProvider(
+                hostname=hostname,
+                device_id=device_id,
+                module_id=module_id,
+                gateway_hostname=gateway_hostname,
+                module_generation_id=module_generation_id,
+                workload_uri=workload_uri,
+                api_version=api_version,
+            )
+
         pipeline = IoTHubPipeline(authentication_provider)
         return cls(pipeline)
 
