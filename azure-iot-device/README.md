@@ -83,24 +83,17 @@ pip install azure-iot-device
 3. Copy the following code that sends a single message to the IoT Hub into a new python file on your device, and run it from the terminal or IDE (**requires Python 3.7+**):
 
     ```python
-    import os
     import asyncio
+    import os
     from azure.iot.device.aio import IoTHubDeviceClient
-    from azure.iot.device import auth
 
 
     async def main():
         # Fetch the connection string from an enviornment variable
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
-        # Create an authentication provider using the connection string
-        auth_provider = auth.from_connection_string(conn_str)
-
-        # Create instance of the device client using the authentication provider
-        device_client = IoTHubDeviceClient.from_authentication_provider(auth_provider, "mqtt")
-
-        # Connect the device client.
-        await device_client.connect()
+        # Create instance of the device client using the connection string
+        device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
         # Send a single message
         print("Sending message...")
