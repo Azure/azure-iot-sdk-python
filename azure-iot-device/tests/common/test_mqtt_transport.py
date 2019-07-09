@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.mqtt_client_operator import MQTTClientOperator, OperationManager
+from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
 from azure.iot.device.common.models.x509 import X509
 import paho.mqtt.client as mqtt
 import ssl
@@ -42,20 +42,18 @@ def mock_mqtt_client(mocker):
 
 
 @pytest.fixture
-def client_operator(mock_mqtt_client):
+def transport(mock_mqtt_client):
     # Implicitly imports the mocked Paho MQTT Client from mock_mqtt_client
-    return MQTTClientOperator(
-        client_id=fake_device_id, hostname=fake_hostname, username=fake_username
-    )
+    return MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
 
 
-@pytest.mark.describe("MQTTClientOperator - Instantiation")
+@pytest.mark.describe("MQTTTransport - Instantiation")
 class TestInstantiation(object):
     @pytest.mark.it("Creates an instance of the Paho MQTT Client")
     def test_instantiates_mqtt_client(self, mocker):
         mock_mqtt_client_constructor = mocker.patch.object(mqtt, "Client")
 
-        MQTTClientOperator(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
+        MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
 
         assert mock_mqtt_client_constructor.call_count == 1
         assert mock_mqtt_client_constructor.call_args == mocker.call(
@@ -66,7 +64,7 @@ class TestInstantiation(object):
     def test_sets_paho_callbacks(self, mocker):
         mock_mqtt_client = mocker.patch.object(mqtt, "Client").return_value
 
-        MQTTClientOperator(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
+        MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
 
         assert callable(mock_mqtt_client.on_connect)
         assert callable(mock_mqtt_client.on_disconnect)
@@ -79,31 +77,31 @@ class TestInstantiation(object):
     def test_handler_callbacks_set_to_none(self, mocker):
         mocker.patch.object(mqtt, "Client")
 
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
 
-        assert client_operator.on_mqtt_connected is None
-        assert client_operator.on_mqtt_disconnected is None
-        assert client_operator.on_mqtt_message_received is None
+        assert transport.on_mqtt_connected is None
+        assert transport.on_mqtt_disconnected is None
+        assert transport.on_mqtt_message_received is None
 
     @pytest.mark.it("Initializes internal operation tracking structures")
     def test_operation_infrastructure_set_up(self, mocker):
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
-        assert client_operator._op_manager._pending_operation_callbacks == {}
-        assert client_operator._op_manager._unknown_operation_completions == {}
+        assert transport._op_manager._pending_operation_callbacks == {}
+        assert transport._op_manager._unknown_operation_completions == {}
 
 
-@pytest.mark.describe("MQTTClientOperator - .connect()")
+@pytest.mark.describe("MQTTTransport - .connect()")
 class TestConnect(object):
     @pytest.mark.it("Configures TLS/SSL context")
-    def test_configures_tls_context(self, mocker, mock_mqtt_client, client_operator):
+    def test_configures_tls_context(self, mocker, mock_mqtt_client, transport):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
 
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
 
         # Verify correctness of TLS/SSL Context
         assert mock_ssl_context_constructor.call_count == 1
@@ -120,16 +118,14 @@ class TestConnect(object):
     @pytest.mark.it(
         "Configures TLS/SSL context using default certificates if protocol wrapper not instantiated with a CA certificate"
     )
-    def test_configures_tls_context_with_default_certs(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_configures_tls_context_with_default_certs(self, mocker, mock_mqtt_client, transport):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
 
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
 
         assert mock_ssl_context.load_default_certs.call_count == 1
         assert mock_ssl_context.load_default_certs.call_args == mocker.call()
@@ -137,34 +133,34 @@ class TestConnect(object):
     @pytest.mark.it(
         "Configures TLS/SSL context with provided CA certificates if protocol wrapper instantiated with a CA certificate"
     )
-    def test_configures_tls_context_with_ca_certs(self, mocker, mock_mqtt_client, client_operator):
+    def test_configures_tls_context_with_ca_certs(self, mocker, mock_mqtt_client, transport):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
         ca_cert = "dummy_certificate"
 
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id,
             hostname=fake_hostname,
             username=fake_username,
             ca_cert=ca_cert,
         )
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
 
         assert mock_ssl_context.load_verify_locations.call_count == 1
         assert mock_ssl_context.load_verify_locations.call_args == mocker.call(cadata=ca_cert)
 
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
         fake_client_cert = X509("fantastic_beasts", "where_to_find_them", "alohomora")
 
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
-        client_operator.connect(password=None, client_certificate=fake_client_cert)
+        transport.connect(password=None, client_certificate=fake_client_cert)
 
         assert mock_ssl_context.load_default_certs.call_count == 1
         assert mock_ssl_context.load_cert_chain.call_count == 1
@@ -175,8 +171,8 @@ class TestConnect(object):
         )
 
     @pytest.mark.it("Sets username and password")
-    def test_sets_username_and_password(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.connect(fake_password)
+    def test_sets_username_and_password(self, mocker, mock_mqtt_client, transport):
+        transport.connect(fake_password)
 
         assert mock_mqtt_client.username_pw_set.call_count == 1
         assert mock_mqtt_client.username_pw_set.call_args == mocker.call(
@@ -184,41 +180,41 @@ class TestConnect(object):
         )
 
     @pytest.mark.it("Connects via Paho")
-    def test_calls_paho_connect(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.connect(fake_password)
+    def test_calls_paho_connect(self, mocker, mock_mqtt_client, transport):
+        transport.connect(fake_password)
 
         assert mock_mqtt_client.connect.call_count == 1
         assert mock_mqtt_client.connect.call_args == mocker.call(host=fake_hostname, port=8883)
 
     @pytest.mark.it("Starts MQTT Network Loop")
-    def test_calls_loop_start(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.connect(fake_password)
+    def test_calls_loop_start(self, mocker, mock_mqtt_client, transport):
+        transport.connect(fake_password)
 
         assert mock_mqtt_client.loop_start.call_count == 1
         assert mock_mqtt_client.loop_start.call_args == mocker.call()
 
     @pytest.mark.it("Triggers on_mqtt_connected event handler callback upon connect completion")
-    def test_calls_event_handler_callback(self, mocker, mock_mqtt_client, client_operator):
+    def test_calls_event_handler_callback(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock()
-        client_operator.on_mqtt_connected = callback
+        transport.on_mqtt_connected = callback
 
         # Initiate connect
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
 
         # Manually trigger Paho on_connect event_handler
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
-        # Verify client_operator.on_mqtt_connected was called
+        # Verify transport.on_mqtt_connected was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call()
 
     @pytest.mark.it(
         "Skips on_mqtt_connected event handler callback if set to 'None' upon connect completion"
     )
-    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, client_operator):
-        assert client_operator.on_mqtt_connected is None
+    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
+        assert transport.on_mqtt_connected is None
 
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
 
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
@@ -226,13 +222,11 @@ class TestConnect(object):
         # Not raising an exception == test passed
 
     @pytest.mark.it("Recovers from Exception in on_mqtt_connected event handler callback")
-    def test_event_handler_callback_raises_exception(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_event_handler_callback_raises_exception(self, mocker, mock_mqtt_client, transport):
         event_cb = mocker.MagicMock(side_effect=DummyException)
-        client_operator.on_mqtt_connected = event_cb
+        transport.on_mqtt_connected = event_cb
 
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
         # Callback was called, but exception did not propagate
@@ -242,23 +236,23 @@ class TestConnect(object):
         "Allows any BaseExceptions raised in on_mqtt_connected event handler callback to propagate"
     )
     def test_event_handler_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         event_cb = mocker.MagicMock(side_effect=UnhandledException)
-        client_operator.on_mqtt_connected = event_cb
+        transport.on_mqtt_connected = event_cb
 
-        client_operator.connect(fake_password)
+        transport.connect(fake_password)
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_connect(
                 client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc
             )
 
 
-@pytest.mark.describe("MQTTClientOperator - .reconnect() / EVENT: Reconnect")
+@pytest.mark.describe("MQTTTransport - .reconnect() / EVENT: Reconnect")
 class TestReconnect(object):
     @pytest.mark.it("Sets username and password")
-    def test_sets_username_and_password(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.reconnect(fake_password)
+    def test_sets_username_and_password(self, mocker, mock_mqtt_client, transport):
+        transport.reconnect(fake_password)
 
         assert mock_mqtt_client.username_pw_set.call_count == 1
         assert mock_mqtt_client.username_pw_set.call_args == mocker.call(
@@ -266,8 +260,8 @@ class TestReconnect(object):
         )
 
     @pytest.mark.it("Reconnects with Paho")
-    def test_calls_paho_reconnect(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.reconnect(fake_password)
+    def test_calls_paho_reconnect(self, mocker, mock_mqtt_client, transport):
+        transport.reconnect(fake_password)
 
         assert mock_mqtt_client.reconnect.call_count == 1
         assert mock_mqtt_client.reconnect.call_args == mocker.call()
@@ -275,19 +269,17 @@ class TestReconnect(object):
     @pytest.mark.it(
         "Triggers on_mqtt_connected event handler callback upon completion of user-driven reconnect"
     )
-    def test_calls_event_handler_callback_user_driven(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_calls_event_handler_callback_user_driven(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock()
-        client_operator.on_mqtt_connected = callback
+        transport.on_mqtt_connected = callback
 
         # Initiate reconnect
-        client_operator.reconnect(fake_password)
+        transport.reconnect(fake_password)
 
         # Manually trigger Paho on_connect event_handler
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
-        # Verify client_operator.on_mqtt_connected was called
+        # Verify transport.on_mqtt_connected was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call()
 
@@ -295,25 +287,25 @@ class TestReconnect(object):
         "Triggers on_mqtt_connected event handler callback upon completion of externally-driven reconnect"
     )
     def test_calls_event_handler_callback_externally_driven(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock()
-        client_operator.on_mqtt_connected = callback
+        transport.on_mqtt_connected = callback
 
         # Manually trigger Paho on_connect event_handler
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
-        # Verify client_operator.on_mqtt_connected was called
+        # Verify transport.on_mqtt_connected was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call()
 
     @pytest.mark.it(
         "Skips on_mqtt_connected event handler callback if set to 'None' upon reconnect completion"
     )
-    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, client_operator):
-        assert client_operator.on_mqtt_connected is None
+    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
+        assert transport.on_mqtt_connected is None
 
-        client_operator.reconnect(fake_password)
+        transport.reconnect(fake_password)
 
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
@@ -321,13 +313,11 @@ class TestReconnect(object):
         # Not raising an exception == test passed
 
     @pytest.mark.it("Recovers from Exception in on_mqtt_connected event handler callback")
-    def test_event_handler_callback_raises_exception(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_event_handler_callback_raises_exception(self, mocker, mock_mqtt_client, transport):
         event_cb = mocker.MagicMock(side_effect=DummyException)
-        client_operator.on_mqtt_connected = event_cb
+        transport.on_mqtt_connected = event_cb
 
-        client_operator.reconnect(fake_password)
+        transport.reconnect(fake_password)
         mock_mqtt_client.on_connect(client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc)
 
         # Callback was called, but exception did not propagate
@@ -337,30 +327,30 @@ class TestReconnect(object):
         "Allows any BaseExceptions raised in on_mqtt_connected event handler callback to propagate"
     )
     def test_event_handler_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         event_cb = mocker.MagicMock(side_effect=UnhandledException)
-        client_operator.on_mqtt_connected = event_cb
+        transport.on_mqtt_connected = event_cb
 
-        client_operator.reconnect(fake_password)
+        transport.reconnect(fake_password)
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_connect(
                 client=mock_mqtt_client, userdata=None, flags=None, rc=fake_rc
             )
 
 
-@pytest.mark.describe("MQTTClientOperator - .disconnect() / EVENT: Disconnect")
+@pytest.mark.describe("MQTTTransport - .disconnect() / EVENT: Disconnect")
 class TestDisconnect(object):
     @pytest.mark.it("Disconnects with Paho")
-    def test_calls_paho_disconnect(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.disconnect()
+    def test_calls_paho_disconnect(self, mocker, mock_mqtt_client, transport):
+        transport.disconnect()
 
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.disconnect.call_args == mocker.call()
 
     @pytest.mark.it("Stops MQTT Network Loop")
-    def test_calls_loop_stop(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.disconnect()
+    def test_calls_loop_stop(self, mocker, mock_mqtt_client, transport):
+        transport.disconnect()
 
         assert mock_mqtt_client.loop_stop.call_count == 1
         assert mock_mqtt_client.loop_stop.call_args == mocker.call()
@@ -368,19 +358,17 @@ class TestDisconnect(object):
     @pytest.mark.it(
         "Triggers on_mqtt_disconnected event handler callback upon completion of user-driven disconnect "
     )
-    def test_calls_event_handler_callback_user_driven(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_calls_event_handler_callback_user_driven(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock()
-        client_operator.on_mqtt_disconnected = callback
+        transport.on_mqtt_disconnected = callback
 
         # Initiate disconnect
-        client_operator.disconnect()
+        transport.disconnect()
 
         # Manually trigger Paho on_disconnect event_handler
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
-        # Verify client_operator.on_mqtt_disconnected was called
+        # Verify transport.on_mqtt_disconnected was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call()
 
@@ -388,28 +376,28 @@ class TestDisconnect(object):
         "Triggers on_mqtt_disconnected event handler callback upon completion of externally-driven disconnect"
     )
     def test_calls_event_handler_callback_externally_driven(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock()
-        client_operator.on_mqtt_disconnected = callback
+        transport.on_mqtt_disconnected = callback
 
         # Initiate disconnect
-        client_operator.disconnect()
+        transport.disconnect()
 
         # Manually trigger Paho on_connect event_handler
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
-        # Verify client_operator.on_mqtt_connected was called
+        # Verify transport.on_mqtt_connected was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call()
 
     @pytest.mark.it(
         "Skips on_mqtt_disconnected event handler callback if set to 'None' upon disconnect completion"
     )
-    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, client_operator):
-        assert client_operator.on_mqtt_disconnected is None
+    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport):
+        assert transport.on_mqtt_disconnected is None
 
-        client_operator.disconnect()
+        transport.disconnect()
 
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
@@ -417,13 +405,11 @@ class TestDisconnect(object):
         # Not raising an exception == test passed
 
     @pytest.mark.it("Recovers from Exception in on_mqtt_disconnected event handler callback")
-    def test_event_handler_callback_raises_exception(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_event_handler_callback_raises_exception(self, mocker, mock_mqtt_client, transport):
         event_cb = mocker.MagicMock(side_effect=DummyException)
-        client_operator.on_mqtt_disconnected = event_cb
+        transport.on_mqtt_disconnected = event_cb
 
-        client_operator.disconnect()
+        transport.disconnect()
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
         # Callback was called, but exception did not propagate
@@ -433,25 +419,25 @@ class TestDisconnect(object):
         "Allows any BaseExceptions raised in on_mqtt_disconnected event handler callback to propagate"
     )
     def test_event_handler_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         event_cb = mocker.MagicMock(side_effect=UnhandledException)
-        client_operator.on_mqtt_disconnected = event_cb
+        transport.on_mqtt_disconnected = event_cb
 
-        client_operator.disconnect()
+        transport.disconnect()
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
 
 
-@pytest.mark.describe("MQTTClientOperator - .subscribe()")
+@pytest.mark.describe("MQTTTransport - .subscribe()")
 class TestSubscribe(object):
     @pytest.mark.it("Subscribes with Paho")
     @pytest.mark.parametrize(
         "qos",
         [pytest.param(0, id="QoS 0"), pytest.param(1, id="QoS 1"), pytest.param(2, id="QoS 2")],
     )
-    def test_calls_paho_subscribe(self, mocker, mock_mqtt_client, client_operator, qos):
-        client_operator.subscribe(fake_topic, qos=qos)
+    def test_calls_paho_subscribe(self, mocker, mock_mqtt_client, transport, qos):
+        transport.subscribe(fake_topic, qos=qos)
 
         assert mock_mqtt_client.subscribe.call_count == 1
         assert mock_mqtt_client.subscribe.call_args == mocker.call(fake_topic, qos=qos)
@@ -460,31 +446,31 @@ class TestSubscribe(object):
     @pytest.mark.parametrize("qos", [pytest.param(-1, id="QoS < 0"), pytest.param(3, id="QoS > 2")])
     def test_raises_value_error_invalid_qos(self, qos):
         # Manually instantiate protocol wrapper, do NOT mock paho client (paho generates this error)
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
         with pytest.raises(ValueError):
-            client_operator.subscribe(fake_topic, qos=qos)
+            transport.subscribe(fake_topic, qos=qos)
 
     @pytest.mark.it("Raises ValueError on invalid topic string")
     @pytest.mark.parametrize("topic", [pytest.param(None), pytest.param("", id="Empty string")])
     def test_raises_value_error_invalid_topic(self, topic):
         # Manually instantiate protocol wrapper, do NOT mock paho client (paho generates this error)
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
         with pytest.raises(ValueError):
-            client_operator.subscribe(topic, qos=fake_qos)
+            transport.subscribe(topic, qos=fake_qos)
 
     @pytest.mark.it("Triggers callback upon subscribe completion")
     def test_triggers_callback_upon_paho_on_subscribe_event(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock()
         mock_mqtt_client.subscribe.return_value = (fake_rc, fake_mid)
 
         # Initiate subscribe
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
         # Check callback is not called yet
         assert callback.call_count == 0
@@ -501,7 +487,7 @@ class TestSubscribe(object):
         "Triggers callback upon subscribe completion when Paho event handler triggered early"
     )
     def test_triggers_callback_when_paho_on_subscribe_event_called_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock()
 
@@ -520,20 +506,18 @@ class TestSubscribe(object):
         mock_mqtt_client.subscribe.side_effect = trigger_early_on_subscribe
 
         # Initiate subscribe
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
         # Check callback has now been called
         assert callback.call_count == 1
 
     @pytest.mark.it("Skips callback that is set to 'None' upon subscribe completion")
-    def test_none_callback_upon_paho_on_subscribe_event(
-        self, mocker, mock_mqtt_client, client_operator
-    ):
+    def test_none_callback_upon_paho_on_subscribe_event(self, mocker, mock_mqtt_client, transport):
         callback = None
         mock_mqtt_client.subscribe.return_value = (fake_rc, fake_mid)
 
         # Initiate subscribe
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
         # Manually trigger Paho on_subscribe event handler
         mock_mqtt_client.on_subscribe(
@@ -546,7 +530,7 @@ class TestSubscribe(object):
         "Skips callback that is set to 'None' upon subscribe completion when Paho event handler triggered early"
     )
     def test_none_callback_when_paho_on_subscribe_event_called_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = None
 
@@ -562,14 +546,14 @@ class TestSubscribe(object):
         mock_mqtt_client.subscribe.side_effect = trigger_early_on_subscribe
 
         # Initiate subscribe
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
         # No assertions necessary - not raising an exception => success
 
     @pytest.mark.it(
         "Handles multiple callbacks from multiple subscribe operations that complete out of order"
     )
-    def test_multiple_callbacks(self, mocker, mock_mqtt_client, client_operator):
+    def test_multiple_callbacks(self, mocker, mock_mqtt_client, transport):
         callback1 = mocker.MagicMock()
         callback2 = mocker.MagicMock()
         callback3 = mocker.MagicMock()
@@ -581,9 +565,9 @@ class TestSubscribe(object):
         mock_mqtt_client.subscribe.side_effect = [(fake_rc, mid1), (fake_rc, mid2), (fake_rc, mid3)]
 
         # Initiate subscribe (1 -> 2 -> 3)
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback1)
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback2)
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback3)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback1)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback2)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback3)
 
         # Check callbacks have not yet been called
         assert callback1.call_count == 0
@@ -613,11 +597,11 @@ class TestSubscribe(object):
         assert callback3.call_count == 1
 
     @pytest.mark.it("Recovers from Exception in callback")
-    def test_callback_raises_exception(self, mocker, mock_mqtt_client, client_operator):
+    def test_callback_raises_exception(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock(side_effect=DummyException)
         mock_mqtt_client.subscribe.return_value = (fake_rc, fake_mid)
 
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
         mock_mqtt_client.on_subscribe(
             client=mock_mqtt_client, userdata=None, mid=fake_mid, granted_qos=fake_qos
         )
@@ -626,11 +610,11 @@ class TestSubscribe(object):
         assert callback.call_count == 1
 
     @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
-    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, client_operator):
+    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock(side_effect=UnhandledException)
         mock_mqtt_client.subscribe.return_value = (fake_rc, fake_mid)
 
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_subscribe(
                 client=mock_mqtt_client, userdata=None, mid=fake_mid, granted_qos=fake_qos
@@ -638,7 +622,7 @@ class TestSubscribe(object):
 
     @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
     def test_callback_rasies_exception_when_paho_on_subscribe_triggered_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock(side_effect=DummyException)
 
@@ -655,7 +639,7 @@ class TestSubscribe(object):
         mock_mqtt_client.subscribe.side_effect = trigger_early_on_subscribe
 
         # Initiate subscribe
-        client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
@@ -664,7 +648,7 @@ class TestSubscribe(object):
         "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
     )
     def test_callback_raises_base_exception_when_paho_on_subscribe_triggered_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock(side_effect=UnhandledException)
 
@@ -682,14 +666,14 @@ class TestSubscribe(object):
 
         # Initiate subscribe
         with pytest.raises(UnhandledException):
-            client_operator.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
+            transport.subscribe(topic=fake_topic, qos=fake_qos, callback=callback)
 
 
-@pytest.mark.describe("MQTTClientOperator - .unsubscribe()")
+@pytest.mark.describe("MQTTTransport - .unsubscribe()")
 class TestUnsubscribe(object):
     @pytest.mark.it("Unsubscribes with Paho")
-    def test_calls_paho_unsubscribe(self, mocker, mock_mqtt_client, client_operator):
-        client_operator.unsubscribe(fake_topic)
+    def test_calls_paho_unsubscribe(self, mocker, mock_mqtt_client, transport):
+        transport.unsubscribe(fake_topic)
 
         assert mock_mqtt_client.unsubscribe.call_count == 1
         assert mock_mqtt_client.unsubscribe.call_args == mocker.call(fake_topic)
@@ -698,21 +682,21 @@ class TestUnsubscribe(object):
     @pytest.mark.parametrize("topic", [pytest.param(None), pytest.param("", id="Empty string")])
     def test_raises_value_error_invalid_topic(self, topic):
         # Manually instantiate protocol wrapper, do NOT mock paho client (paho generates this error)
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
         with pytest.raises(ValueError):
-            client_operator.unsubscribe(topic)
+            transport.unsubscribe(topic)
 
     @pytest.mark.it("Triggers callback upon unsubscribe completion")
     def test_triggers_callback_upon_paho_on_unsubscribe_event(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock()
         mock_mqtt_client.unsubscribe.return_value = (fake_rc, fake_mid)
 
         # Initiate unsubscribe
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
 
         # Check callback not called
         assert callback.call_count == 0
@@ -727,7 +711,7 @@ class TestUnsubscribe(object):
         "Triggers callback upon unsubscribe completion when Paho event handler triggered early"
     )
     def test_triggers_callback_when_paho_on_unsubscribe_event_called_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock()
 
@@ -744,20 +728,20 @@ class TestUnsubscribe(object):
         mock_mqtt_client.unsubscribe.side_effect = trigger_early_on_unsubscribe
 
         # Initiate unsubscribe
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
 
         # Check callback has now been called
         assert callback.call_count == 1
 
     @pytest.mark.it("Skips callback that is set to 'None' upon unsubscribe completion")
     def test_none_callback_upon_paho_on_unsubscribe_event(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = None
         mock_mqtt_client.unsubscribe.return_value = (fake_rc, fake_mid)
 
         # Initiate unsubscribe
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
 
         # Manually trigger Paho on_unsubscribe event handler
         mock_mqtt_client.on_unsubscribe(client=mock_mqtt_client, userdata=None, mid=fake_mid)
@@ -768,7 +752,7 @@ class TestUnsubscribe(object):
         "Skips callback that is set to 'None' upon unsubscribe completion when Paho event handler triggered early"
     )
     def test_none_callback_when_paho_on_unsubscribe_event_called_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = None
 
@@ -782,14 +766,14 @@ class TestUnsubscribe(object):
         mock_mqtt_client.unsubscribe.side_effect = trigger_early_on_unsubscribe
 
         # Initiate unsubscribe
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
 
         # No assertions necessary - not raising an exception => success
 
     @pytest.mark.it(
         "Handles multiple callbacks from multiple unsubscribe operations that complete out of order"
     )
-    def test_multiple_callbacks(self, mocker, mock_mqtt_client, client_operator):
+    def test_multiple_callbacks(self, mocker, mock_mqtt_client, transport):
         callback1 = mocker.MagicMock()
         callback2 = mocker.MagicMock()
         callback3 = mocker.MagicMock()
@@ -805,9 +789,9 @@ class TestUnsubscribe(object):
         ]
 
         # Initiate unsubscribe (1 -> 2 -> 3)
-        client_operator.unsubscribe(topic=fake_topic, callback=callback1)
-        client_operator.unsubscribe(topic=fake_topic, callback=callback2)
-        client_operator.unsubscribe(topic=fake_topic, callback=callback3)
+        transport.unsubscribe(topic=fake_topic, callback=callback1)
+        transport.unsubscribe(topic=fake_topic, callback=callback2)
+        transport.unsubscribe(topic=fake_topic, callback=callback3)
 
         # Check callbacks have not yet been called
         assert callback1.call_count == 0
@@ -831,28 +815,28 @@ class TestUnsubscribe(object):
         assert callback3.call_count == 1
 
     @pytest.mark.it("Recovers from Exception in callback")
-    def test_callback_raises_exception(self, mocker, mock_mqtt_client, client_operator):
+    def test_callback_raises_exception(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock(side_effect=DummyException)
         mock_mqtt_client.unsubscribe.return_value = (fake_rc, fake_mid)
 
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
         mock_mqtt_client.on_unsubscribe(client=mock_mqtt_client, userdata=None, mid=fake_mid)
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
 
     @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
-    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, client_operator):
+    def test_callback_raises_base_exception(self, mocker, mock_mqtt_client, transport):
         callback = mocker.MagicMock(side_effect=UnhandledException)
         mock_mqtt_client.unsubscribe.return_value = (fake_rc, fake_mid)
 
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_unsubscribe(client=mock_mqtt_client, userdata=None, mid=fake_mid)
 
     @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
     def test_callback_rasies_exception_when_paho_on_unsubscribe_triggered_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock(side_effect=DummyException)
 
@@ -867,7 +851,7 @@ class TestUnsubscribe(object):
         mock_mqtt_client.unsubscribe.side_effect = trigger_early_on_unsubscribe
 
         # Initiate unsubscribe
-        client_operator.unsubscribe(topic=fake_topic, callback=callback)
+        transport.unsubscribe(topic=fake_topic, callback=callback)
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
@@ -876,7 +860,7 @@ class TestUnsubscribe(object):
         "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
     )
     def test_callback_rasies_base_exception_when_paho_on_unsubscribe_triggered_early(
-        self, mocker, mock_mqtt_client, client_operator
+        self, mocker, mock_mqtt_client, transport
     ):
         callback = mocker.MagicMock(side_effect=UnhandledException)
 
@@ -892,10 +876,10 @@ class TestUnsubscribe(object):
 
         # Initiate unsubscribe
         with pytest.raises(UnhandledException):
-            client_operator.unsubscribe(topic=fake_topic, callback=callback)
+            transport.unsubscribe(topic=fake_topic, callback=callback)
 
 
-@pytest.mark.describe("MQTTClientOperator - .publish()")
+@pytest.mark.describe("MQTTTransport - .publish()")
 class TestPublish(object):
     @pytest.fixture
     def message_info(self, mocker):
@@ -908,8 +892,8 @@ class TestPublish(object):
         "qos",
         [pytest.param(0, id="QoS 0"), pytest.param(1, id="QoS 1"), pytest.param(2, id="QoS 2")],
     )
-    def test_calls_paho_publish(self, mocker, mock_mqtt_client, client_operator, qos):
-        client_operator.publish(topic=fake_topic, payload=fake_payload, qos=qos)
+    def test_calls_paho_publish(self, mocker, mock_mqtt_client, transport, qos):
+        transport.publish(topic=fake_topic, payload=fake_payload, qos=qos)
 
         assert mock_mqtt_client.publish.call_count == 1
         assert mock_mqtt_client.publish.call_args == mocker.call(
@@ -920,11 +904,11 @@ class TestPublish(object):
     @pytest.mark.parametrize("qos", [pytest.param(-1, id="QoS < 0"), pytest.param(3, id="Qos > 2")])
     def test_raises_value_error_invalid_qos(self, qos):
         # Manually instantiate protocol wrapper, do NOT mock paho client (paho generates this error)
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
         with pytest.raises(ValueError):
-            client_operator.publish(topic=fake_topic, payload=fake_payload, qos=qos)
+            transport.publish(topic=fake_topic, payload=fake_payload, qos=qos)
 
     @pytest.mark.it("Raises ValueError on invalid topic string")
     @pytest.mark.parametrize(
@@ -937,31 +921,31 @@ class TestPublish(object):
     )
     def test_raises_value_error_invalid_topic(self, topic):
         # Manually instantiate protocol wrapper, do NOT mock paho client (paho generates this error)
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
         with pytest.raises(ValueError):
-            client_operator.publish(topic=topic, payload=fake_payload, qos=fake_qos)
+            transport.publish(topic=topic, payload=fake_payload, qos=fake_qos)
 
     @pytest.mark.it("Raises ValueError on invalid payload")
     @pytest.mark.parametrize("payload", [str(b"0" * 268435456)], ids=["Payload > 268435455 bytes"])
     def test_raises_value_error_invalid_payload(self, payload):
         # Manually instantiate protocol wrapper, do NOT mock paho client (paho generates this error)
-        client_operator = MQTTClientOperator(
+        transport = MQTTTransport(
             client_id=fake_device_id, hostname=fake_hostname, username=fake_username
         )
         with pytest.raises(ValueError):
-            client_operator.publish(topic=fake_topic, payload=payload, qos=fake_qos)
+            transport.publish(topic=fake_topic, payload=payload, qos=fake_qos)
 
     @pytest.mark.it("Triggers callback upon publish completion")
     def test_triggers_callback_upon_paho_on_publish_event(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         callback = mocker.MagicMock()
         mock_mqtt_client.publish.return_value = message_info
 
         # Initiate publish
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
         # Check callback is not called
         assert callback.call_count == 0
@@ -976,7 +960,7 @@ class TestPublish(object):
         "Triggers callback upon publish completion when Paho event handler triggered early"
     )
     def test_triggers_callback_when_paho_on_publish_event_called_early(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         callback = mocker.MagicMock()
 
@@ -995,20 +979,20 @@ class TestPublish(object):
         mock_mqtt_client.publish.side_effect = trigger_early_on_publish
 
         # Initiate publish
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
         # Check callback has now been called
         assert callback.call_count == 1
 
     @pytest.mark.it("Skips callback that is set to 'None' upon publish completion")
     def test_none_callback_upon_paho_on_publish_event(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         mock_mqtt_client.publish.return_value = message_info
         callback = None
 
         # Initiate publish
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
         # Manually trigger Paho on_publish event handler
         mock_mqtt_client.on_publish(client=mock_mqtt_client, userdata=None, mid=message_info.mid)
@@ -1019,7 +1003,7 @@ class TestPublish(object):
         "Skips callback that is set to 'None' upon publish completion when Paho event handler triggered early"
     )
     def test_none_callback_when_paho_on_publish_event_called_early(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         callback = None
 
@@ -1035,14 +1019,14 @@ class TestPublish(object):
         mock_mqtt_client.publish.side_effect = trigger_early_on_publish
 
         # Initiate publish
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
         # No assertions necessary - not raising an exception => success
 
     @pytest.mark.it(
         "Handles multiple callbacks from multiple publish operations that complete out of order"
     )
-    def test_multiple_callbacks(self, mocker, mock_mqtt_client, client_operator):
+    def test_multiple_callbacks(self, mocker, mock_mqtt_client, transport):
         callback1 = mocker.MagicMock()
         callback2 = mocker.MagicMock()
         callback3 = mocker.MagicMock()
@@ -1058,9 +1042,9 @@ class TestPublish(object):
         ]
 
         # Initiate publish (1 -> 2 -> 3)
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback1)
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback2)
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback3)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback1)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback2)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback3)
 
         # Check callbacks have not yet been called
         assert callback1.call_count == 0
@@ -1084,13 +1068,11 @@ class TestPublish(object):
         assert callback3.call_count == 1
 
     @pytest.mark.it("Recovers from Exception in callback")
-    def test_callback_raises_exception(
-        self, mocker, mock_mqtt_client, client_operator, message_info
-    ):
+    def test_callback_raises_exception(self, mocker, mock_mqtt_client, transport, message_info):
         callback = mocker.MagicMock(side_effect=DummyException)
         mock_mqtt_client.publish.return_value = message_info
 
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
         mock_mqtt_client.on_publish(client=mock_mqtt_client, userdata=None, mid=message_info.mid)
 
         # Callback was called, but exception did not propagate
@@ -1098,12 +1080,12 @@ class TestPublish(object):
 
     @pytest.mark.it("Allows any BaseExceptions raised in callback to propagate")
     def test_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         callback = mocker.MagicMock(side_effect=UnhandledException)
         mock_mqtt_client.publish.return_value = message_info
 
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_publish(
                 client=mock_mqtt_client, userdata=None, mid=message_info.mid
@@ -1111,7 +1093,7 @@ class TestPublish(object):
 
     @pytest.mark.it("Recovers from Exception in callback when Paho event handler triggered early")
     def test_callback_rasies_exception_when_paho_on_publish_triggered_early(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         callback = mocker.MagicMock(side_effect=DummyException)
 
@@ -1128,7 +1110,7 @@ class TestPublish(object):
         mock_mqtt_client.publish.side_effect = trigger_early_on_publish
 
         # Initiate publish
-        client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
         # Callback was called, but exception did not propagate
         assert callback.call_count == 1
@@ -1137,7 +1119,7 @@ class TestPublish(object):
         "Allows any BaseExceptions raised in callback when Paho event handler triggered early to propagate"
     )
     def test_callback_rasies_base_exception_when_paho_on_publish_triggered_early(
-        self, mocker, mock_mqtt_client, client_operator, message_info
+        self, mocker, mock_mqtt_client, transport, message_info
     ):
         callback = mocker.MagicMock(side_effect=UnhandledException)
 
@@ -1155,10 +1137,10 @@ class TestPublish(object):
 
         # Initiate publish
         with pytest.raises(UnhandledException):
-            client_operator.publish(topic=fake_topic, payload=fake_payload, callback=callback)
+            transport.publish(topic=fake_topic, payload=fake_payload, callback=callback)
 
 
-@pytest.mark.describe("MQTTClientOperator - EVENT: Message Received")
+@pytest.mark.describe("MQTTTransport - EVENT: Message Received")
 class TestMessageReceived(object):
     @pytest.fixture()
     def message(self):
@@ -1170,24 +1152,22 @@ class TestMessageReceived(object):
     @pytest.mark.it(
         "Triggers on_mqtt_message_received event handler callback upon receiving message"
     )
-    def test_calls_event_handler_callback(self, mocker, mock_mqtt_client, client_operator, message):
+    def test_calls_event_handler_callback(self, mocker, mock_mqtt_client, transport, message):
         callback = mocker.MagicMock()
-        client_operator.on_mqtt_message_received = callback
+        transport.on_mqtt_message_received = callback
 
         # Manually trigger Paho on_message event_handler
         mock_mqtt_client.on_message(client=mock_mqtt_client, userdata=None, mqtt_message=message)
 
-        # Verify client_operator.on_mqtt_message_received was called
+        # Verify transport.on_mqtt_message_received was called
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(message.topic, message.payload)
 
     @pytest.mark.it(
         "Skips on_mqtt_message_received event handler callback if set to 'None' upon receiving message"
     )
-    def test_skips_none_event_handler_callback(
-        self, mocker, mock_mqtt_client, client_operator, message
-    ):
-        assert client_operator.on_mqtt_message_received is None
+    def test_skips_none_event_handler_callback(self, mocker, mock_mqtt_client, transport, message):
+        assert transport.on_mqtt_message_received is None
 
         # Manually trigger Paho on_message event_handler
         mock_mqtt_client.on_message(client=mock_mqtt_client, userdata=None, mqtt_message=message)
@@ -1197,10 +1177,10 @@ class TestMessageReceived(object):
 
     @pytest.mark.it("Recovers from Exception in on_mqtt_message_received event handler callback")
     def test_event_handler_callback_raises_exception(
-        self, mocker, mock_mqtt_client, client_operator, message
+        self, mocker, mock_mqtt_client, transport, message
     ):
         event_cb = mocker.MagicMock(side_effect=DummyException)
-        client_operator.on_mqtt_message_received = event_cb
+        transport.on_mqtt_message_received = event_cb
 
         mock_mqtt_client.on_message(client=mock_mqtt_client, userdata=None, mqtt_message=message)
 
@@ -1211,10 +1191,10 @@ class TestMessageReceived(object):
         "Allows any BaseExceptions raised in on_mqtt_message_received event handler callback to propagate"
     )
     def test_event_handler_callback_raises_base_exception(
-        self, mocker, mock_mqtt_client, client_operator, message
+        self, mocker, mock_mqtt_client, transport, message
     ):
         event_cb = mocker.MagicMock(side_effect=UnhandledException)
-        client_operator.on_mqtt_message_received = event_cb
+        transport.on_mqtt_message_received = event_cb
 
         with pytest.raises(UnhandledException):
             mock_mqtt_client.on_message(
@@ -1222,12 +1202,12 @@ class TestMessageReceived(object):
             )
 
 
-@pytest.mark.describe("MQTTClientOperator - Misc.")
+@pytest.mark.describe("MQTTTransport - Misc.")
 class TestMisc(object):
     @pytest.mark.it(
         "Handles multiple callbacks from multiple different types of operations that complete out of order"
     )
-    def test_multiple_callbacks_multiple_ops(self, mocker, mock_mqtt_client, client_operator):
+    def test_multiple_callbacks_multiple_ops(self, mocker, mock_mqtt_client, transport):
         callback1 = mocker.MagicMock()
         callback2 = mocker.MagicMock()
         callback3 = mocker.MagicMock()
@@ -1245,9 +1225,9 @@ class TestMisc(object):
         mock_mqtt_client.unsubscribe.return_value = (fake_rc, mid3)
 
         # Initiate operations (1 -> 2 -> 3)
-        client_operator.subscribe(topic=topic1, qos=fake_qos, callback=callback1)
-        client_operator.publish(topic=topic2, payload="payload", qos=fake_qos, callback=callback2)
-        client_operator.unsubscribe(topic=topic3, callback=callback3)
+        transport.subscribe(topic=topic1, qos=fake_qos, callback=callback1)
+        transport.publish(topic=topic2, payload="payload", qos=fake_qos, callback=callback2)
+        transport.unsubscribe(topic=topic3, callback=callback3)
 
         # Check callbacks have not yet been called
         assert callback1.call_count == 0

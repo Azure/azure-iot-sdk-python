@@ -13,7 +13,7 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
-class MQTTClientOperator(object):
+class MQTTTransport(object):
     """
     A wrapper class that provides an implementation-agnostic MQTT message broker interface.
 
