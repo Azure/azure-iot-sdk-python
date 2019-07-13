@@ -17,15 +17,22 @@ class X509AuthenticationProvider(AuthenticationProvider):
     for device identities connecting directly to an Azure IoT hub.
     """
 
-    def __init__(self, hostname, device_id, x509):
+    def __init__(self, x509, hostname, device_id, module_id=None):
         """
         Constructor for X509 Authentication Provider
+        :param x509: The X509 object containing certificate, key and passphrase
         :param hostname: The hostname of the Azure IoT hub.
         :param device_id: The device unique identifier as it exists in the Azure IoT Hub device registry.
-        :param x509: The X509 object containing certificate, key and passphrase
+        :param module_id: The module unique identifier of the device. It is not applicable when dealing with only devices.
         """
-        logger.info("Using X509 authentication for {%s, %s}", hostname, device_id)
-        super(X509AuthenticationProvider, self).__init__(hostname=hostname, device_id=device_id)
+        logger.info(
+            "Using X509 authentication for {hostname},{device_id},{module_id}".format(
+                hostname=hostname, device_id=device_id, module_id=module_id
+            )
+        )
+        super(X509AuthenticationProvider, self).__init__(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
         self._x509 = x509
 
     def get_x509_certificate(self):

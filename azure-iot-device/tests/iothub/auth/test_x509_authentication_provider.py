@@ -13,6 +13,7 @@ device_id = "MyPensieve"
 fake_x509_cert_value = "fantastic_beasts"
 fake_x509_cert_key = "where_to_find_them"
 fake_pass_phrase = "alohomora"
+module_id = "Transfiguration"
 
 
 def x509():
@@ -21,26 +22,42 @@ def x509():
 
 @pytest.mark.describe("X509AuthenticationProvider")
 class TestX509AuthenticationProvider(object):
-    @pytest.mark.it("Instantiates correctly with hostname")
+    @pytest.mark.it("Instantiates with hostname")
     def test_instantiates_correctly_with_hostname(self):
         x509_cert_object = x509()
         x509_auth_provider = X509AuthenticationProvider(
-            hostname=hostname, device_id=device_id, x509=x509_cert_object
+            x509=x509_cert_object, hostname=hostname, device_id=device_id
         )
         assert x509_auth_provider.hostname == hostname
 
-    @pytest.mark.it("Instantiates correctly with device_id")
+    @pytest.mark.it("Instantiates with device_id")
     def test_instantiates_correctly_with_device_id(self):
         x509_cert_object = x509()
         x509_auth_provider = X509AuthenticationProvider(
-            hostname=hostname, device_id=device_id, x509=x509_cert_object
+            x509=x509_cert_object, hostname=hostname, device_id=device_id
         )
         assert x509_auth_provider.device_id == device_id
 
-    @pytest.mark.it("Getter correctly retrieves the x509 certificate object")
+    @pytest.mark.it("Instantiates with module_id")
+    def test_instantiates_correctly_with_module_id(self):
+        x509_cert_object = x509()
+        x509_auth_provider = X509AuthenticationProvider(
+            x509=x509_cert_object, hostname=hostname, device_id=device_id, module_id=module_id
+        )
+        assert x509_auth_provider.module_id == module_id
+
+    @pytest.mark.it("Instantiates with module_id defaulting to None")
+    def test_instantiates_correctly_with_device_id_and_optional_module_id(self):
+        x509_cert_object = x509()
+        x509_auth_provider = X509AuthenticationProvider(
+            x509=x509_cert_object, hostname=hostname, device_id=device_id
+        )
+        assert x509_auth_provider.module_id is None
+
+    @pytest.mark.it("Getter retrieves the x509 certificate object")
     def test_get_certificate(self):
         x509_cert_object = x509()
         x509_auth_provider = X509AuthenticationProvider(
-            hostname=hostname, device_id=device_id, x509=x509_cert_object
+            x509=x509_cert_object, hostname=hostname, device_id=device_id
         )
         assert x509_auth_provider.get_x509_certificate()

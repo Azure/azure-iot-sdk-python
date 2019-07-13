@@ -12,8 +12,7 @@ def create_custom_config():
     # Best options is to have the location of openssl config file in an env variable
     # The openssl config file extension could be "cfg" or "cnf"
 
-    # config_path = os.getenv("OPENSSLCONFIG")
-    config_path = "C:/OpenSSL-Win64/bin/openssl.cfg"
+    config_path = os.getenv("OPENSSLCONFIG")
     with open(config_path, "r") as openssl_config:
         config = openssl_config.read()
     lines = config.splitlines()

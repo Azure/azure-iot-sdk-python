@@ -65,10 +65,17 @@ def make_mock_sas_token_auth_provider():
     return auth_provider
 
 
-def make_x509_auth_provider():
+def make_x509_auth_provider_device():
     mock_x509 = X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
     return X509AuthenticationProvider(
         hostname=fake_hostname, device_id=fake_device_id, x509=mock_x509
+    )
+
+
+def make_x509_auth_provider_module():
+    mock_x509 = X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
+    return X509AuthenticationProvider(
+        x509=mock_x509, hostname=fake_hostname, device_id=fake_device_id, module_id=fake_module_id
     )
 
 
@@ -80,9 +87,15 @@ different_auth_provider_ops = [
         "next_op_class": pipeline_ops_base.SetSasTokenOperation,
     },
     {
-        "name": "x509_auth",
+        "name": "x509_auth_device",
         "current_op_class": pipeline_ops_iothub.SetX509AuthProviderOperation,
-        "auth_provider_function_name": make_x509_auth_provider,
+        "auth_provider_function_name": make_x509_auth_provider_device,
+        "next_op_class": pipeline_ops_base.SetClientAuthenticationCertificateOperation,
+    },
+    {
+        "name": "x509_auth_module",
+        "current_op_class": pipeline_ops_iothub.SetX509AuthProviderOperation,
+        "auth_provider_function_name": make_x509_auth_provider_module,
         "next_op_class": pipeline_ops_base.SetClientAuthenticationCertificateOperation,
     },
 ]
@@ -113,9 +126,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
     @pytest.fixture
     def set_auth_provider_all_args(self, callback, params_auth_provider_ops):
         auth_provider = params_auth_provider_ops["auth_provider_function_name"]()
+        auth_provider.module_id = fake_module_id
 
         if not isinstance(auth_provider, X509AuthenticationProvider):
-            auth_provider.module_id = fake_module_id
             auth_provider.ca_cert = fake_ca_cert
             auth_provider.gateway_hostname = fake_gateway_hostname
         op = params_auth_provider_ops["current_op_class"](auth_provider=auth_provider)
@@ -143,13 +156,18 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
     @pytest.mark.it(
         "Sets the gateway_hostname, ca_cert, and module_id attributes to None if they don't exist on the auth_provider object"
     )
-    def test_defaults_optional_attributes_to_none(self, mocker, stage, set_auth_provider):
+    def test_defaults_optional_attributes_to_none(
+        self, mocker, stage, set_auth_provider, params_auth_provider_ops
+    ):
         stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider)
         set_args = stage.next._run_op.call_args[0][0]
         assert set_args.gateway_hostname is None
         assert set_args.ca_cert is None
-        assert set_args.module_id is None
+        if params_auth_provider_ops["name"] == "x509_auth_module":
+            assert set_args.module_id is not None
+        else:
+            assert set_args.module_id is None
 
     @pytest.mark.it(
         "Sets the module_id, gateway_hostname and ca_cert attributes on SetAuthProviderArgsOperation if they exist on the auth_provider object"
@@ -160,11 +178,11 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider_all_args)
         set_args = stage.next._run_op.call_args[0][0]
+        assert set_args.module_id == fake_module_id
 
         if params_auth_provider_ops["name"] == "sas_token_auth":
             assert set_args.gateway_hostname == fake_gateway_hostname
             assert set_args.ca_cert == fake_ca_cert
-            assert set_args.module_id == fake_module_id
 
     @pytest.mark.it(
         "Handles any Exceptions raised by SetAuthProviderArgsOperation and returns them through the op callback"
@@ -177,7 +195,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         assert_callback_failed(op=set_auth_provider, error=fake_exception)
 
     @pytest.mark.it(
-        "Allows any  BaseExceptions raised by SetAuthProviderArgsOperation to propogate"
+        "Allows any  BaseExceptions raised by SetAuthProviderArgsOperation to propagate"
     )
     def test_set_auth_provider_raises_base_exception(
         self, mocker, stage, fake_base_exception, set_auth_provider
@@ -235,10 +253,8 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
 
         if params_auth_provider_ops["name"] == "sas_token_auth":
             spy_method = mocker.spy(set_auth_provider.auth_provider, "get_current_sas_token")
-        elif params_auth_provider_ops["name"] == "x509_auth":
+        elif "x509_auth" in params_auth_provider_ops["name"]:
             spy_method = mocker.spy(set_auth_provider.auth_provider, "get_x509_certificate")
-
-        # spy_method = mocker.spy(set_auth_provider.auth_provider, "get_current_sas_token")
 
         stage.run_op(set_auth_provider)
         assert spy_method.call_count == 1
@@ -246,7 +262,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         if params_auth_provider_ops["name"] == "sas_token_auth":
             set_sas_token_op = stage.next._run_op.call_args_list[1][0][0]
             assert set_sas_token_op.sas_token == fake_sas_token
-        elif params_auth_provider_ops["name"] == "x509_auth":
+        elif "x509_auth" in params_auth_provider_ops["name"]:
             set_cert_op = stage.next._run_op.call_args_list[1][0][0]
             assert set_cert_op.certificate.certificate_file == fake_x509_cert_file
             assert set_cert_op.certificate.key_file == fake_x509_cert_key_file
@@ -271,7 +287,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
                 side_effect=fake_exception
             )
-        elif params_auth_provider_ops["name"] == "x509_auth":
+        elif "x509_auth" in params_auth_provider_ops["name"]:
             set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
                 side_effect=fake_exception
             )
@@ -289,7 +305,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
                 side_effect=fake_base_exception
             )
-        elif params_auth_provider_ops["name"] == "x509_auth":
+        elif "x509_auth" in params_auth_provider_ops["name"]:
             set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
                 side_effect=fake_base_exception
             )

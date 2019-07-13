@@ -103,18 +103,18 @@ class AbstractIoTHubClient(object):
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
-    def create_from_x509_certificate(cls, hostname, device_id, x509):
+    def create_from_x509_certificate(cls, x509, hostname, device_id):
         """
         Instantiate a client which using X509 certificate authentication.
         :param hostname: Host running the IotHub. Can be found in the Azure portal in the Overview tab as the string hostname.
-        :param device_id: The ID is used to uniquely identify a device in the IoTHub
         :param x509: The complete x509 certificate object, To use the certificate the enrollment object needs to contain cert (either the root certificate or one of the intermediate CA certificates).
         If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: X509
+        :param device_id: The ID is used to uniquely identify a device in the IoTHub
         :return: A IoTHubClient which can use X509 authentication.
         """
         authentication_provider = auth.X509AuthenticationProvider(
-            hostname=hostname, device_id=device_id, x509=x509
+            x509=x509, hostname=hostname, device_id=device_id
         )
         pipeline = IoTHubPipeline(authentication_provider)
         return cls(pipeline)
@@ -187,6 +187,24 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 api_version=api_version,
             )
 
+        pipeline = IoTHubPipeline(authentication_provider)
+        return cls(pipeline)
+
+    @classmethod
+    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id):
+        """
+        Instantiate a client which using X509 certificate authentication.
+        :param hostname: Host running the IotHub. Can be found in the Azure portal in the Overview tab as the string hostname.
+        :param x509: The complete x509 certificate object, To use the certificate the enrollment object needs to contain cert (either the root certificate or one of the intermediate CA certificates).
+        If the cert comes from a CER file, it needs to be base64 encoded.
+        :type x509: X509
+        :param device_id: The ID is used to uniquely identify a device in the IoTHub
+        :param module_id : The ID of the module to uniquely identify a module on a device on the IoTHub.
+        :return: A IoTHubClient which can use X509 authentication.
+        """
+        authentication_provider = auth.X509AuthenticationProvider(
+            x509=x509, hostname=hostname, device_id=device_id, module_id=module_id
+        )
         pipeline = IoTHubPipeline(authentication_provider)
         return cls(pipeline)
 
