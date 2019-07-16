@@ -55,7 +55,7 @@ class TestGetRunningLoop(object):
     @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
     async def test_raises_runtime_error_if_no_running_event_loop_py36orless_compat(self, mocker):
         mocker.patch.object(asyncio, "_get_running_loop", return_value=None)
-        with pytest.raises(RuntimeError, message="Expecting Runtime Error"):
+        with pytest.raises(RuntimeError):
             asyncio_compat.get_running_loop()
 
 

@@ -42,17 +42,31 @@ if __name__ == "__main__":
         if os.path.dirname(p) not in ns_packages
     ]
 
+    # Make sure pip is on the latest version
+    pip_command("install --upgrade pip")
+
     # Install nspkgs first (2.7 only)
     if sys.version_info < (3, 0, 0):
         for package_name in ns_packages:
-            pip_command("install -e {}".format(package_name))
+            # Use an eager upgrade strategy to make sure we have all the latest dependencies.
+            # This way we will be running into any dependency-related bugs before customers do.
+            pip_command("install -U --upgrade-strategy eager -e {}".format(package_name))
 
     # Install packages
     for package_name in packages:
-        pip_command("install -e {}".format(package_name))
+        # Use an eager upgrade strategy to make sure we have all the latest dependencies.
+        # This way we will be running into any dependency-related bugs before customers do.
+        pip_command("install -U --upgrade-strategy eager -e {}".format(package_name))
 
-    # Install other development environment dependencies
-    pip_command("install -r requirements.txt")
+    # Because we're just installing development environment libraries beyond this point, no need to
+    # be eager in upgrading, as these dependencies are not customer facing.
+
+    # Install testing environment dependencies
+    pip_command("install -U -r requirements_test.txt")
+
     if args.dev_mode:
+        # Install local development environment dependencies.
+        # These are not compatible on all platforms.
+        pip_command("install -U -r requirements_dev.txt")
         print("Installing pre-commit")
         check_call("pre-commit install")

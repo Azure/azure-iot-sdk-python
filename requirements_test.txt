@@ -1,0 +1,7 @@
+pytest
+pytest-mock
+pytest-asyncio; python_version >= '3.5'
+pytest-testdox>=1.1.1
+pytest-cov
+mock #remove this as soon as no references to it remain in the code
+flake8
