@@ -1,18 +1,16 @@
 name: ReleaseBuild_$(BuildID)_$(Date:yyyyMMdd)$(Rev:.r)
 
-trigger: none
-
 steps:
 
 - task: DownloadBuildArtifacts@0
   inputs:
     buildType: 'specific'
-    project: 'f9b79625-2860-4d92-a4ee-57b03fabfd10'
-    pipeline: '311'
+    project: 'f9b79625-2860-4d92-a4ee-57b03fabfd10'  # azure-iot-sdks
+    pipeline: '296'  # iot-sdks-internal-mirror pipeline
     buildVersionToDownload: 'latest'
     downloadType: 'single'
-    downloadPath: '$(System.ArtifactsDirectory)/scripts'
-    artifactName: 'python'
+    downloadPath: $(System.ArtifactsDirectory)\internal
+    artifactName: 'python' # script (azure-iot-sdk-bump-version.ps1) location
 
 - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
   persistCredentials: 'true'  # set to 'true' to leave the OAuth token in the Git config after the initial fetch
@@ -23,30 +21,34 @@ steps:
 
 - task: PowerShell@2
   inputs:
+    filePath: $(Build.SourcesDirectory)\vsts\build-release.ps1
+  env:
+    dist: $(System.ArtifactsDirectory)\dist
+    sources: $(Build.SourcesDirectory)
+    device_version_part: $(azure-iot-device-version-part)
+    nspkg_version_part: $(azure-iot-nspkg-version-part)
+  displayName: 'build release artifacts'
+
+- task: PowerShell@2
+  inputs:
     targetType: 'inline'
     script: |
-      . $(System.ArtifactsDirectory)/scripts/python/azure-iot-sdk-bump-version.ps1
-      Update-PythonVersions
+      . $(System.ArtifactsDirectory)\internal\python\azure-iot-sdk-bump-version.ps1
+      Publish-Branch $env:githubname $env:githubemail $env:tagname $env:sources
   env:
     sources: $(Build.SourcesDirectory)
     githubemail: aziotclb@microsoft.com
     githubname: 'Azure IoT Client Build'
     tagname: $(tagname)
-    
-- task: CmdLine@2
-  inputs:
-    script: |
-      pip install wheel
-      cd %sources%\azure-iot-device
-      python setup.py sdist
-      python setup.py bdist_wheel
-  env:
-    sources: $(Build.SourcesDirectory)
+  enabled: 'true'
+  displayName: 'create GitHub.com release branch'
 
 - task: PublishBuildArtifacts@1
-  displayName: 'Publish Artifacts'
+  displayName: 'publish release artifacts'
   inputs:
-      PathtoPublish: '$(Build.SourcesDirectory)/azure-iot-device/dist'
+      PathtoPublish: $(System.ArtifactsDirectory)\dist
       ArtifactName: 'dist'
       publishLocation: 'Container'
+  enabled: 'true'
+
 
