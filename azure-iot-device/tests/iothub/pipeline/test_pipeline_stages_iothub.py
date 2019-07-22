@@ -29,6 +29,16 @@ logging.basicConfig(level=logging.INFO)
 this_module = sys.modules[__name__]
 
 
+# This fixture makes it look like all test in this file  tests are running
+# inside the pipeline thread.  Because this is an autouse fixture, we
+# manually add it to the individual test.py files that need it.  If,
+# instead, we had added it to some conftest.py, it would be applied to
+# every tests in every file and we don't want that.
+@pytest.fixture(autouse=True)
+def apply_fake_pipeline_thread(fake_pipeline_thread):
+    pass
+
+
 fake_device_id = "__fake_device_id__"
 fake_module_id = "__fake_module_id__"
 fake_hostname = "__fake_hostname__"

@@ -56,6 +56,7 @@ class MQTTTransport(object):
         self._mqtt_client = mqtt.Client(
             client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
         )
+        self._mqtt_client.enable_logger(logging.getLogger("paho"))
 
         def on_connect(client, userdata, flags, rc):
             logger.info("connected with result code: {}".format(rc))

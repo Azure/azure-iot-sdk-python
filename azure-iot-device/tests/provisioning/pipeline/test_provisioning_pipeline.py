@@ -10,6 +10,7 @@ from azure.iot.device.common.models import X509
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
+from tests.common.pipeline import helpers
 
 send_msg_qos = 1
 
@@ -110,6 +111,10 @@ def mock_provisioning_pipeline(params_security_clients):
     provisioning_pipeline.on_connected = MagicMock()
     provisioning_pipeline.on_disconnected = MagicMock()
     provisioning_pipeline.on_message_received = MagicMock()
+    helpers.add_mock_method_waiter(provisioning_pipeline, "on_connected")
+    helpers.add_mock_method_waiter(provisioning_pipeline, "on_disconnected")
+    helpers.add_mock_method_waiter(provisioning_pipeline._pipeline.transport, "publish")
+
     yield provisioning_pipeline
     provisioning_pipeline.disconnect()
 
@@ -148,6 +153,7 @@ class TestConnect(object):
             assert_for_client_x509(mock_mqtt_transport.connect.call_args[1]["client_certificate"])
 
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
     @pytest.mark.it("After complete calls handler with new state")
     def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
@@ -157,6 +163,7 @@ class TestConnect(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
 
@@ -169,6 +176,7 @@ class TestConnect(object):
         mock_provisioning_pipeline.connect()
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         assert mock_mqtt_transport.connect.call_count == 1
 
@@ -187,6 +195,7 @@ class TestConnect(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         mock_mqtt_transport.reset_mock()
         mock_provisioning_pipeline.on_connected.reset_mock()
@@ -197,11 +206,13 @@ class TestConnect(object):
         mock_provisioning_pipeline.connect()
 
         mock_mqtt_transport.connect.assert_not_called()
+        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
         mock_provisioning_pipeline.on_connected.assert_not_called()
 
         mock_mqtt_transport.on_mqtt_published(0)
 
         mock_mqtt_transport.connect.assert_not_called()
+        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
         mock_provisioning_pipeline.on_connected.assert_not_called()
 
 
@@ -216,6 +227,7 @@ class TestSendRegister(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id, request_payload=fake_mqtt_payload
         )
@@ -233,6 +245,7 @@ class TestSendRegister(object):
             fake_request_id
         )
 
+        mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
@@ -259,11 +272,14 @@ class TestSendRegister(object):
             assert_for_client_x509(mock_mqtt_transport.connect.call_args[1]["client_certificate"])
 
         # verify that we're not connected yet and verify that we havent't published yet
+        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
         mock_provisioning_pipeline.on_connected.assert_not_called()
+        mock_mqtt_transport.wait_for_publish_to_not_be_called()
         mock_mqtt_transport.publish.assert_not_called()
 
         # finish the connection
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # verify that our connected callback was called and verify that we published the event
         mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
@@ -272,6 +288,7 @@ class TestSendRegister(object):
             fake_request_id
         )
 
+        mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
@@ -299,17 +316,21 @@ class TestSendRegister(object):
         )
 
         # verify that we're not connected yet and verify that we havent't published yet
+        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
         mock_provisioning_pipeline.on_connected.assert_not_called()
+        mock_mqtt_transport.wait_for_publish_to_not_be_called()
         mock_mqtt_transport.publish.assert_not_called()
 
         # finish the connection
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # verify that our connected callback was called and verify that we published the event
         mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id
         )
+        mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
@@ -326,6 +347,7 @@ class TestSendRegister(object):
         # connect
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # send an event
         callback_1 = MagicMock()
@@ -336,6 +358,7 @@ class TestSendRegister(object):
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id_1
         )
+        mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_msg_1
@@ -349,6 +372,7 @@ class TestSendRegister(object):
 
         # verify that we've called publish twice and verify that neither send_d2c_message
         # has completed (because we didn't do anything here to complete it).
+        mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 2
         callback_1.assert_not_called()
         callback_2.assert_not_called()
@@ -360,6 +384,7 @@ class TestSendRegister(object):
         # connect
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # send an event
         mock_provisioning_pipeline.send_request(
@@ -383,6 +408,7 @@ class TestSendQuery(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id,
             request_payload=fake_mqtt_payload,
@@ -402,6 +428,7 @@ class TestSendQuery(object):
             fake_request_id, fake_operation_id
         )
 
+        mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
@@ -416,6 +443,7 @@ class TestDisconnect(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.disconnect()
 
         mock_mqtt_transport.disconnect.assert_called_once_with()
@@ -434,10 +462,12 @@ class TestDisconnect(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         mock_provisioning_pipeline.disconnect()
         mock_mqtt_transport.on_mqtt_disconnected()
 
+        mock_provisioning_pipeline.wait_for_on_disconnected_to_be_called()
         mock_provisioning_pipeline.on_disconnected.assert_called_once_with("disconnected")
 
 
@@ -450,6 +480,7 @@ class TestEnable(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.enable_responses()
 
         assert mock_mqtt_transport.subscribe.call_count == 1
@@ -465,6 +496,7 @@ class TestDisable(object):
 
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected()
+        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.disable_responses(None)
 
         assert mock_mqtt_transport.unsubscribe.call_count == 1

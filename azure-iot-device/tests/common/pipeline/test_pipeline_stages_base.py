@@ -6,6 +6,7 @@
 import logging
 import pytest
 import sys
+import threading
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_ops_base,
@@ -26,6 +27,17 @@ logging.basicConfig(level=logging.INFO)
 
 this_module = sys.modules[__name__]
 
+
+# This fixture makes it look like all test in this file  tests are running
+# inside the pipeline thread.  Because this is an autouse fixture, we
+# manually add it to the individual test.py files that need it.  If,
+# instead, we had added it to some conftest.py, it would be applied to
+# every tests in every file and we don't want that.
+@pytest.fixture(autouse=True)
+def apply_fake_pipeline_thread(fake_pipeline_thread):
+    pass
+
+
 pipeline_stage_test.add_base_pipeline_stage_tests(
     cls=pipeline_stages_base.EnsureConnectionStage,
     module=this_module,
@@ -41,6 +53,68 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     all_events=all_common_events,
     handled_events=[],
 )
+
+
+# Workaround for flake8.  A class with this name is actually created inside
+# add_base_pipeline_stage_test, but flake8 doesn't know that
+class TestPipelineRootStagePipelineThreading:
+    pass
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    cls=pipeline_stages_base.PipelineRootStage,
+    module=this_module,
+    all_ops=all_common_ops,
+    handled_ops=[],
+    all_events=all_common_events,
+    handled_events=all_common_events,
+    methods_that_can_run_in_any_thread=["append_stage", "run_op"],
+)
+
+
+@pytest.mark.it("Calls operation callback in callback thread")
+def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
+    # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
+    # this test method gets added to, so it's a PipelineRootStage object
+    stage.pipeline_root = stage
+    callback_called = threading.Event()
+
+    def callback(op):
+        assert threading.current_thread().name == "callback"
+        callback_called.set()
+
+    op = pipeline_ops_base.ConnectOperation(callback=callback)
+    stage.run_op(op)
+    callback_called.wait()
+
+
+@pytest.mark.it("Runs operation in pipeline thread")
+def _test_pipeline_root_runs_operation_in_pipeline_thread(
+    self, mocker, stage, op, fake_non_pipeline_thread
+):
+    # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
+    # this test method gets added to, so it's a PipelineRootStage object
+    assert threading.current_thread().name != "pipeline"
+
+    def mock_run_op(self, op):
+        print("mock_run_op called")
+        assert threading.current_thread().name == "pipeline"
+        op.callback(op)
+
+    mock_run_op = mocker.MagicMock(mock_run_op)
+    stage._run_op = mock_run_op
+
+    stage.run_op(op)
+    assert mock_run_op.call_count == 1
+
+
+TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
+    _test_pipeline_root_runs_callback_in_callback_thread
+)
+TestPipelineRootStagePipelineThreading.test_runs_operation_in_pipeline_thread = (
+    _test_pipeline_root_runs_operation_in_pipeline_thread
+)
+
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
     cls=pipeline_stages_base.CoordinateRequestAndResponseStage,
@@ -171,27 +245,29 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
     @pytest.mark.it(
         "Calls the unhandled error handler if there is no previous stage when request_id matches"
     )
-    def test_matching_request_id_with_no_previous_stage(self, stage, op, iot_response):
+    def test_matching_request_id_with_no_previous_stage(
+        self, stage, op, iot_response, unhandled_error_handler
+    ):
         stage.next.previous = None
         operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_count == 1
 
     @pytest.mark.it(
         "Does nothing if an IotResponse with an identical request_id is received a second time"
     )
-    def test_ignores_duplicate_request_id(self, stage, op, iot_response):
+    def test_ignores_duplicate_request_id(self, stage, op, iot_response, unhandled_error_handler):
         operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
         assert_callback_succeeded(op=op)
         op.callback.reset_mock()
 
         operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
         assert op.callback.call_count == 0
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 0
+        assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it(
         "Does nothing if an IotResponse with a request_id is received for an operation that returned failure"
     )
-    def test_ignores_request_id_from_failure(self, stage, op, mocker):
+    def test_ignores_request_id_from_failure(self, stage, op, mocker, unhandled_error_handler):
         stage.next._run_op = mocker.MagicMock(side_effect=Exception)
         stage.run_op(op)
 
@@ -205,11 +281,11 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         op.callback.reset_mock()
         operation_flow.pass_event_to_previous_stage(stage.next, resp)
         assert op.callback.call_count == 0
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 0
+        assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it("Does nothing if an IotResponse with an unknown request_id is received")
-    def test_ignores_unknown_request_id(self, stage, op, iot_response):
+    def test_ignores_unknown_request_id(self, stage, op, iot_response, unhandled_error_handler):
         iot_response.request_id = fake_request_id
         operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
         assert op.callback.call_count == 0
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 0
+        assert unhandled_error_handler.call_count == 0

@@ -6,7 +6,12 @@
 
 import json
 import logging
-from azure.iot.device.common.pipeline import pipeline_ops_base, PipelineStage, operation_flow
+from azure.iot.device.common.pipeline import (
+    pipeline_ops_base,
+    PipelineStage,
+    operation_flow,
+    pipeline_thread,
+)
 from . import pipeline_ops_iothub
 from . import constant
 
@@ -27,6 +32,7 @@ class UseAuthProviderStage(PipelineStage):
     All other operations are passed down.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         def pipeline_ops_done(completed_op):
             op.error = completed_op.error
@@ -78,6 +84,7 @@ class HandleTwinOperationsStage(PipelineStage):
     protocol-specific receive event into an IotResponseEvent event.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         def map_twin_error(original_op, twin_op):
             if twin_op.error:

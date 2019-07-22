@@ -11,6 +11,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
     operation_flow,
+    pipeline_thread,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from azure.iot.device.provisioning.pipeline import constant, mqtt_topic
@@ -32,6 +33,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
         super(ProvisioningMQTTConverterStage, self).__init__()
         self.action_to_topic = {}
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
         if isinstance(
@@ -103,6 +105,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
             # All other operations get passed down
             operation_flow.pass_op_to_next_stage(self, op)
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         """
         Pipeline Event handler function to convert incoming MQTT messages into the appropriate DPS

@@ -33,6 +33,13 @@ logging.basicConfig(level=logging.INFO)
 
 this_module = sys.modules[__name__]
 
+
+# Make it look like we're always running inside pipeline threads
+@pytest.fixture(autouse=True)
+def apply_fake_pipeline_thread(fake_pipeline_thread):
+    pass
+
+
 fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
 fake_provisioning_host = "hogwarts.com"

@@ -6,6 +6,7 @@
 import inspect
 import pytest
 import functools
+from threading import Event
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -95,6 +96,13 @@ def make_mock_stage(mocker, stage_to_make):
 def assert_callback_succeeded(op, callback=None):
     if not callback:
         callback = op.callback
+    try:
+        # if the callback has a __wrapped__ attribute, that means that the
+        # pipeline added a wrapper around the callback, so we want to look
+        # at the original function instead of the wrapped function.
+        callback = callback.__wrapped__
+    except AttributeError:
+        pass
     assert callback.call_count == 1
     callback_arg = callback.call_args[0][0]
     assert callback_arg == op
@@ -104,6 +112,13 @@ def assert_callback_succeeded(op, callback=None):
 def assert_callback_failed(op, callback=None, error=None):
     if not callback:
         callback = op.callback
+    try:
+        # if the callback has a __wrapped__ attribute, that means that the
+        # pipeline added a wrapper around the callback, so we want to look
+        # at the original function instead of the wrapped function.
+        callback = callback.__wrapped__
+    except AttributeError:
+        pass
     assert callback.call_count == 1
     callback_arg = callback.call_args[0][0]
     assert callback_arg == op
@@ -124,11 +139,45 @@ class UnhandledException(BaseException):
 def get_arg_count(fn):
     """
     return the number of arguments (args) passed into a
-    particular function.  Returned value not include kwargs.
+    particular function.  Returned value does not include kwargs.
     """
-    return len(getargspec(fn).args)
+    try:
+        # if __wrapped__ is set, we're looking at a decorated function
+        # Functools.wraps doesn't copy arg metadata, so we need to
+        # get argument count from the wrapped function instead.
+        return len(getargspec(fn.__wrapped__).args)
+    except AttributeError:
+        return len(getargspec(fn).args)
 
 
 def make_mock_op_or_event(cls):
     args = [None for i in (range(get_arg_count(cls.__init__) - 1))]
     return cls(*args)
+
+
+def add_mock_method_waiter(obj, method_name):
+    """
+    For mock methods, add "wait_for_xxx_to_be_called" and "wait_for_xxx_to_not_be_called"
+    helper functions on the object.  This is very handy for methods that get called by
+    another thread, when you want your test functions to wait until the other thread is
+    able to call the method without using a sleep call.
+    """
+    method_called = Event()
+
+    def signal_method_called(*args, **kwargs):
+        method_called.set()
+
+    def wait_for_method_to_be_called():
+        method_called.wait(0.1)
+        assert method_called.isSet()
+        method_called.clear()
+
+    def wait_for_method_to_not_be_called():
+        method_called.wait(0.1)
+        assert not method_called.isSet()
+
+    getattr(obj, method_name).side_effect = signal_method_called
+    setattr(obj, "wait_for_{}_to_be_called".format(method_name), wait_for_method_to_be_called)
+    setattr(
+        obj, "wait_for_{}_to_not_be_called".format(method_name), wait_for_method_to_not_be_called
+    )

@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline import pipeline_ops_base, operation_flow
+from azure.iot.device.common.pipeline import pipeline_ops_base, operation_flow, pipeline_thread
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from . import pipeline_ops_provisioning
 
@@ -28,6 +28,7 @@ class UseSecurityClientStage(PipelineStage):
     All other operations are passed down.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         def pipeline_ops_done(completed_op):
             op.error = completed_op.error

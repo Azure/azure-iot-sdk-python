@@ -25,6 +25,17 @@ from tests.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.INFO)
 
+
+# This fixture makes it look like all test in this file  tests are running
+# inside the pipeline thread.  Because this is an autouse fixture, we
+# manually add it to the individual test.py files that need it.  If,
+# instead, we had added it to some conftest.py, it would be applied to
+# every tests in every file and we don't want that.
+@pytest.fixture(autouse=True)
+def apply_fake_pipeline_thread(fake_pipeline_thread):
+    pass
+
+
 this_module = sys.modules[__name__]
 
 fake_client_id = "__fake_client_id__"
@@ -57,6 +68,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     handled_ops=ops_handled_by_this_stage,
     all_events=all_common_events,
     handled_events=events_handled_by_this_stage,
+    methods_that_enter_pipeline_thread=["_on_message_received", "on_connected", "on_disconnected"],
 )
 
 
@@ -150,7 +162,7 @@ def op_set_sas_token(callback):
 @pytest.fixture
 def op_set_client_certificate(callback):
     return pipeline_ops_base.SetClientAuthenticationCertificateOperation(
-        certificate=fake_certificate
+        certificate=fake_certificate, callback=callback
     )
 
 

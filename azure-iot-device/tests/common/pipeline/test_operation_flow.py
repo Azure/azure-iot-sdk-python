@@ -6,6 +6,7 @@
 import logging
 import pytest
 from azure.iot.device.common.pipeline import (
+    pipeline_thread,
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_events_base,
@@ -24,6 +25,16 @@ from tests.common.pipeline.helpers import (
 )
 
 logging.basicConfig(level=logging.INFO)
+
+
+# This fixture makes it look like all test in this file  tests are running
+# inside the pipeline thread.  Because this is an autouse fixture, we
+# manually add it to the individual test.py files that need it.  If,
+# instead, we had added it to some conftest.py, it would be applied to
+# every tests in every file and we don't want that.
+@pytest.fixture(autouse=True)
+def apply_fake_pipeline_thread(fake_pipeline_thread):
+    pass
 
 
 class MockPipelineStage(pipeline_stages_base.PipelineStage):
@@ -79,13 +90,15 @@ class TestRunOpsSerialOneOpButNoFinallyOp(object):
     @pytest.mark.it(
         "Handles Exceptions raised in the callback and passes them to the unhandled error handler"
     )
-    def test_callback_throws_exception(self, stage, mocker, fake_exception, op):
+    def test_callback_throws_exception(
+        self, stage, mocker, fake_exception, op, unhandled_error_handler
+    ):
         callback = mocker.Mock(side_effect=fake_exception)
         run_ops_in_serial(stage, op, callback=callback)
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(op)
-        assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args == mocker.call(fake_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
     def test_callback_throws_base_exception(self, stage, mocker, fake_base_exception, op):
@@ -153,13 +166,15 @@ class TestRunOpsSerialOneOpAndFinallyOp(object):
     @pytest.mark.it(
         "Handles Exceptions raised in the callback and passes them to the unhandled error handler"
     )
-    def test_callback_raises_exception(self, stage, op, finally_op, fake_exception, mocker):
+    def test_callback_raises_exception(
+        self, stage, op, finally_op, fake_exception, mocker, unhandled_error_handler
+    ):
         callback = mocker.Mock(side_effect=fake_exception)
         run_ops_in_serial(stage, op, finally_op=finally_op, callback=callback)
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(finally_op)
-        assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args == mocker.call(fake_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
     def test_callback_raises_base_exception(
@@ -197,13 +212,15 @@ class TestRunOpsSerialThreeOpsButNoFinallyOp(object):
     @pytest.mark.it(
         "Handles Exceptions raised in the callback and passes them to the unhandled error handler"
     )
-    def test_callback_raises_exception(self, stage, op, op2, op3, fake_exception, mocker):
+    def test_callback_raises_exception(
+        self, stage, op, op2, op3, fake_exception, mocker, unhandled_error_handler
+    ):
         callback = mocker.Mock(side_effect=fake_exception)
         run_ops_in_serial(stage, op, op2, op3, callback=callback)
         assert callback.call_count == 1
         assert callback.call_args == mocker.call(op3)
-        assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args == mocker.call(fake_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
     def test_callback_raises_base_exception(self, stage, op, op2, op3, fake_base_exception, mocker):
@@ -305,12 +322,12 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
         "Handles Exceptions raised in the callback and passes them to the unhandled error handler"
     )
     def test_callback_raises_exception(
-        self, stage, op, op2, op3, finally_op, fake_exception, mocker
+        self, stage, op, op2, op3, finally_op, fake_exception, mocker, unhandled_error_handler
     ):
         callback = mocker.Mock(side_effect=fake_exception)
         run_ops_in_serial(stage, op, op2, op3, callback=callback, finally_op=finally_op)
-        assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args == mocker.call(fake_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised in the callback to propagate")
     def test_callback_raises_base_exception(
@@ -505,13 +522,15 @@ class TestCompleteOp(object):
     @pytest.mark.it(
         "Handles Exceptions raised in operation callback and passes them to the unhandled error handler"
     )
-    def test_op_callback_raises_exception(self, stage, op, fake_exception, mocker):
+    def test_op_callback_raises_exception(
+        self, stage, op, fake_exception, mocker, unhandled_error_handler
+    ):
         op.callback = mocker.Mock(side_effect=fake_exception)
         complete_op(stage, op)
         assert op.callback.call_count == 1
         assert op.callback.call_args == mocker.call(op)
-        assert stage.unhandled_error_handler.call_count == 1
-        assert stage.unhandled_error_handler.call_args == mocker.call(fake_exception)
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args == mocker.call(fake_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised in operation callback to propagate")
     def test_op_callback_raises_base_exception(self, stage, op, fake_base_exception, mocker):

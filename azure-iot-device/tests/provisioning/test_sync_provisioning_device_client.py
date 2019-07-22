@@ -50,6 +50,7 @@ class TestClientCreate(object):
         patch_set_sym_client = mocker.patch.object(
             pipeline_ops_provisioning, "SetSymmetricKeySecurityClientOperation"
         )
+        patch_set_sym_client.callback = mocker.MagicMock()
         client = ProvisioningDeviceClient.create_from_symmetric_key(
             fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
         )

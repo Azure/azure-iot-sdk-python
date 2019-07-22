@@ -39,6 +39,17 @@ logging.basicConfig(level=logging.INFO)
 
 this_module = sys.modules[__name__]
 
+
+# This fixture makes it look like all test in this file  tests are running
+# inside the pipeline thread.  Because this is an autouse fixture, we
+# manually add it to the individual test.py files that need it.  If,
+# instead, we had added it to some conftest.py, it would be applied to
+# every tests in every file and we don't want that.
+@pytest.fixture(autouse=True)
+def apply_fake_pipeline_thread(fake_pipeline_thread):
+    pass
+
+
 fake_device_id = "__fake_device_id__"
 fake_module_id = "__fake_module_id__"
 fake_hostname = "__fake_hostname__"
@@ -509,7 +520,6 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
 def add_pipeline_root(stage, mocker):
     root = pipeline_stages_base.PipelineRootStage()
     mocker.spy(root, "handle_pipeline_event")
-    mocker.spy(root, "unhandled_error_handler")
     stage.previous = root
     stage.pipeline_root = root
 
@@ -895,46 +905,61 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
         assert new_event.response_body == fake_payload
 
     @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
-    def test_no_previous_stage(self, stage, fixup_stage_for_test, fake_event):
+    def test_no_previous_stage(
+        self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
+    ):
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
-        assert isinstance(
-            stage.pipeline_root.unhandled_error_handler.call_args[0][0], NotImplementedError
-        )
+        assert unhandled_error_handler.call_count == 1
+        assert isinstance(unhandled_error_handler.call_args[0][0], NotImplementedError)
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the requet_id is missing from the topic name"
     )
     def test_invalid_topic_with_missing_request_id(
-        self, stage, fixup_stage_for_test, fake_event, fake_topic_name_with_missing_request_id
+        self,
+        stage,
+        fixup_stage_for_test,
+        fake_event,
+        fake_topic_name_with_missing_request_id,
+        unhandled_error_handler,
     ):
         fake_event.topic = fake_topic_name_with_missing_request_id
         stage.handle_pipeline_event(event=fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
-        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], IndexError)
+        assert unhandled_error_handler.call_count == 1
+        assert isinstance(unhandled_error_handler.call_args[0][0], IndexError)
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the status code is missing from the topic name"
     )
     def test_invlid_topic_with_missing_status_code(
-        self, stage, fixup_stage_for_test, fake_event, fake_topic_name_with_missing_status_code
+        self,
+        stage,
+        fixup_stage_for_test,
+        fake_event,
+        fake_topic_name_with_missing_status_code,
+        unhandled_error_handler,
     ):
         fake_event.topic = fake_topic_name_with_missing_status_code
         stage.handle_pipeline_event(event=fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
-        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+        assert unhandled_error_handler.call_count == 1
+        assert isinstance(unhandled_error_handler.call_args[0][0], ValueError)
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the status code in the topic name is not numeric"
     )
     def test_invlid_topic_with_bad_status_code(
-        self, stage, fixup_stage_for_test, fake_event, fake_topic_name_with_bad_status_code
+        self,
+        stage,
+        fixup_stage_for_test,
+        fake_event,
+        fake_topic_name_with_bad_status_code,
+        unhandled_error_handler,
     ):
         fake_event.topic = fake_topic_name_with_bad_status_code
         stage.handle_pipeline_event(event=fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
-        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+        assert unhandled_error_handler.call_count == 1
+        assert isinstance(unhandled_error_handler.call_args[0][0], ValueError)
 
 
 @pytest.mark.describe(
@@ -984,30 +1009,34 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(object):
         assert new_event.patch == fake_patch
 
     @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
-    def test_no_previous_stage(self, stage, fixup_stage_for_test, fake_event):
+    def test_no_previous_stage(
+        self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
+    ):
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
-        assert isinstance(
-            stage.pipeline_root.unhandled_error_handler.call_args[0][0], NotImplementedError
-        )
+        assert unhandled_error_handler.call_count == 1
+        assert isinstance(unhandled_error_handler.call_args[0][0], NotImplementedError)
 
     @pytest.mark.it("Calls the unhandled exception handler if the payload is not a Bytes object")
-    def test_payload_not_bytes(self, stage, fixup_stage_for_test, fake_event, fake_patch_not_bytes):
+    def test_payload_not_bytes(
+        self, stage, fixup_stage_for_test, fake_event, fake_patch_not_bytes, unhandled_error_handler
+    ):
         fake_event.payload = fake_patch_not_bytes
         stage.handle_pipeline_event(fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_count == 1
         if not (
-            isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], AttributeError)
-            or isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+            isinstance(unhandled_error_handler.call_args[0][0], AttributeError)
+            or isinstance(unhandled_error_handler.call_args[0][0], ValueError)
         ):
             assert False
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the payload cannot be deserialized as a JSON object"
     )
-    def test_payload_not_json(self, stage, fixup_stage_for_test, fake_event, fake_patch_not_json):
+    def test_payload_not_json(
+        self, stage, fixup_stage_for_test, fake_event, fake_patch_not_json, unhandled_error_handler
+    ):
         fake_event.payload = fake_patch_not_json
         stage.handle_pipeline_event(fake_event)
-        assert stage.pipeline_root.unhandled_error_handler.call_count == 1
-        assert isinstance(stage.pipeline_root.unhandled_error_handler.call_args[0][0], ValueError)
+        assert unhandled_error_handler.call_count == 1
+        assert isinstance(unhandled_error_handler.call_args[0][0], ValueError)

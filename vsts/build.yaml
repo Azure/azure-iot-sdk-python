@@ -59,7 +59,7 @@ jobs:
     inputs:
       testResultsFiles: '**/*-test-results.xml'
       testRunTitle: 'Python $(python.version)'
-      condition: always()
+    condition: always()
 
   - task: PublishCodeCoverageResults@1
     inputs:
