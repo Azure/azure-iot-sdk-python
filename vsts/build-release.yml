@@ -17,11 +17,17 @@ steps:
   clean: 'resources'
   
 - task: UsePythonVersion@0
-  displayName: 'Use Python 3.x'
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+    architecture: 'x64'
 
 - task: PowerShell@2
   inputs:
-    filePath: $(Build.SourcesDirectory)\vsts\build-release.ps1
+    targetType: 'inline'
+    script: |
+      . $(Build.SourcesDirectory)\scripts\build-release.ps1
+      Build
   env:
     dist: $(System.ArtifactsDirectory)\dist
     sources: $(Build.SourcesDirectory)
@@ -29,17 +35,48 @@ steps:
     nspkg_version_part: $(azure-iot-nspkg-version-part)
   displayName: 'build release artifacts'
 
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '2.7'
+    addToPath: true
+    architecture: 'x64'
+
+- task: CmdLine@2
+  inputs:
+    script: |
+      IF [%VERSION%] EQU [] ( 
+          echo Skipping azure-iot-nskpg Python2 build
+          GOTO EOF
+      )
+
+      pushd %LOCATION%
+      pip install wheel
+      python --version
+      python.exe setup.py bdist_wheel
+      robocopy /V %LOCATION%\dist %DIST%\azure-iot-nspkg
+      popd
+      IF %ERRORLEVEL% == 1 exit /b 0
+      :EOF
+  env:
+    dist: $(System.ArtifactsDirectory)\dist
+    location: $(Build.SourcesDirectory)\azure-iot-nspkg
+    version: $(azure-iot-nspkg-version-part)
+  displayName: 'build nspkg for python2'
+
 - task: PowerShell@2
   inputs:
     targetType: 'inline'
     script: |
-      . $(System.ArtifactsDirectory)\internal\python\azure-iot-sdk-bump-version.ps1
-      Publish-Branch $env:githubname $env:githubemail $env:tagname $env:sources
+      if($env:branch -eq "true") {
+        . $(System.ArtifactsDirectory)\internal\python\azure-iot-sdk-bump-version.ps1
+        Publish-Branch $env:githubname $env:githubemail $env:tagname $env:sources
+      }
   env:
     sources: $(Build.SourcesDirectory)
     githubemail: aziotclb@microsoft.com
     githubname: 'Azure IoT Client Build'
     tagname: $(tagname)
+    branch: $(branch)
   enabled: 'true'
   displayName: 'create GitHub.com release branch'
 
@@ -50,5 +87,3 @@ steps:
       ArtifactName: 'dist'
       publishLocation: 'Container'
   enabled: 'true'
-
-
