@@ -1002,7 +1002,7 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient(iothub_pipeline)
 
     @pytest.fixture
-    def client_manual_cb(self, mocker, iothub_pipeline_manual_cb):
+    def client_manual_cb(self, iothub_pipeline_manual_cb):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
