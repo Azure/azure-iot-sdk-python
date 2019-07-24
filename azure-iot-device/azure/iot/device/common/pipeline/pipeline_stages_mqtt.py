@@ -18,7 +18,7 @@ from azure.iot.device.common.mqtt_transport import MQTTTransport
 logger = logging.getLogger(__name__)
 
 
-class MQTTClientStage(PipelineStage):
+class MQTTTransportStage(PipelineStage):
     """
     PipelineStage object which is responsible for interfacing with the MQTT protocol wrapper object.
     This stage handles all MQTT operations and any other operations (such as ConnectOperation) which
@@ -36,7 +36,7 @@ class MQTTClientStage(PipelineStage):
             self.client_id = op.client_id
             self.ca_cert = op.ca_cert
             self.sas_token = None
-            self.trusted_certificate_chain = None
+            self.client_cert = None
             self.transport = MQTTTransport(
                 client_id=self.client_id,
                 hostname=self.hostname,
@@ -58,7 +58,7 @@ class MQTTClientStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.SetClientAuthenticationCertificateOperation):
             # When we get a certificate from above, we just save it for later
             logger.info("{}({}): got certificate".format(self.name, op.name))
-            self.trusted_certificate_chain = op.certificate
+            self.client_cert = op.certificate
             operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
@@ -99,9 +99,7 @@ class MQTTClientStage(PipelineStage):
             #
             self.transport.on_mqtt_connected = on_connected
             try:
-                self.transport.connect(
-                    password=self.sas_token, client_certificate=self.trusted_certificate_chain
-                )
+                self.transport.connect(password=self.sas_token, client_certificate=self.client_cert)
             except Exception as e:
                 self.transport.on_mqtt_connected = self.on_connected
                 raise e
@@ -188,8 +186,8 @@ class MQTTClientStage(PipelineStage):
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def on_connected(self):
-        super(MQTTClientStage, self).on_connected()
+        super(MQTTTransportStage, self).on_connected()
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def on_disconnected(self):
-        super(MQTTClientStage, self).on_disconnected()
+        super(MQTTTransportStage, self).on_disconnected()

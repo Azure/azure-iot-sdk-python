@@ -35,7 +35,7 @@ class ProvisioningPipeline(object):
             .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
             .append_stage(pipeline_stages_base.EnsureConnectionStage())
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage())
-            .append_stage(pipeline_stages_mqtt.MQTTClientStage())
+            .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
         def _handle_pipeline_event(event):

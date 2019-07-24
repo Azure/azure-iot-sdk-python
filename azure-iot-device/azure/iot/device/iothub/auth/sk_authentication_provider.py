@@ -64,7 +64,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
         self.shared_access_key = shared_access_key
         self.shared_access_key_name = shared_access_key_name
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = None  # TODO: rename to trusted_certificate_chain?
+        self.ca_cert = None  # TODO: rename to ca_cert?
 
     @staticmethod
     def parse(connection_string):

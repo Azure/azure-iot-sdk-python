@@ -97,7 +97,7 @@ class TestIoTHubPipelineInstantiation(object):
             pipeline_stages_base.CoordinateRequestAndResponseStage,
             pipeline_stages_base.EnsureConnectionStage,
             pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
-            pipeline_stages_mqtt.MQTTClientStage,
+            pipeline_stages_mqtt.MQTTTransportStage,
         ]
 
         # Assert that all PipelineStages are there, and they are in the right order

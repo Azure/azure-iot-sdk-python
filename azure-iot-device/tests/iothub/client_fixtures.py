@@ -8,6 +8,12 @@ import pytest
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest
 from azure.iot.device.common.models.x509 import X509
+from azure.iot.device.iothub.auth import (
+    SymmetricKeyAuthenticationProvider,
+    SharedAccessSignatureAuthenticationProvider,
+    IoTEdgeAuthenticationProvider,
+    X509AuthenticationProvider,
+)
 
 """---Constants---"""
 
@@ -197,7 +203,7 @@ class FakeIoTHubPipeline:
 
 
 @pytest.fixture
-def pipeline(mocker):
+def iothub_pipeline(mocker):
     """This fixture will automatically handle callbacks and should be
     used in the majority of tests.
     """
@@ -205,8 +211,13 @@ def pipeline(mocker):
 
 
 @pytest.fixture
-def pipeline_manual_cb(mocker):
+def iothub_pipeline_manual_cb(mocker):
     """This fixture is for use in tests where manual triggering of a
     callback is required
     """
     return mocker.MagicMock()
+
+
+@pytest.fixture
+def edge_pipeline(mocker):
+    return mocker.MagicMock()  # TODO: change this to wrap a pipeline object

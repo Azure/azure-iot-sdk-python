@@ -55,7 +55,7 @@ class IoTEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
             workload_uri=workload_uri,
         )
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = self.hsm.get_trust_bundle()  # TODO: rename to trusted_certificate_chain?
+        self.ca_cert = self.hsm.get_trust_bundle()
 
     # TODO: reconsider this design when refactoring the BaseRenewableToken auth parent
     # TODO: Consider handling the quoting within this function, and renaming quoted_resource_uri to resource_uri
