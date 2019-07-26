@@ -94,19 +94,16 @@ different_auth_provider_ops = [
         "name": "sas_token_auth",
         "current_op_class": pipeline_ops_iothub.SetAuthProviderOperation,
         "auth_provider_function_name": make_mock_sas_token_auth_provider,
-        "next_op_class": pipeline_ops_base.SetSasTokenOperation,
     },
     {
         "name": "x509_auth_device",
         "current_op_class": pipeline_ops_iothub.SetX509AuthProviderOperation,
         "auth_provider_function_name": make_x509_auth_provider_device,
-        "next_op_class": pipeline_ops_base.SetClientAuthenticationCertificateOperation,
     },
     {
         "name": "x509_auth_module",
         "current_op_class": pipeline_ops_iothub.SetX509AuthProviderOperation,
         "auth_provider_function_name": make_x509_auth_provider_module,
-        "next_op_class": pipeline_ops_base.SetClientAuthenticationCertificateOperation,
     },
 ]
 
@@ -114,10 +111,7 @@ different_auth_provider_ops = [
 @pytest.mark.parametrize(
     "params_auth_provider_ops",
     different_auth_provider_ops,
-    ids=[
-        "{}->{}".format(x["current_op_class"].__name__, x["next_op_class"].__name__)
-        for x in different_auth_provider_ops
-    ],
+    ids=[x["current_op_class"].__name__ for x in different_auth_provider_ops],
 )
 @pytest.mark.describe("UseAuthProvider - .run_op() -- called with SetAuthProviderOperation")
 class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
@@ -145,16 +139,16 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         op.callback = callback
         return op
 
-    @pytest.mark.it("Runs SetAuthProviderArgsOperation op on the next stage")
+    @pytest.mark.it("Runs SetIoTHubConnectionArgsOperation op on the next stage")
     def test_runs_set_auth_provider_args(self, mocker, stage, set_auth_provider):
         stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider)
         assert stage.next._run_op.call_count == 1
         set_args = stage.next._run_op.call_args[0][0]
-        assert isinstance(set_args, pipeline_ops_iothub.SetAuthProviderArgsOperation)
+        assert isinstance(set_args, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation)
 
     @pytest.mark.it(
-        "Sets the device_id, and hostname attributes on SetAuthProviderArgsOperation based on the same-names auth_provider attributes"
+        "Sets the device_id, and hostname attributes on SetIoTHubConnectionArgsOperation based on the same-names auth_provider attributes"
     )
     def test_sets_required_attributes(self, mocker, stage, set_auth_provider):
         stage.next._run_op = mocker.Mock()
@@ -180,7 +174,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             assert set_args.module_id is None
 
     @pytest.mark.it(
-        "Sets the module_id, gateway_hostname and ca_cert attributes on SetAuthProviderArgsOperation if they exist on the auth_provider object"
+        "Sets the module_id, gateway_hostname and ca_cert attributes on SetIoTHubConnectionArgsOperation if they exist on the auth_provider object"
     )
     def test_sets_optional_attributes(
         self, mocker, stage, set_auth_provider_all_args, params_auth_provider_ops
@@ -195,7 +189,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             assert set_args.ca_cert == fake_ca_cert
 
     @pytest.mark.it(
-        "Handles any Exceptions raised by SetAuthProviderArgsOperation and returns them through the op callback"
+        "Handles any Exceptions raised by SetIoTHubConnectionArgsOperation and returns them through the op callback"
     )
     def test_set_auth_provider_raises_exception(
         self, mocker, stage, fake_exception, set_auth_provider
@@ -205,7 +199,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         assert_callback_failed(op=set_auth_provider, error=fake_exception)
 
     @pytest.mark.it(
-        "Allows any  BaseExceptions raised by SetAuthProviderArgsOperation to propagate"
+        "Allows any  BaseExceptions raised by SetIoTHubConnectionArgsOperation to propagate"
     )
     def test_set_auth_provider_raises_base_exception(
         self, mocker, stage, fake_base_exception, set_auth_provider
@@ -213,46 +207,6 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
             stage.run_op(set_auth_provider)
-
-    @pytest.mark.it(
-        "Does not run a SetSasToken or a SetClientAuthenticationCertificate op on the next stage if the SetAuthProviderArgsOperation op fails"
-    )
-    def test_does_not_set_sas_token_or_set_certificate_on_set_auth_provider_args_failure(
-        self, mocker, stage, fake_exception, set_auth_provider
-    ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
-        stage.run_op(set_auth_provider)
-        assert stage.next._run_op.call_count == 1
-
-    @pytest.mark.it(
-        "Runs a SetSasToken or a SetClientAuthenticationCertificate op on the next stage if the SetAuthProviderArgsOperation op succeeds"
-    )
-    def test_runs_set_sas_token_or_set_certificate(
-        self, mocker, stage, set_auth_provider, params_auth_provider_ops
-    ):
-        def next_run_op(self, op):
-            if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgsOperation):
-                op.callback(op)
-            else:
-                pass
-
-        stage.next._run_op = functools.partial(next_run_op, stage)
-        mocker.spy(stage.next, "_run_op")
-        stage.run_op(set_auth_provider)
-        assert stage.next._run_op.call_count == 2
-        assert isinstance(
-            stage.next._run_op.call_args_list[0][0][0],
-            pipeline_ops_iothub.SetAuthProviderArgsOperation,
-        )
-        if params_auth_provider_ops["name"] == "sas_token_auth":
-            assert isinstance(
-                stage.next._run_op.call_args_list[1][0][0], pipeline_ops_base.SetSasTokenOperation
-            )
-        else:
-            assert isinstance(
-                stage.next._run_op.call_args_list[1][0][0],
-                pipeline_ops_base.SetClientAuthenticationCertificateOperation,
-            )
 
     @pytest.mark.it(
         "Retrieves sas_token or x509_certificate on the auth provider and passes the result as the attribute of the next operation"
@@ -268,15 +222,14 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
 
         stage.run_op(set_auth_provider)
         assert spy_method.call_count == 1
+        set_connection_args_op = stage.next._run_op.call_args_list[0][0][0]
 
         if params_auth_provider_ops["name"] == "sas_token_auth":
-            set_sas_token_op = stage.next._run_op.call_args_list[1][0][0]
-            assert set_sas_token_op.sas_token == fake_sas_token
+            assert set_connection_args_op.sas_token == fake_sas_token
         elif "x509_auth" in params_auth_provider_ops["name"]:
-            set_cert_op = stage.next._run_op.call_args_list[1][0][0]
-            assert set_cert_op.certificate.certificate_file == fake_x509_cert_file
-            assert set_cert_op.certificate.key_file == fake_x509_cert_key_file
-            assert set_cert_op.certificate.pass_phrase == fake_pass_phrase
+            assert set_connection_args_op.client_cert.certificate_file == fake_x509_cert_file
+            assert set_connection_args_op.client_cert.key_file == fake_x509_cert_key_file
+            assert set_connection_args_op.client_cert.pass_phrase == fake_pass_phrase
 
     @pytest.mark.it(
         "Calls the callback with no error if the setting sas token or setting certificate operation succeeds"
@@ -321,22 +274,6 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             )
         with pytest.raises(UnhandledException):
             stage.run_op(set_auth_provider)
-
-    @pytest.mark.it(
-        "Calls the callback of the current operation with the next operation error when the next operation fails"
-    )
-    def test_returns_set_sas_token_or_set_client_certificate_failure(
-        self, fake_exception, stage, set_auth_provider
-    ):
-        def next_run_op(self, op):
-            if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgsOperation):
-                op.callback(op)
-            else:
-                raise fake_exception
-
-        stage.next._run_op = functools.partial(next_run_op, stage)
-        stage.run_op(set_auth_provider)
-        assert_callback_failed(op=set_auth_provider, error=fake_exception)
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(

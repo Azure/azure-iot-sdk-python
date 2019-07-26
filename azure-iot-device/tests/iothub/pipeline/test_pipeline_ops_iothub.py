@@ -22,13 +22,15 @@ pipeline_data_object_test.add_operation_test(
     keyword_arguments={"callback": None},
 )
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_iothub.SetAuthProviderArgsOperation,
+    cls=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     module=this_module,
     positional_arguments=["device_id", "hostname"],
     keyword_arguments={
         "module_id": None,
         "gateway_hostname": None,
         "ca_cert": None,
+        "client_cert": None,
+        "sas_token": None,
         "callback": None,
     },
 )

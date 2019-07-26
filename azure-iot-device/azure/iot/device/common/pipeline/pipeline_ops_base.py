@@ -145,59 +145,6 @@ class DisableFeatureOperation(PipelineOperation):
         self.needs_connection = True
 
 
-class SetSasTokenOperation(PipelineOperation):
-    """
-    A PipelineOperation object which contains a SAS token used for connecting.  This operation was likely initiated
-    by a pipeline stage that knows how to generate SAS tokens based on some other operation (such as SetAuthProviderOperation
-    or SetSecurityClient)
-
-    This operation is in the group of base operations because many different clients use the concept of a SAS token.
-
-    Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IoTHub or MQTT stages).
-    """
-
-    def __init__(self, sas_token, callback=None):
-        """
-        Initializer for SetSasToken objects.
-
-        :param str sas_token: The token string which will be used to authenticate with whatever
-          service this pipeline connects with.
-        :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
-        """
-        super(SetSasTokenOperation, self).__init__(callback=callback)
-        self.sas_token = sas_token
-
-
-class SetClientAuthenticationCertificateOperation(PipelineOperation):
-    """
-    A PipelineOperation object which contains a client provided certificate used for connecting.  This operation was
-    likely initiated by a pipeline stage that knows how to generate certificates based on some other operation
-    (such as SetAuthProviderOperation or SetSecurityClientOperation)
-
-    This operation is in the group of base operations because many different clients use the concept of certificate.
-
-    Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IoTHub or MQTT stages).
-    """
-
-    def __init__(self, certificate, callback=None):
-        """
-        Initializer for SetClientAuthenticationCertificateOperation objects.
-
-        :param certificate: The certificate which will be used to authenticate with whatever service
-        this pipeline connects with. This certificate has the value as well as the key and
-        an optional pass-phrase.
-        :param Function callback: The function that gets called when this operation is complete
-        or has failed.  The callback function must accept A PipelineOperation object which indicates
-        the specific operation which has completed or failed.
-        """
-        super(SetClientAuthenticationCertificateOperation, self).__init__(callback=callback)
-        self.certificate = certificate
-
-
 class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
     """
     A PipelineOperation object which wraps the common operation of sending a request to iothub with a request_id ($rid)

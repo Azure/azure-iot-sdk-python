@@ -34,7 +34,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
-        if isinstance(op, pipeline_ops_iothub.SetAuthProviderArgsOperation):
+        if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id
 
@@ -57,11 +57,17 @@ class IoTHubMQTTConverterStage(PipelineStage):
             else:
                 hostname = op.hostname
 
+            # TODO: test to make sure client_cert and sas_token travel down correctly
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
                 new_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
-                    client_id=client_id, hostname=hostname, username=username, ca_cert=op.ca_cert
+                    client_id=client_id,
+                    hostname=hostname,
+                    username=username,
+                    ca_cert=op.ca_cert,
+                    client_cert=op.client_cert,
+                    sas_token=op.sas_token,
                 ),
             )
 

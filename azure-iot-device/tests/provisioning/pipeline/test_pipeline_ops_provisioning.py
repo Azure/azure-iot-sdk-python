@@ -16,10 +16,10 @@ pipeline_data_object_test.add_operation_test(
     keyword_arguments={"callback": None},
 )
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_provisioning.SetSecurityClientArgsOperation,
+    cls=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
     module=this_module,
     positional_arguments=["provisioning_host", "registration_id", "id_scope"],
-    keyword_arguments={"callback": None},
+    keyword_arguments={"client_cert": None, "sas_token": None, "callback": None},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_provisioning.SendRegistrationRequestOperation,

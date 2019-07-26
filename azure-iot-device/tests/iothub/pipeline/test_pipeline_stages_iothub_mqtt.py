@@ -55,6 +55,8 @@ fake_module_id = "__fake_module_id__"
 fake_hostname = "__fake_hostname__"
 fake_gateway_hostname = "__fake_gateway_hostname__"
 fake_ca_cert = "__fake_ca_cert__"
+fake_client_cert = "__fake_client_cert__"
+fake_sas_token = "__fake_sas_token__"
 
 fake_message_body = "__fake_message_body__"
 fake_output_name = "__fake_output_name__"
@@ -102,7 +104,7 @@ api_version = "2018-06-30"
 
 
 ops_handled_by_this_stage = [
-    pipeline_ops_iothub.SetAuthProviderArgsOperation,
+    pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
     pipeline_ops_iothub.SendOutputEventOperation,
     pipeline_ops_iothub.SendMethodResponseOperation,
@@ -129,55 +131,55 @@ def stage(mocker):
 
 
 @pytest.fixture
-def set_auth_provider_args(callback):
-    return pipeline_ops_iothub.SetAuthProviderArgsOperation(
+def set_connection_args(callback):
+    return pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
         device_id=fake_device_id, hostname=fake_hostname, callback=callback
     )
 
 
 @pytest.fixture
-def set_auth_provider_args_for_device(set_auth_provider_args):
-    return set_auth_provider_args
+def set_connection_args_for_device(set_connection_args):
+    return set_connection_args
 
 
 @pytest.fixture
-def set_auth_provider_args_for_module(set_auth_provider_args):
-    set_auth_provider_args.module_id = fake_module_id
-    return set_auth_provider_args
+def set_connection_args_for_module(set_connection_args):
+    set_connection_args.module_id = fake_module_id
+    return set_connection_args
 
 
 @pytest.fixture
-def stage_configured_for_device(stage, set_auth_provider_args_for_device, mocker):
-    set_auth_provider_args_for_device.callback = None
-    stage.run_op(set_auth_provider_args_for_device)
+def stage_configured_for_device(stage, set_connection_args_for_device, mocker):
+    set_connection_args_for_device.callback = None
+    stage.run_op(set_connection_args_for_device)
     mocker.resetall()
 
 
 @pytest.fixture
-def stage_configured_for_module(stage, set_auth_provider_args_for_module, mocker):
-    set_auth_provider_args_for_module.callback = None
-    stage.run_op(set_auth_provider_args_for_module)
+def stage_configured_for_module(stage, set_connection_args_for_module, mocker):
+    set_connection_args_for_module.callback = None
+    stage.run_op(set_connection_args_for_module)
     mocker.resetall()
 
 
 @pytest.fixture(params=["device", "module"])
-def stages_configured_for_both(request, stage, set_auth_provider_args, mocker):
-    set_auth_provider_args.callback = None
+def stages_configured_for_both(request, stage, set_connection_args, mocker):
+    set_connection_args.callback = None
     if request.param == "module":
-        set_auth_provider_args.module_id = fake_module_id
-    stage.run_op(set_auth_provider_args)
+        set_connection_args.module_id = fake_module_id
+    stage.run_op(set_connection_args)
     mocker.resetall()
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .run_op() -- called with SetAuthProviderArgsOperation"
+    "IoTHubMQTTConverterStage - .run_op() -- called with SetIoTHubConnectionArgsOperation"
 )
 class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     @pytest.mark.it(
         "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation on the next stage"
     )
-    def test_runs_set_connection_args(self, stage, set_auth_provider_args):
-        stage.run_op(set_auth_provider_args)
+    def test_runs_set_connection_args(self, stage, set_connection_args):
+        stage.run_op(set_connection_args)
         assert stage.next._run_op.call_count == 1
         new_op = stage.next._run_op.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
@@ -185,41 +187,41 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     @pytest.mark.it(
         "Sets connection_args.client_id to auth_provider_args.device_id if auth_provider_args.module_id is None"
     )
-    def test_sets_client_id_for_devices(self, stage, set_auth_provider_args):
-        stage.run_op(set_auth_provider_args)
+    def test_sets_client_id_for_devices(self, stage, set_connection_args):
+        stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.client_id == fake_device_id
 
     @pytest.mark.it(
         "Sets connection_args.client_id to auth_provider_args.device_id/auth_provider_args.module_id if auth_provider_args.module_id is not None"
     )
-    def test_sets_client_id_for_modules(self, stage, set_auth_provider_args_for_module):
-        stage.run_op(set_auth_provider_args_for_module)
+    def test_sets_client_id_for_modules(self, stage, set_connection_args_for_module):
+        stage.run_op(set_connection_args_for_module)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.client_id == "{}/{}".format(fake_device_id, fake_module_id)
 
     @pytest.mark.it(
         "Sets connection_args.hostname to auth_provider.hostname if auth_provider.gateway_hostname is None"
     )
-    def test_sets_hostname_if_no_gateway(self, stage, set_auth_provider_args):
-        stage.run_op(set_auth_provider_args)
+    def test_sets_hostname_if_no_gateway(self, stage, set_connection_args):
+        stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.hostname == fake_hostname
 
     @pytest.mark.it(
         "Sets connection_args.hostname to auth_provider.gateway_hostname if auth_provider.gateway_hostname is not None"
     )
-    def test_sets_hostname_if_yes_gateway(self, stage, set_auth_provider_args):
-        set_auth_provider_args.gateway_hostname = fake_gateway_hostname
-        stage.run_op(set_auth_provider_args)
+    def test_sets_hostname_if_yes_gateway(self, stage, set_connection_args):
+        set_connection_args.gateway_hostname = fake_gateway_hostname
+        stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.hostname == fake_gateway_hostname
 
     @pytest.mark.it(
         "Sets connection_args.username to auth_provider.hostname/auth_provider/device_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is None and module_id is None"
     )
-    def test_sets_device_username_if_no_gateway(self, stage, set_auth_provider_args):
-        stage.run_op(set_auth_provider_args)
+    def test_sets_device_username_if_no_gateway(self, stage, set_connection_args):
+        stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.username == "{}/{}/?api-version={}".format(
             fake_hostname, fake_device_id, api_version
@@ -228,9 +230,9 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     @pytest.mark.it(
         "Sets connection_args.username to auth_provider.hostname/device_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is not None and module_id is None"
     )
-    def test_sets_device_username_if_yes_gateway(self, stage, set_auth_provider_args):
-        set_auth_provider_args.gateway_hostname = fake_gateway_hostname
-        stage.run_op(set_auth_provider_args)
+    def test_sets_device_username_if_yes_gateway(self, stage, set_connection_args):
+        set_connection_args.gateway_hostname = fake_gateway_hostname
+        stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.username == "{}/{}/?api-version={}".format(
             fake_hostname, fake_device_id, api_version
@@ -239,8 +241,8 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     @pytest.mark.it(
         "Sets connection_args.username to auth_provider.hostname/auth_provider/device_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is None and module_id is None"
     )
-    def test_sets_module_username_if_no_gateway(self, stage, set_auth_provider_args_for_module):
-        stage.run_op(set_auth_provider_args_for_module)
+    def test_sets_module_username_if_no_gateway(self, stage, set_connection_args_for_module):
+        stage.run_op(set_connection_args_for_module)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.username == "{}/{}/{}/?api-version={}".format(
             fake_hostname, fake_device_id, fake_module_id, api_version
@@ -249,47 +251,61 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     @pytest.mark.it(
         "Sets connection_args.username to auth_provider.hostname/device_id/module_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is not None and module_id is None"
     )
-    def test_sets_module_username_if_yes_gateway(self, stage, set_auth_provider_args_for_module):
-        set_auth_provider_args_for_module.gateway_hostname = fake_gateway_hostname
-        stage.run_op(set_auth_provider_args_for_module)
+    def test_sets_module_username_if_yes_gateway(self, stage, set_connection_args_for_module):
+        set_connection_args_for_module.gateway_hostname = fake_gateway_hostname
+        stage.run_op(set_connection_args_for_module)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.username == "{}/{}/{}/?api-version={}".format(
             fake_hostname, fake_device_id, fake_module_id, api_version
         )
 
     @pytest.mark.it("Sets connection_args.ca_cert to auth_provider.ca_cert")
-    def test_sets_ca_cert(self, stage, set_auth_provider_args):
-        set_auth_provider_args.ca_cert = fake_ca_cert
-        stage.run_op(set_auth_provider_args)
+    def test_sets_ca_cert(self, stage, set_connection_args):
+        set_connection_args.ca_cert = fake_ca_cert
+        stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
         assert new_op.ca_cert == fake_ca_cert
 
+    @pytest.mark.it("Sets connection_args.client_cert to auth_provider.client_cert")
+    def test_sets_client_cert(self, stage, set_connection_args):
+        set_connection_args.client_cert = fake_client_cert
+        stage.run_op(set_connection_args)
+        new_op = stage.next._run_op.call_args[0][0]
+        assert new_op.client_cert == fake_client_cert
+
+    @pytest.mark.it("Sets connection_args.sas_token to auth_provider.sas_token.")
+    def test_sets_sas_token(self, stage, set_connection_args):
+        set_connection_args.sas_token = fake_sas_token
+        stage.run_op(set_connection_args)
+        new_op = stage.next._run_op.call_args[0][0]
+        assert new_op.sas_token == fake_sas_token
+
     @pytest.mark.it(
-        "Calls the SetAuthProviderArgsOperation callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation raises an Exception"
+        "Calls the SetIoTHubConnectionArgsOperation callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation raises an Exception"
     )
     def test_set_connection_args_raises_exception(
-        self, stage, mocker, fake_exception, set_auth_provider_args
+        self, stage, mocker, fake_exception, set_connection_args
     ):
         stage.next._run_op = mocker.Mock(side_effect=fake_exception)
-        stage.run_op(set_auth_provider_args)
-        assert_callback_failed(op=set_auth_provider_args, error=fake_exception)
+        stage.run_op(set_connection_args)
+        assert_callback_failed(op=set_connection_args, error=fake_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised inside the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation to propagate"
     )
     def test_set_connection_args_raises_base_exception(
-        self, stage, mocker, fake_base_exception, set_auth_provider_args
+        self, stage, mocker, fake_base_exception, set_connection_args
     ):
         stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
-            stage.run_op(set_auth_provider_args)
+            stage.run_op(set_connection_args)
 
     @pytest.mark.it(
-        "Calls the SetAuthProviderArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
+        "Calls the SetIoTHubConnectionArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
     )
-    def test_set_connection_args_succeeds(self, stage, mocker, set_auth_provider_args):
-        stage.run_op(set_auth_provider_args)
-        assert_callback_succeeded(op=set_auth_provider_args)
+    def test_set_connection_args_succeeds(self, stage, mocker, set_connection_args):
+        stage.run_op(set_connection_args)
+        assert_callback_succeeded(op=set_connection_args)
 
 
 basic_ops = [

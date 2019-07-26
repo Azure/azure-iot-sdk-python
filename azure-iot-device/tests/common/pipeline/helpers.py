@@ -27,7 +27,6 @@ all_common_ops = [
     pipeline_ops_base.DisconnectOperation,
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,
-    pipeline_ops_base.SetSasTokenOperation,
     pipeline_ops_base.SendIotRequestAndWaitForResponseOperation,
     pipeline_ops_base.SendIotRequestOperation,
     pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,

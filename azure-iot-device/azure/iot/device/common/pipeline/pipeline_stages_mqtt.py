@@ -35,8 +35,9 @@ class MQTTTransportStage(PipelineStage):
             self.username = op.username
             self.client_id = op.client_id
             self.ca_cert = op.ca_cert
-            self.sas_token = None
-            self.client_cert = None
+            self.sas_token = op.sas_token
+            self.client_cert = op.client_cert
+
             self.transport = MQTTTransport(
                 client_id=self.client_id,
                 hostname=self.hostname,
@@ -47,18 +48,6 @@ class MQTTTransportStage(PipelineStage):
             self.transport.on_mqtt_disconnected = self.on_disconnected
             self.transport.on_mqtt_message_received = self._on_message_received
             self.pipeline_root.transport = self.transport
-            operation_flow.complete_op(self, op)
-
-        elif isinstance(op, pipeline_ops_base.SetSasTokenOperation):
-            # When we get a sas token from above, we just save it for later
-            logger.info("{}({}): got password".format(self.name, op.name))
-            self.sas_token = op.sas_token
-            operation_flow.complete_op(self, op)
-
-        elif isinstance(op, pipeline_ops_base.SetClientAuthenticationCertificateOperation):
-            # When we get a certificate from above, we just save it for later
-            logger.info("{}({}): got certificate".format(self.name, op.name))
-            self.client_cert = op.certificate
             operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation):

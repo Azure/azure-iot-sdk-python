@@ -44,7 +44,7 @@ fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
 fake_provisioning_host = "hogwarts.com"
 fake_id_scope = "weasley_wizard_wheezes"
-fake_ca_cert = "fake_certificate"
+fake_ca_cert = "fake_ca_cert"
 fake_sas_token = "horcrux_token"
 
 
@@ -91,13 +91,11 @@ different_security_ops = [
         "name": "set symmetric key security",
         "current_op_class": pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
         "security_client_function_name": create_symmetric_security_client,
-        "next_op_class": pipeline_ops_base.SetSasTokenOperation,
     },
     {
         "name": "set x509 security",
         "current_op_class": pipeline_ops_provisioning.SetX509SecurityClientOperation,
         "security_client_function_name": create_x509_security_client,
-        "next_op_class": pipeline_ops_base.SetClientAuthenticationCertificateOperation,
     },
 ]
 
@@ -121,26 +119,25 @@ def set_security_client(callback, params_security_ops):
 @pytest.mark.parametrize(
     "params_security_ops",
     different_security_ops,
-    ids=[
-        "{}->{}".format(x["current_op_class"].__name__, x["next_op_class"].__name__)
-        for x in different_security_ops
-    ],
+    ids=[x["current_op_class"].__name__ for x in different_security_ops],
 )
 @pytest.mark.describe(
-    "UseSecurityClientStage run_op function with SetSecurityClientArgsOperation operations"
+    "UseSecurityClientStage run_op function with SetProvisioningClientConnectionArgsOperation operations"
 )
 class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
-    @pytest.mark.it("runs SetSecurityClientArgsOperation op on the next stage")
+    @pytest.mark.it("runs SetProvisioningClientConnectionArgsOperation op on the next stage")
     def test_runs_set_security_client_args(self, mocker, security_stage, set_security_client):
         security_stage.next._run_op = mocker.Mock()
         security_stage.run_op(set_security_client)
         assert security_stage.next._run_op.call_count == 1
         set_args = security_stage.next._run_op.call_args[0][0]
-        assert isinstance(set_args, pipeline_ops_provisioning.SetSecurityClientArgsOperation)
+        assert isinstance(
+            set_args, pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation
+        )
 
     @pytest.mark.it(
-        "Calls the SetSecurityClient callback with the SetSecurityClientArgsOperation error"
-        "when the SetSecurityClientArgsOperation op raises an Exception"
+        "Calls the SetSecurityClient callback with the SetProvisioningClientConnectionArgsOperation error"
+        "when the SetProvisioningClientConnectionArgsOperation op raises an Exception"
     )
     def test_set_security_client_raises_exception(
         self, mocker, security_stage, fake_exception, set_security_client
@@ -150,7 +147,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
         assert_callback_failed(op=set_security_client, error=fake_exception)
 
     @pytest.mark.it(
-        "Allows any BaseExceptions raised by SetSecurityClientArgsOperation operations to propagate"
+        "Allows any BaseExceptions raised by SetProvisioningClientConnectionArgsOperation operations to propagate"
     )
     def test_set_security_client_raises_base_exception(
         self, mocker, security_stage, fake_base_exception, set_security_client
@@ -160,42 +157,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
             security_stage.run_op(set_security_client)
 
     @pytest.mark.it(
-        "Does not run a SetSasToken or a SetClientAuthenticationCertificate op on the next stage when the SetSecurityClientArgs op fails"
-    )
-    def test_does_not_set_sas_token_or_set_certificate_after_set_security_client_args_failure(
-        self, mocker, security_stage, fake_exception, set_security_client
-    ):
-        security_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
-        security_stage.run_op(set_security_client)
-        assert security_stage.next._run_op.call_count == 1
-
-    @pytest.mark.it(
-        "Runs the next operation of setting token or certificate on the next stage when the SetSecurityClientArgsOperation op succeeds"
-    )
-    def test_runs_set_sas_token_or_set_client_certificate(
-        self, mocker, security_stage, set_security_client, params_security_ops
-    ):
-        def next_run_op(self, op):
-            if isinstance(op, pipeline_ops_provisioning.SetSecurityClientArgsOperation):
-                op.callback(op)
-            else:
-                pass
-
-        security_stage.next._run_op = functools.partial(next_run_op, security_stage)
-        mocker.spy(security_stage.next, "_run_op")
-        security_stage.run_op(set_security_client)
-        assert security_stage.next._run_op.call_count == 2
-        assert isinstance(
-            security_stage.next._run_op.call_args_list[0][0][0],
-            pipeline_ops_provisioning.SetSecurityClientArgsOperation,
-        )
-        assert isinstance(
-            security_stage.next._run_op.call_args_list[1][0][0],
-            params_security_ops["next_op_class"],
-        )
-
-    @pytest.mark.it(
-        "Retrieves sas_token or x509_certificate on the security_client and passes the result as the attribute of the next operation"
+        "Retrieves sas_token or x509_client_cert on the security_client and passes the result as the attribute of the next operation"
     )
     def test_calls_get_current_sas_token_or_get_x509_certificate(
         self, mocker, security_stage, set_security_client, params_security_ops
@@ -211,24 +173,27 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
         security_stage.run_op(set_security_client)
         assert spy_method.call_count == 1
 
-        if params_security_ops["next_op_class"].__name__ == "SetSasToken":
-            set_sas_token_op = security_stage.next._run_op.call_args_list[1][0][0]
-            assert "SharedAccessSignature" in set_sas_token_op.sas_token
-            assert "skn=registration" in set_sas_token_op.sas_token
-            assert fake_id_scope in set_sas_token_op.sas_token
-            assert fake_registration_id in set_sas_token_op.sas_token
+        set_connection_args_op = security_stage.next._run_op.call_args[0][0]
 
-        elif params_security_ops["next_op_class"].__name__ == "SetClientAuthenticationCertificate":
-            set_cert_op = security_stage.next._run_op.call_args_list[1][0][0]
-            assert set_cert_op.certificate.certificate_file == fake_x509_cert_file
-            assert set_cert_op.certificate.key_file == fake_x509_cert_key_file
-            assert set_cert_op.certificate.pass_phrase == fake_pass_phrase
+        if (
+            params_security_ops["current_op_class"].__name__
+            == "SetSymmetricKeySecurityClientOperation"
+        ):
+            assert "SharedAccessSignature" in set_connection_args_op.sas_token
+            assert "skn=registration" in set_connection_args_op.sas_token
+            assert fake_id_scope in set_connection_args_op.sas_token
+            assert fake_registration_id in set_connection_args_op.sas_token
+
+        elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClientOperation":
+            assert set_connection_args_op.client_cert.certificate_file == fake_x509_cert_file
+            assert set_connection_args_op.client_cert.key_file == fake_x509_cert_key_file
+            assert set_connection_args_op.client_cert.pass_phrase == fake_pass_phrase
 
     @pytest.mark.it(
         "Calls the callback of setting security client with no error when the next operation of "
-        "etting token or setting certificate operation succeeds"
+        "etting token or setting client_cert operation succeeds"
     )
-    def test_returns_success_if_set_sas_token_or_set_client_certificate_succeeds(
+    def test_returns_success_if_set_sas_token_or_set_client_client_cert_succeeds(
         self, security_stage, set_security_client
     ):
         security_stage.run_op(set_security_client)
@@ -273,19 +238,3 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
             )
         with pytest.raises(UnhandledException):
             security_stage.run_op(set_security_client)
-
-    @pytest.mark.it(
-        "Calls the callback of the current operation with the next operation error when the next operation fails"
-    )
-    def test_returns_set_sas_token_failure(
-        self, fake_exception, security_stage, set_security_client
-    ):
-        def next_run_op(self, op):
-            if isinstance(op, pipeline_ops_provisioning.SetSecurityClientArgsOperation):
-                op.callback(op)
-            else:
-                raise fake_exception
-
-        security_stage.next._run_op = functools.partial(next_run_op, security_stage)
-        security_stage.run_op(set_security_client)
-        assert_callback_failed(op=set_security_client, error=fake_exception)

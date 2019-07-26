@@ -36,9 +36,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
-        if isinstance(
-            op, pipeline_ops_provisioning.SetSecurityClientArgsOperation
-        ):  # TODO Generic Args , then only 1 case ?
+        if isinstance(op, pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation):
             # get security client args from above, save some, use some to build topic names,
             # always pass it down because MQTT protocol stage will also want to receive these args.
 
@@ -57,7 +55,11 @@ class ProvisioningMQTTConverterStage(PipelineStage):
                 stage=self,
                 original_op=op,
                 new_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
-                    client_id=client_id, hostname=hostname, username=username
+                    client_id=client_id,
+                    hostname=hostname,
+                    username=username,
+                    client_cert=op.client_cert,
+                    sas_token=op.sas_token,
                 ),
             )
 

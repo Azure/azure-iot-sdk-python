@@ -7,7 +7,7 @@ from azure.iot.device.iothub.pipeline import pipeline_events_iothub, pipeline_op
 
 all_iothub_ops = [
     pipeline_ops_iothub.SetAuthProviderOperation,
-    pipeline_ops_iothub.SetAuthProviderArgsOperation,
+    pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
     pipeline_ops_iothub.SendOutputEventOperation,
 ]

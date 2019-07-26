@@ -13,7 +13,7 @@ pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
     module=this_module,
     positional_arguments=["client_id", "hostname", "username"],
-    keyword_arguments={"ca_cert": None, "callback": None},
+    keyword_arguments={"ca_cert": None, "client_cert": None, "sas_token": None, "callback": None},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_mqtt.MQTTPublishOperation,

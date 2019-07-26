@@ -16,12 +16,12 @@ class UseSecurityClientStage(PipelineStage):
 
     This stage handles SetX509SecurityClientOperation and SetSymmetricKeySecurityClientOperation operations.
     For the SetX509SecurityClientOperation it retrieves string into it's constituent parts and generates a sas token to pass down.
-    It uses SetSecurityClientArgsOperation to pass the connection string args and the ca_cert
+    It uses SetProvisioningClientConnectionArgsOperation to pass the connection string args and the ca_cert
     from the Security Client, and it uses SetSasToken to pass down the
     generated sas token.  After passing down the args and the sas token, this stage
     completes the SetSymmetricKeySecurityClientOperation operation.
 
-    For the SetX509SecurityClientOperation it uses SetSecurityClientArgsOperation to pass the connection string args and the ca_cert
+    For the SetX509SecurityClientOperation it uses SetProvisioningClientConnectionArgsOperation to pass the connection string args and the ca_cert
     from the Security Client, and it uses SetClientAuthenticationCertificate to pass down the certificate. After passing
     down the args and the certificate token, this stage completes the SetX509SecurityClientOperation operation.
 
@@ -30,38 +30,31 @@ class UseSecurityClientStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        def pipeline_ops_done(completed_op):
-            op.error = completed_op.error
-            op.callback(op)
-
         if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation):
 
             security_client = op.security_client
-            operation_flow.run_ops_in_serial(
-                self,
-                pipeline_ops_provisioning.SetSecurityClientArgsOperation(
+            operation_flow.delegate_to_different_op(
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
                     provisioning_host=security_client.provisioning_host,
                     registration_id=security_client.registration_id,
                     id_scope=security_client.id_scope,
+                    sas_token=security_client.get_current_sas_token(),
                 ),
-                pipeline_ops_base.SetSasTokenOperation(
-                    sas_token=security_client.get_current_sas_token()
-                ),
-                callback=pipeline_ops_done,
             )
+
         elif isinstance(op, pipeline_ops_provisioning.SetX509SecurityClientOperation):
             security_client = op.security_client
-            operation_flow.run_ops_in_serial(
-                self,
-                pipeline_ops_provisioning.SetSecurityClientArgsOperation(
+            operation_flow.delegate_to_different_op(
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
                     provisioning_host=security_client.provisioning_host,
                     registration_id=security_client.registration_id,
                     id_scope=security_client.id_scope,
+                    client_cert=security_client.get_x509_certificate(),
                 ),
-                pipeline_ops_base.SetClientAuthenticationCertificateOperation(
-                    certificate=security_client.get_x509_certificate()
-                ),
-                callback=pipeline_ops_done,
             )
 
         else:

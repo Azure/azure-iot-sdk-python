@@ -49,12 +49,12 @@ fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
 fake_provisioning_host = "hogwarts.com"
 fake_id_scope = "weasley_wizard_wheezes"
-fake_ca_cert = "fake_certificate"
 fake_sas_token = "horcrux_token"
 fake_security_client = "secure_via_muffliato"
 fake_request_id = "fake_request_1234"
 fake_mqtt_payload = "hello hogwarts"
 fake_operation_id = "fake_operation_9876"
+fake_client_cert = "fake_client_cert"
 
 invalid_feature_name = "__invalid_feature_name__"
 unmatched_mqtt_topic = "__unmatched_mqtt_topic__"
@@ -65,7 +65,7 @@ api_version = "2019-03-31"
 
 
 ops_handled_by_this_stage = [
-    pipeline_ops_provisioning.SetSecurityClientArgsOperation,
+    pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
     pipeline_ops_provisioning.SendRegistrationRequestOperation,
     pipeline_ops_provisioning.SendQueryRequestOperation,
     pipeline_ops_base.EnableFeatureOperation,
@@ -96,10 +96,12 @@ def mock_stage(mocker):
 
 @pytest.fixture
 def set_security_client_args(callback):
-    op = pipeline_ops_provisioning.SetSecurityClientArgsOperation(
+    op = pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
         provisioning_host=fake_provisioning_host,
         registration_id=fake_registration_id,
         id_scope=fake_id_scope,
+        sas_token=fake_sas_token,
+        client_cert=fake_client_cert,
         callback=callback,
     )
     return op
@@ -113,9 +115,9 @@ def stages_configured(mock_stage, set_security_client_args, mocker):
 
 
 @pytest.mark.describe(
-    "ProvisioningMQTTConverterStage run_op function with SetSecurityClientArgsOperation"
+    "ProvisioningMQTTConverterStage run_op function with SetProvisioningClientConnectionArgsOperation"
 )
-class TestProvisioningMQTTConverterWithSetAuthProviderArgs(object):
+class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperation(object):
     @pytest.mark.it(
         "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation on the next stage"
     )
@@ -126,7 +128,7 @@ class TestProvisioningMQTTConverterWithSetAuthProviderArgs(object):
         assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
 
     @pytest.mark.it(
-        "Sets ConnectionArgs.client_id = SymmetricKeySecurityClientArgs.registration_id"
+        "Sets SetMQTTConnectionArgsOperation.client_id = SetProvisioningClientConnectionArgsOperation.registration_id"
     )
     def test_sets_client_id(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
@@ -134,7 +136,7 @@ class TestProvisioningMQTTConverterWithSetAuthProviderArgs(object):
         assert new_op.client_id == fake_registration_id
 
     @pytest.mark.it(
-        "Sets ConnectionArgs.hostname = SymmetricKeySecurityClientArgs.provisioning_host"
+        "Sets SetMQTTConnectionArgsOperation.hostname = SetProvisioningClientConnectionArgsOperation.provisioning_host"
     )
     def test_sets_hostname(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
@@ -142,7 +144,23 @@ class TestProvisioningMQTTConverterWithSetAuthProviderArgs(object):
         assert new_op.hostname == fake_provisioning_host
 
     @pytest.mark.it(
-        "Sets ConnectionArgs.username = SymmetricKeySecurityClientArgs.{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}"
+        "Sets SetMQTTConnectionArgsOperation.client_cert = SetProvisioningClientConnectionArgsOperation.client_cert"
+    )
+    def test_sets_client_cert(self, mock_stage, set_security_client_args):
+        mock_stage.run_op(set_security_client_args)
+        new_op = mock_stage.next._run_op.call_args[0][0]
+        assert new_op.client_cert == fake_client_cert
+
+    @pytest.mark.it(
+        "Sets SetMQTTConnectionArgsOperation.sas_token = SetProvisioningClientConnectionArgsOperation.sas_token"
+    )
+    def test_sets_sas_token(self, mock_stage, set_security_client_args):
+        mock_stage.run_op(set_security_client_args)
+        new_op = mock_stage.next._run_op.call_args[0][0]
+        assert new_op.sas_token == fake_sas_token
+
+    @pytest.mark.it(
+        "Sets MqttConnectionArgsOperation.username = SetProvisioningClientConnectionArgsOperation.{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}"
     )
     def test_sets_username(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)

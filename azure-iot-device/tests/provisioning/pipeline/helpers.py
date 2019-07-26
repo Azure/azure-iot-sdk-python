@@ -11,7 +11,7 @@ from azure.iot.device.provisioning.pipeline import (
 all_provisioning_ops = [
     pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
     pipeline_ops_provisioning.SetX509SecurityClientOperation,
-    pipeline_ops_provisioning.SetSecurityClientArgsOperation,
+    pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
     pipeline_ops_provisioning.SendRegistrationRequestOperation,
     pipeline_ops_provisioning.SendQueryRequestOperation,
 ]

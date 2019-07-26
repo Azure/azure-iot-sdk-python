@@ -48,7 +48,6 @@ fake_payload = "__fake_payload__"
 fake_certificate = "__fake_certificate__"
 
 ops_handled_by_this_stage = [
-    pipeline_ops_base.SetSasTokenOperation,
     pipeline_ops_base.ConnectOperation,
     pipeline_ops_base.DisconnectOperation,
     pipeline_ops_base.ReconnectOperation,
@@ -116,6 +115,7 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(object):
         stage.run_op(op_set_connection_args)
         assert transport.call_count == 1
 
+    # TODO: add client_cert and sas_token tests here
     @pytest.mark.it(
         "Initializes the MQTTProvier object with the passed client_id, hostname, username, and ca_cert"
     )
@@ -155,37 +155,8 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(object):
 
 
 @pytest.fixture
-def op_set_sas_token(callback):
-    return pipeline_ops_base.SetSasTokenOperation(sas_token=fake_sas_token, callback=callback)
-
-
-@pytest.fixture
-def op_set_client_certificate(callback):
-    return pipeline_ops_base.SetClientAuthenticationCertificateOperation(
-        certificate=fake_certificate, callback=callback
-    )
-
-
-@pytest.mark.describe("MQTTTransportStage - .run_op() -- called with SetSasToken")
-class TestMQTTProviderRunOpWithSetSasToken(object):
-    @pytest.mark.it("Saves the sas token")
-    def test_saves_sas_token(self, stage, op_set_sas_token):
-        stage.run_op(op_set_sas_token)
-        assert stage.sas_token == fake_sas_token
-
-    @pytest.mark.it("Completes with success")
-    def test_succeeds(self, stage, op_set_sas_token):
-        stage.run_op(op_set_sas_token)
-        assert_callback_succeeded(op=op_set_sas_token)
-
-
-@pytest.fixture
-def create_transport(
-    stage, transport, op_set_connection_args, op_set_sas_token, op_set_client_certificate
-):
+def create_transport(stage, transport, op_set_connection_args):
     stage.run_op(op_set_connection_args)
-    stage.run_op(op_set_sas_token)
-    stage.run_op(op_set_client_certificate)
 
 
 connection_ops = [

@@ -24,7 +24,7 @@ class UseAuthProviderStage(PipelineStage):
 
     This stage handles SetAuthProviderOperation operations.  It parses the connection
     string into it's constituant parts and generates a sas token to pass down.  It
-    uses SetAuthProviderArgsOperation to pass the connection string args and the ca_cert
+    uses SetIoTHubConnectionArgsOperation to pass the connection string args and the ca_cert
     from the Authentication Provider, and it uses SetSasToken to pass down the
     generated sas token.  After passing down the args and the sas token, this stage
     completes the SetAuthProviderOperation operation.
@@ -34,41 +34,33 @@ class UseAuthProviderStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        def pipeline_ops_done(completed_op):
-            op.error = completed_op.error
-            op.callback(op)
-
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
             auth_provider = op.auth_provider
-            operation_flow.run_ops_in_serial(
-                self,
-                pipeline_ops_iothub.SetAuthProviderArgsOperation(
+            operation_flow.delegate_to_different_op(
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
                     device_id=auth_provider.device_id,
                     module_id=getattr(auth_provider, "module_id", None),
                     hostname=auth_provider.hostname,
                     gateway_hostname=getattr(auth_provider, "gateway_hostname", None),
                     ca_cert=getattr(auth_provider, "ca_cert", None),
+                    sas_token=auth_provider.get_current_sas_token(),
                 ),
-                pipeline_ops_base.SetSasTokenOperation(
-                    sas_token=auth_provider.get_current_sas_token()
-                ),
-                callback=pipeline_ops_done,
             )
         elif isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
             auth_provider = op.auth_provider
-            operation_flow.run_ops_in_serial(
-                self,
-                pipeline_ops_iothub.SetAuthProviderArgsOperation(
+            operation_flow.delegate_to_different_op(
+                stage=self,
+                original_op=op,
+                new_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
                     device_id=auth_provider.device_id,
                     module_id=getattr(auth_provider, "module_id", None),
                     hostname=auth_provider.hostname,
                     gateway_hostname=getattr(auth_provider, "gateway_hostname", None),
                     ca_cert=getattr(auth_provider, "ca_cert", None),
+                    client_cert=auth_provider.get_x509_certificate(),
                 ),
-                pipeline_ops_base.SetClientAuthenticationCertificateOperation(
-                    certificate=auth_provider.get_x509_certificate()
-                ),
-                callback=pipeline_ops_done,
             )
         else:
             operation_flow.pass_op_to_next_stage(self, op)
