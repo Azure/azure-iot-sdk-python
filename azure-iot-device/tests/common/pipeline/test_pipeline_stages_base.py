@@ -23,8 +23,6 @@ from tests.common.pipeline.helpers import (
 )
 from tests.common.pipeline import pipeline_stage_test
 
-logging.basicConfig(level=logging.INFO)
-
 this_module = sys.modules[__name__]
 
 

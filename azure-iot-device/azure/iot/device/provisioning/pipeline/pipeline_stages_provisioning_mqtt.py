@@ -14,11 +14,12 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
-from azure.iot.device.provisioning.pipeline import constant, mqtt_topic
+from azure.iot.device.provisioning.pipeline import mqtt_topic
 from azure.iot.device.provisioning.pipeline import (
     pipeline_events_provisioning,
     pipeline_ops_provisioning,
 )
+from azure.iot.device import constant as pkg_constant
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +42,14 @@ class ProvisioningMQTTConverterStage(PipelineStage):
             # always pass it down because MQTT protocol stage will also want to receive these args.
 
             client_id = op.registration_id
-            client_version = urllib.parse.quote_plus(constant.USER_AGENT)
-            username = "{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}".format(
+            query_param_seq = [
+                ("api-version", pkg_constant.PROVISIONING_API_VERSION),
+                ("ClientVersion", pkg_constant.USER_AGENT),
+            ]
+            username = "{id_scope}/registrations/{registration_id}/{query_params}".format(
                 id_scope=op.id_scope,
                 registration_id=op.registration_id,
-                api_version=constant.API_VERSION,
-                client_version=client_version,
+                query_params=urllib.parse.urlencode(query_param_seq),
             )
 
             hostname = op.provisioning_host

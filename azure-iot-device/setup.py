@@ -27,10 +27,13 @@ except ImportError:
 with open("README.md", "r") as fh:
     _long_description = fh.read()
 
+constant = {}
+with open("azure/iot/device/constant.py") as fh:
+    exec(fh.read(), constant)
 
 setup(
     name="azure-iot-device",
-    version="2.0.0-preview.8",
+    version=constant["VERSION"],
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python-preview",

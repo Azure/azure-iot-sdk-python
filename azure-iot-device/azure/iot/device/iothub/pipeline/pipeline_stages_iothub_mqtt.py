@@ -6,6 +6,7 @@
 
 import logging
 import json
+import six.moves.urllib as urllib
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -16,7 +17,9 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device.iothub.models import Message, MethodRequest
-from . import constant, pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
+from . import pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
+from . import constant as pipeline_constant
+from azure.iot.device import constant as pkg_constant
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +51,14 @@ class IoTHubMQTTConverterStage(PipelineStage):
             else:
                 client_id = op.device_id
 
-            username = "{hostname}/{client_id}/?api-version=2018-06-30".format(
-                hostname=op.hostname, client_id=client_id
+            query_param_seq = [
+                ("api-version", pkg_constant.IOTHUB_API_VERSION),
+                ("DeviceClientType", pkg_constant.USER_AGENT),
+            ]
+            username = "{hostname}/{client_id}/?{query_params}".format(
+                hostname=op.hostname,
+                client_id=client_id,
+                query_params=urllib.parse.urlencode(query_param_seq),
             )
 
             if op.gateway_hostname:
@@ -113,7 +122,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
             )
 
         elif isinstance(op, pipeline_ops_base.SendIotRequestOperation):
-            if op.request_type == constant.TWIN:
+            if op.request_type == pipeline_constant.TWIN:
                 topic = mqtt_topic_iothub.get_twin_topic_for_publish(
                     method=op.method,
                     resource_location=op.resource_location,
@@ -144,13 +153,17 @@ class IoTHubMQTTConverterStage(PipelineStage):
             device_id, module_id
         )
         self.feature_to_topic = {
-            constant.C2D_MSG: (mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id, module_id)),
-            constant.INPUT_MSG: (
+            pipeline_constant.C2D_MSG: (
+                mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id, module_id)
+            ),
+            pipeline_constant.INPUT_MSG: (
                 mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
             ),
-            constant.METHODS: (mqtt_topic_iothub.get_method_topic_for_subscribe()),
-            constant.TWIN: (mqtt_topic_iothub.get_twin_response_topic_for_subscribe()),
-            constant.TWIN_PATCHES: (mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()),
+            pipeline_constant.METHODS: (mqtt_topic_iothub.get_method_topic_for_subscribe()),
+            pipeline_constant.TWIN: (mqtt_topic_iothub.get_twin_response_topic_for_subscribe()),
+            pipeline_constant.TWIN_PATCHES: (
+                mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()
+            ),
         }
 
     @pipeline_thread.runs_on_pipeline_thread

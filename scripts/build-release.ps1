@@ -5,8 +5,8 @@ function Install-Dependencies {
     pip install wheel
 }
 
-function Update-Version($part) {
-    bumpversion.exe $part --config-file .\.bumpverion.cfg --allow-dirty .\setup.py
+function Update-Version($part, $file) {
+    bumpversion.exe $part --config-file .\.bumpverion.cfg --allow-dirty $file
 }
 
 function Invoke-Python {
@@ -23,17 +23,24 @@ function Build {
 
     # hashset key is package folder name in repo
 
-    $packages = @{ }
-    $packages["azure-iot-device"] = $env:device_version_part
-    $packages["azure-iot-nspkg"] = $env:nspkg_version_part
-    # TODO add new packages to this list
+    $packages = @{ } # TODO add new packages to this list
+
+    $packages["azure-iot-device"] = [PSCustomObject]@{
+        File = "azure\iot\device\constant.py"
+        Version = $env:device_version_part
+    }
+
+    $packages["azure-iot-nspkg"] = [PSCustomObject]@{
+        File = "setup.py"
+        Version = $env:nspkg_version_part
+    }
 
     New-Item $dist -Force -ItemType Directory
     Install-Dependencies
 
     foreach ($key in $packages.Keys) {
 
-        $part = $packages[$key]
+        $part = $packages[$key].Version
 
         if ($part -and $part -ne "") {
 
@@ -42,8 +49,9 @@ function Build {
             Write-Output "Increment '$part' version for '$key' "
             Write-Output "Package folder: $packageFolder"
             
+            $file = Join-Path $packageFolder $packages[$key].File
             Set-Location $packageFolder
-            Update-Version $part
+            Update-Version $part $file
             Invoke-Python
 
             $distfld = Join-Path $packageFolder "dist"

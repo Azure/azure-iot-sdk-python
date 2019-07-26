@@ -12,6 +12,7 @@ import requests
 import requests_unixsocket
 import logging
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
+from azure.iot.device import constant
 
 requests_unixsocket.monkeypatch()
 
@@ -112,7 +113,9 @@ class IoTEdgeHsm(object):
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
         r = requests.get(
-            self.workload_uri + "trust-bundle", params={"api-version": self.api_version}
+            self.workload_uri + "trust-bundle",
+            params={"api-version": self.api_version},
+            headers={"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)},
         )
         # Validate that the request was successful
         try:
@@ -156,7 +159,10 @@ class IoTEdgeHsm(object):
         sign_request = {"keyId": "primary", "algo": "HMACSHA256", "data": encoded_data_str}
 
         r = requests.post(  # TODO: can we use json field instead of data?
-            url=path, params={"api-version": self.api_version}, data=json.dumps(sign_request)
+            url=path,
+            params={"api-version": self.api_version},
+            headers={"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)},
+            data=json.dumps(sign_request),
         )
         try:
             r.raise_for_status()

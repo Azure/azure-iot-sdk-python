@@ -8,6 +8,7 @@ import logging
 import pytest
 import json
 import sys
+import six.moves.urllib as urllib
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -34,8 +35,7 @@ from tests.common.pipeline.helpers import (
 )
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
-
-logging.basicConfig(level=logging.INFO)
+from azure.iot.device import constant as pkg_constant
 
 this_module = sys.modules[__name__]
 
@@ -99,9 +99,7 @@ fake_method_request_topic = "$iothub/methods/POST/{}/?$rid={}".format(
 )
 fake_method_request_payload = "{}".encode("utf-8")
 
-
-api_version = "2018-06-30"
-
+encoded_user_agent = urllib.parse.quote_plus(pkg_constant.USER_AGENT)
 
 ops_handled_by_this_stage = [
     pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
@@ -218,45 +216,53 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
         assert new_op.hostname == fake_gateway_hostname
 
     @pytest.mark.it(
-        "Sets connection_args.username to auth_provider.hostname/auth_provider/device_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is None and module_id is None"
+        "Sets connection_args.username to auth_provider.hostname/auth_provider/device_id/?api-version={api_version}&DeviceClientType={user_agent} if auth_provider_args.gateway_hostname is None and module_id is None"
     )
     def test_sets_device_username_if_no_gateway(self, stage, set_connection_args):
         stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.username == "{}/{}/?api-version={}".format(
-            fake_hostname, fake_device_id, api_version
+        assert new_op.username == "{}/{}/?api-version={}&DeviceClientType={}".format(
+            fake_hostname, fake_device_id, pkg_constant.IOTHUB_API_VERSION, encoded_user_agent
         )
 
     @pytest.mark.it(
-        "Sets connection_args.username to auth_provider.hostname/device_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is not None and module_id is None"
+        "Sets connection_args.username to auth_provider.hostname/device_id/?api-version={api_version}&DeviceClientType={user_agent} if auth_provider_args.gateway_hostname is not None and module_id is None"
     )
     def test_sets_device_username_if_yes_gateway(self, stage, set_connection_args):
         set_connection_args.gateway_hostname = fake_gateway_hostname
         stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.username == "{}/{}/?api-version={}".format(
-            fake_hostname, fake_device_id, api_version
+        assert new_op.username == "{}/{}/?api-version={}&DeviceClientType={}".format(
+            fake_hostname, fake_device_id, pkg_constant.IOTHUB_API_VERSION, encoded_user_agent
         )
 
     @pytest.mark.it(
-        "Sets connection_args.username to auth_provider.hostname/auth_provider/device_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is None and module_id is None"
+        "Sets connection_args.username to auth_provider.hostname/auth_provider/device_id/?api-version={api_version}&DeviceClientType={user_agent} if auth_provider_args.gateway_hostname is None and module_id is None"
     )
     def test_sets_module_username_if_no_gateway(self, stage, set_connection_args_for_module):
         stage.run_op(set_connection_args_for_module)
         new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.username == "{}/{}/{}/?api-version={}".format(
-            fake_hostname, fake_device_id, fake_module_id, api_version
+        assert new_op.username == "{}/{}/{}/?api-version={}&DeviceClientType={}".format(
+            fake_hostname,
+            fake_device_id,
+            fake_module_id,
+            pkg_constant.IOTHUB_API_VERSION,
+            encoded_user_agent,
         )
 
     @pytest.mark.it(
-        "Sets connection_args.username to auth_provider.hostname/device_id/module_id/?api-version=2018-06-30 if auth_provider_args.gateway_hostname is not None and module_id is None"
+        "Sets connection_args.username to auth_provider.hostname/device_id/module_id/?api-version={api_version}&DeviceClientType={user_agent} if auth_provider_args.gateway_hostname is not None and module_id is None"
     )
     def test_sets_module_username_if_yes_gateway(self, stage, set_connection_args_for_module):
         set_connection_args_for_module.gateway_hostname = fake_gateway_hostname
         stage.run_op(set_connection_args_for_module)
         new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.username == "{}/{}/{}/?api-version={}".format(
-            fake_hostname, fake_device_id, fake_module_id, api_version
+        assert new_op.username == "{}/{}/{}/?api-version={}&DeviceClientType={}".format(
+            fake_hostname,
+            fake_device_id,
+            fake_module_id,
+            pkg_constant.IOTHUB_API_VERSION,
+            encoded_user_agent,
         )
 
     @pytest.mark.it("Sets connection_args.ca_cert to auth_provider.ca_cert")

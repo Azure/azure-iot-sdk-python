@@ -6,6 +6,8 @@
 import logging
 import pytest
 import sys
+import six.moves.urllib as urllib
+from azure.iot.device import constant
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -13,7 +15,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_events_mqtt,
 )
 from azure.iot.device.provisioning.pipeline import (
-    constant,
     pipeline_events_provisioning,
     pipeline_ops_provisioning,
     pipeline_stages_provisioning_mqtt,
@@ -60,9 +61,6 @@ invalid_feature_name = "__invalid_feature_name__"
 unmatched_mqtt_topic = "__unmatched_mqtt_topic__"
 
 fake_response_topic = "$dps/registrations/res/200/?$rid={}".format(fake_request_id)
-
-api_version = "2019-03-31"
-
 
 ops_handled_by_this_stage = [
     pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
@@ -170,8 +168,8 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
             == "{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}".format(
                 id_scope=fake_id_scope,
                 registration_id=fake_registration_id,
-                api_version=constant.API_VERSION,
-                client_version="azure-iot-provisioning-devicesdk%2F" + "0.0.1",
+                api_version=constant.PROVISIONING_API_VERSION,
+                client_version=urllib.parse.quote_plus(constant.USER_AGENT),
             )
         )
 
