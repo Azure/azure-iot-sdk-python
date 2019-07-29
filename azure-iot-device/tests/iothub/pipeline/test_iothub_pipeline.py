@@ -25,6 +25,7 @@ from azure.iot.device.iothub.auth import (
     X509AuthenticationProvider,
 )
 
+logging.basicConfig(level=logging.INFO)
 
 # Update this list with features as they are added to the SDK
 all_features = [

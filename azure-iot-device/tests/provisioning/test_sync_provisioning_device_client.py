@@ -3,12 +3,15 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import pytest
+import logging
 from azure.iot.device.provisioning.internal.polling_machine import PollingMachine
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.provisioning_device_client import ProvisioningDeviceClient
 from azure.iot.device.provisioning.models import RegistrationResult
-import pytest
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
+
+logging.basicConfig(level=logging.INFO)
 
 fake_symmetric_key = "Zm9vYmFy"
 fake_registration_id = "MyPensieve"

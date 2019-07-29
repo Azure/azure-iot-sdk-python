@@ -5,7 +5,10 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from azure.iot.device.iothub.models import Message
+
+logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.describe("Message")

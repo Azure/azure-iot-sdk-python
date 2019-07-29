@@ -5,9 +5,12 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 import threading
 import time
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox, InboxEmpty
+
+logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.describe("SyncClientInbox")

@@ -5,11 +5,14 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 import datetime
 from azure.iot.device.provisioning.models.registration_result import (
     RegistrationResult,
     RegistrationState,
 )
+
+logging.basicConfig(level=logging.INFO)
 
 fake_request_id = "Request1234"
 fake_operation_id = "Operation4567"

@@ -10,7 +10,9 @@ import paho.mqtt.client as mqtt
 import ssl
 import copy
 import pytest
+import logging
 
+logging.basicConfig(level=logging.INFO)
 
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyFirebolt"

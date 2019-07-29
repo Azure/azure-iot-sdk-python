@@ -8,6 +8,7 @@ import pytest
 import requests
 import json
 import base64
+import logging
 import six.moves.urllib as urllib
 from azure.iot.device.iothub.auth.iotedge_authentication_provider import (
     IoTEdgeAuthenticationProvider,
@@ -16,6 +17,8 @@ from azure.iot.device.iothub.auth.iotedge_authentication_provider import (
 )
 from .shared_auth_tests import SharedBaseRenewableAuthenticationProviderInstantiationTests
 from azure.iot.device import constant
+
+logging.basicConfig(level=logging.INFO)
 
 
 @pytest.fixture

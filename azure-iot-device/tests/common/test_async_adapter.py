@@ -7,8 +7,10 @@
 import pytest
 import inspect
 import asyncio
+import logging
 import azure.iot.device.common.async_adapter as async_adapter
 
+logging.basicConfig(level=logging.INFO)
 pytestmark = pytest.mark.asyncio
 
 

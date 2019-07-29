@@ -5,10 +5,12 @@
 # --------------------------------------------------------------------------
 import sys
 import pytest
+import logging
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from tests.common.pipeline import pipeline_data_object_test
 
 this_module = sys.modules[__name__]
+logging.basicConfig(level=logging.INFO)
 
 
 @pytest.mark.describe("PipelineOperation")

@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
+import logging
 from mock import MagicMock, patch
 from threading import Timer
 from azure.iot.device.iothub.auth.base_renewable_token_authentication_provider import (
@@ -11,6 +12,9 @@ from azure.iot.device.iothub.auth.base_renewable_token_authentication_provider i
     DEFAULT_TOKEN_VALIDITY_PERIOD,
     DEFAULT_TOKEN_RENEWAL_MARGIN,
 )
+
+logging.basicConfig(level=logging.INFO)
+
 
 fake_signature = "__FAKE_SIGNATURE__"
 fake_hostname = "__FAKE_HOSTNAME__"

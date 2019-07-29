@@ -11,8 +11,11 @@ import base64
 import hmac
 import hashlib
 import copy
+import logging
 import six.moves.urllib as urllib
 from azure.iot.device.common.sastoken import SasToken, SasTokenError
+
+logging.basicConfig(level=logging.INFO)
 
 uri = "my.host.name"
 key = "Zm9vYmFy"

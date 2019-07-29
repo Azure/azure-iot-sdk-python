@@ -5,11 +5,15 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from azure.iot.device.iothub.auth.sk_authentication_provider import (
     SymmetricKeyAuthenticationProvider,
 )
 
 from mock import MagicMock
+
+logging.basicConfig(level=logging.INFO)
+
 
 connection_string_device_sk_format = "HostName={};DeviceId={};SharedAccessKey={}"
 connection_string_device_skn_format = (

@@ -6,7 +6,10 @@
 
 import pytest
 import asyncio
+import logging
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
+
+logging.basicConfig(level=logging.INFO)
 
 # Note that some small delays need to be added at the end of async tests due to
 # RuntimeWarnings being thrown by the test ending before janus can correctly

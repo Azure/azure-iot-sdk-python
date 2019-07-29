@@ -5,7 +5,10 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from azure.iot.device.iothub.models import MethodRequest, MethodResponse
+
+logging.basicConfig(level=logging.INFO)
 
 dummy_rid = 1
 dummy_name = "name"

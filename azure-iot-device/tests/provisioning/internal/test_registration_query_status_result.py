@@ -5,10 +5,13 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 import datetime
 from azure.iot.device.provisioning.internal.registration_query_status_result import (
     RegistrationQueryStatusResult,
 )
+
+logging.basicConfig(level=logging.INFO)
 
 fake_request_id = "Request1234"
 fake_retry_after = 6

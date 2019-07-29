@@ -5,12 +5,15 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from mock import MagicMock, patch
 from azure.iot.device.common.models import X509
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
 from tests.common.pipeline import helpers
+
+logging.basicConfig(level=logging.INFO)
 
 send_msg_qos = 1
 

@@ -6,6 +6,7 @@
 
 import pytest
 import datetime
+import logging
 
 from mock import MagicMock
 from azure.iot.device.provisioning.internal.request_response_provider import RequestResponseProvider
@@ -13,6 +14,8 @@ from azure.iot.device.provisioning.internal.polling_machine import PollingMachin
 from azure.iot.device.provisioning.models.registration_result import RegistrationResult
 from azure.iot.device.provisioning.pipeline import constant
 import time
+
+logging.basicConfig(level=logging.INFO)
 
 fake_request_id = "Request1234"
 fake_retry_after = "3"

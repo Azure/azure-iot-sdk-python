@@ -5,9 +5,11 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.common.models.x509 import X509
 
+logging.basicConfig(level=logging.INFO)
 
 fake_provisioning_host = "beauxbatons.academy-net"
 fake_registration_id = "MyPensieve"

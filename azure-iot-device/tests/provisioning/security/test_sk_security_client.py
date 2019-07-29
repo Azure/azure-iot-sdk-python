@@ -5,7 +5,10 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
+
+logging.basicConfig(level=logging.INFO)
 
 fake_symmetric_key = "Zm9vYmFy"
 key_name = "registration"

@@ -4,8 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 import sys
+import logging
 from azure.iot.device.common.pipeline import pipeline_events_mqtt
 from tests.common.pipeline import pipeline_data_object_test
+
+logging.basicConfig(level=logging.INFO)
 
 this_module = sys.modules[__name__]
 

@@ -5,8 +5,12 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 from azure.iot.device.common.models.x509 import X509
+
+
+logging.basicConfig(level=logging.INFO)
 
 hostname = "beauxbatons.academy-net"
 device_id = "MyPensieve"

@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import logging
 import threading
 import time
 import os
@@ -16,6 +17,9 @@ from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox, InboxEmpty
 from azure.iot.device.iothub.auth import IoTEdgeError
 import azure.iot.device.iothub.sync_clients as sync_clients
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 ################
