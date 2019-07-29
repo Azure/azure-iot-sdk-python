@@ -102,6 +102,7 @@ def op_set_connection_args(callback):
         hostname=fake_hostname,
         username=fake_username,
         ca_cert=fake_ca_cert,
+        client_cert=fake_certificate,
         callback=callback,
     )
 
@@ -115,9 +116,8 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(object):
         stage.run_op(op_set_connection_args)
         assert transport.call_count == 1
 
-    # TODO: add client_cert and sas_token tests here
     @pytest.mark.it(
-        "Initializes the MQTTProvier object with the passed client_id, hostname, username, and ca_cert"
+        "Initializes the MQTTTransport object with the passed client_id, hostname, username, and ca_cert"
     )
     def test_passes_right_params(self, stage, transport, mocker, op_set_connection_args):
         stage.run_op(op_set_connection_args)
@@ -126,6 +126,7 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(object):
             hostname=fake_hostname,
             username=fake_username,
             ca_cert=fake_ca_cert,
+            x509_cert=fake_certificate,
         )
 
     @pytest.mark.it(

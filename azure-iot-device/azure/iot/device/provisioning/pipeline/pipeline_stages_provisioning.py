@@ -11,19 +11,8 @@ from . import pipeline_ops_provisioning
 
 class UseSecurityClientStage(PipelineStage):
     """
-    PipelineStage which handles operations on a Shared Key security client
-    or a X509 certificate driven security client
-
-    This stage handles SetX509SecurityClientOperation and SetSymmetricKeySecurityClientOperation operations.
-    For the SetX509SecurityClientOperation it retrieves string into it's constituent parts and generates a sas token to pass down.
-    It uses SetProvisioningClientConnectionArgsOperation to pass the connection string args and the ca_cert
-    from the Security Client, and it uses SetSasToken to pass down the
-    generated sas token.  After passing down the args and the sas token, this stage
-    completes the SetSymmetricKeySecurityClientOperation operation.
-
-    For the SetX509SecurityClientOperation it uses SetProvisioningClientConnectionArgsOperation to pass the connection string args and the ca_cert
-    from the Security Client, and it uses SetClientAuthenticationCertificate to pass down the certificate. After passing
-    down the args and the certificate token, this stage completes the SetX509SecurityClientOperation operation.
+    PipelineStage which extracts relevant SecurityClient values for a new
+    SetProvisioningClientConnectionArgsOperation.
 
     All other operations are passed down.
     """

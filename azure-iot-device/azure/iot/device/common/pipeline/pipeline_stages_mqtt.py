@@ -43,6 +43,7 @@ class MQTTTransportStage(PipelineStage):
                 hostname=self.hostname,
                 username=self.username,
                 ca_cert=self.ca_cert,
+                x509_cert=self.client_cert,
             )
             self.transport.on_mqtt_connected = self.on_connected
             self.transport.on_mqtt_disconnected = self.on_disconnected
@@ -88,7 +89,7 @@ class MQTTTransportStage(PipelineStage):
             #
             self.transport.on_mqtt_connected = on_connected
             try:
-                self.transport.connect(password=self.sas_token, client_certificate=self.client_cert)
+                self.transport.connect(password=self.sas_token)
             except Exception as e:
                 self.transport.on_mqtt_connected = self.on_connected
                 raise e
@@ -106,7 +107,7 @@ class MQTTTransportStage(PipelineStage):
             # See "A note on exception handling" above
             self.transport.on_mqtt_connected = on_connected
             try:
-                self.transport.reconnect(self.sas_token)
+                self.transport.reconnect(password=self.sas_token)
             except Exception as e:
                 self.transport.on_mqtt_connected = self.on_connected
                 raise e

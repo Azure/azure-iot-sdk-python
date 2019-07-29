@@ -20,14 +20,8 @@ logger = logging.getLogger(__name__)
 
 class UseAuthProviderStage(PipelineStage):
     """
-    PipelineStage which handles operations on a Shared Key Authentication Provider.
-
-    This stage handles SetAuthProviderOperation operations.  It parses the connection
-    string into it's constituant parts and generates a sas token to pass down.  It
-    uses SetIoTHubConnectionArgsOperation to pass the connection string args and the ca_cert
-    from the Authentication Provider, and it uses SetSasToken to pass down the
-    generated sas token.  After passing down the args and the sas token, this stage
-    completes the SetAuthProviderOperation operation.
+    PipelineStage which extracts relevant AuthenticationProvider values for a new
+    SetIoTHubConnectionArgsOperation.
 
     All other operations are passed down.
     """

@@ -25,19 +25,21 @@ class MQTTTransport(object):
     :type on_mqtt_message_received: Function
     """
 
-    def __init__(self, client_id, hostname, username, ca_cert=None):
+    def __init__(self, client_id, hostname, username, ca_cert=None, x509_cert=None):
         """
         Constructor to instantiate an MQTT protocol wrapper.
         :param str client_id: The id of the client connecting to the broker.
         :param str hostname: Hostname or IP address of the remote broker.
         :param str username: Username for login to the remote broker.
         :param str ca_cert: Certificate which can be used to validate a server-side TLS connection (optional).
+        :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         """
         self._client_id = client_id
         self._hostname = hostname
         self._username = username
         self._mqtt_client = None
         self._ca_cert = ca_cert
+        self._x509_cert = x509_cert
 
         self.on_mqtt_connected = None
         self.on_mqtt_disconnected = None
@@ -45,7 +47,7 @@ class MQTTTransport(object):
 
         self._op_manager = OperationManager()
 
-        self._create_mqtt_client()
+        self._mqtt_client = self._create_mqtt_client()
 
     def _create_mqtt_client(self):
         """
@@ -53,11 +55,17 @@ class MQTTTransport(object):
         """
         logger.info("creating mqtt client")
 
-        self._mqtt_client = mqtt.Client(
+        # Instantiate client
+        mqtt_client = mqtt.Client(
             client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
         )
-        self._mqtt_client.enable_logger(logging.getLogger("paho"))
+        mqtt_client.enable_logger(logging.getLogger("paho"))
 
+        # Configure TLS/SSL
+        ssl_context = self._create_ssl_context()
+        mqtt_client.tls_set_context(context=ssl_context)
+
+        # Set event handlers
         def on_connect(client, userdata, flags, rc):
             logger.info("connected with result code: {}".format(rc))
 
@@ -112,19 +120,19 @@ class MQTTTransport(object):
                     "No event handler callback set for on_mqtt_message_received - DROPPING MESSAGE"
                 )
 
-        self._mqtt_client.on_connect = on_connect
-        self._mqtt_client.on_disconnect = on_disconnect
-        self._mqtt_client.on_subscribe = on_subscribe
-        self._mqtt_client.on_unsubscribe = on_unsubscribe
-        self._mqtt_client.on_publish = on_publish
-        self._mqtt_client.on_message = on_message
+        mqtt_client.on_connect = on_connect
+        mqtt_client.on_disconnect = on_disconnect
+        mqtt_client.on_subscribe = on_subscribe
+        mqtt_client.on_unsubscribe = on_unsubscribe
+        mqtt_client.on_publish = on_publish
+        mqtt_client.on_message = on_message
 
         logger.info("Created MQTT protocol client, assigned callbacks")
+        return mqtt_client
 
-    def _create_ssl_context(self, x509=None):
+    def _create_ssl_context(self):
         """
         This method creates the SSLContext object used by Paho to authenticate the connection.
-        :param x509: The x509 certificate. If present then the SSLContext is created using x509.
         """
         logger.info("creating a SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
@@ -136,39 +144,42 @@ class MQTTTransport(object):
         ssl_context.verify_mode = ssl.CERT_REQUIRED
         ssl_context.check_hostname = True
 
-        if x509 is not None:
+        if self._x509_cert is not None:
             logger.info("configuring SSL context with client-side certificate and key")
-            ssl_context.load_cert_chain(x509.certificate_file, x509.key_file, x509.pass_phrase)
+            ssl_context.load_cert_chain(
+                self._x509_cert.certificate_file,
+                self._x509_cert.key_file,
+                self._x509_cert.pass_phrase,
+            )
 
         return ssl_context
 
-    def connect(self, password=None, client_certificate=None):
+    def connect(self, password=None):
         """
         Connect to the MQTT broker, using hostname and username set at instantiation.
 
         This method should be called as an entry point before sending any telemetry.
-        One of the parameters out of password and x509 must be present to ensure a successful connection.
 
-        :param str password: The password for connecting with the MQTT broker.
-        :param client_certificate: The x509 certificate. If present then the SSLContext is created using x509.
+        The password is not required if the transport was instantiated with an x509 certificate.
+
+        :param str password: The password for connecting with the MQTT broker (Optional).
         """
         logger.info("connecting to mqtt broker")
 
-        ssl_context = self._create_ssl_context(client_certificate)
-        self._mqtt_client.tls_set_context(context=ssl_context)
-        self._mqtt_client.tls_insecure_set(False)
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         self._mqtt_client.connect(host=self._hostname, port=8883)
         self._mqtt_client.loop_start()
 
-    def reconnect(self, password):
+    def reconnect(self, password=None):
         """
         Reconnect to the MQTT broker, using username set at instantiation.
 
         Connect should have previously been called in order to use this function.
 
-        :param str password: The password for reconnecting with the MQTT broker.
+        The password is not required if the transport was instantiated with an x509 certificate.
+
+        :param str password: The password for reconnecting with the MQTT broker (Optional).
         """
         logger.info("reconnecting MQTT client")
         self._mqtt_client.username_pw_set(username=self._username, password=password)
