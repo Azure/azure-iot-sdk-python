@@ -7,12 +7,7 @@
 import os
 import time
 import uuid
-from azure.iot.device import IoTHubModuleClient, Message
-from azure.iot.device.common import X509
-import logging
-
-
-logging.basicConfig(level=logging.ERROR)
+from azure.iot.device import IoTHubModuleClient, Message, X509
 
 hostname = os.getenv("HOSTNAME")
 

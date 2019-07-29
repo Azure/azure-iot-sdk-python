@@ -7,12 +7,8 @@
 import os
 import asyncio
 from six.moves import input
-import logging
 import threading
 from azure.iot.device.aio import IoTHubModuleClient
-from azure.iot.device import auth
-
-logging.basicConfig(level=logging.ERROR)
 
 
 async def main():

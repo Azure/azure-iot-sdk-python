@@ -7,13 +7,9 @@
 import os
 import uuid
 from azure.iot.device.aio import IoTHubModuleClient
-from azure.iot.device.iothub import Message
-from azure.iot.device.common import X509
-import logging
+from azure.iot.device import Message, X509
 import asyncio
 
-
-logging.basicConfig(level=logging.DEBUG)
 
 messages_to_send = 10
 

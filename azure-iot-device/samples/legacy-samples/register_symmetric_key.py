@@ -3,14 +3,8 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
-
 import os
-import logging
 from azure.iot.device import ProvisioningDeviceClient
-
-
-logging.basicConfig(level=logging.INFO)
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
@@ -25,7 +19,3 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
 )
 
 provisioning_device_client.register()
-
-
-# Output looks like
-# INFO:azure.iot.device.provisioning.sk_provisioning_device_client:Successfully registered with Hub

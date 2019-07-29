@@ -17,7 +17,6 @@ if __name__ == "__main__":
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
 ## Included Samples
-* [authentication_providers.py](authentication_providers.py) - Use different methods of authentication to connect a device to the Azure IoT Hub.
 * [receive_c2d_message.py](receive_c2d_message.py) - Receive Cloud-to-Device (C2D) messages sent from the Azure IoT Hub to a device.
     * In order to send a C2D message, use the following Azure CLI command:
         ```

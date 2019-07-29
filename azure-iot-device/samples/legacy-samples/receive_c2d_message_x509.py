@@ -6,13 +6,8 @@
 
 import os
 from six.moves import input
-import logging
 import threading
-from azure.iot.device import IoTHubDeviceClient
-from azure.iot.device.common import X509
-
-
-logging.basicConfig(level=logging.ERROR)
+from azure.iot.device import IoTHubDeviceClient, X509
 
 hostname = os.getenv("HOSTNAME")
 # The device that has been created on the portal using X509 CA signing or Self signing capabilities

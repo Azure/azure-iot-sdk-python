@@ -7,18 +7,12 @@
 import os
 import time
 import uuid
-from azure.iot.device import IoTHubDeviceClient, Message
-from azure.iot.device import auth
-from azure.iot.device.common import X509
-import logging
-
+from azure.iot.device import IoTHubDeviceClient, Message, X509
 
 # The connection string for a device should never be stored in code.
 # For the sake of simplicity we are creating the X509 connection string
 # containing Hostname and Device Id in the following format:
 # "HostName=<iothub_host_name>;DeviceId=<device_id>;x509=true"
-
-logging.basicConfig(level=logging.ERROR)
 
 hostname = os.getenv("HOSTNAME")
 

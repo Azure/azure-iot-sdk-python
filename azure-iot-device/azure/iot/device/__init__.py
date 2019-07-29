@@ -6,7 +6,7 @@ from an IoT device.
 
 from .iothub import *
 from .provisioning import *
-from .iothub import auth  # Consider moving this to common after DPS added
+from .common import *
 from . import iothub
 from . import provisioning
 

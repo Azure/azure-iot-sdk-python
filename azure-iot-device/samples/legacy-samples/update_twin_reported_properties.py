@@ -5,12 +5,8 @@
 # --------------------------------------------------------------------------
 
 import os
-import logging
 import random
 from azure.iot.device import IoTHubDeviceClient
-from azure.iot.device import auth
-
-logging.basicConfig(level=logging.ERROR)
 
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)

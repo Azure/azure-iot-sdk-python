@@ -7,11 +7,8 @@
 import os
 import asyncio
 from six.moves import input
-import logging
 from azure.iot.device.aio import IoTHubDeviceClient
-from azure.iot.device.common import X509
-
-logging.basicConfig(level=logging.ERROR)
+from azure.iot.device import X509
 
 
 async def main():

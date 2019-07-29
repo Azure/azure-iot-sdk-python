@@ -7,7 +7,6 @@
 import os
 import asyncio
 from azure.iot.device.aio import IoTHubDeviceClient
-from azure.iot.device import auth
 
 
 async def main():

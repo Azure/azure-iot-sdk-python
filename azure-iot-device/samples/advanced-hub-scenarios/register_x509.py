@@ -8,13 +8,9 @@
 # This is for illustration purposes only. The sample will not work currently.
 
 import os
-import logging
 import asyncio
-from azure.iot.device.common import X509
+from azure.iot.device import X509
 from azure.iot.device.aio import ProvisioningDeviceClient
-
-
-logging.basicConfig(level=logging.INFO)
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
@@ -47,6 +43,3 @@ if __name__ == "__main__":
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(main())
     # loop.close()
-
-# Output looks like
-# INFO:azure.iot.device.provisioning.sk_provisioning_device_client:Successfully registered with Hub

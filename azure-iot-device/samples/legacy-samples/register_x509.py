@@ -8,13 +8,7 @@
 # This is for illustration purposes only. The sample will not work currently.
 
 import os
-import logging
-
-from azure.iot.device.common import X509
-from azure.iot.device import ProvisioningDeviceClient
-
-
-logging.basicConfig(level=logging.INFO)
+from azure.iot.device import ProvisioningDeviceClient, X509
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
@@ -34,7 +28,3 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certifica
 )
 
 provisioning_device_client.register()
-
-
-# Output looks like
-# INFO:azure.iot.device.provisioning.sk_provisioning_device_client:Successfully registered with Hub

@@ -8,7 +8,6 @@ import os
 import time
 import uuid
 from azure.iot.device import IoTHubDeviceClient, Message
-from azure.iot.device import auth
 
 # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")

@@ -6,11 +6,9 @@
 
 import os
 import asyncio
-import logging
 import uuid
-from azure.iot.device.iothub.aio import IoTHubDeviceClient
-from azure.iot.device.iothub import Message
-from azure.iot.device.iothub import auth
+from azure.iot.device.aio import IoTHubDeviceClient
+from azure.iot.device import Message
 
 messages_to_send = 10
 
