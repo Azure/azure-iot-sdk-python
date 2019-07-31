@@ -257,7 +257,8 @@ def encode_properties(message_to_send, topic):
     topic += system_properties_encoded
 
     if message_to_send.custom_properties and len(message_to_send.custom_properties) > 0:
-        topic += "&"
+        if system_properties and len(system_properties) > 0:
+            topic += "&"
         user_properties_encoded = urllib.parse.urlencode(message_to_send.custom_properties)
         topic += user_properties_encoded
 

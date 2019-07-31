@@ -36,6 +36,7 @@ from tests.common.pipeline.helpers import (
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
+import uuid
 
 this_module = sys.modules[__name__]
 
@@ -58,6 +59,8 @@ fake_ca_cert = "__fake_ca_cert__"
 fake_client_cert = "__fake_client_cert__"
 fake_sas_token = "__fake_sas_token__"
 
+fake_message_id = "ee9e738b-4f47-447a-9892-5b1d1d7ca5"
+fake_message_id_encoded = "%24.mid=ee9e738b-4f47-447a-9892-5b1d1d7ca5"
 fake_message_body = "__fake_message_body__"
 fake_output_name = "__fake_output_name__"
 fake_content_type = "text/json"
@@ -101,6 +104,14 @@ fake_method_request_payload = "{}".encode("utf-8")
 
 encoded_user_agent = urllib.parse.quote_plus(pkg_constant.USER_AGENT)
 
+fake_message_user_property_1_key = "is-muggle"
+fake_message_user_property_1_value = "yes"
+fake_message_user_property_2_key = "sorted-house"
+fake_message_user_property_2_value = "hufflepuff"
+fake_message_user_property_1_encoded = "is-muggle=yes"
+fake_message_user_property_2_encoded = "sorted-house=hufflepuff"
+
+
 ops_handled_by_this_stage = [
     pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
@@ -121,6 +132,51 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     all_events=all_common_events + all_iothub_events,
     handled_events=events_handled_by_this_stage,
 )
+
+
+def create_message_with_user_properties(message_content, is_multiple):
+    m = Message(message_content)
+    m.custom_properties[fake_message_user_property_1_key] = fake_message_user_property_1_value
+    if is_multiple:
+        m.custom_properties[fake_message_user_property_2_key] = fake_message_user_property_2_value
+    return m
+
+
+def create_message_with_system_and_user_properties(message_content, is_multiple):
+    if is_multiple:
+        msg = Message(message_content, message_id=fake_message_id, content_type=fake_content_type)
+    else:
+        msg = Message(message_content, message_id=fake_message_id)
+
+    msg.custom_properties[fake_message_user_property_1_key] = fake_message_user_property_1_value
+    if is_multiple:
+        msg.custom_properties[fake_message_user_property_2_key] = fake_message_user_property_2_value
+    return msg
+
+
+def create_message_for_output_with_user_properties(message_content, is_multiple):
+    m = Message(message_content, output_name=fake_output_name)
+    m.custom_properties[fake_message_user_property_1_key] = fake_message_user_property_1_value
+    if is_multiple:
+        m.custom_properties[fake_message_user_property_2_key] = fake_message_user_property_2_value
+    return m
+
+
+def create_message_for_output_with_system_and_user_properties(message_content, is_multiple):
+    if is_multiple:
+        msg = Message(
+            message_content,
+            output_name=fake_output_name,
+            message_id=fake_message_id,
+            content_type=fake_content_type,
+        )
+    else:
+        msg = Message(message_content, output_name=fake_output_name, message_id=fake_message_id)
+
+    msg.custom_properties[fake_message_user_property_1_key] = fake_message_user_property_1_value
+    if is_multiple:
+        msg.custom_properties[fake_message_user_property_2_key] = fake_message_user_property_2_value
+    return msg
 
 
 @pytest.fixture
@@ -394,11 +450,97 @@ publish_ops = [
         "publish_payload": fake_message_body,
     },
     {
-        "name": "send telemetry with properties",
+        "name": "send telemetry with single system property",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {"message": Message(fake_message_body, content_type=fake_content_type)},
         "topic": "devices/{}/messages/events/{}".format(fake_device_id, fake_content_type_encoded),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with multiple system properties",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": Message(
+                fake_message_body, message_id=fake_message_id, content_type=fake_content_type
+            )
+        },
+        "topic": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id, fake_message_id_encoded, fake_content_type_encoded
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with only single user property",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_message_with_user_properties(fake_message_body, is_multiple=False)
+        },
+        "topic": "devices/{}/messages/events/{}".format(
+            fake_device_id, fake_message_user_property_1_encoded
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with only multiple user properties",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_message_with_user_properties(fake_message_body, is_multiple=True)
+        },
+        # For more than 1 user property the order could be different, creating 2 different topics
+        "topic1": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id,
+            fake_message_user_property_1_encoded,
+            fake_message_user_property_2_encoded,
+        ),
+        "topic2": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id,
+            fake_message_user_property_2_encoded,
+            fake_message_user_property_1_encoded,
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with 1 system and 1 user property",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_message_with_system_and_user_properties(
+                fake_message_body, is_multiple=False
+            )
+        },
+        "topic": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id, fake_message_id_encoded, fake_message_user_property_1_encoded
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with multiple system and multiple user properties",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_message_with_system_and_user_properties(
+                fake_message_body, is_multiple=True
+            )
+        },
+        # For more than 1 user property the order could be different, creating 2 different topics
+        "topic1": "devices/{}/messages/events/{}&{}&{}&{}".format(
+            fake_device_id,
+            fake_message_id_encoded,
+            fake_content_type_encoded,
+            fake_message_user_property_1_encoded,
+            fake_message_user_property_2_encoded,
+        ),
+        "topic2": "devices/{}/messages/events/{}&{}&{}&{}".format(
+            fake_device_id,
+            fake_message_id_encoded,
+            fake_content_type_encoded,
+            fake_message_user_property_2_encoded,
+            fake_message_user_property_1_encoded,
+        ),
         "publish_payload": fake_message_body,
     },
     {
@@ -412,7 +554,7 @@ publish_ops = [
         "publish_payload": fake_message_body,
     },
     {
-        "name": "send output with properties",
+        "name": "send output with system properties",
         "stage_type": "module",
         "op_class": pipeline_ops_iothub.SendOutputEventOperation,
         "op_init_kwargs": {
@@ -422,6 +564,63 @@ publish_ops = [
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}".format(
             fake_device_id, fake_module_id, fake_output_name, fake_content_type_encoded
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send output with only 1 user property",
+        "stage_type": "module",
+        "op_class": pipeline_ops_iothub.SendOutputEventOperation,
+        "op_init_kwargs": {
+            "message": create_message_for_output_with_user_properties(
+                fake_message_body, is_multiple=False
+            )
+        },
+        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}".format(
+            fake_device_id, fake_module_id, fake_output_name, fake_message_user_property_1_encoded
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send output with only multiple user properties",
+        "stage_type": "module",
+        "op_class": pipeline_ops_iothub.SendOutputEventOperation,
+        "op_init_kwargs": {
+            "message": create_message_for_output_with_user_properties(
+                fake_message_body, is_multiple=True
+            )
+        },
+        "topic1": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
+            fake_device_id,
+            fake_module_id,
+            fake_output_name,
+            fake_message_user_property_1_encoded,
+            fake_message_user_property_2_encoded,
+        ),
+        "topic2": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
+            fake_device_id,
+            fake_module_id,
+            fake_output_name,
+            fake_message_user_property_2_encoded,
+            fake_message_user_property_1_encoded,
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send output with 1 system and 1 user property",
+        "stage_type": "module",
+        "op_class": pipeline_ops_iothub.SendOutputEventOperation,
+        "op_init_kwargs": {
+            "message": create_message_for_output_with_system_and_user_properties(
+                fake_message_body, is_multiple=False
+            )
+        },
+        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
+            fake_device_id,
+            fake_module_id,
+            fake_output_name,
+            fake_message_id_encoded,
+            fake_message_user_property_1_encoded,
         ),
         "publish_payload": fake_message_body,
     },
@@ -453,7 +652,10 @@ class TestIoTHubMQTTConverterForPublishOps(object):
             pytest.skip()
         stage.run_op(op)
         new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.topic == params["topic"]
+        if "multiple user properties" in params["name"]:
+            assert new_op.topic == params["topic1"] or new_op.topic == params["topic2"]
+        else:
+            assert new_op.topic == params["topic"]
 
     @pytest.mark.it("Sends the body in the payload of the MQTT publish operation")
     def test_sends_correct_body(self, stage, stages_configured_for_both, params, op):
