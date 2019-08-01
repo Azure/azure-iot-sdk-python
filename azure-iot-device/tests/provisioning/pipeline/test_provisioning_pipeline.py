@@ -154,7 +154,7 @@ class TestConnect(object):
         elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
             assert mock_mqtt_transport.connect.call_args[1]["password"] is None
 
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
     @pytest.mark.it("After complete calls handler with new state")
@@ -164,7 +164,7 @@ class TestConnect(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
@@ -177,7 +177,7 @@ class TestConnect(object):
 
         mock_provisioning_pipeline.connect()
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         assert mock_mqtt_transport.connect.call_count == 1
@@ -195,7 +195,7 @@ class TestConnect(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         mock_mqtt_transport.reset_mock()
@@ -227,7 +227,7 @@ class TestSendRegister(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id, request_payload=fake_mqtt_payload
@@ -277,7 +277,7 @@ class TestSendRegister(object):
         mock_mqtt_transport.publish.assert_not_called()
 
         # finish the connection
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # verify that our connected callback was called and verify that we published the event
@@ -320,7 +320,7 @@ class TestSendRegister(object):
         mock_mqtt_transport.publish.assert_not_called()
 
         # finish the connection
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # verify that our connected callback was called and verify that we published the event
@@ -344,7 +344,7 @@ class TestSendRegister(object):
 
         # connect
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # send an event
@@ -381,7 +381,7 @@ class TestSendRegister(object):
 
         # connect
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # send an event
@@ -405,7 +405,7 @@ class TestSendQuery(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id,
@@ -439,7 +439,7 @@ class TestDisconnect(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.disconnect()
 
@@ -458,11 +458,11 @@ class TestDisconnect(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         mock_provisioning_pipeline.disconnect()
-        mock_mqtt_transport.on_mqtt_disconnected()
+        mock_mqtt_transport.on_mqtt_disconnected_handler(None)
 
         mock_provisioning_pipeline.wait_for_on_disconnected_to_be_called()
         mock_provisioning_pipeline.on_disconnected.assert_called_once_with("disconnected")
@@ -476,7 +476,7 @@ class TestEnable(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.enable_responses()
 
@@ -492,7 +492,7 @@ class TestDisable(object):
         mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected()
+        mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
         mock_provisioning_pipeline.disable_responses(None)
 

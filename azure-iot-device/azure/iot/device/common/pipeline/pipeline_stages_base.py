@@ -338,6 +338,7 @@ class EnsureConnectionStage(PipelineStage):
         Start connecting the protocol client in response to some operation (which may or may not be a Connect operation)
         """
         # first, we block all future operations queue while we're connecting
+        logger.info("{}({}): blocking while we connect".format(self.name, op.name))
         self._block(op=op)
 
         # If we're connecting as a side-effect of some other operation (that is not Connect), then we queue
@@ -349,7 +350,9 @@ class EnsureConnectionStage(PipelineStage):
         # function that gets called after we're connected.
         @pipeline_thread.runs_on_pipeline_thread
         def on_connected(op_connect):
-            logger.info("{}({}): connection is complete".format(self.name, op.name))
+            logger.info(
+                "{}({}): connection is complete: {}".format(self.name, op.name, op_connect.error)
+            )
             # if we're connecting because some layer above us asked us to connect, we complete that operation
             # once the connection is established.
             if isinstance(op, pipeline_ops_base.ConnectOperation):

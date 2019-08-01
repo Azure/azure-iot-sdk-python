@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+import six
 from . import (
     pipeline_ops_base,
     PipelineStage,
@@ -14,6 +15,7 @@ from . import (
     pipeline_thread,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
+from azure.iot.device.common import unhandled_exceptions, errors
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,28 @@ class MQTTTransportStage(PipelineStage):
     This stage handles all MQTT operations and any other operations (such as ConnectOperation) which
     is not in the MQTT group of operations, but can only be run at the protocol level.
     """
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _cancel_active_connect_disconnect_ops(self):
+        """
+        Cancel any running connect or disconnect op.  Since our ability to "cancel" is fairly limited,
+        all this does (for now) is to fail the operation
+        """
+
+        ops_to_cancel = []
+        if self._active_connect_op:
+            # TODO: should this actually run a cancel call on the op?
+            ops_to_cancel.add(self._active_connect_op)
+            self._active_connect_op = None
+        if self._active_disconnect_op:
+            ops_to_cancel.add(self._active_disconnect_op)
+            self._active_disconnect_op = None
+
+        for op in ops_to_cancel:
+            op.error = errors.PipelineError(
+                "Cancelling because new ConnectOperation, DisconnectOperation, or ReconnectOperation was issued"
+            )
+            operation_flow.complete_op(stage=self, op=op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -45,89 +69,47 @@ class MQTTTransportStage(PipelineStage):
                 ca_cert=self.ca_cert,
                 x509_cert=self.client_cert,
             )
-            self.transport.on_mqtt_connected = self.on_connected
-            self.transport.on_mqtt_disconnected = self.on_disconnected
-            self.transport.on_mqtt_message_received = self._on_message_received
+            self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
+            self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
+            self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
+            self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
+            self._active_connect_op = None
+            self._active_disconnect_op = None
             self.pipeline_root.transport = self.transport
             operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
-            logger.info("{}({}): conneting".format(self.name, op.name))
+            logger.info("{}({}): connecting".format(self.name, op.name))
 
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_connected():
-                logger.info("{}({}): on_connected.  completing op.".format(self.name, op.name))
-                self.transport.on_mqtt_connected = self.on_connected
-                self.on_connected()
-                operation_flow.complete_op(self, op)
-
-            # A note on exceptions handling in Connect, Disconnct, and Reconnet:
-            #
-            # All calls into self.transport can raise an exception, and this is OK.
-            # The exception handler in PipelineStage.run_op() will catch these errors
-            # and propagate them to the caller.  This is an intentional design of the
-            # pipeline, that stages, etc, don't need to worry about catching exceptions
-            # except for special cases.
-            #
-            # The code right below this comment is This is a special case.  In addition
-            # to this "normal" exception handling, we add another exception handler
-            # into this class' Connect, Reconnect, and Disconnect code.  We need to
-            # do this because transport.on_mqtt_connected and transport.on_mqtt_disconnected
-            # are both _handler_ functions instead of _callbacks_.
-            #
-            # Because they're handlers instead of callbacks, we need to change the
-            # handlers while the connection is established.  We do this so we can
-            # know when the protocol is connected so we can move on to the next step.
-            # Once the connection is established, we change the handler back to its
-            # old value before finishing.
-            #
-            # The exception handling below is to reset the handler back to its original
-            # value in the case where transport.connect raises an exception.  Again,
-            # this extra exception handling is only necessary in the Connect, Disconnect,
-            # and Reconnect case because they're the only cases that use handlers instead
-            # of callbacks.
-            #
-            self.transport.on_mqtt_connected = on_connected
+            self._cancel_active_connect_disconnect_ops()
+            self._active_connect_op = op
             try:
                 self.transport.connect(password=self.sas_token)
             except Exception as e:
-                self.transport.on_mqtt_connected = self.on_connected
+                self._active_connect_op = None
                 raise e
 
         elif isinstance(op, pipeline_ops_base.ReconnectOperation):
             logger.info("{}({}): reconnecting".format(self.name, op.name))
 
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_connected():
-                logger.info("{}({}): on_connected.  completing op.".format(self.name, op.name))
-                self.transport.on_mqtt_connected = self.on_connected
-                self.on_connected()
-                operation_flow.complete_op(self, op)
-
-            # See "A note on exception handling" above
-            self.transport.on_mqtt_connected = on_connected
+            # We set _active_connect_op here because a reconnect is the same as a connect for "active operation" tracking purposes.
+            self._cancel_active_connect_disconnect_ops()
+            self._active_connect_op = op
             try:
                 self.transport.reconnect(password=self.sas_token)
             except Exception as e:
-                self.transport.on_mqtt_connected = self.on_connected
+                self._active_connect_op = None
                 raise e
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
             logger.info("{}({}): disconnecting".format(self.name, op.name))
 
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_disconnected():
-                logger.info("{}({}): on_disconnected.  completing op.".format(self.name, op.name))
-                self.transport.on_mqtt_disconnected = self.on_disconnected
-                self.on_disconnected()
-                operation_flow.complete_op(self, op)
-
-            # See "A note on exception handling" above
-            self.transport.on_mqtt_disconnected = on_disconnected
+            self._cancel_active_connect_disconnect_ops()
+            self._active_disconnect_op = op
             try:
                 self.transport.disconnect()
             except Exception as e:
-                self.transport.on_mqtt_disconnected = self.on_disconnected
+                self._active_disconnect_op = None
                 raise e
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTPublishOperation):
@@ -164,7 +146,7 @@ class MQTTTransportStage(PipelineStage):
             operation_flow.pass_op_to_next_stage(self, op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def _on_message_received(self, topic, payload):
+    def _on_mqtt_message_received(self, topic, payload):
         """
         Handler that gets called by the protocol library when an incoming message arrives.
         Convert that message into a pipeline event and pass it up for someone to handle.
@@ -175,9 +157,64 @@ class MQTTTransportStage(PipelineStage):
         )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def on_connected(self):
-        super(MQTTTransportStage, self).on_connected()
+    def _on_mqtt_connected(self):
+        """
+        Handler that gets called by the transport when it connects.
+        """
+        logger.info("_on_mqtt_connected called")
+        # self.on_connected() tells other pipeilne stages that we're connected.  Do this before
+        # we do anything else (in case upper stages have any "are we connected" logic.
+        self.on_connected()
+        if self._active_connect_op:
+            logger.info("completing connect op")
+            op = self._active_connect_op
+            self._active_connect_op = None
+            operation_flow.complete_op(stage=self, op=op)
+        else:
+            logger.warning("Connection was unexpected")
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def on_disconnected(self):
-        super(MQTTTransportStage, self).on_disconnected()
+    def _on_mqtt_connection_failure(self, cause):
+        """
+        Handler that gets called by the transport when a connection fails.
+        """
+
+        logger.error("{}: _on_mqtt_connection_failure called: {}".format(self.name, cause))
+        if self._active_connect_op:
+            logger.info("{}: failing connect op".format(self.name))
+            op = self._active_connect_op
+            self._active_connect_op = None
+            op.error = cause
+            operation_flow.complete_op(stage=self, op=op)
+        else:
+            logger.warning("{}: Connection failure was unexpected".format(self.name))
+            unhandled_exceptions.exception_caught_in_background_thread(cause)
+
+    @pipeline_thread.invoke_on_pipeline_thread_nowait
+    def _on_mqtt_disconnected(self, cause):
+        """
+        Handler that gets called by the transport when the transport disconnects.
+        """
+        logger.error("{}: _on_mqtt_disconnect called: {}".format(self.name, cause))
+
+        # self.on_disconnected() tells other pipeilne stages that we're disconnected.  Do this before
+        # we do anything else (in case upper stages have any "are we connected" logic.
+        self.on_disconnected()
+
+        # regardless of the cause, we wrap it in a ConnectionDroppedError object because that's
+        # the real problem at this point.
+        if cause:
+            try:
+                six.raise_from(errors.ConnectionDroppedError, cause)
+            except errors.ConnectionDroppedError as e:
+                cause = e
+
+        if self._active_disconnect_op:
+            logger.info("{}: completing disconnect op".format(self.name))
+            op = self._active_disconnect_op
+            self._active_disconnect_op = None
+            op.error = cause
+            operation_flow.complete_op(stage=self, op=op)
+        else:
+            logger.warning("{}: disconnection was unexpected".format(self.name))
+            unhandled_exceptions.exception_caught_in_background_thread(cause)
