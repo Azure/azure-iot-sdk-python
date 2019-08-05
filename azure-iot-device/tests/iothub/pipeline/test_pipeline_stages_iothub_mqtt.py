@@ -234,8 +234,8 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     )
     def test_runs_set_connection_args(self, stage, set_connection_args):
         stage.run_op(set_connection_args)
-        assert stage.next._run_op.call_count == 1
-        new_op = stage.next._run_op.call_args[0][0]
+        assert stage.next._execute_op.call_count == 1
+        new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
 
     @pytest.mark.it(
@@ -243,7 +243,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     )
     def test_sets_client_id_for_devices(self, stage, set_connection_args):
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.client_id == fake_device_id
 
     @pytest.mark.it(
@@ -251,7 +251,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     )
     def test_sets_client_id_for_modules(self, stage, set_connection_args_for_module):
         stage.run_op(set_connection_args_for_module)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.client_id == "{}/{}".format(fake_device_id, fake_module_id)
 
     @pytest.mark.it(
@@ -259,7 +259,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     )
     def test_sets_hostname_if_no_gateway(self, stage, set_connection_args):
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.hostname == fake_hostname
 
     @pytest.mark.it(
@@ -268,7 +268,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_sets_hostname_if_yes_gateway(self, stage, set_connection_args):
         set_connection_args.gateway_hostname = fake_gateway_hostname
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.hostname == fake_gateway_hostname
 
     @pytest.mark.it(
@@ -276,7 +276,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     )
     def test_sets_device_username_if_no_gateway(self, stage, set_connection_args):
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.username == "{}/{}/?api-version={}&DeviceClientType={}".format(
             fake_hostname, fake_device_id, pkg_constant.IOTHUB_API_VERSION, encoded_user_agent
         )
@@ -287,7 +287,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_sets_device_username_if_yes_gateway(self, stage, set_connection_args):
         set_connection_args.gateway_hostname = fake_gateway_hostname
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.username == "{}/{}/?api-version={}&DeviceClientType={}".format(
             fake_hostname, fake_device_id, pkg_constant.IOTHUB_API_VERSION, encoded_user_agent
         )
@@ -297,7 +297,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     )
     def test_sets_module_username_if_no_gateway(self, stage, set_connection_args_for_module):
         stage.run_op(set_connection_args_for_module)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.username == "{}/{}/{}/?api-version={}&DeviceClientType={}".format(
             fake_hostname,
             fake_device_id,
@@ -312,7 +312,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_sets_module_username_if_yes_gateway(self, stage, set_connection_args_for_module):
         set_connection_args_for_module.gateway_hostname = fake_gateway_hostname
         stage.run_op(set_connection_args_for_module)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.username == "{}/{}/{}/?api-version={}&DeviceClientType={}".format(
             fake_hostname,
             fake_device_id,
@@ -325,21 +325,21 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_sets_ca_cert(self, stage, set_connection_args):
         set_connection_args.ca_cert = fake_ca_cert
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.ca_cert == fake_ca_cert
 
     @pytest.mark.it("Sets connection_args.client_cert to auth_provider.client_cert")
     def test_sets_client_cert(self, stage, set_connection_args):
         set_connection_args.client_cert = fake_client_cert
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.client_cert == fake_client_cert
 
     @pytest.mark.it("Sets connection_args.sas_token to auth_provider.sas_token.")
     def test_sets_sas_token(self, stage, set_connection_args):
         set_connection_args.sas_token = fake_sas_token
         stage.run_op(set_connection_args)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.sas_token == fake_sas_token
 
     @pytest.mark.it(
@@ -348,7 +348,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_set_connection_args_raises_exception(
         self, stage, mocker, fake_exception, set_connection_args
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
         stage.run_op(set_connection_args)
         assert_callback_failed(op=set_connection_args, error=fake_exception)
 
@@ -358,7 +358,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_set_connection_args_raises_base_exception(
         self, stage, mocker, fake_base_exception, set_connection_args
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
             stage.run_op(set_connection_args)
 
@@ -415,14 +415,14 @@ class TestIoTHubMQTTConverterBasicOperations(object):
     @pytest.mark.it("Runs an operation on the next stage")
     def test_runs_publish(self, params, stage, stages_configured_for_both, op):
         stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, params["new_op_class"])
 
     @pytest.mark.it("Calls the original op callback with error if the new_op raises an exception")
     def test_operation_raises_exception(
         self, params, mocker, stage, stages_configured_for_both, op, fake_exception
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
         stage.run_op(op)
         assert_callback_failed(op=op, error=fake_exception)
 
@@ -430,7 +430,7 @@ class TestIoTHubMQTTConverterBasicOperations(object):
     def test_operation_raises_base_exception(
         self, params, mocker, stage, stages_configured_for_both, op, fake_base_exception
     ):
-        stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
             stage.run_op(op)
 
@@ -651,7 +651,7 @@ class TestIoTHubMQTTConverterForPublishOps(object):
         elif params["stage_type"] == "module" and not stage.module_id:
             pytest.skip()
         stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         if "multiple user properties" in params["name"]:
             assert new_op.topic == params["topic1"] or new_op.topic == params["topic2"]
         else:
@@ -660,7 +660,7 @@ class TestIoTHubMQTTConverterForPublishOps(object):
     @pytest.mark.it("Sends the body in the payload of the MQTT publish operation")
     def test_sends_correct_body(self, stage, stages_configured_for_both, params, op):
         stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.payload == params["publish_payload"]
 
 
@@ -715,10 +715,10 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
             pytest.skip()
         elif topic_parameters["stage_type"] == "module" and not stage.module_id:
             pytest.skip()
-        stage.next._run_op = mocker.Mock()
+        stage.next._execute_op = mocker.Mock()
         op = op_parameters["op_class"](feature_name=topic_parameters["feature_name"])
         stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
+        new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, op_parameters["new_op"])
         assert new_op.topic == topic_parameters["topic"]
 

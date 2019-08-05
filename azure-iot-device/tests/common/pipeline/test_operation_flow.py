@@ -38,7 +38,7 @@ def apply_fake_pipeline_thread(fake_pipeline_thread):
 
 
 class MockPipelineStage(pipeline_stages_base.PipelineStage):
-    def _run_op(self, op):
+    def _execute_op(self, op):
         pass_op_to_next_stage(self, op)
 
 
@@ -73,8 +73,8 @@ class TestRunOpsSerialOneOpButNoFinallyOp(object):
     @pytest.mark.it("Runs the op")
     def test_runs_operation(self, mocker, stage, callback, op):
         run_ops_in_serial(stage, op, callback=callback)
-        assert stage.next._run_op.call_count == 1
-        assert stage.next._run_op.call_args == mocker.call(op)
+        assert stage.next._execute_op.call_count == 1
+        assert stage.next._execute_op.call_args == mocker.call(op)
 
     @pytest.mark.it("Calls the callback with no error if the op succeeds")
     def test_successful_operation(self, stage, callback, op):
@@ -112,18 +112,18 @@ class TestRunOpsSerialOneOpAndFinallyOp(object):
     @pytest.mark.it("Runs the first op")
     def test_runs_first_op(self, mocker, stage, callback, op, finally_op):
         run_ops_in_serial(stage, op, finally_op=finally_op, callback=callback)
-        assert stage.next._run_op.call_args_list[0] == mocker.call(op)
+        assert stage.next._execute_op.call_args_list[0] == mocker.call(op)
 
     @pytest.mark.it("Runs finally_op if the op succeeds")
     def test_runs_finally_op_on_success(self, mocker, stage, callback, op, finally_op):
         run_ops_in_serial(stage, op, finally_op=finally_op, callback=callback)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(finally_op)
 
     @pytest.mark.it("Runs finally_op if the op fails")
     def test_runs_finally_op_on_op_failure(self, mocker, stage, callback, op, finally_op):
         op.action = "fail"
         run_ops_in_serial(stage, op, finally_op=finally_op, callback=callback)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(finally_op)
 
     @pytest.mark.it(
         "Calls the callback with the finally_op error if op succeeds and finally_op fails"
@@ -191,8 +191,8 @@ class TestRunOpsSerialThreeOpsButNoFinallyOp(object):
     def test_runs_first_op(self, mocker, stage, op, op2, op3, callback):
         op.action = "pend"
         run_ops_in_serial(stage, op, op2, op3, callback=callback)
-        assert stage.next._run_op.call_count == 1
-        assert stage.next._run_op.call_args == mocker.call(op)
+        assert stage.next._execute_op.call_count == 1
+        assert stage.next._execute_op.call_args == mocker.call(op)
 
     @pytest.mark.it("Does not call the second or third op if the first op fails")
     def test_does_not_call_second_or_third_op_if_first_op_fails(
@@ -200,8 +200,8 @@ class TestRunOpsSerialThreeOpsButNoFinallyOp(object):
     ):
         op.action = "fail"
         run_ops_in_serial(stage, op, op2, op3, callback=callback)
-        assert stage.next._run_op.call_count == 1
-        assert stage.next._run_op.call_args == mocker.call(op)
+        assert stage.next._execute_op.call_count == 1
+        assert stage.next._execute_op.call_args == mocker.call(op)
 
     @pytest.mark.it("Calls the callback with the first op error if the first op fails")
     def test_calls_callback_when_first_op_fails(self, stage, op, op2, op3, callback):
@@ -233,19 +233,19 @@ class TestRunOpsSerialThreeOpsButNoFinallyOp(object):
         op.action = "pend"
         op2.action = "pend"
         run_ops_in_serial(stage, op, op2, op3, callback=callback)
-        assert stage.next._run_op.call_count == 1
-        assert stage.next._run_op.call_args == mocker.call(op)
+        assert stage.next._execute_op.call_count == 1
+        assert stage.next._execute_op.call_args == mocker.call(op)
         complete_op(stage.next, op)
-        assert stage.next._run_op.call_count == 2
-        assert stage.next._run_op.call_args_list[1] == mocker.call(op2)
+        assert stage.next._execute_op.call_count == 2
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(op2)
 
     @pytest.mark.it("Does not run the third op after the second op fails")
     def test_does_not_run_third_op_if_second_op_fails(self, mocker, stage, op, op2, op3, callback):
         op2.action = "fail"
         run_ops_in_serial(stage, op, op2, op3, callback=callback)
-        assert stage.next._run_op.call_count == 2
-        assert stage.next._run_op.call_args_list[0] == mocker.call(op)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(op2)
+        assert stage.next._execute_op.call_count == 2
+        assert stage.next._execute_op.call_args_list[0] == mocker.call(op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(op2)
 
     @pytest.mark.it("Calls the callback with the second op error if the second op fails")
     def test_calls_callback_when_second_op_fails(self, stage, op, op2, op3, callback):
@@ -257,12 +257,12 @@ class TestRunOpsSerialThreeOpsButNoFinallyOp(object):
     def test_calls_third_op_after_second_op_succeeds(self, mocker, stage, op, op2, op3, callback):
         op2.action = "pend"
         run_ops_in_serial(stage, op, op2, op3, callback=callback)
-        assert stage.next._run_op.call_count == 2
-        assert stage.next._run_op.call_args_list[0] == mocker.call(op)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(op2)
+        assert stage.next._execute_op.call_count == 2
+        assert stage.next._execute_op.call_args_list[0] == mocker.call(op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(op2)
         complete_op(stage.next, op2)
-        assert stage.next._run_op.call_count == 3
-        assert stage.next._run_op.call_args_list[2] == mocker.call(op3)
+        assert stage.next._execute_op.call_count == 3
+        assert stage.next._execute_op.call_args_list[2] == mocker.call(op3)
 
     @pytest.mark.it("Calls the callback with success if the third op succeeds")
     def test_calls_callback_with_third_op_succeeds(self, stage, op, op2, op3, callback):
@@ -282,8 +282,8 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
     def test_runs_first_op(self, mocker, stage, op, op2, op3, finally_op, callback):
         op.action = "pend"
         run_ops_in_serial(stage, op, op2, op3, finally_op=finally_op, callback=callback)
-        assert stage.next._run_op.call_count == 1
-        assert stage.next._run_op.call_args == mocker.call(op)
+        assert stage.next._execute_op.call_count == 1
+        assert stage.next._execute_op.call_args == mocker.call(op)
 
     @pytest.mark.it(
         "Does not call the second or third op, bue does call the fanally_op if the first op fails"
@@ -293,9 +293,9 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op.action = "fail"
         run_ops_in_serial(stage, op, op2, op3, finally_op=finally_op, callback=callback)
-        assert stage.next._run_op.call_count == 2
-        assert stage.next._run_op.call_args_list[0] == mocker.call(op)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_count == 2
+        assert stage.next._execute_op.call_args_list[0] == mocker.call(op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(finally_op)
 
     @pytest.mark.it(
         "Calls the callback with the finally_op and the first_op error if the first op fails and finally_op succeeds"
@@ -342,10 +342,10 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
         op.action = "pend"
         op2.action = "pend"
         run_ops_in_serial(stage, op, op2, op3, callback=callback, finally_op=finally_op)
-        assert stage.next._run_op.call_count == 1
-        assert stage.next._run_op.call_args == mocker.call(op)
+        assert stage.next._execute_op.call_count == 1
+        assert stage.next._execute_op.call_args == mocker.call(op)
         complete_op(stage.next, op)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(op2)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(op2)
 
     @pytest.mark.it("Does not run the third op but does run finally_op if the second op fails")
     def test_runs_finally_op_when_second_op_fails(
@@ -353,10 +353,10 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op2.action = "fail"
         run_ops_in_serial(stage, op, op2, op3, callback=callback, finally_op=finally_op)
-        assert stage.next._run_op.call_count == 3
-        assert stage.next._run_op.call_args_list[0] == mocker.call(op)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(op2)
-        assert stage.next._run_op.call_args_list[2] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_count == 3
+        assert stage.next._execute_op.call_args_list[0] == mocker.call(op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(op2)
+        assert stage.next._execute_op.call_args_list[2] == mocker.call(finally_op)
 
     @pytest.mark.it(
         "Calls the callback with the finally_op and the  second_op error if the second op fails and finally_op succeeds"
@@ -386,13 +386,13 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op2.action = "pend"
         run_ops_in_serial(stage, op, op2, op3, callback=callback, finally_op=finally_op)
-        assert stage.next._run_op.call_count == 2
-        assert stage.next._run_op.call_args_list[0] == mocker.call(op)
-        assert stage.next._run_op.call_args_list[1] == mocker.call(op2)
+        assert stage.next._execute_op.call_count == 2
+        assert stage.next._execute_op.call_args_list[0] == mocker.call(op)
+        assert stage.next._execute_op.call_args_list[1] == mocker.call(op2)
         complete_op(stage.next, op2)
-        assert stage.next._run_op.call_count == 4
-        assert stage.next._run_op.call_args_list[2] == mocker.call(op3)
-        assert stage.next._run_op.call_args_list[3] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_count == 4
+        assert stage.next._execute_op.call_args_list[2] == mocker.call(op3)
+        assert stage.next._execute_op.call_args_list[3] == mocker.call(finally_op)
 
     @pytest.mark.it("Runs finally_op if the third op fails")
     def test_runs_finally_op_if_third_op_fails(
@@ -400,16 +400,16 @@ class TestRunOpsSerialThreeOpsAndFinallyOp(object):
     ):
         op3.action = "fail"
         run_ops_in_serial(stage, op, op2, op3, callback=callback, finally_op=finally_op)
-        assert stage.next._run_op.call_count == 4
-        assert stage.next._run_op.call_args_list[3] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_count == 4
+        assert stage.next._execute_op.call_args_list[3] == mocker.call(finally_op)
 
     @pytest.mark.it("Runs finally_op if the third op succeeds")
     def test_runs_finally_op_if_third_op_succeeds(
         self, mocker, stage, op, op2, op3, finally_op, callback
     ):
         run_ops_in_serial(stage, op, op2, op3, callback=callback, finally_op=finally_op)
-        assert stage.next._run_op.call_count == 4
-        assert stage.next._run_op.call_args_list[3] == mocker.call(finally_op)
+        assert stage.next._execute_op.call_count == 4
+        assert stage.next._execute_op.call_args_list[3] == mocker.call(finally_op)
 
     @pytest.mark.it(
         "Calls the callback with the finally_op if the third op succeeds and finally_op also succeeds"

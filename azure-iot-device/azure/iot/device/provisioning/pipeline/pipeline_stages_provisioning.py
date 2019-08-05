@@ -18,7 +18,7 @@ class UseSecurityClientStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation):
 
             security_client = op.security_client

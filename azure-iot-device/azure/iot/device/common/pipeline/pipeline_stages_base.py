@@ -81,7 +81,7 @@ class PipelineStage(object):
     def run_op(self, op):
         """
         Run the given operation.  This is the public function that outside callers would call to run an
-        operation.  Derived classes should override the private _run_op function to implement
+        operation.  Derived classes should override the private _execute_op function to implement
         stage-specific behavior.  When run_op returns, that doesn't mean that the operation has executed
         to completion.  Rather, it means that the pipeline has done something that will cause the
         operation to eventually execute to completion.  That might mean that something was sent over
@@ -94,14 +94,14 @@ class PipelineStage(object):
         """
         logger.info("{}({}): running".format(self.name, op.name))
         try:
-            self._run_op(op)
+            self._execute_op(op)
         except Exception as e:
-            logger.error(msg="Error in {}._run_op() call".format(self), exc_info=e)
+            logger.error(msg="Error in {}._execute_op() call".format(self), exc_info=e)
             op.error = e
             operation_flow.complete_op(self, op)
 
     @abc.abstractmethod
-    def _run_op(self, op):
+    def _execute_op(self, op):
         """
         Abstract method to run the actual operation.  This function is implemented in derived classes
         and performs the actual work that any operation expects.  The default behavior for this function
@@ -179,7 +179,7 @@ class PipelineRootStage(PipelineStage):
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         """
         run the operation.  At the root, the only thing to do is to pass the operation
         to the next stage.
@@ -242,7 +242,7 @@ class EnsureConnectionStage(PipelineStage):
         self.blocked = False
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         # If this stage is currently blocked (because we're waiting for a connection
         # to complete, we queue up all operations until after the connect completes.
         if self.blocked:
@@ -392,7 +392,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         self.pending_responses = {}
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation):
             # Convert SendIotRequestAndWaitForResponseOperation operation into a SendIotRequestOperation operation
             # and send it down.  A lower level will convert the SendIotRequestOperation into an

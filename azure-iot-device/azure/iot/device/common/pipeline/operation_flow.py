@@ -163,7 +163,7 @@ def delegate_to_different_op(stage, original_op, new_op):
 
     This is useful when a generic operation (such as "enable feature") needs to be
     converted into a more specific operation (such as "subscribe to mqtt topic").
-    In that case, a stage's _run_op function would call this function passing in
+    In that case, a stage's _execute_op function would call this function passing in
     the original "enable feature" op and the new "subscribe to mqtt topic"
     op.  This function will pass the "subscribe" down. When the "subscribe" op
     is completed, this function will cause the original op to complete.

@@ -27,7 +27,7 @@ class UseAuthProviderStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
             auth_provider = op.auth_provider
             operation_flow.delegate_to_different_op(
@@ -71,7 +71,7 @@ class HandleTwinOperationsStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         def map_twin_error(original_op, twin_op):
             if twin_op.error:
                 original_op.error = twin_op.error

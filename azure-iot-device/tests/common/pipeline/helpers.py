@@ -58,10 +58,10 @@ def make_mock_stage(mocker, stage_to_make):
     """
     # because PipelineStage is abstract, we need something concrete
     class NextStageForTest(pipeline_stages_base.PipelineStage):
-        def _run_op(self, op):
+        def _execute_op(self, op):
             operation_flow.pass_op_to_next_stage(self, op)
 
-    def stage_run_op(self, op):
+    def stage_execute_op(self, op):
         if getattr(op, "action", None) is None or op.action == "pass":
             operation_flow.complete_op(self, op)
         elif op.action == "fail" or op.action == "exception":
@@ -75,12 +75,12 @@ def make_mock_stage(mocker, stage_to_make):
 
     first_stage = stage_to_make()
     first_stage.unhandled_error_handler = mocker.Mock()
-    mocker.spy(first_stage, "_run_op")
+    mocker.spy(first_stage, "_execute_op")
     mocker.spy(first_stage, "run_op")
 
     next_stage = NextStageForTest()
-    next_stage._run_op = functools.partial(stage_run_op, next_stage)
-    mocker.spy(next_stage, "_run_op")
+    next_stage._execute_op = functools.partial(stage_execute_op, next_stage)
+    mocker.spy(next_stage, "_execute_op")
     mocker.spy(next_stage, "run_op")
 
     first_stage.next = next_stage

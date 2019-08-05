@@ -145,7 +145,7 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
                     super(PreviousStage, self).__init__()
                     self.handle_pipeline_event = mocker.MagicMock()
 
-                def _run_op(self, op):
+                def _execute_op(self, op):
                     pass
 
             previous = PreviousStage()

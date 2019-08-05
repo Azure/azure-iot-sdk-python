@@ -95,16 +95,16 @@ def _test_pipeline_root_runs_operation_in_pipeline_thread(
     # this test method gets added to, so it's a PipelineRootStage object
     assert threading.current_thread().name != "pipeline"
 
-    def mock_run_op(self, op):
-        print("mock_run_op called")
+    def mock_execute_op(self, op):
+        print("mock_execute_op called")
         assert threading.current_thread().name == "pipeline"
         op.callback(op)
 
-    mock_run_op = mocker.MagicMock(mock_run_op)
-    stage._run_op = mock_run_op
+    mock_execute_op = mocker.MagicMock(mock_execute_op)
+    stage._execute_op = mock_execute_op
 
     stage.run_op(op)
-    assert mock_run_op.call_count == 1
+    assert mock_execute_op.call_count == 1
 
 
 TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
@@ -195,13 +195,13 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(object):
         "Fails SendIotRequestAndWaitForResponseOperation if an Exception is raised in the SendIotRequestOperation op"
     )
     def test_new_op_raises_exception(self, stage, op, mocker):
-        stage.next._run_op = mocker.Mock(side_effect=Exception)
+        stage.next._execute_op = mocker.Mock(side_effect=Exception)
         stage.run_op(op)
         assert_callback_failed(op=op)
 
     @pytest.mark.it("Allows BaseExceptions rised on the SendIotRequestOperation op to propogate")
     def test_new_op_raises_base_exception(self, stage, op, mocker):
-        stage.next._run_op = mocker.Mock(side_effect=UnhandledException)
+        stage.next._execute_op = mocker.Mock(side_effect=UnhandledException)
         with pytest.raises(UnhandledException):
             stage.run_op(op)
         assert op.callback.call_count == 0
@@ -267,7 +267,7 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         "Does nothing if an IotResponse with a request_id is received for an operation that returned failure"
     )
     def test_ignores_request_id_from_failure(self, stage, op, mocker, unhandled_error_handler):
-        stage.next._run_op = mocker.MagicMock(side_effect=Exception)
+        stage.next._execute_op = mocker.MagicMock(side_effect=Exception)
         stage.run_op(op)
 
         req = stage.next.run_op.call_args[0][0]

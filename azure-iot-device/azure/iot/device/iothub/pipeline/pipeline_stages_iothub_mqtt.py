@@ -35,7 +35,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
         self.feature_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
 
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id

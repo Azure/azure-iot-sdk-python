@@ -127,10 +127,10 @@ def set_security_client(callback, params_security_ops):
 class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
     @pytest.mark.it("runs SetProvisioningClientConnectionArgsOperation op on the next stage")
     def test_runs_set_security_client_args(self, mocker, security_stage, set_security_client):
-        security_stage.next._run_op = mocker.Mock()
+        security_stage.next._execute_op = mocker.Mock()
         security_stage.run_op(set_security_client)
-        assert security_stage.next._run_op.call_count == 1
-        set_args = security_stage.next._run_op.call_args[0][0]
+        assert security_stage.next._execute_op.call_count == 1
+        set_args = security_stage.next._execute_op.call_args[0][0]
         assert isinstance(
             set_args, pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation
         )
@@ -142,7 +142,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
     def test_set_security_client_raises_exception(
         self, mocker, security_stage, fake_exception, set_security_client
     ):
-        security_stage.next._run_op = mocker.Mock(side_effect=fake_exception)
+        security_stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
         security_stage.run_op(set_security_client)
         assert_callback_failed(op=set_security_client, error=fake_exception)
 
@@ -152,7 +152,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
     def test_set_security_client_raises_base_exception(
         self, mocker, security_stage, fake_base_exception, set_security_client
     ):
-        security_stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        security_stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
             security_stage.run_op(set_security_client)
 
@@ -173,7 +173,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
         security_stage.run_op(set_security_client)
         assert spy_method.call_count == 1
 
-        set_connection_args_op = security_stage.next._run_op.call_args[0][0]
+        set_connection_args_op = security_stage.next._execute_op.call_args[0][0]
 
         if (
             params_security_ops["current_op_class"].__name__

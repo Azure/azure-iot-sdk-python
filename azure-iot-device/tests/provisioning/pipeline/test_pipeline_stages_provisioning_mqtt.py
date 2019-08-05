@@ -121,8 +121,8 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     )
     def test_runs_set_connection_args(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
-        assert mock_stage.next._run_op.call_count == 1
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        assert mock_stage.next._execute_op.call_count == 1
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
 
     @pytest.mark.it(
@@ -130,7 +130,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     )
     def test_sets_client_id(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert new_op.client_id == fake_registration_id
 
     @pytest.mark.it(
@@ -138,7 +138,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     )
     def test_sets_hostname(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert new_op.hostname == fake_provisioning_host
 
     @pytest.mark.it(
@@ -146,7 +146,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     )
     def test_sets_client_cert(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert new_op.client_cert == fake_client_cert
 
     @pytest.mark.it(
@@ -154,7 +154,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     )
     def test_sets_sas_token(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert new_op.sas_token == fake_sas_token
 
     @pytest.mark.it(
@@ -162,7 +162,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     )
     def test_sets_username(self, mock_stage, set_security_client_args):
         mock_stage.run_op(set_security_client_args)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert (
             new_op.username
             == "{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}".format(
@@ -179,7 +179,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     def test_set_connection_args_raises_exception(
         self, mock_stage, mocker, some_exception, set_security_client_args
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=some_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=some_exception)
         mock_stage.run_op(set_security_client_args)
         assert_callback_failed(op=set_security_client_args, error=some_exception)
 
@@ -189,7 +189,7 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
     def test_set_connection_args_raises_base_exception(
         self, mock_stage, mocker, fake_base_exception, set_security_client_args
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
             mock_stage.run_op(set_security_client_args)
 
@@ -248,14 +248,14 @@ class TestProvisioningMQTTConverterBasicOperations(object):
     @pytest.mark.it("Runs an operation on the next stage")
     def test_runs_publish(self, params, mock_stage, stages_configured, op):
         mock_stage.run_op(op)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, params["new_op_class"])
 
     @pytest.mark.it("Calls the original op callback with error if the new_op raises an Exception")
     def test_new_op_raises_exception(
         self, params, mocker, mock_stage, stages_configured, op, some_exception
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=some_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=some_exception)
         mock_stage.run_op(op)
         assert_callback_failed(op=op, error=some_exception)
 
@@ -263,7 +263,7 @@ class TestProvisioningMQTTConverterBasicOperations(object):
     def test_new_op_raises_base_exception(
         self, params, mocker, mock_stage, stages_configured, op, fake_base_exception
     ):
-        mock_stage.next._run_op = mocker.Mock(side_effect=fake_base_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
         with pytest.raises(UnhandledException):
             mock_stage.run_op(op)
 
@@ -305,13 +305,13 @@ class TestProvisioningMQTTConverterForPublishOps(object):
     @pytest.mark.it("Uses correct registration topic string when publishing")
     def test_uses_topic_for(self, mock_stage, stages_configured, params, op):
         mock_stage.run_op(op)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert new_op.topic == params["topic"]
 
     @pytest.mark.it("Sends correct payload when publishing")
     def test_sends_correct_body(self, mock_stage, stages_configured, params, op):
         mock_stage.run_op(op)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert new_op.payload == params["publish_payload"]
 
 
@@ -339,11 +339,11 @@ class TestProvisioningMQTTConverterWithEnable(object):
         self, mocker, mock_stage, stages_configured, op_parameters
     ):
         topic = "$dps/registrations/res/#"
-        mock_stage.next._run_op = mocker.Mock()
+        mock_stage.next._execute_op = mocker.Mock()
 
         op = op_parameters["op_class"](feature_name=None)
         mock_stage.run_op(op)
-        new_op = mock_stage.next._run_op.call_args[0][0]
+        new_op = mock_stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, op_parameters["new_op"])
         assert new_op.topic == topic
 

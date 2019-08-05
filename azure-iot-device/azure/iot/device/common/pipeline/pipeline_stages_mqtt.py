@@ -50,7 +50,7 @@ class MQTTTransportStage(PipelineStage):
             operation_flow.complete_op(stage=self, op=op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
+    def _execute_op(self, op):
         if isinstance(op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation):
             # pipeline_ops_mqtt.SetMQTTConnectionArgsOperation is where we create our MQTTTransport object and set
             # all of its properties.
