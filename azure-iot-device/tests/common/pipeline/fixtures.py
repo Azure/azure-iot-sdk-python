@@ -14,9 +14,16 @@ from azure.iot.device.common.pipeline import (
 )
 
 
+# TODO: remove this fixture
+# Using it is dangerous if multiple ops use this same callback
+# within the scope of the same test
+# (i.e. an op under test, and an op run in test setup)
+# What happens is that those operations all are tied together with this
+# same callback mock, and the same callback is called multiple times
+# leading to unexpected behavior
 @pytest.fixture
 def callback(mocker):
-    return mocker.Mock()
+    return mocker.MagicMock()
 
 
 @pytest.fixture
