@@ -11,13 +11,15 @@ This repository contains the code for the future v2.0.0 of the Azure IoT SDKs fo
 This repository contains the following SDKs:
 
 * [Azure IoT Device SDK](azure-iot-device) - /azure-iot-device
-    * Provision a device for use with the Azure IoT Hub
+    * Provision a device using the Device Provisioning Service for use with the Azure IoT Hub
     * Send/receive telemetry between a device and the Azure IoT Hub
     * Handle direct methods invoked by the Azure IoT Hub on a device
 
-* Azure IoT Hub SDK **COMING SOON**
+* Azure IoT Hub SDK **(COMING SOON)**
+    * Do service/management operations on the Azure IoT Hub
 
-* Azure IoT Hub Provisioning SDK **COMING SOON**
+* Azure IoT Hub Provisioning SDK **(COMING SOON)**
+    * Do service/management operations on the Azure IoT Device Provisioning Service
 
 # How to install the SDKs
 
