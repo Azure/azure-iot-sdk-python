@@ -165,16 +165,25 @@ class PipelineRootStage(PipelineStage):
     the pipeline exist.  This is also where clients can add event handlers to receive
     events from the pipeline.
 
-    :ivar on_pipeline_event: Handler which can be set by users of the pipeline to
+    :ivar on_pipeline_event_handler: Handler which can be set by users of the pipeline to
       receive PipelineEvent objects.  This is how users receive any "unsolicited"
       events from the pipeline (such as C2D messages).  This function is called with
       a PipelineEvent object every time any such event occurs.
-    :type on_pipeline_event: Function
+    :type on_pipeline_event_handler: Function
+    :ivar on_connected_handler: Handler which can be set by users of the pipeline to
+      receive events every time the underlying transport connects
+    :type on_connected_handler: Function
+    :ivar on_disconnected_handler: Handler which can be set by users of the pipeline to
+      receive events every time the underlying transport disconnects
+    :type on_disconnected_handler: Function
     """
 
     def __init__(self):
         super(PipelineRootStage, self).__init__()
-        self.on_pipeline_event = None
+        self.on_pipeline_event_handler = None
+        self.on_connected_handler = None
+        self.on_disconnected_handler = None
+        self.connected = False
 
     def run_op(self, op):
         op.callback = pipeline_thread.invoke_on_callback_thread_nowait(op.callback)
@@ -211,81 +220,56 @@ class PipelineRootStage(PipelineStage):
     def _handle_pipeline_event(self, event):
         """
         Override of the PipelineEvent handler.  Because this is the root of the pipeline,
-        this function calls the on_pipeline_event handler to pass the event to the
+        this function calls the on_pipeline_event_handler to pass the event to the
         caller.
 
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
-        if self.on_pipeline_event:
-            # already protected by try/except in handle_pipeline_event()
-            self.on_pipeline_event(event)
+        if self.on_pipeline_event_handler:
+            pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(event)
         else:
             logger.warning("incoming pipeline event with no handler.  dropping.")
 
+    @pipeline_thread.runs_on_pipeline_thread
+    def on_connected(self):
+        logger.info(
+            "{}: on_connected.  on_connected_handler={}".format(
+                self.name, self.on_connected_handler
+            )
+        )
+        self.connected = True
+        if self.on_connected_handler:
+            pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def on_disconnected(self):
+        logger.info(
+            "{}: on_disconnected.  on_disconnected_handler={}".format(
+                self.name, self.on_disconnected_handler
+            )
+        )
+        self.connected = False
+        if self.on_disconnected_handler:
+            pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+
 
 class EnsureConnectionStage(PipelineStage):
-    # TODO: additional documentation and tests for this class are not being implemented because a significant rewriting to support more scenarios is pending
     """
     This stage is responsible for ensuring that the protocol is connected when
-    it needs to be connected, and it's responsible for queueing operations
-    while we're waiting for the connect operation to complete.
-
-    Note: this stage will likely be replaced by a more full-featured stage to handle
-    other "block while we're setting something up" operations, such as subscribing to
-    twin responses.  That is another example where we want to ensure some state and block
-    requests until that state is achieved.
+    it needs to be connected.
     """
-
-    def __init__(self):
-        super(EnsureConnectionStage, self).__init__()
-        self.connected = False
-        self.queue = queue.Queue()
-        self.blocked = False
 
     @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
-        # If this stage is currently blocked (because we're waiting for a connection
-        # to complete, we queue up all operations until after the connect completes.
-        if self.blocked:
+        # Any operation that requires a connection can trigger a connection if
+        # we're not connected.
+        if op.needs_connection and not self.pipeline_root.connected:
             logger.info(
-                "{}({}): pipeline is blocked waiting for connect.  queueing.".format(
+                "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
                     self.name, op.name
                 )
             )
-            self.queue.put_nowait(op)
-
-        # If we get a request to connect, we either complete immediately (if we're already
-        # connected) or we do the connect operation, which is pulled out into a helper
-        # function because starting the connection also means blocking this stage until
-        # the connect is complete.
-        elif isinstance(op, pipeline_ops_base.ConnectOperation):
-            if self.connected:
-                logger.info(
-                    "{}({}): protocol client is already conencted.  completing early.".format(
-                        self.name, op.name
-                    )
-                )
-                operation_flow.complete_op(self, op)
-            else:
-                self._do_connect(op)
-
-        # If we get a request to disconnect, we either complete the request immediately
-        # (if we're already disconencted) or we pass the disconnect request down.
-        elif isinstance(op, pipeline_ops_base.DisconnectOperation):
-            if not self.connected:
-                logger.info(
-                    "{}({}): procotol client is already disconencted.  completing early.".format(
-                        self.name, op.name
-                    )
-                )
-                operation_flow.complete_op(self, op)
-            else:
-                operation_flow.pass_op_to_next_stage(self, op)
-
-        # Any other operation that requires a connection can trigger a connection if
-        # we're not connected.
-        elif op.needs_connection and not self.connected:
             self._do_connect(op)
 
         # Finally, if this stage doesn't need to do anything else with this operation,
@@ -294,28 +278,135 @@ class EnsureConnectionStage(PipelineStage):
             operation_flow.pass_op_to_next_stage(self, op)
 
     @pipeline_thread.runs_on_pipeline_thread
+    def _do_connect(self, op):
+        """
+        Start connecting the transport in response to some operation
+        """
+        # function that gets called after we're connected.
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_connect_op_complete(op_connect):
+            if op_connect.error:
+                logger.info(
+                    "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
+                        self.name, op.name, op_connect.error
+                    )
+                )
+                op.error = op_connect.error
+                operation_flow.complete_op(stage=self, op=op)
+            else:
+                logger.info(
+                    "{}({}): connection is complete.  Continuing with op".format(self.name, op.name)
+                )
+                operation_flow.pass_op_to_next_stage(stage=self, op=op)
+
+        # call down to the next stage to connect.
+        logger.info("{}({}): calling down with Connect operation".format(self.name, op.name))
+        operation_flow.pass_op_to_next_stage(
+            self, pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete)
+        )
+
+
+class SerializeConnectOpsStage(PipelineStage):
+    """
+    This stage is responsible for serializing connect, disconnect, and reconnect ops on
+    the pipeline, such that only a single one of these ops can go past this stage at a
+    time.  This way, we don't have to worry about cases like "what happens if we try to
+    disconnect if we're in the middle of reconnecting."  This stage will wait for the
+    reconnect to complete before letting the disconnect past.
+    """
+
+    def __init__(self):
+        super(SerializeConnectOpsStage, self).__init__()
+        self.queue = queue.Queue()
+        self.blocked = False
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _execute_op(self, op):
+        # If this stage is currently blocked (because we're waiting for a connection, etc,
+        # to complete), we queue up all operations until after the connect completes.
+        if self.blocked:
+            logger.info(
+                "{}({}): pipeline is blocked waiting for a prior connect/disconnect/reconnect to complete.  queueing.".format(
+                    self.name, op.name
+                )
+            )
+            self.queue.put_nowait(op)
+
+        elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
+            logger.info(
+                "{}({}): Transport is already connected.  Completing early".format(
+                    self.name, op.name
+                )
+            )
+            operation_flow.complete_op(stage=self, op=op)
+
+        elif (
+            isinstance(op, pipeline_ops_base.DisconnectOperation)
+            and not self.pipeline_root.connected
+        ):
+            logger.info(
+                "{}({}): Transport is already disconnected.  Completing early".format(
+                    self.name, op.name
+                )
+            )
+            operation_flow.complete_op(stage=self, op=op)
+
+        elif (
+            isinstance(op, pipeline_ops_base.DisconnectOperation)
+            or isinstance(op, pipeline_ops_base.ConnectOperation)
+            or isinstance(op, pipeline_ops_base.ReconnectOperation)
+        ):
+            self._block(op)
+            old_callback = op.callback
+
+            @pipeline_thread.runs_on_pipeline_thread
+            def on_operation_complete(op):
+                logger.info(
+                    "{}({}): complete.  Unblocking queue with error: {}".format(
+                        self.name, op.name, op.error
+                    )
+                )
+                op.callback = old_callback
+                self._unblock(op, op.error)
+                logger.info(
+                    "{}({}): unblock is complete.  completing op that caused unblock".format(
+                        self.name, op.name
+                    )
+                )
+                operation_flow.complete_op(stage=self, op=op)
+
+            op.callback = on_operation_complete
+            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+
+        else:
+            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+
+    @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):
         """
-        block this stage while we're waiting for the connection to complete.
+        block this stage while we're waiting for the connect/disconnect/reconnect operation to complete.
         """
-        logger.info("{}({}): enabling block".format(self.name, op.name))
+        logger.info("{}({}): blocking".format(self.name, op.name))
         self.blocked = True
 
     @pipeline_thread.runs_on_pipeline_thread
     def _unblock(self, op, error):
         """
-        Unblock this stage after the connection is complete.  This also means
-        releasing all the queued up operations that we were waiting for the
-        connect operation to complete.
+        Unblock this stage after the connect/disconnect/reconnect operation is complete.  This also means
+        releasing all the operations that were queued up.
         """
-        logger.info("{}({}): disabling block and releasing queued ops.".format(self.name, op.name))
+        logger.info("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
         self.blocked = False
         logger.info(
             "{}({}): processing {} items in queue".format(self.name, op.name, self.queue.qsize())
         )
-        # loop through our queue and release all the blocked operations
-        while not self.queue.empty():
-            op_to_release = self.queue.get_nowait()
+        # Loop through our queue and release all the blocked operations
+        # Put a new Queue in self.queue because releasing ops might put them back in the
+        # queue, especially if there's a ConnectOperation in the list of ops to release
+        old_queue = self.queue
+        self.queue = queue.Queue()
+        while not old_queue.empty():
+            op_to_release = old_queue.get_nowait()
             if error:
                 # if we're unblocking the queue because something (like a connect operation) failed,
                 # then we fail all of the blocked operations with the same error.
@@ -327,59 +418,11 @@ class EnsureConnectionStage(PipelineStage):
                 op_to_release.error = error
                 operation_flow.complete_op(self, op_to_release)
             else:
-                # when we release, go back through this stage again to make sure requirements are _really_ satisfied.
-                # this also pre-maturely completes ops that might now be satisfied.
                 logger.info(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
+                # call run_op directly here so operations go through this stage again (especiall connect/disconnect ops)
                 self.run_op(op_to_release)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _do_connect(self, op):
-        """
-        Start connecting the protocol client in response to some operation (which may or may not be a Connect operation)
-        """
-        # first, we block all future operations queue while we're connecting
-        logger.info("{}({}): blocking while we connect".format(self.name, op.name))
-        self._block(op=op)
-
-        # If we're connecting as a side-effect of some other operation (that is not Connect), then we queue
-        # that operation to run after the connection is complete.
-        if not isinstance(op, pipeline_ops_base.ConnectOperation):
-            logger.info("{}({}): queueing until connection complete".format(self.name, op.name))
-            self.queue.put_nowait(op)
-
-        # function that gets called after we're connected.
-        @pipeline_thread.runs_on_pipeline_thread
-        def on_connected(op_connect):
-            logger.info(
-                "{}({}): connection is complete: {}".format(self.name, op.name, op_connect.error)
-            )
-            # if we're connecting because some layer above us asked us to connect, we complete that operation
-            # once the connection is established.
-            if isinstance(op, pipeline_ops_base.ConnectOperation):
-                op.error = op_connect.error
-                operation_flow.complete_op(self, op)
-            # and, no matter what, we always unblock the stage when we're done connecting.
-            self._unblock(op=op, error=op_connect.error)
-
-        # call down to the next stage to connect.  We don't use delegate_to_different_op because we have
-        # extra code that needs to run (unblocking the queue) when the connect is complete and
-        # delegate_to_different_op can't do that.
-        logger.info("{}({}): calling down with Connect operation".format(self.name, op.name))
-        operation_flow.pass_op_to_next_stage(
-            self, pipeline_ops_base.ConnectOperation(callback=on_connected)
-        )
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        self.connected = True
-        PipelineStage.on_connected(self)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        self.connected = False
-        PipelineStage.on_disconnected(self)
 
 
 class CoordinateRequestAndResponseStage(PipelineStage):

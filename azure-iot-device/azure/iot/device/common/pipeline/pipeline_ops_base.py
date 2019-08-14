@@ -113,7 +113,6 @@ class EnableFeatureOperation(PipelineOperation):
         """
         super(EnableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
-        self.needs_connection = True
 
 
 class DisableFeatureOperation(PipelineOperation):
@@ -142,7 +141,6 @@ class DisableFeatureOperation(PipelineOperation):
         """
         super(DisableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
-        self.needs_connection = True
 
 
 class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
@@ -188,7 +186,6 @@ class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
         self.request_body = request_body
         self.status_code = None
         self.response_body = None
-        self.needs_connection = True
 
 
 class SendIotRequestOperation(PipelineOperation):
@@ -225,4 +222,3 @@ class SendIotRequestOperation(PipelineOperation):
         self.request_type = request_type
         self.request_body = request_body
         self.request_id = request_id
-        self.needs_connection = True

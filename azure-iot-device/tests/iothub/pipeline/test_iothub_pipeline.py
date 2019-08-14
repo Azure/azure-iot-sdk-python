@@ -82,9 +82,9 @@ class TestIoTHubPipelineInstantiation(object):
     @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
     def test_handlers_configured(self, auth_provider):
         pipeline = IoTHubPipeline(auth_provider)
-        assert pipeline._pipeline.on_pipeline_event is not None
-        assert pipeline._pipeline.on_connected is not None
-        assert pipeline._pipeline.on_disconnected is not None
+        assert pipeline._pipeline.on_pipeline_event_handler is not None
+        assert pipeline._pipeline.on_connected_handler is not None
+        assert pipeline._pipeline.on_disconnected_handler is not None
 
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
     def test_pipeline_configuration(self, auth_provider):
@@ -96,8 +96,9 @@ class TestIoTHubPipelineInstantiation(object):
             pipeline_stages_iothub.UseAuthProviderStage,
             pipeline_stages_iothub.HandleTwinOperationsStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,
-            pipeline_stages_base.EnsureConnectionStage,
             pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
+            pipeline_stages_base.EnsureConnectionStage,
+            pipeline_stages_base.SerializeConnectOpsStage,
             pipeline_stages_mqtt.MQTTTransportStage,
         ]
 
@@ -774,14 +775,14 @@ class TestIoTHubPipelineEVENTConnect(object):
         assert mock_handler.call_count == 0
 
         # Trigger the connect
-        pipeline._pipeline.on_connected()
+        pipeline._pipeline.on_connected_handler()
 
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
     @pytest.mark.it("Does nothing if the 'on_connected' handler is not set")
     def test_without_handler(self, pipeline):
-        pipeline._pipeline.on_connected()
+        pipeline._pipeline.on_connected_handler()
 
         # No assertions required - not throwing an exception means the test passed
 
@@ -796,14 +797,14 @@ class TestIoTHubPipelineEVENTDisconnect(object):
         assert mock_handler.call_count == 0
 
         # Trigger the connect
-        pipeline._pipeline.on_disconnected()
+        pipeline._pipeline.on_disconnected_handler()
 
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
     @pytest.mark.it("Does nothing if the 'on_disconnected' handler is not set")
     def test_without_handler(self, pipeline):
-        pipeline._pipeline.on_disconnected()
+        pipeline._pipeline.on_disconnected_handler()
 
         # No assertions required - not throwing an exception means the test passed
 
@@ -823,7 +824,7 @@ class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
         c2d_event = pipeline_events_iothub.C2DMessageEvent(message)
 
         # Trigger the event
-        pipeline._pipeline.on_pipeline_event(c2d_event)
+        pipeline._pipeline.on_pipeline_event_handler(c2d_event)
 
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(message)
@@ -831,7 +832,7 @@ class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
     @pytest.mark.it("Drops the message if the 'on_c2d_message_received' handler is not set")
     def test_no_handler(self, pipeline, message):
         c2d_event = pipeline_events_iothub.C2DMessageEvent(message)
-        pipeline._pipeline.on_pipeline_event(c2d_event)
+        pipeline._pipeline.on_pipeline_event_handler(c2d_event)
 
         # No assertions required - not throwing an exception means the test passed
 
@@ -852,7 +853,7 @@ class TestIoTHubPipelineEVENTReceiveInputMessage(object):
         input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
 
         # Trigger the event
-        pipeline._pipeline.on_pipeline_event(input_message_event)
+        pipeline._pipeline.on_pipeline_event_handler(input_message_event)
 
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(input_name, message)
@@ -861,7 +862,7 @@ class TestIoTHubPipelineEVENTReceiveInputMessage(object):
     def test_no_handler(self, pipeline, message):
         input_name = "some_input"
         input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
-        pipeline._pipeline.on_pipeline_event(input_message_event)
+        pipeline._pipeline.on_pipeline_event_handler(input_message_event)
 
         # No assertions required - not throwing an exception means the test passed
 
@@ -881,7 +882,7 @@ class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
         method_request_event = pipeline_events_iothub.MethodRequestEvent(method_request)
 
         # Trigger the event
-        pipeline._pipeline.on_pipeline_event(method_request_event)
+        pipeline._pipeline.on_pipeline_event_handler(method_request_event)
 
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(method_request)
@@ -891,7 +892,7 @@ class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
     )
     def test_no_handler(self, pipeline, method_request):
         method_request_event = pipeline_events_iothub.MethodRequestEvent(method_request)
-        pipeline._pipeline.on_pipeline_event(method_request_event)
+        pipeline._pipeline.on_pipeline_event_handler(method_request_event)
 
         # No assertions required - not throwing an exception means the test passed
 
@@ -911,7 +912,7 @@ class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
         twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(twin_patch)
 
         # Trigger the event
-        pipeline._pipeline.on_pipeline_event(twin_patch_event)
+        pipeline._pipeline.on_pipeline_event_handler(twin_patch_event)
 
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(twin_patch)
@@ -919,6 +920,6 @@ class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it("Drops the twin patch if the 'on_twin_patch_received' handler is not set")
     def test_no_handler(self, pipeline, twin_patch):
         twin_patch_event = pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(twin_patch)
-        pipeline._pipeline.on_pipeline_event(twin_patch_event)
+        pipeline._pipeline.on_pipeline_event_handler(twin_patch_event)
 
         # No assertions required - not throwing an exception means the test passed

@@ -84,10 +84,13 @@ def make_mock_stage(mocker, stage_to_make):
     mocker.spy(next_stage, "run_op")
 
     first_stage.next = next_stage
+    # TODO: this is sloppy.  we should have a real root here for testing.
     first_stage.pipeline_root = first_stage
 
     next_stage.previous = first_stage
     next_stage.pipeline_root = first_stage
+
+    first_stage.pipeline_root.connected = False
 
     return first_stage
 

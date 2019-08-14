@@ -41,33 +41,28 @@ pipeline_data_object_test.add_operation_test(
     module=this_module,
     positional_arguments=["message"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_iothub.SendOutputEventOperation,
     module=this_module,
     positional_arguments=["message"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_iothub.SendMethodResponseOperation,
     module=this_module,
     positional_arguments=["method_response"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_iothub.GetTwinOperation,
     module=this_module,
     positional_arguments=[],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_iothub.PatchTwinReportedPropertiesOperation,
     module=this_module,
     positional_arguments=["patch"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )

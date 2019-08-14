@@ -79,6 +79,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     handled_ops=ops_handled_by_this_stage,
     all_events=all_common_events + all_provisioning_events,
     handled_events=events_handled_by_this_stage,
+    extra_initializer_defaults={"action_to_topic": dict},
 )
 
 

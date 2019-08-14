@@ -33,12 +33,13 @@ class ProvisioningPipeline(object):
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage()
             .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
-            .append_stage(pipeline_stages_base.EnsureConnectionStage())
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage())
+            .append_stage(pipeline_stages_base.EnsureConnectionStage())
+            .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
-        def _handle_pipeline_event(event):
+        def _on_pipeline_event(event):
             if isinstance(event, pipeline_events_provisioning.RegistrationResponseEvent):
                 if self.on_message_received:
                     self.on_message_received(
@@ -53,17 +54,17 @@ class ProvisioningPipeline(object):
             else:
                 logger.warning("Dropping unknown pipeline event {}".format(event.name))
 
-        def _handle_connected():
+        def _on_connected():
             if self.on_connected:
                 self.on_connected("connected")
 
-        def _handle_disconnected():
+        def _on_disconnected():
             if self.on_disconnected:
                 self.on_disconnected("disconnected")
 
-        self._pipeline.on_pipeline_event = _handle_pipeline_event
-        self._pipeline.on_connected = _handle_connected
-        self._pipeline.on_disconnected = _handle_disconnected
+        self._pipeline.on_pipeline_event_handler = _on_pipeline_event
+        self._pipeline.on_connected_handler = _on_connected
+        self._pipeline.on_disconnected_handler = _on_disconnected
 
         def remove_this_code(call):
             if call.error:

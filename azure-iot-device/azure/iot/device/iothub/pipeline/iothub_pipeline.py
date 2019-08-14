@@ -50,12 +50,13 @@ class IoTHubPipeline(object):
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
-            .append_stage(pipeline_stages_base.EnsureConnectionStage())
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage())
+            .append_stage(pipeline_stages_base.EnsureConnectionStage())
+            .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
-        def _handle_pipeline_event(event):
+        def _on_pipeline_event(event):
             if isinstance(event, pipeline_events_iothub.C2DMessageEvent):
                 if self.on_c2d_message_received:
                     self.on_c2d_message_received(event.message)
@@ -83,17 +84,17 @@ class IoTHubPipeline(object):
             else:
                 logger.warning("Dropping unknown pipeline event {}".format(event.name))
 
-        def _handle_connected():
+        def _on_connected():
             if self.on_connected:
                 self.on_connected()
 
-        def _handle_disconnected():
+        def _on_disconnected():
             if self.on_disconnected:
                 self.on_disconnected()
 
-        self._pipeline.on_pipeline_event = _handle_pipeline_event
-        self._pipeline.on_connected = _handle_connected
-        self._pipeline.on_disconnected = _handle_disconnected
+        self._pipeline.on_pipeline_event_handler = _on_pipeline_event
+        self._pipeline.on_connected_handler = _on_connected
+        self._pipeline.on_disconnected_handler = _on_disconnected
 
         def remove_this_code(call):
             if call.error:

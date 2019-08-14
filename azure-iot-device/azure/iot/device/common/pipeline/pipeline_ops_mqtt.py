@@ -67,6 +67,7 @@ class MQTTPublishOperation(PipelineOperation):
         super(MQTTPublishOperation, self).__init__(callback=callback)
         self.topic = topic
         self.payload = payload
+        self.needs_connection = True
 
 
 class MQTTSubscribeOperation(PipelineOperation):
@@ -87,6 +88,7 @@ class MQTTSubscribeOperation(PipelineOperation):
         """
         super(MQTTSubscribeOperation, self).__init__(callback=callback)
         self.topic = topic
+        self.needs_connection = True
 
 
 class MQTTUnsubscribeOperation(PipelineOperation):
@@ -107,3 +109,4 @@ class MQTTUnsubscribeOperation(PipelineOperation):
         """
         super(MQTTUnsubscribeOperation, self).__init__(callback=callback)
         self.topic = topic
+        self.needs_connection = True

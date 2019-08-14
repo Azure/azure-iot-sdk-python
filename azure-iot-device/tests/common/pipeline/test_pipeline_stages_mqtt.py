@@ -217,11 +217,6 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(RunOpTests):
             == stage._on_mqtt_message_received
         )
 
-    @pytest.mark.it("Sets the transport attribute on the root of the pipeline")
-    def test_sets_transport_attribute_on_root(self, stage, transport, op_set_connection_args):
-        stage.run_op(op_set_connection_args)
-        assert stage.previous.transport == transport.return_value
-
     @pytest.mark.it("Sets the pending connection op tracker to None")
     def test_pending_conn_op(self, stage, transport, op_set_connection_args):
         stage.run_op(op_set_connection_args)

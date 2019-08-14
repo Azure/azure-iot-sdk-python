@@ -22,16 +22,19 @@ pipeline_data_object_test.add_operation_test(
     module=this_module,
     positional_arguments=["topic", "payload"],
     keyword_arguments={"callback": None},
+    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_mqtt.MQTTSubscribeOperation,
     module=this_module,
     positional_arguments=["topic"],
     keyword_arguments={"callback": None},
+    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_mqtt.MQTTUnsubscribeOperation,
     module=this_module,
     positional_arguments=["topic"],
     keyword_arguments={"callback": None},
+    extra_defaults={"needs_connection": True},
 )

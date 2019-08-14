@@ -44,21 +44,18 @@ pipeline_data_object_test.add_operation_test(
     module=this_module,
     positional_arguments=["feature_name"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.DisableFeatureOperation,
     module=this_module,
     positional_arguments=["feature_name"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.SendIotRequestAndWaitForResponseOperation,
     module=this_module,
     positional_arguments=["request_type", "method", "resource_location", "request_body"],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.SendIotRequestOperation,
@@ -71,5 +68,4 @@ pipeline_data_object_test.add_operation_test(
         "request_id",
     ],
     keyword_arguments={"callback": None},
-    extra_defaults={"needs_connection": True},
 )

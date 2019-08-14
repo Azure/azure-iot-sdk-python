@@ -6,7 +6,6 @@
 
 import pytest
 import logging
-from mock import MagicMock, patch
 from azure.iot.device.common.models import X509
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
@@ -88,35 +87,41 @@ different_security_clients = [
 
 
 def assert_for_symmetric_key(password):
-    password is not None
-    "SharedAccessSignature" in password
+    assert password is not None
+    assert "SharedAccessSignature" in password
     assert "skn=registration" in password
     assert fake_id_scope in password
     assert fake_registration_id in password
 
 
 def assert_for_client_x509(x509):
-    x509 is not None
+    assert x509 is not None
     assert x509.certificate_file == fake_x509_cert_file
     assert x509.key_file == fake_x509_cert_key_file
     assert x509.pass_phrase == fake_pass_phrase
 
 
+@pytest.fixture
+def mock_mqtt_transport(mock_provisioning_pipeline):
+    return mock_provisioning_pipeline._mock_transport
+
+
 @pytest.fixture(scope="function")
-def mock_provisioning_pipeline(params_security_clients):
+def mock_provisioning_pipeline(mocker, params_security_clients):
     input_security_client = params_security_clients["client_class"](
         **params_security_clients["init_kwargs"]
     )
-    with patch(
+    mock_transport = mocker.patch(
         "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTTransport"
-    ):
-        provisioning_pipeline = ProvisioningPipeline(input_security_client)
-    provisioning_pipeline.on_connected = MagicMock()
-    provisioning_pipeline.on_disconnected = MagicMock()
-    provisioning_pipeline.on_message_received = MagicMock()
+    ).return_value
+    provisioning_pipeline = ProvisioningPipeline(input_security_client)
+    provisioning_pipeline._mock_transport = mock_transport
+    provisioning_pipeline.on_connected = mocker.MagicMock()
+    provisioning_pipeline.on_disconnected = mocker.MagicMock()
+    provisioning_pipeline.on_message_received = mocker.MagicMock()
     helpers.add_mock_method_waiter(provisioning_pipeline, "on_connected")
     helpers.add_mock_method_waiter(provisioning_pipeline, "on_disconnected")
-    helpers.add_mock_method_waiter(provisioning_pipeline._pipeline.transport, "publish")
+    helpers.add_mock_method_waiter(mock_transport, "publish")
 
     yield provisioning_pipeline
     provisioning_pipeline.disconnect()
@@ -141,9 +146,8 @@ class TestInit(object):
 class TestConnect(object):
     @pytest.mark.it("Calls connect on transport")
     def test_connect_calls_connect_on_provider(
-        self, params_security_clients, mock_provisioning_pipeline
+        self, params_security_clients, mock_provisioning_pipeline, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
         mock_provisioning_pipeline.connect()
 
         assert mock_mqtt_transport.connect.call_count == 1
@@ -159,10 +163,8 @@ class TestConnect(object):
 
     @pytest.mark.it("After complete calls handler with new state")
     def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
-        self, mock_provisioning_pipeline
+        self, mock_provisioning_pipeline, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -171,10 +173,8 @@ class TestConnect(object):
 
     @pytest.mark.it("Is ignored if waiting for completion of previous one")
     def test_connect_ignored_if_waiting_for_connect_complete(
-        self, mock_provisioning_pipeline, params_security_clients
+        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
         mock_provisioning_pipeline.connect()
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
@@ -191,9 +191,9 @@ class TestConnect(object):
         mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
 
     @pytest.mark.it("Is ignored if waiting for completion of send")
-    def test_connect_ignored_if_waiting_for_send_complete(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_connect_ignored_if_waiting_for_send_complete(
+        self, mock_provisioning_pipeline, mock_mqtt_transport
+    ):
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -222,10 +222,8 @@ class TestConnect(object):
 class TestSendRegister(object):
     @pytest.mark.it("Request calls publish on provider")
     def test_send_register_request_calls_publish_on_provider(
-        self, mock_provisioning_pipeline, params_security_clients
+        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -252,10 +250,8 @@ class TestSendRegister(object):
 
     @pytest.mark.it("Request queues and connects before calling publish on provider")
     def test_send_request_queues_and_connects_before_sending(
-        self, mock_provisioning_pipeline, params_security_clients
+        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
         # send an event
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id, request_payload=fake_mqtt_payload
@@ -294,10 +290,8 @@ class TestSendRegister(object):
 
     @pytest.mark.it("Request queues and waits for connect to be completed")
     def test_send_request_queues_if_waiting_for_connect_complete(
-        self, mock_provisioning_pipeline, params_security_clients
+        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
         # start connecting and verify that we've called into the transport
         mock_provisioning_pipeline.connect()
         assert mock_mqtt_transport.connect.call_count == 1
@@ -334,13 +328,13 @@ class TestSendRegister(object):
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
 
     @pytest.mark.it("Request can be sent multiple times overlapping each other")
-    def test_send_request_sends_overlapped_events(self, mock_provisioning_pipeline):
+    def test_send_request_sends_overlapped_events(
+        self, mock_provisioning_pipeline, mock_mqtt_transport, mocker
+    ):
         fake_request_id_1 = fake_request_id
         fake_msg_1 = fake_mqtt_payload
         fake_request_id_2 = "request_4567"
         fake_msg_2 = "Petrificus Totalus"
-
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
 
         # connect
         mock_provisioning_pipeline.connect()
@@ -348,7 +342,7 @@ class TestSendRegister(object):
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # send an event
-        callback_1 = MagicMock()
+        callback_1 = mocker.MagicMock()
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id_1, request_payload=fake_msg_1, callback=callback_1
         )
@@ -362,7 +356,7 @@ class TestSendRegister(object):
         assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_msg_1
 
         # while we're waiting for that send to complete, send another event
-        callback_2 = MagicMock()
+        callback_2 = mocker.MagicMock()
         # provisioning_pipeline.send_d2c_message(fake_msg_2, callback_2)
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id_2, request_payload=fake_msg_2, callback=callback_2
@@ -376,9 +370,7 @@ class TestSendRegister(object):
         callback_2.assert_not_called()
 
     @pytest.mark.it("Connects , sends request queues and then disconnects")
-    def test_connect_send_disconnect(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_connect_send_disconnect(self, mock_provisioning_pipeline, mock_mqtt_transport):
         # connect
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
@@ -400,10 +392,8 @@ class TestSendRegister(object):
 class TestSendQuery(object):
     @pytest.mark.it("Request calls publish on provider")
     def test_send_query_calls_publish_on_provider(
-        self, mock_provisioning_pipeline, params_security_clients
+        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -435,9 +425,9 @@ class TestSendQuery(object):
 @pytest.mark.describe("Provisioning pipeline - Disconnect")
 class TestDisconnect(object):
     @pytest.mark.it("Calls disconnect on provider")
-    def test_disconnect_calls_disconnect_on_provider(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_disconnect_calls_disconnect_on_provider(
+        self, mock_provisioning_pipeline, mock_mqtt_transport
+    ):
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -446,17 +436,17 @@ class TestDisconnect(object):
         mock_mqtt_transport.disconnect.assert_called_once_with()
 
     @pytest.mark.it("Is ignored if already disconnected")
-    def test_disconnect_ignored_if_already_disconnected(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_disconnect_ignored_if_already_disconnected(
+        self, mock_provisioning_pipeline, mock_mqtt_transport
+    ):
         mock_provisioning_pipeline.disconnect(None)
 
         mock_mqtt_transport.disconnect.assert_not_called()
 
     @pytest.mark.it("After complete calls handler with `disconnected` state")
-    def test_disconnect_calls_client_disconnect_callback(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_disconnect_calls_client_disconnect_callback(
+        self, mock_provisioning_pipeline, mock_mqtt_transport
+    ):
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -472,9 +462,9 @@ class TestDisconnect(object):
 @pytest.mark.describe("Provisioning pipeline - Enable")
 class TestEnable(object):
     @pytest.mark.it("Calls subscribe on provider")
-    def test_subscribe_calls_subscribe_on_provider(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_subscribe_calls_subscribe_on_provider(
+        self, mock_provisioning_pipeline, mock_mqtt_transport
+    ):
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
@@ -488,9 +478,9 @@ class TestEnable(object):
 @pytest.mark.describe("Provisioning pipeline - Disable")
 class TestDisable(object):
     @pytest.mark.it("Calls unsubscribe on provider")
-    def test_unsubscribe_calls_unsubscribe_on_provider(self, mock_provisioning_pipeline):
-        mock_mqtt_transport = mock_provisioning_pipeline._pipeline.transport
-
+    def test_unsubscribe_calls_unsubscribe_on_provider(
+        self, mock_provisioning_pipeline, mock_mqtt_transport
+    ):
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()

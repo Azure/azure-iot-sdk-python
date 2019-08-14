@@ -122,7 +122,6 @@ class SendD2CMessageOperation(PipelineOperation):
         """
         super(SendD2CMessageOperation, self).__init__(callback=callback)
         self.message = message
-        self.needs_connection = True
 
 
 class SendOutputEventOperation(PipelineOperation):
@@ -144,7 +143,6 @@ class SendOutputEventOperation(PipelineOperation):
         """
         super(SendOutputEventOperation, self).__init__(callback=callback)
         self.message = message
-        self.needs_connection = True
 
 
 class SendMethodResponseOperation(PipelineOperation):
@@ -167,7 +165,6 @@ class SendMethodResponseOperation(PipelineOperation):
         """
         super(SendMethodResponseOperation, self).__init__(callback=callback)
         self.method_response = method_response
-        self.needs_connection = True
 
 
 class GetTwinOperation(PipelineOperation):
@@ -185,7 +182,6 @@ class GetTwinOperation(PipelineOperation):
         """
         super(GetTwinOperation, self).__init__(callback=callback)
         self.twin = None
-        self.needs_connection = True
 
 
 class PatchTwinReportedPropertiesOperation(PipelineOperation):
@@ -203,4 +199,3 @@ class PatchTwinReportedPropertiesOperation(PipelineOperation):
         """
         super(PatchTwinReportedPropertiesOperation, self).__init__(callback=callback)
         self.patch = patch
-        self.needs_connection = True

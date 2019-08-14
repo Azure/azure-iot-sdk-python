@@ -33,6 +33,7 @@ def add_base_pipeline_stage_tests(
     handled_events,
     methods_that_enter_pipeline_thread=[],
     methods_that_can_run_in_any_thread=[],
+    extra_initializer_defaults={},
 ):
     """
     Add all of the "basic" tests for validating a pipeline stage.  This includes tests for
@@ -43,6 +44,7 @@ def add_base_pipeline_stage_tests(
         cls=cls,
         module=module,
         defaults={"name": cls.__name__, "next": None, "previous": None, "pipeline_root": None},
+        extra_defaults=extra_initializer_defaults,
     )
     add_unknown_ops_tests(cls=cls, module=module, all_ops=all_ops, handled_ops=handled_ops)
     add_unknown_events_tests(

@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
+import inspect
 
 fake_count = 0
 
@@ -129,7 +130,10 @@ def add_instantiation_test(
         def test_defaults(self):
             instance = cls(*args)
             for key in all_defaults:
-                assert getattr(instance, key) == all_defaults[key]
+                if inspect.isclass(all_defaults[key]):
+                    assert isinstance(getattr(instance, key), all_defaults[key])
+                else:
+                    assert getattr(instance, key) == all_defaults[key]
 
     # Adding this object to the namespace of the module that was passed in (using a name that starts with "Test")
     # will cause pytest to pick it up.

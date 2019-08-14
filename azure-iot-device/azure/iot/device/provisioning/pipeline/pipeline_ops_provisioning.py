@@ -112,7 +112,6 @@ class SendRegistrationRequestOperation(PipelineOperation):
         super(SendRegistrationRequestOperation, self).__init__(callback=callback)
         self.request_id = request_id
         self.request_payload = request_payload
-        self.needs_connection = True
 
 
 class SendQueryRequestOperation(PipelineOperation):
@@ -137,4 +136,3 @@ class SendQueryRequestOperation(PipelineOperation):
         self.request_id = request_id
         self.operation_id = operation_id
         self.request_payload = request_payload
-        self.needs_connection = True
