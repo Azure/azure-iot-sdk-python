@@ -129,6 +129,9 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
+            logger.error(
+                msg="Unexpected error in {}._handle_pipeline_event() call".format(self), exc_info=e
+            )
             unhandled_exceptions.exception_caught_in_background_thread(e)
 
     @pipeline_thread.runs_on_pipeline_thread

@@ -91,6 +91,7 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.connect(password=self.sas_token)
             except Exception as e:
+                logger.error("transport.connect raised error", exc_info=True)
                 self._pending_connection_op = None
                 op.error = e
                 operation_flow.complete_op(self, op)
@@ -104,6 +105,7 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.reconnect(password=self.sas_token)
             except Exception as e:
+                logger.error("transport.reconnect raised error", exc_info=True)
                 self._pending_connection_op = None
                 op.error = e
                 operation_flow.complete_op(self, op)
@@ -116,6 +118,7 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.disconnect()
             except Exception as e:
+                logger.error("transport.disconnect raised error", exc_info=True)
                 self._pending_connection_op = None
                 op.error = e
                 operation_flow.complete_op(self, op)
