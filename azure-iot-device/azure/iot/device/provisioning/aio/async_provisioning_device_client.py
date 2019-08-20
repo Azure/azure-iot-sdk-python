@@ -47,11 +47,12 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         def sync_on_register_complete(result=None, error=None):
             log_on_register_complete(result, error)
+            return result
 
         callback = async_adapter.AwaitableCallback(sync_on_register_complete)
 
         await register_async(callback=callback)
-        await callback.completion()
+        return await callback.completion()
 
     async def cancel(self):
         """

@@ -46,6 +46,9 @@ class RegistrationResult(object):
     def registration_state(self):
         return self._registration_state
 
+    def __str__(self):
+        return "\n".join([str(self.registration_state), self.status])
+
 
 class RegistrationState(object):
     """
@@ -107,3 +110,6 @@ class RegistrationState(object):
     @property
     def etag(self):
         return self._etag
+
+    def __str__(self):
+        return "\n".join([self.device_id, self.assigned_hub, self.sub_status])

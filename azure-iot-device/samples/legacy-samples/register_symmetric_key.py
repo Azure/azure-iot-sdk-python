@@ -18,4 +18,12 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
     symmetric_key=symmetric_key,
 )
 
-provisioning_device_client.register()
+registration_result = provisioning_device_client.register()
+# The result can be directly printed to view the important details.
+print(registration_result)
+
+# Individual attributes can be seen as well
+print("The request_id was :-")
+print(registration_result.request_id)
+print("The etag is :-")
+print(registration_result.registration_state.etag)

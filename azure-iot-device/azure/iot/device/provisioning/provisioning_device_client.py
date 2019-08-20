@@ -42,13 +42,21 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Registering with Provisioning Service...")
         register_complete = Event()
 
+        # hack to work aroud lack of the "nonlocal" keyword in 2.7.  The non-local "context"
+        # object can be read and modified inside the inner function.
+        # (https://stackoverflow.com/a/28433571)
+        class context:
+            registration_result = None
+
         def on_register_complete(result=None, error=None):
             log_on_register_complete(result, error)
+            context.registration_result = result
             register_complete.set()
 
         self._polling_machine.register(callback=on_register_complete)
 
         register_complete.wait()
+        return context.registration_result
 
     def cancel(self):
         """

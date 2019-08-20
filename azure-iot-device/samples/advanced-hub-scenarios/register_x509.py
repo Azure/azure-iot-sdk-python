@@ -31,9 +31,12 @@ async def main():
             x509=x509,
         )
 
-        await provisioning_device_client.register()
+        return await provisioning_device_client.register()
 
-    await asyncio.gather(register_device())
+    results = await asyncio.gather(register_device())
+    registration_result = results[0]
+    print("The complete registration result is")
+    print(registration_result.registration_state)
 
 
 if __name__ == "__main__":

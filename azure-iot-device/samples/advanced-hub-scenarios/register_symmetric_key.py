@@ -8,7 +8,6 @@ import os
 import asyncio
 from azure.iot.device.aio import ProvisioningDeviceClient
 
-
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
@@ -24,9 +23,12 @@ async def main():
             symmetric_key=symmetric_key,
         )
 
-        await provisioning_device_client.register()
+        return await provisioning_device_client.register()
 
-    await asyncio.gather(register_device())
+    results = await asyncio.gather(register_device())
+    registration_result = results[0]
+    print("The complete registration result is")
+    print(registration_result.registration_state)
 
 
 if __name__ == "__main__":

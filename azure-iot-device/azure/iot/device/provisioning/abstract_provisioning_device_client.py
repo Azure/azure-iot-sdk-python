@@ -126,4 +126,4 @@ def log_on_register_complete(result=None, error=None):
         else:  # There be other statuses
             logger.error("Failed registering with Provisioning Service")
     if error is not None:  # This can only happen when the polling machine runs into error
-        logger.info(error)
+        logger.error(error)

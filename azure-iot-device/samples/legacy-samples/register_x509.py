@@ -27,4 +27,7 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certifica
     x509=x509,
 )
 
-provisioning_device_client.register()
+registration_result = provisioning_device_client.register()
+
+# The result can be directly printed to view the important details.
+print(registration_result)
