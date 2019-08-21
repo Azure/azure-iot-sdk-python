@@ -8,6 +8,9 @@ import json
 import logging
 import pytest
 import sys
+import threading
+from concurrent.futures import Future
+from azure.iot.device.common import unhandled_exceptions
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
 from tests.common.pipeline.helpers import (
@@ -61,6 +64,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     ],
     all_events=all_common_events + all_iothub_events,
     handled_events=[],
+    methods_that_enter_pipeline_thread=["on_sas_token_updated"],
 )
 
 
@@ -135,6 +139,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         if not isinstance(auth_provider, X509AuthenticationProvider):
             auth_provider.ca_cert = fake_ca_cert
             auth_provider.gateway_hostname = fake_gateway_hostname
+            auth_provider.sas_token = fake_sas_token
         op = params_auth_provider_ops["current_op_class"](auth_provider=auth_provider)
         op.callback = callback
         return op
@@ -174,7 +179,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             assert set_args.module_id is None
 
     @pytest.mark.it(
-        "Sets the module_id, gateway_hostname and ca_cert attributes on SetIoTHubConnectionArgsOperation if they exist on the auth_provider object"
+        "Sets the module_id, gateway_hostname, sas_token, and ca_cert attributes on SetIoTHubConnectionArgsOperation if they exist on the auth_provider object"
     )
     def test_sets_optional_attributes(
         self, mocker, stage, set_auth_provider_all_args, params_auth_provider_ops
@@ -187,6 +192,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         if params_auth_provider_ops["name"] == "sas_token_auth":
             assert set_args.gateway_hostname == fake_gateway_hostname
             assert set_args.ca_cert == fake_ca_cert
+            assert set_args.sas_token == fake_sas_token
 
     @pytest.mark.it(
         "Handles any Exceptions raised by SetIoTHubConnectionArgsOperation and returns them through the op callback"
@@ -274,6 +280,73 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             )
         with pytest.raises(UnhandledException):
             stage.run_op(set_auth_provider)
+
+    @pytest.mark.it("Sets the on_sas_token_updated_handler handler")
+    def test_sets_sas_token_updated_handler(
+        self, mocker, stage, set_auth_provider_all_args, params_auth_provider_ops
+    ):
+        if params_auth_provider_ops["name"] != "sas_token_auth":
+            pytest.mark.skip()
+        else:
+            stage.next._execute_op = mocker.Mock()
+            stage.run_op(set_auth_provider_all_args)
+            assert (
+                set_auth_provider_all_args.auth_provider.on_sas_token_updated_handler
+                == stage.on_sas_token_updated
+            )
+
+
+@pytest.mark.describe("UseAuthProvider - .on_sas_token_updated()")
+class TestUseAuthProviderOnSasTokenUpdated(object):
+    @pytest.fixture
+    def stage(self, mocker):
+        stage = make_mock_stage(mocker, pipeline_stages_iothub.UseAuthProviderStage)
+        auth_provider = mocker.MagicMock()
+        auth_provider.get_current_sas_token = mocker.MagicMock(return_value=fake_sas_token)
+        stage.auth_provider = auth_provider
+        return stage
+
+    @pytest.mark.it("Runs as a non-blocking function on the pipeline thread")
+    def test_runs_non_blocking(self, stage):
+        threading.current_thread().name = "not_pipeline"
+        return_value = stage.on_sas_token_updated()
+        assert isinstance(return_value, Future)
+
+    @pytest.mark.it(
+        "Runs a UpdateSasTokenOperation on the next stage with the sas token from self.auth_provider"
+    )
+    def test_update_sas_token_operation(self, stage):
+        stage.on_sas_token_updated()
+        assert stage.next.run_op.call_count == 1
+        assert isinstance(
+            stage.next.run_op.call_args[0][0], pipeline_ops_base.UpdateSasTokenOperation
+        )
+
+    @pytest.mark.it(
+        "Handles any Exceptions raised by the UpdateSasTokenOperation and passes them into the unhandled exception handler"
+    )
+    def test_raises_exception(self, stage, mocker):
+        threading.current_thread().name = "not_pipeline"
+
+        mocker.spy(unhandled_exceptions, "exception_caught_in_background_thread")
+        stage.next.run_op.side_effect = Exception
+        future = stage.on_sas_token_updated()
+        future.result()
+
+        assert unhandled_exceptions.exception_caught_in_background_thread.call_count == 1
+        assert isinstance(
+            unhandled_exceptions.exception_caught_in_background_thread.call_args[0][0], Exception
+        )
+
+    @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
+    def test_raises_base_exception(self, stage):
+        threading.current_thread().name = "not_pipeline"
+
+        stage.next.run_op.side_effect = UnhandledException
+        future = stage.on_sas_token_updated()
+
+        with pytest.raises(BaseException):
+            future.result()
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(

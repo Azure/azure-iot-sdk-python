@@ -38,6 +38,8 @@ from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
 import uuid
 
+logging.basicConfig(level=logging.INFO)
+
 this_module = sys.modules[__name__]
 
 
@@ -369,6 +371,129 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     def test_set_connection_args_succeeds(self, stage, mocker, set_connection_args):
         stage.run_op(set_connection_args)
         assert_callback_succeeded(op=set_connection_args)
+
+
+@pytest.mark.describe(
+    "IoTHubMQTTConverterStage - .run_op() -- called with UpdateSasTokenOperation if the transport is disconnected"
+)
+class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(object):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.UpdateSasTokenOperation(
+            sas_token=fake_sas_token, callback=mocker.MagicMock()
+        )
+
+    @pytest.fixture(autouse=True)
+    def transport_is_disconnected(self, stage):
+        stage.pipeline_root.connected = False
+
+    @pytest.mark.it("Immediately passes the operation to the next stage")
+    def test_passes_op_immediately(self, stage, op):
+        op.action = "pend"
+        stage.run_op(op)
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == op
+
+    @pytest.mark.it("Completes the op with failure if some lower stage returns failure")
+    def test_lower_stage_update_sas_token_fails(self, stage, op):
+        op.action = "error"
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it("Completes the op with success if some lower stage returns success")
+    def test_lower_stage_update_sas_token_succeeds(self, stage, op):
+        op.action = "pass"
+        stage.run_op(op)
+        assert_callback_succeeded(op=op)
+
+
+@pytest.mark.describe(
+    "IoTHubMQTTConverterStage - .run_op() -- called with UpdateSasTokenOperation if the transport is connected"
+)
+class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.UpdateSasTokenOperation(
+            sas_token=fake_sas_token, callback=mocker.MagicMock()
+        )
+
+    @pytest.fixture(autouse=True)
+    def transport_is_connected(self, stage):
+        stage.pipeline_root.connected = True
+
+    @pytest.mark.it("Immediately passes the operation to the next stage")
+    def test_passes_op_immediately(self, stage, op):
+        op.action = "pend"
+        stage.run_op(op)
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == op
+
+    @pytest.mark.it(
+        "Completes the op with failure if some lower stage returns failure for the UpdateSasTokenOperation"
+    )
+    def test_lower_stage_update_sas_token_fails(self, stage, op):
+        op.action = "fail"
+        stage.run_op(op)
+        assert_callback_failed(op=op, error=Exception)
+
+    @pytest.mark.it(
+        "Passes down a ReconnectOperation instead of completing the op with success after the lower level stage returns success for the UpdateSasTokenOperation"
+    )
+    def test_passes_down_reconnect(self, stage, op, mocker):
+        def run_op(op):
+            print("in run_op {}".format(op.__class__.__name__))
+            if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
+                op.callback(op)
+            else:
+                pass
+
+        stage.next.run_op = mocker.MagicMock(side_effect=run_op)
+        stage.run_op(op)
+
+        assert stage.next.run_op.call_count == 2
+        assert stage.next.run_op.call_args_list[0][0][0] == op
+        assert isinstance(
+            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
+        )
+        assert op.callback.call_count == 0
+
+    @pytest.mark.it(
+        "Completes the op with success if some lower level stage returns success for the ReconnectOperation"
+    )
+    def test_reconnect_succeeds(self, stage, op):
+        # default is for stage.next.run_op to return success for all ops
+        stage.run_op(op)
+
+        assert stage.next.run_op.call_count == 2
+        assert stage.next.run_op.call_args_list[0][0][0] == op
+        assert isinstance(
+            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
+        )
+        assert_callback_succeeded(op=op)
+
+    @pytest.mark.it(
+        "Completes the op with failure if some lower level stage returns failure for the ReconnectOperation"
+    )
+    def test_reconnect_fails(self, stage, op, mocker, fake_exception):
+        def run_op(op):
+            print("in run_op {}".format(op.__class__.__name__))
+            if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
+                op.callback(op)
+            elif isinstance(op, pipeline_ops_base.ReconnectOperation):
+                op.error = fake_exception
+                op.callback(op)
+            else:
+                pass
+
+        stage.next.run_op = mocker.MagicMock(side_effect=run_op)
+        stage.run_op(op)
+
+        assert stage.next.run_op.call_count == 2
+        assert stage.next.run_op.call_args_list[0][0][0] == op
+        assert isinstance(
+            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
+        )
+        assert_callback_failed(op=op, error=fake_exception)
 
 
 basic_ops = [

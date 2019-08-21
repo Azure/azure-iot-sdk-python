@@ -49,7 +49,7 @@ def delegate_to_different_op(stage, original_op, new_op):
       original_op in a way that is more specific than the original_op.
     """
 
-    logger.info("{}({}): continuing with {} op".format(stage.name, original_op.name, new_op.name))
+    logger.debug("{}({}): continuing with {} op".format(stage.name, original_op.name, new_op.name))
 
     @pipeline_thread.runs_on_pipeline_thread
     def new_op_complete(op):
@@ -87,7 +87,7 @@ def pass_op_to_next_stage(stage, op):
         )
         complete_op(stage, op)
     else:
-        logger.info("{}({}): passing to next stage.".format(stage.name, op.name))
+        logger.debug("{}({}): passing to next stage.".format(stage.name, op.name))
         stage.next.run_op(op)
 
 
@@ -99,9 +99,11 @@ def complete_op(stage, op):
     calling the operation's callback directly as it provides several layers of protection
     (such as a try/except wrapper) which are strongly advised.
     """
-    logger.info(
-        "{}({}): completing {} error".format(stage.name, op.name, "with" if op.error else "without")
-    )
+    if op.error:
+        logger.error("{}({}): completing with error {}".format(stage.name, op.name, op.error))
+    else:
+        logger.info("{}({}): completing without error".format(stage.name, op.name))
+
     try:
         op.callback(op)
     except Exception as e:
@@ -123,7 +125,7 @@ def pass_event_to_previous_stage(stage, event):
     bottom) and move up the pipeline until they're handled or until they error out.
     """
     if stage.previous:
-        logger.info(
+        logger.debug(
             "{}({}): pushing event up to {}".format(stage.name, event.name, stage.previous.name)
         )
         stage.previous.handle_pipeline_event(event)

@@ -83,6 +83,11 @@ class MQTTTransportStage(PipelineStage):
             self.pipeline_root.transport = self.transport
             operation_flow.complete_op(self, op)
 
+        elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
+            logger.info("{}({}): saving sas token and completing".format(self.name, op.name))
+            self.sas_token = op.sas_token
+            operation_flow.complete_op(self, op)
+
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
             logger.info("{}({}): connecting".format(self.name, op.name))
 

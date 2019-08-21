@@ -80,6 +80,64 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 ),
             )
 
+        elif (
+            isinstance(op, pipeline_ops_base.UpdateSasTokenOperation)
+            and self.pipeline_root.connected
+        ):
+            logger.info(
+                "{}({}): Connected.  Passing op down and reconnecting after token is updated.".format(
+                    self.name, op.name
+                )
+            )
+
+            # make a callback that can call the user's callback after the reconnect is complete
+            def on_reconnect_complete(reconnect_op):
+                if reconnect_op.error:
+                    op.error = reconnect_op.error
+                    logger.info(
+                        "{}({}) reconnection failed.  returning failing".format(self.name, op.name)
+                    )
+                    operation_flow.complete_op(stage=self, op=op)
+                else:
+                    logger.info(
+                        "{}({}) reconnection succeeded.  returning success.".format(
+                            self.name, op.name
+                        )
+                    )
+                    operation_flow.complete_op(stage=self, op=op)
+
+            # save the old user callback so we can call it later.
+            old_callback = op.callback
+
+            # make a callback that either fails the UpdateSasTokenOperation (if the lower level failed it),
+            # or issues a ReconnectOperation (if the lower level returned success for the UpdateSasTokenOperation)
+            def on_token_update_complete(op):
+                op.callback = old_callback
+                if op.error:
+                    logger.info(
+                        "{}({}) token update failed.  returning failing".format(self.name, op.name)
+                    )
+                    operation_flow.complete_op(stage=self, op=op)
+                else:
+                    logger.info(
+                        "{}({}) token update succeeded.  reconnecting".format(self.name, op.name)
+                    )
+
+                    operation_flow.pass_op_to_next_stage(
+                        stage=self,
+                        op=pipeline_ops_base.ReconnectOperation(callback=on_reconnect_complete),
+                    )
+
+                logger.info(
+                    "{}({}): passing to next stage with updated callback.".format(
+                        self.name, op.name
+                    )
+                )
+
+            # now, pass the UpdateSasTokenOperation down with our new callback.
+            op.callback = on_token_update_complete
+            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
             op, pipeline_ops_iothub.SendOutputEventOperation
         ):

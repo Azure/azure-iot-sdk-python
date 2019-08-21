@@ -53,6 +53,7 @@ ops_handled_by_this_stage = [
     pipeline_ops_base.ConnectOperation,
     pipeline_ops_base.DisconnectOperation,
     pipeline_ops_base.ReconnectOperation,
+    pipeline_ops_base.UpdateSasTokenOperation,
     pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
     pipeline_ops_mqtt.MQTTPublishOperation,
     pipeline_ops_mqtt.MQTTSubscribeOperation,
@@ -430,6 +431,22 @@ class TestMQTTProviderExecuteOpWithMQTTUnsubscribeOperation(RunOpTests):
         stage.transport.unsubscribe.call_args[1]["callback"]()
 
         assert_callback_succeeded(op=op_unsubscribe)
+
+
+fake_sas_token = "__FAKE_SAS_TOKEN__"
+
+
+@pytest.mark.describe("MQTTTransportStage - .run_op() -- called with UpdateSasTokenOperation")
+class TestMQTTProviderExecuteOpWithUpdateSasTokenoperation(RunOpTests):
+    @pytest.mark.it("Saves the token and completes immediately")
+    def test_mqtt_publish(self, mocker, stage, create_transport):
+        cb = mocker.MagicMock()
+        op_update_sas_token = pipeline_ops_base.UpdateSasTokenOperation(
+            sas_token=fake_sas_token, callback=cb
+        )
+        stage.run_op(op_update_sas_token)
+        assert_callback_succeeded(op_update_sas_token)
+        assert stage.sas_token == fake_sas_token
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT message received")

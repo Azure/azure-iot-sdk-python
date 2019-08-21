@@ -92,7 +92,7 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
-        logger.info("{}({}): running".format(self.name, op.name))
+        logger.debug("{}({}): running".format(self.name, op.name))
         try:
             self._execute_op(op)
         except Exception as e:

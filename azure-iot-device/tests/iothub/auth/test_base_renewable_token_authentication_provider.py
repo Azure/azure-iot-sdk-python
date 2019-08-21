@@ -102,9 +102,11 @@ def test_get_current_sas_token_returns_existing_sas_token(device_auth_provider):
     assert token1 == token2
 
 
-def test_generate_new_sas_token_calls_token_update_callback_when_sas_udpates(device_auth_provider):
+def test_generate_new_sas_token_calls_on_sas_token_updated_handler_when_sas_udpates(
+    device_auth_provider
+):
     update_callback = MagicMock()
-    device_auth_provider.token_update_callback = update_callback
+    device_auth_provider.on_sas_token_updated_handler = update_callback
     device_auth_provider.generate_new_sas_token()
     update_callback.assert_called_once_with()
 
@@ -158,12 +160,12 @@ def test_generate_new_sas_token_cancels_and_reschedules_update_timer_with_correc
     assert fake_timer_object.call_args[0][0] == new_token_validity_period - new_token_renewal_margin
 
 
-def test_update_timer_generates_new_sas_token_and_calls_token_update_callback(
+def test_update_timer_generates_new_sas_token_and_calls_on_sas_token_updated_handler(
     device_auth_provider, fake_timer_object
 ):
     update_callback = MagicMock()
     device_auth_provider.generate_new_sas_token()
-    device_auth_provider.token_update_callback = update_callback
+    device_auth_provider.on_sas_token_updated_handler = update_callback
     timer_callback = fake_timer_object.call_args[0][1]
     device_auth_provider._sign.reset_mock()
     timer_callback()

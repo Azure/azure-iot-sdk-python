@@ -12,6 +12,7 @@ from azure.iot.device.common.pipeline import (
     operation_flow,
     pipeline_thread,
 )
+from azure.iot.device.common import unhandled_exceptions
 from . import pipeline_ops_iothub
 from . import constant
 
@@ -19,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class UseAuthProviderStage(PipelineStage):
+    def __init__(self):
+        super(UseAuthProviderStage, self).__init__()
+        self.auth_provider = None
+
     """
     PipelineStage which extracts relevant AuthenticationProvider values for a new
     SetIoTHubConnectionArgsOperation.
@@ -29,35 +34,60 @@ class UseAuthProviderStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
-            auth_provider = op.auth_provider
+            self.auth_provider = op.auth_provider
+            self.auth_provider.on_sas_token_updated_handler = self.on_sas_token_updated
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
                 new_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
-                    device_id=auth_provider.device_id,
-                    module_id=getattr(auth_provider, "module_id", None),
-                    hostname=auth_provider.hostname,
-                    gateway_hostname=getattr(auth_provider, "gateway_hostname", None),
-                    ca_cert=getattr(auth_provider, "ca_cert", None),
-                    sas_token=auth_provider.get_current_sas_token(),
+                    device_id=self.auth_provider.device_id,
+                    module_id=getattr(self.auth_provider, "module_id", None),
+                    hostname=self.auth_provider.hostname,
+                    gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
+                    ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                    sas_token=self.auth_provider.get_current_sas_token(),
                 ),
             )
         elif isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
-            auth_provider = op.auth_provider
+            self.auth_provider = op.auth_provider
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
                 new_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
-                    device_id=auth_provider.device_id,
-                    module_id=getattr(auth_provider, "module_id", None),
-                    hostname=auth_provider.hostname,
-                    gateway_hostname=getattr(auth_provider, "gateway_hostname", None),
-                    ca_cert=getattr(auth_provider, "ca_cert", None),
-                    client_cert=auth_provider.get_x509_certificate(),
+                    device_id=self.auth_provider.device_id,
+                    module_id=getattr(self.auth_provider, "module_id", None),
+                    hostname=self.auth_provider.hostname,
+                    gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
+                    ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                    client_cert=self.auth_provider.get_x509_certificate(),
                 ),
             )
         else:
             operation_flow.pass_op_to_next_stage(self, op)
+
+    @pipeline_thread.invoke_on_pipeline_thread_nowait
+    def on_sas_token_updated(self):
+        logger.info(
+            "%s: New sas token received.  Passing down UpdateSasTokenOperation.".format(self.name)
+        )
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_token_update_complete(op):
+            logger.info(
+                "{}({}): token update operation is complete.  Error={}".format(
+                    self.name, op.name, op.error
+                )
+            )
+            if op.error:
+                unhandled_exceptions.exception_caught_in_background_thread(op.error)
+
+        operation_flow.pass_op_to_next_stage(
+            stage=self,
+            op=pipeline_ops_base.UpdateSasTokenOperation(
+                sas_token=self.auth_provider.get_current_sas_token(),
+                callback=on_token_update_complete,
+            ),
+        )
 
 
 class HandleTwinOperationsStage(PipelineStage):

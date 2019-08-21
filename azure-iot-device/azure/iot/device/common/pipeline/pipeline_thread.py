@@ -114,6 +114,8 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
                 except Exception as e:
                     if not block:
                         unhandled_exceptions.exception_caught_in_background_thread(e)
+                    else:
+                        raise
                 except BaseException:
                     if not block:
                         logger.error("Unhandled exception in background thread")
