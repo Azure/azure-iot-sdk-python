@@ -22,13 +22,13 @@ for i in range(1, 6):
     msg.message_id = uuid.uuid4()
     msg.correlation_id = "correlation-1234"
     msg.custom_properties["tornado-warning"] = "yes"
-    module_client.send_to_output(msg, "twister")
+    module_client.send_message_to_output(msg, "twister")
     time.sleep(1)
 
 # send only string messages
 for i in range(6, 11):
     print("sending message #" + str(i))
-    module_client.send_to_output("test payload message " + str(i), "tracking")
+    module_client.send_message_to_output("test payload message " + str(i), "tracking")
     time.sleep(1)
 
 

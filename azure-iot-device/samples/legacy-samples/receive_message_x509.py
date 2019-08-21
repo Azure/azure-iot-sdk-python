@@ -7,30 +7,40 @@
 import os
 from six.moves import input
 import threading
-from azure.iot.device import IoTHubDeviceClient
+from azure.iot.device import IoTHubDeviceClient, X509
 
-# The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+hostname = os.getenv("HOSTNAME")
+# The device that has been created on the portal using X509 CA signing or Self signing capabilities
+device_id = os.getenv("DEVICE_ID")
+
+x509 = X509(
+    cert_file=os.getenv("X509_CERT_FILE"),
+    key_file=os.getenv("X509_KEY_FILE"),
+    pass_phrase=os.getenv("PASS_PHRASE"),
+)
+
 # The client object is used to interact with your Azure IoT hub.
-device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
+device_client = IoTHubDeviceClient.create_from_x509_certificate(
+    hostname=hostname, device_id=device_id, x509=x509
+)
 
 
 # connect the client.
 device_client.connect()
 
 
-# define behavior for receiving a C2D message
-def c2d_listener(device_client):
+# define behavior for receiving a message
+def message_listener(device_client):
     while True:
-        c2d_message = device_client.receive_c2d_message()  # blocking call
+        message = device_client.receive_message()  # blocking call
         print("the data in the message received was ")
-        print(c2d_message.data)
+        print(message.data)
         print("custom properties are")
-        print(c2d_message.custom_properties)
+        print(message.custom_properties)
 
 
 # Run a listener thread in the background
-listen_thread = threading.Thread(target=c2d_listener, args=(device_client,))
+listen_thread = threading.Thread(target=message_listener, args=(device_client,))
 listen_thread.daemon = True
 listen_thread.start()
 

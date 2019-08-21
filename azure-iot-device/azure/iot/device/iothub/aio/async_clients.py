@@ -88,7 +88,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await disconnect_async(callback=callback)
         await callback.completion()
 
-    async def send_d2c_message(self, message):
+    async def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         If the connection to the service has not previously been opened by a call to connect, this
@@ -101,14 +101,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             message = Message(message)
 
         logger.info("Sending message to Hub...")
-        send_d2c_message_async = async_adapter.emulate_async(self._iothub_pipeline.send_d2c_message)
+        send_message_async = async_adapter.emulate_async(self._iothub_pipeline.send_message)
 
         def sync_callback():
             logger.info("Successfully sent message to Hub")
 
         callback = async_adapter.AwaitableCallback(sync_callback)
 
-        await send_d2c_message_async(message, callback=callback)
+        await send_message_async(message, callback=callback)
         await callback.completion()
 
     async def receive_method_request(self, method_name=None):
@@ -261,8 +261,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         super().__init__(iothub_pipeline=iothub_pipeline)
         self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
-    async def receive_c2d_message(self):
-        """Receive a C2D message that has been sent from the Azure IoT Hub.
+    async def receive_message(self):
+        """Receive a message that has been sent from the Azure IoT Hub.
 
         If no message is yet available, will wait until an item is available.
 
@@ -272,9 +272,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             await self._enable_feature(constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
 
-        logger.info("Waiting for C2D message...")
+        logger.info("Waiting for message from Hub...")
         message = await c2d_inbox.get()
-        logger.info("C2D message received")
+        logger.info("Message received")
         return message
 
 
@@ -298,7 +298,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         super().__init__(iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline)
         self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
-    async def send_to_output(self, message, output_name):
+    async def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
 
         These are outgoing events and are meant to be "output events"
@@ -328,7 +328,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         await send_output_event_async(message, callback=callback)
         await callback.completion()
 
-    async def receive_input_message(self, input_name):
+    async def receive_message_on_input(self, input_name):
         """Receive an input message that has been sent from another Module to a specific input.
 
         If no message is yet available, will wait until an item is available.

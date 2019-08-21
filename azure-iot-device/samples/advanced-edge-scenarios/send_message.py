@@ -7,18 +7,15 @@
 import os
 import asyncio
 import uuid
-from azure.iot.device.aio import IoTHubDeviceClient
+from azure.iot.device.aio import IoTHubModuleClient
 from azure.iot.device import Message
 
 messages_to_send = 10
 
 
 async def main():
-    # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-
     # The client object is used to interact with your Azure IoT hub.
-    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
+    device_client = IoTHubModuleClient.create_from_edge_environment()
 
     # Connect the client.
     await device_client.connect()
@@ -29,7 +26,7 @@ async def main():
         msg.message_id = uuid.uuid4()
         msg.correlation_id = "correlation-1234"
         msg.custom_properties["tornado-warning"] = "yes"
-        await device_client.send_d2c_message(msg)
+        await device_client.send_message(msg)
         print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel

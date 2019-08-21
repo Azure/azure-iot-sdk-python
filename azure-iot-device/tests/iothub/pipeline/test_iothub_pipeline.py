@@ -287,11 +287,11 @@ class TestIoTHubPipelineDisconnect(object):
         assert cb.call_count == 0
 
 
-@pytest.mark.describe("IoTHubPipeline - .send_d2c_message()")
+@pytest.mark.describe("IoTHubPipeline - .send_message()")
 class TestIoTHubPipelineSendD2CMessage(object):
     @pytest.mark.it("Runs a SendD2CMessageOperation with the provided message on the pipeline")
     def test_runs_op(self, pipeline, message):
-        pipeline.send_d2c_message(message)
+        pipeline.send_message(message)
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -305,7 +305,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
         cb = mocker.MagicMock()
 
         # Begin operation
-        pipeline.send_d2c_message(message, callback=cb)
+        pipeline.send_message(message, callback=cb)
         assert cb.call_count == 0
 
         # Trigger op completion callback
@@ -318,7 +318,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
         "Does nothing upon successful completion of the SendD2CMessageOperation if no callback is provided"
     )
     def test_op_success_no_callback(self, pipeline, message):
-        pipeline.send_d2c_message(message)
+        pipeline.send_message(message)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.callback(op)
 
@@ -326,7 +326,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
 
     @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the SendD2CMessageOperation")
     def test_op_fail(self, mocker, pipeline, message):
-        pipeline.send_d2c_message(message)
+        pipeline.send_message(message)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
 
@@ -338,7 +338,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
     )
     def test_op_fail_no_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
-        pipeline.send_d2c_message(message, callback=cb)
+        pipeline.send_message(message, callback=cb)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
 

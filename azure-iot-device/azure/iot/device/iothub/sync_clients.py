@@ -94,7 +94,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._iothub_pipeline.disconnect(callback=callback)
         disconnect_complete.wait()
 
-    def send_d2c_message(self, message):
+    def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         This is a synchronous event, meaning that this function will not return until the event
@@ -116,7 +116,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             send_complete.set()
             logger.info("Successfully sent message to Hub")
 
-        self._iothub_pipeline.send_d2c_message(message, callback=callback)
+        self._iothub_pipeline.send_message(message, callback=callback)
         send_complete.wait()
 
     def receive_method_request(self, method_name=None, block=True, timeout=None):
@@ -291,8 +291,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         super(IoTHubDeviceClient, self).__init__(iothub_pipeline=iothub_pipeline)
         self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
-    def receive_c2d_message(self, block=True, timeout=None):
-        """Receive a C2D message that has been sent from the Azure IoT Hub.
+    def receive_message(self, block=True, timeout=None):
+        """Receive a message that has been sent from the Azure IoT Hub.
 
         :param bool block: Indicates if the operation should block until a message is received.
         Default True.
@@ -307,9 +307,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             self._enable_feature(constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
 
-        logger.info("Waiting for C2D message...")
+        logger.info("Waiting for message from Hub...")
         message = c2d_inbox.get(block=block, timeout=timeout)
-        logger.info("C2D message received")
+        logger.info("Message received")
         return message
 
 
@@ -335,7 +335,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         )
         self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
-    def send_to_output(self, message, output_name):
+    def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
 
         These are outgoing events and are meant to be "output events".
@@ -364,7 +364,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         self._iothub_pipeline.send_output_event(message, callback=callback)
         send_complete.wait()
 
-    def receive_input_message(self, input_name, block=True, timeout=None):
+    def receive_message_on_input(self, input_name, block=True, timeout=None):
         """Receive an input message that has been sent from another Module to a specific input.
 
         :param str input_name: The input name to receive a message on.

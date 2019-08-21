@@ -357,12 +357,12 @@ class TestSendRegister(object):
 
         # while we're waiting for that send to complete, send another event
         callback_2 = mocker.MagicMock()
-        # provisioning_pipeline.send_d2c_message(fake_msg_2, callback_2)
+        # provisioning_pipeline.send_message(fake_msg_2, callback_2)
         mock_provisioning_pipeline.send_request(
             request_id=fake_request_id_2, request_payload=fake_msg_2, callback=callback_2
         )
 
-        # verify that we've called publish twice and verify that neither send_d2c_message
+        # verify that we've called publish twice and verify that neither send_message
         # has completed (because we didn't do anything here to complete it).
         mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 2

@@ -27,14 +27,14 @@ async def main():
         hostname=hostname, device_id=device_id, x509=x509
     )
 
-    # define behavior for receiving a C2D message
-    async def c2d_listener(device_client):
+    # define behavior for receiving a message
+    async def message_listener(device_client):
         while True:
-            c2d_message = await device_client.receive_c2d_message()  # blocking call
+            message = await device_client.receive_message()  # blocking call
             print("the data in the message received was ")
-            print(c2d_message.data)
+            print(message.data)
             print("custom properties are")
-            print(c2d_message.custom_properties)
+            print(message.custom_properties)
 
     # define behavior for halting the application
     def stdin_listener():
@@ -44,8 +44,8 @@ async def main():
                 print("Quitting...")
                 break
 
-    # Schedule task for C2D Listener
-    asyncio.create_task(c2d_listener(device_client))
+    # Schedule task for message listener
+    asyncio.create_task(message_listener(device_client))
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()

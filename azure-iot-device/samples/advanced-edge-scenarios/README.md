@@ -17,6 +17,6 @@ if __name__ == "__main__":
 In order to use these samples, they **must** be run from inside an Edge container.
 
 ## Included Samples
-* [receive_input_message.py](receive_input_message.py) - Receive messages sent to an Edge module on a specific module input.
-* [send_telemetry.py](send_telemetry.py) - Send multiple telmetry messages in parallel from an Edge module to the Azure IoT Hub or Azure IoT Edge.
-* [send_to_output.py](send_to_output.py) - Send multiple messages in parallel from an Edge module to a specific output
+* [receive_message_on_input.py](receive_message_on_input.py) - Receive messages sent to an Edge module on a specific module input.
+* [send_message.py](send_message.py) - Send multiple telmetry messages in parallel from an Edge module to the Azure IoT Hub or Azure IoT Edge.
+* [send_message_to_output.py](send_message_to_output.py) - Send multiple messages in parallel from an Edge module to a specific output

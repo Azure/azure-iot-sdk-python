@@ -84,7 +84,7 @@ class AbstractIoTHubClient(object):
         pass
 
     @abc.abstractmethod
-    def send_d2c_message(self, message):
+    def send_message(self, message):
         pass
 
     @abc.abstractmethod
@@ -128,7 +128,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
-    def receive_c2d_message(self):
+    def receive_message(self):
         pass
 
 
@@ -229,9 +229,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
-    def send_to_output(self, message, output_name):
+    def send_message_to_output(self, message, output_name):
         pass
 
     @abc.abstractmethod
-    def receive_input_message(self, input_name):
+    def receive_message_on_input(self, input_name):
         pass

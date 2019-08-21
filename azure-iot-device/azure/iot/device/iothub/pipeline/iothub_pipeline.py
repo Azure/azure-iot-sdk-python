@@ -145,7 +145,7 @@ class IoTHubPipeline(object):
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=on_complete))
 
-    def send_d2c_message(self, message, callback=None):
+    def send_message(self, message, callback=None):
         """
         Send a telemetry message to the service.
 

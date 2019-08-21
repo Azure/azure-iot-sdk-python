@@ -280,23 +280,23 @@ class SharedClientDisconnectEventTests(object):
 
 
 class SharedClientSendD2CMessageTests(object):
-    @pytest.mark.it("Begins a 'send_d2c_message' pipeline operation")
-    async def test_calls_pipeline_send_d2c_message(self, client, iothub_pipeline, message):
-        await client.send_d2c_message(message)
-        assert iothub_pipeline.send_d2c_message.call_count == 1
-        assert iothub_pipeline.send_d2c_message.call_args[0][0] is message
+    @pytest.mark.it("Begins a 'send_message' pipeline operation")
+    async def test_calls_pipeline_send_message(self, client, iothub_pipeline, message):
+        await client.send_message(message)
+        assert iothub_pipeline.send_message.call_count == 1
+        assert iothub_pipeline.send_message.call_args[0][0] is message
 
     @pytest.mark.it(
-        "Waits for the completion of the 'send_d2c_message' pipeline operation before returning"
+        "Waits for the completion of the 'send_message' pipeline operation before returning"
     )
     async def test_waits_for_pipeline_op_completion(self, mocker, client, iothub_pipeline, message):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
 
-        await client.send_d2c_message(message)
+        await client.send_message(message)
 
         # Assert callback is sent to pipeline
-        assert iothub_pipeline.send_d2c_message.call_args[1]["callback"] is cb_mock
+        assert iothub_pipeline.send_message.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
@@ -314,12 +314,12 @@ class SharedClientSendD2CMessageTests(object):
             pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
-    async def test_wraps_data_in_message_and_calls_pipeline_send_d2c_message(
+    async def test_wraps_data_in_message_and_calls_pipeline_send_message(
         self, client, iothub_pipeline, message_input
     ):
-        await client.send_d2c_message(message_input)
-        assert iothub_pipeline.send_d2c_message.call_count == 1
-        sent_message = iothub_pipeline.send_d2c_message.call_args[0][0]
+        await client.send_message(message_input)
+        assert iothub_pipeline.send_message.call_count == 1
+        sent_message = iothub_pipeline.send_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
@@ -715,27 +715,27 @@ class TestIoTHubDeviceClientDisconnectEvent(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_d2c_message()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_message()")
 class TestIoTHubDeviceClientSendD2CMessage(
     IoTHubDeviceClientTestsConfig, SharedClientSendD2CMessageTests
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .receive_c2d_message()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .receive_message()")
 class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Implicitly enables C2D messaging feature if not already enabled")
     async def test_enables_c2d_messaging_only_if_not_already_enabled(
         self, mocker, client, iothub_pipeline
     ):
-        # patch this receive_c2d_message won't block
+        # patch this receive_message won't block
         mocker.patch.object(
             AsyncClientInbox, "get", return_value=(await create_completed_future(None))
         )
 
         # Verify C2D Messaging enabled if not enabled
         iothub_pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
-        await client.receive_c2d_message()
+        await client.receive_message()
         assert iothub_pipeline.enable_feature.call_count == 1
         assert iothub_pipeline.enable_feature.call_args[0][0] == constant.C2D_MSG
 
@@ -743,7 +743,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
 
         # Verify C2D Messaging not enabled if already enabled
         iothub_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
-        await client.receive_c2d_message()
+        await client.receive_message()
         assert iothub_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the C2D inbox, if available")
@@ -754,7 +754,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
             client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock
         )
 
-        received_message = await client.receive_c2d_message()
+        received_message = await client.receive_message()
         assert manager_get_inbox_mock.call_count == 1
         assert inbox_mock.get.call_count == 1
         assert received_message is message
@@ -1268,19 +1268,19 @@ class TestIoTHubModuleClientDisconnectEvent(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_d2c_message()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message()")
 class TestIoTHubNModuleClientSendD2CMessage(
     IoTHubModuleClientTestsConfig, SharedClientSendD2CMessageTests
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_to_output()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message_to_output()")
 class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'send_output_event' pipeline operation")
-    async def test_calls_pipeline_send_to_output(self, client, iothub_pipeline, message):
+    async def test_calls_pipeline_send_message_to_output(self, client, iothub_pipeline, message):
         output_name = "some_output"
-        await client.send_to_output(message, output_name)
+        await client.send_message_to_output(message, output_name)
         assert iothub_pipeline.send_output_event.call_count == 1
         assert iothub_pipeline.send_output_event.call_args[0][0] is message
         assert message.output_name == output_name
@@ -1293,7 +1293,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         cb_mock.completion.return_value = await create_completed_future(None)
 
         output_name = "some_output"
-        await client.send_to_output(message, output_name)
+        await client.send_message_to_output(message, output_name)
 
         # Assert callback is sent to pipeline
         assert iothub_pipeline.send_output_event.call_args[1]["callback"] is cb_mock
@@ -1314,24 +1314,24 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
             pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
-    async def test_send_to_output_calls_pipeline_wraps_data_in_message(
+    async def test_send_message_to_output_calls_pipeline_wraps_data_in_message(
         self, client, iothub_pipeline, message_input
     ):
         output_name = "some_output"
-        await client.send_to_output(message_input, output_name)
+        await client.send_message_to_output(message_input, output_name)
         assert iothub_pipeline.send_output_event.call_count == 1
         sent_message = iothub_pipeline.send_output_event.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .receive_input_message()")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .receive_message_on_input()")
 class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Implicitly enables input messaging feature if not already enabled")
     async def test_enables_input_messaging_only_if_not_already_enabled(
         self, mocker, client, iothub_pipeline
     ):
-        # patch this receive_input_message won't block
+        # patch this receive_message_on_input won't block
         mocker.patch.object(
             AsyncClientInbox, "get", return_value=(await create_completed_future(None))
         )
@@ -1341,7 +1341,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         iothub_pipeline.feature_enabled.__getitem__.return_value = (
             False
         )  # Input Messages will appear disabled
-        await client.receive_input_message(input_name)
+        await client.receive_message_on_input(input_name)
         assert iothub_pipeline.enable_feature.call_count == 1
         assert iothub_pipeline.enable_feature.call_args[0][0] == constant.INPUT_MSG
 
@@ -1351,7 +1351,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         iothub_pipeline.feature_enabled.__getitem__.return_value = (
             True
         )  # Input Messages will appear enabled
-        await client.receive_input_message(input_name)
+        await client.receive_message_on_input(input_name)
         assert iothub_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the input inbox, if available")
@@ -1363,7 +1363,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         )
 
         input_name = "some_input"
-        received_message = await client.receive_input_message(input_name)
+        received_message = await client.receive_message_on_input(input_name)
         assert manager_get_inbox_mock.call_count == 1
         assert manager_get_inbox_mock.call_args == mocker.call(input_name)
         assert inbox_mock.get.call_count == 1

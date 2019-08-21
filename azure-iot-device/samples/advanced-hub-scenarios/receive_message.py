@@ -8,33 +8,26 @@ import os
 import asyncio
 from six.moves import input
 import threading
-from azure.iot.device.aio import IoTHubModuleClient
+from azure.iot.device.aio import IoTHubDeviceClient
 
 
 async def main():
+    # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
+    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
     # The client object is used to interact with your Azure IoT hub.
-    module_client = IoTHubModuleClient.create_from_edge_environment()
+    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
     # connect the client.
-    await module_client.connect()
+    await device_client.connect()
 
-    # define behavior for receiving an input message on input1
-    async def input1_listener(module_client):
+    # define behavior for receiving a message
+    async def message_listener(device_client):
         while True:
-            input_message = await module_client.receive_input_message("input1")  # blocking call
-            print("the data in the message received on input1 was ")
-            print(input_message.data)
+            message = await device_client.receive_message()  # blocking call
+            print("the data in the message received was ")
+            print(message.data)
             print("custom properties are")
-            print(input_message.custom_properties)
-
-    # define behavior for receiving an input message on input2
-    async def input2_listener(module_client):
-        while True:
-            input_message = await module_client.receive_input_message("input2")  # blocking call
-            print("the data in the message received on input2 was ")
-            print(input_message.data)
-            print("custom properties are")
-            print(input_message.custom_properties)
+            print(message.custom_properties)
 
     # define behavior for halting the application
     def stdin_listener():
@@ -44,8 +37,8 @@ async def main():
                 print("Quitting...")
                 break
 
-    # Schedule task for C2D Listener
-    listeners = asyncio.gather(input1_listener(module_client), input2_listener(module_client))
+    # Schedule task for message listener
+    asyncio.create_task(message_listener(device_client))
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
@@ -54,11 +47,8 @@ async def main():
     # Wait for user to indicate they are done listening for messages
     await user_finished
 
-    # Cancel listening
-    listeners.cancel()
-
     # Finally, disconnect
-    await module_client.disconnect()
+    await device_client.disconnect()
 
 
 if __name__ == "__main__":

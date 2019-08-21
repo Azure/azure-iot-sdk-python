@@ -8,13 +8,16 @@ This directory contains samples showing how to use the various features of Azure
 ## Device Samples
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
-* [receive_c2d_message.py](receive_c2d_message.py) - Receive Cloud-to-Device (C2D) messages sent from the Azure IoT Hub to a device.
+* [receive_message.py](receive_message.py) - Receive Cloud-to-Device (C2D) messages sent from the Azure IoT Hub to a device.
     * In order to send a C2D message, use the following Azure CLI command:
         ```
         az iot device c2d-message send --device-id <your device id> --hub-name <your IoT Hub name> --data <your message here>
         ```
-* [receive_direct_method.py](receive_direct_method.py) - Receive a direct method invocation request on a device from the Azure IoT Hub
-    * **THIS FEATURE IS NOT YET COMPLETED, THIS SAMPLE WILL NOT WORK**
+* [receive_direct_method.py](receive_direct_method.py) - Receive direct method requests on a device from the Azure IoT Hub and send responses back
+    * In order to invoke a direct method, use the following Azure CLI command:
+        ```
+        az iot hub invoke-device-method --device-id <your device id> --hub-name <your IoT Hub name> --method-name <desired method>
+        ```
 * [send_telemetry.py](send_telemetry.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
     * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
         ```bash
@@ -24,8 +27,8 @@ In order to use these samples, you **must** set your Device Connection String in
 ## Module Samples
 In order to use these samples, they **must** be run from inside an Edge container.
 
-* [receive_input_message.py](receive_input_message.py) - Receive messages sent to an Edge module on a specific module input.
-* [send_to_output.py](send_to_output.py) - Send multiple messages in parallel from an Edge module to a specific output
+* [receive_message_on_input.py](receive_message_on_input.py) - Receive messages sent to an Edge module on a specific module input.
+* [send_message_to_output.py](send_message_to_output.py) - Send multiple messages in parallel from an Edge module to a specific output
 
 ## DPS Samples
 

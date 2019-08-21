@@ -16,7 +16,7 @@ device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 device_client.connect()
 
 
-# define behavior for receiving a C2D message
+# define behavior for receiving a twin patch
 def twin_patch_listener(device_client):
     while True:
         patch = device_client.receive_twin_desired_properties_patch()  # blocking call

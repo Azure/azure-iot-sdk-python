@@ -4,8 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import asyncio
+import time
 import uuid
 from azure.iot.device.aio import IoTHubModuleClient
 from azure.iot.device import Message
@@ -14,26 +14,27 @@ messages_to_send = 10
 
 
 async def main():
-    # The client object is used to interact with your Azure IoT hub.
-    device_client = IoTHubModuleClient.create_from_edge_environment()
+    # Inputs/Ouputs are only supported in the context of Azure IoT Edge and module client
+    # The module client object acts as an Azure IoT Edge module and interacts with an Azure IoT Edge hub
+    module_client = IoTHubModuleClient.create_from_edge_environment()
 
     # Connect the client.
-    await device_client.connect()
+    await module_client.connect()
 
+    # Send a filled out Message object
     async def send_test_message(i):
         print("sending message #" + str(i))
         msg = Message("test wind speed " + str(i))
         msg.message_id = uuid.uuid4()
         msg.correlation_id = "correlation-1234"
         msg.custom_properties["tornado-warning"] = "yes"
-        await device_client.send_d2c_message(msg)
+        await module_client.send_message_to_output(msg, "twister")
         print("done sending message #" + str(i))
 
-    # send `messages_to_send` messages in parallel
-    await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
+    await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send)])
 
     # finally, disconnect
-    await device_client.disconnect()
+    module_client.disconnect()
 
 
 if __name__ == "__main__":

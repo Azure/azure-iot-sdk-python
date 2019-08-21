@@ -186,7 +186,7 @@ class FakeIoTHubPipeline:
     def disable_feature(self, feature_name, callback=None):
         callback()
 
-    def send_d2c_message(self, event, callback=None):
+    def send_message(self, event, callback=None):
         callback()
 
     def send_output_event(self, event, callback=None):

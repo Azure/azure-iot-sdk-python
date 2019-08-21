@@ -17,7 +17,7 @@ if __name__ == "__main__":
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
 ## Included Samples
-* [receive_c2d_message.py](receive_c2d_message.py) - Receive Cloud-to-Device (C2D) messages sent from the Azure IoT Hub to a device.
+* [receive_message.py](receive_message.py) - Receive Cloud-to-Device (C2D) messages sent from the Azure IoT Hub to a device.
     * In order to send a C2D message, use the following Azure CLI command:
         ```
         az iot device c2d-message send --device-id <your device id> --hub-name <your IoT Hub name> --data <your message here>
@@ -27,7 +27,7 @@ In order to use these samples, you **must** set your Device Connection String in
         ```
         az iot hub invoke-device-method --device-id <your device id> --hub-name <your IoT Hub name> --method-name <desired method>
         ```
-* [send_telemetry.py](send_telemetry.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
+* [send_message.py](send_message.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
     * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
         ```bash
         az iot hub monitor-events --hub-name <your IoT Hub name> --output table

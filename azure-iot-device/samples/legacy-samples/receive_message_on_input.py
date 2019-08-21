@@ -17,7 +17,7 @@ module_client.connect()
 # define behavior for receiving an input message on input1
 def input1_listener(module_client):
     while True:
-        input_message = module_client.receive_input_message("input1")  # blocking call
+        input_message = module_client.receive_message_on_input("input1")  # blocking call
         print("the data in the message received on input1 was ")
         print(input_message.data)
         print("custom properties are")
@@ -27,7 +27,7 @@ def input1_listener(module_client):
 # define behavior for receiving an input message on input2
 def input2_listener(module_client):
     while True:
-        input_message = module_client.receive_input_message("input2")  # blocking call
+        input_message = module_client.receive_message_on_input("input2")  # blocking call
         print("the data in the message received on input2 was ")
         print(input_message.data)
         print("custom properties are")
