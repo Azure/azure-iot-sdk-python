@@ -104,7 +104,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         function will open the connection before sending the event.
 
         :param message: The actual message to send. Anything passed that is not an instance of the
-        Message class will be converted to Message object.
+            Message class will be converted to Message object.
         """
         if not isinstance(message, Message):
             message = Message(message)
@@ -123,16 +123,16 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
-        If this parameter is not given, all methods not already being specifically targeted by
-        a different request to receive_method will be received.
+            If this parameter is not given, all methods not already being specifically targeted by
+            a different request to receive_method will be received.
         :param bool block: Indicates if the operation should block until a request is received.
-        Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
         :raises: InboxEmpty if no request is available on a non-blocking operation.
 
         :returns: MethodRequest object representing the received method request.
+        :rtype: `azure.iot.device.MethodRequest`
         """
         if not self._iothub_pipeline.feature_enabled[constant.METHODS]:
             self._enable_feature(constant.METHODS)
@@ -154,7 +154,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         function will open the connection before sending the event.
 
         :param method_response: The MethodResponse to send.
-        :type method_response: MethodResponse
+        :type method_response: :class:`azure.iot.device.MethodResponse`
         """
         logger.info("Sending method response to Hub...")
         send_complete = threading.Event()
@@ -173,7 +173,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         has been enabled.
 
         :param feature_name: The name of the feature to enable.
-        See azure.iot.device.common.pipeline.constant for possible values
+            See azure.iot.device.common.pipeline.constant for possible values
         """
         logger.info("Enabling feature:" + feature_name + "...")
         enable_complete = threading.Event()
@@ -255,7 +255,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
            an InboxEmpty exception
 
         :param bool block: Indicates if the operation should block until a request is received.
-           Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
@@ -286,7 +285,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
         super(IoTHubDeviceClient, self).__init__(iothub_pipeline=iothub_pipeline)
         self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
@@ -295,13 +294,13 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """Receive a message that has been sent from the Azure IoT Hub.
 
         :param bool block: Indicates if the operation should block until a message is received.
-        Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
         :raises: InboxEmpty if no message is available on a non-blocking operation.
 
         :returns: Message that was sent from the Azure IoT Hub.
+        :rtype: :class:`azure.iot.device.Message`
         """
         if not self._iothub_pipeline.feature_enabled[constant.C2D_MSG]:
             self._enable_feature(constant.C2D_MSG)
@@ -346,9 +345,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        :param message: message to send to the given output. Anything passed that is not an instance of the
-        Message class will be converted to Message object.
-        :param output_name: Name of the output to send the event to.
+        :param message: Message to send to the given output. Anything passed that is not an instance of the
+            Message class will be converted to Message object.
+        :param str output_name: Name of the output to send the event to.
         """
         if not isinstance(message, Message):
             message = Message(message)
@@ -369,13 +368,13 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         :param str input_name: The input name to receive a message on.
         :param bool block: Indicates if the operation should block until a message is received.
-        Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
         :raises: InboxEmpty if no message is available on a non-blocking operation.
 
         :returns: Message that was sent to the specified input.
+        :rtype: :class:`azure.iot.device.Message`
         """
         if not self._iothub_pipeline.feature_enabled[constant.INPUT_MSG]:
             self._enable_feature(constant.INPUT_MSG)
