@@ -5,3 +5,4 @@ pytest-testdox>=1.1.1
 pytest-cov
 mock #remove this as soon as no references to it remain in the code
 flake8
+azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for end to end tests for DPS
