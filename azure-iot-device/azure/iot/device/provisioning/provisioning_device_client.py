@@ -4,7 +4,9 @@
 # license information.
 # --------------------------------------------------------------------------
 """
-This module contains one of the implementations of the Provisioning Device Client which uses Symmetric Key authentication.
+This module contains user-facing synchronous Provisioning Device Client for Azure Provisioning
+Device SDK. This client uses Symmetric Key and X509 authentication to register devices with an
+IoT Hub via the Device Provisioning Service.
 """
 import logging
 from threading import Event
@@ -48,7 +50,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Registering with Provisioning Service...")
         register_complete = Event()
 
-        # hack to work aroud lack of the "nonlocal" keyword in 2.7.  The non-local "context"
+        # hack to work around lack of the "nonlocal" keyword in 2.7.  The non-local "context"
         # object can be read and modified inside the inner function.
         # (https://stackoverflow.com/a/28433571)
         class context:

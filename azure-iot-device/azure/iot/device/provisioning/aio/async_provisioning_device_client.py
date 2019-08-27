@@ -3,8 +3,10 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module contains user-facing asynchronous clients for the
-Azure Provisioning Device SDK for Python.
+"""
+This module contains user-facing asynchronous Provisioning Device Client for Azure Provisioning
+Device SDK. This client uses Symmetric Key and X509 authentication to register devices with an
+IoT Hub via the Device Provisioning Service.
 """
 
 import logging
