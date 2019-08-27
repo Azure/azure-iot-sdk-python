@@ -1,0 +1,50 @@
+resources:
+- repo: self
+#Multi-configuration and multi-agent job options are not exported to YAML. Configure these options using documentation guidance: https://docs.microsoft.com/vsts/pipelines/process/phases
+jobs:
+
+- job: 'Test'
+  pool:
+    vmImage: 'Ubuntu 16.04'
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.7'
+      architecture: 'x64'
+
+  - script: 'python env_setup.py --no_dev'
+    displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+  - script: |
+      cd $(Agent.WorkFolder)
+      cd ..
+      touch .rnd
+    displayName: 'create RANDFILE file (needed to store seed data) separately due to openssl version issues in the pipeline'
+
+  - script: |
+      cd $(Build.SourcesDirectory)/azure_provisioning_e2e/tests
+      pytest test_*.py --junitxml=junit/dps-e2e-test-results.xml
+    displayName: 'Run Specified E2E Test with env variables'
+
+    env:
+      IOTHUB_CONNECTION_STRING: $(PYTHONPREVIEW-LINUX-IOTHUB-CONNECTION-STRING)
+      IOTHUB_EVENTHUB_CONNECTION_STRING: $(PYTHONPREVIEW-LINUX-IOTHUB-EVENTHUB-CONNECTION-STRING)
+      IOTHUB_CA_ROOT_CERT: $(PYTHONPREVIEW-LINUX-IOTHUB-CA-ROOT-CERT)
+      IOTHUB_CA_ROOT_CERT_KEY: $(PYTHONPREVIEW-LINUX-IOTHUB-CA-ROOT-CERT-KEY)
+      STORAGE_CONNECTION_STRING: $(PYTHONPREVIEW-LINUX-STORAGE-CONNECTION-STRING)
+
+      PROVISIONING_DEVICE_ENDPOINT: $(PYTHONPREVIEW-LINUX-DPS-DEVICE-ENDPOINT)
+      PROVISIONING_SERVICE_CONNECTION_STRING: $(PYTHONPREVIEW-LINUX-DPS-CONNECTION-STRING)
+      PROVISIONING_DEVICE_IDSCOPE: $(PYTHONPREVIEW-LINUX-DPS-ID-SCOPE)
+
+      PROVISIONING_ROOT_CERT: $(PYTHONPREVIEW-LINUX-IOT-PROVISIONING-ROOT-CERT)
+      PROVISIONING_ROOT_CERT_KEY: $(PYTHONPREVIEW-LINUX-IOT-PROVISIONING-ROOT-CERT-KEY)
+      PROVISIONING_ROOT_PASSWORD: $(PYTHONPREVIEW-LINUX-ROOT-CERT-PASSWORD)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results'
+    condition: always()
+    inputs:
+      testResultsFiles: '**/dps-e2e-test-*.xml'
+      testRunTitle: 'Publish test results for Python $(python.version)'
