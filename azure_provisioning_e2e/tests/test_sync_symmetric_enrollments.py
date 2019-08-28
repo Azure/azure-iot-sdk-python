@@ -11,6 +11,7 @@ from provisioningserviceclient.protocol.models import AttestationMechanism, Repr
 import pytest
 import logging
 import os
+import uuid
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -29,7 +30,7 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment():
     try:
         individual_enrollment_record = create_individual_enrollment(
-            "e2e-dps-underthewhompingwillow"
+            "e2e-dps-underthewhompingwillow" + str(uuid.uuid4())
         )
 
         registration_id = individual_enrollment_record.registration_id
@@ -53,7 +54,7 @@ def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollmen
     device_id = "e2edpstommarvoloriddle"
     try:
         individual_enrollment_record = create_individual_enrollment(
-            registration_id="e2e-dps-prioriincantatem", device_id=device_id
+            registration_id="e2e-dps-prioriincantatem" + str(uuid.uuid4()), device_id=device_id
         )
 
         registration_id = individual_enrollment_record.registration_id

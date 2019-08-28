@@ -11,7 +11,7 @@ from provisioningserviceclient.protocol.models import AttestationMechanism, Repr
 import pytest
 import logging
 import os
-
+import uuid
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
@@ -29,11 +29,14 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 
 
 @pytest.mark.it(
-    "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id of the individual enrollment that has been created with a symmetric key authentication"
+    "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id"
+    "of the individual enrollment that has been created with a symmetric key authentication"
 )
 async def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment():
     try:
-        individual_enrollment_record = create_individual_enrollment("e2e-dps-legilimens")
+        individual_enrollment_record = create_individual_enrollment(
+            "e2e-dps-legilimens" + str(uuid.uuid4())
+        )
 
         registration_id = individual_enrollment_record.registration_id
         symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
@@ -56,7 +59,7 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
     device_id = "e2edpsgoldensnitch"
     try:
         individual_enrollment_record = create_individual_enrollment(
-            registration_id="e2e-dps-levicorpus", device_id=device_id
+            registration_id="e2e-dps-levicorpus" + str(uuid.uuid4()), device_id=device_id
         )
 
         registration_id = individual_enrollment_record.registration_id
@@ -68,7 +71,6 @@ async def test_device_register_with_device_id_for_a_symmetric_key_individual_enr
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
         device_registry_helper.try_delete_device(device_id)
     finally:
-        pass
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
