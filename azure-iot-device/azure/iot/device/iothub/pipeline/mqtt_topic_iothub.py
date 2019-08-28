@@ -243,6 +243,9 @@ def encode_properties(message_to_send, topic):
     if message_to_send.content_encoding:
         system_properties.append(("$.ce", message_to_send.content_encoding))
 
+    if message_to_send.iothub_interface_id:
+        system_properties.append(("$.ifid", message_to_send.iothub_interface_id))
+
     if message_to_send.expiry_time_utc:
         system_properties.append(
             (

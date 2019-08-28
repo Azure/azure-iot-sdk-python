@@ -7,6 +7,7 @@
 import pytest
 import logging
 from azure.iot.device.iothub.models import Message
+from azure.iot.device import constant
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,6 +42,16 @@ class TestMessage(object):
         msg = Message(s, None, encoding, ctype)
         assert msg.content_encoding == encoding
         assert msg.content_type == ctype
+
+    @pytest.mark.it("Setting message as security message")
+    def test_setting_message_as_security_message(self):
+        s = "After all this time? Always"
+        ctype = "application/json"
+        encoding = "utf-16"
+        msg = Message(s, None, encoding, ctype)
+        assert msg.iothub_interface_id is None
+        msg.set_as_security_message()
+        assert msg.iothub_interface_id == constant.SECURITY_MESSAGE_INTERFACE_ID
 
     @pytest.mark.it(
         "Uses string representation of data/payload attribute as string representation of Message"
