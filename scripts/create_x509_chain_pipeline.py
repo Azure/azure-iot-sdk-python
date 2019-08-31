@@ -628,14 +628,6 @@ def delete_directories_certs_created_from_pipeline():
 
 
 if __name__ == "__main__":
-    # create_verification_cert("54A2F24C8103006551F640E05B028CFEE0CEFD9FCA7EA5CB", False, intermediate_password="hogwartsi")
-    # create_directories_and_prereq_files(False)
-    # create_custom_config()
-    # create_root("root", "hogwarts")
-    # create_intermediate("intermediate", False, "hogwarts", "hogwartsi")
-    # create_leaf_certificates(1, "device", "hogwartsi", "hogwartsd")
-    # create_certificate_chain("leviosa", "hogwarts", "hogwartsi", "hogwartsd")
-
     parser = argparse.ArgumentParser(description="Generate a certificate chain.")
     parser.add_argument("domain", help="Domain name or common name.")
     parser.add_argument(
