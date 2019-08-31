@@ -18,8 +18,9 @@ import logging
 import os
 
 from scripts.create_x509_chain_pipeline import (
+    before_cert_creation_from_pipeline,
     call_intermediate_cert_creation_from_pipeline,
-    call_device_cert_creation_from_pipeline,
+    create_device_certs,
     delete_directories_certs_created_from_pipeline,
 )
 
@@ -54,12 +55,13 @@ type_to_device_indices = {
 @pytest.fixture(scope="module", autouse=True)
 def before_all_tests(request):
     logging.info("set up certificates before cert related tests")
+    before_cert_creation_from_pipeline()
     call_intermediate_cert_creation_from_pipeline(
         common_name=intermediate_common_name,
         ca_password=os.getenv("PROVISIONING_ROOT_PASSWORD"),
         intermediate_password=intermediate_password,
     )
-    call_device_cert_creation_from_pipeline(
+    create_device_certs(
         common_name=device_common_name,
         intermediate_password=intermediate_password,
         device_password=device_password,

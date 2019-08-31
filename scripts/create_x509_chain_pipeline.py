@@ -6,10 +6,6 @@ import subprocess
 import argparse
 import getpass
 
-"""
-Note : Only works in python 3.5+
-"""
-
 
 def create_custom_config():
     """
