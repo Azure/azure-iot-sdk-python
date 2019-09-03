@@ -65,50 +65,91 @@ class TestEmulateAsync(object):
 
 @pytest.mark.describe("AwaitableCallback")
 class TestAwaitableCallback(object):
-    @pytest.mark.it("Instantiates from a provided callback function")
-    async def test_instantiates(self, mock_function):
-        callback = async_adapter.AwaitableCallback(mock_function)
+    @pytest.fixture
+    def fake_return_arg_name(self):
+        return "return_arg"
+
+    @pytest.fixture
+    def fake_return_arg_value(self):
+        return "__fake_return_arg_value__"
+
+    @pytest.fixture
+    def fake_error(self):
+        return RuntimeError("__fake_error__")
+
+    @pytest.mark.it("Can be instantiated with no args")
+    async def test_instantiates_without_return_arg_name(self):
+        callback = async_adapter.AwaitableCallback()
         assert isinstance(callback, async_adapter.AwaitableCallback)
 
-    @pytest.mark.it(
-        "Invokes the callback function associated with an instance and returns its result when a call is invoked the instance"
-    )
-    async def test_calling_object_calls_input_function_and_returns_result(
-        self, mocker, mock_function
-    ):
-        callback = async_adapter.AwaitableCallback(mock_function)
-        result = callback()
-        assert mock_function.call_count == 1
-        assert mock_function.call_args == mocker.call()
-        assert result == mock_function.return_value
+    @pytest.mark.it("Can be instantiated with a return_arg_name")
+    async def test_instantiates_with_return_arg_name(self, fake_return_arg_name):
+        callback = async_adapter.AwaitableCallback(return_arg_name=fake_return_arg_name)
+        assert isinstance(callback, async_adapter.AwaitableCallback)
 
-    @pytest.mark.it("Completes the instance Future when a call is invoked on the instance")
-    async def test_calling_object_completes_future(self, mock_function):
-        callback = async_adapter.AwaitableCallback(mock_function)
+    @pytest.mark.it("Raises a TypeError if return_arg_name is not a string")
+    async def test_value_error_on_bad_return_arg_name(self):
+        with pytest.raises(TypeError):
+            async_adapter.AwaitableCallback(return_arg_name=1)
+
+    @pytest.mark.it(
+        "Completes the instance Future when a call is invoked on the instance (without return_arg_name)"
+    )
+    async def test_calling_object_completes_future(self):
+        callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
         callback()
         await asyncio.sleep(0.1)  # wait to give time to complete the callback
         assert callback.future.done()
+        assert not callback.future.exception()
+        await callback.completion()
 
-    @pytest.mark.it("Can be called using positional arguments")
-    async def test_can_be_called_using_positional_args(self, mocker, mock_function):
-        callback = async_adapter.AwaitableCallback(mock_function)
-        result = callback(1, 2, 3)
-        assert mock_function.call_count == 1
-        assert mock_function.call_args == mocker.call(1, 2, 3)
-        assert result == mock_function.return_value
-
-    @pytest.mark.it("Can be called using explicit keyword arguments")
-    async def test_can_be_called_using_explicit_kwargs(self, mocker, mock_function):
-        callback = async_adapter.AwaitableCallback(mock_function)
-        result = callback(a=1, b=2, c=3)
-        assert mock_function.call_count == 1
-        assert mock_function.call_args == mocker.call(a=1, b=2, c=3)
-        assert result == mock_function.return_value
-
-    @pytest.mark.it("Can have its callback completion awaited upon")
-    async def test_awaiting_completion_of_callback_returns_result(self, mock_function):
-        callback = async_adapter.AwaitableCallback(mock_function)
-        callback()
-        assert await callback.completion() == mock_function.return_value
+    @pytest.mark.it(
+        "Completes the instance Future when a call is invoked on the instance (with return_arg_name)"
+    )
+    async def test_calling_object_completes_future_with_return_arg_name(
+        self, fake_return_arg_name, fake_return_arg_value
+    ):
+        callback = async_adapter.AwaitableCallback(return_arg_name=fake_return_arg_name)
+        assert not callback.future.done()
+        callback(return_arg=fake_return_arg_value)
+        await asyncio.sleep(0.1)  # wait to give time to complete the callback
         assert callback.future.done()
+        assert not callback.future.exception()
+        assert await callback.completion() == fake_return_arg_value
+
+    @pytest.mark.it(
+        "Raises an exception when a call is invoked on the instance without the correct return argument (with return_arg_name)"
+    )
+    async def test_calling_object_raises_exception_if_return_arg_is_missing(
+        self, fake_return_arg_name, fake_return_arg_value
+    ):
+        callback = async_adapter.AwaitableCallback(return_arg_name=fake_return_arg_name)
+        with pytest.raises(TypeError):
+            callback()
+
+    @pytest.mark.it(
+        "Causes an error to be set on the instance Future when an error parameter is passed to the call (without return_arg_name)"
+    )
+    async def test_raises_error_without_return_arg_name(self, fake_error):
+        callback = async_adapter.AwaitableCallback()
+        assert not callback.future.done()
+        callback(error=fake_error)
+        await asyncio.sleep(0.1)  # wait to give time to complete the callback
+        assert callback.future.done()
+        assert callback.future.exception() == fake_error
+        with pytest.raises(fake_error.__class__):
+            await callback.completion()
+
+    @pytest.mark.it(
+        "Causes an error to be set on the instance Future when an error parameter is passed to the call (with return_arg_name)"
+    )
+    async def test_raises_error_with_return_arg_name(self, fake_return_arg_name, fake_error):
+        callback = async_adapter.AwaitableCallback(return_arg_name=fake_return_arg_name)
+        assert not callback.future.done()
+        callback(error=fake_error)
+        await asyncio.sleep(0.1)  # wait to give time to complete the callback
+        assert callback.future.done()
+        assert callback.future.exception() == fake_error
+        with pytest.raises(fake_error.__class__):
+            await callback.completion()

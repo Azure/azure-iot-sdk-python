@@ -174,31 +174,31 @@ class FakeIoTHubPipeline:
     def __init__(self):
         self.feature_enabled = {}  # This just has to be here for the spec
 
-    def connect(self, callback=None):
+    def connect(self, callback):
         callback()
 
-    def disconnect(self, callback=None):
+    def disconnect(self, callback):
         callback()
 
-    def enable_feature(self, feature_name, callback=None):
+    def enable_feature(self, feature_name, callback):
         callback()
 
-    def disable_feature(self, feature_name, callback=None):
+    def disable_feature(self, feature_name, callback):
         callback()
 
-    def send_message(self, event, callback=None):
+    def send_message(self, event, callback):
         callback()
 
-    def send_output_event(self, event, callback=None):
+    def send_output_event(self, event, callback):
         callback()
 
-    def send_method_response(self, method_response, callback=None):
+    def send_method_response(self, method_response, callback):
         callback()
 
-    def get_twin(self, callback=None):
-        callback(None)
+    def get_twin(self, callback):
+        callback(twin={})
 
-    def patch_twin_reported_properties(self, patch, callback=None):
+    def patch_twin_reported_properties(self, patch, callback):
         callback()
 
 

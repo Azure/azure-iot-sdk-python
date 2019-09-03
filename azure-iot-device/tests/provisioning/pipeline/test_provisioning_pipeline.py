@@ -7,9 +7,11 @@
 import pytest
 import logging
 from azure.iot.device.common.models import X509
+from azure.iot.device.common.pipeline import pipeline_stages_base, operation_flow
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
+from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from tests.common.pipeline import helpers
 
 logging.basicConfig(level=logging.INFO)
@@ -40,24 +42,6 @@ def mock_x509():
     return X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
 
 
-def create_x509_security_client():
-    return X509SecurityClient(
-        provisioning_host=fake_provisioning_host,
-        registration_id=fake_registration_id,
-        id_scope=fake_id_scope,
-        x509=mock_x509,
-    )
-
-
-def create_symmetric_key_security_client():
-    return SymmetricKeySecurityClient(
-        provisioning_host=fake_provisioning_host,
-        registration_id=fake_registration_id,
-        id_scope=fake_id_scope,
-        symmetric_key=fake_symmetric_key,
-    )
-
-
 different_security_clients = [
     pytest.param(
         {
@@ -68,6 +52,7 @@ different_security_clients = [
                 "id_scope": fake_id_scope,
                 "symmetric_key": fake_symmetric_key,
             },
+            "set_args_op_class": pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
         },
         id="Symmetric",
     ),
@@ -80,6 +65,7 @@ different_security_clients = [
                 "id_scope": fake_id_scope,
                 "x509": mock_x509(),
             },
+            "set_args_op_class": pipeline_ops_provisioning.SetX509SecurityClientOperation,
         },
         id="X509",
     ),
@@ -101,44 +87,74 @@ def assert_for_client_x509(x509):
     assert x509.pass_phrase == fake_pass_phrase
 
 
-@pytest.fixture
-def mock_mqtt_transport(mock_provisioning_pipeline):
-    return mock_provisioning_pipeline._mock_transport
+@pytest.fixture(scope="function")
+def input_security_client(params_security_clients):
+    return params_security_clients["client_class"](**params_security_clients["init_kwargs"])
+
+
+# automatically mock the transport for all tests in this file.
+@pytest.fixture(autouse=True)
+def mock_mqtt_transport(mocker):
+    return mocker.patch(
+        "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTTransport"
+    ).return_value
 
 
 @pytest.fixture(scope="function")
-def mock_provisioning_pipeline(mocker, params_security_clients):
-    input_security_client = params_security_clients["client_class"](
-        **params_security_clients["init_kwargs"]
-    )
-    mock_transport = mocker.patch(
-        "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTTransport"
-    ).return_value
+def mock_provisioning_pipeline(mocker, input_security_client, mock_mqtt_transport):
     provisioning_pipeline = ProvisioningPipeline(input_security_client)
-    provisioning_pipeline._mock_transport = mock_transport
     provisioning_pipeline.on_connected = mocker.MagicMock()
     provisioning_pipeline.on_disconnected = mocker.MagicMock()
     provisioning_pipeline.on_message_received = mocker.MagicMock()
     helpers.add_mock_method_waiter(provisioning_pipeline, "on_connected")
     helpers.add_mock_method_waiter(provisioning_pipeline, "on_disconnected")
-    helpers.add_mock_method_waiter(mock_transport, "publish")
+    helpers.add_mock_method_waiter(mock_mqtt_transport, "publish")
 
     yield provisioning_pipeline
     provisioning_pipeline.disconnect()
 
 
+@pytest.mark.parametrize("params_security_clients", different_security_clients)
+@pytest.mark.describe("Provisioning pipeline - Initializer")
 class TestInit(object):
-    @pytest.mark.parametrize(
-        "input_security_client",
-        [
-            pytest.param(create_symmetric_key_security_client(), id="Symmetric Key"),
-            pytest.param(create_x509_security_client(), id="X509 Certificate"),
-        ],
-    )
     @pytest.mark.it("Happens correctly with the specific security client")
-    def test_instantiates_correctly(self, input_security_client):
+    def test_instantiates_correctly(self, params_security_clients, input_security_client):
         provisioning_pipeline = ProvisioningPipeline(input_security_client)
         assert provisioning_pipeline._pipeline is not None
+
+    @pytest.mark.it("Calls the correct op to pass the security client args into the pipeline")
+    def test_passes_security_client_args(
+        self, mocker, params_security_clients, input_security_client
+    ):
+        mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
+        provisioning_pipeline = ProvisioningPipeline(input_security_client)
+
+        op = provisioning_pipeline._pipeline.run_op.call_args[0][1]
+        assert provisioning_pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, params_security_clients["set_args_op_class"])
+        assert op.security_client is input_security_client
+
+    @pytest.mark.it("Raises an exception if the pipeline op to set security client args fails")
+    def test_passes_security_client_args_failure(
+        self, mocker, params_security_clients, input_security_client, fake_exception
+    ):
+        old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
+
+        def fail_set_auth_provider(self, op):
+            if isinstance(op, params_security_clients["set_args_op_class"]):
+                op.error = fake_exception
+                operation_flow.complete_op(stage=self, op=op)
+            else:
+                old_execute_op(self, op)
+
+        mocker.patch.object(
+            pipeline_stages_base.PipelineRootStage,
+            "_execute_op",
+            side_effect=fail_set_auth_provider,
+        )
+
+        with pytest.raises(fake_exception.__class__):
+            ProvisioningPipeline(input_security_client)
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
