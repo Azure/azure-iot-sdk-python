@@ -70,7 +70,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = EventedCallback()
         self._iothub_pipeline.connect(callback=callback)
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully connected to Hub")
 
@@ -84,7 +84,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = EventedCallback()
         self._iothub_pipeline.disconnect(callback=callback)
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully disconnected from Hub")
 
@@ -107,7 +107,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = EventedCallback()
         self._iothub_pipeline.send_message(message, callback=callback)
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully sent message to Hub")
 
@@ -152,7 +152,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = EventedCallback()
         self._iothub_pipeline.send_method_response(method_response, callback=callback)
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully sent method response to Hub")
 
@@ -169,7 +169,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = EventedCallback()
         self._iothub_pipeline.enable_feature(feature_name, callback=callback)
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully enabled feature:" + feature_name)
 
@@ -187,7 +187,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = EventedCallback(return_arg_name="twin")
         self._iothub_pipeline.get_twin(callback=callback)
-        twin = callback.wait()
+        twin = callback.wait_for_completion()
 
         logger.info("Successfully retrieved twin")
         return twin
@@ -212,7 +212,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._iothub_pipeline.patch_twin_reported_properties(
             patch=reported_properties_patch, callback=callback
         )
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully patched twin")
 
@@ -334,7 +334,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         callback = EventedCallback()
         self._iothub_pipeline.send_output_event(message, callback=callback)
-        callback.wait()
+        callback.wait_for_completion()
 
         logger.info("Successfully sent message to output: " + output_name)
 

@@ -221,3 +221,13 @@ def iothub_pipeline_manual_cb(mocker):
 @pytest.fixture
 def edge_pipeline(mocker):
     return mocker.MagicMock()  # TODO: change this to wrap a pipeline object
+
+
+@pytest.fixture
+def fake_twin():
+    return {"fake_twin": True}
+
+
+@pytest.fixture
+def fake_error():
+    return RuntimeError("__fake_error__")

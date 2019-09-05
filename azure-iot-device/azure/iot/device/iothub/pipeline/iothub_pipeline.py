@@ -109,7 +109,7 @@ class IoTHubPipeline(object):
             )
 
         self._pipeline.run_op(op)
-        op = callback.wait()
+        callback.wait_for_completion()
         if op.error:
             logger.error("{} failed: {}".format(op.name, op.error))
             raise op.error

@@ -42,8 +42,6 @@ class EventedCallback(object):
                             return_arg_name
                         )
                     )
-            elif len(args) == 1:
-                self.result = args[0]
 
             if self.exception:
                 logger.error(
@@ -63,7 +61,7 @@ class EventedCallback(object):
         """
         self.callback(*args, **kwargs)
 
-    def wait(self, *args, **kwargs):
+    def wait_for_completion(self, *args, **kwargs):
         """
         Wait for the callback to be called, and return the results.
         """

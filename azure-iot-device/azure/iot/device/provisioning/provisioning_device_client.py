@@ -43,7 +43,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         register_complete = EventedCallback(return_arg_name="result")
         self._polling_machine.register(callback=register_complete)
-        result = register_complete.wait()
+        result = register_complete.wait_for_completion()
 
         log_on_register_complete(result)
         return result
@@ -61,6 +61,6 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         cancel_complete = EventedCallback()
         self._polling_machine.cancel(callback=cancel_complete)
-        cancel_complete.wait()
+        cancel_complete.wait_for_completion()
 
         logger.info("Successfully cancelled the current registration process")

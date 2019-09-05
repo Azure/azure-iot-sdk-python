@@ -81,7 +81,7 @@ class ProvisioningPipeline(object):
             logger.error("Provisioning not equipped to handle other security client.")
 
         self._pipeline.run_op(op)
-        op = callback.wait()
+        callback.wait_for_completion()
         if op.error:
             logger.error("{} failed: {}".format(op.name, op.error))
             raise op.error
