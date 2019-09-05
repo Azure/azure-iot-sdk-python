@@ -68,7 +68,7 @@ class UseAuthProviderStage(PipelineStage):
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def on_sas_token_updated(self):
         logger.info(
-            "%s: New sas token received.  Passing down UpdateSasTokenOperation.".format(self.name)
+            "{}: New sas token received.  Passing down UpdateSasTokenOperation.".format(self.name)
         )
 
         @pipeline_thread.runs_on_pipeline_thread

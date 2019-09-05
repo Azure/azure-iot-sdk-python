@@ -236,7 +236,7 @@ class PipelineRootStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def on_connected(self):
-        logger.info(
+        logger.debug(
             "{}: on_connected.  on_connected_handler={}".format(
                 self.name, self.on_connected_handler
             )
@@ -247,7 +247,7 @@ class PipelineRootStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def on_disconnected(self):
-        logger.info(
+        logger.debug(
             "{}: on_disconnected.  on_disconnected_handler={}".format(
                 self.name, self.on_disconnected_handler
             )
@@ -336,11 +336,7 @@ class SerializeConnectOpsStage(PipelineStage):
             self.queue.put_nowait(op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
-            logger.info(
-                "{}({}): Transport is already connected.  Completing early".format(
-                    self.name, op.name
-                )
-            )
+            logger.info("{}({}): Transport is connected.  Completing.".format(self.name, op.name))
             operation_flow.complete_op(stage=self, op=op)
 
         elif (
@@ -348,9 +344,7 @@ class SerializeConnectOpsStage(PipelineStage):
             and not self.pipeline_root.connected
         ):
             logger.info(
-                "{}({}): Transport is already disconnected.  Completing early".format(
-                    self.name, op.name
-                )
+                "{}({}): Transport is disconnected.  Completing.".format(self.name, op.name)
             )
             operation_flow.complete_op(stage=self, op=op)
 
@@ -404,7 +398,7 @@ class SerializeConnectOpsStage(PipelineStage):
         Unblock this stage after the connect/disconnect/reconnect operation is complete.  This also means
         releasing all the operations that were queued up.
         """
-        logger.info("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
+        logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
         self.blocked = False
         logger.info(
             "{}({}): processing {} items in queue".format(self.name, op.name, self.queue.qsize())
@@ -427,7 +421,7 @@ class SerializeConnectOpsStage(PipelineStage):
                 op_to_release.error = error
                 operation_flow.complete_op(self, op_to_release)
             else:
-                logger.info(
+                logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
                 # call run_op directly here so operations go through this stage again (especiall connect/disconnect ops)
@@ -475,7 +469,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     # request sent.  Nothing to do except wait for the response
                     pass
 
-            logger.info(
+            logger.debug(
                 "{}({}): Sending {} request to {} resource {}".format(
                     self.name, op.name, op.request_type, op.method, op.resource_location
                 )
@@ -516,7 +510,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 del (self.pending_responses[event.request_id])
                 op.status_code = event.status_code
                 op.response_body = event.response_body
-                logger.info(
+                logger.debug(
                     "{}({}): Completing {} request to {} resource {} with status {}".format(
                         self.name,
                         op.name,
