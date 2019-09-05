@@ -20,7 +20,7 @@ from azure.iot.device.iothub.auth import IoTEdgeError
 from azure.iot.device.common.models.x509 import X509
 
 pytestmark = pytest.mark.asyncio
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 async def create_completed_future(result=None):

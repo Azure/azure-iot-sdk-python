@@ -13,7 +13,7 @@ import copy
 import pytest
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyFirebolt"

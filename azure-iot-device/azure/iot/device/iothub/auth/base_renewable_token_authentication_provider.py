@@ -144,7 +144,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         t = self._token_update_timer
         self._token_update_timer = None
         if t:
-            logger.info("Canceling token update timer for (%s,%s)", self.device_id, self.module_id)
+            logger.debug("Canceling token update timer for (%s,%s)", self.device_id, self.module_id)
             t.cancel()
 
     def _schedule_token_update(self, seconds_until_update):
@@ -153,7 +153,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         previously-scheduled update and schedule a new update.
         """
         self._cancel_token_update_timer()
-        logger.info(
+        logger.debug(
             "Scheduling token update for (%s,%s) for %d seconds in the future",
             self.device_id,
             self.module_id,
@@ -161,7 +161,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         )
 
         def timerfunc():
-            logger.info("Timed SAS update for (%s,%s)", self.device_id, self.module_id)
+            logger.debug("Timed SAS update for (%s,%s)", self.device_id, self.module_id)
             self.generate_new_sas_token()
 
         self._token_update_timer = Timer(seconds_until_update, timerfunc)
@@ -174,12 +174,12 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         the updated sas token.
         """
         if self.on_sas_token_updated_handler:
-            logger.info(
+            logger.debug(
                 "sending token update notification for (%s, %s)", self.device_id, self.module_id
             )
             self.on_sas_token_updated_handler()
         else:
-            logger.info(
+            logger.warning(
                 "_notify_token_updated: on_sas_token_updated_handler not set.  Doing nothing."
             )
 

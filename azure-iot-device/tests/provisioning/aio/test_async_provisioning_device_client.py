@@ -16,7 +16,7 @@ from azure.iot.device.provisioning.models.registration_result import (
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.asyncio
 
 fake_symmetric_key = "Zm9vYmFy"
@@ -99,8 +99,9 @@ class TestClientCreate(object):
 
 @pytest.mark.describe("ProvisioningDeviceClient")
 class TestClientCallsPollingMachine(object):
-
-    @pytest.mark.it("Register calls register on polling machine with passed in callback and returns the registration result")
+    @pytest.mark.it(
+        "Register calls register on polling machine with passed in callback and returns the registration result"
+    )
     async def test_client_register_success_calls_polling_machine_register_with_callback(
         self, mocker, mock_polling_machine
     ):
@@ -130,9 +131,11 @@ class TestClientCallsPollingMachine(object):
         assert result.registration_state.device_id == fake_device_id
         assert result.registration_state.assigned_hub == fake_assigned_hub
 
-    @pytest.mark.it("Register calls register on polling machine with passed in callback and returns no result when an error has occured")
+    @pytest.mark.it(
+        "Register calls register on polling machine with passed in callback and returns no result when an error has occured"
+    )
     async def test_client_register_failure_calls_polling_machine_register_with_callback(
-            self, mocker, mock_polling_machine
+        self, mocker, mock_polling_machine
     ):
         # Override callback to pass successful result
         def register_complete_failure_callback(callback):

@@ -12,7 +12,7 @@ from azure.iot.device.provisioning.security.x509_security_client import X509Secu
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
 from tests.common.pipeline import helpers
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 send_msg_qos = 1
 

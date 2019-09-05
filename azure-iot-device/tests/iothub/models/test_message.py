@@ -9,7 +9,7 @@ import logging
 from azure.iot.device.iothub.models import Message
 from azure.iot.device import constant
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.mark.describe("Message")

@@ -12,7 +12,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationState,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_request_id = "Request1234"
 fake_operation_id = "Operation4567"

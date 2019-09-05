@@ -117,7 +117,7 @@ class IoTHubPipeline(object):
 
         :param callback: callback which is called when the connection to the service is complete.
         """
-        logger.info("Starting ConnectOperation on the pipeline")
+        logger.debug("Starting ConnectOperation on the pipeline")
 
         def on_complete(call):
             if call.error:
@@ -134,7 +134,7 @@ class IoTHubPipeline(object):
 
         :param callback: callback which is called when the connection to the service has been disconnected
         """
-        logger.info("Starting DisconnectOperation on the pipeline")
+        logger.debug("Starting DisconnectOperation on the pipeline")
 
         def on_complete(call):
             if call.error:
@@ -190,7 +190,7 @@ class IoTHubPipeline(object):
         :param method_response: the method response to send
         :param callback: callback which is called when response has been acknowledged by the service
         """
-        logger.info("IoTHubPipeline send_method_response called")
+        logger.debug("IoTHubPipeline send_method_response called")
 
         def on_complete(call):
             if call.error:
@@ -250,7 +250,7 @@ class IoTHubPipeline(object):
 
         :raises: ValueError if feature_name is invalid
         """
-        logger.info("enable_feature {} called".format(feature_name))
+        logger.debug("enable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
         self.feature_enabled[feature_name] = True
@@ -277,7 +277,7 @@ class IoTHubPipeline(object):
 
         :raises: ValueError if feature_name is invalid
         """
-        logger.info("disable_feature {} called".format(feature_name))
+        logger.debug("disable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
         self.feature_enabled[feature_name] = False

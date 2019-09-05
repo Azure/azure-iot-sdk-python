@@ -133,7 +133,7 @@ class MQTTTransport(object):
                         logger.error("Unexpected error calling on_mqtt_connection_failure_handler")
                         logger.error(traceback.format_exc())
                 else:
-                    logger.info(
+                    logger.warning(
                         "connection failed, but no on_mqtt_connection_failure_handler handler callback provided"
                     )
             elif self.on_mqtt_connected_handler:
@@ -143,7 +143,7 @@ class MQTTTransport(object):
                     logger.error("Unexpected error calling on_mqtt_connected_handler")
                     logger.error(traceback.format_exc())
             else:
-                logger.info("No event handler callback set for on_mqtt_connected_handler")
+                logger.warning("No event handler callback set for on_mqtt_connected_handler")
 
         def on_disconnect(client, userdata, rc):
             logger.info("disconnected with result code: {}".format(rc))
@@ -159,7 +159,7 @@ class MQTTTransport(object):
                     logger.error("Unexpected error calling on_mqtt_disconnected_handler")
                     logger.error(traceback.format_exc())
             else:
-                logger.info("No event handler callback set for on_mqtt_disconnected_handler")
+                logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
             logger.info("suback received for {}".format(mid))
@@ -200,14 +200,14 @@ class MQTTTransport(object):
         mqtt_client.on_publish = on_publish
         mqtt_client.on_message = on_message
 
-        logger.info("Created MQTT protocol client, assigned callbacks")
+        logger.debug("Created MQTT protocol client, assigned callbacks")
         return mqtt_client
 
     def _create_ssl_context(self):
         """
         This method creates the SSLContext object used by Paho to authenticate the connection.
         """
-        logger.info("creating a SSL context")
+        logger.debug("creating a SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
         if self._ca_cert:
@@ -218,7 +218,7 @@ class MQTTTransport(object):
         ssl_context.check_hostname = True
 
         if self._x509_cert is not None:
-            logger.info("configuring SSL context with client-side certificate and key")
+            logger.debug("configuring SSL context with client-side certificate and key")
             ssl_context.load_cert_chain(
                 self._x509_cert.certificate_file,
                 self._x509_cert.key_file,
@@ -324,7 +324,7 @@ class MQTTTransport(object):
         :raises: ValueError if topic contains a wildcard ("+")
         :raises: ValueError if the length of the payload is greater than 268435455 bytes
         """
-        logger.info("sending")
+        logger.info("publishing on {}".format(topic))
         (rc, mid) = self._mqtt_client.publish(topic=topic, payload=payload, qos=qos)
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
@@ -370,12 +370,14 @@ class OperationManager(object):
             else:
                 # Store the operation as pending, along with callback
                 self._pending_operation_callbacks[mid] = callback
-                logger.info("Waiting for response on MID: {}".format(mid))
+                logger.debug("Waiting for response on MID: {}".format(mid))
 
         # Now that the lock has been released, if the callback should be triggered,
         # go ahead and trigger it now.
         if trigger_callback:
-            logger.info("Response for MID: {} was received early - triggering callback".format(mid))
+            logger.debug(
+                "Response for MID: {} was received early - triggering callback".format(mid)
+            )
             if callback:
                 try:
                     callback()
@@ -383,7 +385,7 @@ class OperationManager(object):
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
-                logger.info("No callback for MID: {}".format(mid))
+                logger.warning("No callback for MID: {}".format(mid))
 
     def complete_operation(self, mid):
         """Complete an operation identified by MID and trigger the associated completion callback.
@@ -415,7 +417,7 @@ class OperationManager(object):
         # Now that the lock has been released, if the callback should be triggered,
         # go ahead and trigger it now.
         if trigger_callback:
-            logger.info(
+            logger.debug(
                 "Response received for recognized MID: {} - triggering callback".format(mid)
             )
             if callback:
@@ -425,4 +427,4 @@ class OperationManager(object):
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
-                logger.info("No callback set for MID: {}".format(mid))
+                logger.warning("No callback set for MID: {}".format(mid))

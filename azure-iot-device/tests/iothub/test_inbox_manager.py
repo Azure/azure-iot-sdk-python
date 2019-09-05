@@ -12,7 +12,7 @@ import abc
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.models import Message, MethodRequest
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 inbox_type_list = []
