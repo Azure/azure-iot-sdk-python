@@ -68,7 +68,7 @@ fake_output_name = "__fake_output_name__"
 fake_content_type = "text/json"
 fake_content_type_encoded = "%24.ct=text%2Fjson"
 fake_message = Message(fake_message_body)
-
+security_message_interface_id_encoded = "%24.ifid=urn%3Aazureiot%3ASecurity%3ASecurityAgent%3A1"
 fake_request_id = "__fake_request_id__"
 fake_method_name = "__fake_method_name__"
 fake_method_payload = "__fake_method_payload__"
@@ -113,7 +113,6 @@ fake_message_user_property_2_value = "hufflepuff"
 fake_message_user_property_1_encoded = "is-muggle=yes"
 fake_message_user_property_2_encoded = "sorted-house=hufflepuff"
 
-
 ops_handled_by_this_stage = [
     pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
@@ -145,6 +144,12 @@ def create_message_with_user_properties(message_content, is_multiple):
     return m
 
 
+def create_security_message(message_content):
+    msg = Message(message_content, content_type=fake_content_type)
+    msg.set_as_security_message()
+    return msg
+
+
 def create_message_with_system_and_user_properties(message_content, is_multiple):
     if is_multiple:
         msg = Message(message_content, message_id=fake_message_id, content_type=fake_content_type)
@@ -154,6 +159,19 @@ def create_message_with_system_and_user_properties(message_content, is_multiple)
     msg.custom_properties[fake_message_user_property_1_key] = fake_message_user_property_1_value
     if is_multiple:
         msg.custom_properties[fake_message_user_property_2_key] = fake_message_user_property_2_value
+    return msg
+
+
+def create_security_message_with_system_and_user_properties(message_content, is_multiple):
+    if is_multiple:
+        msg = Message(message_content, message_id=fake_message_id, content_type=fake_content_type)
+    else:
+        msg = Message(message_content, message_id=fake_message_id)
+
+    msg.custom_properties[fake_message_user_property_1_key] = fake_message_user_property_1_value
+    if is_multiple:
+        msg.custom_properties[fake_message_user_property_2_key] = fake_message_user_property_2_value
+    msg.set_as_security_message()
     return msg
 
 
@@ -584,6 +602,15 @@ publish_ops = [
         "publish_payload": fake_message_body,
     },
     {
+        "name": "send security message",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {"message": create_security_message(fake_message_body)},
+        "topic": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id, fake_content_type_encoded, security_message_interface_id_encoded),
+        "publish_payload": fake_message_body,
+    },
+    {
         "name": "send telemetry with multiple system properties",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
@@ -664,6 +691,34 @@ publish_ops = [
             fake_device_id,
             fake_message_id_encoded,
             fake_content_type_encoded,
+            fake_message_user_property_2_encoded,
+            fake_message_user_property_1_encoded,
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send security message with multiple system and multiple user properties",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_security_message_with_system_and_user_properties(
+                fake_message_body, is_multiple=True
+            )
+        },
+        # For more than 1 user property the order could be different, creating 2 different topics
+        "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}".format(
+            fake_device_id,
+            fake_message_id_encoded,
+            fake_content_type_encoded,
+            security_message_interface_id_encoded,
+            fake_message_user_property_1_encoded,
+            fake_message_user_property_2_encoded,
+        ),
+        "topic2": "devices/{}/messages/events/{}&{}&{}&{}&{}".format(
+            fake_device_id,
+            fake_message_id_encoded,
+            fake_content_type_encoded,
+            security_message_interface_id_encoded,
             fake_message_user_property_2_encoded,
             fake_message_user_property_1_encoded,
         ),
