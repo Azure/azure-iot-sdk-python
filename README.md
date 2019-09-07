@@ -4,6 +4,8 @@
 
 This repository contains the code for the future v2.0.0 of the Azure IoT SDKs for Python. The goal of v2.0.0 is to be a complete rewrite of the existing SDK that maximizes the use of the Python language and its standard features rather than wrap over the C SDK, like v1.x.x of the SDK did.
 
+*If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
+
 **Note that these SDKs are currently in preview, and are subject to change.**
 
 # SDKs
@@ -11,9 +13,13 @@ This repository contains the code for the future v2.0.0 of the Azure IoT SDKs fo
 This repository contains the following SDKs:
 
 * [Azure IoT Device SDK](azure-iot-device) - /azure-iot-device
-    * Provision a device using the Device Provisioning Service for use with the Azure IoT Hub
-    * Send/receive telemetry between a device and the Azure IoT Hub
-    * Handle direct methods invoked by the Azure IoT Hub on a device
+    * Provision a device using the Device Provisioning Service for use with the Azure IoT hub
+    * Send/receive telemetry between a device or module and the Azure IoT hub or Azure IoT Edge device
+    * Handle direct methods invoked by the Azure IoT hub on a device
+    * Handle twin events and report twin updates
+    * *Still in development*
+        - *Blob/File upload*
+        - *Invoking method from a module client onto a leaf device*
 
 * Azure IoT Hub SDK **(COMING SOON)**
     * Do service/management operations on the Azure IoT Hub
