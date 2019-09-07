@@ -238,7 +238,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             patch=reported_properties_patch, callback=on_pipeline_op_complete
         )
         op_complete.wait()
-        print("Done with patch")
 
     def receive_twin_desired_properties_patch(self, block=True, timeout=None):
         """
