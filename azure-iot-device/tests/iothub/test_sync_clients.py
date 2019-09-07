@@ -19,7 +19,7 @@ from azure.iot.device.iothub.auth import IoTEdgeError
 import azure.iot.device.iothub.sync_clients as sync_clients
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 ################

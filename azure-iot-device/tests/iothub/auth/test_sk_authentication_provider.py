@@ -12,7 +12,7 @@ from azure.iot.device.iothub.auth.sk_authentication_provider import (
 
 from mock import MagicMock
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 connection_string_device_sk_format = "HostName={};DeviceId={};SharedAccessKey={}"

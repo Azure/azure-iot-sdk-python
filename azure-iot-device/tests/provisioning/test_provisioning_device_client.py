@@ -10,7 +10,7 @@ from azure.iot.device.provisioning.abstract_provisioning_device_client import (
     AbstractProvisioningDeviceClient,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def test_raises_exception_on_init_of_abstract_client(mocker):

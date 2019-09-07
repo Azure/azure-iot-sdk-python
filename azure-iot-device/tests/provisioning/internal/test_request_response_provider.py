@@ -10,7 +10,7 @@ import six.moves.urllib as urllib
 from mock import MagicMock
 from azure.iot.device.provisioning.internal.request_response_provider import RequestResponseProvider
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_request_id = "Request1234"
 fake_operation_id = "Operation4567"

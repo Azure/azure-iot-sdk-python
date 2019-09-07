@@ -15,7 +15,7 @@ import logging
 import six.moves.urllib as urllib
 from azure.iot.device.common.sastoken import SasToken, SasTokenError
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 uri = "my.host.name"
 key = "Zm9vYmFy"
