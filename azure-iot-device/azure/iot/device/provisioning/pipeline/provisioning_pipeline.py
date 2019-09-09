@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import pipeline_stages_base
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.common.pipeline import pipeline_stages_mqtt
@@ -66,22 +67,24 @@ class ProvisioningPipeline(object):
         self._pipeline.on_connected_handler = _on_connected
         self._pipeline.on_disconnected_handler = _on_disconnected
 
-        def remove_this_code(call):
-            if call.error:
-                raise call.error
+        callback = EventedCallback()
 
         if isinstance(security_client, X509SecurityClient):
             op = pipeline_ops_provisioning.SetX509SecurityClientOperation(
-                security_client=security_client, callback=remove_this_code
+                security_client=security_client, callback=callback
             )
         elif isinstance(security_client, SymmetricKeySecurityClient):
             op = pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation(
-                security_client=security_client, callback=remove_this_code
+                security_client=security_client, callback=callback
             )
         else:
             logger.error("Provisioning not equipped to handle other security client.")
 
         self._pipeline.run_op(op)
+        callback.wait_for_completion()
+        if op.error:
+            logger.error("{} failed: {}".format(op.name, op.error))
+            raise op.error
 
     def connect(self, callback=None):
         """

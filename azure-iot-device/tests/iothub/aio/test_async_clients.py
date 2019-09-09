@@ -29,6 +29,12 @@ async def create_completed_future(result=None):
     return f
 
 
+# automatically mock the pipeline for all tests in this file.
+@pytest.fixture(autouse=True)
+def mock_pipeline_init(mocker):
+    return mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+
+
 class SharedClientInstantiationTests(object):
     @pytest.mark.it(
         "Stores the IoTHubPipeline from the 'iothub_pipeline' parameter in the '_iothub_pipeline' attribute"
@@ -99,11 +105,12 @@ class SharedClientCreateFromConnectionStringTests(object):
             pytest.param("some-certificate", id="With CA certificate"),
         ],
     )
-    async def test_pipeline_creation(self, mocker, client_class, connection_string, ca_cert):
+    async def test_pipeline_creation(
+        self, mocker, client_class, connection_string, ca_cert, mock_pipeline_init
+    ):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
-        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
 
         args = (connection_string,)
         kwargs = {}
@@ -186,11 +193,12 @@ class SharedClientCreateFromSharedAccessSignature(object):
     @pytest.mark.it(
         "Uses the SharedAccessSignatureAuthenticationProvider to create an IoTHubPipeline"
     )
-    async def test_pipeline_creation(self, mocker, client_class, sas_token_string):
+    async def test_pipeline_creation(
+        self, mocker, client_class, sas_token_string, mock_pipeline_init
+    ):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
         ).parse.return_value
-        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
 
         client_class.create_from_shared_access_signature(sas_token_string)
 
@@ -247,6 +255,19 @@ class SharedClientConnectTests(object):
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
+    @pytest.mark.it("Raises an error if the `connect` pipeline operation calls back with an error")
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, fake_error
+    ):
+        def fail_connect(callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.connect = mocker.MagicMock(side_effect=fail_connect)
+        with pytest.raises(fake_error.__class__) as e_info:
+            await client.connect()
+        assert e_info.value is fake_error
+        assert iothub_pipeline.connect.call_count == 1
+
 
 class SharedClientDisconnectTests(object):
     @pytest.mark.it("Begins a 'disconnect' pipeline operation")
@@ -267,6 +288,21 @@ class SharedClientDisconnectTests(object):
         assert iothub_pipeline.disconnect.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises an error if the `disconnect` pipeline operation calls back with an error"
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, fake_error
+    ):
+        def fail_disconnect(callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.disconnect = mocker.MagicMock(side_effect=fail_disconnect)
+        with pytest.raises(fake_error.__class__) as e_info:
+            await client.disconnect()
+        assert e_info.value is fake_error
+        assert iothub_pipeline.disconnect.call_count == 1
 
 
 class SharedClientDisconnectEventTests(object):
@@ -299,6 +335,21 @@ class SharedClientSendD2CMessageTests(object):
         assert iothub_pipeline.send_message.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises an error if the `send_message` pipeline operation calls back with an error"
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, message, fake_error
+    ):
+        def fail_send_message(message, callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.send_message = mocker.MagicMock(side_effect=fail_send_message)
+        with pytest.raises(fake_error.__class__) as e_info:
+            await client.send_message(message)
+        assert e_info.value is fake_error
+        assert iothub_pipeline.send_message.call_count == 1
 
     @pytest.mark.it(
         "Wraps 'message' input parameter in a Message object if it is not a Message object"
@@ -424,13 +475,32 @@ class SharedClientSendMethodResponseTests(object):
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
+    @pytest.mark.it(
+        "Raises an error if the `send_method-response` pipeline operation calls back with an error"
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, method_response, fake_error
+    ):
+        def fail_send_method_response(response, callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.send_method_response = mocker.MagicMock(
+            side_effect=fail_send_method_response
+        )
+        with pytest.raises(fake_error.__class__) as e_info:
+            await client.send_method_response(method_response)
+        assert e_info.value is fake_error
+        assert iothub_pipeline.send_method_response.call_count == 1
+
 
 class SharedClientGetTwinTests(object):
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
-    async def test_enables_twin_only_if_not_already_enabled(self, mocker, client, iothub_pipeline):
+    async def test_enables_twin_only_if_not_already_enabled(
+        self, mocker, client, iothub_pipeline, fake_twin
+    ):
         # patch this so get_twin won't block
         def immediate_callback(callback):
-            callback(None)
+            callback(twin=fake_twin)
 
         mocker.patch.object(iothub_pipeline, "get_twin", side_effect=immediate_callback)
 
@@ -450,7 +520,11 @@ class SharedClientGetTwinTests(object):
         assert iothub_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Begins a 'get_twin' pipeline operation")
-    async def test_get_twin_calls_pipeline(self, client, iothub_pipeline):
+    async def test_get_twin_calls_pipeline(self, client, iothub_pipeline, mocker, fake_twin):
+        def immediate_callback(callback):
+            callback(twin=fake_twin)
+
+        mocker.patch.object(iothub_pipeline, "get_twin", side_effect=immediate_callback)
         await client.get_twin()
         assert iothub_pipeline.get_twin.call_count == 1
 
@@ -469,18 +543,30 @@ class SharedClientGetTwinTests(object):
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
+    @pytest.mark.it("Raises an error if the `get_twin` pipeline operation calls back with an error")
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, fake_error
+    ):
+        def fail_get_twin(callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.get_twin = mocker.MagicMock(side_effect=fail_get_twin)
+        with pytest.raises(fake_error.__class__) as e_info:
+            await client.get_twin()
+        assert e_info.value is fake_error
+        assert iothub_pipeline.get_twin.call_count == 1
+
     @pytest.mark.it("Returns the twin that the pipeline returned")
-    async def test_verifies_twin_returned(self, mocker, client, iothub_pipeline):
-        twin = {"reported": {"foo": "bar"}}
+    async def test_verifies_twin_returned(self, mocker, client, iothub_pipeline, fake_twin):
 
         # make the pipeline the twin
         def immediate_callback(callback):
-            callback(twin)
+            callback(twin=fake_twin)
 
         mocker.patch.object(iothub_pipeline, "get_twin", side_effect=immediate_callback)
 
         returned_twin = await client.get_twin()
-        assert returned_twin == twin
+        assert returned_twin == fake_twin
 
 
 class SharedClientPatchTwinReportedPropertiesTests(object):
@@ -538,6 +624,23 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         assert iothub_pipeline.patch_twin_reported_properties.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises an error if the `patch_twin_reported_properties` pipeline operation calls back with an error"
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, twin_patch_reported, fake_error
+    ):
+        def fail_patch_twin_reported_properties(patch, callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.patch_twin_reported_properties = mocker.MagicMock(
+            side_effect=fail_patch_twin_reported_properties
+        )
+        with pytest.raises(fake_error.__class__) as e_info:
+            await client.patch_twin_reported_properties(twin_patch_reported)
+        assert e_info.value is fake_error
+        assert iothub_pipeline.patch_twin_reported_properties.call_count == 1
 
 
 class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
@@ -664,11 +767,10 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
         )
 
     @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
-    async def test_pipeline_creation(self, mocker, client_class, x509):
+    async def test_pipeline_creation(self, mocker, client_class, x509, mock_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
         ).return_value
-        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
 
         client_class.create_from_x509_certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id
@@ -1217,11 +1319,10 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
         )
 
     @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
-    async def test_pipeline_creation(self, mocker, client_class, x509):
+    async def test_pipeline_creation(self, mocker, client_class, x509, mock_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
         ).return_value
-        mock_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
 
         client_class.create_from_x509_certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
@@ -1299,6 +1400,22 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         assert iothub_pipeline.send_output_event.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises an error if the `send_output_event` pipeline operation calls back with an error"
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, iothub_pipeline, message, fake_error
+    ):
+        def fail_send_output_event(message, callback):
+            callback(error=fake_error)
+
+        iothub_pipeline.send_output_event = mocker.MagicMock(side_effect=fail_send_output_event)
+        with pytest.raises(fake_error.__class__) as e_info:
+            output_name = "some_output"
+            await client.send_message_to_output(message, output_name)
+        assert e_info.value is fake_error
+        assert iothub_pipeline.send_output_event.call_count == 1
 
     @pytest.mark.it(
         "Wraps 'message' input parameter in Message object if it is not a Message object"

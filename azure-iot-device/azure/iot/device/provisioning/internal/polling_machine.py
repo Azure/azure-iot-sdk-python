@@ -420,7 +420,7 @@ class PollingMachine(object):
         if callback:
             self._register_callback = None
             try:
-                callback(None, self._registration_error)
+                callback(error=self._registration_error)
             except Exception:
                 logger.error("Unexpected error calling callback supplied to register")
                 logger.error(traceback.format_exc())
@@ -440,7 +440,7 @@ class PollingMachine(object):
         if callback:
             self._register_callback = None
             try:
-                callback(self._registration_result, None)
+                callback(result=self._registration_result)
             except Exception:
                 logger.error("Unexpected error calling callback supplied to register")
                 logger.error(traceback.format_exc())

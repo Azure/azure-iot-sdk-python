@@ -50,6 +50,14 @@ def fake_x509():
     return X509(fake_x509_cert_file_value, fake_x509_cert_key_file, fake_pass_phrase)
 
 
+# automatically mock the transport for all tests in this file.
+@pytest.fixture(autouse=True)
+def mock_transport(mocker):
+    mocker.patch(
+        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
+    )
+
+
 @pytest.mark.describe("ProvisioningDeviceClient - Init")
 class TestClientCreate(object):
     xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
@@ -65,14 +73,10 @@ class TestClientCreate(object):
         ],
     )
     async def test_create_from_symmetric_key(self, mocker, protocol):
-        patch_set_sym_client = mocker.patch.object(
-            pipeline_ops_provisioning, "SetSymmetricKeySecurityClientOperation"
-        )
         client = ProvisioningDeviceClient.create_from_symmetric_key(
             fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
         )
         assert isinstance(client, ProvisioningDeviceClient)
-        assert patch_set_sym_client.call_count == 1
         assert client._provisioning_pipeline is not None
 
     @pytest.mark.it("Is created from a x509 certificate key and protocol")
@@ -86,14 +90,10 @@ class TestClientCreate(object):
         ],
     )
     async def test_create_from_x509_cert(self, mocker, protocol):
-        patch_set_x509_client = mocker.patch.object(
-            pipeline_ops_provisioning, "SetX509SecurityClientOperation"
-        )
         client = ProvisioningDeviceClient.create_from_x509_certificate(
             fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()
         )
         assert isinstance(client, ProvisioningDeviceClient)
-        assert patch_set_x509_client.call_count == 1
         assert client._provisioning_pipeline is not None
 
 
@@ -107,7 +107,7 @@ class TestClientCallsPollingMachine(object):
     ):
         # Override callback to pass successful result
         def register_complete_success_callback(callback):
-            callback(create_success_result())
+            callback(result=create_success_result())
 
         mocker.patch.object(
             mock_polling_machine, "register", side_effect=register_complete_success_callback
@@ -132,7 +132,7 @@ class TestClientCallsPollingMachine(object):
         assert result.registration_state.assigned_hub == fake_assigned_hub
 
     @pytest.mark.it(
-        "Register calls register on polling machine with passed in callback and returns no result when an error has occured"
+        "Register calls register on polling machine with passed in callback and raises the error when an error has occured"
     )
     async def test_client_register_failure_calls_polling_machine_register_with_callback(
         self, mocker, mock_polling_machine
@@ -152,11 +152,11 @@ class TestClientCallsPollingMachine(object):
         mock_polling_machine_init.return_value = mock_polling_machine
 
         client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
-        result = await client.register()
+        with pytest.raises(RuntimeError):
+            await client.register()
 
         assert mock_polling_machine.register.call_count == 1
         assert callable(mock_polling_machine.register.call_args[1]["callback"])
-        assert result is None
 
     @pytest.mark.it("Cancel calls cancel on polling machine with passed in callback")
     async def test_client_cancel_calls_polling_machine_cancel_with_callback(
