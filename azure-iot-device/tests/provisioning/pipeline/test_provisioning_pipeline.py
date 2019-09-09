@@ -14,7 +14,7 @@ from azure.iot.device.provisioning.pipeline.provisioning_pipeline import Provisi
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from tests.common.pipeline import helpers
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 send_msg_qos = 1
 

@@ -48,7 +48,7 @@ class MQTTTransportStage(PipelineStage):
         if isinstance(op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation):
             # pipeline_ops_mqtt.SetMQTTConnectionArgsOperation is where we create our MQTTTransport object and set
             # all of its properties.
-            logger.info("{}({}): got connection args".format(self.name, op.name))
+            logger.debug("{}({}): got connection args".format(self.name, op.name))
             self.hostname = op.hostname
             self.username = op.username
             self.client_id = op.client_id
@@ -84,7 +84,7 @@ class MQTTTransportStage(PipelineStage):
             operation_flow.complete_op(self, op)
 
         elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-            logger.info("{}({}): saving sas token and completing".format(self.name, op.name))
+            logger.debug("{}({}): saving sas token and completing".format(self.name, op.name))
             self.sas_token = op.sas_token
             operation_flow.complete_op(self, op)
 
@@ -133,7 +133,7 @@ class MQTTTransportStage(PipelineStage):
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_published():
-                logger.info("{}({}): PUBACK received. completing op.".format(self.name, op.name))
+                logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
                 operation_flow.complete_op(self, op)
 
             self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
@@ -143,7 +143,7 @@ class MQTTTransportStage(PipelineStage):
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_subscribed():
-                logger.info("{}({}): SUBACK received. completing op.".format(self.name, op.name))
+                logger.debug("{}({}): SUBACK received. completing op.".format(self.name, op.name))
                 operation_flow.complete_op(self, op)
 
             self.transport.subscribe(topic=op.topic, callback=on_subscribed)
@@ -153,7 +153,9 @@ class MQTTTransportStage(PipelineStage):
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_unsubscribed():
-                logger.info("{}({}): UNSUBACK received.  completing op.".format(self.name, op.name))
+                logger.debug(
+                    "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)
+                )
                 operation_flow.complete_op(self, op)
 
             self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
@@ -185,7 +187,7 @@ class MQTTTransportStage(PipelineStage):
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
         ) or isinstance(self._pending_connection_op, pipeline_ops_base.ReconnectOperation):
-            logger.info("completing connect op")
+            logger.debug("completing connect op")
             op = self._pending_connection_op
             self._pending_connection_op = None
             operation_flow.complete_op(stage=self, op=op)
@@ -208,7 +210,7 @@ class MQTTTransportStage(PipelineStage):
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
         ) or isinstance(self._pending_connection_op, pipeline_ops_base.ReconnectOperation):
-            logger.info("{}: failing connect op".format(self.name))
+            logger.debug("{}: failing connect op".format(self.name))
             op = self._pending_connection_op
             self._pending_connection_op = None
             op.error = cause
@@ -224,14 +226,17 @@ class MQTTTransportStage(PipelineStage):
 
         :param Exception cause: The Exception that caused the disconnection, if any (optional)
         """
-        logger.error("{}: _on_mqtt_disconnect called: {}".format(self.name, cause))
+        if cause:
+            logger.error("{}: _on_mqtt_disconnect called: {}".format(self.name, cause))
+        else:
+            logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
         # self.on_disconnected() tells other pipeilne stages that we're disconnected.  Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
         self.on_disconnected()
 
         if isinstance(self._pending_connection_op, pipeline_ops_base.DisconnectOperation):
-            logger.info("{}: completing disconnect op".format(self.name))
+            logger.debug("{}: completing disconnect op".format(self.name))
             op = self._pending_connection_op
             self._pending_connection_op = None
 

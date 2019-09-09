@@ -38,7 +38,7 @@ from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
 import uuid
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 this_module = sys.modules[__name__]
 
@@ -607,7 +607,8 @@ publish_ops = [
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {"message": create_security_message(fake_message_body)},
         "topic": "devices/{}/messages/events/{}&{}".format(
-            fake_device_id, fake_content_type_encoded, security_message_interface_id_encoded),
+            fake_device_id, fake_content_type_encoded, security_message_interface_id_encoded
+        ),
         "publish_payload": fake_message_body,
     },
     {

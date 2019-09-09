@@ -137,7 +137,7 @@ class PollingMachine(object):
                 dest = "[no transition]"
             else:
                 dest = event_data.transition.dest
-            logger.info(
+            logger.debug(
                 "Transition complete.  Trigger={}, Src={}, Dest={}, result={}, error{}".format(
                     event_data.event.name,
                     event_data.transition.source,
@@ -343,7 +343,7 @@ class PollingMachine(object):
     def _wait_for_interval(self, event_data):
         def time_up_polling():
             self._polling_timer.cancel()
-            logger.info("Done waiting for polling interval of {} secs".format(polling_interval))
+            logger.debug("Done waiting for polling interval of {} secs".format(polling_interval))
             if result.operation_id is None:
                 self._trig_send_register_request(event_data)
             else:
@@ -357,7 +357,7 @@ class PollingMachine(object):
         )
 
         self._polling_timer = Timer(polling_interval, time_up_polling)
-        logger.info("Waiting for " + str(constant.DEFAULT_POLLING_INTERVAL) + " secs")
+        logger.debug("Waiting for " + str(constant.DEFAULT_POLLING_INTERVAL) + " secs")
         self._polling_timer.start()  # This is waiting for that polling interval
 
     def _decode_complete_json_response(self, query_result, response):
@@ -446,5 +446,5 @@ class PollingMachine(object):
                 logger.error(traceback.format_exc())
 
     def _on_subscribe_completed(self):
-        logger.info("on_subscribe_completed for Device Provisioning Service")
+        logger.debug("on_subscribe_completed for Device Provisioning Service")
         self._trig_send_register_request()

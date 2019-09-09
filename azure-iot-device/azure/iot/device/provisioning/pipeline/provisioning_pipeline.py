@@ -157,7 +157,7 @@ class ProvisioningPipeline(object):
 
         :param callback: callback which is called when the feature is enabled
         """
-        logger.info("enable_responses called")
+        logger.debug("enable_responses called")
 
         def pipeline_callback(call):
             if call.error:
@@ -176,7 +176,7 @@ class ProvisioningPipeline(object):
         :param callback: callback which is called when the feature is disabled
 
         """
-        logger.info("disable_responses called")
+        logger.debug("disable_responses called")
 
         def pipeline_callback(call):
             if call.error:

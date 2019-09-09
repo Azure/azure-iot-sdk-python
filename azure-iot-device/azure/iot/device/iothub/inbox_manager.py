@@ -108,7 +108,7 @@ class InboxManager(object):
             return False
         else:
             inbox._put(incoming_message)
-            logger.info("Input message sent to {} inbox".format(input_name))
+            logger.debug("Input message sent to {} inbox".format(input_name))
             return True
 
     def route_c2d_message(self, incoming_message):
@@ -119,7 +119,7 @@ class InboxManager(object):
         :returns: Boolean indicating if message was successfully routed or not.
         """
         self.c2d_message_inbox._put(incoming_message)
-        logger.info("C2D message sent to inbox")
+        logger.debug("C2D message sent to inbox")
         return True
 
     def route_method_request(self, incoming_method_request):
@@ -147,5 +147,5 @@ class InboxManager(object):
         :returns: Boolean indicating if patch was successfully routed or not.
         """
         self.twin_patch_inbox._put(incoming_patch)
-        logger.info("twin patch message sent to inbox")
+        logger.debug("twin patch message sent to inbox")
         return True

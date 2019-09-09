@@ -15,7 +15,7 @@ from azure.iot.device.provisioning.models.registration_result import Registratio
 from azure.iot.device.provisioning.pipeline import constant
 import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_request_id = "Request1234"
 fake_retry_after = "3"

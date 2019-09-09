@@ -13,7 +13,7 @@ from azure.iot.device.provisioning.models.registration_result import (
 )
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_symmetric_key = "Zm9vYmFy"
 fake_registration_id = "MyPensieve"

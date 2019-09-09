@@ -16,7 +16,7 @@ from azure.iot.device.provisioning.models.registration_result import (
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.asyncio
 
 fake_symmetric_key = "Zm9vYmFy"
