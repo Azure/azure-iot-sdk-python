@@ -1,9 +1,11 @@
 # DPS Service Client
+
 > see https://aka.ms/autorest
 
 ## Getting Started
+
 To build the DPS Service Client, simply install AutoRest in Node.js via `npm` (`npm install -g autorest`) and then run:
-> `autorest protocol-generator.md --add-credentials`
+> `autorest protocol-generator.md`
 
 To see additional help and options, run:
 > `autorest --help`
@@ -13,6 +15,7 @@ For other options on installation see [Installing Autorest](https://aka.ms/autor
 ---
 
 ## Configuration
+
 The following are the settings for using this API with AutoRest
 
 ```yaml
@@ -21,4 +24,5 @@ input-file: service.json
 python:
     namespace: protocol
     output-folder: azure/iot/hub
+    add-credentials: True
 ```

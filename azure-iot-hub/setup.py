@@ -55,20 +55,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    install_requires=[
-        # Define sub-dependencies due to pip dependency resolution bug
-        # https://github.com/pypa/pip/issues/988
-        "urllib3>1.21.1,<1.25",
-        # Actual project dependencies
-        "six>=1.12.0,<2.0.0",
-        "paho-mqtt>=1.4.0,<2.0.0",
-        "transitions>=0.6.8,<1.0.0",
-        "requests>=2.20.0,<3.0.0",
-        "requests-unixsocket>=0.1.5,<1.0.0",
-        "janus>=0.4.0,<1.0.0;python_version>='3.5'",
-        "futures;python_version == '2.7'",
-    ],
-    extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
+    install_requires=["msrest"],
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
     packages=find_packages(
         exclude=[
