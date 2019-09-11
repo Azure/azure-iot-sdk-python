@@ -10,7 +10,7 @@ from azure.iot.device.iothub.auth.x509_authentication_provider import X509Authen
 from azure.iot.device.common.models.x509 import X509
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 hostname = "beauxbatons.academy-net"
 device_id = "MyPensieve"

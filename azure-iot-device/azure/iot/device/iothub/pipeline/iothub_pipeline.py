@@ -6,6 +6,7 @@
 
 import logging
 import sys
+from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_ops_base,
@@ -96,56 +97,56 @@ class IoTHubPipeline(object):
         self._pipeline.on_connected_handler = _on_connected
         self._pipeline.on_disconnected_handler = _on_disconnected
 
-        def remove_this_code(call):
-            if call.error:
-                raise call.error
+        callback = EventedCallback()
 
         if isinstance(auth_provider, X509AuthenticationProvider):
             op = pipeline_ops_iothub.SetX509AuthProviderOperation(
-                auth_provider=auth_provider, callback=remove_this_code
+                auth_provider=auth_provider, callback=callback
             )
         else:  # Currently everything else goes via this block.
             op = pipeline_ops_iothub.SetAuthProviderOperation(
-                auth_provider=auth_provider, callback=remove_this_code
+                auth_provider=auth_provider, callback=callback
             )
 
         self._pipeline.run_op(op)
+        callback.wait_for_completion()
+        if op.error:
+            logger.error("{} failed: {}".format(op.name, op.error))
+            raise op.error
 
-    def connect(self, callback=None):
+    def connect(self, callback):
         """
         Connect to the service.
 
         :param callback: callback which is called when the connection to the service is complete.
         """
-        logger.info("Starting ConnectOperation on the pipeline")
+        logger.debug("Starting ConnectOperation on the pipeline")
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)  # TODO: raise an error instead
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(pipeline_ops_base.ConnectOperation(callback=on_complete))
 
-    def disconnect(self, callback=None):
+    def disconnect(self, callback):
         """
         Disconnect from the service.
 
         :param callback: callback which is called when the connection to the service has been disconnected
         """
-        logger.info("Starting DisconnectOperation on the pipeline")
+        logger.debug("Starting DisconnectOperation on the pipeline")
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=on_complete))
 
-    def send_message(self, message, callback=None):
+    def send_message(self, message, callback):
         """
         Send a telemetry message to the service.
 
@@ -153,18 +154,17 @@ class IoTHubPipeline(object):
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(
             pipeline_ops_iothub.SendD2CMessageOperation(message=message, callback=on_complete)
         )
 
-    def send_output_event(self, message, callback=None):
+    def send_output_event(self, message, callback):
         """
         Send an output message to the service.
 
@@ -172,31 +172,29 @@ class IoTHubPipeline(object):
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(
             pipeline_ops_iothub.SendOutputEventOperation(message=message, callback=on_complete)
         )
 
-    def send_method_response(self, method_response, callback=None):
+    def send_method_response(self, method_response, callback):
         """
         Send a method response to the service.
 
         :param method_response: the method response to send
         :param callback: callback which is called when response has been acknowledged by the service
         """
-        logger.info("IoTHubPipeline send_method_response called")
+        logger.debug("IoTHubPipeline send_method_response called")
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(
@@ -213,15 +211,15 @@ class IoTHubPipeline(object):
         This callback should have one parameter, which will contain the requested twin when called.
         """
 
-        def on_complete(call):
-            if call.error:
-                sys.exit(1)
-            if callback:
-                callback(call.twin)
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error, twin=None)
+            else:
+                callback(twin=op.twin)
 
         self._pipeline.run_op(pipeline_ops_iothub.GetTwinOperation(callback=on_complete))
 
-    def patch_twin_reported_properties(self, patch, callback=None):
+    def patch_twin_reported_properties(self, patch, callback):
         """
         Send a patch for a twin's reported properties to the service.
 
@@ -229,10 +227,10 @@ class IoTHubPipeline(object):
         :param callback: callback which is called when request has been acknowledged by the service.
         """
 
-        def on_complete(call):
-            if call.error:
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(
@@ -241,7 +239,7 @@ class IoTHubPipeline(object):
             )
         )
 
-    def enable_feature(self, feature_name, callback=None):
+    def enable_feature(self, feature_name, callback):
         """
         Enable the given feature by subscribing to the appropriate topics.
 
@@ -250,16 +248,15 @@ class IoTHubPipeline(object):
 
         :raises: ValueError if feature_name is invalid
         """
-        logger.info("enable_feature {} called".format(feature_name))
+        logger.debug("enable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
         self.feature_enabled[feature_name] = True
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(
@@ -268,7 +265,7 @@ class IoTHubPipeline(object):
             )
         )
 
-    def disable_feature(self, feature_name, callback=None):
+    def disable_feature(self, feature_name, callback):
         """
         Disable the given feature by subscribing to the appropriate topics.
         :param callback: callback which is called when the feature is disabled
@@ -277,16 +274,15 @@ class IoTHubPipeline(object):
 
         :raises: ValueError if feature_name is invalid
         """
-        logger.info("disable_feature {} called".format(feature_name))
+        logger.debug("disable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
         self.feature_enabled[feature_name] = False
 
-        def on_complete(call):
-            if call.error:
-                # TODO we need error semantics on the client
-                sys.exit(1)
-            if callback:
+        def on_complete(op):
+            if op.error:
+                callback(error=op.error)
+            else:
                 callback()
 
         self._pipeline.run_op(

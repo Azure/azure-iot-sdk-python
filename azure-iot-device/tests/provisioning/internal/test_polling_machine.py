@@ -15,7 +15,7 @@ from azure.iot.device.provisioning.models.registration_result import Registratio
 from azure.iot.device.provisioning.pipeline import constant
 import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_request_id = "Request1234"
 fake_retry_after = "3"
@@ -235,8 +235,8 @@ class TestRegisterResponse(object):
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
         assert mock_callback.call_count == 1
-        assert isinstance(mock_callback.call_args[0][0], RegistrationResult)
-        registration_result = mock_callback.call_args[0][0]
+        assert isinstance(mock_callback.call_args[1]["result"], RegistrationResult)
+        registration_result = mock_callback.call_args[1]["result"]
 
         registration_result.request_id == fake_request_id
         registration_result.operation_id == fake_operation_id
@@ -283,8 +283,8 @@ class TestRegisterResponse(object):
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_payload"] == " "
 
         assert mock_callback.call_count == 1
-        assert isinstance(mock_callback.call_args[0][1], ValueError)
-        assert mock_callback.call_args[0][1].args[0] == "Incoming message failure"
+        assert isinstance(mock_callback.call_args[1]["error"], ValueError)
+        assert mock_callback.call_args[1]["error"].args[0] == "Incoming message failure"
 
     @pytest.mark.it(
         "Calls callback of register with error when there is a response with unknown registration status"
@@ -327,9 +327,11 @@ class TestRegisterResponse(object):
         polling_machine._on_disconnect_completed_error()
 
         assert mock_callback.call_count == 1
-        assert isinstance(mock_callback.call_args[0][1], ValueError)
-        assert mock_callback.call_args[0][1].args[0] == "Other types of failure have occurred."
-        assert mock_callback.call_args[0][1].args[1] == fake_payload_result
+        assert isinstance(mock_callback.call_args[1]["error"], ValueError)
+        assert (
+            mock_callback.call_args[1]["error"].args[0] == "Other types of failure have occurred."
+        )
+        assert mock_callback.call_args[1]["error"].args[1] == fake_payload_result
 
     @pytest.mark.it("Calls register again when there is a response with status code > 429")
     def test_receive_register_response_greater_than_429_does_register_again(self, mocker):
@@ -413,7 +415,7 @@ class TestRegisterResponse(object):
         assert state_based_mqtt.send_request.call_count == 1
         assert state_based_mqtt.send_request.call_args_list[0][1]["request_id"] == fake_request_id
         assert mock_callback.call_count == 1
-        assert mock_callback.call_args[0][1].args[0] == "Time is up for query timer"
+        assert mock_callback.call_args[1]["error"].args[0] == "Time is up for query timer"
 
 
 @pytest.mark.describe("PollingMachine - Query Response")
@@ -607,7 +609,7 @@ class TestQueryResponse(object):
         assert state_based_mqtt.send_request.call_args_list[1][1]["request_payload"] == " "
 
         assert mock_callback.call_count == 1
-        assert isinstance(mock_callback.call_args[0][0], RegistrationResult)
+        assert isinstance(mock_callback.call_args[1]["result"], RegistrationResult)
 
     @pytest.mark.it(
         "Calls callback of register with error when there is a failed query response with status code > 300 & status code < 429"
@@ -683,8 +685,8 @@ class TestQueryResponse(object):
         assert state_based_mqtt.send_request.call_args_list[1][1]["request_payload"] == " "
 
         assert mock_callback.call_count == 1
-        assert isinstance(mock_callback.call_args[0][1], ValueError)
-        assert mock_callback.call_args[0][1].args[0] == "Incoming message failure"
+        assert isinstance(mock_callback.call_args[1]["error"], ValueError)
+        assert mock_callback.call_args[1]["error"].args[0] == "Incoming message failure"
 
     @pytest.mark.it("Calls query again when there is a response with status code > 429")
     def test_receive_query_response_greater_than_429_does_query_again_with_same_operation_id(

@@ -31,7 +31,7 @@ from tests.common.pipeline.helpers import (
 from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
 from tests.common.pipeline import pipeline_stage_test
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 this_module = sys.modules[__name__]
 

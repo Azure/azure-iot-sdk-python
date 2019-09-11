@@ -10,7 +10,7 @@ from azure.iot.device.iothub.auth.sas_authentication_provider import (
     SharedAccessSignatureAuthenticationProvider,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 sas_device_token_format = "SharedAccessSignature sr={}&sig={}&se={}"
