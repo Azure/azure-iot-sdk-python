@@ -34,7 +34,7 @@ In order to use these samples, you **must** set your Device Connection String in
         az iot hub device-twin show --device-id <your device id> --hub-name <yoru IoT Hub name>
         ```
 
-## IoTHub Module Samples
+## IoT Edge Module Samples
 In order to use these samples, they **must** be run from inside an Edge container.
 
 * [receive_message_on_input.py](receive_message_on_input.py) - Receive messages sent to an Edge module on a specific module input.
