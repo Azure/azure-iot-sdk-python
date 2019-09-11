@@ -49,7 +49,7 @@ class EventedCallback(object):
                     exc_info=self.exception,
                 )
             else:
-                logger.info("Callback completed with result {}".format(self.result))
+                logger.debug("Callback completed with result {}".format(self.result))
 
             self.completion_event.set()
 
