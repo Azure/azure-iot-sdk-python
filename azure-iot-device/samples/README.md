@@ -2,7 +2,7 @@
 
 This directory contains samples showing how to use the various features of the Microsoft Azure IoT Hub service from a device running the Azure IoT Hub Device SDK.
 
-## Quick Start - Simple Telemetry Sample
+## Quick Start - Simple Telemetry Sample (send message)
 
 **Note that this sample is configured for Python 3.7+**
 
@@ -50,7 +50,7 @@ This directory contains samples showing how to use the various features of the M
     export IOTHUB_DEVICE_CONNECTION_STRING="<your connection string here>"
     ```
 
-6. Once the Device Connection String is set, run the following code from [simple_telemetry.py](simple_telemetry.py) on your device from the terminal or your IDE:
+6. Once the Device Connection String is set, run the following code from [simple_send_message.py](simple_send_message.py) on your device from the terminal or your IDE:
 
     ```python
     import os
@@ -98,6 +98,8 @@ Further samples with more complex IoT Hub scenarios are contained in the [advanc
 
 * Send multiple telemetry messages from a Device
 * Receive Cloud-to-Device (C2D) messages on a Device
+* Send and receive updates to device twin
+* Receive direct method invocations 
 
 Further samples with more complex IoT Edge scnearios are contained in the [advanced-edge-scenarios](advanced-edge-scenarios) directory, including:
 
