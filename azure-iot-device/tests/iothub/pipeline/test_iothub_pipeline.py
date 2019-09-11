@@ -11,6 +11,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_mqtt,
     pipeline_ops_base,
+    operation_flow,
 )
 from azure.iot.device.iothub.pipeline import (
     pipeline_stages_iothub,
@@ -25,7 +26,7 @@ from azure.iot.device.iothub.auth import (
     X509AuthenticationProvider,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 # Update this list with features as they are added to the SDK
 all_features = [
@@ -52,6 +53,15 @@ def pipeline(mocker, auth_provider):
 @pytest.fixture
 def twin_patch():
     return {"key": "value"}
+
+
+# automatically mock the transport for all tests in this file.
+@pytest.fixture(autouse=True)
+def mock_transport(mocker):
+    print("mocking transport")
+    mocker.patch(
+        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
+    )
 
 
 @pytest.mark.describe("IoTHubPipeline - Instantiation")
@@ -120,10 +130,10 @@ class TestIoTHubPipelineInstantiation(object):
         "Runs a SetAuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
     )
     def test_sas_auth(self, mocker, device_connection_string):
-        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
+        mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
         auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
         pipeline = IoTHubPipeline(auth_provider)
-        op = pipeline._pipeline.run_op.call_args[0][0]
+        op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation)
         assert op.auth_provider is auth_provider
@@ -131,24 +141,36 @@ class TestIoTHubPipelineInstantiation(object):
     @pytest.mark.it(
         "Propagates exceptions that occurred in execution upon unsuccessful completion of the SetAuthProviderOperation"
     )
-    def test_sas_auth_op_fail(self, mocker, device_connection_string):
-        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
-        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
-        pipeline = IoTHubPipeline(auth_provider)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
+    def test_sas_auth_op_fail(self, mocker, device_connection_string, fake_exception):
+        old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
-        with pytest.raises(Exception):
-            op.callback(op)
+        def fail_set_auth_provider(self, op):
+            if isinstance(op, pipeline_stages_base.SetAuthProviderOperation):
+                op.error = fake_exception
+                operation_flow.complete_op(stage=self, op=op)
+            else:
+                old_execute_op(self, op)
+
+        mocker.patch.object(
+            pipeline_stages_base.PipelineRootStage,
+            "_execute_op",
+            side_effect=fail_set_auth_provider,
+        )
+
+        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
+        with pytest.raises(fake_exception.__class__):
+            IoTHubPipeline(auth_provider)
 
     @pytest.mark.it(
         "Runs a SetX509AuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
     )
     def test_cert_auth(self, mocker, x509):
-        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
-        auth_provider = X509AuthenticationProvider("somehostname", "somedevice", x509)
+        mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
+        auth_provider = X509AuthenticationProvider(
+            hostname="somehostname", device_id="somedevice", x509=x509
+        )
         pipeline = IoTHubPipeline(auth_provider)
-        op = pipeline._pipeline.run_op.call_args[0][0]
+        op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation)
         assert op.auth_provider is auth_provider
@@ -156,30 +178,41 @@ class TestIoTHubPipelineInstantiation(object):
     @pytest.mark.it(
         "Propagates exceptions that occurred in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
     )
-    def test_cert_auth_op_fail(self, mocker, x509):
-        mocker.patch.object(pipeline_stages_base, "PipelineRootStage")
-        auth_provider = X509AuthenticationProvider("somehostname", "somedevice", x509)
-        pipeline = IoTHubPipeline(auth_provider)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
+    def test_cert_auth_op_fail(self, mocker, x509, fake_exception):
+        old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
-        with pytest.raises(Exception):
-            op.callback(op)
+        def fail_set_auth_provider(self, op):
+            if isinstance(op, pipeline_stages_base.SetX509AuthProviderOperation):
+                op.error = fake_exception
+                operation_flow.complete_op(stage=self, op=op)
+            else:
+                old_execute_op(self, op)
+
+        mocker.patch.object(
+            pipeline_stages_base.PipelineRootStage,
+            "_execute_op",
+            side_effect=fail_set_auth_provider,
+        )
+
+        auth_provider = X509AuthenticationProvider(
+            hostname="somehostname", device_id="somedevice", x509=x509
+        )
+        with pytest.raises(fake_exception.__class__):
+            IoTHubPipeline(auth_provider)
 
 
 @pytest.mark.describe("IoTHubPipeline - .connect()")
 class TestIoTHubPipelineConnect(object):
     @pytest.mark.it("Runs a ConnectOperation on the pipeline")
-    def test_runs_op(self, pipeline):
-        pipeline.connect()
+    def test_runs_op(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.connect(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
             pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ConnectOperation
         )
 
-    @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the ConnectOperation"
-    )
+    @pytest.mark.it("Triggers the callback upon successful completion of the ConnectOperation")
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -192,54 +225,34 @@ class TestIoTHubPipelineConnect(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the ConnectOperation if no callback is provided"
+        "Calls the callback with the error upon unsuccessful completion of the ConnectOperation"
     )
-    def test_op_success_no_callback(self, pipeline):
-        pipeline.connect()
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the ConnectOperation")
     def test_op_fail(self, mocker, pipeline):
-        pipeline.connect()
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the ConnectOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
+
         pipeline.connect(callback=cb)
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        op.callback(op)
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .disconnect()")
 class TestIoTHubPipelineDisconnect(object):
     @pytest.mark.it("Runs a DisconnectOperation on the pipeline")
-    def test_runs_op(self, pipeline):
-        pipeline.disconnect()
+    def test_runs_op(self, pipeline, mocker):
+        pipeline.disconnect(callback=mocker.MagicMock())
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
             pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
         )
 
-    @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the DisconnectOperation"
-    )
+    @pytest.mark.it("Triggers the callback upon successful completion of the DisconnectOperation")
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -252,46 +265,28 @@ class TestIoTHubPipelineDisconnect(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the DisconnectOperation if no callback is provided"
+        "Calls the callback with the error upon unsuccessful completion of the DisconnectOperation"
     )
-    def test_op_success_no_callback(self, pipeline):
-        pipeline.disconnect()
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the DisconnectOperation")
     def test_op_fail(self, mocker, pipeline):
-        pipeline.disconnect()
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the DisconnectOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
         pipeline.disconnect(callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .send_message()")
 class TestIoTHubPipelineSendD2CMessage(object):
     @pytest.mark.it("Runs a SendD2CMessageOperation with the provided message on the pipeline")
-    def test_runs_op(self, pipeline, message):
-        pipeline.send_message(message)
+    def test_runs_op(self, pipeline, message, mocker):
+        pipeline.send_message(message, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -299,7 +294,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
         assert op.message == message
 
     @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the SendD2CMessageOperation"
+        "Triggers the callback upon successful completion of the SendD2CMessageOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
@@ -313,39 +308,21 @@ class TestIoTHubPipelineSendD2CMessage(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the SendD2CMessageOperation if no callback is provided"
+        "Calls the callback with the error upon unsuccessful completion of the SendD2CMessageOperation"
     )
-    def test_op_success_no_callback(self, pipeline, message):
-        pipeline.send_message(message)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the SendD2CMessageOperation")
     def test_op_fail(self, mocker, pipeline, message):
-        pipeline.send_message(message)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the SendD2CMessageOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
         pipeline.send_message(message, callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .send_output_event()")
@@ -357,8 +334,8 @@ class TestIoTHubPipelineSendOutputEvent(object):
         return message
 
     @pytest.mark.it("Runs a SendOutputEventOperation with the provided Message on the pipeline")
-    def test_runs_op(self, pipeline, message):
-        pipeline.send_output_event(message)
+    def test_runs_op(self, pipeline, message, mocker):
+        pipeline.send_output_event(message, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -366,7 +343,7 @@ class TestIoTHubPipelineSendOutputEvent(object):
         assert op.message == message
 
     @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the SendOutputEventOperation"
+        "Triggers the callback upon successful completion of the SendOutputEventOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
@@ -380,39 +357,21 @@ class TestIoTHubPipelineSendOutputEvent(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the SendOutputEventOperation if no callback is provided"
+        "Calls the callback with the error upon unsuccessful completion of the SendOutputEventOperation"
     )
-    def test_op_success_no_callback(self, pipeline, message):
-        pipeline.send_output_event(message)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the SendOutputEventOperation")
     def test_op_fail(self, mocker, pipeline, message):
-        pipeline.send_output_event(message)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the SendOutputEventOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
         pipeline.send_output_event(message, callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .send_method_response()")
@@ -420,8 +379,8 @@ class TestIoTHubPipelineSendMethodResponse(object):
     @pytest.mark.it(
         "Runs a SendMethodResponseOperation with the provided MethodResponse on the pipeline"
     )
-    def test_runs_op(self, pipeline, method_response):
-        pipeline.send_method_response(method_response)
+    def test_runs_op(self, pipeline, method_response, mocker):
+        pipeline.send_method_response(method_response, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -429,7 +388,7 @@ class TestIoTHubPipelineSendMethodResponse(object):
         assert op.method_response == method_response
 
     @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the SendMethodResponseOperation"
+        "Triggers the callback upon successful completion of the SendMethodResponseOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline, method_response):
         cb = mocker.MagicMock()
@@ -443,41 +402,21 @@ class TestIoTHubPipelineSendMethodResponse(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the SendMethodResponseOperation if no callback is provided"
-    )
-    def test_op_success_no_callback(self, pipeline, method_response):
-        pipeline.send_method_response(method_response)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it(
-        "Raise SystemExit upon unsuccessful completion of the SendMethodResponseOperation"
+        "Calls the callback with the error upon unsuccessful completion of the SendMethodResponseOperation"
     )
     def test_op_fail(self, mocker, pipeline, method_response):
-        pipeline.send_method_response(method_response)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the SendMethodResponseOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline, method_response):
         cb = mocker.MagicMock()
         pipeline.send_method_response(method_response, callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .get_twin()")
@@ -506,30 +445,21 @@ class TestIoTHubPipelineGetTwin(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call(twin=None)
 
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the GetTwinOperation")
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the GetTwinOperation"
+    )
     def test_op_fail(self, mocker, pipeline):
         cb = mocker.MagicMock()
         pipeline.get_twin(callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the GetTwinOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline):
-        cb = mocker.MagicMock()
-        pipeline.get_twin(callback=cb)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(twin=None, error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .patch_twin_reported_properties()")
@@ -537,8 +467,8 @@ class TestIoTHubPipelinePatchTwinReportedProperties(object):
     @pytest.mark.it(
         "Runs a PatchTwinReportedPropertiesOperation with the provided twin patch on the pipeline"
     )
-    def test_runs_op(self, pipeline, twin_patch):
-        pipeline.patch_twin_reported_properties(twin_patch)
+    def test_runs_op(self, pipeline, twin_patch, mocker):
+        pipeline.patch_twin_reported_properties(twin_patch, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -546,7 +476,7 @@ class TestIoTHubPipelinePatchTwinReportedProperties(object):
         assert op.patch == twin_patch
 
     @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the PatchTwinReportedPropertiesOperation"
+        "Triggers the callback upon successful completion of the PatchTwinReportedPropertiesOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline, twin_patch):
         cb = mocker.MagicMock()
@@ -560,66 +490,46 @@ class TestIoTHubPipelinePatchTwinReportedProperties(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the PatchTwinReportedPropertiesOperation if no callback is provided"
-    )
-    def test_op_success_no_callback(self, pipeline, twin_patch):
-        pipeline.patch_twin_reported_properties(twin_patch)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it(
-        "Raise SystemExit upon unsuccessful completion of the PatchTwinReportedPropertiesOperation"
+        "Calls the callback with the error upon unsuccessful completion of the PatchTwinReportedPropertiesOperation"
     )
     def test_op_fail(self, mocker, pipeline, twin_patch):
-        pipeline.patch_twin_reported_properties(twin_patch)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the PatchTwinReportedPropertiesOperation"
-    )
-    def test_op_fail_no_callback(self, mocker, pipeline, twin_patch):
         cb = mocker.MagicMock()
         pipeline.patch_twin_reported_properties(twin_patch, callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .enable_feature()")
 class TestIoTHubPipelineEnableFeature(object):
     @pytest.mark.it("Marks the feature as enabled")
     @pytest.mark.parametrize("feature", all_features)
-    def test_mark_feature_enabled(self, pipeline, feature):
+    def test_mark_feature_enabled(self, pipeline, feature, mocker):
         assert not pipeline.feature_enabled[feature]
-        pipeline.enable_feature(feature)
+        pipeline.enable_feature(feature, callback=mocker.MagicMock())
         assert pipeline.feature_enabled[feature]
 
     @pytest.mark.it("Raises ValueError if the feature_name is invalid")
-    def test_invalid_feature_name(self, pipeline):
+    def test_invalid_feature_name(self, pipeline, mocker):
         bad_feature = "not-a-feature-name"
         assert bad_feature not in pipeline.feature_enabled
         with pytest.raises(ValueError):
-            pipeline.enable_feature(bad_feature)
+            pipeline.enable_feature(bad_feature, callback=mocker.MagicMock())
         assert bad_feature not in pipeline.feature_enabled
 
     # TODO: what about features that are already disabled?
 
     @pytest.mark.it("Runs a EnableFeatureOperation with the provided feature_name on the pipeline")
     @pytest.mark.parametrize("feature", all_features)
-    def test_runs_op(self, pipeline, feature):
-        pipeline.enable_feature(feature)
+    def test_runs_op(self, pipeline, feature, mocker):
+        pipeline.enable_feature(feature, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -627,7 +537,7 @@ class TestIoTHubPipelineEnableFeature(object):
         assert op.feature_name == feature
 
     @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the EnableFeatureOperation"
+        "Triggers the callback upon successful completion of the EnableFeatureOperation"
     )
     @pytest.mark.parametrize("feature", all_features)
     def test_op_success_with_callback(self, mocker, pipeline, feature):
@@ -642,69 +552,49 @@ class TestIoTHubPipelineEnableFeature(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the EnableFeatureOperation if no callback is provided"
+        "Calls the callback with the error upon unsuccessful completion of the EnableFeatureOperation"
     )
-    @pytest.mark.parametrize("feature", all_features)
-    def test_op_success_no_callback(self, pipeline, feature):
-        pipeline.enable_feature(feature)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the EnableFeatureOperation")
     @pytest.mark.parametrize("feature", all_features)
     def test_op_fail(self, mocker, pipeline, feature):
-        pipeline.enable_feature(feature)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the EnableFeatureOperation"
-    )
-    @pytest.mark.parametrize("feature", all_features)
-    def test_op_fail_no_callback(self, mocker, pipeline, feature):
         cb = mocker.MagicMock()
         pipeline.enable_feature(feature, callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - .disable_feature()")
 class TestIoTHubPipelineDisableFeature(object):
     @pytest.mark.it("Marks the feature as disabled")
     @pytest.mark.parametrize("feature", all_features)
-    def test_mark_feature_disabled(self, pipeline, feature):
+    def test_mark_feature_disabled(self, pipeline, feature, mocker):
         # enable feature first
         pipeline.feature_enabled[feature] = True
         assert pipeline.feature_enabled[feature]
-        pipeline.disable_feature(feature)
+        pipeline.disable_feature(feature, callback=mocker.MagicMock())
         assert not pipeline.feature_enabled[feature]
 
     @pytest.mark.it("Raises ValueError if the feature_name is invalid")
-    def test_invalid_feature_name(self, pipeline):
+    def test_invalid_feature_name(self, pipeline, mocker):
         bad_feature = "not-a-feature-name"
         assert bad_feature not in pipeline.feature_enabled
         with pytest.raises(ValueError):
-            pipeline.disable_feature(bad_feature)
+            pipeline.disable_feature(bad_feature, callback=mocker.MagicMock())
         assert bad_feature not in pipeline.feature_enabled
 
     # TODO: what about features that are already disabled?
 
     @pytest.mark.it("Runs a DisableFeatureOperation with the provided feature_name on the pipeline")
     @pytest.mark.parametrize("feature", all_features)
-    def test_runs_op(self, pipeline, feature):
-        pipeline.disable_feature(feature)
+    def test_runs_op(self, pipeline, feature, mocker):
+        pipeline.disable_feature(feature, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
@@ -712,7 +602,7 @@ class TestIoTHubPipelineDisableFeature(object):
         assert op.feature_name == feature
 
     @pytest.mark.it(
-        "Triggers an optionally provided callback upon successful completion of the DisableFeatureOperation"
+        "Triggers the callback upon successful completion of the DisableFeatureOperation"
     )
     @pytest.mark.parametrize("feature", all_features)
     def test_op_success_with_callback(self, mocker, pipeline, feature):
@@ -727,42 +617,22 @@ class TestIoTHubPipelineDisableFeature(object):
         op.callback(op)
 
         assert cb.call_count == 1
+        assert cb.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Does nothing upon successful completion of the DisableFeatureOperation if no callback is provided"
+        "Calls the callback with the error upon unsuccessful completion of the DisableFeatureOperation"
     )
     @pytest.mark.parametrize("feature", all_features)
-    def test_op_success_no_callback(self, pipeline, feature):
-        pipeline.disable_feature(feature)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op)
-
-        # No assertions required - if the code executes without error, the test passes
-
-    @pytest.mark.it("Raise SystemExit upon unsuccessful completion of the DisableFeatureOperation")
-    @pytest.mark.parametrize("feature", all_features)
-    def test_op_fail(self, mocker, pipeline, feature):
-        pipeline.disable_feature(feature)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.error = Exception()
-
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-    @pytest.mark.it(
-        "Does not trigger callback upon unsuccessful completion of the DisableFeatureOperation"
-    )
-    @pytest.mark.parametrize("feature", all_features)
-    def test_op_fail_no_callback(self, mocker, pipeline, feature):
+    def _est_op_fail(self, mocker, pipeline, feature):
         cb = mocker.MagicMock()
         pipeline.disable_feature(feature, callback=cb)
+
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.error = Exception()
+        op.callback(op)
 
-        with pytest.raises(SystemExit):
-            op.callback(op)
-
-        assert cb.call_count == 0
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=op.error)
 
 
 @pytest.mark.describe("IoTHubPipeline - EVENT: Connected")

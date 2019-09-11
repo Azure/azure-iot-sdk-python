@@ -53,7 +53,7 @@ def delegate_to_different_op(stage, original_op, new_op):
 
     @pipeline_thread.runs_on_pipeline_thread
     def new_op_complete(op):
-        logger.info(
+        logger.debug(
             "{}({}): completing with result from {}".format(
                 stage.name, original_op.name, new_op.name
             )
@@ -102,7 +102,7 @@ def complete_op(stage, op):
     if op.error:
         logger.error("{}({}): completing with error {}".format(stage.name, op.name, op.error))
     else:
-        logger.info("{}({}): completing without error".format(stage.name, op.name))
+        logger.debug("{}({}): completing without error".format(stage.name, op.name))
 
     try:
         op.callback(op)

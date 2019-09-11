@@ -27,7 +27,7 @@ from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 this_module = sys.modules[__name__]
 

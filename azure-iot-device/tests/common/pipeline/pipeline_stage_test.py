@@ -21,7 +21,7 @@ from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
 from azure.iot.device.common.pipeline import pipeline_thread
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def add_base_pipeline_stage_tests(

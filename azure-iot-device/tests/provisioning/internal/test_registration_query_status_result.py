@@ -11,7 +11,7 @@ from azure.iot.device.provisioning.internal.registration_query_status_result imp
     RegistrationQueryStatusResult,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 fake_request_id = "Request1234"
 fake_retry_after = 6

@@ -6,7 +6,10 @@
 """This module contains tools for adapting sync code for use in async coroutines."""
 
 import functools
+import logging
 import azure.iot.device.common.asyncio_compat as asyncio_compat
+
+logger = logging.getLogger(__name__)
 
 
 def emulate_async(fn):
@@ -33,20 +36,46 @@ class AwaitableCallback(object):
     """A sync callback whose completion can be waited upon.
     """
 
-    def __init__(self, callback):
-        """Creates an instance of an AwaitableCallback from a callback function.
-
-        :param callback: Callback function to be made awaitable.
+    def __init__(self, return_arg_name=None):
+        """Creates an instance of an AwaitableCallback
         """
+
+        # LBYL because this mistake doesn't cause an exception until the callback
+        # which is much later and very difficult to trace back to here.
+        if return_arg_name and not isinstance(return_arg_name, str):
+            raise TypeError("internal error: return_arg_name must be a string")
+
         loop = asyncio_compat.get_running_loop()
         self.future = asyncio_compat.create_future(loop)
 
         def wrapping_callback(*args, **kwargs):
-            result = callback(*args, **kwargs)
             # Use event loop from outer scope, since the threads it will be used in will not have
-            # an event loop. future.set_result() has to be called in an event loop or it does not work.
-            loop.call_soon_threadsafe(self.future.set_result, result)
-            return result
+            # an event loop. future.set_result() and future.set_exception have to be called in an
+            # event loop or they do not work.
+            if "error" in kwargs and kwargs["error"]:
+                exception = kwargs["error"]
+            elif return_arg_name:
+                if return_arg_name in kwargs:
+                    exception = None
+                    result = kwargs[return_arg_name]
+                else:
+                    raise TypeError(
+                        "internal error: excepected argument with name '{}', did not get".format(
+                            return_arg_name
+                        )
+                    )
+            else:
+                exception = None
+                result = None
+
+            if exception:
+                logger.error(
+                    "Callback completed with error {}".format(exception), exc_info=exception
+                )
+                loop.call_soon_threadsafe(self.future.set_exception, exception)
+            else:
+                logger.error("Callback completed with result {}".format(result))
+                loop.call_soon_threadsafe(self.future.set_result, result)
 
         self.callback = wrapping_callback
 

@@ -25,7 +25,7 @@ from tests.common.pipeline.helpers import (
 )
 from tests.common.pipeline import pipeline_stage_test
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 # This fixture makes it look like all test in this file  tests are running

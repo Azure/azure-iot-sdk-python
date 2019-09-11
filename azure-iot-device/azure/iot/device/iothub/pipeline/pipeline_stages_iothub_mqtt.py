@@ -84,7 +84,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
             isinstance(op, pipeline_ops_base.UpdateSasTokenOperation)
             and self.pipeline_root.connected
         ):
-            logger.info(
+            logger.debug(
                 "{}({}): Connected.  Passing op down and reconnecting after token is updated.".format(
                     self.name, op.name
                 )
@@ -94,12 +94,14 @@ class IoTHubMQTTConverterStage(PipelineStage):
             def on_reconnect_complete(reconnect_op):
                 if reconnect_op.error:
                     op.error = reconnect_op.error
-                    logger.info(
-                        "{}({}) reconnection failed.  returning failing".format(self.name, op.name)
+                    logger.error(
+                        "{}({}) reconnection failed.  returning error {}".format(
+                            self.name, op.name, op.error
+                        )
                     )
                     operation_flow.complete_op(stage=self, op=op)
                 else:
-                    logger.info(
+                    logger.debug(
                         "{}({}) reconnection succeeded.  returning success.".format(
                             self.name, op.name
                         )
@@ -114,12 +116,14 @@ class IoTHubMQTTConverterStage(PipelineStage):
             def on_token_update_complete(op):
                 op.callback = old_callback
                 if op.error:
-                    logger.info(
-                        "{}({}) token update failed.  returning failing".format(self.name, op.name)
+                    logger.error(
+                        "{}({}) token update failed.  returning failure {}".format(
+                            self.name, op.name, op.error
+                        )
                     )
                     operation_flow.complete_op(stage=self, op=op)
                 else:
-                    logger.info(
+                    logger.debug(
                         "{}({}) token update succeeded.  reconnecting".format(self.name, op.name)
                     )
 
@@ -128,7 +132,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                         op=pipeline_ops_base.ReconnectOperation(callback=on_reconnect_complete),
                     )
 
-                logger.info(
+                logger.debug(
                     "{}({}): passing to next stage with updated callback.".format(
                         self.name, op.name
                     )
@@ -279,7 +283,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 )
 
             else:
-                logger.info("Uunknown topic: {} passing up to next handler".format(topic))
+                logger.debug("Uunknown topic: {} passing up to next handler".format(topic))
                 operation_flow.pass_event_to_previous_stage(self, event)
 
         else:
