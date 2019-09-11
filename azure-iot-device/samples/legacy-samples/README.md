@@ -5,9 +5,14 @@ This directory contains samples showing how to use the various features of Azure
 **These samples are legacy samples**, they use the sycnhronous API intended for use with Python 2.7 and 3.4, or in compatibility scenarios with later versions. We recommend you use the [asynchronous API instead](../advanced-hub-scenarios).
 
 
-## Device Samples
+## IoTHub Device Samples
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
+* [send_message.py](send_message.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
+    * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
+        ```bash
+        az iot hub monitor-events --hub-name <your IoT Hub name> --output table
+        ```
 * [receive_message.py](receive_message.py) - Receive Cloud-to-Device (C2D) messages sent from the Azure IoT Hub to a device.
     * In order to send a C2D message, use the following Azure CLI command:
         ```
@@ -18,13 +23,18 @@ In order to use these samples, you **must** set your Device Connection String in
         ```
         az iot hub invoke-device-method --device-id <your device id> --hub-name <your IoT Hub name> --method-name <desired method>
         ```
-* [send_telemetry.py](send_telemetry.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
-    * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
-        ```bash
-        az iot hub monitor-events --hub-name <your IoT Hub name> --output table
+* [receive_twin_desired_properties_patch](receive_twin_desired_properties_patch.py) - Receive an update patch of changes made to the device twin's desired properties
+    * In order to send a update patch to a device twin's reported properties, use the following Azure CLI command:
+        ```
+        az iot hub device-twin update --device-id <your device id> --hub-name <your IoT Hub name> --set properties.desired.<property name>=<value>
+        ```
+* [update_twin_reported_properties](update_twin_reported_properties.py) - Send an update patch of changes to the device twin's reported properties
+    * You can see the changes reflected in your device twin by using the following Azure CLI command:
+        ```
+        az iot hub device-twin show --device-id <your device id> --hub-name <yoru IoT Hub name>
         ```
 
-## Module Samples
+## IoTHub Module Samples
 In order to use these samples, they **must** be run from inside an Edge container.
 
 * [receive_message_on_input.py](receive_message_on_input.py) - Receive messages sent to an Edge module on a specific module input.
