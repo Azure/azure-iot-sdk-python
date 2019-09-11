@@ -74,7 +74,7 @@ class AwaitableCallback(object):
                 )
                 loop.call_soon_threadsafe(self.future.set_exception, exception)
             else:
-                logger.error("Callback completed with result {}".format(result))
+                logger.debug("Callback completed with result {}".format(result))
                 loop.call_soon_threadsafe(self.future.set_result, result)
 
         self.callback = wrapping_callback
