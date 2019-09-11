@@ -1,32 +1,11 @@
-# --------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
-
-class OperationCancelledError(Exception):
-    """
-    Operation was cancelled.
-    """
-
-    pass
-
-
-class ConnectionFailedError(Exception):
-    """
-    Connection failed to be established
-    """
-
-    pass
-
-
-class ConnectionDroppedError(Exception):
-    """
-    Previously established connection was dropped
-    """
-
-    pass
+""" This module defines errors that may be returned from a service.
+Consider splitting these up into service specific definitions in the
+iothub or provisioning subpackages of azure.iot.device instead of .common """
 
 
 class ArgumentError(Exception):
@@ -39,7 +18,7 @@ class ArgumentError(Exception):
 
 class UnauthorizedError(Exception):
     """
-    Authorization failed or service returned 401
+    Service returned 401
     """
 
     pass
@@ -138,22 +117,6 @@ class TimeoutError(Exception):
 class FailedStatusCodeError(Exception):
     """
     Service returned unknown status code
-    """
-
-    pass
-
-
-class ProtocolClientError(Exception):
-    """
-    Error returned from protocol client library
-    """
-
-    pass
-
-
-class PipelineError(Exception):
-    """
-    Error returned from transport pipeline
     """
 
     pass

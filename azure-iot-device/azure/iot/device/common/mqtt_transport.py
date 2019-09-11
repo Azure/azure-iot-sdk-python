@@ -7,9 +7,10 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
+import socket
 import threading
 import traceback
-from . import errors
+from . import transport_errors as errors
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ paho_conack_rc_to_error = {
 paho_rc_to_error = {
     mqtt.MQTT_ERR_NOMEM: errors.ProtocolClientError,
     mqtt.MQTT_ERR_PROTOCOL: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_INVAL: errors.ArgumentError,
+    mqtt.MQTT_ERR_INVAL: errors.ProtocolClientError,
     mqtt.MQTT_ERR_NO_CONN: errors.ConnectionDroppedError,
     mqtt.MQTT_ERR_CONN_REFUSED: errors.ConnectionFailedError,
     mqtt.MQTT_ERR_NOT_FOUND: errors.ConnectionFailedError,
@@ -236,12 +237,18 @@ class MQTTTransport(object):
         The password is not required if the transport was instantiated with an x509 certificate.
 
         :param str password: The password for connecting with the MQTT broker (Optional).
+
+        :raises: ProtocolClientError, ConnectionFailedError, UnauthorizedError,
+         ConnectionDroppedError,
         """
         logger.info("connecting to mqtt broker")
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
-        rc = self._mqtt_client.connect(host=self._hostname, port=8883)
+        try:
+            rc = self._mqtt_client.connect(host=self._hostname, port=8883)
+        except (OSError, ssl.CertificateError, socket.error, mqtt.WebsocketConnectionError):
+            raise errors.ConnectionFailedError
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
             raise _create_error_from_rc_code(rc)
