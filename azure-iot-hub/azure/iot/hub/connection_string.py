@@ -46,19 +46,18 @@ def _parse_connection_string(connection_string):
 def _validate_keys(d):
     """Raise ValueError if incorrect combination of keys in dict d
     """
-    pass
-    # host_name = d.get(HOST_NAME)
-    # shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
-    # shared_access_key = d.get(SHARED_ACCESS_KEY)
-    # device_id = d.get(DEVICE_ID)
+    host_name = d.get(HOST_NAME)
+    shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
+    shared_access_key = d.get(SHARED_ACCESS_KEY)
+    device_id = d.get(DEVICE_ID)
 
-    # # This logic could be expanded to return the category of ConnectionString
-    # if host_name and device_id and shared_access_key:
-    #     pass
-    # elif host_name and shared_access_key and shared_access_key_name:
-    #     pass
-    # else:
-    #     raise ValueError("Invalid Connection String - Incomplete")
+    # This logic could be expanded to return the category of ConnectionString
+    if host_name and device_id and shared_access_key:
+        pass
+    elif host_name and shared_access_key and shared_access_key_name:
+        pass
+    else:
+        raise ValueError("Invalid Connection String - Incomplete")
 
 
 class ConnectionString(object):

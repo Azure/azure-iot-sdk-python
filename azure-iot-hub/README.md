@@ -10,21 +10,22 @@ The SDK provides the following clients:
 
 * ### IoT Hub Registry Manager
 
-  * Send telemetry messages to Azure IoT Hub
-  * Receive Cloud-to-Device (C2D) messages from the Azure IoT Hub
-  * Receive and respond to direct method invocations from the Azure IoT Hub
+  * Provides CRUD operations for device on IoTHub
+  * Get statistics about the IoTHub service and devices
 
 * ### Digital Twin Service Client
 
-  * Creates a device identity on the Azure IoT Hub
+  * Read and update Digital Twin
+  * Read Digital Twin Interface Instances
+  * Read Model
 
 These clients are available with an asynchronous API, as well as a blocking synchronous API for compatibility scenarios. **We recommend you use Python 3.7+ and the asynchronous API.**
 
-| Python Version | Asynchronous API | Synchronous API |
-| -------------- | ---------------- | --------------- |
-| Python 3.5.3+  | **YES**          | **YES**         |
-| Python 3.4     | NO               | **YES**         |
-| Python 2.7     | NO               | **YES**         |
+| Python Version | Synchronous API |
+| -------------- | --------------- |
+| Python 3.5.3+  | **YES**         |
+| Python 3.4     | **YES**         |
+| Python 2.7     | **YES**         |
 
 ## Installation
 

@@ -46,10 +46,10 @@ def print_device_info(title, iothub_device):
 #       new_device = registry_manager.create_device_with_certificate_authority(device_id, status)
 #       device_updated = registry_manager.update_device_with_certificate_authority(self, device_id, etag, status):
 try:
-    # RegistryManager
+    # Create IoTHubRegistryManager
     registry_manager = IoTHubRegistryManager(connection_str)
 
-    # CreateDevice
+    # Create a device
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
     secondary_key = "111222333444555666777888999000aaabbbcccdddee"
     device_state = "enabled"
@@ -58,11 +58,11 @@ try:
     )
     print_device_info("create_device", new_device)
 
-    # GetDevice
+    # Get device information
     device = registry_manager.get_device(device_id)
     print_device_info("get_device", device)
 
-    # UpdateDevice
+    # Update device information
     primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     secondary_key = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
     device_state = "disabled"
@@ -71,7 +71,7 @@ try:
     )
     print_device_info("update_device", device_updated)
 
-    # DeleteDevice
+    # Delete the device
     registry_manager.delete_device(device_id)
 
     print("GetServiceStatistics")
