@@ -3,9 +3,12 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-""" This module defines errors that may be returned from a service.
+"""This module defines errors that may be raised from a service result.
+
 Consider splitting these up into service specific definitions in the
-iothub or provisioning subpackages of azure.iot.device instead of .common """
+.iothub or .provisioning subpackages of azure.iot.device instead of .common
+
+NOTE: This module is not yet in use"""
 
 
 class ArgumentError(Exception):

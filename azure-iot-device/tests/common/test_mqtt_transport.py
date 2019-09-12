@@ -6,7 +6,7 @@
 
 from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
 from azure.iot.device.common.models.x509 import X509
-from azure.iot.device.common import errors
+from azure.iot.device.common import transport_errors as errors
 import paho.mqtt.client as mqtt
 import ssl
 import copy
@@ -74,7 +74,7 @@ operation_return_codes = [
         "rc": mqtt.MQTT_ERR_PROTOCOL,
         "error": errors.ProtocolClientError,
     },
-    {"name": "MQTT_ERR_INVAL", "rc": mqtt.MQTT_ERR_INVAL, "error": errors.ArgumentError},
+    {"name": "MQTT_ERR_INVAL", "rc": mqtt.MQTT_ERR_INVAL, "error": errors.ProtocolClientError},
     {
         "name": "MQTT_ERR_NO_CONN",
         "rc": mqtt.MQTT_ERR_NO_CONN,
@@ -311,12 +311,21 @@ class TestConnect(object):
         assert mock_mqtt_client.loop_start.call_count == 1
         assert mock_mqtt_client.loop_start.call_args == mocker.call()
 
+    @pytest.mark.it("Raises a ProtocolClientError if Paho connect raises an error")
+    @pytest.mark.parametrize(
+        "error", [OSError, ssl.CertificateError, mqtt.WebsocketConnectionError]
+    )
+    def test_client_raises_error(self, mocker, mock_mqtt_client, transport, error):
+        mock_mqtt_client.connect.side_effect = error
+        with pytest.raises(errors.ProtocolClientError):
+            transport.connect(fake_password)
+
+    @pytest.mark.it("Raises a custom Exception if Paho connect returns a failing rc code")
     @pytest.mark.parametrize(
         "error_params",
         operation_return_codes,
         ids=["{}->{}".format(x["name"], x["error"].__name__) for x in operation_return_codes],
     )
-    @pytest.mark.it("Raises a custom Exception if connect returns a failing rc code")
     def test_transport_returns_failing_rc_code(
         self, mocker, mock_mqtt_client, transport, error_params
     ):
@@ -361,12 +370,21 @@ class TestReconnect(object):
         assert mock_mqtt_client.reconnect.call_count == 1
         assert mock_mqtt_client.reconnect.call_args == mocker.call()
 
+    @pytest.mark.it("Raises a ProtocolClientError if Paho reconnect raises an error")
+    @pytest.mark.parametrize(
+        "error", [OSError, ssl.CertificateError, mqtt.WebsocketConnectionError]
+    )
+    def test_client_raises_error(self, mocker, mock_mqtt_client, transport, error):
+        mock_mqtt_client.reconnect.side_effect = error
+        with pytest.raises(errors.ProtocolClientError):
+            transport.reconnect(fake_password)
+
     @pytest.mark.parametrize(
         "error_params",
         operation_return_codes,
         ids=["{}->{}".format(x["name"], x["error"].__name__) for x in operation_return_codes],
     )
-    @pytest.mark.it("Raises a custom Exception if reconnect returns a failing rc code")
+    @pytest.mark.it("Raises a custom Exception if Paho reconnect returns a failing rc code")
     def test_transport_returns_failing_rc_code(
         self, mocker, mock_mqtt_client, transport, error_params
     ):

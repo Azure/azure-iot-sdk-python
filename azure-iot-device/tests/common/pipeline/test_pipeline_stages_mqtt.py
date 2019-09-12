@@ -7,7 +7,7 @@ import logging
 import pytest
 import sys
 import six
-from azure.iot.device.common import errors, unhandled_exceptions
+from azure.iot.device.common import transport_errors, unhandled_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -253,7 +253,7 @@ class TestMQTTProviderExecuteOpWithConnect(RunOpTests):
         stage.run_op(op_connect)
 
         # Callback has been completed, with a PipelineError set indicating early cancellation
-        assert_callback_failed(op=pending_connection_op, error=errors.PipelineError)
+        assert_callback_failed(op=pending_connection_op, error=transport_errors.PipelineError)
 
         # New operation is now the pending operation
         assert stage._pending_connection_op is op_connect
@@ -298,7 +298,7 @@ class TestMQTTProviderExecuteOpWithReconnect(RunOpTests):
         stage.run_op(op_reconnect)
 
         # Callback has been completed, with a PipelineError set indicating early cancellation
-        assert_callback_failed(op=pending_connection_op, error=errors.PipelineError)
+        assert_callback_failed(op=pending_connection_op, error=transport_errors.PipelineError)
 
         # New operation is now the pending operation
         assert stage._pending_connection_op is op_reconnect
@@ -343,7 +343,7 @@ class TestMQTTProviderExecuteOpWithDisconnect(RunOpTests):
         stage.run_op(op_disconnect)
 
         # Callback has been completed, with a PipelineError set indicating early cancellation
-        assert_callback_failed(op=pending_connection_op, error=errors.PipelineError)
+        assert_callback_failed(op=pending_connection_op, error=transport_errors.PipelineError)
 
         # New operation is now the pending operation
         assert stage._pending_connection_op is op_disconnect
@@ -645,7 +645,7 @@ class TestMQTTProviderOnDisconnected(object):
         assert op.callback.call_count == 0
         assert stage._pending_connection_op is op
         stage.transport.on_mqtt_disconnected_handler(fake_exception)
-        assert_callback_failed(op=op, error=errors.ConnectionDroppedError)
+        assert_callback_failed(op=op, error=transport_errors.ConnectionDroppedError)
         assert stage._pending_connection_op is None
         if six.PY3:
             assert op.error.__cause__ is fake_exception
@@ -697,6 +697,6 @@ class TestMQTTProviderOnDisconnected(object):
         stage._pending_connection_op = pending_connection_op
         stage.transport.on_mqtt_disconnected_handler(cause)
         assert mock_handler.call_count == 1
-        assert isinstance(mock_handler.call_args[0][0], errors.ConnectionDroppedError)
+        assert isinstance(mock_handler.call_args[0][0], transport_errors.ConnectionDroppedError)
         if six.PY3:
             assert mock_handler.call_args[0][0].__cause__ is cause

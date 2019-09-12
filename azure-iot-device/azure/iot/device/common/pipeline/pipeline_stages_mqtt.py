@@ -15,7 +15,7 @@ from . import (
     pipeline_thread,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
-from azure.iot.device.common import unhandled_exceptions, errors
+from azure.iot.device.common import unhandled_exceptions, transport_errors
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class MQTTTransportStage(PipelineStage):
         op = self._pending_connection_op
         if op:
             # TODO: should this actually run a cancel call on the op?
-            op.error = errors.PipelineError(
+            op.error = transport_errors.PipelineError(
                 "Cancelling because new ConnectOperation, DisconnectOperation, or ReconnectOperation was issued"
             )
             operation_flow.complete_op(stage=self, op=op)
@@ -244,14 +244,14 @@ class MQTTTransportStage(PipelineStage):
                 # Only create a ConnnectionDroppedError if there is a cause,
                 # i.e. unexpected disconnect.
                 try:
-                    six.raise_from(errors.ConnectionDroppedError, cause)
-                except errors.ConnectionDroppedError as e:
+                    six.raise_from(transport_errors.ConnectionDroppedError, cause)
+                except transport_errors.ConnectionDroppedError as e:
                     op.error = e
             operation_flow.complete_op(stage=self, op=op)
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError
             try:
-                six.raise_from(errors.ConnectionDroppedError, cause)
-            except errors.ConnectionDroppedError as e:
+                six.raise_from(transport_errors.ConnectionDroppedError, cause)
+            except transport_errors.ConnectionDroppedError as e:
                 unhandled_exceptions.exception_caught_in_background_thread(e)
