@@ -13,7 +13,7 @@ from azure.iot.device.iothub.auth.base_renewable_token_authentication_provider i
     DEFAULT_TOKEN_RENEWAL_MARGIN,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 fake_signature = "__FAKE_SIGNATURE__"

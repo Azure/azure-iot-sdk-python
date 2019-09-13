@@ -58,7 +58,11 @@ setup(
     install_requires=[
         # Define sub-dependencies due to pip dependency resolution bug
         # https://github.com/pypa/pip/issues/988
-        "urllib3>1.21.1,<1.25",
+        # ---requests dependencies---
+        # requests 2.22+ does not support urllib3 1.25.0 or 1.25.1 (https://github.com/psf/requests/pull/5092)
+        # requests 2.22+ is not compatible with python34, so we must use 2.20 which is only compat w/ urllib < 1.25
+        "urllib3>1.21.1,<1.26,!=1.25.0,!=1.25.1;python_version!='3.4'",
+        "urllib3>1.21.1,<1.25;python_version=='3.4'",
         # Actual project dependencies
         "six>=1.12.0,<2.0.0",
         "paho-mqtt>=1.4.0,<2.0.0",

@@ -7,7 +7,7 @@
 This module contains one of the implementations of the Provisioning Device Client which uses Symmetric Key authentication.
 """
 import logging
-from threading import Event
+from azure.iot.device.common.evented_callback import EventedCallback
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
 from .abstract_provisioning_device_client import log_on_register_complete
 from .internal.polling_machine import PollingMachine
@@ -40,23 +40,13 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         If a registration attempt is made while a previous registration is in progress it may throw an error.
         """
         logger.info("Registering with Provisioning Service...")
-        register_complete = Event()
 
-        # hack to work aroud lack of the "nonlocal" keyword in 2.7.  The non-local "context"
-        # object can be read and modified inside the inner function.
-        # (https://stackoverflow.com/a/28433571)
-        class context:
-            registration_result = None
+        register_complete = EventedCallback(return_arg_name="result")
+        self._polling_machine.register(callback=register_complete)
+        result = register_complete.wait_for_completion()
 
-        def on_register_complete(result=None, error=None):
-            log_on_register_complete(result, error)
-            context.registration_result = result
-            register_complete.set()
-
-        self._polling_machine.register(callback=on_register_complete)
-
-        register_complete.wait()
-        return context.registration_result
+        log_on_register_complete(result)
+        return result
 
     def cancel(self):
         """
@@ -68,11 +58,9 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         no registration process to cancel.
         """
         logger.info("Cancelling the current registration process")
-        cancel_complete = Event()
 
-        def on_cancel_complete():
-            cancel_complete.set()
-            logger.info("Successfully cancelled the current registration process")
+        cancel_complete = EventedCallback()
+        self._polling_machine.cancel(callback=cancel_complete)
+        cancel_complete.wait_for_completion()
 
-        self._polling_machine.cancel(callback=on_cancel_complete)
-        cancel_complete.wait()
+        logger.info("Successfully cancelled the current registration process")

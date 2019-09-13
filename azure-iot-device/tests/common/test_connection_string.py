@@ -8,7 +8,7 @@ import pytest
 import logging
 from azure.iot.device.common.connection_string import ConnectionString
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.mark.describe("ConnectionString")
