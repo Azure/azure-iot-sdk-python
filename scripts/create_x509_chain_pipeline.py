@@ -408,7 +408,7 @@ def create_certificate_chain(
             intermediate_password=intermediate_password,
             device_password=device_password,
             key_size=key_size,
-            days=int(days/10),
+            days=int(days / 10),
         )
 
 
