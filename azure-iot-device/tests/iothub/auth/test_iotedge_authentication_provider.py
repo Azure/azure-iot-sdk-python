@@ -18,7 +18,7 @@ from azure.iot.device.iothub.auth.iotedge_authentication_provider import (
 from .shared_auth_tests import SharedBaseRenewableAuthenticationProviderInstantiationTests
 from azure.iot.device import constant
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.fixture

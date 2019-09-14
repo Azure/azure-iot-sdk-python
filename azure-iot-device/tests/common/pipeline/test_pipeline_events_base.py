@@ -9,7 +9,7 @@ import logging
 from azure.iot.device.common.pipeline import pipeline_events_base
 from tests.common.pipeline import pipeline_data_object_test
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
 
 

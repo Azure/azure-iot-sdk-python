@@ -124,6 +124,8 @@ Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python
 * Sending multiple telemetry messages at once.
 * Receiving Cloud-to-Device messages.
 * Using Edge Modules with the Azure IoT Edge Hub.
+* Send and receive updates to device twin
+* Receive invocations to direct methods
 * Register a device with the Device Provisioning Service
 * Legacy scenarios for Python 2.7 and 3.4
 
