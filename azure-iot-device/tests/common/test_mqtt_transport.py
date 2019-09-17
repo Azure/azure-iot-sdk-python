@@ -6,7 +6,7 @@
 
 from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
 from azure.iot.device.common.models.x509 import X509
-from azure.iot.device.common import transport_errors as errors
+from azure.iot.device.common import transport_exceptions as errors
 import paho.mqtt.client as mqtt
 import ssl
 import copy

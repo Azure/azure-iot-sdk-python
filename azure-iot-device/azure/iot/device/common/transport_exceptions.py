@@ -6,14 +6,6 @@
 """This module defines errors that may be raised from a transport"""
 
 
-class OperationCancelledError(Exception):
-    """
-    Operation was cancelled.
-    """
-
-    pass
-
-
 class ConnectionFailedError(Exception):
     """
     Connection failed to be established
@@ -32,7 +24,7 @@ class ConnectionDroppedError(Exception):
 
 class UnauthorizedError(Exception):
     """
-    Service returned 401
+    Authorization was rejected
     """
 
     pass
@@ -41,15 +33,6 @@ class UnauthorizedError(Exception):
 class ProtocolClientError(Exception):
     """
     Error returned from protocol client library
-    """
-
-    pass
-
-
-# TODO: move this somewhere else
-class PipelineError(Exception):
-    """
-    Error returned from transport pipeline
     """
 
     pass

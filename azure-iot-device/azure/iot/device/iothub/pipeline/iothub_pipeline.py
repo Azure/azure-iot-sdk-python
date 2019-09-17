@@ -119,6 +119,14 @@ class IoTHubPipeline(object):
         Connect to the service.
 
         :param callback: callback which is called when the connection to the service is complete.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.
         """
         logger.debug("Starting ConnectOperation on the pipeline")
 
@@ -135,6 +143,10 @@ class IoTHubPipeline(object):
         Disconnect from the service.
 
         :param callback: callback which is called when the connection to the service has been disconnected
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
         """
         logger.debug("Starting DisconnectOperation on the pipeline")
 

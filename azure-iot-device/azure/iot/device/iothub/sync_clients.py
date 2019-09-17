@@ -15,7 +15,7 @@ from .abstract_clients import (
 )
 from .models import Message
 from .inbox_manager import InboxManager
-from .sync_inbox import SyncClientInbox
+from .sync_inbox import SyncClientInbox, InboxEmpty
 from .pipeline import constant
 from azure.iot.device.common.evented_callback import EventedCallback
 
@@ -69,8 +69,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Connecting to Hub...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.connect(callback=callback)
-        callback.wait_for_completion()
+        try:
+            self._iothub_pipeline.connect(callback=callback)
+            callback.wait_for_completion()
+        except Exception:
+            # TODO: finish this
+            pass
 
         logger.info("Successfully connected to Hub")
 
@@ -122,7 +126,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no request is available on a non-blocking operation.
+        :raises: InboxEmpty if no request is immediately available on a non-blocking operation.
 
         :returns: MethodRequest object representing the received method request.
         """
@@ -235,7 +239,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no request is available on a non-blocking operation.
+        :raises: InboxEmpty if no request is immediately available on a non-blocking operation.
 
         :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values)
         """
@@ -275,7 +279,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no message is available on a non-blocking operation.
+        :raises: InboxEmpty if no message is immeidately available on a non-blocking operation.
 
         :returns: Message that was sent from the Azure IoT Hub.
         """
@@ -347,7 +351,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no message is available on a non-blocking operation.
+        :raises: InboxEmpty if no message is immediately available on a non-blocking operation.
 
         :returns: Message that was sent to the specified input.
         """

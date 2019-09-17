@@ -9,38 +9,38 @@ import logging
 import ssl
 import threading
 import traceback
-from . import transport_errors as errors
+from . import transport_exceptions as exceptions
 
 logger = logging.getLogger(__name__)
 
-# Mapping of Paho conack rc codes to Error object classes
-# Used in the transport handlers
+# Mapping of Paho CONNACK rc codes to Error object classes
+# Used for connection callbacks
 paho_conack_rc_to_error = {
-    mqtt.CONNACK_REFUSED_PROTOCOL_VERSION: errors.ProtocolClientError,
-    mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED: errors.ProtocolClientError,
-    mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE: errors.ConnectionFailedError,
-    mqtt.CONNACK_REFUSED_BAD_USERNAME_PASSWORD: errors.UnauthorizedError,
-    mqtt.CONNACK_REFUSED_NOT_AUTHORIZED: errors.UnauthorizedError,
+    mqtt.CONNACK_REFUSED_PROTOCOL_VERSION: exceptions.ProtocolClientError,
+    mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED: exceptions.ProtocolClientError,
+    mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE: exceptions.ConnectionFailedError,
+    mqtt.CONNACK_REFUSED_BAD_USERNAME_PASSWORD: exceptions.UnauthorizedError,
+    mqtt.CONNACK_REFUSED_NOT_AUTHORIZED: exceptions.UnauthorizedError,
 }
 
 # Mapping of Paho rc codes to Error object classes
-# Used in the transport APIs
+# Used for responses to Paho APIs and non-connection callbacks
 paho_rc_to_error = {
-    mqtt.MQTT_ERR_NOMEM: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_PROTOCOL: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_INVAL: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_NO_CONN: errors.ConnectionDroppedError,
-    mqtt.MQTT_ERR_CONN_REFUSED: errors.ConnectionFailedError,
-    mqtt.MQTT_ERR_NOT_FOUND: errors.ConnectionFailedError,
-    mqtt.MQTT_ERR_CONN_LOST: errors.ConnectionDroppedError,
-    mqtt.MQTT_ERR_TLS: errors.UnauthorizedError,
-    mqtt.MQTT_ERR_PAYLOAD_SIZE: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_NOT_SUPPORTED: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_AUTH: errors.UnauthorizedError,
-    mqtt.MQTT_ERR_ACL_DENIED: errors.UnauthorizedError,
-    mqtt.MQTT_ERR_UNKNOWN: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_ERRNO: errors.ProtocolClientError,
-    mqtt.MQTT_ERR_QUEUE_SIZE: errors.ProtocolClientError,
+    mqtt.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_NO_CONN: exceptions.ConnectionDroppedError,
+    mqtt.MQTT_ERR_CONN_REFUSED: exceptions.ConnectionFailedError,
+    mqtt.MQTT_ERR_NOT_FOUND: exceptions.ConnectionFailedError,
+    mqtt.MQTT_ERR_CONN_LOST: exceptions.ConnectionDroppedError,
+    mqtt.MQTT_ERR_TLS: exceptions.UnauthorizedError,
+    mqtt.MQTT_ERR_PAYLOAD_SIZE: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_NOT_SUPPORTED: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_AUTH: exceptions.UnauthorizedError,
+    mqtt.MQTT_ERR_ACL_DENIED: exceptions.UnauthorizedError,
+    mqtt.MQTT_ERR_UNKNOWN: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_ERRNO: exceptions.ProtocolClientError,
+    mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
 }
 
 
@@ -52,7 +52,7 @@ def _create_error_from_conack_rc_code(rc):
     if rc in paho_conack_rc_to_error:
         return paho_conack_rc_to_error[rc](message)
     else:
-        return errors.ProtocolClientError("Unknown CONACK rc={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown CONACK rc={}".format(rc))
 
 
 def _create_error_from_rc_code(rc):
@@ -63,7 +63,7 @@ def _create_error_from_rc_code(rc):
     if rc in paho_rc_to_error:
         return paho_rc_to_error[rc](message)
     else:
-        return errors.ProtocolClientError("Unknown CONACK rc={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown CONACK rc={}".format(rc))
 
 
 class MQTTTransport(object):
@@ -244,6 +244,7 @@ class MQTTTransport(object):
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: ProtocolClientError if there is some other client error.
         """
+        raise exceptions.ProtocolClientError("TEST ERROR")
         logger.info("connecting to mqtt broker")
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
@@ -251,7 +252,7 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.connect(host=self._hostname, port=8883)
         except Exception:
-            raise errors.ProtocolClientError("Unexpected Paho failure during connect")
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during connect")
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
             raise _create_error_from_rc_code(rc)
@@ -277,7 +278,7 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.reconnect()
         except Exception:
-            raise errors.ProtocolClientError("Unexpected Paho failure during reconnect")
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during reconnect")
         logger.debug("_mqtt_client.reconnect returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionFailedError, ConnectionDroppedError, UnauthorizedError
@@ -294,14 +295,15 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.disconnect()
         except Exception:
-            raise errors.ProtocolClientError("Unexpected Paho failure during disconnect")
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect")
         logger.debug("_mqtt_client.disconnect returned rc={}".format(rc))
         self._mqtt_client.loop_stop()
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
             err = _create_error_from_rc_code(rc)
             # If we get a ConnectionDroppedError, swallow it, because we have successfully disconnected!
-            if type(err) is errors.ConnectionDroppedError:
+            if type(err) is exceptions.ConnectionDroppedError:
+                logger.warning("Dropped connection while disconnecting - swallowing error")
                 pass
             else:
                 raise err
@@ -327,7 +329,7 @@ class MQTTTransport(object):
         except ValueError:
             raise
         except Exception:
-            raise errors.ProtocolClientError("Unexpected Paho failure during subscribe")
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during subscribe")
         logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -351,7 +353,7 @@ class MQTTTransport(object):
         except ValueError:
             raise
         except Exception:
-            raise errors.ProtocolClientError("Unexpected Paho failure during unsubscribe")
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during unsubscribe")
         logger.debug("_mqtt_client.unsubscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -384,7 +386,7 @@ class MQTTTransport(object):
         except TypeError:
             raise
         except Exception:
-            raise errors.ProtocolClientError("Unexpected Paho failure during publish")
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during publish")
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
