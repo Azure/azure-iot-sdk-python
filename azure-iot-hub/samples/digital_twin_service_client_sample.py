@@ -36,7 +36,7 @@ try:
         }
     }
     etag = "*"
-    digital_twin_updated = digital_twin_service_client.update_digital_twin(device_id, "patch", etag)
+    digital_twin_updated = digital_twin_service_client.update_digital_twin(device_id, patch, etag)
     print(digital_twin_updated)
 
     # Update DigitalTwin property by name
