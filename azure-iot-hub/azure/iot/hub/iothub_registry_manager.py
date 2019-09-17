@@ -124,13 +124,13 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
-        device = Device(**params)
+        device = Device(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, device, "*")
 
