@@ -131,6 +131,7 @@ def test_device_register_with_no_device_id_for_a_x509_individual_enrollment():
 def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment():
     group_id = "e2e-intermediate-hogwarts" + str(uuid.uuid4())
     common_device_id = device_common_name
+    print("Common Device Id" + common_device_id)
     devices_indices = type_to_device_indices.get("group_intermediate")
     device_count_in_group = len(devices_indices)
     reprovision_policy = ReprovisionPolicy(migrate_device_data=True)
@@ -156,6 +157,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
         for index in devices_indices:
             count = count + 1
             device_id = common_device_id + str(index)
+            print("Device Id" + device_id)
             device_key_input_file = common_device_key_input_file + str(index) + ".pem"
             device_cert_input_file = common_device_cert_input_file + str(index) + ".pem"
             device_inter_cert_chain_file = common_device_inter_cert_chain_file + str(index) + ".pem"
@@ -163,6 +165,8 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
             with open(device_inter_cert_chain_file, "w") as outfile:
                 for fname in filenames:
                     with open(fname) as infile:
+                        print("Full Certificate Chain Value")
+                        print(infile.read())
                         outfile.write(infile.read())
 
             registration_result = result_from_register(
