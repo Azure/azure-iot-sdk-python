@@ -73,6 +73,7 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
+@pytest.skip("Check only 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -99,6 +100,7 @@ def test_device_register_with_device_id_for_a_x509_individual_enrollment():
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
+@pytest.skip("Check only 1 test")
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
@@ -165,9 +167,15 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
             with open(device_inter_cert_chain_file, "w") as outfile:
                 for fname in filenames:
                     with open(fname) as infile:
-                        print("Full Certificate Chain Value")
-                        print(infile.read())
                         outfile.write(infile.read())
+
+            with open(device_inter_cert_chain_file, "r") as full_chain_file:
+                print("Full Certificate Chain Value For Device Numbered " + str(index))
+                print(full_chain_file.read())
+
+            with open(device_key_input_file, "r") as private_key_file:
+                print("Key Value Value For Device Numbered " + str(index))
+                print(private_key_file.read())
 
             registration_result = result_from_register(
                 registration_id=device_id,
