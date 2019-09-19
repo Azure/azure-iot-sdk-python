@@ -1467,10 +1467,12 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
     def test_bad_edge_auth(self, mocker, client_class, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment)
         mock_auth = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
-        mock_auth.side_effect = IoTEdgeError
+        my_edge_error = IoTEdgeError()
+        mock_auth.side_effect = my_edge_error
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError) as e_info:
             client_class.create_from_edge_environment()
+        assert e_info.value.__cause__ is my_edge_error
 
 
 @pytest.mark.describe(
@@ -1647,9 +1649,11 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
             FileNotFoundError = IOError
 
         mocker.patch.dict(os.environ, edge_local_debug_environment)
-        mock_open.side_effect = FileNotFoundError
-        with pytest.raises(ValueError):
+        my_fnf_error = FileNotFoundError()
+        mock_open.side_effect = my_fnf_error
+        with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
+        assert e_info.value.__cause__ is my_fnf_error
 
     @pytest.mark.it(
         "Raises ValueError if the file referenced by the filepath in the EdgeModuleCACertificateFile environment variable cannot be opened"
@@ -1657,13 +1661,14 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
     def test_bad_file_io(self, mocker, client_class, edge_local_debug_environment, mock_open):
         # Raise a different error in Python 2 vs 3
         if six.PY2:
-            error = IOError
+            error = IOError()
         else:
-            error = OSError
+            error = OSError()
         mocker.patch.dict(os.environ, edge_local_debug_environment)
         mock_open.side_effect = error
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
+        assert e_info.value.__cause__ is error
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .create_from_x509_certificate()")

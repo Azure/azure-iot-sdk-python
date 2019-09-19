@@ -1262,10 +1262,11 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
     async def test_bad_edge_auth(self, mocker, client_class, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment)
         mock_auth = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
-        mock_auth.side_effect = IoTEdgeError
-
-        with pytest.raises(OSError):
+        error = IoTEdgeError()
+        mock_auth.side_effect = error
+        with pytest.raises(OSError) as e_info:
             client_class.create_from_edge_environment()
+        assert e_info.value.__cause__ is error
 
 
 @pytest.mark.describe(
@@ -1444,18 +1445,22 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
         mocker.patch.dict(os.environ, edge_local_debug_environment)
-        mock_open.side_effect = FileNotFoundError
-        with pytest.raises(ValueError):
+        error = FileNotFoundError()
+        mock_open.side_effect = error
+        with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
+        assert e_info.value.__cause__ is error
 
     @pytest.mark.it(
         "Raises ValueError if the file referenced by the filepath in the EdgeModuleCACertificateFile environment variable cannot be opened"
     )
     async def test_bad_file_io(self, mocker, client_class, edge_local_debug_environment, mock_open):
         mocker.patch.dict(os.environ, edge_local_debug_environment)
-        mock_open.side_effect = OSError
-        with pytest.raises(ValueError):
+        error = OSError()
+        mock_open.side_effect = error
+        with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
+        assert e_info.value.__cause__ is error
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_x509_certificate()")

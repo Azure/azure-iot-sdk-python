@@ -13,13 +13,14 @@ import requests_unixsocket
 import logging
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
 from azure.iot.device import constant
+from azure.iot.device.common.chainable_exception import ChainableException
 
 requests_unixsocket.monkeypatch()
 
 logger = logging.getLogger(__name__)
 
 
-class IoTEdgeError(Exception):
+class IoTEdgeError(ChainableException):
     pass
 
 
@@ -120,18 +121,18 @@ class IoTEdgeHsm(object):
         # Validate that the request was successful
         try:
             r.raise_for_status()
-        except requests.exceptions.HTTPError:
-            raise IoTEdgeError("Unable to get trust bundle from EdgeHub")
+        except requests.exceptions.HTTPError as e:
+            raise IoTEdgeError(message="Unable to get trust bundle from EdgeHub", cause=e)
         # Decode the trust bundle
         try:
             bundle = r.json()
-        except ValueError:
-            raise IoTEdgeError("Unable to decode trust bundle")
+        except ValueError as e:
+            raise IoTEdgeError(message="Unable to decode trust bundle", cause=e)
         # Retrieve the certificate
         try:
             cert = bundle["certificate"]
-        except KeyError:
-            raise IoTEdgeError("No certificate in trust bundle")
+        except KeyError as e:
+            raise IoTEdgeError(message="No certificate in trust bundle", cause=e)
         return cert
 
     def sign(self, data_str):
@@ -166,16 +167,16 @@ class IoTEdgeHsm(object):
         )
         try:
             r.raise_for_status()
-        except requests.exceptions.HTTPError:
-            raise IoTEdgeError("Unable to sign data")
+        except requests.exceptions.HTTPError as e:
+            raise IoTEdgeError(message="Unable to sign data", cause=e)
         try:
             sign_response = r.json()
-        except ValueError:
-            raise IoTEdgeError("Unable to decode signed data")
+        except ValueError as e:
+            raise IoTEdgeError(message="Unable to decode signed data", cause=e)
         try:
             signed_data_str = sign_response["digest"]
-        except KeyError:
-            raise IoTEdgeError("No signed data received")
+        except KeyError as e:
+            raise IoTEdgeError(message="No signed data received", cause=e)
 
         return urllib.parse.quote(signed_data_str)
 
