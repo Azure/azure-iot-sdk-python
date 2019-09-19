@@ -58,9 +58,7 @@ def create_custom_config():
         local_file.write("\n".join(list_of_lines) + "\n")
 
 
-def create_verification_cert(
-    nonce, root_verify, ca_password="hogwarts", intermediate_password="hogwartsi", key_size=4096
-):
+def create_verification_cert(nonce, root_verify, ca_password, intermediate_password, key_size=4096):
 
     print("Done generating verification key")
     subject = "//C=US/CN=" + nonce
@@ -124,7 +122,7 @@ def create_directories_and_prereq_files():
     os.mkdir("demoCA/newcerts")
 
 
-def create_root(common_name, ca_password="hogwarts", key_size=4096, days=3650):
+def create_root(common_name, ca_password, key_size=4096, days=3650):
     os.system(
         "openssl genrsa -aes256 -out demoCA/private/ca_key.pem -passout pass:"
         + ca_password
@@ -150,12 +148,7 @@ def create_root(common_name, ca_password="hogwarts", key_size=4096, days=3650):
 
 
 def create_intermediate(
-    common_name,
-    pipeline,
-    ca_password="hogwarts",
-    intermediate_password="hogwartsi",
-    key_size=4096,
-    days=365,
+    common_name, pipeline, ca_password, intermediate_password, key_size=4096, days=365
 ):
 
     if pipeline:
@@ -249,8 +242,8 @@ def create_intermediate(
 def create_certificate_chain(
     common_name,
     ca_password,
-    intermediate_password="hogwartsi",
-    device_password="hogwartsd",
+    intermediate_password,
+    device_password,
     device_count=1,
     pipeline=False,
     key_size=4096,
@@ -286,8 +279,8 @@ def create_certificate_chain(
 def create_leaf_certificates(
     index,
     common_name_for_all_device,
-    intermediate_password="hogwartsi",
-    device_password="hogwartsd",
+    intermediate_password,
+    device_password,
     key_size=4096,
     days=365,
 ):
