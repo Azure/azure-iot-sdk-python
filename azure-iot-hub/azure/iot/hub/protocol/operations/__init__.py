@@ -6,6 +6,7 @@
 # --------------------------------------------------------------------------
 
 from .service_operations import ServiceOperations
-from .digital_twin_operations import DigitalTwinOperations
 
-__all__ = ["ServiceOperations", "DigitalTwinOperations"]
+__all__ = [
+    'ServiceOperations',
+]

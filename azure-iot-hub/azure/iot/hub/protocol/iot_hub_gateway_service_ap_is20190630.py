@@ -10,12 +10,11 @@ from msrest import Configuration, Serializer, Deserializer
 from .version import VERSION
 from msrest.exceptions import HttpOperationError
 from .operations.service_operations import ServiceOperations
-from .operations.digital_twin_operations import DigitalTwinOperations
 from . import models
 
 
-class IotHubGatewayServiceAPIs20190701PreviewConfiguration(Configuration):
-    """Configuration for IotHubGatewayServiceAPIs20190701Preview
+class IotHubGatewayServiceAPIs20190630Configuration(Configuration):
+    """Configuration for IotHubGatewayServiceAPIs20190630
     Note that all parameters used to create this instance are saved as instance
     attributes.
 
@@ -25,30 +24,29 @@ class IotHubGatewayServiceAPIs20190701PreviewConfiguration(Configuration):
     :param str base_url: Service URL
     """
 
-    def __init__(self, credentials, base_url=None):
+    def __init__(
+            self, credentials, base_url=None):
 
         if credentials is None:
             raise ValueError("Parameter 'credentials' must not be None.")
         if not base_url:
-            base_url = "https://fully-qualified-iothubname.azure-devices.net"
+            base_url = 'https://fully-qualified-iothubname.azure-devices.net'
 
-        super(IotHubGatewayServiceAPIs20190701PreviewConfiguration, self).__init__(base_url)
+        super(IotHubGatewayServiceAPIs20190630Configuration, self).__init__(base_url)
 
-        self.add_user_agent("iothubgatewayserviceapis20190701preview/{}".format(VERSION))
+        self.add_user_agent('iothubgatewayserviceapis20190630/{}'.format(VERSION))
 
         self.credentials = credentials
 
 
-class IotHubGatewayServiceAPIs20190701Preview(SDKClient):
-    """IotHubGatewayServiceAPIs20190701Preview
+class IotHubGatewayServiceAPIs20190630(SDKClient):
+    """IotHubGatewayServiceAPIs20190630
 
     :ivar config: Configuration for client.
-    :vartype config: IotHubGatewayServiceAPIs20190701PreviewConfiguration
+    :vartype config: IotHubGatewayServiceAPIs20190630Configuration
 
     :ivar service: Service operations
     :vartype service: protocol.operations.ServiceOperations
-    :ivar digital_twin: DigitalTwin operations
-    :vartype digital_twin: protocol.operations.DigitalTwinOperations
 
     :param credentials: Subscription credentials which uniquely identify
      client subscription.
@@ -56,21 +54,16 @@ class IotHubGatewayServiceAPIs20190701Preview(SDKClient):
     :param str base_url: Service URL
     """
 
-    def __init__(self, credentials, base_url=None):
+    def __init__(
+            self, credentials, base_url=None):
 
-        self.config = IotHubGatewayServiceAPIs20190701PreviewConfiguration(credentials, base_url)
-        super(IotHubGatewayServiceAPIs20190701Preview, self).__init__(
-            self.config.credentials, self.config
-        )
+        self.config = IotHubGatewayServiceAPIs20190630Configuration(credentials, base_url)
+        super(IotHubGatewayServiceAPIs20190630, self).__init__(self.config.credentials, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = "2019-07-01-preview"
+        self.api_version = '2019-06-30'
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
         self.service = ServiceOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
-        self.digital_twin = DigitalTwinOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)

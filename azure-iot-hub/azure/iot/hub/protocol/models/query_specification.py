@@ -15,8 +15,10 @@ class QuerySpecification(Model):
     :type query: str
     """
 
-    _attribute_map = {"query": {"key": "query", "type": "str"}}
+    _attribute_map = {
+        'query': {'key': 'query', 'type': 'str'},
+    }
 
     def __init__(self, **kwargs):
         super(QuerySpecification, self).__init__(**kwargs)
-        self.query = kwargs.get("query", None)
+        self.query = kwargs.get('query', None)

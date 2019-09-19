@@ -35,27 +35,27 @@ class Module(Model):
     """
 
     _attribute_map = {
-        "module_id": {"key": "moduleId", "type": "str"},
-        "managed_by": {"key": "managedBy", "type": "str"},
-        "device_id": {"key": "deviceId", "type": "str"},
-        "generation_id": {"key": "generationId", "type": "str"},
-        "etag": {"key": "etag", "type": "str"},
-        "connection_state": {"key": "connectionState", "type": "str"},
-        "connection_state_updated_time": {"key": "connectionStateUpdatedTime", "type": "iso-8601"},
-        "last_activity_time": {"key": "lastActivityTime", "type": "iso-8601"},
-        "cloud_to_device_message_count": {"key": "cloudToDeviceMessageCount", "type": "int"},
-        "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'managed_by': {'key': 'managedBy', 'type': 'str'},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'generation_id': {'key': 'generationId', 'type': 'str'},
+        'etag': {'key': 'etag', 'type': 'str'},
+        'connection_state': {'key': 'connectionState', 'type': 'str'},
+        'connection_state_updated_time': {'key': 'connectionStateUpdatedTime', 'type': 'iso-8601'},
+        'last_activity_time': {'key': 'lastActivityTime', 'type': 'iso-8601'},
+        'cloud_to_device_message_count': {'key': 'cloudToDeviceMessageCount', 'type': 'int'},
+        'authentication': {'key': 'authentication', 'type': 'AuthenticationMechanism'},
     }
 
     def __init__(self, **kwargs):
         super(Module, self).__init__(**kwargs)
-        self.module_id = kwargs.get("module_id", None)
-        self.managed_by = kwargs.get("managed_by", None)
-        self.device_id = kwargs.get("device_id", None)
-        self.generation_id = kwargs.get("generation_id", None)
-        self.etag = kwargs.get("etag", None)
-        self.connection_state = kwargs.get("connection_state", None)
-        self.connection_state_updated_time = kwargs.get("connection_state_updated_time", None)
-        self.last_activity_time = kwargs.get("last_activity_time", None)
-        self.cloud_to_device_message_count = kwargs.get("cloud_to_device_message_count", None)
-        self.authentication = kwargs.get("authentication", None)
+        self.module_id = kwargs.get('module_id', None)
+        self.managed_by = kwargs.get('managed_by', None)
+        self.device_id = kwargs.get('device_id', None)
+        self.generation_id = kwargs.get('generation_id', None)
+        self.etag = kwargs.get('etag', None)
+        self.connection_state = kwargs.get('connection_state', None)
+        self.connection_state_updated_time = kwargs.get('connection_state_updated_time', None)
+        self.last_activity_time = kwargs.get('last_activity_time', None)
+        self.cloud_to_device_message_count = kwargs.get('cloud_to_device_message_count', None)
+        self.authentication = kwargs.get('authentication', None)

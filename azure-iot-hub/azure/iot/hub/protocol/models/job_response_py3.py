@@ -51,39 +51,22 @@ class JobResponse(Model):
     """
 
     _attribute_map = {
-        "job_id": {"key": "jobId", "type": "str"},
-        "query_condition": {"key": "queryCondition", "type": "str"},
-        "created_time": {"key": "createdTime", "type": "iso-8601"},
-        "start_time": {"key": "startTime", "type": "iso-8601"},
-        "end_time": {"key": "endTime", "type": "iso-8601"},
-        "max_execution_time_in_seconds": {"key": "maxExecutionTimeInSeconds", "type": "long"},
-        "type": {"key": "type", "type": "str"},
-        "cloud_to_device_method": {"key": "cloudToDeviceMethod", "type": "CloudToDeviceMethod"},
-        "update_twin": {"key": "updateTwin", "type": "Twin"},
-        "status": {"key": "status", "type": "str"},
-        "failure_reason": {"key": "failureReason", "type": "str"},
-        "status_message": {"key": "statusMessage", "type": "str"},
-        "device_job_statistics": {"key": "deviceJobStatistics", "type": "DeviceJobStatistics"},
+        'job_id': {'key': 'jobId', 'type': 'str'},
+        'query_condition': {'key': 'queryCondition', 'type': 'str'},
+        'created_time': {'key': 'createdTime', 'type': 'iso-8601'},
+        'start_time': {'key': 'startTime', 'type': 'iso-8601'},
+        'end_time': {'key': 'endTime', 'type': 'iso-8601'},
+        'max_execution_time_in_seconds': {'key': 'maxExecutionTimeInSeconds', 'type': 'long'},
+        'type': {'key': 'type', 'type': 'str'},
+        'cloud_to_device_method': {'key': 'cloudToDeviceMethod', 'type': 'CloudToDeviceMethod'},
+        'update_twin': {'key': 'updateTwin', 'type': 'Twin'},
+        'status': {'key': 'status', 'type': 'str'},
+        'failure_reason': {'key': 'failureReason', 'type': 'str'},
+        'status_message': {'key': 'statusMessage', 'type': 'str'},
+        'device_job_statistics': {'key': 'deviceJobStatistics', 'type': 'DeviceJobStatistics'},
     }
 
-    def __init__(
-        self,
-        *,
-        job_id: str = None,
-        query_condition: str = None,
-        created_time=None,
-        start_time=None,
-        end_time=None,
-        max_execution_time_in_seconds: int = None,
-        type=None,
-        cloud_to_device_method=None,
-        update_twin=None,
-        status=None,
-        failure_reason: str = None,
-        status_message: str = None,
-        device_job_statistics=None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, job_id: str=None, query_condition: str=None, created_time=None, start_time=None, end_time=None, max_execution_time_in_seconds: int=None, type=None, cloud_to_device_method=None, update_twin=None, status=None, failure_reason: str=None, status_message: str=None, device_job_statistics=None, **kwargs) -> None:
         super(JobResponse, self).__init__(**kwargs)
         self.job_id = job_id
         self.query_condition = query_condition

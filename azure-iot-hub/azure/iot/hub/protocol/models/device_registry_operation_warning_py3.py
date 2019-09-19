@@ -21,14 +21,12 @@ class DeviceRegistryOperationWarning(Model):
     """
 
     _attribute_map = {
-        "device_id": {"key": "deviceId", "type": "str"},
-        "warning_code": {"key": "warningCode", "type": "str"},
-        "warning_status": {"key": "warningStatus", "type": "str"},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'warning_code': {'key': 'warningCode', 'type': 'str'},
+        'warning_status': {'key': 'warningStatus', 'type': 'str'},
     }
 
-    def __init__(
-        self, *, device_id: str = None, warning_code=None, warning_status: str = None, **kwargs
-    ) -> None:
+    def __init__(self, *, device_id: str=None, warning_code=None, warning_status: str=None, **kwargs) -> None:
         super(DeviceRegistryOperationWarning, self).__init__(**kwargs)
         self.device_id = device_id
         self.warning_code = warning_code

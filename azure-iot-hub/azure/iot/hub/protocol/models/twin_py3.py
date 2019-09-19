@@ -63,47 +63,26 @@ class Twin(Model):
     """
 
     _attribute_map = {
-        "device_id": {"key": "deviceId", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
-        "tags": {"key": "tags", "type": "{object}"},
-        "properties": {"key": "properties", "type": "TwinProperties"},
-        "etag": {"key": "etag", "type": "str"},
-        "version": {"key": "version", "type": "long"},
-        "device_etag": {"key": "deviceEtag", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "status_reason": {"key": "statusReason", "type": "str"},
-        "status_update_time": {"key": "statusUpdateTime", "type": "iso-8601"},
-        "connection_state": {"key": "connectionState", "type": "str"},
-        "last_activity_time": {"key": "lastActivityTime", "type": "iso-8601"},
-        "cloud_to_device_message_count": {"key": "cloudToDeviceMessageCount", "type": "int"},
-        "authentication_type": {"key": "authenticationType", "type": "str"},
-        "x509_thumbprint": {"key": "x509Thumbprint", "type": "X509Thumbprint"},
-        "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
-        "device_scope": {"key": "deviceScope", "type": "str"},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'tags': {'key': 'tags', 'type': '{object}'},
+        'properties': {'key': 'properties', 'type': 'TwinProperties'},
+        'etag': {'key': 'etag', 'type': 'str'},
+        'version': {'key': 'version', 'type': 'long'},
+        'device_etag': {'key': 'deviceEtag', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'status_reason': {'key': 'statusReason', 'type': 'str'},
+        'status_update_time': {'key': 'statusUpdateTime', 'type': 'iso-8601'},
+        'connection_state': {'key': 'connectionState', 'type': 'str'},
+        'last_activity_time': {'key': 'lastActivityTime', 'type': 'iso-8601'},
+        'cloud_to_device_message_count': {'key': 'cloudToDeviceMessageCount', 'type': 'int'},
+        'authentication_type': {'key': 'authenticationType', 'type': 'str'},
+        'x509_thumbprint': {'key': 'x509Thumbprint', 'type': 'X509Thumbprint'},
+        'capabilities': {'key': 'capabilities', 'type': 'DeviceCapabilities'},
+        'device_scope': {'key': 'deviceScope', 'type': 'str'},
     }
 
-    def __init__(
-        self,
-        *,
-        device_id: str = None,
-        module_id: str = None,
-        tags=None,
-        properties=None,
-        etag: str = None,
-        version: int = None,
-        device_etag: str = None,
-        status=None,
-        status_reason: str = None,
-        status_update_time=None,
-        connection_state=None,
-        last_activity_time=None,
-        cloud_to_device_message_count: int = None,
-        authentication_type=None,
-        x509_thumbprint=None,
-        capabilities=None,
-        device_scope: str = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, device_id: str=None, module_id: str=None, tags=None, properties=None, etag: str=None, version: int=None, device_etag: str=None, status=None, status_reason: str=None, status_update_time=None, connection_state=None, last_activity_time=None, cloud_to_device_message_count: int=None, authentication_type=None, x509_thumbprint=None, capabilities=None, device_scope: str=None, **kwargs) -> None:
         super(Twin, self).__init__(**kwargs)
         self.device_id = device_id
         self.module_id = module_id

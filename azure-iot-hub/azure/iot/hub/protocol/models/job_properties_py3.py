@@ -55,37 +55,21 @@ class JobProperties(Model):
     """
 
     _attribute_map = {
-        "job_id": {"key": "jobId", "type": "str"},
-        "start_time_utc": {"key": "startTimeUtc", "type": "iso-8601"},
-        "end_time_utc": {"key": "endTimeUtc", "type": "iso-8601"},
-        "type": {"key": "type", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "progress": {"key": "progress", "type": "int"},
-        "input_blob_container_uri": {"key": "inputBlobContainerUri", "type": "str"},
-        "input_blob_name": {"key": "inputBlobName", "type": "str"},
-        "output_blob_container_uri": {"key": "outputBlobContainerUri", "type": "str"},
-        "output_blob_name": {"key": "outputBlobName", "type": "str"},
-        "exclude_keys_in_export": {"key": "excludeKeysInExport", "type": "bool"},
-        "failure_reason": {"key": "failureReason", "type": "str"},
+        'job_id': {'key': 'jobId', 'type': 'str'},
+        'start_time_utc': {'key': 'startTimeUtc', 'type': 'iso-8601'},
+        'end_time_utc': {'key': 'endTimeUtc', 'type': 'iso-8601'},
+        'type': {'key': 'type', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'progress': {'key': 'progress', 'type': 'int'},
+        'input_blob_container_uri': {'key': 'inputBlobContainerUri', 'type': 'str'},
+        'input_blob_name': {'key': 'inputBlobName', 'type': 'str'},
+        'output_blob_container_uri': {'key': 'outputBlobContainerUri', 'type': 'str'},
+        'output_blob_name': {'key': 'outputBlobName', 'type': 'str'},
+        'exclude_keys_in_export': {'key': 'excludeKeysInExport', 'type': 'bool'},
+        'failure_reason': {'key': 'failureReason', 'type': 'str'},
     }
 
-    def __init__(
-        self,
-        *,
-        job_id: str = None,
-        start_time_utc=None,
-        end_time_utc=None,
-        type=None,
-        status=None,
-        progress: int = None,
-        input_blob_container_uri: str = None,
-        input_blob_name: str = None,
-        output_blob_container_uri: str = None,
-        output_blob_name: str = None,
-        exclude_keys_in_export: bool = None,
-        failure_reason: str = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, job_id: str=None, start_time_utc=None, end_time_utc=None, type=None, status=None, progress: int=None, input_blob_container_uri: str=None, input_blob_name: str=None, output_blob_container_uri: str=None, output_blob_name: str=None, exclude_keys_in_export: bool=None, failure_reason: str=None, **kwargs) -> None:
         super(JobProperties, self).__init__(**kwargs)
         self.job_id = job_id
         self.start_time_utc = start_time_utc

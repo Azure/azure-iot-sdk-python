@@ -55,31 +55,31 @@ class JobProperties(Model):
     """
 
     _attribute_map = {
-        "job_id": {"key": "jobId", "type": "str"},
-        "start_time_utc": {"key": "startTimeUtc", "type": "iso-8601"},
-        "end_time_utc": {"key": "endTimeUtc", "type": "iso-8601"},
-        "type": {"key": "type", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "progress": {"key": "progress", "type": "int"},
-        "input_blob_container_uri": {"key": "inputBlobContainerUri", "type": "str"},
-        "input_blob_name": {"key": "inputBlobName", "type": "str"},
-        "output_blob_container_uri": {"key": "outputBlobContainerUri", "type": "str"},
-        "output_blob_name": {"key": "outputBlobName", "type": "str"},
-        "exclude_keys_in_export": {"key": "excludeKeysInExport", "type": "bool"},
-        "failure_reason": {"key": "failureReason", "type": "str"},
+        'job_id': {'key': 'jobId', 'type': 'str'},
+        'start_time_utc': {'key': 'startTimeUtc', 'type': 'iso-8601'},
+        'end_time_utc': {'key': 'endTimeUtc', 'type': 'iso-8601'},
+        'type': {'key': 'type', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'progress': {'key': 'progress', 'type': 'int'},
+        'input_blob_container_uri': {'key': 'inputBlobContainerUri', 'type': 'str'},
+        'input_blob_name': {'key': 'inputBlobName', 'type': 'str'},
+        'output_blob_container_uri': {'key': 'outputBlobContainerUri', 'type': 'str'},
+        'output_blob_name': {'key': 'outputBlobName', 'type': 'str'},
+        'exclude_keys_in_export': {'key': 'excludeKeysInExport', 'type': 'bool'},
+        'failure_reason': {'key': 'failureReason', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(JobProperties, self).__init__(**kwargs)
-        self.job_id = kwargs.get("job_id", None)
-        self.start_time_utc = kwargs.get("start_time_utc", None)
-        self.end_time_utc = kwargs.get("end_time_utc", None)
-        self.type = kwargs.get("type", None)
-        self.status = kwargs.get("status", None)
-        self.progress = kwargs.get("progress", None)
-        self.input_blob_container_uri = kwargs.get("input_blob_container_uri", None)
-        self.input_blob_name = kwargs.get("input_blob_name", None)
-        self.output_blob_container_uri = kwargs.get("output_blob_container_uri", None)
-        self.output_blob_name = kwargs.get("output_blob_name", None)
-        self.exclude_keys_in_export = kwargs.get("exclude_keys_in_export", None)
-        self.failure_reason = kwargs.get("failure_reason", None)
+        self.job_id = kwargs.get('job_id', None)
+        self.start_time_utc = kwargs.get('start_time_utc', None)
+        self.end_time_utc = kwargs.get('end_time_utc', None)
+        self.type = kwargs.get('type', None)
+        self.status = kwargs.get('status', None)
+        self.progress = kwargs.get('progress', None)
+        self.input_blob_container_uri = kwargs.get('input_blob_container_uri', None)
+        self.input_blob_name = kwargs.get('input_blob_name', None)
+        self.output_blob_container_uri = kwargs.get('output_blob_container_uri', None)
+        self.output_blob_name = kwargs.get('output_blob_name', None)
+        self.exclude_keys_in_export = kwargs.get('exclude_keys_in_export', None)
+        self.failure_reason = kwargs.get('failure_reason', None)

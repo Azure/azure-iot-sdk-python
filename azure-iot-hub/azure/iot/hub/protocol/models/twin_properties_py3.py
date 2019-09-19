@@ -25,8 +25,8 @@ class TwinProperties(Model):
     """
 
     _attribute_map = {
-        "desired": {"key": "desired", "type": "{object}"},
-        "reported": {"key": "reported", "type": "{object}"},
+        'desired': {'key': 'desired', 'type': '{object}'},
+        'reported': {'key': 'reported', 'type': '{object}'},
     }
 
     def __init__(self, *, desired=None, reported=None, **kwargs) -> None:

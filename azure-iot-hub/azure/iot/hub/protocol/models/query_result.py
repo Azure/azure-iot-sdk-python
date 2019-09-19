@@ -22,13 +22,13 @@ class QueryResult(Model):
     """
 
     _attribute_map = {
-        "type": {"key": "type", "type": "str"},
-        "items": {"key": "items", "type": "[object]"},
-        "continuation_token": {"key": "continuationToken", "type": "str"},
+        'type': {'key': 'type', 'type': 'str'},
+        'items': {'key': 'items', 'type': '[object]'},
+        'continuation_token': {'key': 'continuationToken', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(QueryResult, self).__init__(**kwargs)
-        self.type = kwargs.get("type", None)
-        self.items = kwargs.get("items", None)
-        self.continuation_token = kwargs.get("continuation_token", None)
+        self.type = kwargs.get('type', None)
+        self.items = kwargs.get('items', None)
+        self.continuation_token = kwargs.get('continuation_token', None)

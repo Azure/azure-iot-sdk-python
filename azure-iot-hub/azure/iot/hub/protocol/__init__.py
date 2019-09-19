@@ -5,9 +5,10 @@
 # regenerated.
 # --------------------------------------------------------------------------
 
-from .iot_hub_gateway_service_ap_is20190701_preview import IotHubGatewayServiceAPIs20190701Preview
+from .iot_hub_gateway_service_ap_is20190630 import IotHubGatewayServiceAPIs20190630
 from .version import VERSION
 
-__all__ = ["IotHubGatewayServiceAPIs20190701Preview"]
+__all__ = ['IotHubGatewayServiceAPIs20190630']
 
 __version__ = VERSION
+

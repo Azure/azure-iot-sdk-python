@@ -82,12 +82,13 @@ class DeviceRegistryOperationError(Model):
      'InflightMessagesInLink', 'GenericRequestEntityTooLarge',
      'MessageTooLarge', 'TooManyDevices', 'TooManyModulesOnDevice',
      'ConfigurationCountLimitExceeded', 'DigitalTwinModelCountLimitExceeded',
+     'InterfaceNameCompressionModelCountLimitExceeded',
      'GenericUnsupportedMediaType', 'IncompatibleDataType',
      'GenericTooManyRequests', 'ThrottlingException',
      'ThrottleBacklogLimitExceeded', 'ThrottlingBacklogTimeout',
-     'ThrottlingMaxActiveJobCountExceeded', 'ClientClosedRequest',
-     'GenericServerError', 'ServerError', 'JobCancelled',
-     'StatisticsRetrievalError', 'ConnectionForcefullyClosed',
+     'ThrottlingMaxActiveJobCountExceeded', 'DeviceThrottlingLimitExceeded',
+     'ClientClosedRequest', 'GenericServerError', 'ServerError',
+     'JobCancelled', 'StatisticsRetrievalError', 'ConnectionForcefullyClosed',
      'InvalidBlobState', 'BackupTimedOut', 'AzureStorageTimeout',
      'GenericTimeout', 'InvalidThrottleParameter', 'EventHubLinkAlreadyClosed',
      'ReliableBlobStoreError', 'RetryAttemptsExhausted',
@@ -113,23 +114,14 @@ class DeviceRegistryOperationError(Model):
     """
 
     _attribute_map = {
-        "device_id": {"key": "deviceId", "type": "str"},
-        "error_code": {"key": "errorCode", "type": "str"},
-        "error_status": {"key": "errorStatus", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
-        "operation": {"key": "operation", "type": "str"},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'error_code': {'key': 'errorCode', 'type': 'str'},
+        'error_status': {'key': 'errorStatus', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'operation': {'key': 'operation', 'type': 'str'},
     }
 
-    def __init__(
-        self,
-        *,
-        device_id: str = None,
-        error_code=None,
-        error_status: str = None,
-        module_id: str = None,
-        operation: str = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, device_id: str=None, error_code=None, error_status: str=None, module_id: str=None, operation: str=None, **kwargs) -> None:
         super(DeviceRegistryOperationError, self).__init__(**kwargs)
         self.device_id = device_id
         self.error_code = error_code
