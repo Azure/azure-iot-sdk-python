@@ -16,6 +16,7 @@ from provisioningserviceclient.protocol.models import AttestationMechanism, Repr
 import pytest
 import logging
 import os
+import uuid
 
 from scripts.create_x509_chain_pipeline import (
     call_intermediate_cert_creation_from_pipeline,
@@ -29,7 +30,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 intermediate_common_name = "e2edpswingardium"
 intermediate_password = "leviosa"
-device_common_name = "e2edpsexpecto"
+device_common_name = "e2edpsexpecto" + str(uuid.uuid4())
 device_password = "patronum"
 
 service_client = ProvisioningServiceClient.create_from_connection_string(
@@ -128,7 +129,7 @@ def test_device_register_with_no_device_id_for_a_x509_individual_enrollment():
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
 def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment():
-    group_id = "e2e-intermediate-hogwarts"
+    group_id = "e2e-intermediate-hogwarts" + str(uuid.uuid4())
     common_device_id = device_common_name
     devices_indices = type_to_device_indices.get("group_intermediate")
     device_count_in_group = len(devices_indices)
@@ -187,7 +188,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
 def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment():
-    group_id = "e2e-ca-beauxbatons"
+    group_id = "e2e-ca-beauxbatons" + str(uuid.uuid4())
     common_device_id = device_common_name
     devices_indices = type_to_device_indices.get("group_ca")
     device_count_in_group = len(devices_indices)
