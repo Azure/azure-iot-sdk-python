@@ -173,6 +173,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 connection_string = os.environ["EdgeHubConnectionString"]
                 ca_cert_filepath = os.environ["EdgeModuleCACertificateFile"]
             except KeyError:
+                logger.exception("Error caught while attempting to access environment variables")
                 raise OSError("IoT Edge environment not configured correctly")
 
             # TODO: variant ca_cert file vs data object that would remove the need for this fopen
@@ -188,6 +189,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 # Unfortunately, we can't distinguish cause of error from error type, so the raised ValueError has a generic
                 # message. If, in the future, we want to add detail, this could be accomplished by inspecting the e.errno
                 # attribute
+                logger.exception("Error caught while attempting to access CA cert file")
                 raise ValueError("Invalid CA certificate file")
             # Use Symmetric Key authentication for local dev experience.
             authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(
@@ -207,6 +209,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                     api_version=api_version,
                 )
             except auth.IoTEdgeError:
+                logger.exception("IoTEdgeError caught while attempting to setup HSM")
                 raise OSError("Unexpected failure in IoTEdge")
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
         edge_pipeline = pipeline.EdgePipeline(authentication_provider)
