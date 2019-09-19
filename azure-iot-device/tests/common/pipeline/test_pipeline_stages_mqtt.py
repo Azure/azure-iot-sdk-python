@@ -700,5 +700,4 @@ class TestMQTTProviderOnDisconnected(object):
         stage.transport.on_mqtt_disconnected_handler(cause)
         assert mock_handler.call_count == 1
         assert isinstance(mock_handler.call_args[0][0], transport_exceptions.ConnectionDroppedError)
-        if six.PY3:
-            assert mock_handler.call_args[0][0].__cause__ is cause
+        assert mock_handler.call_args[0][0].__cause__ is cause

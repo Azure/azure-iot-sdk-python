@@ -1,0 +1,15 @@
+# --------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
+
+class ChainableException(Exception):
+    """This exception stores a reference to a previous exception"""
+
+    def __init__(self, message=None, cause=None):
+        # By using .__cause__, this will allow typical stack trace behavior in Python 3,
+        # while still being able to operate in Python 2.
+        self.__cause__ = cause
+        super(ChainableException, self).__init__(message)

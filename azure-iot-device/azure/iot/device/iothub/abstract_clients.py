@@ -153,7 +153,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         This method can only be run from inside an IoT Edge container, or in a debugging
         environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
 
-        :raises: IoTEdgeError if the IoT Edge container is not configured correctly.
+        :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid
         """
         # First try the regular Edge container variables
@@ -173,8 +173,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 connection_string = os.environ["EdgeHubConnectionString"]
                 ca_cert_filepath = os.environ["EdgeModuleCACertificateFile"]
             except KeyError:
-                # TODO: consider using a different error here. (OSError?)
-                raise auth.IoTEdgeError("IoT Edge environment not configured correctly")
+                raise OSError("IoT Edge environment not configured correctly")
 
             # TODO: variant ca_cert file vs data object that would remove the need for this fopen
             # Read the certificate file to pass it on as a string
@@ -197,15 +196,18 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             authentication_provider.ca_cert = ca_cert
         else:
             # Use an HSM for authentication in the general case
-            authentication_provider = auth.IoTEdgeAuthenticationProvider(
-                hostname=hostname,
-                device_id=device_id,
-                module_id=module_id,
-                gateway_hostname=gateway_hostname,
-                module_generation_id=module_generation_id,
-                workload_uri=workload_uri,
-                api_version=api_version,
-            )
+            try:
+                authentication_provider = auth.IoTEdgeAuthenticationProvider(
+                    hostname=hostname,
+                    device_id=device_id,
+                    module_id=module_id,
+                    gateway_hostname=gateway_hostname,
+                    module_generation_id=module_generation_id,
+                    workload_uri=workload_uri,
+                    api_version=api_version,
+                )
+            except auth.IoTEdgeError:
+                raise OSError("Unexpected failure in IoTEdge")
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
         edge_pipeline = pipeline.EdgePipeline(authentication_provider)
         return cls(iothub_pipeline, edge_pipeline=edge_pipeline)

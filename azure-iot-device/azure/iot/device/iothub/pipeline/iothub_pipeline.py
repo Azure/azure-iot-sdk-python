@@ -125,8 +125,8 @@ class IoTHubPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.
         """
         logger.debug("Starting ConnectOperation on the pipeline")
 
@@ -147,6 +147,7 @@ class IoTHubPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
         logger.debug("Starting DisconnectOperation on the pipeline")
 
@@ -164,6 +165,14 @@ class IoTHubPipeline(object):
 
         :param message: message to send.
         :param callback: callback which is called when the message publish has been acknowledged by the service.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
         def on_complete(op):
@@ -182,6 +191,14 @@ class IoTHubPipeline(object):
 
         :param message: message to send.
         :param callback: callback which is called when the message publish has been acknowledged by the service.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
         def on_complete(op):
@@ -200,6 +217,14 @@ class IoTHubPipeline(object):
 
         :param method_response: the method response to send
         :param callback: callback which is called when response has been acknowledged by the service
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
         logger.debug("IoTHubPipeline send_method_response called")
 
@@ -221,6 +246,14 @@ class IoTHubPipeline(object):
 
         :param callback: callback which is called when request has been acknowledged by the service.
         This callback should have one parameter, which will contain the requested twin when called.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
         def on_complete(op):
@@ -237,6 +270,14 @@ class IoTHubPipeline(object):
 
         :param patch: the reported properties patch to send
         :param callback: callback which is called when request has been acknowledged by the service.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
         def on_complete(op):

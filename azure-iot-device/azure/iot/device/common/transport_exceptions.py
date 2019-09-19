@@ -5,8 +5,10 @@
 # --------------------------------------------------------------------------
 """This module defines errors that may be raised from a transport"""
 
+from .chainable_exception import ChainableException
 
-class ConnectionFailedError(Exception):
+
+class ConnectionFailedError(ChainableException):
     """
     Connection failed to be established
     """
@@ -14,7 +16,7 @@ class ConnectionFailedError(Exception):
     pass
 
 
-class ConnectionDroppedError(Exception):
+class ConnectionDroppedError(ChainableException):
     """
     Previously established connection was dropped
     """
@@ -22,7 +24,7 @@ class ConnectionDroppedError(Exception):
     pass
 
 
-class UnauthorizedError(Exception):
+class UnauthorizedError(ChainableException):
     """
     Authorization was rejected
     """
@@ -30,7 +32,7 @@ class UnauthorizedError(Exception):
     pass
 
 
-class ProtocolClientError(Exception):
+class ProtocolClientError(ChainableException):
     """
     Error returned from protocol client library
     """

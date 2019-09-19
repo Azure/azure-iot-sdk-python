@@ -244,7 +244,6 @@ class MQTTTransport(object):
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: ProtocolClientError if there is some other client error.
         """
-        raise exceptions.ProtocolClientError("TEST ERROR")
         logger.info("connecting to mqtt broker")
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)

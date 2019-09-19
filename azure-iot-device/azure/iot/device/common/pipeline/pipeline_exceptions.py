@@ -5,8 +5,10 @@
 # --------------------------------------------------------------------------
 """This module defines exceptions that may be raised from a pipeline"""
 
+from azure.iot.device.common.chainable_exception import ChainableException
 
-class OperationCancelled(Exception):
+
+class OperationCancelled(ChainableException):
     """
     Operation was cancelled.
     """
