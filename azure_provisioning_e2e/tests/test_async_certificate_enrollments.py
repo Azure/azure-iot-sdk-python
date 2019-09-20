@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+
 from azure_provisioning_e2e.service_helper import Helper, connection_string_to_hostname
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device.common import X509
@@ -74,11 +75,7 @@ def before_all_tests(request):
     request.addfinalizer(after_module)
 
 
-@pytest.mark.it(
-    "A device gets provisioned to the linked IoTHub with the user supplied device_id different "
-    "from the registration_id of the individual enrollment that has been created with a "
-    "selfsigned X509 authentication"
-)
+@pytest.mark.it("Hi")
 async def test_device_register_with_device_id_for_a_x509_individual_enrollment():
     device_id = "e2edpsthunderbolt"
     device_index = type_to_device_indices.get("individual_with_device_id")[0]
