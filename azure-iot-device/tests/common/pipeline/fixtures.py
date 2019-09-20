@@ -28,7 +28,10 @@ def callback(mocker):
 
 @pytest.fixture
 def fake_exception():
-    return Exception()
+    class FakeException(Exception):
+        pass
+
+    return FakeException()
 
 
 @pytest.fixture
