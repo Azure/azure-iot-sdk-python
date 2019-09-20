@@ -24,7 +24,7 @@ jobs:
 
   - script: |
       cd $(Build.SourcesDirectory)/azure_provisioning_e2e/tests
-      pytest test_sync_certificate_enrollments.py --junitxml=junit/dps-e2e-test-results.xml
+      pytest test_*.py --junitxml=junit/dps-e2e-test-results.xml
     displayName: 'Run Specified E2E Test with env variables'
 
     env:
