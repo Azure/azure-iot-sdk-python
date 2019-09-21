@@ -458,7 +458,7 @@ class OperationManager(object):
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
-                logger.warning("No callback for MID: {}".format(mid))
+                logger.exception("No callback for MID: {}".format(mid))
 
     def complete_operation(self, mid):
         """Complete an operation identified by MID and trigger the associated completion callback.

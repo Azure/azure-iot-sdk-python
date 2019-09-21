@@ -6,7 +6,8 @@
 
 
 class ChainableException(Exception):
-    """This exception stores a reference to a previous exception"""
+    """This exception stores a reference to a previous exception which has caused
+    the current one"""
 
     def __init__(self, message=None, cause=None):
         # By using .__cause__, this will allow typical stack trace behavior in Python 3,
