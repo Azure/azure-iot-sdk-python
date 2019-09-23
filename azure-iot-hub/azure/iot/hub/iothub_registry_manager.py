@@ -54,12 +54,12 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
-        device = Device(**params)
+        device = Device(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, device)
 
@@ -79,14 +79,14 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
         }
-        device = Device(**params)
+        device = Device(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, device)
 
@@ -100,12 +100,12 @@ class IoTHubRegistryManager(object):
 
         :returns: Device object containing the created device.
         """
-        params = {
+        kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
         }
-        device = Device(**params)
+        device = Device(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, device)
 
@@ -153,7 +153,7 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "status": status,
             "etag": etag,
@@ -161,7 +161,7 @@ class IoTHubRegistryManager(object):
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
         }
-        device = Device(**params)
+        device = Device(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, device)
 
@@ -176,13 +176,13 @@ class IoTHubRegistryManager(object):
 
         :returns: The updated Device object containing the created device.
         """
-        params = {
+        kwargs = {
             "device_id": device_id,
             "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
         }
-        device = Device(**params)
+        device = Device(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, device)
 
@@ -208,7 +208,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.get_configuration(id)
 
-    def delete_device(self, device_id, if_match=None):
+    def delete_device(self, device_id, etag=None):
         """Deletes a device identity from IoTHub.
 
         :param str device_id: The name (deviceId) of the device.
@@ -217,10 +217,10 @@ class IoTHubRegistryManager(object):
 
         :returns: None.
         """
-        if if_match is None:
-            if_match = "*"
+        if etag is None:
+            etag = "*"
 
-        self.protocol.service.delete_device(device_id, if_match)
+        self.protocol.service.delete_device(device_id, etag)
 
     def get_service_statistics(self):
         """Retrieves the IoTHub service statistics.
@@ -258,14 +258,14 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
             "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
-        module = Module(**params)
+        module = Module(**kwargs)
 
         return self.protocol.service.create_or_update_module(device_id, module_id, module)
 
@@ -289,7 +289,7 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
@@ -298,7 +298,7 @@ class IoTHubRegistryManager(object):
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
         }
-        module = Module(**params)
+        module = Module(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, module_id, module)
 
@@ -314,14 +314,14 @@ class IoTHubRegistryManager(object):
 
         :returns: Module object containing the created module.
         """
-        params = {
+        kwargs = {
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
             "status": status,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
         }
-        module = Module(**params)
+        module = Module(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, module_id, module)
 
@@ -344,7 +344,7 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
@@ -352,7 +352,7 @@ class IoTHubRegistryManager(object):
             "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
-        module = Module(**params)
+        module = Module(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, module_id, module, "*")
 
@@ -384,7 +384,7 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
-        params = {
+        kwargs = {
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
@@ -394,7 +394,7 @@ class IoTHubRegistryManager(object):
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
         }
-        module = Module(**params)
+        module = Module(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, module_id, module)
 
@@ -413,7 +413,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The updated Module object containing the created module.
         """
-        params = {
+        kwargs = {
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
@@ -421,7 +421,7 @@ class IoTHubRegistryManager(object):
             "etag": etag,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
         }
-        module = Module(**params)
+        module = Module(**kwargs)
 
         return self.protocol.service.create_or_update_device(device_id, module_id, module)
 
