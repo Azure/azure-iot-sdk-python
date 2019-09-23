@@ -16,7 +16,7 @@ from . import (
     pipeline_exceptions,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
-from azure.iot.device.common import unhandled_exceptions, transport_exceptions
+from azure.iot.device.common import handle_exceptions, transport_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,7 @@ class MQTTTransportStage(PipelineStage):
             operation_flow.complete_op(stage=self, op=op)
         else:
             logger.warning("{}: Connection failure was unexpected".format(self.name))
-            unhandled_exceptions.exception_caught_in_background_thread(cause)
+            handle_exceptions.handle_background_exception(cause)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_disconnected(self, cause=None):
@@ -246,12 +246,13 @@ class MQTTTransportStage(PipelineStage):
             # Swallow any errors, because we intended to disconnect - even if something went wrong, we
             # got to the state we wanted to be in!
             if cause:
-                logger.warning(
-                    "Unexpected disconnect with error while disconnecting - swallowing error"
+                handle_exceptions.swallow_unraised_exception(
+                    cause,
+                    log_msg="Unexpected disconnect with error while disconnecting - swallowing error",
                 )
             operation_flow.complete_op(stage=self, op=op)
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError
             e = transport_exceptions.ConnectionDroppedError(cause=cause)
-            unhandled_exceptions.exception_caught_in_background_thread(e)
+            handle_exceptions.handle_background_exception(e)

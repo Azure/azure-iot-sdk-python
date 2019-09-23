@@ -7,7 +7,7 @@ import logging
 import pytest
 import sys
 import six
-from azure.iot.device.common import transport_exceptions, unhandled_exceptions
+from azure.iot.device.common import transport_exceptions, handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -595,9 +595,7 @@ class TestMQTTProviderOnConnectionFailure(object):
     ):
         # A connection failure is unexpected if there is not a pending Connect/Reconnect operation
         # i.e. "Why did we get a connection failure? We weren't even trying to connect!"
-        mock_handler = mocker.patch.object(
-            unhandled_exceptions, "exception_caught_in_background_thread"
-        )
+        mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
         stage._pending_connection_operation = pending_connection_op
         stage.transport.on_mqtt_connection_failure_handler(fake_exception)
         assert mock_handler.call_count == 1
@@ -693,9 +691,7 @@ class TestMQTTProviderOnDisconnected(object):
         self, mocker, stage, create_transport, pending_connection_op, cause
     ):
         # A disconnect is unexpected when there is no pending operation, or a pending, non-Disconnect operation
-        mock_handler = mocker.patch.object(
-            unhandled_exceptions, "exception_caught_in_background_thread"
-        )
+        mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
         stage._pending_connection_op = pending_connection_op
         stage.transport.on_mqtt_disconnected_handler(cause)
         assert mock_handler.call_count == 1
