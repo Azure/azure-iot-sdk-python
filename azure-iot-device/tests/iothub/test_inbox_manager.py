@@ -24,8 +24,8 @@ try:
 
     inbox_type_list.append(AsyncClientInbox)
     inbox_type_ids.append("Configured with AsyncClientInboxes")
-except SyntaxError:
-    # AsyncClientInbox not available if Python < 3.5
+except (SyntaxError, ImportError):
+    # AsyncClientInbox not available if Python < 3.5.3
     pass
 finally:
     from azure.iot.device.iothub.sync_inbox import SyncClientInbox
