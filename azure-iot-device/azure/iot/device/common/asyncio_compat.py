@@ -17,7 +17,10 @@ def get_running_loop():
     try:
         loop = asyncio.get_running_loop()
     except AttributeError:
-        loop = asyncio._get_running_loop()
+        try:
+            loop = asyncio._get_running_loop()
+        except AttributeError:
+            loop = asyncio.get_event_loop()
         if loop is None:
             raise RuntimeError("no running event loop")
     return loop
