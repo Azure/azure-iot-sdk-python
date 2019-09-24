@@ -13,9 +13,10 @@ from . import (
     pipeline_events_mqtt,
     operation_flow,
     pipeline_thread,
+    pipeline_exceptions,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
-from azure.iot.device.common import unhandled_exceptions, errors
+from azure.iot.device.common import handle_exceptions, transport_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,12 @@ class MQTTTransportStage(PipelineStage):
 
         op = self._pending_connection_op
         if op:
-            # TODO: should this actually run a cancel call on the op?
-            op.error = errors.PipelineError(
+            # NOTE: This code path should NOT execute in normal flow. There should never already be a pending
+            # connection op when another is added, due to the SerializeConnectOps stage.
+            # If this block does execute, there is a bug in the codebase.
+            op.error = pipeline_exceptions.OperationCancelled(
                 "Cancelling because new ConnectOperation, DisconnectOperation, or ReconnectOperation was issued"
-            )
+            )  # TODO: should this actually somehow cancel the operation?
             operation_flow.complete_op(stage=self, op=op)
             self._pending_connection_op = None
 
@@ -217,7 +220,7 @@ class MQTTTransportStage(PipelineStage):
             operation_flow.complete_op(stage=self, op=op)
         else:
             logger.warning("{}: Connection failure was unexpected".format(self.name))
-            unhandled_exceptions.exception_caught_in_background_thread(cause)
+            handle_exceptions.handle_background_exception(cause)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_disconnected(self, cause=None):
@@ -240,18 +243,16 @@ class MQTTTransportStage(PipelineStage):
             op = self._pending_connection_op
             self._pending_connection_op = None
 
+            # Swallow any errors, because we intended to disconnect - even if something went wrong, we
+            # got to the state we wanted to be in!
             if cause:
-                # Only create a ConnnectionDroppedError if there is a cause,
-                # i.e. unexpected disconnect.
-                try:
-                    six.raise_from(errors.ConnectionDroppedError, cause)
-                except errors.ConnectionDroppedError as e:
-                    op.error = e
+                handle_exceptions.swallow_unraised_exception(
+                    cause,
+                    log_msg="Unexpected disconnect with error while disconnecting - swallowing error",
+                )
             operation_flow.complete_op(stage=self, op=op)
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError
-            try:
-                six.raise_from(errors.ConnectionDroppedError, cause)
-            except errors.ConnectionDroppedError as e:
-                unhandled_exceptions.exception_caught_in_background_thread(e)
+            e = transport_exceptions.ConnectionDroppedError(cause=cause)
+            handle_exceptions.handle_background_exception(e)
