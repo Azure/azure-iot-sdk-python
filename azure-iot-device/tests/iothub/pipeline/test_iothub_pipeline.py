@@ -145,7 +145,7 @@ class TestIoTHubPipelineInstantiation(object):
         old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
         def fail_set_auth_provider(self, op):
-            if isinstance(op, pipeline_stages_base.SetAuthProviderOperation):
+            if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
                 op.error = fake_exception
                 operation_flow.complete_op(stage=self, op=op)
             else:
@@ -182,7 +182,7 @@ class TestIoTHubPipelineInstantiation(object):
         old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
         def fail_set_auth_provider(self, op):
-            if isinstance(op, pipeline_stages_base.SetX509AuthProviderOperation):
+            if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
                 op.error = fake_exception
                 operation_flow.complete_op(stage=self, op=op)
             else:
