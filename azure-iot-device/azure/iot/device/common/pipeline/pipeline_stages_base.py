@@ -13,7 +13,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base
 from . import operation_flow
 from . import pipeline_thread
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ class PipelineStage(object):
             logger.error(
                 msg="Unexpected error in {}._handle_pipeline_event() call".format(self), exc_info=e
             )
-            unhandled_exceptions.exception_caught_in_background_thread(e)
+            handle_exceptions.handle_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):

@@ -215,19 +215,23 @@ class TestIoTEdgeHsmGetTrustBundle(object):
     def test_bad_request(self, mocker, hsm):
         mock_request_get = mocker.patch.object(requests, "get")
         mock_response = mock_request_get.return_value
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError
+        error = requests.exceptions.HTTPError()
+        mock_response.raise_for_status.side_effect = error
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(IoTEdgeError) as e_info:
             hsm.get_trust_bundle()
+        assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the trust bundle")
     def test_bad_json(self, mocker, hsm):
         mock_request_get = mocker.patch.object(requests, "get")
         mock_response = mock_request_get.return_value
-        mock_response.json.side_effect = ValueError
+        error = ValueError()
+        mock_response.json.side_effect = error
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(IoTEdgeError) as e_info:
             hsm.get_trust_bundle()
+        assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if the certificate is missing from the trust bundle")
     def test_bad_trust_bundle(self, mocker, hsm):
@@ -306,19 +310,22 @@ class TestIoTEdgeHsmSign(object):
     def test_bad_request(self, mocker, hsm):
         mock_request_post = mocker.patch.object(requests, "post")
         mock_response = mock_request_post.return_value
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError
+        error = requests.exceptions.HTTPError()
+        mock_response.raise_for_status.side_effect = error
 
-        with pytest.raises(IoTEdgeError):
+        with pytest.raises(IoTEdgeError) as e_info:
             hsm.sign("somedata")
+        assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if there is an error in json decoding the signed response")
     def test_bad_json(self, mocker, hsm):
         mock_request_post = mocker.patch.object(requests, "post")
         mock_response = mock_request_post.return_value
-        mock_response.json.side_effect = ValueError
-
-        with pytest.raises(IoTEdgeError):
+        error = ValueError()
+        mock_response.json.side_effect = error
+        with pytest.raises(IoTEdgeError) as e_info:
             hsm.sign("somedata")
+        assert e_info.value.__cause__ is error
 
     @pytest.mark.it("Raises IoTEdgeError if the signed data is missing from the response")
     def test_bad_response(self, mocker, hsm):
