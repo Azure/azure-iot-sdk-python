@@ -12,7 +12,7 @@ from azure.iot.device.common.pipeline import (
     operation_flow,
     pipeline_thread,
 )
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 from . import pipeline_ops_iothub
 from . import constant
 
@@ -79,7 +79,7 @@ class UseAuthProviderStage(PipelineStage):
                         self.name, op.name, op.error
                     )
                 )
-                unhandled_exceptions.exception_caught_in_background_thread(op.error)
+                handle_exceptions.handle_background_exception(op.error)
             else:
                 logger.debug(
                     "{}({}): token update operation is complete".format(self.name, op.name)

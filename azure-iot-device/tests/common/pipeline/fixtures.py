@@ -6,7 +6,7 @@
 import pytest
 import threading
 from tests.common.pipeline import helpers
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -115,4 +115,4 @@ def fake_non_pipeline_thread():
 
 @pytest.fixture
 def unhandled_error_handler(mocker):
-    return mocker.patch.object(unhandled_exceptions, "exception_caught_in_background_thread")
+    return mocker.patch.object(handle_exceptions, "handle_background_exception")

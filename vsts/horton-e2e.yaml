@@ -1,7 +1,7 @@
 variables:
   Horton.FrameworkRoot: $(Agent.BuildDirectory)/e2e-fx
   Horton.FrameworkRef: master
-  Horton.Language: pythonpreview
+  Horton.Language: pythonv2
   Horton.Repo: $(Build.Repository.Uri)
   Horton.Commit: $(Build.SourceBranch)
   Horton.ForcedImage: ''
@@ -15,6 +15,6 @@ resources:
     endpoint: 'GitHub OAuth - az-iot-builder-01'
 
 jobs:
-- template: vsts/templates/jobs-gate-pythonpreview.yaml@e2e_fx
+- template: vsts/templates/jobs-gate-pythonv2.yaml@e2e_fx
 
   
