@@ -26,10 +26,13 @@ def callback(mocker):
     return mocker.MagicMock()
 
 
+class FakeException(Exception):
+    pass
+
+
 @pytest.fixture
 def fake_exception():
-    class FakeException(Exception):
-        pass
+    # return Exception()
 
     return FakeException()
 
