@@ -119,27 +119,27 @@ class TestAwaitableCallback(object):
     @pytest.mark.it(
         "Causes an error to be set on the instance Future when an error parameter is passed to the call (without return_arg_name)"
     )
-    async def test_raises_error_without_return_arg_name(self, fake_error):
+    async def test_raises_error_without_return_arg_name(self, fake_exception):
         callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
-        callback(error=fake_error)
+        callback(error=fake_exception)
         await asyncio.sleep(0.1)  # wait to give time to complete the callback
         assert callback.future.done()
-        assert callback.future.exception() == fake_error
-        with pytest.raises(fake_error.__class__) as e_info:
+        assert callback.future.exception() == fake_exception
+        with pytest.raises(fake_exception.__class__) as e_info:
             await callback.completion()
-        assert e_info.value is fake_error
+        assert e_info.value is fake_exception
 
     @pytest.mark.it(
         "Causes an error to be set on the instance Future when an error parameter is passed to the call (with return_arg_name)"
     )
-    async def test_raises_error_with_return_arg_name(self, fake_error):
+    async def test_raises_error_with_return_arg_name(self, fake_exception):
         callback = async_adapter.AwaitableCallback(return_arg_name="arg_name")
         assert not callback.future.done()
-        callback(error=fake_error)
+        callback(error=fake_exception)
         await asyncio.sleep(0.1)  # wait to give time to complete the callback
         assert callback.future.done()
-        assert callback.future.exception() == fake_error
-        with pytest.raises(fake_error.__class__) as e_info:
+        assert callback.future.exception() == fake_exception
+        with pytest.raises(fake_exception.__class__) as e_info:
             await callback.completion()
-        assert e_info.value is fake_error
+        assert e_info.value is fake_exception

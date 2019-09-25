@@ -23,8 +23,16 @@ You may still use exceptions defined elsewhere for non-arbitrary exceptions
 
 
 @pytest.fixture
-def fake_error():
+def fake_exception():
     class FakeException(Exception):
         pass
 
     return FakeException()
+
+
+# @pytest.fixture
+# def fake_base_exception():
+#     class FakeBaseException(BaseException):
+#         pass
+
+#     return FakeBaseException()

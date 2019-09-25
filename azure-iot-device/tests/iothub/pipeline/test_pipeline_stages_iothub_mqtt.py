@@ -1196,16 +1196,14 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
     @pytest.mark.it(
         "Returns op.error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
     )
-    def test_publish_op_returns_failure(self, stage, op):
-        error = Exception()
-
+    def test_publish_op_returns_failure(self, stage, op, fake_exception):
         def next_stage_run_op(self, op):
-            op.error = error
+            op.error = fake_exception
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=error)
+        assert_callback_failed(op=op, error=fake_exception)
 
     @pytest.mark.it(
         "Returns op.error=None in the operation callback if the MQTTPublishOperation returned op.error=None in its operation callback"

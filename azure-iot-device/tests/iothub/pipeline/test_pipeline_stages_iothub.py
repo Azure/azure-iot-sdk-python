@@ -416,16 +416,14 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
     @pytest.mark.it(
         "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
     )
-    def test_next_stage_returns_error(self, stage, op):
-        error = Exception()
-
+    def test_next_stage_returns_error(self, stage, op, fake_exception):
         def next_stage_run_op(self, op):
-            op.error = error
+            op.error = fake_exception
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=error)
+        assert_callback_failed(op=op, error=fake_exception)
 
     @pytest.mark.it(
         "Returns an error in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
@@ -514,16 +512,14 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     @pytest.mark.it(
         "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
     )
-    def test_next_stage_returns_error(self, stage, op):
-        error = Exception()
-
+    def test_next_stage_returns_error(self, stage, op, fake_exception):
         def next_stage_run_op(self, op):
-            op.error = error
+            op.error = fake_exception
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=error)
+        assert_callback_failed(op=op, error=fake_exception)
 
     @pytest.mark.it(
         "Returns an error in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"

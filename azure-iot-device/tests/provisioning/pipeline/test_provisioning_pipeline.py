@@ -151,6 +151,7 @@ class TestInit(object):
             pipeline_stages_base.PipelineRootStage,
             "_execute_op",
             side_effect=fail_set_auth_provider,
+            autospec=True,
         )
 
         with pytest.raises(fake_exception.__class__):
