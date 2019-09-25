@@ -16,10 +16,27 @@ from azure.iot.device.iothub.abstract_clients import (
 )
 from azure.iot.device.iothub.models import Message
 from azure.iot.device.iothub.pipeline import constant
+from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
+from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
 
 logger = logging.getLogger(__name__)
+
+
+async def handle_result(callback):
+    try:
+        return await callback.completion()
+    except pipeline_exceptions.ConnectionDroppedError as e:
+        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+    except pipeline_exceptions.ConnectionFailedError as e:
+        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+    except pipeline_exceptions.UnauthorizedError as e:
+        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+    except pipeline_exceptions.ProtocolClientError as e:
+        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except Exception as e:
+        raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
 
 class GenericIoTHubClient(AbstractIoTHubClient):
@@ -62,31 +79,39 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         The destination is chosen based on the credentials passed via the auth_provider parameter
         that was provided when this object was initialized.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Connecting to Hub...")
         connect_async = async_adapter.emulate_async(self._iothub_pipeline.connect)
 
-        def sync_callback():
-            logger.info("Successfully connected to Hub")
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback()
         await connect_async(callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully connected to Hub")
 
     async def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
+
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Disconnecting from Hub...")
         disconnect_async = async_adapter.emulate_async(self._iothub_pipeline.disconnect)
 
-        def sync_callback():
-            logger.info("Successfully disconnected from Hub")
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback()
         await disconnect_async(callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully disconnected from Hub")
 
     async def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -96,6 +121,15 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         if not isinstance(message, Message):
             message = Message(message)
@@ -103,13 +137,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Sending message to Hub...")
         send_message_async = async_adapter.emulate_async(self._iothub_pipeline.send_message)
 
-        def sync_callback():
-            logger.info("Successfully sent message to Hub")
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback()
         await send_message_async(message, callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully sent message to Hub")
 
     async def receive_method_request(self, method_name=None):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
@@ -141,20 +173,28 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Sending method response to Hub...")
         send_method_response_async = async_adapter.emulate_async(
             self._iothub_pipeline.send_method_response
         )
 
-        def sync_callback():
-            logger.info("Successfully sent method response to Hub")
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
+        callback = async_adapter.AwaitableCallback()
 
         # TODO: maybe consolidate method_request, result and status into a new object
         await send_method_response_async(method_response, callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully sent method response to Hub")
 
     async def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature
@@ -165,19 +205,26 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Enabling feature:" + feature_name + "...")
         enable_feature_async = async_adapter.emulate_async(self._iothub_pipeline.enable_feature)
 
-        def sync_callback():
-            logger.info("Successfully enabled feature:" + feature_name)
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback()
         await enable_feature_async(feature_name, callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully enabled feature:" + feature_name)
 
     async def get_twin(self):
         """
         Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
 
         :returns: Twin object which was retrieved from the hub
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Getting twin")
 
@@ -186,18 +233,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         get_twin_async = async_adapter.emulate_async(self._iothub_pipeline.get_twin)
 
-        twin = None
-
-        def sync_callback(received_twin):
-            nonlocal twin
-            logger.info("Successfully retrieved twin")
-            twin = received_twin
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback(return_arg_name="twin")
         await get_twin_async(callback=callback)
-        await callback.completion()
-
+        twin = await handle_result(callback)
+        logger.info("Successfully retrieved twin")
         return twin
 
     async def patch_twin_reported_properties(self, reported_properties_patch):
@@ -209,6 +248,15 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param reported_properties_patch:
         :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Patching twin reported properties")
 
@@ -219,13 +267,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             self._iothub_pipeline.patch_twin_reported_properties
         )
 
-        def sync_callback():
-            logger.info("Successfully sent twin patch")
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback()
         await patch_twin_async(patch=reported_properties_patch, callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully sent twin patch")
 
     async def receive_twin_desired_properties_patch(self):
         """
@@ -312,6 +358,15 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param message: Message to send to the given output. Anything passed that is not an instance of the
             Message class will be converted to Message object.
         :param str output_name: Name of the output to send the event to.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         if not isinstance(message, Message):
             message = Message(message)
@@ -323,13 +378,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             self._iothub_pipeline.send_output_event
         )
 
-        def sync_callback():
-            logger.info("Successfully sent message to output: " + output_name)
-
-        callback = async_adapter.AwaitableCallback(sync_callback)
-
+        callback = async_adapter.AwaitableCallback()
         await send_output_event_async(message, callback=callback)
-        await callback.completion()
+        await handle_result(callback)
+
+        logger.info("Successfully sent message to output: " + output_name)
 
     async def receive_message_on_input(self, input_name):
         """Receive an input message that has been sent from another Module to a specific input.

@@ -9,7 +9,7 @@ import threading
 import traceback
 from multiprocessing.pool import ThreadPool
 from concurrent.futures import ThreadPoolExecutor
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def _get_named_executor(thread_name):
     """
     global _executors
     if thread_name not in _executors:
-        logger.info("Creating {} executor".format(thread_name))
+        logger.debug("Creating {} executor".format(thread_name))
         _executors[thread_name] = ThreadPoolExecutor(max_workers=1)
     return _executors[thread_name]
 
@@ -105,7 +105,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
 
     def wrapper(*args, **kwargs):
         if threading.current_thread().name is not thread_name:
-            logger.info("Starting {} in {} thread".format(function_name, thread_name))
+            logger.debug("Starting {} in {} thread".format(function_name, thread_name))
 
             def thread_proc():
                 threading.current_thread().name = thread_name
@@ -113,7 +113,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
                     return func(*args, **kwargs)
                 except Exception as e:
                     if not block:
-                        unhandled_exceptions.exception_caught_in_background_thread(e)
+                        handle_exceptions.handle_background_exception(e)
                     else:
                         raise
                 except BaseException:

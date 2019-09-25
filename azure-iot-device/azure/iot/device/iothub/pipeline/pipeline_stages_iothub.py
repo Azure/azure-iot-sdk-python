@@ -12,7 +12,7 @@ from azure.iot.device.common.pipeline import (
     operation_flow,
     pipeline_thread,
 )
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 from . import pipeline_ops_iothub
 from . import constant
 
@@ -68,18 +68,22 @@ class UseAuthProviderStage(PipelineStage):
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def on_sas_token_updated(self):
         logger.info(
-            "%s: New sas token received.  Passing down UpdateSasTokenOperation.".format(self.name)
+            "{}: New sas token received.  Passing down UpdateSasTokenOperation.".format(self.name)
         )
 
         @pipeline_thread.runs_on_pipeline_thread
         def on_token_update_complete(op):
-            logger.info(
-                "{}({}): token update operation is complete.  Error={}".format(
-                    self.name, op.name, op.error
-                )
-            )
             if op.error:
-                unhandled_exceptions.exception_caught_in_background_thread(op.error)
+                logger.error(
+                    "{}({}): token update operation failed.  Error={}".format(
+                        self.name, op.name, op.error
+                    )
+                )
+                handle_exceptions.handle_background_exception(op.error)
+            else:
+                logger.debug(
+                    "{}({}): token update operation is complete".format(self.name, op.name)
+                )
 
         operation_flow.pass_op_to_next_stage(
             stage=self,
@@ -116,7 +120,7 @@ class HandleTwinOperationsStage(PipelineStage):
         if isinstance(op, pipeline_ops_iothub.GetTwinOperation):
 
             def on_twin_response(twin_op):
-                logger.info("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
+                logger.debug("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
                 map_twin_error(original_op=op, twin_op=twin_op)
                 if not twin_op.error:
                     op.twin = json.loads(twin_op.response_body.decode("utf-8"))
@@ -136,7 +140,7 @@ class HandleTwinOperationsStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.PatchTwinReportedPropertiesOperation):
 
             def on_twin_response(twin_op):
-                logger.info(
+                logger.debug(
                     "{}({}): Got response for PatchTwinReportedPropertiesOperation operation".format(
                         self.name, op.name
                     )
@@ -144,7 +148,7 @@ class HandleTwinOperationsStage(PipelineStage):
                 map_twin_error(original_op=op, twin_op=twin_op)
                 operation_flow.complete_op(self, op)
 
-            logger.info(
+            logger.debug(
                 "{}({}): Sending reported properties patch: {}".format(self.name, op.name, op.patch)
             )
 

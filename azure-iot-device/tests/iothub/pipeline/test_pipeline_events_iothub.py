@@ -8,7 +8,7 @@ import logging
 from azure.iot.device.iothub.pipeline import pipeline_events_iothub
 from tests.common.pipeline import pipeline_data_object_test
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
 
 pipeline_data_object_test.add_event_test(

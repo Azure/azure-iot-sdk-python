@@ -132,7 +132,7 @@ class AbstractProvisioningDeviceClient(object):
         pass
 
 
-def log_on_register_complete(result=None, error=None):
+def log_on_register_complete(result=None):
     # This could be a failed/successful registration result from DPS
     # or a error from polling machine. Response should be given appropriately
     if result is not None:
@@ -140,5 +140,3 @@ def log_on_register_complete(result=None, error=None):
             logger.info("Successfully registered with Provisioning Service")
         else:  # There be other statuses
             logger.error("Failed registering with Provisioning Service")
-    if error is not None:  # This can only happen when the polling machine runs into error
-        logger.error(error)

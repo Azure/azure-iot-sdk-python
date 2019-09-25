@@ -10,7 +10,7 @@ import pytest
 import sys
 import threading
 from concurrent.futures import Future
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
 from tests.common.pipeline.helpers import (
@@ -27,7 +27,7 @@ from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 this_module = sys.modules[__name__]
 
@@ -328,15 +328,13 @@ class TestUseAuthProviderOnSasTokenUpdated(object):
     def test_raises_exception(self, stage, mocker):
         threading.current_thread().name = "not_pipeline"
 
-        mocker.spy(unhandled_exceptions, "exception_caught_in_background_thread")
+        mocker.spy(handle_exceptions, "handle_background_exception")
         stage.next.run_op.side_effect = Exception
         future = stage.on_sas_token_updated()
         future.result()
 
-        assert unhandled_exceptions.exception_caught_in_background_thread.call_count == 1
-        assert isinstance(
-            unhandled_exceptions.exception_caught_in_background_thread.call_args[0][0], Exception
-        )
+        assert handle_exceptions.handle_background_exception.call_count == 1
+        assert isinstance(handle_exceptions.handle_background_exception.call_args[0][0], Exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
     def test_raises_base_exception(self, stage):

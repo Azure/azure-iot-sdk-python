@@ -8,7 +8,6 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-import threading
 from .abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -16,10 +15,28 @@ from .abstract_clients import (
 )
 from .models import Message
 from .inbox_manager import InboxManager
-from .sync_inbox import SyncClientInbox
-from .pipeline import constant
+from .sync_inbox import SyncClientInbox, InboxEmpty
+from .pipeline import constant as pipeline_constant
+from .pipeline import exceptions as pipeline_exceptions
+from azure.iot.device import exceptions
+from azure.iot.device.common.evented_callback import EventedCallback
 
 logger = logging.getLogger(__name__)
+
+
+def handle_result(callback):
+    try:
+        return callback.wait_for_completion()
+    except pipeline_exceptions.ConnectionDroppedError as e:
+        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+    except pipeline_exceptions.ConnectionFailedError as e:
+        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+    except pipeline_exceptions.UnauthorizedError as e:
+        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+    except pipeline_exceptions.ProtocolClientError as e:
+        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except Exception as e:
+        raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
 
 class GenericIoTHubClient(AbstractIoTHubClient):
@@ -65,34 +82,40 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely established.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Connecting to Hub...")
 
-        connect_complete = threading.Event()
-
-        def callback():
-            connect_complete.set()
-            logger.info("Successfully connected to Hub")
-
+        callback = EventedCallback()
         self._iothub_pipeline.connect(callback=callback)
-        connect_complete.wait()
+        handle_result(callback)
+
+        logger.info("Successfully connected to Hub")
 
     def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely closed.
+
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Disconnecting from Hub...")
 
-        disconnect_complete = threading.Event()
-
-        def callback():
-            disconnect_complete.set()
-            logger.info("Successfully disconnected from Hub")
-
+        callback = EventedCallback()
         self._iothub_pipeline.disconnect(callback=callback)
-        disconnect_complete.wait()
+        handle_result(callback)
+
+        logger.info("Successfully disconnected from Hub")
 
     def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -105,19 +128,26 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         if not isinstance(message, Message):
             message = Message(message)
 
         logger.info("Sending message to Hub...")
-        send_complete = threading.Event()
 
-        def callback():
-            send_complete.set()
-            logger.info("Successfully sent message to Hub")
-
+        callback = EventedCallback()
         self._iothub_pipeline.send_message(message, callback=callback)
-        send_complete.wait()
+        handle_result(callback)
+
+        logger.info("Successfully sent message to Hub")
 
     def receive_method_request(self, method_name=None, block=True, timeout=None):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
@@ -128,19 +158,19 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param bool block: Indicates if the operation should block until a request is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
-        :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no request is available on a non-blocking operation.
-
-        :returns: MethodRequest object representing the received method request.
-        :rtype: `azure.iot.device.MethodRequest`
+        :returns: MethodRequest object representing the received method request, or None if
+            no method request has been received by the end of the blocking period.
         """
-        if not self._iothub_pipeline.feature_enabled[constant.METHODS]:
-            self._enable_feature(constant.METHODS)
+        if not self._iothub_pipeline.feature_enabled[pipeline_constant.METHODS]:
+            self._enable_feature(pipeline_constant.METHODS)
 
         method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
 
         logger.info("Waiting for method request...")
-        method_request = method_inbox.get(block=block, timeout=timeout)
+        try:
+            method_request = method_inbox.get(block=block, timeout=timeout)
+        except InboxEmpty:
+            method_request = None
         logger.info("Received method request")
         return method_request
 
@@ -155,16 +185,23 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param method_response: The MethodResponse to send.
         :type method_response: :class:`azure.iot.device.MethodResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         logger.info("Sending method response to Hub...")
-        send_complete = threading.Event()
 
-        def callback():
-            send_complete.set()
-            logger.info("Successfully sent method response to Hub")
-
+        callback = EventedCallback()
         self._iothub_pipeline.send_method_response(method_response, callback=callback)
-        send_complete.wait()
+        handle_result(callback)
+
+        logger.info("Successfully sent method response to Hub")
 
     def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature.
@@ -176,14 +213,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             See azure.iot.device.common.pipeline.constant for possible values
         """
         logger.info("Enabling feature:" + feature_name + "...")
-        enable_complete = threading.Event()
 
-        def callback():
-            enable_complete.set()
-            logger.info("Successfully enabled feature:" + feature_name)
-
+        callback = EventedCallback()
         self._iothub_pipeline.enable_feature(feature_name, callback=callback)
-        enable_complete.wait()
+        callback.wait_for_completion()
+
+        logger.info("Successfully enabled feature:" + feature_name)
 
     def get_twin(self):
         """
@@ -192,26 +227,26 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         This is a synchronous call, meaning that this function will not return until the twin
         has been retrieved from the service.
 
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+
         :returns: Twin object which was retrieved from the hub
         """
-        if not self._iothub_pipeline.feature_enabled[constant.TWIN]:
-            self._enable_feature(constant.TWIN)
+        if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            self._enable_feature(pipeline_constant.TWIN)
 
-        # hack to work aroud lack of the "nonlocal" keyword in 2.7.  The non-local "context"
-        # object can be read and modified inside the inner function.
-        # (https://stackoverflow.com/a/28433571)
-        class context:
-            twin = None
+        callback = EventedCallback(return_arg_name="twin")
+        self._iothub_pipeline.get_twin(callback=callback)
+        twin = handle_result(callback)
 
-        op_complete = threading.Event()
-
-        def on_pipeline_op_complete(retrieved_twin):
-            context.twin = retrieved_twin
-            op_complete.set()
-
-        self._iothub_pipeline.get_twin(callback=on_pipeline_op_complete)
-        op_complete.wait()
-        return context.twin
+        logger.info("Successfully retrieved twin")
+        return twin
 
     def patch_twin_reported_properties(self, reported_properties_patch):
         """
@@ -225,20 +260,26 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param reported_properties_patch:
         :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
-        if not self._iothub_pipeline.feature_enabled[constant.TWIN]:
-            self._enable_feature(constant.TWIN)
+        if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            self._enable_feature(pipeline_constant.TWIN)
 
-        op_complete = threading.Event()
-
-        def on_pipeline_op_complete():
-            op_complete.set()
-
+        callback = EventedCallback()
         self._iothub_pipeline.patch_twin_reported_properties(
-            patch=reported_properties_patch, callback=on_pipeline_op_complete
+            patch=reported_properties_patch, callback=callback
         )
-        op_complete.wait()
-        print("Done with patch")
+        handle_result(callback)
+
+        logger.info("Successfully patched twin")
 
     def receive_twin_desired_properties_patch(self, block=True, timeout=None):
         """
@@ -257,17 +298,18 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :param bool block: Indicates if the operation should block until a request is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
-        :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no request is available on a non-blocking operation.
-
-        :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values)
+        :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values).
+            Also returns None if no patch has been received by the end of the blocking period.
         """
-        if not self._iothub_pipeline.feature_enabled[constant.TWIN_PATCHES]:
-            self._enable_feature(constant.TWIN_PATCHES)
+        if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
+            self._enable_feature(pipeline_constant.TWIN_PATCHES)
         twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
 
         logger.info("Waiting for twin patches...")
-        patch = twin_patch_inbox.get(block=block, timeout=timeout)
+        try:
+            patch = twin_patch_inbox.get(block=block, timeout=timeout)
+        except InboxEmpty:
+            return None
         logger.info("twin patch received")
         return patch
 
@@ -296,18 +338,18 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param bool block: Indicates if the operation should block until a message is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
-        :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no message is available on a non-blocking operation.
-
-        :returns: Message that was sent from the Azure IoT Hub.
-        :rtype: :class:`azure.iot.device.Message`
+        :returns: Message that was sent from the Azure IoT Hub, or None if
+            no method request has been received by the end of the blocking period.
         """
-        if not self._iothub_pipeline.feature_enabled[constant.C2D_MSG]:
-            self._enable_feature(constant.C2D_MSG)
+        if not self._iothub_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
+            self._enable_feature(pipeline_constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
 
         logger.info("Waiting for message from Hub...")
-        message = c2d_inbox.get(block=block, timeout=timeout)
+        try:
+            message = c2d_inbox.get(block=block, timeout=timeout)
+        except InboxEmpty:
+            message = None
         logger.info("Message received")
         return message
 
@@ -348,20 +390,27 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param message: Message to send to the given output. Anything passed that is not an instance of the
             Message class will be converted to Message object.
         :param str output_name: Name of the output to send the event to.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
         """
         if not isinstance(message, Message):
             message = Message(message)
         message.output_name = output_name
 
         logger.info("Sending message to output:" + output_name + "...")
-        send_complete = threading.Event()
 
-        def callback():
-            logger.info("Successfully sent message to output: " + output_name)
-            send_complete.set()
-
+        callback = EventedCallback()
         self._iothub_pipeline.send_output_event(message, callback=callback)
-        send_complete.wait()
+        handle_result(callback)
+
+        logger.info("Successfully sent message to output: " + output_name)
 
     def receive_message_on_input(self, input_name, block=True, timeout=None):
         """Receive an input message that has been sent from another Module to a specific input.
@@ -370,17 +419,17 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param bool block: Indicates if the operation should block until a message is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
-        :raises: InboxEmpty if timeout occurs on a blocking operation.
-        :raises: InboxEmpty if no message is available on a non-blocking operation.
-
-        :returns: Message that was sent to the specified input.
-        :rtype: :class:`azure.iot.device.Message`
+        :returns: Message that was sent to the specified input, or None if
+            no method request has been received by the end of the blocking period.
         """
-        if not self._iothub_pipeline.feature_enabled[constant.INPUT_MSG]:
-            self._enable_feature(constant.INPUT_MSG)
+        if not self._iothub_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
+            self._enable_feature(pipeline_constant.INPUT_MSG)
         input_inbox = self._inbox_manager.get_input_message_inbox(input_name)
 
         logger.info("Waiting for input message on: " + input_name + "...")
-        message = input_inbox.get(block=block, timeout=timeout)
+        try:
+            message = input_inbox.get(block=block, timeout=timeout)
+        except InboxEmpty:
+            message = None
         logger.info("Input message received on: " + input_name)
         return message

@@ -13,7 +13,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base
 from . import operation_flow
 from . import pipeline_thread
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ class PipelineStage(object):
             logger.error(
                 msg="Unexpected error in {}._handle_pipeline_event() call".format(self), exc_info=e
             )
-            unhandled_exceptions.exception_caught_in_background_thread(e)
+            handle_exceptions.handle_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -236,7 +236,7 @@ class PipelineRootStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def on_connected(self):
-        logger.info(
+        logger.debug(
             "{}: on_connected.  on_connected_handler={}".format(
                 self.name, self.on_connected_handler
             )
@@ -247,7 +247,7 @@ class PipelineRootStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def on_disconnected(self):
-        logger.info(
+        logger.debug(
             "{}: on_disconnected.  on_disconnected_handler={}".format(
                 self.name, self.on_disconnected_handler
             )
@@ -268,7 +268,7 @@ class EnsureConnectionStage(PipelineStage):
         # Any operation that requires a connection can trigger a connection if
         # we're not connected.
         if op.needs_connection and not self.pipeline_root.connected:
-            logger.info(
+            logger.debug(
                 "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
                     self.name, op.name
                 )
@@ -289,7 +289,7 @@ class EnsureConnectionStage(PipelineStage):
         @pipeline_thread.runs_on_pipeline_thread
         def on_connect_op_complete(op_connect):
             if op_connect.error:
-                logger.info(
+                logger.error(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
                         self.name, op.name, op_connect.error
                     )
@@ -297,13 +297,13 @@ class EnsureConnectionStage(PipelineStage):
                 op.error = op_connect.error
                 operation_flow.complete_op(stage=self, op=op)
             else:
-                logger.info(
+                logger.debug(
                     "{}({}): connection is complete.  Continuing with op".format(self.name, op.name)
                 )
                 operation_flow.pass_op_to_next_stage(stage=self, op=op)
 
         # call down to the next stage to connect.
-        logger.info("{}({}): calling down with Connect operation".format(self.name, op.name))
+        logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))
         operation_flow.pass_op_to_next_stage(
             self, pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete)
         )
@@ -336,11 +336,7 @@ class SerializeConnectOpsStage(PipelineStage):
             self.queue.put_nowait(op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
-            logger.info(
-                "{}({}): Transport is already connected.  Completing early".format(
-                    self.name, op.name
-                )
-            )
+            logger.info("{}({}): Transport is connected.  Completing.".format(self.name, op.name))
             operation_flow.complete_op(stage=self, op=op)
 
         elif (
@@ -348,9 +344,7 @@ class SerializeConnectOpsStage(PipelineStage):
             and not self.pipeline_root.connected
         ):
             logger.info(
-                "{}({}): Transport is already disconnected.  Completing early".format(
-                    self.name, op.name
-                )
+                "{}({}): Transport is disconnected.  Completing.".format(self.name, op.name)
             )
             operation_flow.complete_op(stage=self, op=op)
 
@@ -364,14 +358,20 @@ class SerializeConnectOpsStage(PipelineStage):
 
             @pipeline_thread.runs_on_pipeline_thread
             def on_operation_complete(op):
-                logger.info(
-                    "{}({}): complete.  Unblocking queue with error: {}".format(
-                        self.name, op.name, op.error
+                if op.error:
+                    logger.error(
+                        "{}({}): op failed.  Unblocking queue with error: {}".format(
+                            self.name, op.name, op.error
+                        )
                     )
-                )
+                else:
+                    logger.debug(
+                        "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
+                    )
+
                 op.callback = old_callback
                 self._unblock(op, op.error)
-                logger.info(
+                logger.debug(
                     "{}({}): unblock is complete.  completing op that caused unblock".format(
                         self.name, op.name
                     )
@@ -389,7 +389,7 @@ class SerializeConnectOpsStage(PipelineStage):
         """
         block this stage while we're waiting for the connect/disconnect/reconnect operation to complete.
         """
-        logger.info("{}({}): blocking".format(self.name, op.name))
+        logger.debug("{}({}): blocking".format(self.name, op.name))
         self.blocked = True
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -398,7 +398,7 @@ class SerializeConnectOpsStage(PipelineStage):
         Unblock this stage after the connect/disconnect/reconnect operation is complete.  This also means
         releasing all the operations that were queued up.
         """
-        logger.info("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
+        logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
         self.blocked = False
         logger.info(
             "{}({}): processing {} items in queue".format(self.name, op.name, self.queue.qsize())
@@ -413,7 +413,7 @@ class SerializeConnectOpsStage(PipelineStage):
             if error:
                 # if we're unblocking the queue because something (like a connect operation) failed,
                 # then we fail all of the blocked operations with the same error.
-                logger.info(
+                logger.error(
                     "{}({}): failing {} op because of error".format(
                         self.name, op.name, op_to_release.name
                     )
@@ -421,7 +421,7 @@ class SerializeConnectOpsStage(PipelineStage):
                 op_to_release.error = error
                 operation_flow.complete_op(self, op_to_release)
             else:
-                logger.info(
+                logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
                 # call run_op directly here so operations go through this stage again (especiall connect/disconnect ops)
@@ -451,14 +451,14 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
             @pipeline_thread.runs_on_pipeline_thread
             def on_send_request_done(send_request_op):
-                logger.info(
+                logger.debug(
                     "{}({}): Finished sending {} request to {} resource {}".format(
                         self.name, op.name, op.request_type, op.method, op.resource_location
                     )
                 )
                 if send_request_op.error:
                     op.error = send_request_op.error
-                    logger.info(
+                    logger.debug(
                         "{}({}): removing request {} from pending list".format(
                             self.name, op.name, request_id
                         )
@@ -469,13 +469,13 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     # request sent.  Nothing to do except wait for the response
                     pass
 
-            logger.info(
+            logger.debug(
                 "{}({}): Sending {} request to {} resource {}".format(
                     self.name, op.name, op.request_type, op.method, op.resource_location
                 )
             )
 
-            logger.info(
+            logger.debug(
                 "{}({}): adding request {} to pending list".format(self.name, op.name, request_id)
             )
             self.pending_responses[request_id] = op
@@ -500,7 +500,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             # operations which have not received responses yet.  If the operation is found,
             # complete it.
 
-            logger.info(
+            logger.debug(
                 "{}({}): Handling event with request_id {}".format(
                     self.name, event.name, event.request_id
                 )
@@ -510,7 +510,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 del (self.pending_responses[event.request_id])
                 op.status_code = event.status_code
                 op.response_body = event.response_body
-                logger.info(
+                logger.debug(
                     "{}({}): Completing {} request to {} resource {} with status {}".format(
                         self.name,
                         op.name,

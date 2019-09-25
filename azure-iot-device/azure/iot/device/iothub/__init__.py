@@ -5,14 +5,6 @@ as a Device or Module.
 """
 
 from .sync_clients import IoTHubDeviceClient, IoTHubModuleClient
-from .sync_inbox import InboxEmpty
 from .models import Message, MethodRequest, MethodResponse
 
-__all__ = [
-    "IoTHubDeviceClient",
-    "IoTHubModuleClient",
-    "Message",
-    "MethodRequest",
-    "MethodResponse",
-    "InboxEmpty",
-]
+__all__ = ["IoTHubDeviceClient", "IoTHubModuleClient", "Message", "MethodRequest", "MethodResponse"]

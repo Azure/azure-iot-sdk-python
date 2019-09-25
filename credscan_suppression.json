@@ -1,0 +1,14 @@
+{
+  "tool": "Credential Scanner",
+  "suppressions": [
+    {
+     "file": "\\azure_provisioning_e2e\\tests\\test_async_certificate_enrollments.py",
+      "_justification": "Test containing fake passwords and keys"
+    },
+    {
+     "file": "\\azure_provisioning_e2e\\tests\\test_sync_certificate_enrollments.py",
+      "_justification": "Test containing fake passwords and keys"
+    }
+  ]
+
+}
