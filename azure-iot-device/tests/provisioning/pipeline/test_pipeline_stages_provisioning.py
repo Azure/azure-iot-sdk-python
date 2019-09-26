@@ -23,7 +23,6 @@ from tests.common.pipeline.helpers import (
     all_common_events,
     all_except,
     make_mock_stage,
-    UnhandledException,
 )
 from azure.iot.device.common.pipeline import pipeline_events_base
 from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
@@ -153,8 +152,9 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
         self, mocker, security_stage, unexpected_base_exception, set_security_client
     ):
         security_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             security_stage.run_op(set_security_client)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Retrieves sas_token or x509_client_cert on the security_client and passes the result as the attribute of the next operation"
@@ -241,5 +241,6 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
             set_security_client.security_client.get_x509_certificate = mocker.Mock(
                 side_effect=unexpected_base_exception
             )
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             security_stage.run_op(set_security_client)
+        assert e_info.value is unexpected_base_exception

@@ -20,7 +20,6 @@ from tests.common.pipeline.helpers import (
     make_mock_stage,
     assert_callback_failed,
     assert_callback_succeeded,
-    UnhandledException,
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -129,5 +128,5 @@ class TestCompleteOp(object):
     @pytest.mark.it("Allows any BaseExceptions raised in operation callback to propagate")
     def test_op_callback_raises_base_exception(self, stage, op, unexpected_base_exception, mocker):
         op.callback = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__):
             complete_op(stage, op)

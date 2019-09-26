@@ -31,7 +31,6 @@ from tests.common.pipeline.helpers import (
     all_common_events,
     all_except,
     make_mock_stage,
-    UnhandledException,
 )
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
@@ -386,8 +385,9 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
         self, stage, mocker, unexpected_base_exception, set_connection_args
     ):
         stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(set_connection_args)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Calls the SetIoTHubConnectionArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
@@ -581,8 +581,9 @@ class TestIoTHubMQTTConverterBasicOperations(object):
         self, params, mocker, stage, stages_configured_for_both, op, unexpected_base_exception
     ):
         stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(op)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
     def test_operation_succeeds(self, params, stage, stages_configured_for_both, op):
@@ -1188,10 +1189,11 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
         assert_callback_failed(op=op, error=Exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised by the MQTTPublishOperation to propagate")
-    def test_next_stage_raises_base_exception(self, stage, op):
-        stage.next.run_op.side_effect = UnhandledException
-        with pytest.raises(UnhandledException):
+    def test_next_stage_raises_base_exception(self, stage, op, unexpected_base_exception):
+        stage.next.run_op.side_effect = unexpected_base_exception
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(op)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Returns op.error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"

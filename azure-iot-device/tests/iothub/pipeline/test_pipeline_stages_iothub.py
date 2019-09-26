@@ -20,7 +20,6 @@ from tests.common.pipeline.helpers import (
     all_common_events,
     all_except,
     make_mock_stage,
-    UnhandledException,
 )
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
@@ -211,8 +210,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         self, mocker, stage, unexpected_base_exception, set_auth_provider
     ):
         stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(set_auth_provider)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Retrieves sas_token or x509_certificate on the auth provider and passes the result as the attribute of the next operation"
@@ -278,8 +278,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
                 side_effect=unexpected_base_exception
             )
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(set_auth_provider)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it("Sets the on_sas_token_updated_handler handler")
     def test_sets_sas_token_updated_handler(
@@ -325,26 +326,26 @@ class TestUseAuthProviderOnSasTokenUpdated(object):
     @pytest.mark.it(
         "Handles any Exceptions raised by the UpdateSasTokenOperation and passes them into the unhandled exception handler"
     )
-    def test_raises_exception(self, stage, mocker):
+    def test_raises_exception(self, stage, mocker, unhandled_error_handler, unexpected_exception):
         threading.current_thread().name = "not_pipeline"
 
-        mocker.spy(handle_exceptions, "handle_background_exception")
-        stage.next.run_op.side_effect = Exception
+        stage.next.run_op.side_effect = unexpected_exception
         future = stage.on_sas_token_updated()
         future.result()
 
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert isinstance(handle_exceptions.handle_background_exception.call_args[0][0], Exception)
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args[0][0] is unexpected_exception
 
     @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
-    def test_raises_base_exception(self, stage):
+    def test_raises_base_exception(self, stage, unexpected_base_exception):
         threading.current_thread().name = "not_pipeline"
 
-        stage.next.run_op.side_effect = UnhandledException
+        stage.next.run_op.side_effect = unexpected_base_exception
         future = stage.on_sas_token_updated()
 
-        with pytest.raises(BaseException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             future.result()
+        assert e_info.value is unexpected_base_exception
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -408,10 +409,11 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
     @pytest.mark.it(
         "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
     )
-    def test_next_stage_raises_base_exception(self, stage, op):
-        stage.next.run_op.side_effect = UnhandledException
-        with pytest.raises(UnhandledException):
+    def test_next_stage_raises_base_exception(self, stage, op, unexpected_base_exception):
+        stage.next.run_op.side_effect = unexpected_base_exception
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(op)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
@@ -504,10 +506,11 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     @pytest.mark.it(
         "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
     )
-    def test_next_stage_raises_base_exception(self, stage, op):
-        stage.next.run_op.side_effect = UnhandledException
-        with pytest.raises(UnhandledException):
+    def test_next_stage_raises_base_exception(self, stage, op, unexpected_base_exception):
+        stage.next.run_op.side_effect = unexpected_base_exception
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(op)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"

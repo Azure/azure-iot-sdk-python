@@ -26,7 +26,6 @@ from tests.common.pipeline.helpers import (
     all_common_events,
     all_except,
     make_mock_stage,
-    UnhandledException,
 )
 from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
 from tests.common.pipeline import pipeline_stage_test
@@ -186,8 +185,9 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
         self, mock_stage, mocker, unexpected_base_exception, set_security_client_args
     ):
         mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             mock_stage.run_op(set_security_client_args)
+        assert e_info.value is unexpected_base_exception
 
     @pytest.mark.it(
         "Calls the SetSymmetricKeySecurityClientArgs callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
@@ -260,8 +260,9 @@ class TestProvisioningMQTTConverterBasicOperations(object):
         self, params, mocker, mock_stage, stages_configured, op, unexpected_base_exception
     ):
         mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(UnhandledException):
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             mock_stage.run_op(op)
+        e_info.value is unexpected_base_exception
 
     @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
     def test_returns_success_if_publish_succeeds(self, params, mock_stage, stages_configured, op):
