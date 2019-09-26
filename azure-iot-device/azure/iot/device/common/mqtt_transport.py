@@ -124,7 +124,7 @@ class MQTTTransport(object):
         ssl_context = self._create_ssl_context()
         mqtt_client.tls_set_context(context=ssl_context)
 
-        # Set event handlers
+        mqtt_client.ws_set_options(path="/$iothub/websocket")
         def on_connect(client, userdata, flags, rc):
             logger.info("connected with result code: {}".format(rc))
 
@@ -252,7 +252,7 @@ class MQTTTransport(object):
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         try:
-            rc = self._mqtt_client.connect(host=self._hostname, port=8883)
+            rc = self._mqtt_client.connect(host=self._hostname, port=443)
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e
