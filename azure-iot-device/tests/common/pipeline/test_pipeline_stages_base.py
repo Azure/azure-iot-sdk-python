@@ -234,15 +234,15 @@ class TestEnsureConnectionStageRunOp(object):
     @pytest.mark.it(
         "Calls the op's callback with the error from the ConnectOperation if that operation fails"
     )
-    def test_connect_failure(self, params, op, stage, fake_exception):
+    def test_connect_failure(self, params, op, stage, unexpected_exception):
         stage.pipeline_root.connected = False
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        connect_op.error = fake_exception
+        connect_op.error = unexpected_exception
         operation_flow.complete_op(stage=stage.next, op=connect_op)
 
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=unexpected_exception)
 
     @pytest.mark.it("Waits for the ConnectOperation to complete before pasing the operation down")
     def test_connect_success(self, params, op, stage):
@@ -268,16 +268,16 @@ class TestEnsureConnectionStageRunOp(object):
         assert_callback_succeeded(op=op)
 
     @pytest.mark.it("calls the op's callback when the operation fails after connecting")
-    def test_operation_fails(self, params, op, stage, fake_exception):
+    def test_operation_fails(self, params, op, stage, unexpected_exception):
         stage.pipeline_root.connected = False
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
         operation_flow.complete_op(stage=stage.next, op=connect_op)
-        op.error = fake_exception
+        op.error = unexpected_exception
         operation_flow.complete_op(stage=stage.next, op=op)
 
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=unexpected_exception)
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -395,14 +395,14 @@ class TestSerializeConnectOpStageRunOp(object):
     )
     @pytest.mark.it("Fails the operation if the operation that previously blocked the stage fails")
     def test_fails_blocked_op_if_serialized_op_fails(
-        self, params, stage, connection_op, fake_op, fake_exception
+        self, params, stage, connection_op, fake_op, unexpected_exception
     ):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        connection_op.error = fake_exception
+        connection_op.error = unexpected_exception
         operation_flow.complete_op(stage=stage.next, op=connection_op)
-        assert_callback_failed(op=fake_op, error=fake_exception)
+        assert_callback_failed(op=fake_op, error=unexpected_exception)
 
     @pytest.mark.parametrize(
         "params", connection_ops, ids=[x["op_class"].__name__ for x in connection_ops]
@@ -446,17 +446,17 @@ class TestSerializeConnectOpStageRunOp(object):
     @pytest.mark.it(
         "Fails all pending operations after the operation that previously blocked the stage fails"
     )
-    def test_fails_multiple_ops(self, params, stage, connection_op, fake_ops, fake_exception):
+    def test_fails_multiple_ops(self, params, stage, connection_op, fake_ops, unexpected_exception):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         for op in fake_ops:
             stage.run_op(op)
 
-        connection_op.error = fake_exception
+        connection_op.error = unexpected_exception
         operation_flow.complete_op(stage=stage.next, op=connection_op)
 
         for op in fake_ops:
-            assert_callback_failed(op=op, error=fake_exception)
+            assert_callback_failed(op=op, error=unexpected_exception)
 
     @pytest.mark.it(
         "Does not immediately pass down operations in the queue if an operation in the queue causes the stage to re-block"

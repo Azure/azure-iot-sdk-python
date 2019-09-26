@@ -169,12 +169,12 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
 
         @pytest.mark.it("Catches Exceptions raised when passing unknown event to previous stage")
         def test_passes_event_to_previous_stage_which_throws_exception(
-            self, event_cls, stage, event, previous, unhandled_error_handler, fake_exception
+            self, event_cls, stage, event, previous, unhandled_error_handler, unexpected_exception
         ):
-            previous.handle_pipeline_event.side_effect = fake_exception
+            previous.handle_pipeline_event.side_effect = unexpected_exception
             stage.handle_pipeline_event(event)
             assert unhandled_error_handler.call_count == 1
-            assert unhandled_error_handler.call_args[0][0] == fake_exception
+            assert unhandled_error_handler.call_args[0][0] == unexpected_exception
 
         @pytest.mark.it(
             "Allows BaseExceptions raised when passing unknown operation to next start to propogate"

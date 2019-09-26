@@ -173,19 +173,19 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
         "Calls the SetSymmetricKeySecurityClientArgs callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation raises an Exception"
     )
     def test_set_connection_args_raises_exception(
-        self, mock_stage, mocker, fake_exception, set_security_client_args
+        self, mock_stage, mocker, unexpected_exception, set_security_client_args
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
         mock_stage.run_op(set_security_client_args)
-        assert_callback_failed(op=set_security_client_args, error=fake_exception)
+        assert_callback_failed(op=set_security_client_args, error=unexpected_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised inside the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation to propagate"
     )
     def test_set_connection_args_raises_base_exception(
-        self, mock_stage, mocker, fake_base_exception, set_security_client_args
+        self, mock_stage, mocker, unexpected_base_exception, set_security_client_args
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
         with pytest.raises(UnhandledException):
             mock_stage.run_op(set_security_client_args)
 
@@ -249,17 +249,17 @@ class TestProvisioningMQTTConverterBasicOperations(object):
 
     @pytest.mark.it("Calls the original op callback with error if the new_op raises an Exception")
     def test_new_op_raises_exception(
-        self, params, mocker, mock_stage, stages_configured, op, fake_exception
+        self, params, mocker, mock_stage, stages_configured, op, unexpected_exception
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
         mock_stage.run_op(op)
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=unexpected_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised from inside new_op to propagate")
     def test_new_op_raises_base_exception(
-        self, params, mocker, mock_stage, stages_configured, op, fake_base_exception
+        self, params, mocker, mock_stage, stages_configured, op, unexpected_base_exception
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
         with pytest.raises(UnhandledException):
             mock_stage.run_op(op)
 

@@ -64,27 +64,27 @@ class TestEventedCallback(object):
     @pytest.mark.it(
         "Causes an error to be raised from the wait call when an error parameter is passed to the call (without return_arg_name)"
     )
-    def test_raises_error_without_return_arg_name(self, fake_exception):
+    def test_raises_error_without_return_arg_name(self, unexpected_exception):
         callback = EventedCallback()
         assert not callback.completion_event.isSet()
-        callback(error=fake_exception)
+        callback(error=unexpected_exception)
         sleep(0.1)  # wait to give time to complete the callback
         assert callback.completion_event.isSet()
-        assert callback.exception == fake_exception
-        with pytest.raises(fake_exception.__class__) as e_info:
+        assert callback.exception == unexpected_exception
+        with pytest.raises(unexpected_exception.__class__) as e_info:
             callback.wait_for_completion()
-        assert e_info.value is fake_exception
+        assert e_info.value is unexpected_exception
 
     @pytest.mark.it(
         "Causes an error to be raised from the wait call when an error parameter is passed to the call (with return_arg_name)"
     )
-    def test_raises_error_with_return_arg_name(self, fake_exception):
+    def test_raises_error_with_return_arg_name(self, unexpected_exception):
         callback = EventedCallback(return_arg_name="arg_name")
         assert not callback.completion_event.isSet()
-        callback(error=fake_exception)
+        callback(error=unexpected_exception)
         sleep(0.1)  # wait to give time to complete the callback
         assert callback.completion_event.isSet()
-        assert callback.exception == fake_exception
-        with pytest.raises(fake_exception.__class__) as e_info:
+        assert callback.exception == unexpected_exception
+        with pytest.raises(unexpected_exception.__class__) as e_info:
             callback.wait_for_completion()
-        assert e_info.value is fake_exception
+        assert e_info.value is unexpected_exception

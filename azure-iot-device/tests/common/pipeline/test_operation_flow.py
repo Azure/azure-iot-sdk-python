@@ -76,11 +76,11 @@ class TestContineWithDifferntOp(object):
 @pytest.mark.describe("pass_op_to_next_stage()")
 class TestContinueOp(object):
     @pytest.mark.it("Completes the op without continuing if the op has an error")
-    def test_completes_op_with_error(self, mocker, stage, op, fake_exception, callback):
-        op.error = fake_exception
+    def test_completes_op_with_error(self, mocker, stage, op, unexpected_exception, callback):
+        op.error = unexpected_exception
         op.callback = callback
         pass_op_to_next_stage(stage, op)
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=unexpected_exception)
         assert stage.next.run_op.call_count == 0
 
     @pytest.mark.it("Fails the op if there is no next stage")
@@ -107,27 +107,27 @@ class TestCompleteOp(object):
         assert_callback_succeeded(op)
 
     @pytest.mark.it("Calls the op callback on failure")
-    def test_calls_callback_on_error(self, stage, op, callback, fake_exception):
-        op.error = fake_exception
+    def test_calls_callback_on_error(self, stage, op, callback, unexpected_exception):
+        op.error = unexpected_exception
         op.callback = callback
         complete_op(stage, op)
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=unexpected_exception)
 
     @pytest.mark.it(
         "Handles Exceptions raised in operation callback and passes them to the unhandled error handler"
     )
     def test_op_callback_raises_exception(
-        self, stage, op, fake_exception, mocker, unhandled_error_handler
+        self, stage, op, unexpected_exception, mocker, unhandled_error_handler
     ):
-        op.callback = mocker.Mock(side_effect=fake_exception)
+        op.callback = mocker.Mock(side_effect=unexpected_exception)
         complete_op(stage, op)
         assert op.callback.call_count == 1
         assert op.callback.call_args == mocker.call(op)
         assert unhandled_error_handler.call_count == 1
-        assert unhandled_error_handler.call_args == mocker.call(fake_exception)
+        assert unhandled_error_handler.call_args == mocker.call(unexpected_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised in operation callback to propagate")
-    def test_op_callback_raises_base_exception(self, stage, op, fake_base_exception, mocker):
-        op.callback = mocker.Mock(side_effect=fake_base_exception)
+    def test_op_callback_raises_base_exception(self, stage, op, unexpected_base_exception, mocker):
+        op.callback = mocker.Mock(side_effect=unexpected_base_exception)
         with pytest.raises(UnhandledException):
             complete_op(stage, op)

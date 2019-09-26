@@ -27,7 +27,7 @@ def callback(mocker):
 
 
 @pytest.fixture
-def fake_base_exception():
+def unexpected_base_exception():
     return helpers.UnhandledException()
 
 

@@ -6,7 +6,7 @@
 
 from tests.common.pipeline.fixtures import (
     callback,
-    fake_base_exception,
+    unexpected_base_exception,
     event,
     fake_pipeline_thread,
     fake_non_pipeline_thread,
