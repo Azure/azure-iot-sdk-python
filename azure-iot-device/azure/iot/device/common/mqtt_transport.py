@@ -113,7 +113,10 @@ class MQTTTransport(object):
 
         # Instantiate client
         mqtt_client = mqtt.Client(
-            client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
+            client_id=self._client_id,
+            clean_session=False,
+            protocol=mqtt.MQTTv311,
+            transport="websockets",
         )
         mqtt_client.enable_logger(logging.getLogger("paho"))
 
