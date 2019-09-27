@@ -28,10 +28,11 @@ from tests.common.pipeline import pipeline_stage_test
 logging.basicConfig(level=logging.DEBUG)
 
 
-# Normally, all exceptions used in tests should come from the top level fixture "unexpected_exception",
+# Normally, all arbitrary exceptions, representing some kind nonspecific unexpected and unhandled
+# exception that are used in tests should come from the top level fixture "unexpected_exception",
 # however, since fixtures cannot be used in parametrization of tests, we need to define a custom
 # Exception class here.
-class FakeException(Exception):
+class SomeException(Exception):
     pass
 
 
@@ -623,7 +624,7 @@ class TestMQTTProviderOnDisconnected(object):
         "cause",
         [
             pytest.param(None, id="No error cause"),
-            pytest.param(FakeException(), id="With error cause"),
+            pytest.param(SomeException(), id="With error cause"),
         ],
     )
     @pytest.mark.parametrize(
@@ -674,7 +675,7 @@ class TestMQTTProviderOnDisconnected(object):
         "cause",
         [
             pytest.param(None, id="No error cause"),
-            pytest.param(FakeException(), id="With error cause"),
+            pytest.param(SomeException(), id="With error cause"),
         ],
     )
     @pytest.mark.parametrize(
@@ -699,7 +700,7 @@ class TestMQTTProviderOnDisconnected(object):
         "cause",
         [
             pytest.param(None, id="No error cause"),
-            pytest.param(FakeException(), id="With error cause"),
+            pytest.param(SomeException(), id="With error cause"),
         ],
     )
     @pytest.mark.parametrize(
