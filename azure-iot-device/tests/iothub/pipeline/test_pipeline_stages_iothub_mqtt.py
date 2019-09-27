@@ -206,8 +206,13 @@ def create_message_for_output_with_system_and_user_properties(message_content, i
 
 
 @pytest.fixture
-def stage(mocker):
-    return make_mock_stage(mocker, pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage)
+def stage(mocker, unexpected_exception, unexpected_base_exception):
+    return make_mock_stage(
+        mocker=mocker,
+        stage_to_make=pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
+        exc_to_raise=unexpected_exception,
+        base_exc_to_raise=unexpected_base_exception,
+    )
 
 
 @pytest.fixture

@@ -22,7 +22,6 @@ from tests.common.pipeline.helpers import (
     all_common_ops,
     all_common_events,
     all_except,
-    UnhandledException,
 )
 from tests.common.pipeline import pipeline_stage_test
 

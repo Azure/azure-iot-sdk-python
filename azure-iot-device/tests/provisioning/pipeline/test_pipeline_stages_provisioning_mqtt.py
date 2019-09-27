@@ -83,8 +83,13 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 
 @pytest.fixture
-def mock_stage(mocker):
-    return make_mock_stage(mocker, pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage)
+def mock_stage(mocker, unexpected_exception, unexpected_base_exception):
+    return make_mock_stage(
+        mocker=mocker,
+        stage_to_make=pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage,
+        exc_to_raise=unexpected_exception,
+        base_exc_to_raise=unexpected_base_exception,
+    )
 
 
 @pytest.fixture

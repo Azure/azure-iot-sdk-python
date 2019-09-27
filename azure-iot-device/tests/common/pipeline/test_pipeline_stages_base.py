@@ -20,7 +20,6 @@ from tests.common.pipeline.helpers import (
     make_mock_stage,
     assert_callback_failed,
     assert_callback_succeeded,
-    UnhandledException,
     all_common_ops,
     all_common_events,
 )
@@ -204,9 +203,12 @@ class TestEnsureConnectionStageRunOp(object):
         return op
 
     @pytest.fixture
-    def stage(self, mocker):
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
         stage = make_mock_stage(
-            mocker=mocker, stage_to_make=pipeline_stages_base.EnsureConnectionStage
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.EnsureConnectionStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
         )
         stage.next.run_op = mocker.MagicMock()
         return stage
@@ -310,9 +312,12 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 )
 class TestSerializeConnectOpStageRunOp(object):
     @pytest.fixture
-    def stage(self, mocker):
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
         stage = make_mock_stage(
-            mocker=mocker, stage_to_make=pipeline_stages_base.SerializeConnectOpsStage
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.SerializeConnectOpsStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
         )
         stage.next.run_op = mocker.MagicMock()
         return stage
@@ -585,8 +590,13 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(object):
         return make_fake_request_and_response(mocker)
 
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_base.CoordinateRequestAndResponseStage)
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.CoordinateRequestAndResponseStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
+        )
 
     @pytest.mark.it(
         "Sends an SendIotRequestOperation op to the next stage with the same parameters and a newly allocated request_id"
@@ -626,17 +636,18 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(object):
     @pytest.mark.it(
         "Fails SendIotRequestAndWaitForResponseOperation if an Exception is raised in the SendIotRequestOperation op"
     )
-    def test_new_op_raises_exception(self, stage, op, mocker):
-        stage.next._execute_op = mocker.Mock(side_effect=Exception)
+    def test_new_op_raises_exception(self, stage, op, mocker, unexpected_exception):
+        stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
         stage.run_op(op)
         assert_callback_failed(op=op)
 
     @pytest.mark.it("Allows BaseExceptions rised on the SendIotRequestOperation op to propogate")
-    def test_new_op_raises_base_exception(self, stage, op, mocker):
-        stage.next._execute_op = mocker.Mock(side_effect=UnhandledException)
-        with pytest.raises(UnhandledException):
+    def test_new_op_raises_base_exception(self, stage, op, mocker, unexpected_base_exception):
+        stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
+        with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(op)
         assert op.callback.call_count == 0
+        assert e_info.value is unexpected_base_exception
 
 
 @pytest.mark.describe(
@@ -648,8 +659,13 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         return make_fake_request_and_response(mocker)
 
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_base.CoordinateRequestAndResponseStage)
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.CoordinateRequestAndResponseStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
+        )
 
     @pytest.fixture
     def iot_request(self, stage, op):

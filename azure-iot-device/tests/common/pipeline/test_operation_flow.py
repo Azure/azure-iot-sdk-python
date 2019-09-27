@@ -41,8 +41,13 @@ class MockPipelineStage(pipeline_stages_base.PipelineStage):
 
 
 @pytest.fixture
-def stage(mocker):
-    return make_mock_stage(mocker, MockPipelineStage)
+def stage(mocker, unexpected_exception, unexpected_base_exception):
+    return make_mock_stage(
+        mocker=mocker,
+        stage_to_make=MockPipelineStage,
+        exc_to_raise=unexpected_exception,
+        base_exc_to_raise=unexpected_base_exception,
+    )
 
 
 @pytest.mark.describe("delegate_to_different_op()")

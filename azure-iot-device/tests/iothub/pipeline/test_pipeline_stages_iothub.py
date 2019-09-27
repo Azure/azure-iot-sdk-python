@@ -119,8 +119,13 @@ different_auth_provider_ops = [
 @pytest.mark.describe("UseAuthProvider - .run_op() -- called with SetAuthProviderOperation")
 class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_iothub.UseAuthProviderStage)
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_iothub.UseAuthProviderStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
+        )
 
     @pytest.fixture
     def set_auth_provider(self, callback, params_auth_provider_ops):
@@ -300,8 +305,13 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
 @pytest.mark.describe("UseAuthProvider - .on_sas_token_updated()")
 class TestUseAuthProviderOnSasTokenUpdated(object):
     @pytest.fixture
-    def stage(self, mocker):
-        stage = make_mock_stage(mocker, pipeline_stages_iothub.UseAuthProviderStage)
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+        stage = make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_iothub.UseAuthProviderStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
+        )
         auth_provider = mocker.MagicMock()
         auth_provider.get_current_sas_token = mocker.MagicMock(return_value=fake_sas_token)
         stage.auth_provider = auth_provider
@@ -364,8 +374,13 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 @pytest.mark.describe("HandleTwinOperationsStage - .run_op() -- called with GetTwinOperation")
 class TestHandleTwinOperationsRunOpWithGetTwin(object):
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_iothub.HandleTwinOperationsStage)
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_iothub.HandleTwinOperationsStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
+        )
 
     @pytest.fixture
     def op(self, stage, callback):
@@ -459,8 +474,13 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
 )
 class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_iothub.HandleTwinOperationsStage)
+    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_iothub.HandleTwinOperationsStage,
+            exc_to_raise=unexpected_exception,
+            base_exc_to_raise=unexpected_base_exception,
+        )
 
     @pytest.fixture
     def patch(self):

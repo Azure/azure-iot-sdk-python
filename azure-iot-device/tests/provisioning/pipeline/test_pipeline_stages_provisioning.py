@@ -100,8 +100,13 @@ different_security_ops = [
 
 
 @pytest.fixture
-def security_stage(mocker):
-    return make_mock_stage(mocker, pipeline_stages_provisioning.UseSecurityClientStage)
+def security_stage(mocker, unexpected_exception, unexpected_base_exception):
+    return make_mock_stage(
+        mocker=mocker,
+        stage_to_make=pipeline_stages_provisioning.UseSecurityClientStage,
+        exc_to_raise=unexpected_exception,
+        base_exc_to_raise=unexpected_base_exception,
+    )
 
 
 @pytest.fixture
