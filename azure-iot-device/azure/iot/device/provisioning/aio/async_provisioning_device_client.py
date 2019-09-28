@@ -57,7 +57,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         register_async = async_adapter.emulate_async(self._polling_machine.register)
 
         callback = async_adapter.AwaitableCallback(return_arg_name="result")
-        await register_async(callback=callback)
+        await register_async(payload=self._request_payload, callback=callback)
         result = await callback.completion()
 
         log_on_register_complete(result)

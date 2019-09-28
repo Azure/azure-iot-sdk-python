@@ -13,6 +13,7 @@ from azure.iot.device.provisioning.security.x509_security_client import X509Secu
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from tests.common.pipeline import helpers
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -31,6 +32,9 @@ fake_sas_token = "horcrux_token"
 fake_security_client = "secure_via_muffliato"
 fake_request_id = "fake_request_1234"
 fake_mqtt_payload = "hello hogwarts"
+fake_register_publish_payload = '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+    reg_id=fake_registration_id, json_payload=json.dumps(fake_mqtt_payload)
+)
 fake_operation_id = "fake_operation_9876"
 fake_sub_unsub_topic = "$dps/registrations/res/#"
 fake_x509_cert_file = "fantastic_beasts"
@@ -263,7 +267,7 @@ class TestSendRegister(object):
         mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
 
     @pytest.mark.it("Request queues and connects before calling publish on provider")
     def test_send_request_queues_and_connects_before_sending(
@@ -303,7 +307,7 @@ class TestSendRegister(object):
         mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
 
     @pytest.mark.it("Request queues and waits for connect to be completed")
     def test_send_request_queues_if_waiting_for_connect_complete(
@@ -342,7 +346,7 @@ class TestSendRegister(object):
         mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
+        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
 
     @pytest.mark.it("Request can be sent multiple times overlapping each other")
     def test_send_request_sends_overlapped_events(
@@ -370,7 +374,7 @@ class TestSendRegister(object):
         mock_mqtt_transport.wait_for_publish_to_be_called()
         assert mock_mqtt_transport.publish.call_count == 1
         assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_msg_1
+        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
 
         # while we're waiting for that send to complete, send another event
         callback_2 = mocker.MagicMock()

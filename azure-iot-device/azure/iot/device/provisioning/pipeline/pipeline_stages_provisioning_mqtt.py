@@ -19,6 +19,7 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_ops_provisioning,
 )
 from azure.iot.device import constant as pkg_constant
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +69,16 @@ class ProvisioningMQTTConverterStage(PipelineStage):
         elif isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
             # Convert Sending the request into MQTT Publish operations
             topic = mqtt_topic.get_topic_for_register(op.request_id)
+
+            # This is an easier way to get the json eventually
+            # rather than formatting strings without if else conditions
+            registration_payload = DeviceRegistrationPayload(
+                registration_id=op.registration_id, custom_payload=op.request_payload
+            )
+
             self._send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=op.request_payload, callback=op.callback
+                    topic=topic, payload=registration_payload.get_json(), callback=op.callback
                 ),
                 op=op,
             )
@@ -143,3 +151,18 @@ class ProvisioningMQTTConverterStage(PipelineStage):
         else:
             # all other messages get passed up
             self._send_event_up(event)
+
+
+class DeviceRegistrationPayload(object):
+    """
+    The class representing the payload that needs to be sent to the service.
+    """
+
+    def __init__(self, registration_id, custom_payload=None):
+        # This is not a convention to name variables in python but the
+        # DPS service spec needs the name to be exact for it to work
+        self.registrationId = registration_id
+        self.payload = custom_payload
+
+    def get_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
