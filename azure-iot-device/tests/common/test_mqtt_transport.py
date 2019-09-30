@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import azure.iot.device.common.mqtt_transport as mqtt_transport
 from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.common import transport_exceptions as errors
@@ -26,6 +27,7 @@ fake_qos = 1
 fake_mid = 52
 fake_rc = 0
 failed_conack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
+fake_keepalive = 1234
 
 
 class UnexpectedException(Exception):
@@ -292,10 +294,34 @@ class TestConnect(object):
         ],
     )
     def test_calls_paho_connect(self, mocker, mock_mqtt_client, transport, password):
+
+        mqtt_transport.DEFAULT_KEEPALIVE = fake_keepalive
+
         transport.connect(password)
 
         assert mock_mqtt_client.connect.call_count == 1
-        assert mock_mqtt_client.connect.call_args == mocker.call(host=fake_hostname, port=8883)
+        assert mock_mqtt_client.connect.call_args == mocker.call(
+            host=fake_hostname, port=8883, keepalive=mocker.ANY
+        )
+
+    @pytest.mark.it("passes DEFAULT_KEEPALIVE to paho connect function")
+    @pytest.mark.parametrize(
+        "password",
+        [
+            pytest.param(fake_password, id="Password provided"),
+            pytest.param(None, id="No password provided"),
+        ],
+    )
+    def test_calls_paho_connect_with_keepalive(self, mocker, mock_mqtt_client, transport, password):
+
+        mqtt_transport.DEFAULT_KEEPALIVE = fake_keepalive
+
+        transport.connect(password)
+
+        assert mock_mqtt_client.connect.call_count == 1
+        assert mock_mqtt_client.connect.call_args == mocker.call(
+            host=fake_hostname, port=8883, keepalive=fake_keepalive
+        )
 
     @pytest.mark.it("Starts MQTT Network Loop")
     @pytest.mark.parametrize(
