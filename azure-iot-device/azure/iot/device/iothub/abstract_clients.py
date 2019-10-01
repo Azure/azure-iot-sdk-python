@@ -30,13 +30,15 @@ logger = logging.getLogger(__name__)
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubClient(object):
-    """A superclass representing a generic client. This class needs to be extended for specific clients."""
+    """ A superclass representing a generic IoTHub client.
+    This class needs to be extended for specific clients.
+    """
 
     def __init__(self, iothub_pipeline):
         """Initializer for a generic client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
         self._iothub_pipeline = iothub_pipeline
         self._edge_pipeline = None
@@ -47,10 +49,12 @@ class AbstractIoTHubClient(object):
         Instantiate the client from a IoTHub device or module connection string.
 
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
-        :param str ca_cert: (OPTIONAL) The trusted certificate chain. Necessary when using a
-        connection string with a GatewayHostName parameter.
+        :param str ca_cert: The trusted certificate chain. Only necessary when using a
+            connection string with a GatewayHostName parameter.
 
         :raises: ValueError if given an invalid connection_string.
+
+        :returns: An instance of an IoTHub client that uses a connection string for authentication.
         """
         # TODO: Make this device/module specific and reject non-matching connection strings.
         # This will require refactoring of the auth package to use common objects (e.g. ConnectionString)
@@ -70,6 +74,8 @@ class AbstractIoTHubClient(object):
         :param str sas_token: The string representation of a SAS token.
 
         :raises: ValueError if given an invalid sas_token
+
+        :returns: An instance of an IoTHub client that uses a SAS token for authentication.
         """
         authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
@@ -114,12 +120,17 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     def create_from_x509_certificate(cls, x509, hostname, device_id):
         """
         Instantiate a client which using X509 certificate authentication.
-        :param hostname: Host running the IotHub. Can be found in the Azure portal in the Overview tab as the string hostname.
-        :param x509: The complete x509 certificate object, To use the certificate the enrollment object needs to contain cert (either the root certificate or one of the intermediate CA certificates).
-        If the cert comes from a CER file, it needs to be base64 encoded.
-        :type x509: X509
-        :param device_id: The ID is used to uniquely identify a device in the IoTHub
-        :return: A IoTHubClient which can use X509 authentication.
+
+        :param str hostname: Host running the IotHub.
+            Can be found in the Azure portal in the Overview tab as the string hostname.
+        :param x509: The complete x509 certificate object.
+            To use the certificate the enrollment object needs to contain cert
+            (either the root certificate or one of the intermediate CA certificates).
+            If the cert comes from a CER file, it needs to be base64 encoded.
+        :type x509: :class:`azure.iot.device.X509`
+        :param str device_id: The ID used to uniquely identify a device in the IoTHub
+
+        :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id
@@ -138,9 +149,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         """Initializer for a module client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
-        :param edge_pipeline: (OPTIONAL) The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: EdgePipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
+        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
         super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline)
         self._edge_pipeline = edge_pipeline
@@ -153,8 +164,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         This method can only be run from inside an IoT Edge container, or in a debugging
         environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
 
-        :raises: IoTEdgeError if the IoT Edge container is not configured correctly.
+        :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid
+
+        :returns: An instance of an IoTHub client that uses the IoT Edge environment for
+            authentication.
         """
         # First try the regular Edge container variables
         try:
@@ -172,16 +186,16 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             try:
                 connection_string = os.environ["EdgeHubConnectionString"]
                 ca_cert_filepath = os.environ["EdgeModuleCACertificateFile"]
-            except KeyError:
-                # TODO: consider using a different error here. (OSError?)
-                raise auth.IoTEdgeError("IoT Edge environment not configured correctly")
-
+            except KeyError as e:
+                new_err = OSError("IoT Edge environment not configured correctly")
+                new_err.__cause__ = e
+                raise new_err
             # TODO: variant ca_cert file vs data object that would remove the need for this fopen
             # Read the certificate file to pass it on as a string
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
                     ca_cert = ca_cert_file.read()
-            except (OSError, IOError):
+            except (OSError, IOError) as e:
                 # In Python 2, a non-existent file raises IOError, and an invalid file raises an IOError.
                 # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
                 # However, FileNotFoundError inherits from OSError, and IOError has been turned into an alias for OSError,
@@ -189,23 +203,33 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 # Unfortunately, we can't distinguish cause of error from error type, so the raised ValueError has a generic
                 # message. If, in the future, we want to add detail, this could be accomplished by inspecting the e.errno
                 # attribute
-                raise ValueError("Invalid CA certificate file")
+                new_err = ValueError("Invalid CA certificate file")
+                new_err.__cause__ = e
+                raise new_err
             # Use Symmetric Key authentication for local dev experience.
-            authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(
-                connection_string
-            )
+            try:
+                authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(
+                    connection_string
+                )
+            except ValueError:
+                raise
             authentication_provider.ca_cert = ca_cert
         else:
             # Use an HSM for authentication in the general case
-            authentication_provider = auth.IoTEdgeAuthenticationProvider(
-                hostname=hostname,
-                device_id=device_id,
-                module_id=module_id,
-                gateway_hostname=gateway_hostname,
-                module_generation_id=module_generation_id,
-                workload_uri=workload_uri,
-                api_version=api_version,
-            )
+            try:
+                authentication_provider = auth.IoTEdgeAuthenticationProvider(
+                    hostname=hostname,
+                    device_id=device_id,
+                    module_id=module_id,
+                    gateway_hostname=gateway_hostname,
+                    module_generation_id=module_generation_id,
+                    workload_uri=workload_uri,
+                    api_version=api_version,
+                )
+            except auth.IoTEdgeError as e:
+                new_err = OSError("Unexpected failure in IoTEdge")
+                new_err.__cause__ = e
+                raise new_err
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
         edge_pipeline = pipeline.EdgePipeline(authentication_provider)
         return cls(iothub_pipeline, edge_pipeline=edge_pipeline)
@@ -214,13 +238,18 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id):
         """
         Instantiate a client which using X509 certificate authentication.
-        :param hostname: Host running the IotHub. Can be found in the Azure portal in the Overview tab as the string hostname.
-        :param x509: The complete x509 certificate object, To use the certificate the enrollment object needs to contain cert (either the root certificate or one of the intermediate CA certificates).
-        If the cert comes from a CER file, it needs to be base64 encoded.
-        :type x509: X509
-        :param device_id: The ID is used to uniquely identify a device in the IoTHub
-        :param module_id : The ID of the module to uniquely identify a module on a device on the IoTHub.
-        :return: A IoTHubClient which can use X509 authentication.
+
+        :param str hostname: Host running the IotHub.
+            Can be found in the Azure portal in the Overview tab as the string hostname.
+        :param x509: The complete x509 certificate object.
+            To use the certificate the enrollment object needs to contain cert
+            (either the root certificate or one of the intermediate CA certificates).
+            If the cert comes from a CER file, it needs to be base64 encoded.
+        :type x509: :class:`azure.iot.device.X509`
+        :param str device_id: The ID used to uniquely identify a device in the IoTHub
+        :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
+
+        :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id, module_id=module_id

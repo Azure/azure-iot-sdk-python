@@ -63,7 +63,6 @@ def create_custom_config():
 
 
 def create_verification_cert(nonce, root_verify, ca_password=None, intermediate_password=None, key_size=4096):
-
     print(ca_password)
     print("Done generating verification key")
     # subject = "//C=US/CN=" + nonce

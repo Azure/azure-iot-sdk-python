@@ -1,4 +1,4 @@
-![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/python/python-preview)
+![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
 
 # Azure IoT Hub Python SDKs v2 - PREVIEW
 
