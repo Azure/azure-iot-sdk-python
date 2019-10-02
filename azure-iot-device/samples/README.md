@@ -56,7 +56,6 @@ This directory contains samples showing how to use the various features of the M
     import os
     import asyncio
     from azure.iot.device.aio import IoTHubDeviceClient
-    from azure.iot.device import auth
 
 
     async def main():
