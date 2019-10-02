@@ -169,9 +169,9 @@ def test_update_timer_generates_new_sas_token_and_calls_on_sas_token_updated_han
     assert device_auth_provider._sign.call_count == 1
 
 
-def test_destructor_cancels_update_timer(fake_timer_object):
+def test_finalizer_cancels_update_timer(fake_timer_object):
     # can't use the device_auth_provider fixture here because the fixture adds
-    # to the object refcount and prevents del from calling the destructor
+    # to the object refcount and prevents del from calling the finalizer
     device_auth_provider = FakeAuthProvider(fake_hostname, fake_device_id, None)
     device_auth_provider.generate_new_sas_token()
     del device_auth_provider
