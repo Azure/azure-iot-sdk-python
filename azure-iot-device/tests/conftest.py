@@ -31,7 +31,8 @@ def unexpected_exception():
     class UnexpectedException(Exception):
         pass
 
-    return UnexpectedException()
+    e = UnexpectedException()
+    return e
 
 
 @pytest.fixture

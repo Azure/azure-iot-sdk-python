@@ -1179,23 +1179,31 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
         )
         assert new_op.payload == fake_request_body
 
-    @pytest.mark.it("Returns an Exception through the op callback if there is no next stage")
+    @pytest.mark.it(
+        "Returns a NotImplementedError through the op callback if there is no next stage"
+    )
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=NotImplementedError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the MQTTPublishOperation and returns them through the op callback"
     )
-    def test_next_stage_raises_exception(self, stage, op):
-        stage.next.run_op.side_effect = Exception
+    def test_next_stage_raises_exception(self, mocker, stage, op, unexpected_exception):
+        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
+        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
+        # (it is unclear as to why at this time)
+        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=unexpected_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised by the MQTTPublishOperation to propagate")
-    def test_next_stage_raises_base_exception(self, stage, op, unexpected_base_exception):
-        stage.next.run_op.side_effect = unexpected_base_exception
+    def test_next_stage_raises_base_exception(self, mocker, stage, op, unexpected_base_exception):
+        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
+        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
+        # (it is unclear as to why at this time)
+        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_base_exception)
         with pytest.raises(unexpected_base_exception.__class__) as e_info:
             stage.run_op(op)
         assert e_info.value is unexpected_base_exception
