@@ -43,6 +43,10 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
 }
 
+# Default keepalive.  Paho sends a PINGREQ using this interval
+# to make sure the connection is still open.
+DEFAULT_KEEPALIVE = 60
+
 
 def _create_error_from_conack_rc_code(rc):
     """
@@ -260,7 +264,9 @@ class MQTTTransport(object):
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         try:
-            rc = self._mqtt_client.connect(host=self._hostname, port=8883)
+            rc = self._mqtt_client.connect(
+                host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
+            )
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e
