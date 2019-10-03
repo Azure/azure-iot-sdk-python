@@ -1,5 +1,5 @@
 pytest
-pytest-mock
+pytest-mock==1.10.4  # breaking change (for us at least) in 1.11.0 renders our tests unpassable under 2.7
 pytest-asyncio; python_version >= '3.5'
 pytest-testdox>=1.1.1
 pytest-cov
