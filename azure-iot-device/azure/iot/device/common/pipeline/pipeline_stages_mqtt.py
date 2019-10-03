@@ -15,6 +15,7 @@ from . import (
     pipeline_thread,
     pipeline_exceptions,
 )
+
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
 
@@ -65,6 +66,7 @@ class MQTTTransportStage(PipelineStage):
                 username=self.username,
                 ca_cert=self.ca_cert,
                 x509_cert=self.client_cert,
+                websockets=self.pipeline_root.pipeline_configurations.websockets,
             )
             self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
             self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure

@@ -14,6 +14,7 @@ from . import pipeline_ops_base
 from . import operation_flow
 from . import pipeline_thread
 from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common.config import BasePipelineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -181,12 +182,13 @@ class PipelineRootStage(PipelineStage):
     :type on_disconnected_handler: Function
     """
 
-    def __init__(self):
+    def __init__(self, pipeline_configurations=None):
         super(PipelineRootStage, self).__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
         self.connected = False
+        self.pipeline_configurations = pipeline_configurations
 
     def run_op(self, op):
         op.callback = pipeline_thread.invoke_on_callback_thread_nowait(op.callback)

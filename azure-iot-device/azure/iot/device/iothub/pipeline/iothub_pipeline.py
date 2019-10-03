@@ -21,15 +21,26 @@ from . import (
 )
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
+from azure.iot.device.iothub.config import IoTHubPipelineConfig
+
 logger = logging.getLogger(__name__)
 
 
 class IoTHubPipeline(object):
-    def __init__(self, auth_provider):
+    def __init__(self, auth_provider, **kwargs):
         """
         Constructor for instantiating a pipeline adapter object
         :param auth_provider: The authentication provider
+        :param protocol: The protocol for connecting to IoT Hub
         """
+        try:
+            # Question: should this be kept in self? Is that necessary?
+            self._config = IoTHubPipelineConfig(**kwargs)
+        except TypeError as error:
+            logger.error(error)
+            logger.error("Incorrect Config to IoTHubPipelineConfig")
+            raise
+
         self.feature_enabled = {
             constant.C2D_MSG: False,
             constant.INPUT_MSG: False,
@@ -47,7 +58,7 @@ class IoTHubPipeline(object):
         self.on_twin_patch_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage()
+            pipeline_stages_base.PipelineRootStage(self._config)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())

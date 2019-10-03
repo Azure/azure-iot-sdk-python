@@ -84,7 +84,9 @@ class MQTTTransport(object):
     :type on_mqtt_connection_failure_handler: Function
     """
 
-    def __init__(self, client_id, hostname, username, ca_cert=None, x509_cert=None):
+    def __init__(
+        self, client_id, hostname, username, ca_cert=None, x509_cert=None, websockets=False
+    ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
         :param str client_id: The id of the client connecting to the broker.
@@ -92,6 +94,7 @@ class MQTTTransport(object):
         :param str username: Username for login to the remote broker.
         :param str ca_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
+        :param websockets: Boolean value to determine whether or not to enable a websockets connection in the Transport.
         """
         self._client_id = client_id
         self._hostname = hostname
@@ -99,6 +102,7 @@ class MQTTTransport(object):
         self._mqtt_client = None
         self._ca_cert = ca_cert
         self._x509_cert = x509_cert
+        self.websockets = websockets
 
         self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
@@ -115,10 +119,22 @@ class MQTTTransport(object):
         """
         logger.info("creating mqtt client")
 
-        # Instantiate client
-        mqtt_client = mqtt.Client(
-            client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
-        )
+        # Instaniate the client
+        if self.websockets:
+            # MQTT Over Websockets
+            mqtt_client = mqtt.Client(
+                client_id=self._client_id,
+                clean_session=False,
+                protocol=mqtt.MQTTv311,
+                transport="websockets",
+            )
+            mqtt_client.ws_set_options(path="/$iothub/websocket")
+        else:
+            # Standard MQTT
+            mqtt_client = mqtt.Client(
+                client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
+            )
+
         mqtt_client.enable_logger(logging.getLogger("paho"))
 
         # Configure TLS/SSL
@@ -253,9 +269,14 @@ class MQTTTransport(object):
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         try:
-            rc = self._mqtt_client.connect(
-                host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
-            )
+            if self.websockets:
+                rc = self._mqtt_client.connect(
+                    host=self._hostname, port=443, keepalive=DEFAULT_KEEPALIVE
+                )
+            else:
+                rc = self._mqtt_client.connect(
+                    host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
+                )
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e

@@ -44,13 +44,14 @@ class AbstractIoTHubClient(object):
         self._edge_pipeline = None
 
     @classmethod
-    def create_from_connection_string(cls, connection_string, ca_cert=None):
+    def create_from_connection_string(cls, connection_string, ca_cert=None, **kwargs):
         """
         Instantiate the client from a IoTHub device or module connection string.
 
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
         :param str ca_cert: The trusted certificate chain. Only necessary when using a
             connection string with a GatewayHostName parameter.
+        :**kwargs config: Set of keyword arguments for setting options.
 
         :raises: ValueError if given an invalid connection_string.
 
@@ -61,11 +62,11 @@ class AbstractIoTHubClient(object):
         # in order to differentiate types of connection strings.
         authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
         authentication_provider.ca_cert = ca_cert  # TODO: make this part of the instantiation
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, **kwargs)
         return cls(iothub_pipeline)
 
     @classmethod
-    def create_from_shared_access_signature(cls, sas_token):
+    def create_from_shared_access_signature(cls, sas_token, **kwargs):
         """
         Instantiate the client from a Shared Access Signature (SAS) token.
 
@@ -73,12 +74,14 @@ class AbstractIoTHubClient(object):
 
         :param str sas_token: The string representation of a SAS token.
 
+        :**kwargs config: Set of keyword arguments for setting options.
+
         :raises: ValueError if given an invalid sas_token
 
         :returns: An instance of an IoTHub client that uses a SAS token for authentication.
         """
         authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, **kwargs)
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
