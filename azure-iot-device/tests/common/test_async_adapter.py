@@ -119,27 +119,27 @@ class TestAwaitableCallback(object):
     @pytest.mark.it(
         "Causes an error to be set on the instance Future when an error parameter is passed to the call (without return_arg_name)"
     )
-    async def test_raises_error_without_return_arg_name(self, unexpected_exception):
+    async def test_raises_error_without_return_arg_name(self, arbitrary_exception):
         callback = async_adapter.AwaitableCallback()
         assert not callback.future.done()
-        callback(error=unexpected_exception)
+        callback(error=arbitrary_exception)
         await asyncio.sleep(0.1)  # wait to give time to complete the callback
         assert callback.future.done()
-        assert callback.future.exception() == unexpected_exception
-        with pytest.raises(unexpected_exception.__class__) as e_info:
+        assert callback.future.exception() == arbitrary_exception
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
             await callback.completion()
-        assert e_info.value is unexpected_exception
+        assert e_info.value is arbitrary_exception
 
     @pytest.mark.it(
         "Causes an error to be set on the instance Future when an error parameter is passed to the call (with return_arg_name)"
     )
-    async def test_raises_error_with_return_arg_name(self, unexpected_exception):
+    async def test_raises_error_with_return_arg_name(self, arbitrary_exception):
         callback = async_adapter.AwaitableCallback(return_arg_name="arg_name")
         assert not callback.future.done()
-        callback(error=unexpected_exception)
+        callback(error=arbitrary_exception)
         await asyncio.sleep(0.1)  # wait to give time to complete the callback
         assert callback.future.done()
-        assert callback.future.exception() == unexpected_exception
-        with pytest.raises(unexpected_exception.__class__) as e_info:
+        assert callback.future.exception() == arbitrary_exception
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
             await callback.completion()
-        assert e_info.value is unexpected_exception
+        assert e_info.value is arbitrary_exception

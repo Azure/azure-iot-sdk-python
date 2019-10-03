@@ -83,12 +83,12 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 
 @pytest.fixture
-def mock_stage(mocker, unexpected_exception, unexpected_base_exception):
+def mock_stage(mocker, arbitrary_exception, arbitrary_base_exception):
     return make_mock_stage(
         mocker=mocker,
         stage_to_make=pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage,
-        exc_to_raise=unexpected_exception,
-        base_exc_to_raise=unexpected_base_exception,
+        exc_to_raise=arbitrary_exception,
+        base_exc_to_raise=arbitrary_base_exception,
     )
 
 
@@ -177,22 +177,22 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
         "Calls the SetSymmetricKeySecurityClientArgs callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation raises an Exception"
     )
     def test_set_connection_args_raises_exception(
-        self, mock_stage, mocker, unexpected_exception, set_security_client_args
+        self, mock_stage, mocker, arbitrary_exception, set_security_client_args
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         mock_stage.run_op(set_security_client_args)
-        assert_callback_failed(op=set_security_client_args, error=unexpected_exception)
+        assert_callback_failed(op=set_security_client_args, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised inside the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation to propagate"
     )
     def test_set_connection_args_raises_base_exception(
-        self, mock_stage, mocker, unexpected_base_exception, set_security_client_args
+        self, mock_stage, mocker, arbitrary_base_exception, set_security_client_args
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        mock_stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             mock_stage.run_op(set_security_client_args)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Calls the SetSymmetricKeySecurityClientArgs callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
@@ -254,20 +254,20 @@ class TestProvisioningMQTTConverterBasicOperations(object):
 
     @pytest.mark.it("Calls the original op callback with error if the new_op raises an Exception")
     def test_new_op_raises_exception(
-        self, params, mocker, mock_stage, stages_configured, op, unexpected_exception
+        self, params, mocker, mock_stage, stages_configured, op, arbitrary_exception
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
+        mock_stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         mock_stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised from inside new_op to propagate")
     def test_new_op_raises_base_exception(
-        self, params, mocker, mock_stage, stages_configured, op, unexpected_base_exception
+        self, params, mocker, mock_stage, stages_configured, op, arbitrary_base_exception
     ):
-        mock_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        mock_stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             mock_stage.run_op(op)
-        e_info.value is unexpected_base_exception
+        e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
     def test_returns_success_if_publish_succeeds(self, params, mock_stage, stages_configured, op):

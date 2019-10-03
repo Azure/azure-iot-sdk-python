@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 # Normally, all arbitrary exceptions, representing some kind nonspecific unexpected and unhandled
-# exception that are used in tests should come from the top level fixture "unexpected_exception",
+# exception that are used in tests should come from the top level fixture "arbitrary_exception",
 # however, since fixtures cannot be used in parametrization of tests, we need to define a custom
 # Exception class here.
 class SomeException(Exception):
@@ -170,24 +170,24 @@ class RunOpTests(object):
     @pytest.mark.it(
         "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
     )
-    def test_completes_operation_with_error(self, mocker, stage, unexpected_exception):
+    def test_completes_operation_with_error(self, mocker, stage, arbitrary_exception):
         mock_op = mocker.MagicMock()
-        stage._execute_op = mocker.MagicMock(side_effect=unexpected_exception)
+        stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
 
         stage.run_op(mock_op)
-        assert mock_op.error is unexpected_exception
+        assert mock_op.error is arbitrary_exception
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propogate"
     )
-    def test_base_exception_propogates(self, mocker, stage, unexpected_base_exception):
-        execution_exception = unexpected_base_exception
+    def test_base_exception_propogates(self, mocker, stage, arbitrary_base_exception):
+        execution_exception = arbitrary_base_exception
         mock_op = mocker.MagicMock()
         stage._execute_op = mocker.MagicMock(side_effect=execution_exception)
 
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(mock_op)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
 
 @pytest.mark.describe(
@@ -277,10 +277,10 @@ class TestMQTTProviderExecuteOpWithConnect(RunOpTests):
     @pytest.mark.it(
         "Fails the operation and resets the pending connection operation to None, if there is a failure connecting in the MQTTTransport"
     )
-    def test_fails_operation(self, stage, create_transport, op_connect, unexpected_exception):
-        stage.transport.connect.side_effect = unexpected_exception
+    def test_fails_operation(self, stage, create_transport, op_connect, arbitrary_exception):
+        stage.transport.connect.side_effect = arbitrary_exception
         stage.run_op(op_connect)
-        assert_callback_failed(op=op_connect, error=unexpected_exception)
+        assert_callback_failed(op=op_connect, error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
 
@@ -325,11 +325,11 @@ class TestMQTTProviderExecuteOpWithReconnect(RunOpTests):
         "Fails the operation and resets the pending connection operation to None, if there is a failure reconnecting in the MQTTTransport"
     )
     def test_fails_operation(
-        self, mocker, stage, create_transport, op_reconnect, unexpected_exception
+        self, mocker, stage, create_transport, op_reconnect, arbitrary_exception
     ):
-        stage.transport.reconnect.side_effect = unexpected_exception
+        stage.transport.reconnect.side_effect = arbitrary_exception
         stage.run_op(op_reconnect)
-        assert_callback_failed(op=op_reconnect, error=unexpected_exception)
+        assert_callback_failed(op=op_reconnect, error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
 
@@ -374,11 +374,11 @@ class TestMQTTProviderExecuteOpWithDisconnect(RunOpTests):
         "Fails the operation and resets the pending connection operation to None, if there is a failure disconnecting in the MQTTTransport"
     )
     def test_fails_operation(
-        self, mocker, stage, create_transport, op_disconnect, unexpected_exception
+        self, mocker, stage, create_transport, op_disconnect, arbitrary_exception
     ):
-        stage.transport.disconnect.side_effect = unexpected_exception
+        stage.transport.disconnect.side_effect = arbitrary_exception
         stage.run_op(op_disconnect)
-        assert_callback_failed(op=op_disconnect, error=unexpected_exception)
+        assert_callback_failed(op=op_disconnect, error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
 
@@ -552,45 +552,43 @@ class TestMQTTProviderOnConnectionFailure(object):
         ],
     )
     def test_does_not_call_connected_handler(
-        self, stage, create_transport, unexpected_exception, pending_connection_op
+        self, stage, create_transport, arbitrary_exception, pending_connection_op
     ):
         # This test is testing negative space - something the function does NOT do - rather than something it does
         stage._pending_connection_op = pending_connection_op
         assert stage.previous.on_connected.call_count == 0
-        stage.transport.on_mqtt_connection_failure_handler(unexpected_exception)
+        stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
         assert stage.previous.on_connected.call_count == 0
 
     @pytest.mark.it("Fails a pending ConnectOperation if the connection failure event fires")
-    def test_fails_pending_connect_op(self, mocker, stage, create_transport, unexpected_exception):
+    def test_fails_pending_connect_op(self, mocker, stage, create_transport, arbitrary_exception):
         op = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
         stage.run_op(op)
         assert op.callback.call_count == 0
         assert stage._pending_connection_op is op
-        stage.transport.on_mqtt_connection_failure_handler(unexpected_exception)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
     @pytest.mark.it("Fails a pending ReconnectOperation if the connection failure event fires")
-    def test_fails_pending_reconnect_op(
-        self, mocker, stage, create_transport, unexpected_exception
-    ):
+    def test_fails_pending_reconnect_op(self, mocker, stage, create_transport, arbitrary_exception):
         op = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
         stage.run_op(op)
         assert op.callback.call_count == 0
         assert stage._pending_connection_op is op
-        stage.transport.on_mqtt_connection_failure_handler(unexpected_exception)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
     @pytest.mark.it("Ignores a pending DisconnectOperation if the connection failure event fires")
     def test_ignores_pending_disconnect_op(
-        self, mocker, stage, create_transport, unexpected_exception
+        self, mocker, stage, create_transport, arbitrary_exception
     ):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
         stage.run_op(op)
         assert op.callback.call_count == 0
         assert stage._pending_connection_op is op
-        stage.transport.on_mqtt_connection_failure_handler(unexpected_exception)
+        stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
         # Assert nothing changed about the operation
         assert op.callback.call_count == 0
         assert stage._pending_connection_op is op
@@ -606,15 +604,15 @@ class TestMQTTProviderOnConnectionFailure(object):
         ],
     )
     def test_unexpected_connection_failure(
-        self, mocker, stage, create_transport, unexpected_exception, pending_connection_op
+        self, mocker, stage, create_transport, arbitrary_exception, pending_connection_op
     ):
         # A connection failure is unexpected if there is not a pending Connect/Reconnect operation
         # i.e. "Why did we get a connection failure? We weren't even trying to connect!"
         mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
         stage._pending_connection_operation = pending_connection_op
-        stage.transport.on_mqtt_connection_failure_handler(unexpected_exception)
+        stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
         assert mock_handler.call_count == 1
-        assert mock_handler.call_args[0][0] is unexpected_exception
+        assert mock_handler.call_args[0][0] is arbitrary_exception
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT disconnected")
@@ -658,13 +656,13 @@ class TestMQTTProviderOnDisconnected(object):
         "Completes a pending DisconnectOperation with success when the transport disconnected event fires with an error cause"
     )
     def test_completes_pending_disconnect_op_with_error(
-        self, mocker, stage, create_transport, unexpected_exception
+        self, mocker, stage, create_transport, arbitrary_exception
     ):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
         stage.run_op(op)
         assert op.callback.call_count == 0
         assert stage._pending_connection_op is op
-        stage.transport.on_mqtt_disconnected_handler(unexpected_exception)
+        stage.transport.on_mqtt_disconnected_handler(arbitrary_exception)
         assert_callback_succeeded(op=op)
         assert stage._pending_connection_op is None
 

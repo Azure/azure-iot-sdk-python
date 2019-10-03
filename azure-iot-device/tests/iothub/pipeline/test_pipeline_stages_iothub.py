@@ -10,9 +10,11 @@ import pytest
 import sys
 import threading
 from concurrent.futures import Future
+from azure.iot.device.exceptions import ServiceError
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
+from azure.iot.device.iothub.pipeline.exceptions import PipelineError
 from tests.common.pipeline.helpers import (
     assert_callback_succeeded,
     assert_callback_failed,
@@ -119,12 +121,12 @@ different_auth_provider_ops = [
 @pytest.mark.describe("UseAuthProvider - .run_op() -- called with SetAuthProviderOperation")
 class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
     @pytest.fixture
-    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
         return make_mock_stage(
             mocker=mocker,
             stage_to_make=pipeline_stages_iothub.UseAuthProviderStage,
-            exc_to_raise=unexpected_exception,
-            base_exc_to_raise=unexpected_base_exception,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
         )
 
     @pytest.fixture
@@ -202,22 +204,22 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         "Handles any Exceptions raised by SetIoTHubConnectionArgsOperation and returns them through the op callback"
     )
     def test_set_auth_provider_raises_exception(
-        self, mocker, stage, unexpected_exception, set_auth_provider
+        self, mocker, stage, arbitrary_exception, set_auth_provider
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(set_auth_provider)
-        assert_callback_failed(op=set_auth_provider, error=unexpected_exception)
+        assert_callback_failed(op=set_auth_provider, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any  BaseExceptions raised by SetIoTHubConnectionArgsOperation to propagate"
     )
     def test_set_auth_provider_raises_base_exception(
-        self, mocker, stage, unexpected_base_exception, set_auth_provider
+        self, mocker, stage, arbitrary_base_exception, set_auth_provider
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(set_auth_provider)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Retrieves sas_token or x509_certificate on the auth provider and passes the result as the attribute of the next operation"
@@ -255,37 +257,37 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
         "Handles any Exceptions raised by setting sas token or setting certificate and returns them through the op callback"
     )
     def test_set_sas_token_or_set_client_certificate_raises_exception(
-        self, mocker, unexpected_exception, stage, set_auth_provider, params_auth_provider_ops
+        self, mocker, arbitrary_exception, stage, set_auth_provider, params_auth_provider_ops
     ):
         if params_auth_provider_ops["name"] == "sas_token_auth":
             set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
-                side_effect=unexpected_exception
+                side_effect=arbitrary_exception
             )
         elif "x509_auth" in params_auth_provider_ops["name"]:
             set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
-                side_effect=unexpected_exception
+                side_effect=arbitrary_exception
             )
 
         stage.run_op(set_auth_provider)
-        assert_callback_failed(op=set_auth_provider, error=unexpected_exception)
+        assert_callback_failed(op=set_auth_provider, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised by get_current_sas_token or get_x509_certificate to propagate"
     )
     def test_set_sas_token_or_set_client_certificate_raises_base_exception(
-        self, mocker, unexpected_base_exception, stage, set_auth_provider, params_auth_provider_ops
+        self, mocker, arbitrary_base_exception, stage, set_auth_provider, params_auth_provider_ops
     ):
         if params_auth_provider_ops["name"] == "sas_token_auth":
             set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
-                side_effect=unexpected_base_exception
+                side_effect=arbitrary_base_exception
             )
         elif "x509_auth" in params_auth_provider_ops["name"]:
             set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
-                side_effect=unexpected_base_exception
+                side_effect=arbitrary_base_exception
             )
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(set_auth_provider)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Sets the on_sas_token_updated_handler handler")
     def test_sets_sas_token_updated_handler(
@@ -305,12 +307,12 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
 @pytest.mark.describe("UseAuthProvider - .on_sas_token_updated()")
 class TestUseAuthProviderOnSasTokenUpdated(object):
     @pytest.fixture
-    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
         stage = make_mock_stage(
             mocker=mocker,
             stage_to_make=pipeline_stages_iothub.UseAuthProviderStage,
-            exc_to_raise=unexpected_exception,
-            base_exc_to_raise=unexpected_base_exception,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
         )
         auth_provider = mocker.MagicMock()
         auth_provider.get_current_sas_token = mocker.MagicMock(return_value=fake_sas_token)
@@ -336,28 +338,28 @@ class TestUseAuthProviderOnSasTokenUpdated(object):
     # @pytest.mark.it(
     #     "Handles any Exceptions raised by the UpdateSasTokenOperation and passes them into the unhandled exception handler"
     # )
-    # def test_raises_exception(self, stage, mocker, unhandled_error_handler, unexpected_exception):
+    # def test_raises_exception(self, stage, mocker, unhandled_error_handler, arbitrary_exception):
     #     threading.current_thread().name = "not_pipeline"
 
-    #     stage.next.run_op.side_effect = unexpected_exception
+    #     stage.next.run_op.side_effect = arbitrary_exception
     #     future = stage.on_sas_token_updated()
     #     future.result()
 
     #     assert unhandled_error_handler.call_count == 1
     #     a = unhandled_error_handler.call_args
-    #     assert a[0][0] is unexpected_exception
-    #     #assert unhandled_error_handler.call_args[0][0] is unexpected_exception
+    #     assert a[0][0] is arbitrary_exception
+    #     #assert unhandled_error_handler.call_args[0][0] is arbitrary_exception
 
     # @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
-    # def test_raises_base_exception(self, stage, unexpected_base_exception):
+    # def test_raises_base_exception(self, stage, arbitrary_base_exception):
     #     threading.current_thread().name = "not_pipeline"
 
-    #     stage.next.run_op.side_effect = unexpected_base_exception
+    #     stage.next.run_op.side_effect = arbitrary_base_exception
     #     future = stage.on_sas_token_updated()
 
-    #     with pytest.raises(unexpected_base_exception.__class__) as e_info:
+    #     with pytest.raises(arbitrary_base_exception.__class__) as e_info:
     #         future.result()
-    #     assert e_info.value is unexpected_base_exception
+    #     assert e_info.value is arbitrary_base_exception
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -376,12 +378,12 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 @pytest.mark.describe("HandleTwinOperationsStage - .run_op() -- called with GetTwinOperation")
 class TestHandleTwinOperationsRunOpWithGetTwin(object):
     @pytest.fixture
-    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
         return make_mock_stage(
             mocker=mocker,
             stage_to_make=pipeline_stages_iothub.HandleTwinOperationsStage,
-            exc_to_raise=unexpected_exception,
-            base_exc_to_raise=unexpected_base_exception,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
         )
 
     @pytest.fixture
@@ -409,60 +411,60 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
         assert new_op.resource_location == "/"
         assert new_op.request_body == " "
 
-    @pytest.mark.it(
-        "Returns a NotImplementedError through the op callback if there is no next stage"
-    )
+    @pytest.mark.it("Returns a PipelineError through the op callback if there is no next stage")
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=NotImplementedError)
+        assert_callback_failed(op=op, error=PipelineError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
     )
-    def test_next_stage_raises_exception(self, stage, op, mocker, unexpected_exception):
+    def test_next_stage_raises_exception(self, stage, op, mocker, arbitrary_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
         # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
         # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_exception)
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
     )
-    def test_next_stage_raises_base_exception(self, mocker, stage, op, unexpected_base_exception):
+    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
         # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
         # (it is unclear as to why at this time)
-        stage.next.run_op.side_effect = mocker.MagicMock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        stage.next.run_op.side_effect = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
     )
-    def test_next_stage_returns_error(self, stage, op, unexpected_exception):
+    def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = unexpected_exception
+            op.error = arbitrary_exception
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns an error in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
+        "Returns a ServiceError in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
     )
     def test_next_stage_returns_status_over_300(self, stage, op):
         def next_stage_run_op(self, op):
             op.status_code = 400
+            # TODO: should this have a body? Should with/without be a separate test?
+            op.response_body = json.dumps("").encode("utf-8")
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=ServiceError)
 
     @pytest.mark.it(
         "Decodes, deserializes, and returns the request_body from SendIotRequestAndWaitForResponseOperation as the twin attribute on the op along with no error if the status code < 300"
@@ -484,12 +486,12 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
 )
 class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     @pytest.fixture
-    def stage(self, mocker, unexpected_exception, unexpected_base_exception):
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
         return make_mock_stage(
             mocker=mocker,
             stage_to_make=pipeline_stages_iothub.HandleTwinOperationsStage,
-            exc_to_raise=unexpected_exception,
-            base_exc_to_raise=unexpected_base_exception,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
         )
 
     @pytest.fixture
@@ -519,51 +521,49 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
         assert new_op.resource_location == "/properties/reported/"
         assert new_op.request_body == patch_as_string
 
-    @pytest.mark.it(
-        "Returns an NotImplementedError through the op callback if there is no next stage"
-    )
+    @pytest.mark.it("Returns an PipelineError through the op callback if there is no next stage")
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=NotImplementedError)
+        assert_callback_failed(op=op, error=PipelineError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
     )
-    def test_next_stage_raises_exception(self, stage, op, unexpected_exception, mocker):
+    def test_next_stage_raises_exception(self, stage, op, arbitrary_exception, mocker):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
         # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
         # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_exception)
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
     )
-    def test_next_stage_raises_base_exception(self, mocker, stage, op, unexpected_base_exception):
+    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
         # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
         # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
     )
-    def test_next_stage_returns_error(self, stage, op, unexpected_exception):
+    def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = unexpected_exception
+            op.error = arbitrary_exception
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns an error in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
+        "Returns a ServiceError in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
     )
     def test_next_stage_returns_status_over_300(self, stage, op):
         def next_stage_run_op(self, op):
@@ -572,7 +572,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=ServiceError)
 
     @pytest.mark.it("Returns no error on the op callback if the status code < 300")
     def test_next_stage_completes_correctly(self, stage, op):

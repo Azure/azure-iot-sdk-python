@@ -27,17 +27,17 @@ You may (and should!) still use exceptions defined elsewhere for specific, non-a
 
 
 @pytest.fixture
-def unexpected_exception():
-    class UnexpectedException(Exception):
+def arbitrary_exception():
+    class ArbitraryException(Exception):
         pass
 
-    e = UnexpectedException()
+    e = ArbitraryException()
     return e
 
 
 @pytest.fixture
-def unexpected_base_exception():
-    class UnexpectedBaseException(BaseException):
+def arbitrary_base_exception():
+    class ArbitraryBaseException(BaseException):
         pass
 
-    return UnexpectedBaseException()
+    return ArbitraryBaseException()

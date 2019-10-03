@@ -22,6 +22,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
 )
+from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import (
@@ -206,12 +207,12 @@ def create_message_for_output_with_system_and_user_properties(message_content, i
 
 
 @pytest.fixture
-def stage(mocker, unexpected_exception, unexpected_base_exception):
+def stage(mocker, arbitrary_exception, arbitrary_base_exception):
     return make_mock_stage(
         mocker=mocker,
         stage_to_make=pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
-        exc_to_raise=unexpected_exception,
-        base_exc_to_raise=unexpected_base_exception,
+        exc_to_raise=arbitrary_exception,
+        base_exc_to_raise=arbitrary_base_exception,
     )
 
 
@@ -377,22 +378,22 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
         "Calls the SetIoTHubConnectionArgsOperation callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation raises an Exception"
     )
     def test_set_connection_args_raises_exception(
-        self, stage, mocker, unexpected_exception, set_connection_args
+        self, stage, mocker, arbitrary_exception, set_connection_args
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(set_connection_args)
-        assert_callback_failed(op=set_connection_args, error=unexpected_exception)
+        assert_callback_failed(op=set_connection_args, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised inside the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation to propagate"
     )
     def test_set_connection_args_raises_base_exception(
-        self, stage, mocker, unexpected_base_exception, set_connection_args
+        self, stage, mocker, arbitrary_base_exception, set_connection_args
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(set_connection_args)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Calls the SetIoTHubConnectionArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
@@ -424,10 +425,10 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(object):
         assert stage.next.run_op.call_args[0][0] == op
 
     @pytest.mark.it("Completes the op with failure if some lower stage returns failure")
-    def test_lower_stage_update_sas_token_fails(self, stage, op):
-        op.action = "error"
+    def test_lower_stage_update_sas_token_fails(self, stage, op, arbitrary_exception):
+        op.action = "exception"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Completes the op with success if some lower stage returns success")
     def test_lower_stage_update_sas_token_succeeds(self, stage, op):
@@ -460,10 +461,10 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
     @pytest.mark.it(
         "Completes the op with failure if some lower stage returns failure for the UpdateSasTokenOperation"
     )
-    def test_lower_stage_update_sas_token_fails(self, stage, op):
+    def test_lower_stage_update_sas_token_fails(self, stage, op, arbitrary_exception):
         op.action = "fail"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Passes down a ReconnectOperation instead of completing the op with success after the lower level stage returns success for the UpdateSasTokenOperation"
@@ -503,13 +504,13 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
     @pytest.mark.it(
         "Completes the op with failure if some lower level stage returns failure for the ReconnectOperation"
     )
-    def test_reconnect_fails(self, stage, op, mocker, unexpected_exception):
+    def test_reconnect_fails(self, stage, op, mocker, arbitrary_exception):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
                 op.callback(op)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                op.error = unexpected_exception
+                op.error = arbitrary_exception
                 op.callback(op)
             else:
                 pass
@@ -522,7 +523,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
         assert isinstance(
             stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
         )
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
 
 basic_ops = [
@@ -575,20 +576,20 @@ class TestIoTHubMQTTConverterBasicOperations(object):
 
     @pytest.mark.it("Calls the original op callback with error if the new_op raises an exception")
     def test_operation_raises_exception(
-        self, params, mocker, stage, stages_configured_for_both, op, unexpected_exception
+        self, params, mocker, stage, stages_configured_for_both, op, arbitrary_exception
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Allows any any BaseExceptions raised in the new_op to propagate")
     def test_operation_raises_base_exception(
-        self, params, mocker, stage, stages_configured_for_both, op, unexpected_base_exception
+        self, params, mocker, stage, stages_configured_for_both, op, arbitrary_base_exception
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
     def test_operation_succeeds(self, params, stage, stages_configured_for_both, op):
@@ -1156,13 +1157,11 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
             callback=callback,
         )
 
-    @pytest.mark.it(
-        "calls the op callback with a NotImplementedError if request_type is not 'twin'"
-    )
+    @pytest.mark.it("calls the op callback with an OperationError if request_type is not 'twin'")
     def test_sends_bad_request_type(self, stage, op):
         op.request_type = "not_twin"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=NotImplementedError)
+        assert_callback_failed(op=op, error=OperationError)
 
     @pytest.mark.it(
         "Runs an MQTTPublishOperation on the next stage with the topic formated as '$iothub/twin/{method}{resource_location}?$rid={request_id}' and the payload as the request_body"
@@ -1179,46 +1178,44 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
         )
         assert new_op.payload == fake_request_body
 
-    @pytest.mark.it(
-        "Returns a NotImplementedError through the op callback if there is no next stage"
-    )
+    @pytest.mark.it("Returns an OperationError through the op callback if there is no next stage")
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=NotImplementedError)
+        assert_callback_failed(op=op, error=PipelineError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the MQTTPublishOperation and returns them through the op callback"
     )
-    def test_next_stage_raises_exception(self, mocker, stage, op, unexpected_exception):
+    def test_next_stage_raises_exception(self, mocker, stage, op, arbitrary_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
         # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
         # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_exception)
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised by the MQTTPublishOperation to propagate")
-    def test_next_stage_raises_base_exception(self, mocker, stage, op, unexpected_base_exception):
+    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
         # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
         # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Returns op.error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
     )
-    def test_publish_op_returns_failure(self, stage, op, unexpected_exception):
+    def test_publish_op_returns_failure(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = unexpected_exception
+            op.error = arbitrary_exception
             op.callback(op)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=unexpected_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Returns op.error=None in the operation callback if the MQTTPublishOperation returned op.error=None in its operation callback"
@@ -1429,14 +1426,16 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
         assert new_event.request_id == fake_request_id
         assert new_event.response_body == fake_payload
 
-    @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
+    @pytest.mark.it(
+        "Calls the unhandled exception handler with a PipelineError if there is no previous stage"
+    )
     def test_no_previous_stage(
         self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
     ):
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
         assert unhandled_error_handler.call_count == 1
-        assert isinstance(unhandled_error_handler.call_args[0][0], NotImplementedError)
+        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineError)
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the requet_id is missing from the topic name"
@@ -1533,14 +1532,16 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(object):
         assert isinstance(new_event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent)
         assert new_event.patch == fake_patch
 
-    @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
+    @pytest.mark.it(
+        "Calls the unhandled exception handler with a PipelineError if there is no previous stage"
+    )
     def test_no_previous_stage(
         self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
     ):
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
         assert unhandled_error_handler.call_count == 1
-        assert isinstance(unhandled_error_handler.call_args[0][0], NotImplementedError)
+        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineError)
 
     @pytest.mark.it("Calls the unhandled exception handler if the payload is not a Bytes object")
     def test_payload_not_bytes(

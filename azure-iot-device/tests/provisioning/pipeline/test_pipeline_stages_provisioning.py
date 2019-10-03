@@ -100,12 +100,12 @@ different_security_ops = [
 
 
 @pytest.fixture
-def security_stage(mocker, unexpected_exception, unexpected_base_exception):
+def security_stage(mocker, arbitrary_exception, arbitrary_base_exception):
     return make_mock_stage(
         mocker=mocker,
         stage_to_make=pipeline_stages_provisioning.UseSecurityClientStage,
-        exc_to_raise=unexpected_exception,
-        base_exc_to_raise=unexpected_base_exception,
+        exc_to_raise=arbitrary_exception,
+        base_exc_to_raise=arbitrary_base_exception,
     )
 
 
@@ -144,22 +144,22 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
         "when the SetProvisioningClientConnectionArgsOperation op raises an Exception"
     )
     def test_set_security_client_raises_exception(
-        self, mocker, security_stage, unexpected_exception, set_security_client
+        self, mocker, security_stage, arbitrary_exception, set_security_client
     ):
-        security_stage.next._execute_op = mocker.Mock(side_effect=unexpected_exception)
+        security_stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         security_stage.run_op(set_security_client)
-        assert_callback_failed(op=set_security_client, error=unexpected_exception)
+        assert_callback_failed(op=set_security_client, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised by SetProvisioningClientConnectionArgsOperation operations to propagate"
     )
     def test_set_security_client_raises_base_exception(
-        self, mocker, security_stage, unexpected_base_exception, set_security_client
+        self, mocker, security_stage, arbitrary_base_exception, set_security_client
     ):
-        security_stage.next._execute_op = mocker.Mock(side_effect=unexpected_base_exception)
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        security_stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             security_stage.run_op(set_security_client)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Retrieves sas_token or x509_client_cert on the security_client and passes the result as the attribute of the next operation"
@@ -208,21 +208,21 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
         "Returns error when get_current_sas_token or get_x509_certificate raises an exception"
     )
     def test_get_current_sas_token_or_get_x509_certificate_raises_exception(
-        self, mocker, unexpected_exception, security_stage, set_security_client, params_security_ops
+        self, mocker, arbitrary_exception, security_stage, set_security_client, params_security_ops
     ):
         if (
             params_security_ops["current_op_class"].__name__
             == "SetSymmetricKeySecurityClientOperation"
         ):
             set_security_client.security_client.get_current_sas_token = mocker.Mock(
-                side_effect=unexpected_exception
+                side_effect=arbitrary_exception
             )
         elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClientOperation":
             set_security_client.security_client.get_x509_certificate = mocker.Mock(
-                side_effect=unexpected_exception
+                side_effect=arbitrary_exception
             )
         security_stage.run_op(set_security_client)
-        assert_callback_failed(op=set_security_client, error=unexpected_exception)
+        assert_callback_failed(op=set_security_client, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised by get_current_sas_token or get_x509_certificate to propagate"
@@ -230,7 +230,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
     def test_get_current_sas_token_get_x509_certificate_raises_base_exception(
         self,
         mocker,
-        unexpected_base_exception,
+        arbitrary_base_exception,
         security_stage,
         set_security_client,
         params_security_ops,
@@ -240,12 +240,12 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(object):
             == "SetSymmetricKeySecurityClientOperation"
         ):
             set_security_client.security_client.get_current_sas_token = mocker.Mock(
-                side_effect=unexpected_base_exception
+                side_effect=arbitrary_base_exception
             )
         elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClientOperation":
             set_security_client.security_client.get_x509_certificate = mocker.Mock(
-                side_effect=unexpected_base_exception
+                side_effect=arbitrary_base_exception
             )
-        with pytest.raises(unexpected_base_exception.__class__) as e_info:
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             security_stage.run_op(set_security_client)
-        assert e_info.value is unexpected_base_exception
+        assert e_info.value is arbitrary_base_exception
