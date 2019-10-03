@@ -120,7 +120,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         function will open the connection before sending the event.
 
         :param message: The actual message to send. Anything passed that is not an instance of the
-        Message class will be converted to Message object.
+            Message class will be converted to Message object.
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -149,10 +149,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If no method request is yet available, will wait until it is available.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
-        If this parameter is not given, all methods not already being specifically targeted by
-        a different call to receive_method will be received.
+            If this parameter is not given, all methods not already being specifically targeted by
+            a different call to receive_method will be received.
 
         :returns: MethodRequest object representing the received method request.
+        :rtype: `azure.iot.device.MethodRequest`
         """
         if not self._iothub_pipeline.feature_enabled[constant.METHODS]:
             await self._enable_feature(constant.METHODS)
@@ -171,6 +172,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         function will open the connection before sending the event.
 
         :param method_response: The MethodResponse to send
+        :type method_response: :class:`azure.iot.device.MethodResponse`
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -198,7 +200,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Enable an Azure IoT Hub feature
 
         :param feature_name: The name of the feature to enable.
-        See azure.iot.device.common.pipeline.constant for possible values.
+            See azure.iot.device.common.pipeline.constant for possible values.
         """
         logger.info("Enabling feature:" + feature_name + "...")
         enable_feature_async = async_adapter.emulate_async(self._iothub_pipeline.enable_feature)
@@ -277,7 +279,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         If no method request is yet available, will wait until it is available.
 
-        :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values)
+        :returns: desired property patch. This can be dict, str, int, float, bool, or None (JSON compatible values)
         """
         if not self._iothub_pipeline.feature_enabled[constant.TWIN_PATCHES]:
             await self._enable_feature(constant.TWIN_PATCHES)
@@ -302,7 +304,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
         super().__init__(iothub_pipeline=iothub_pipeline)
         self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
@@ -313,6 +315,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         If no message is yet available, will wait until an item is available.
 
         :returns: Message that was sent from the Azure IoT Hub.
+        :rtype: :class:`azure.iot.device.Message`
         """
         if not self._iothub_pipeline.feature_enabled[constant.C2D_MSG]:
             await self._enable_feature(constant.C2D_MSG)
@@ -338,7 +341,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: IoTHubPipeline
-        :param edge_pipeline: (OPTIONAL) The pipeline used to connect to the Edge endpoint.
+        :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
         :type edge_pipeline: EdgePipeline
         """
         super().__init__(iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline)
@@ -352,9 +355,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        :param message: message to send to the given output. Anything passed that is not an instance of the
-        Message class will be converted to Message object.
-        :param output_name: Name of the output to send the event to.
+        :param message: Message to send to the given output. Anything passed that is not an instance of the
+            Message class will be converted to Message object.
+        :param str output_name: Name of the output to send the event to.
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -387,7 +390,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         If no message is yet available, will wait until an item is available.
 
         :param str input_name: The input name to receive a message on.
+
         :returns: Message that was sent to the specified input.
+        :rtype: :class:`azure.iot.device.Message`
         """
         if not self._iothub_pipeline.feature_enabled[constant.INPUT_MSG]:
             await self._enable_feature(constant.INPUT_MSG)
