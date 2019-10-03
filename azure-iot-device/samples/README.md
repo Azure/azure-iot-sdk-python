@@ -11,6 +11,7 @@ This directory contains samples showing how to use the various features of the M
     ```bash
     az iot hub create --resource-group <your resource group> --name <your IoT Hub name>
     ```
+
     * Note that this operation make take a few minutes.
 
 2. Add the IoT Extension to the Azure CLI, and then [register a device identity](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-create)
@@ -20,14 +21,15 @@ This directory contains samples showing how to use the various features of the M
     az iot hub device-identity create --hub-name <your IoT Hub name> --device-id <your device id>
     ```
 
-2. [Retrieve your Device Connection String](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-show-connection-string) using the Azure CLI
+3. [Retrieve your Device Connection String](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-show-connection-string) using the Azure CLI
 
     ```bash
     az iot hub device-identity show-connection-string --device-id <your device id> --hub-name <your IoT Hub name>
     ```
 
     It should be in the format:
-    ```
+
+    ```Text
     HostName=<your IoT Hub name>.azure-devices.net;DeviceId=<your device id>;SharedAccessKey=<some value>
     ```
 
@@ -39,13 +41,16 @@ This directory contains samples showing how to use the various features of the M
 
 5. On your device, set the Device Connection String as an enviornment variable called `IOTHUB_DEVICE_CONNECTION_STRING`.
 
-    ### Windows (cmd)
+    **Windows (cmd)**
+
     ```cmd
     set IOTHUB_DEVICE_CONNECTION_STRING=<your connection string here>
     ```
+
     * Note that there are **NO** quotation marks around the connection string.
 
-    ### Linux (bash)
+    **Linux (bash)**
+
     ```bash
     export IOTHUB_DEVICE_CONNECTION_STRING="<your connection string here>"
     ```
@@ -94,6 +99,7 @@ This directory contains samples showing how to use the various features of the M
 8. Your device is now able to connect to Azure IoT Hub!
 
 ## Additional Samples
+
 Further samples with more complex IoT Hub scenarios are contained in the [advanced-hub-scenarios](advanced-hub-scenarios) directory, including:
 
 * Send multiple telemetry messages from a Device
