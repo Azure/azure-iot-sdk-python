@@ -5,14 +5,14 @@ code base.
 
 ## Installing the IoTHub Python SDK
 
-- v1 SDK
+- v1
 
 ```Shell
 pip install azure-iothub-device-client
 
 ```
 
-- v2 SDK
+- v2
 
 ```Shell
 pip install azure-iot-device
@@ -73,7 +73,7 @@ pip install azure-iot-device
 
 ## Sending Telemetry to IoTHub
 
-- v1 SDK
+- v1
 
 ```Python
     # create the device client
@@ -102,7 +102,7 @@ pip install azure-iot-device
 
 ## Receiving a Message from IoTHub
 
-- v1 SDK
+- v1
 
 ```Python
     # create the device client
