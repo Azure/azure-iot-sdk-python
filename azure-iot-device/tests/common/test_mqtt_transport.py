@@ -156,7 +156,9 @@ class TestInstantiation(object):
             client_id=fake_device_id, clean_session=False, protocol=mqtt.MQTTv311
         )
 
-    @pytest.mark.it("Creates instance of Paho MQTT Client using Websockets")
+    @pytest.mark.it(
+        "Creates an instance of the Paho MQTT Client using Websockets, if websockets parameter is True"
+    )
     def test_configures_mqtt_websockets(self, mocker):
         mock_mqtt_client_constructor = mocker.patch.object(mqtt, "Client")
         mock_mqtt_client = mock_mqtt_client_constructor.return_value
