@@ -102,7 +102,7 @@ class MQTTTransport(object):
         self._mqtt_client = None
         self._ca_cert = ca_cert
         self._x509_cert = x509_cert
-        self.websockets = websockets
+        self._websockets = websockets
 
         self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
@@ -120,7 +120,7 @@ class MQTTTransport(object):
         logger.info("creating mqtt client")
 
         # Instaniate the client
-        if self.websockets:
+        if self._websockets1:
             # MQTT Over Websockets
             mqtt_client = mqtt.Client(
                 client_id=self._client_id,
@@ -269,7 +269,7 @@ class MQTTTransport(object):
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
         try:
-            if self.websockets:
+            if self._websockets:
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=443, keepalive=DEFAULT_KEEPALIVE
                 )

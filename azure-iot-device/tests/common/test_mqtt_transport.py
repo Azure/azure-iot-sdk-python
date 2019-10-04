@@ -156,6 +156,30 @@ class TestInstantiation(object):
             client_id=fake_device_id, clean_session=False, protocol=mqtt.MQTTv311
         )
 
+    @pytest.mark.it("Creates instance of Paho MQTT Client using Websockets")
+    def test_configures_mqtt_websockets(self, mocker):
+        mock_mqtt_client_constructor = mocker.patch.object(mqtt, "Client")
+        mock_mqtt_client = mock_mqtt_client_constructor.return_value
+
+        MQTTTransport(
+            client_id=fake_device_id,
+            hostname=fake_hostname,
+            username=fake_username,
+            websockets=True,
+        )
+
+        assert mock_mqtt_client_constructor.call_count == 1
+        assert mock_mqtt_client_constructor.call_args == mocker.call(
+            client_id=fake_device_id,
+            clean_session=False,
+            protocol=mqtt.MQTTv311,
+            transport="websockets",
+        )
+
+        # Verify websockets options have been set
+        assert mock_mqtt_client.ws_set_options.call_count == 1
+        assert mock_mqtt_client.ws_set_options.call_args == mocker.call(path="/$iothub/websocket")
+
     @pytest.mark.it(
         "Configures TLS/SSL context to use TLS 1.2, require certificates and check hostname"
     )
@@ -293,18 +317,32 @@ class TestConnect(object):
             pytest.param(None, id="No password provided"),
         ],
     )
-    def test_calls_paho_connect(self, mocker, mock_mqtt_client, transport, password):
+    @pytest.mark.parametrize(
+        "websockets,port",
+        [
+            pytest.param(False, 8883, id="Not using websockets"),
+            pytest.param(True, 443, id="Using websockets"),
+        ],
+    )
+    def test_calls_paho_connect(
+        self, mocker, mock_mqtt_client, transport, password, websockets, port
+    ):
 
-        mqtt_transport.DEFAULT_KEEPALIVE = fake_keepalive
+        # We don't want to use a special fixture for websockets, so instead we are overriding the attribute below.
+        # However, we want to assert that this value is not undefined. For instance, the self._websockets convention private attribute
+        # could be changed to self._websockets1, and all our tests would still pass without the below assert statement.
+        assert transport._websockets is False
+
+        transport._websockets = websockets
 
         transport.connect(password)
 
         assert mock_mqtt_client.connect.call_count == 1
         assert mock_mqtt_client.connect.call_args == mocker.call(
-            host=fake_hostname, port=8883, keepalive=mocker.ANY
+            host=fake_hostname, port=port, keepalive=mocker.ANY
         )
 
-    @pytest.mark.it("passes DEFAULT_KEEPALIVE to paho connect function")
+    @pytest.mark.it("Passes DEFAULT_KEEPALIVE to paho connect function")
     @pytest.mark.parametrize(
         "password",
         [
