@@ -2,64 +2,34 @@
 
 ![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
 
-This repository contains code for the Azure IoT SDKs for Python.  This enables python developers to easily create IoT devices that work semealessly 
+This repository contains code for the Azure IoT SDKs for Python.  This enables python developers to easily create IoT device solutions that semealessly
+connection to the Azure IoTHub ecosystem.
 
 *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
 
 **Note that these SDKs are currently in preview, and are subject to change.**
 
-## Python SDK
+## Azure IoT SDK for Python
 
-This repository contains the following:
+This repository contains the following libraries:
 
-* *Azure IoT Device SDK*
+* [Azure IoT Device library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-device/README.md)
 
-  * Send/receive telemetry between a device or module and the Azure IoT hub or Azure IoT Edge device
-  * Handle direct methods invoked by the Azure IoT hub on a device
-  * Handle twin events and report twin updates
-  * Provision a device using the Device Provisioning Service for use with the Azure IoT hub
-  * *Still in development*
-    * *Blob/File upload*
-    * *Invoking method from a module client onto a leaf device*
+* [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md)
 
-* Azure IoT Hub SDK
-  * Do service/management operations on the Azure IoT Hub
-  * *Still in development*
-    * C2D messaging
-    * Direct Methods
-    * Configurations
-    * Query devices
-    * IoTHub Job
+* Coming Soon: Azure IoT Device Provisioning Service Library
 
-  * Do service/management operations on the Azure IoT Device Provisioning Service
-
-## How to install the SDKs
-
-The SDK is contained in various Pip Packages that can be installed with the following commands:
-
-For the Device SDK the following command:
-
-```Shell
-pip install azure-iot-device
-```
-
-For the IoTHub SDK the following command:
-
-```Shell
-pip install azure-iot-hub
-```
-
-## Python SDKs Feature
+## Features
 
 :heavy_check_mark: feature available  :heavy_multiplication_x: feature planned but not yet supported  :heavy_minus_sign: no support planned*
 
-*Features that are not planned may be prioritized in a future release, but are not currently in our 6 short term plans
+*Features that are not planned may be prioritized in a future release, but are not currently planned
 
 ### Device Client Library
 
-#### IoTHub Device Client
+#### [IoTHub Device Client](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/azure/iot/device/iothub)
 
-| Features                                                                                                         | Python                     | Description                                                                                                                                                                                                          |
+| Features                                                                                                         | Status                     | Description                                                                                                                                                                                                          |
 |------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Authentication](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-security-deployment)                     | :heavy_check_mark:         | Connect your device to IoT Hub securely with supported authentication, including private key, SASToken, X-509 Self Signed and Certificate Authority (CA) Signed.                                                     |
 | [Send device-to-cloud message](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-d2c)     | :heavy_check_mark:         | Send device-to-cloud messages (max 256KB) to IoT Hub with the option to add custom properties.                                                                                                                       |
@@ -69,9 +39,9 @@ pip install azure-iot-hub
 | [Connection Status and Error reporting](https://docs.microsoft.com/en-us/rest/api/iothub/common-error-codes)     | :heavy_multiplication_x:   | Error reporting for IoT Hub supported error code.  *This SDK supports error reporting on authentication and Device Not Found.                                                                                        |
 | Retry policies                                                                                                   | :heavy_check_mark:         | Retry policy for unsuccessful device-to-cloud messages.                                                                                                                                                              |
 
-#### IoTHub Module Client
+#### [IoTHub Module Client](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/azure/iot/device/iothub/models)
 
-| Features                                                                                                         | Python                     | Description                                                                                                                                                                                                          |
+| Features                                                                                                         | Status                     | Description                                                                                                                                                                                                          |
 |------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Authentication](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-security-deployment)                     | :heavy_check_mark:         | Connect your device to IoT Hub securely with supported authentication, including private key, SASToken, X-509 Self Signed and Certificate Authority (CA) Signed.                                                     |
 | [Send device-to-cloud message](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-d2c)     | :heavy_check_mark:         | Send device-to-cloud messages (max 256KB) to IoT Hub with the option to add custom properties.                                                                                                                       |
@@ -79,27 +49,23 @@ pip install azure-iot-hub
 | [Device Twins](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-device-twins)                     | :heavy_check_mark:         | IoT Hub persists a device twin for each device that you connect to IoT Hub.  The device can perform operations like get twin tags, subscribe to desired properties.                                                  |
 | [Direct Methods](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-direct-methods)                 | :heavy_check_mark:         | IoT Hub gives you the ability to invoke direct methods on devices from the cloud.  The SDK supports handler for method specific and generic operation.                                                               |
 | [Connection Status and Error reporting](https://docs.microsoft.com/en-us/rest/api/iothub/common-error-codes)     | :heavy_multiplication_x:   | Error reporting for IoT Hub supported error code.  *This SDK supports error reporting on authentication and Device Not Found.                                                                                        |
-| Retry policies                                                                                                   | :heavy_check_mark:         | Retry policy for unsuccessful device-to-cloud messages.                                                                                                                                                              |
+| Retry policies                                                                                                   | :heavy_check_mark:         | Retry policy for connecting disconnected devices and resubmitting messages.                                                                                                                                          |
 | Direct Invocation of Method on Modules                                                                           | :heavy_check_mark:         | Invoke method calls to another module using using the Edge Gateway.                                                                                                                                                  |
 
-#### Provisioning Device Client
+#### [Provisioning Device Client](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/azure/iot/device/provisioning)
 
-This repository contains provisioning device client SDK for the [Device Provisioning Service](https://docs.microsoft.com/en-us/azure/iot-dps/).  Provisioning service SDK for Python is work in progress.
-
-:heavy_check_mark: feature available  :heavy_multiplication_x: feature planned but not supported  :heavy_minus_sign: no support planned
-
-| Features                    | mqtt               | mqtt-ws            | https              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|-----------------------------|--------------------|--------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| TPM Individual Enrollment   | :heavy_minus_sign: | :heavy_minus_sign: | :heavy_minus_sign: | This SDK supports connecting your device to the Device Provisioning Service via [individual enrollment](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-service#enrollment) using [Trusted Platform Module](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#trusted-platform-module-tpm).  Please review the [samples](./azure-iot-device/samples/) folder and this [quickstart](https://docs.microsoft.com/en-us/azure/iot-dps/quick-create-simulated-device-tpm-python)on how to create a device client.    |
-| X.509 Individual Enrollment | :heavy_check_mark: | :heavy_check_mark: | :heavy_minus_sign: | This SDK supports connecting your device to the Device Provisioning Service via [individual enrollment](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-service#enrollment) using [X.509 root certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#root-certificate).  Please review the [samples](./azure-iot-device/samples/) folder and this [quickstart](https://docs.microsoft.com/en-us/azure/iot-dps/quick-create-simulated-device-x509-python) on how to create a device client.              |
-| X.509 Enrollment Group      | :heavy_check_mark: | :heavy_check_mark: | :heavy_minus_sign: | This SDK supports connecting your device to the Device Provisioning Service via [group enrollment](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-service#enrollment) using [X.509 leaf certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#leaf-certificate)).  Please review the [samples](./azure-iot-device/samples/) folder on how to create a device client.                                                                                                                                  |
-| Symmetric Key Enrollment    | :heavy_check_mark: | :heavy_check_mark: | :heavy_minus_sign: | This SDK supports connecting your device to the Device Provisioning Service via [individual enrollment](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-service#enrollment) using [Symmetric key attestation](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)).  Please review the [samples](./azure-iot-device/samples/) folder on how to create a device client.                                                                                                                          |
+| Features                    | Status             | Description                                                                                                                                                                                                                                                                                                                                        |
+|-----------------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| TPM Individual Enrollment   | :heavy_minus_sign: | Provisioning via [Trusted Platform Module](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#trusted-platform-module-tpm).                                                                                                                                                                                                          |
+| X.509 Individual Enrollment | :heavy_check_mark: | Provisioning via [X.509 root certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#root-certificate).  Please review the [samples](./azure-iot-device/samples/) folder and this [quickstart](https://docs.microsoft.com/en-us/azure/iot-dps/quick-create-simulated-device-x509-python) on how to create a device client.   |
+| X.509 Enrollment Group      | :heavy_check_mark: | Provisioning via [X.509 leaf certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#leaf-certificate)).  Please review the [samples](./azure-iot-device/samples/) folder on how to create a device client.                                                                                                                  |
+| Symmetric Key Enrollment    | :heavy_check_mark: | Provisioning via [Symmetric key attestation](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)).  Please review the [samples](./azure-iot-device/samples/) folder on how to create a device client.                                                                                                               |
 
 ### IoTHub Service Library
 
-#### Registry Manager
+#### [Registry Manager](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/azure/iot/hub/iothub_registry_manager.py)
 
-| Features                                                                                                      | Python                   | Description                                                                                                                        |
+| Features                                                                                                      | Status                   | Description                                                                                                                        |
 |---------------------------------------------------------------------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | [Identity registry (CRUD)](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry) | :heavy_check_mark:       | Use your backend app to perform CRUD operation for individual device or in bulk.                                                   |
 | [Cloud-to-device messaging](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-c2d)     | :heavy_multiplication_x: | Use your backend app to send cloud-to-device messages, and set up cloud-to-device message receivers.                               |
@@ -112,13 +78,21 @@ This repository contains provisioning device client SDK for the [Device Provisio
 
 Feature is Coming Soon
 
-| Features                                                                                                      | Python                   | Description                                                                                                                                    |
-|---------------------------------------------------------------------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| CRUD Operation with TPM Individual Enrollment       | :heavy_multiplication_x: | Programmatically manage device enrollment using TPM with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                           |
-| Bulk CRUD Operation with TPM Individual Enrollment  | :heavy_multiplication_x: | Programmatically bulk manage device enrollment using TPM with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                      |
-| CRUD Operation with X.509 Individual Enrollment     | :heavy_multiplication_x: | Programmatically manage device enrollment using X.509 individual enrollment with the service SDK.  Please visit the [samples folder](./provisioning/service/samples/) to learn more about this feature.  |
-| CRUD Operation with X.509 Group Enrollment          | :heavy_multiplication_x: | Programmatically manage device enrollment using X.509 group enrollment with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.        |
-| Query enrollments                                   | :heavy_multiplication_x: | Programmatically query registration states with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                                    |
+| Features                                            | Status                   | Description                                                                                                                                    |
+|-----------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| CRUD Operation with TPM Individual Enrollment       | :heavy_multiplication_x: | Manage device enrollment using TPM with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                           |
+| Bulk CRUD Operation with TPM Individual Enrollment  | :heavy_multiplication_x: | Bulk manage device enrollment using TPM with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                      |
+| CRUD Operation with X.509 Individual Enrollment     | :heavy_multiplication_x: | Manages device enrollment using X.509 individual enrollment with the service SDK.  Please visit the [samples folder](./provisioning/service/samples/) to learn more about this feature.  |
+| CRUD Operation with X.509 Group Enrollment          | :heavy_multiplication_x: | Manages device enrollment using X.509 group enrollment with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.        |
+| Query enrollments                                   | :heavy_multiplication_x: | Query registration states with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                                    |
+
+## How to install the libraries
+
+Pip installs are provided for all of the SDK libraries in this repo:
+
+[Device libraries](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device#installation)
+
+[IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md#installation)
 
 ## Contributing
 
