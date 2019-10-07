@@ -46,7 +46,7 @@ setup(
     license="MIT License",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
-    url="https://github.com/Azure/azure-iot-sdk-python-preview",
+    url="https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-nspkg",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
