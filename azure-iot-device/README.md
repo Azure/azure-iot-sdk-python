@@ -120,7 +120,7 @@ pip install azure-iot-device
 5. Your device is now able to connect to Azure IoT Hub!
 
 ## Additional Samples
-Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python-preview/tree/master/azure-iot-device/samples) for example code showing how the SDK can be used in a variety of scenarios, including:
+Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/samples) for example code showing how the SDK can be used in a variety of scenarios, including:
 * Sending multiple telemetry messages at once.
 * Receiving Cloud-to-Device messages.
 * Using Edge Modules with the Azure IoT Edge Hub.
