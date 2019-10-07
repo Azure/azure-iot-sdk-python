@@ -335,31 +335,29 @@ class TestUseAuthProviderOnSasTokenUpdated(object):
             stage.next.run_op.call_args[0][0], pipeline_ops_base.UpdateSasTokenOperation
         )
 
-    # @pytest.mark.it(
-    #     "Handles any Exceptions raised by the UpdateSasTokenOperation and passes them into the unhandled exception handler"
-    # )
-    # def test_raises_exception(self, stage, mocker, unhandled_error_handler, arbitrary_exception):
-    #     threading.current_thread().name = "not_pipeline"
+    @pytest.mark.it(
+        "Handles any Exceptions raised by the UpdateSasTokenOperation and passes them into the unhandled exception handler"
+    )
+    def test_raises_exception(self, stage, mocker, unhandled_error_handler, arbitrary_exception):
+        threading.current_thread().name = "not_pipeline"
 
-    #     stage.next.run_op.side_effect = arbitrary_exception
-    #     future = stage.on_sas_token_updated()
-    #     future.result()
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+        future = stage.on_sas_token_updated()
+        future.result()
 
-    #     assert unhandled_error_handler.call_count == 1
-    #     a = unhandled_error_handler.call_args
-    #     assert a[0][0] is arbitrary_exception
-    #     #assert unhandled_error_handler.call_args[0][0] is arbitrary_exception
+        assert unhandled_error_handler.call_count == 1
+        assert unhandled_error_handler.call_args[0][0] is arbitrary_exception
 
-    # @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
-    # def test_raises_base_exception(self, stage, arbitrary_base_exception):
-    #     threading.current_thread().name = "not_pipeline"
+    @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
+    def test_raises_base_exception(self, mocker, stage, arbitrary_base_exception):
+        threading.current_thread().name = "not_pipeline"
 
-    #     stage.next.run_op.side_effect = arbitrary_base_exception
-    #     future = stage.on_sas_token_updated()
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        future = stage.on_sas_token_updated()
 
-    #     with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-    #         future.result()
-    #     assert e_info.value is arbitrary_base_exception
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            future.result()
+        assert e_info.value is arbitrary_base_exception
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(

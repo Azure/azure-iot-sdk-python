@@ -154,8 +154,9 @@ class TestInit(object):
             autospec=True,
         )
 
-        with pytest.raises(arbitrary_exception.__class__):
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
             ProvisioningPipeline(input_security_client)
+        assert e_info.value is arbitrary_exception
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)

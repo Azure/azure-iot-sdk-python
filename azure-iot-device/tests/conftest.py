@@ -19,14 +19,14 @@ BaseException, but is not itself an instance of either, tests checking that the 
 question is raised will not spuriously pass due to different exceptions being raised.
 
 For consistency, and to prevent confusion, please do this ONLY by using one of the follwing
-fxitures.
+fixtures.
 
 You may (and should!) still use exceptions defined elsewhere for specific, non-arbitrary exceptions
 (e.g. testing specific exceptions)
 """
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def arbitrary_exception():
     class ArbitraryException(Exception):
         pass
@@ -35,7 +35,7 @@ def arbitrary_exception():
     return e
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def arbitrary_base_exception():
     class ArbitraryBaseException(BaseException):
         pass
