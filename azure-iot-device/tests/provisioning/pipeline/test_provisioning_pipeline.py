@@ -136,13 +136,13 @@ class TestInit(object):
 
     @pytest.mark.it("Raises an exception if the pipeline op to set security client args fails")
     def test_passes_security_client_args_failure(
-        self, mocker, params_security_clients, input_security_client, fake_exception
+        self, mocker, params_security_clients, input_security_client, arbitrary_exception
     ):
         old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, params_security_clients["set_args_op_class"]):
-                op.error = fake_exception
+                op.error = arbitrary_exception
                 operation_flow.complete_op(stage=self, op=op)
             else:
                 old_execute_op(self, op)
@@ -151,10 +151,12 @@ class TestInit(object):
             pipeline_stages_base.PipelineRootStage,
             "_execute_op",
             side_effect=fail_set_auth_provider,
+            autospec=True,
         )
 
-        with pytest.raises(fake_exception.__class__):
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
             ProvisioningPipeline(input_security_client)
+        assert e_info.value is arbitrary_exception
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
