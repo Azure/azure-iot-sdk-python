@@ -120,7 +120,7 @@ class AbstractIoTHubClient(object):
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id):
+    def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
         """
         Instantiate a client which using X509 certificate authentication.
 
@@ -138,7 +138,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id
         )
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, **kwargs)
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
@@ -160,7 +160,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         self._edge_pipeline = edge_pipeline
 
     @classmethod
-    def create_from_edge_environment(cls):
+    def create_from_edge_environment(cls, **kwargs):
         """
         Instantiate the client from the IoT Edge environment.
 
@@ -233,12 +233,12 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err = OSError("Unexpected failure in IoTEdge")
                 new_err.__cause__ = e
                 raise new_err
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, **kwargs)
         edge_pipeline = pipeline.EdgePipeline(authentication_provider)
         return cls(iothub_pipeline, edge_pipeline=edge_pipeline)
 
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id):
+    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
         """
         Instantiate a client which using X509 certificate authentication.
 
@@ -257,7 +257,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id, module_id=module_id
         )
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, **kwargs)
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
