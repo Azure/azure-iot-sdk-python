@@ -94,7 +94,7 @@ class IoTHubRegistryManager(object):
         """Creates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (deviceId) of the device.
-        :param str status: Initital state of the created device (enabled or disabled).
+        :param str status: Initial state of the created device (enabled or disabled).
 
         :raises: HttpOperationError if the HTTP response status is not in [200].
 
@@ -206,7 +206,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Configuration object.
         """
-        return self.protocol.service.get_configuration(id)
+        return self.protocol.service.get_configuration(device_id)
 
     def delete_device(self, device_id, etag=None):
         """Deletes a device identity from IoTHub.
