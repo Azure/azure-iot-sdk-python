@@ -83,7 +83,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 @pytest.fixture
 def stage(mocker):
     stage = pipeline_stages_mqtt.MQTTTransportStage()
-    root = pipeline_stages_base.PipelineRootStage()
+    root = pipeline_stages_base.PipelineRootStage("fakeConfiguration")
 
     stage.previous = root
     root.next = stage
