@@ -21,7 +21,7 @@ from . import (
 )
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
-from azure.iot.device.iothub.config import IoTHubPipelineConfig
+from azure.iot.device.common.config import BasePipelineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +35,10 @@ class IoTHubPipeline(object):
         """
         try:
             # Question: should this be kept in self? Is that necessary?
-            self._config = IoTHubPipelineConfig(**kwargs)
+            self._config = BasePipelineConfig(**kwargs)
         except TypeError as error:
             logger.error(error)
-            logger.error("Incorrect Config to IoTHubPipelineConfig")
+            logger.error("Incorrect Config to BasePipelineConfig")
             raise
 
         self.feature_enabled = {
