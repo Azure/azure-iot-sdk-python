@@ -120,7 +120,7 @@ class MQTTTransport(object):
         logger.info("creating mqtt client")
 
         # Instaniate the client
-        if self._websockets1:
+        if self._websockets:
             # MQTT Over Websockets
             mqtt_client = mqtt.Client(
                 client_id=self._client_id,
