@@ -19,6 +19,7 @@ from azure.iot.device.common.pipeline import (
 from azure.iot.device.iothub.models import Message, MethodRequest
 from . import pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
 from . import constant as pipeline_constant
+from . import exceptions as pipeline_exceptions
 from azure.iot.device import constant as pkg_constant
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                     ),
                 )
             else:
-                raise NotImplementedError(
+                raise pipeline_exceptions.OperationError(
                     "SendIotRequestOperation request_type {} not supported".format(op.request_type)
                 )
 

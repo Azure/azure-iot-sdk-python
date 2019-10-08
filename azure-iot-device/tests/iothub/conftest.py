@@ -25,7 +25,6 @@ from .client_fixtures import (
     edge_local_debug_environment,
     x509,
     fake_twin,
-    fake_error,
 )
 
 collect_ignore = []

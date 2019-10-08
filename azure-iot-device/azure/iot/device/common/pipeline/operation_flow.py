@@ -8,6 +8,7 @@ import logging
 import sys
 from . import pipeline_thread
 from azure.iot.device.common import handle_exceptions
+from .pipeline_exceptions import PipelineError
 
 from six.moves import queue
 
@@ -82,7 +83,7 @@ def pass_op_to_next_stage(stage, op):
         complete_op(stage, op)
     elif not stage.next:
         logger.error("{}({}): no next stage.  completing with error".format(stage.name, op.name))
-        op.error = NotImplementedError(
+        op.error = PipelineError(
             "{} not handled after {} stage with no next stage".format(op.name, stage.name)
         )
         complete_op(stage, op)
@@ -131,7 +132,7 @@ def pass_event_to_previous_stage(stage, event):
         stage.previous.handle_pipeline_event(event)
     else:
         logger.error("{}({}): Error: unhandled event".format(stage.name, event.name))
-        error = NotImplementedError(
+        error = PipelineError(
             "{} unhandled at {} stage with no previous stage".format(event.name, stage.name)
         )
         handle_exceptions.handle_background_exception(error)
