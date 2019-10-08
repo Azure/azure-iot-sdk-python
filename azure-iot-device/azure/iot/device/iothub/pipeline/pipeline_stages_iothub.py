@@ -12,6 +12,7 @@ from azure.iot.device.common.pipeline import (
     operation_flow,
     pipeline_thread,
 )
+from azure.iot.device import exceptions
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 from . import pipeline_ops_iothub
@@ -116,7 +117,7 @@ class HandleTwinOperationsStage(PipelineStage):
                 # TODO map error codes to correct exceptions
                 logger.error("Error {} received from twin operation".format(twin_op.status_code))
                 logger.error("response body: {}".format(twin_op.response_body))
-                original_op.error = Exception(
+                original_op.error = exceptions.ServiceError(
                     "twin operation returned status {}".format(twin_op.status_code)
                 )
 
