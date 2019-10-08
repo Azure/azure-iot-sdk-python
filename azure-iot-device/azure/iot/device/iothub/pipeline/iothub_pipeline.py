@@ -33,13 +33,6 @@ class IoTHubPipeline(object):
         :param auth_provider: The authentication provider
         :param protocol: The protocol for connecting to IoT Hub
         """
-        try:
-            # Question: should this be kept in self? Is that necessary?
-            self._config = BasePipelineConfig(**kwargs)
-        except TypeError as error:
-            logger.error(error)
-            logger.error("Incorrect Config to BasePipelineConfig")
-            raise
 
         self.feature_enabled = {
             constant.C2D_MSG: False,
@@ -58,7 +51,7 @@ class IoTHubPipeline(object):
         self.on_twin_patch_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage(self._config)
+            pipeline_stages_base.PipelineRootStage(BasePipelineConfig(**kwargs))
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
