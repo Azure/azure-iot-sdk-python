@@ -226,8 +226,3 @@ def edge_pipeline(mocker):
 @pytest.fixture
 def fake_twin():
     return {"fake_twin": True}
-
-
-@pytest.fixture
-def fake_error():
-    return RuntimeError("__fake_error__")
