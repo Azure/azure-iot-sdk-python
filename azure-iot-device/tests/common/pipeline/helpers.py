@@ -50,12 +50,17 @@ def all_except(all_items, items_to_exclude):
     return [x for x in all_items if x not in items_to_exclude]
 
 
-def make_mock_stage(mocker, stage_to_make):
+def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
     """
     make a stage object that we can use in testing.  This stage object is popsulated
     by mocker spies, and it has a next stage that can receive events.  It does not,
     by detfault, have a previous stage or a pipeline root that can receive events
     coming back up.  The previous stage is added by the tests which which require it.
+
+    raised_exc and raised_base_exc are provided instances of some subclasses of
+    Exception and BaseException respectively, that will be raised as a result of
+    "fail", "exception" or "base_exception" actions. This is necessary until the content
+    of this function can more easily be fixture-ized
     """
     # because PipelineStage is abstract, we need something concrete
     class NextStageForTest(pipeline_stages_base.PipelineStage):
@@ -66,9 +71,9 @@ def make_mock_stage(mocker, stage_to_make):
         if getattr(op, "action", None) is None or op.action == "pass":
             operation_flow.complete_op(self, op)
         elif op.action == "fail" or op.action == "exception":
-            raise Exception()
+            raise exc_to_raise
         elif op.action == "base_exception":
-            raise UnhandledException()
+            raise base_exc_to_raise
         elif op.action == "pend":
             pass
         else:
@@ -133,10 +138,6 @@ def assert_callback_failed(op, callback=None, error=None):
             assert op.error is error
     else:
         assert op.error is not None
-
-
-class UnhandledException(BaseException):
-    pass
 
 
 def get_arg_count(fn):
