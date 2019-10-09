@@ -66,7 +66,12 @@ def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyw
 
 
 def add_instantiation_test(
-    cls, module, defaults, extra_defaults={}, positional_arguments=[], keyword_arguments={}
+    cls,
+    module,
+    defaults,
+    extra_defaults={},
+    positional_arguments=["fakeOptionsObject"],
+    keyword_arguments={},
 ):
     """
     internal function that takes the class and attribute details and adds a test class which
