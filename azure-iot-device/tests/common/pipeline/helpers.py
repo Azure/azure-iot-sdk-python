@@ -74,7 +74,10 @@ def make_mock_stage(mocker, stage_to_make):
         else:
             assert False
 
-    first_stage = stage_to_make()
+    if stage_to_make == pipeline_stages_base.PipelineRootStage:
+        first_stage = stage_to_make(None)
+    else:
+        first_stage = stage_to_make()
     first_stage.unhandled_error_handler = mocker.Mock()
     mocker.spy(first_stage, "_execute_op")
     mocker.spy(first_stage, "run_op")
