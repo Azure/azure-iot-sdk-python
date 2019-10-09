@@ -66,12 +66,7 @@ def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyw
 
 
 def add_instantiation_test(
-    cls,
-    module,
-    defaults,
-    extra_defaults={},
-    positional_arguments=["fakeOptionsObject"],
-    keyword_arguments={},
+    cls, module, defaults, extra_defaults={}, positional_arguments=[], keyword_arguments={}
 ):
     """
     internal function that takes the class and attribute details and adds a test class which
@@ -79,7 +74,7 @@ def add_instantiation_test(
     """
 
     # `defaults` contains an array of object attributes that should be set when
-    # we call the initializer will all of the required positional arguments
+    # we call the initializer with all of the required positional arguments
     # and none of the optional keyword arguments.
 
     all_defaults = defaults.copy()
