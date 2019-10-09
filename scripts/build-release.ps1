@@ -7,6 +7,10 @@ function Install-Dependencies {
 
 function Update-Version($part, $file) {
     bumpversion.exe $part --config-file .\.bumpverion.cfg --allow-dirty $file
+
+    if($LASTEXITCODE -ne 0) {
+        throw "Bumpversion failed on '$file' for part '$part' with code ($LASTEXITCODE)"
+    }
 }
 
 function Invoke-Python {
