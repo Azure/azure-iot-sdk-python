@@ -10,6 +10,7 @@ import abc
 import logging
 import math
 import six
+import weakref
 from threading import Timer
 import six.moves.urllib as urllib
 from .authentication_provider import AuthenticationProvider
@@ -62,8 +63,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self.sas_token_str = None
         self.on_sas_token_updated_handler = None
 
-    def disconnect(self):
-        """Cancel updates to the SAS Token"""
+    def __del__(self):
         self._cancel_token_update_timer()
 
     def generate_new_sas_token(self):
@@ -160,9 +160,30 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
             seconds_until_update,
         )
 
+        # It's important to use a weak reference to self inside this timer function
+        # because we don't want the timer to prevent this object (`self`) from being collected.
+        #
+        # We want `self` to get collected when the pipeline gets collected, and
+        # we want the pipeline to get collected when the client object gets collected.
+        # This way, everything gets cleaned up when the user is done with the client object,
+        # as expected.
+        #
+        # If timerfunc used `self` directly, that would be a strong reference, and that strong
+        # reference would prevent `self` from being collected as long as the timer existed.
+        #
+        # If this isn't collected when the client is collected, then the object that implements the
+        # on_sas_token_updated_hndler doesn't get collected.  Since that object is part of the
+        # pipeline, a major part of the pipeline ends up staying around, probably orphaned from
+        # the client.  Since that orphaned part of the pipeline contains Paho, bad things can happen
+        # if we don't clean up Paho correctly.  This is especially noticable if one process
+        # destroys a client object and creates a new one.
+        #
+        self_weakref = weakref.ref(self)
+
         def timerfunc():
-            logger.debug("Timed SAS update for (%s,%s)", self.device_id, self.module_id)
-            self.generate_new_sas_token()
+            this = self_weakref()
+            logger.debug("Timed SAS update for (%s,%s)", this.device_id, this.module_id)
+            this.generate_new_sas_token()
 
         self._token_update_timer = Timer(seconds_until_update, timerfunc)
         self._token_update_timer.daemon = True

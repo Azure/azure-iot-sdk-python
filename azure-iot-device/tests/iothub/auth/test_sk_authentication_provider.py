@@ -33,13 +33,10 @@ def test_all_attributes_for_device():
         hostname, device_id, shared_access_key
     )
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
-    try:
-        assert sym_key_auth_provider.hostname == hostname
-        assert sym_key_auth_provider.device_id == device_id
-        assert hostname in sym_key_auth_provider.get_current_sas_token()
-        assert device_id in sym_key_auth_provider.get_current_sas_token()
-    finally:
-        sym_key_auth_provider.disconnect()
+
+    assert sym_key_auth_provider.device_id == device_id
+    assert hostname in sym_key_auth_provider.get_current_sas_token()
+    assert device_id in sym_key_auth_provider.get_current_sas_token()
 
 
 def test_all_attributes_for_module():
@@ -47,15 +44,13 @@ def test_all_attributes_for_module():
         hostname, device_id, module_id, shared_access_key
     )
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
-    try:
-        assert sym_key_auth_provider.hostname == hostname
-        assert sym_key_auth_provider.device_id == device_id
-        assert sym_key_auth_provider.module_id == module_id
-        assert hostname in sym_key_auth_provider.get_current_sas_token()
-        assert device_id in sym_key_auth_provider.get_current_sas_token()
-        assert module_id in sym_key_auth_provider.get_current_sas_token()
-    finally:
-        sym_key_auth_provider.disconnect()
+
+    assert sym_key_auth_provider.hostname == hostname
+    assert sym_key_auth_provider.device_id == device_id
+    assert sym_key_auth_provider.module_id == module_id
+    assert hostname in sym_key_auth_provider.get_current_sas_token()
+    assert device_id in sym_key_auth_provider.get_current_sas_token()
+    assert module_id in sym_key_auth_provider.get_current_sas_token()
 
 
 def test_sastoken_keyname_device():
@@ -65,12 +60,9 @@ def test_sastoken_keyname_device():
 
     sym_key_auth_provider = SymmetricKeyAuthenticationProvider.parse(connection_string)
 
-    try:
-        assert hostname in sym_key_auth_provider.get_current_sas_token()
-        assert device_id in sym_key_auth_provider.get_current_sas_token()
-        assert shared_access_key_name in sym_key_auth_provider.get_current_sas_token()
-    finally:
-        sym_key_auth_provider.disconnect()
+    assert hostname in sym_key_auth_provider.get_current_sas_token()
+    assert device_id in sym_key_auth_provider.get_current_sas_token()
+    assert shared_access_key_name in sym_key_auth_provider.get_current_sas_token()
 
 
 def test_raises_when_auth_provider_created_from_empty_connection_string():

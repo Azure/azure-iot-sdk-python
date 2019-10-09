@@ -17,6 +17,7 @@ from . import (
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
+from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +67,18 @@ class MQTTTransportStage(PipelineStage):
                 ca_cert=self.ca_cert,
                 x509_cert=self.client_cert,
             )
-            self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
-            self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
-            self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
-            self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
+            self.transport.on_mqtt_connected_handler = CallableWeakMethod(
+                self, "_on_mqtt_connected"
+            )
+            self.transport.on_mqtt_connection_failure_handler = CallableWeakMethod(
+                self, "_on_mqtt_connection_failure"
+            )
+            self.transport.on_mqtt_disconnected_handler = CallableWeakMethod(
+                self, "_on_mqtt_disconnected"
+            )
+            self.transport.on_mqtt_message_received_handler = CallableWeakMethod(
+                self, "_on_mqtt_message_received"
+            )
 
             # There can only be one pending connection operation (Connect, Reconnect, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
