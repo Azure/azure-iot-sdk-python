@@ -223,7 +223,7 @@ def add_pipeline_thread_tests(
     class LocalTestObject(object):
         @pytest.fixture
         def stage(self):
-            return cls("fakeOptionsObject")
+            return cls()
 
         @pytest.mark.parametrize("method_name", methods_that_assert_pipeline_thread)
         @pytest.mark.it("Enforces use of the pipeline thread when calling method")
