@@ -52,10 +52,10 @@ def all_except(all_items, items_to_exclude):
 
 def make_mock_stage(mocker, stage_to_make):
     """
-    make a stage object that we can use in testing.  This stage object is popsulated
+    make a stage object that we can use in testing.  This stage object is populated
     by mocker spies, and it has a next stage that can receive events.  It does not,
-    by detfault, have a previous stage or a pipeline root that can receive events
-    coming back up.  The previous stage is added by the tests which which require it.
+    by default, have a previous stage or a pipeline root that can receive events
+    coming back up. The previous stage is added by the tests which require it.
     """
     # because PipelineStage is abstract, we need something concrete
     class NextStageForTest(pipeline_stages_base.PipelineStage):
