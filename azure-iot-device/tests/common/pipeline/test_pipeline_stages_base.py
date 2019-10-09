@@ -60,6 +60,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
         "on_disconnected_handler": None,
         "connected": False,
     },
+    positional_arguments=["pipeline_configurations"],
 )
 
 
