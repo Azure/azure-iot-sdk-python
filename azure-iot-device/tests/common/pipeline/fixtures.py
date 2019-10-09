@@ -26,16 +26,6 @@ def callback(mocker):
     return mocker.MagicMock()
 
 
-@pytest.fixture
-def fake_exception():
-    return Exception()
-
-
-@pytest.fixture
-def fake_base_exception():
-    return helpers.UnhandledException()
-
-
 class FakeEvent(pipeline_events_base.PipelineEvent):
     def __init__(self):
         super(FakeEvent, self).__init__()
