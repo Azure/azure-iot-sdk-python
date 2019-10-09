@@ -36,7 +36,7 @@ function Build {
     }
 
     $packages["azure-iot-hub"] = [PSCustomObject]@{
-        File = "setup.py"
+        File = "azure\iot\hub\constant.py"
         Version = $env:hub_version_part
     }
 
