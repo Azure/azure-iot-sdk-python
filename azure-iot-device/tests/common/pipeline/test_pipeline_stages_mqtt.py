@@ -7,7 +7,7 @@ import logging
 import pytest
 import sys
 import six
-from azure.iot.device.common import transport_exceptions, handle_exceptions
+from azure.iot.device.common import transport_exceptions, handle_exceptions, config
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -83,7 +83,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 @pytest.fixture
 def stage(mocker):
     stage = pipeline_stages_mqtt.MQTTTransportStage()
-    root = pipeline_stages_base.PipelineRootStage("fakeConfiguration")
+    root = pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
 
     stage.previous = root
     root.next = stage

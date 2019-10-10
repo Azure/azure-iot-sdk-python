@@ -17,7 +17,7 @@ from tests.common.pipeline.helpers import (
     get_arg_count,
     add_mock_method_waiter,
 )
-from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
+from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
 from azure.iot.device.common.pipeline import pipeline_thread
 
@@ -223,7 +223,10 @@ def add_pipeline_thread_tests(
     class LocalTestObject(object):
         @pytest.fixture
         def stage(self):
-            return cls()
+            if cls == PipelineRootStage:
+                return cls(None)
+            else:
+                return cls()
 
         @pytest.mark.parametrize("method_name", methods_that_assert_pipeline_thread)
         @pytest.mark.it("Enforces use of the pipeline thread when calling method")
