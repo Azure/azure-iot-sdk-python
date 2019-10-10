@@ -46,6 +46,10 @@ def apply_fake_pipeline_thread(fake_pipeline_thread):
     pass
 
 
+class FakeOperation(pipeline_ops_base.PipelineOperation):
+    pass
+
+
 this_module = sys.modules[__name__]
 
 fake_client_id = "__fake_client_id__"
@@ -171,11 +175,12 @@ class RunOpTests(object):
         "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
     )
     def test_completes_operation_with_error(self, mocker, stage, arbitrary_exception):
-        mock_op = mocker.MagicMock()
+        mock_op = FakeOperation(callback=mocker.MagicMock())
         stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
 
         stage.run_op(mock_op)
-        assert mock_op.error is arbitrary_exception
+        assert mock_op.callback.call_count == 1
+        assert mock_op.callback.call_args == mocker.call(mock_op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propogate"
@@ -248,9 +253,11 @@ class TestMQTTProviderExecuteOpWithConnect(RunOpTests):
     @pytest.mark.parametrize(
         "pending_connection_op",
         [
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_pending_operation_cancelled(
@@ -295,9 +302,11 @@ class TestMQTTProviderExecuteOpWithReconnect(RunOpTests):
     @pytest.mark.parametrize(
         "pending_connection_op",
         [
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_pending_operation_cancelled(
@@ -344,9 +353,11 @@ class TestMQTTProviderExecuteOpWithDisconnect(RunOpTests):
     @pytest.mark.parametrize(
         "pending_connection_op",
         [
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_pending_operation_cancelled(
@@ -488,9 +499,11 @@ class TestMQTTProviderOnConnected(object):
         "pending_connection_op",
         [
             pytest.param(None, id="No pending operation"),
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_connected_handler(self, stage, create_transport, pending_connection_op):
@@ -546,9 +559,11 @@ class TestMQTTProviderOnConnectionFailure(object):
         "pending_connection_op",
         [
             pytest.param(None, id="No pending operation"),
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_does_not_call_connected_handler(
@@ -600,7 +615,9 @@ class TestMQTTProviderOnConnectionFailure(object):
         "pending_connection_op",
         [
             pytest.param(None, id="No pending operation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_unexpected_connection_failure(
@@ -629,9 +646,11 @@ class TestMQTTProviderOnDisconnected(object):
         "pending_connection_op",
         [
             pytest.param(None, id="No pending operation"),
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
-            pytest.param(pipeline_ops_base.DisconnectOperation(), id="Pending DisconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
+            ),
         ],
     )
     def test_disconnected_handler(self, stage, create_transport, pending_connection_op, cause):
@@ -679,8 +698,8 @@ class TestMQTTProviderOnDisconnected(object):
     @pytest.mark.parametrize(
         "pending_connection_op",
         [
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
         ],
     )
     def test_ignores_unrelated_op(
@@ -705,8 +724,8 @@ class TestMQTTProviderOnDisconnected(object):
         "pending_connection_op",
         [
             pytest.param(None, id="No pending operation"),
-            pytest.param(pipeline_ops_base.ConnectOperation(), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(), id="Pending ReconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
+            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
         ],
     )
     def test_unexpected_disconnect(

@@ -82,9 +82,6 @@ class ProvisioningPipeline(object):
 
         self._pipeline.run_op(op)
         callback.wait_for_completion()
-        if op.error:
-            logger.error("{} failed: {}".format(op.name, op.error))
-            raise op.error
 
     def connect(self, callback=None):
         """
@@ -94,8 +91,8 @@ class ProvisioningPipeline(object):
         """
         logger.info("connect called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -111,8 +108,8 @@ class ProvisioningPipeline(object):
         """
         logger.info("disconnect called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -129,8 +126,8 @@ class ProvisioningPipeline(object):
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -159,8 +156,8 @@ class ProvisioningPipeline(object):
         """
         logger.debug("enable_responses called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -178,8 +175,8 @@ class ProvisioningPipeline(object):
         """
         logger.debug("disable_responses called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:

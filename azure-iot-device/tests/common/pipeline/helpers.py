@@ -13,7 +13,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_events_mqtt,
     pipeline_ops_mqtt,
-    operation_flow,
 )
 
 try:
@@ -65,11 +64,11 @@ def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
     # because PipelineStage is abstract, we need something concrete
     class NextStageForTest(pipeline_stages_base.PipelineStage):
         def _execute_op(self, op):
-            operation_flow.pass_op_to_next_stage(self, op)
+            self._send_op_down(op)
 
     def stage_execute_op(self, op):
         if getattr(op, "action", None) is None or op.action == "pass":
-            operation_flow.complete_op(self, op)
+            self._complete_op(op)
         elif op.action == "fail" or op.action == "exception":
             raise exc_to_raise
         elif op.action == "base_exception":
@@ -112,9 +111,10 @@ def assert_callback_succeeded(op, callback=None):
     except AttributeError:
         pass
     assert callback.call_count == 1
-    callback_arg = callback.call_args[0][0]
-    assert callback_arg == op
-    assert op.error is None
+    callback_op_arg = callback.call_args[0][0]
+    assert callback_op_arg == op
+    callback_error_arg = callback.call_args[1]["error"]
+    assert callback_error_arg is None
 
 
 def assert_callback_failed(op, callback=None, error=None):
@@ -128,16 +128,17 @@ def assert_callback_failed(op, callback=None, error=None):
     except AttributeError:
         pass
     assert callback.call_count == 1
-    callback_arg = callback.call_args[0][0]
-    assert callback_arg == op
+    callback_op_arg = callback.call_args[0][0]
+    assert callback_op_arg == op
 
+    callback_error_arg = callback.call_args[1]["error"]
     if error:
         if isinstance(error, type):
-            assert isinstance(op.error, error)
+            assert isinstance(callback_error_arg, error)
         else:
-            assert op.error is error
+            assert callback_error_arg is error
     else:
-        assert op.error is not None
+        assert callback_error_arg is not None
 
 
 def get_arg_count(fn):

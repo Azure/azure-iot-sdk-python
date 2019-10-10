@@ -7,7 +7,7 @@
 import pytest
 import logging
 from azure.iot.device.common.models import X509
-from azure.iot.device.common.pipeline import pipeline_stages_base, operation_flow
+from azure.iot.device.common.pipeline import pipeline_stages_base
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
@@ -142,8 +142,7 @@ class TestInit(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, params_security_clients["set_args_op_class"]):
-                op.error = arbitrary_exception
-                operation_flow.complete_op(stage=self, op=op)
+                self._complete_op(op, error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 

@@ -473,7 +473,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                op.callback(op)
+                op.callback(op, error=None)
             else:
                 pass
 
@@ -508,10 +508,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                op.callback(op)
+                stage.next._complete_op(op, error=None)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                op.error = arbitrary_exception
-                op.callback(op)
+                stage.next._complete_op(op, error=arbitrary_exception)
             else:
                 pass
 
@@ -529,27 +528,27 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
 basic_ops = [
     {
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": fake_message},
+        "op_init_kwargs": {"message": fake_message, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
         "op_class": pipeline_ops_iothub.SendOutputEventOperation,
-        "op_init_kwargs": {"message": fake_message},
+        "op_init_kwargs": {"message": fake_message, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
         "op_class": pipeline_ops_iothub.SendMethodResponseOperation,
-        "op_init_kwargs": {"method_response": fake_method_response},
+        "op_init_kwargs": {"method_response": fake_method_response, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
         "op_class": pipeline_ops_base.EnableFeatureOperation,
-        "op_init_kwargs": {"feature_name": constant.C2D_MSG},
+        "op_init_kwargs": {"feature_name": constant.C2D_MSG, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTSubscribeOperation,
     },
     {
         "op_class": pipeline_ops_base.DisableFeatureOperation,
-        "op_init_kwargs": {"feature_name": constant.C2D_MSG},
+        "op_init_kwargs": {"feature_name": constant.C2D_MSG, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTUnsubscribeOperation,
     },
 ]
@@ -602,7 +601,7 @@ publish_ops = [
         "name": "send telemetry",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body)},
+        "op_init_kwargs": {"message": Message(fake_message_body), "callback": None},
         "topic": "devices/{}/messages/events/{}&{}".format(
             fake_device_id, default_content_type_encoded, default_content_encoding_encoded
         ),
@@ -617,7 +616,8 @@ publish_ops = [
                 fake_message_body,
                 content_type=fake_content_type,
                 content_encoding=fake_content_encoding,
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}".format(
             fake_device_id, fake_content_type_encoded, fake_content_encoding_encoded
@@ -628,7 +628,10 @@ publish_ops = [
         "name": "send telemetry overriding only the content type",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body, content_type=fake_content_type)},
+        "op_init_kwargs": {
+            "message": Message(fake_message_body, content_type=fake_content_type),
+            "callback": None,
+        },
         "topic": "devices/{}/messages/events/{}&{}".format(
             fake_device_id, fake_content_type_encoded, default_content_encoding_encoded
         ),
@@ -638,7 +641,10 @@ publish_ops = [
         "name": "send telemetry with single system property",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body, output_name=fake_output_name)},
+        "op_init_kwargs": {
+            "message": Message(fake_message_body, output_name=fake_output_name),
+            "callback": None,
+        },
         "topic": "devices/{}/messages/events/{}&{}&{}".format(
             fake_device_id,
             fake_output_name_encoded,
@@ -651,7 +657,7 @@ publish_ops = [
         "name": "send security message",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": create_security_message(fake_message_body)},
+        "op_init_kwargs": {"message": create_security_message(fake_message_body), "callback": None},
         "topic": "devices/{}/messages/events/{}&{}&{}".format(
             fake_device_id,
             default_content_type_encoded,
@@ -667,7 +673,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": Message(
                 fake_message_body, message_id=fake_message_id, output_name=fake_output_name
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}&{}&{}".format(
             fake_device_id,
@@ -683,7 +690,8 @@ publish_ops = [
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {
-            "message": create_message_with_user_properties(fake_message_body, is_multiple=False)
+            "message": create_message_with_user_properties(fake_message_body, is_multiple=False),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}&{}".format(
             fake_device_id,
@@ -698,7 +706,8 @@ publish_ops = [
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {
-            "message": create_message_with_user_properties(fake_message_body, is_multiple=True)
+            "message": create_message_with_user_properties(fake_message_body, is_multiple=True),
+            "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
         "topic1": "devices/{}/messages/events/{}&{}&{}&{}".format(
@@ -724,7 +733,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_with_system_and_user_properties(
                 fake_message_body, is_multiple=False
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}&{}&{}".format(
             fake_device_id,
@@ -742,7 +752,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_with_system_and_user_properties(
                 fake_message_body, is_multiple=True
-            )
+            ),
+            "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
         "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}".format(
@@ -772,7 +783,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_security_message_with_system_and_user_properties(
                 fake_message_body, is_multiple=True
-            )
+            ),
+            "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
         "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}&{}".format(
@@ -801,7 +813,10 @@ publish_ops = [
         "name": "send output",
         "stage_type": "module",
         "op_class": pipeline_ops_iothub.SendOutputEventOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body, output_name=fake_output_name)},
+        "op_init_kwargs": {
+            "message": Message(fake_message_body, output_name=fake_output_name),
+            "callback": None,
+        },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
             fake_module_id,
@@ -821,7 +836,8 @@ publish_ops = [
                 output_name=fake_output_name,
                 content_type=fake_content_type,
                 content_encoding=fake_content_encoding,
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
@@ -839,7 +855,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": Message(
                 fake_message_body, message_id=fake_message_id, output_name=fake_output_name
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}".format(
             fake_device_id,
@@ -858,7 +875,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_for_output_with_user_properties(
                 fake_message_body, is_multiple=False
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}".format(
             fake_device_id,
@@ -877,7 +895,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_for_output_with_user_properties(
                 fake_message_body, is_multiple=True
-            )
+            ),
+            "callback": None,
         },
         "topic1": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
             fake_device_id,
@@ -906,7 +925,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_for_output_with_system_and_user_properties(
                 fake_message_body, is_multiple=False
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
             fake_device_id,
@@ -923,7 +943,7 @@ publish_ops = [
         "name": "send method result",
         "stage_type": "both",
         "op_class": pipeline_ops_iothub.SendMethodResponseOperation,
-        "op_init_kwargs": {"method_response": fake_method_response},
+        "op_init_kwargs": {"method_response": fake_method_response, "callback": None},
         "topic": "$iothub/methods/res/__fake_method_status__/?$rid=__fake_request_id__",
         "publish_payload": json.dumps(fake_method_payload),
     },
@@ -1011,7 +1031,9 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
         elif topic_parameters["stage_type"] == "module" and not stage.module_id:
             pytest.skip()
         stage.next._execute_op = mocker.Mock()
-        op = op_parameters["op_class"](feature_name=topic_parameters["feature_name"])
+        op = op_parameters["op_class"](
+            feature_name=topic_parameters["feature_name"], callback=mocker.MagicMock()
+        )
         stage.run_op(op)
         new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, op_parameters["new_op"])
@@ -1029,10 +1051,7 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
         op = op_parameters["op_class"](feature_name=invalid_feature_name, callback=callback)
         callback.reset_mock()
         stage.run_op(op)
-        assert callback.call_count == 1
-        callback_arg = op.callback.call_args[0][0]
-        assert callback_arg == op
-        assert isinstance(callback_arg.error, KeyError)
+        assert_callback_failed(op=op, error=KeyError)
 
 
 @pytest.fixture
@@ -1206,23 +1225,22 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
-        "Returns op.error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
+        "Returns error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
     )
     def test_publish_op_returns_failure(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = arbitrary_exception
-            op.callback(op)
+            op.callback(op, error=arbitrary_exception)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
         assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns op.error=None in the operation callback if the MQTTPublishOperation returned op.error=None in its operation callback"
+        "Returns error=None in the operation callback if the MQTTPublishOperation returned error=None in its operation callback"
     )
     def test_publish_op_returns_success(self, stage, op):
         def next_stage_run_op(self, op):
-            op.callback(op)
+            op.callback(op, error=None)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
