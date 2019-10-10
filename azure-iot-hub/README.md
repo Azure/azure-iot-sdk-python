@@ -130,7 +130,7 @@ digital_twin_service_client.update_digital_twin_property(
 digital_twin_model = digital_twin_service_client.get_model(model_id)
 ```
 
-## Additional Samples
+## IoTHub Samples
 
 Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub/samples) for more detailed samples
 
