@@ -12,7 +12,9 @@ from azure.iot.device.common.pipeline import (
     operation_flow,
     pipeline_thread,
 )
+from azure.iot.device import exceptions
 from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 from . import pipeline_ops_iothub
 from . import constant
 
@@ -35,7 +37,9 @@ class UseAuthProviderStage(PipelineStage):
     def _execute_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
             self.auth_provider = op.auth_provider
-            self.auth_provider.on_sas_token_updated_handler = self.on_sas_token_updated
+            self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
+                self, "on_sas_token_updated"
+            )
             operation_flow.delegate_to_different_op(
                 stage=self,
                 original_op=op,
@@ -113,7 +117,7 @@ class HandleTwinOperationsStage(PipelineStage):
                 # TODO map error codes to correct exceptions
                 logger.error("Error {} received from twin operation".format(twin_op.status_code))
                 logger.error("response body: {}".format(twin_op.response_body))
-                original_op.error = Exception(
+                original_op.error = exceptions.ServiceError(
                     "twin operation returned status {}".format(twin_op.status_code)
                 )
 
