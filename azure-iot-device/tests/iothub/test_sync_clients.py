@@ -76,11 +76,17 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate "),
+            pytest.param("some-certificate", id=" With CA certificate "),
         ],
     )
-    def test_auth_provider_creation(self, mocker, client_class, connection_string, ca_cert):
+    @pytest.mark.parametrize(
+        "websockets",
+        [pytest.param(None, id=" No Websockets "), pytest.param(True, id=" With Websockets ")],
+    )
+    def test_auth_provider_creation(
+        self, mocker, client_class, connection_string, ca_cert, websockets
+    ):
         mock_auth_parse = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse
@@ -89,22 +95,29 @@ class SharedClientCreateFromConnectionStringTests(object):
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client_class.create_from_connection_string(*args, **kwargs)
 
         assert mock_auth_parse.call_count == 1
         assert mock_auth_parse.call_args == mocker.call(connection_string)
         assert mock_auth_parse.return_value.ca_cert is ca_cert
 
+    @pytest.mark.timeout(0)
     @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline")
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
+            pytest.param(None, id=" No CA certificate "),
             pytest.param("some-certificate", id="With CA certificate"),
         ],
     )
+    @pytest.mark.parametrize(
+        "websockets",
+        [pytest.param(None, id=" No Websockets "), pytest.param(True, id=" With Websockets ")],
+    )
     def test_pipeline_creation(
-        self, mocker, client_class, connection_string, ca_cert, mock_pipeline_init
+        self, mocker, client_class, connection_string, ca_cert, websockets, mock_pipeline_init
     ):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
@@ -114,6 +127,8 @@ class SharedClientCreateFromConnectionStringTests(object):
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client_class.create_from_connection_string(*args, **kwargs)
 
         assert mock_pipeline_init.call_count == 1
@@ -123,19 +138,26 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
+            pytest.param(None, id=" No CA certificate "),
             pytest.param("some-certificate", id="With CA certificate"),
         ],
     )
-    def test_client_instantiation(self, mocker, client_class, connection_string, ca_cert):
+    @pytest.mark.parametrize(
+        "websockets",
+        [pytest.param(None, id=" No Websockets "), pytest.param(True, id=" With Websockets ")],
+    )
+    def test_client_instantiation(
+        self, mocker, client_class, connection_string, ca_cert, websockets
+    ):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
         spy_init = mocker.spy(client_class, "__init__")
         args = (connection_string,)
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client_class.create_from_connection_string(*args, **kwargs)
-
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
 
@@ -143,15 +165,21 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
+            pytest.param(None, id=" No CA certificate "),
             pytest.param("some-certificate", id="With CA certificate"),
         ],
     )
-    def test_returns_client(self, client_class, connection_string, ca_cert):
+    @pytest.mark.parametrize(
+        "websockets",
+        [pytest.param(None, id=" No Websockets "), pytest.param(True, id=" With Websockets ")],
+    )
+    def test_returns_client(self, client_class, connection_string, ca_cert, websockets):
         args = (connection_string,)
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client = client_class.create_from_connection_string(*args, **kwargs)
 
         assert isinstance(client, client_class)
