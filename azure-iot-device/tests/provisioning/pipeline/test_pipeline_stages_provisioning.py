@@ -114,9 +114,8 @@ def set_security_client(callback, params_security_ops):
     # Create new security client every time to pass into fixture to avoid re-use of old security client
     # Otherwise the exception/failure raised by one test is makes the next test fail.
     op = params_security_ops["current_op_class"](
-        security_client=params_security_ops["security_client_function_name"]()
+        security_client=params_security_ops["security_client_function_name"](), callback=callback
     )
-    op.callback = callback
     return op
 
 

@@ -7,19 +7,24 @@
 import logging
 import abc
 import six
+import sys
+import time
 import uuid
+import weakref
 from six.moves import queue
+from threading import Timer
 from . import pipeline_events_base
-from . import pipeline_ops_base
-from . import operation_flow
+from . import pipeline_ops_base, pipeline_ops_mqtt
+from .operation_flow import PipelineFlow
 from . import pipeline_thread
 from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class PipelineStage(object):
+class PipelineStage(PipelineFlow):
     """
     Base class representing a stage in the processing pipeline.  Each stage is responsible for receiving
     PipelineOperation objects from the top, possibly processing them, and possibly passing them down.  It
@@ -99,15 +104,14 @@ class PipelineStage(object):
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
             # within ._execute_op()
             logger.error(msg="Unexpected error in {}._execute_op() call".format(self), exc_info=e)
-            op.error = e
-            operation_flow.complete_op(self, op)
+            self._complete_op(op, error=e)
 
     @abc.abstractmethod
     def _execute_op(self, op):
         """
         Abstract method to run the actual operation.  This function is implemented in derived classes
         and performs the actual work that any operation expects.  The default behavior for this function
-        should be to forward the event to the next stage using operation_flow.pass_op_to_next_stage for any
+        should be to forward the event to the next stage using _send_op_down for any
         operations that a particular stage might not operate on.
 
         See the description of the run_op method for more discussion on what it means to "run" an operation.
@@ -143,7 +147,7 @@ class PipelineStage(object):
 
         :param PipelineEvent event: The event that is being passed back up the pipeline
         """
-        operation_flow.pass_event_to_previous_stage(self, event)
+        self._send_event_up(event)
 
     @pipeline_thread.runs_on_pipeline_thread
     def on_connected(self):
@@ -200,7 +204,7 @@ class PipelineRootStage(PipelineStage):
 
         :param PipelineOperation op: Operation to run.
         """
-        operation_flow.pass_op_to_next_stage(self, op)
+        self._send_op_down(op)
 
     def append_stage(self, new_next_stage):
         """
@@ -278,7 +282,7 @@ class EnsureConnectionStage(PipelineStage):
         # Finally, if this stage doesn't need to do anything else with this operation,
         # it just passes it down.
         else:
-            operation_flow.pass_op_to_next_stage(self, op)
+            self._send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _do_connect(self, op):
@@ -287,26 +291,23 @@ class EnsureConnectionStage(PipelineStage):
         """
         # function that gets called after we're connected.
         @pipeline_thread.runs_on_pipeline_thread
-        def on_connect_op_complete(op_connect):
-            if op_connect.error:
+        def on_connect_op_complete(op_connect, error):
+            if error:
                 logger.error(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
-                        self.name, op.name, op_connect.error
+                        self.name, op.name, error
                     )
                 )
-                op.error = op_connect.error
-                operation_flow.complete_op(stage=self, op=op)
+                self._complete_op(op, error=error)
             else:
                 logger.debug(
                     "{}({}): connection is complete.  Continuing with op".format(self.name, op.name)
                 )
-                operation_flow.pass_op_to_next_stage(stage=self, op=op)
+                self._send_op_down(op)
 
         # call down to the next stage to connect.
         logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))
-        operation_flow.pass_op_to_next_stage(
-            self, pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete)
-        )
+        self._send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
 class SerializeConnectOpsStage(PipelineStage):
@@ -337,7 +338,7 @@ class SerializeConnectOpsStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
             logger.info("{}({}): Transport is connected.  Completing.".format(self.name, op.name))
-            operation_flow.complete_op(stage=self, op=op)
+            self._complete_op(op)
 
         elif (
             isinstance(op, pipeline_ops_base.DisconnectOperation)
@@ -346,7 +347,7 @@ class SerializeConnectOpsStage(PipelineStage):
             logger.info(
                 "{}({}): Transport is disconnected.  Completing.".format(self.name, op.name)
             )
-            operation_flow.complete_op(stage=self, op=op)
+            self._complete_op(op=op)
 
         elif (
             isinstance(op, pipeline_ops_base.DisconnectOperation)
@@ -354,14 +355,13 @@ class SerializeConnectOpsStage(PipelineStage):
             or isinstance(op, pipeline_ops_base.ReconnectOperation)
         ):
             self._block(op)
-            old_callback = op.callback
 
             @pipeline_thread.runs_on_pipeline_thread
-            def on_operation_complete(op):
-                if op.error:
+            def on_operation_complete(op, error):
+                if error:
                     logger.error(
                         "{}({}): op failed.  Unblocking queue with error: {}".format(
-                            self.name, op.name, op.error
+                            self.name, op.name, error
                         )
                     )
                 else:
@@ -369,20 +369,18 @@ class SerializeConnectOpsStage(PipelineStage):
                         "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
                     )
 
-                op.callback = old_callback
-                self._unblock(op, op.error)
+                self._unblock(op, error)
                 logger.debug(
                     "{}({}): unblock is complete.  completing op that caused unblock".format(
                         self.name, op.name
                     )
                 )
-                operation_flow.complete_op(stage=self, op=op)
+                self._send_completed_op_up(op, error)
 
-            op.callback = on_operation_complete
-            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+            self._send_op_down_and_intercept_return(op, intercept_return=on_operation_complete)
 
         else:
-            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+            self._send_op_down(op=op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):
@@ -418,8 +416,7 @@ class SerializeConnectOpsStage(PipelineStage):
                         self.name, op.name, op_to_release.name
                     )
                 )
-                op_to_release.error = error
-                operation_flow.complete_op(self, op_to_release)
+                self._complete_op(op_to_release, error=error)
             else:
                 logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
@@ -450,21 +447,20 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             request_id = str(uuid.uuid4())
 
             @pipeline_thread.runs_on_pipeline_thread
-            def on_send_request_done(send_request_op):
+            def on_send_request_done(send_request_op, error):
                 logger.debug(
                     "{}({}): Finished sending {} request to {} resource {}".format(
                         self.name, op.name, op.request_type, op.method, op.resource_location
                     )
                 )
-                if send_request_op.error:
-                    op.error = send_request_op.error
+                if error:
                     logger.debug(
                         "{}({}): removing request {} from pending list".format(
                             self.name, op.name, request_id
                         )
                     )
                     del (self.pending_responses[request_id])
-                    operation_flow.complete_op(self, op)
+                    self._complete_op(op, error=error)
                 else:
                     # request sent.  Nothing to do except wait for the response
                     pass
@@ -488,10 +484,10 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 request_type=op.request_type,
                 callback=on_send_request_done,
             )
-            operation_flow.pass_op_to_next_stage(self, new_op)
+            self._send_op_down(new_op)
 
         else:
-            operation_flow.pass_op_to_next_stage(self, op)
+            self._send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -520,7 +516,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         op.status_code,
                     )
                 )
-                operation_flow.complete_op(self, op)
+                self._complete_op(op)
             else:
                 logger.warning(
                     "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
@@ -528,4 +524,4 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
         else:
-            operation_flow.pass_event_to_previous_stage(self, event)
+            self._send_event_up(event)

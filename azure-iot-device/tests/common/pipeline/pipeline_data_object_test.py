@@ -21,12 +21,12 @@ def get_next_fake_value():
     return "__fake_value_{}__".format(fake_count)
 
 
-base_operation_defaults = {"needs_connection": False, "error": None}
+base_operation_defaults = {"needs_connection": False}
 base_event_defaults = {}
 
 
 def add_operation_test(
-    cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}
+    cls, module, extra_defaults={}, positional_arguments=["callback"], keyword_arguments={}
 ):
     """
     Add a test class to test the given PipelineOperation class.  The class that

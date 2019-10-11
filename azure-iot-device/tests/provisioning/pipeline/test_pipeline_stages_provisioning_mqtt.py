@@ -234,8 +234,7 @@ basic_ops = [
 
 @pytest.fixture
 def op(params, callback):
-    op = params["op_class"](**params["op_init_kwargs"])
-    op.callback = callback
+    op = params["op_class"](callback=callback, **params["op_init_kwargs"])
     return op
 
 
@@ -343,7 +342,7 @@ class TestProvisioningMQTTConverterWithEnable(object):
         topic = "$dps/registrations/res/#"
         mock_stage.next._execute_op = mocker.Mock()
 
-        op = op_parameters["op_class"](feature_name=None)
+        op = op_parameters["op_class"](feature_name=None, callback=mocker.MagicMock())
         mock_stage.run_op(op)
         new_op = mock_stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, op_parameters["new_op"])

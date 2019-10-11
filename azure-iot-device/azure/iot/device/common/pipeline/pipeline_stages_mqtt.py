@@ -11,7 +11,6 @@ from . import (
     PipelineStage,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
-    operation_flow,
     pipeline_thread,
     pipeline_exceptions,
 )
@@ -41,10 +40,10 @@ class MQTTTransportStage(PipelineStage):
             # NOTE: This code path should NOT execute in normal flow. There should never already be a pending
             # connection op when another is added, due to the SerializeConnectOps stage.
             # If this block does execute, there is a bug in the codebase.
-            op.error = pipeline_exceptions.OperationCancelled(
+            error = pipeline_exceptions.OperationCancelled(
                 "Cancelling because new ConnectOperation, DisconnectOperation, or ReconnectOperation was issued"
             )  # TODO: should this actually somehow cancel the operation?
-            operation_flow.complete_op(stage=self, op=op)
+            self._complete_op(op, error=error)
             self._pending_connection_op = None
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -93,12 +92,12 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
 
             self.pipeline_root.transport = self.transport
-            operation_flow.complete_op(self, op)
+            self._complete_op(op)
 
         elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
             logger.debug("{}({}): saving sas token and completing".format(self.name, op.name))
             self.sas_token = op.sas_token
-            operation_flow.complete_op(self, op)
+            self._complete_op(op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
             logger.info("{}({}): connecting".format(self.name, op.name))
@@ -110,8 +109,7 @@ class MQTTTransportStage(PipelineStage):
             except Exception as e:
                 logger.error("transport.connect raised error", exc_info=True)
                 self._pending_connection_op = None
-                op.error = e
-                operation_flow.complete_op(self, op)
+                self._complete_op(op, error=e)
 
         elif isinstance(op, pipeline_ops_base.ReconnectOperation):
             logger.info("{}({}): reconnecting".format(self.name, op.name))
@@ -124,8 +122,7 @@ class MQTTTransportStage(PipelineStage):
             except Exception as e:
                 logger.error("transport.reconnect raised error", exc_info=True)
                 self._pending_connection_op = None
-                op.error = e
-                operation_flow.complete_op(self, op)
+                self._complete_op(op, error=e)
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
             logger.info("{}({}): disconnecting".format(self.name, op.name))
@@ -137,8 +134,7 @@ class MQTTTransportStage(PipelineStage):
             except Exception as e:
                 logger.error("transport.disconnect raised error", exc_info=True)
                 self._pending_connection_op = None
-                op.error = e
-                operation_flow.complete_op(self, op)
+                self._complete_op(op, error=e)
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTPublishOperation):
             logger.info("{}({}): publishing on {}".format(self.name, op.name, op.topic))
@@ -146,7 +142,7 @@ class MQTTTransportStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_published():
                 logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
-                operation_flow.complete_op(self, op)
+                self._complete_op(op)
 
             self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
 
@@ -156,7 +152,7 @@ class MQTTTransportStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_subscribed():
                 logger.debug("{}({}): SUBACK received. completing op.".format(self.name, op.name))
-                operation_flow.complete_op(self, op)
+                self._complete_op(op)
 
             self.transport.subscribe(topic=op.topic, callback=on_subscribed)
 
@@ -168,12 +164,12 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug(
                     "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)
                 )
-                operation_flow.complete_op(self, op)
+                self._complete_op(op)
 
             self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
 
         else:
-            operation_flow.pass_op_to_next_stage(self, op)
+            self._send_op_down(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_message_received(self, topic, payload):
@@ -181,9 +177,8 @@ class MQTTTransportStage(PipelineStage):
         Handler that gets called by the protocol library when an incoming message arrives.
         Convert that message into a pipeline event and pass it up for someone to handle.
         """
-        operation_flow.pass_event_to_previous_stage(
-            stage=self,
-            event=pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=payload),
+        self._send_event_up(
+            pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=payload)
         )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
@@ -202,7 +197,7 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("completing connect op")
             op = self._pending_connection_op
             self._pending_connection_op = None
-            operation_flow.complete_op(stage=self, op=op)
+            self._complete_op(op)
         else:
             # This should indicate something odd is going on.
             # If this occurs, either a connect was completed while there was no pending op,
@@ -225,8 +220,7 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}: failing connect op".format(self.name))
             op = self._pending_connection_op
             self._pending_connection_op = None
-            op.error = cause
-            operation_flow.complete_op(stage=self, op=op)
+            self._complete_op(op, error=cause)
         else:
             logger.warning("{}: Connection failure was unexpected".format(self.name))
             handle_exceptions.handle_background_exception(cause)
@@ -259,7 +253,7 @@ class MQTTTransportStage(PipelineStage):
                     cause,
                     log_msg="Unexpected disconnect with error while disconnecting - swallowing error",
                 )
-            operation_flow.complete_op(stage=self, op=op)
+            self._complete_op(op)
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError

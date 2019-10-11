@@ -132,9 +132,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
     @pytest.fixture
     def set_auth_provider(self, callback, params_auth_provider_ops):
         op = params_auth_provider_ops["current_op_class"](
-            auth_provider=params_auth_provider_ops["auth_provider_function_name"]()
+            auth_provider=params_auth_provider_ops["auth_provider_function_name"](),
+            callback=callback,
         )
-        op.callback = callback
         return op
 
     @pytest.fixture
@@ -146,8 +146,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(object):
             auth_provider.ca_cert = fake_ca_cert
             auth_provider.gateway_hostname = fake_gateway_hostname
             auth_provider.sas_token = fake_sas_token
-        op = params_auth_provider_ops["current_op_class"](auth_provider=auth_provider)
-        op.callback = callback
+        op = params_auth_provider_ops["current_op_class"](
+            auth_provider=auth_provider, callback=callback
+        )
         return op
 
     @pytest.mark.it("Runs SetIoTHubConnectionArgsOperation op on the next stage")
@@ -443,8 +444,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
     )
     def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = arbitrary_exception
-            op.callback(op)
+            op.callback(op, error=arbitrary_exception)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
@@ -458,7 +458,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
             op.status_code = 400
             # TODO: should this have a body? Should with/without be a separate test?
             op.response_body = json.dumps("").encode("utf-8")
-            op.callback(op)
+            op.callback(op, error=None)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
@@ -471,7 +471,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(object):
         def next_stage_run_op(self, op):
             op.status_code = 200
             op.response_body = twin_as_bytes
-            op.callback(op)
+            op.callback(op, error=None)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
@@ -553,8 +553,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     )
     def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = arbitrary_exception
-            op.callback(op)
+            op.callback(op, error=arbitrary_exception)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
@@ -566,7 +565,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     def test_next_stage_returns_status_over_300(self, stage, op):
         def next_stage_run_op(self, op):
             op.status_code = 400
-            op.callback(op)
+            op.callback(op, error=None)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
@@ -576,7 +575,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(object):
     def test_next_stage_completes_correctly(self, stage, op):
         def next_stage_run_op(self, op):
             op.status_code = 200
-            op.callback(op)
+            op.callback(op, error=None)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)

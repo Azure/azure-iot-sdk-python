@@ -110,9 +110,6 @@ class IoTHubPipeline(object):
 
         self._pipeline.run_op(op)
         callback.wait_for_completion()
-        if op.error:
-            logger.error("{} failed: {}".format(op.name, op.error))
-            raise op.error
 
     def connect(self, callback):
         """
@@ -130,11 +127,8 @@ class IoTHubPipeline(object):
         """
         logger.debug("Starting ConnectOperation on the pipeline")
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(pipeline_ops_base.ConnectOperation(callback=on_complete))
 
@@ -151,11 +145,8 @@ class IoTHubPipeline(object):
         """
         logger.debug("Starting DisconnectOperation on the pipeline")
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=on_complete))
 
@@ -175,11 +166,8 @@ class IoTHubPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_iothub.SendD2CMessageOperation(message=message, callback=on_complete)
@@ -201,11 +189,8 @@ class IoTHubPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_iothub.SendOutputEventOperation(message=message, callback=on_complete)
@@ -228,11 +213,8 @@ class IoTHubPipeline(object):
         """
         logger.debug("IoTHubPipeline send_method_response called")
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_iothub.SendMethodResponseOperation(
@@ -256,9 +238,9 @@ class IoTHubPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error, twin=None)
+        def on_complete(op, error):
+            if error:
+                callback(error=error, twin=None)
             else:
                 callback(twin=op.twin)
 
@@ -280,11 +262,8 @@ class IoTHubPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
@@ -306,11 +285,8 @@ class IoTHubPipeline(object):
             raise ValueError("Invalid feature_name")
         self.feature_enabled[feature_name] = True
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_base.EnableFeatureOperation(
@@ -332,11 +308,8 @@ class IoTHubPipeline(object):
             raise ValueError("Invalid feature_name")
         self.feature_enabled[feature_name] = False
 
-        def on_complete(op):
-            if op.error:
-                callback(error=op.error)
-            else:
-                callback()
+        def on_complete(op, error):
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_base.DisableFeatureOperation(
