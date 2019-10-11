@@ -16,7 +16,7 @@ class SetSymmetricKeySecurityClientOperation(PipelineOperation):
     very provisioning-specific
     """
 
-    def __init__(self, security_client, callback=None):
+    def __init__(self, security_client, callback):
         """
         Initializer for SetSecurityClient.
 
@@ -41,7 +41,7 @@ class SetX509SecurityClientOperation(PipelineOperation):
     (such as a Provisioning client).
     """
 
-    def __init__(self, security_client, callback=None):
+    def __init__(self, security_client, callback):
         """
         Initializer for SetSecurityClient.
 
@@ -71,9 +71,9 @@ class SetProvisioningClientConnectionArgsOperation(PipelineOperation):
         provisioning_host,
         registration_id,
         id_scope,
+        callback,
         client_cert=None,
         sas_token=None,
-        callback=None,
     ):
         """
         Initializer for SetProvisioningClientConnectionArgsOperation.
@@ -99,7 +99,7 @@ class SendRegistrationRequestOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_id, request_payload, callback=None):
+    def __init__(self, request_id, request_payload, callback):
         """
         Initializer for SendRegistrationRequestOperation objects.
 
@@ -122,7 +122,7 @@ class SendQueryRequestOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_id, operation_id, request_payload, callback=None):
+    def __init__(self, request_id, operation_id, request_payload, callback):
         """
         Initializer for SendRegistrationRequestOperation objects.
 

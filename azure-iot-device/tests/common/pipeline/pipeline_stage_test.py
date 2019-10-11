@@ -13,7 +13,6 @@ from tests.common.pipeline.helpers import (
     make_mock_stage,
     make_mock_op_or_event,
     assert_callback_failed,
-    UnhandledException,
     get_arg_count,
     add_mock_method_waiter,
 )
@@ -81,8 +80,13 @@ def add_unknown_ops_tests(cls, module, all_ops, handled_ops):
             return op
 
         @pytest.fixture
-        def stage(self, mocker):
-            return make_mock_stage(mocker=mocker, stage_to_make=cls)
+        def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
+            return make_mock_stage(
+                mocker=mocker,
+                stage_to_make=cls,
+                exc_to_raise=arbitrary_exception,
+                base_exc_to_raise=arbitrary_base_exception,
+            )
 
         @pytest.mark.it("Passes unknown operation to next stage")
         @pytest.mark.parametrize("op_cls", unknown_ops)
@@ -111,10 +115,13 @@ def add_unknown_ops_tests(cls, module, all_ops, handled_ops):
             "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
         )
         @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_to_next_stage_which_throws_base_exception(self, op_cls, op, stage):
+        def test_passes_op_to_next_stage_which_throws_base_exception(
+            self, op_cls, op, stage, arbitrary_base_exception
+        ):
             op.action = "base_exception"
-            with pytest.raises(UnhandledException):
+            with pytest.raises(arbitrary_base_exception.__class__) as e_info:
                 stage.run_op(op)
+            assert e_info.value is arbitrary_base_exception
 
     setattr(module, "Test{}UnknownOps".format(cls.__name__), LocalTestObject)
 
@@ -141,8 +148,13 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
             return make_mock_op_or_event(event_cls)
 
         @pytest.fixture
-        def stage(self, mocker):
-            return make_mock_stage(mocker=mocker, stage_to_make=cls)
+        def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
+            return make_mock_stage(
+                mocker=mocker,
+                stage_to_make=cls,
+                exc_to_raise=arbitrary_exception,
+                base_exc_to_raise=arbitrary_base_exception,
+            )
 
         @pytest.fixture
         def previous(self, stage, mocker):
@@ -173,25 +185,30 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
 
         @pytest.mark.it("Catches Exceptions raised when passing unknown event to previous stage")
         def test_passes_event_to_previous_stage_which_throws_exception(
-            self, event_cls, stage, event, previous, unhandled_error_handler
+            self, event_cls, stage, event, previous, unhandled_error_handler, arbitrary_exception
         ):
-            e = Exception()
-            previous.handle_pipeline_event.side_effect = e
+            previous.handle_pipeline_event.side_effect = arbitrary_exception
             stage.handle_pipeline_event(event)
             assert unhandled_error_handler.call_count == 1
-            assert unhandled_error_handler.call_args[0][0] == e
+            assert unhandled_error_handler.call_args[0][0] == arbitrary_exception
 
         @pytest.mark.it(
             "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
         )
         def test_passes_event_to_previous_stage_which_throws_base_exception(
-            self, event_cls, stage, event, previous, unhandled_error_handler
+            self,
+            event_cls,
+            stage,
+            event,
+            previous,
+            unhandled_error_handler,
+            arbitrary_base_exception,
         ):
-            e = UnhandledException()
-            previous.handle_pipeline_event.side_effect = e
-            with pytest.raises(UnhandledException):
+            previous.handle_pipeline_event.side_effect = arbitrary_base_exception
+            with pytest.raises(arbitrary_base_exception.__class__) as e_info:
                 stage.handle_pipeline_event(event)
             assert unhandled_error_handler.call_count == 0
+            assert e_info.value is arbitrary_base_exception
 
     setattr(module, "Test{}UnknownEvents".format(cls.__name__), LocalTestObject)
 

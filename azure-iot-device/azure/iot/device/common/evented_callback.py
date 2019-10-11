@@ -31,7 +31,6 @@ class EventedCallback(object):
 
         def wrapping_callback(*args, **kwargs):
             if "error" in kwargs and kwargs["error"]:
-                logger.error("Callback called with error {}".format(kwargs["error"]))
                 self.exception = kwargs["error"]
             elif return_arg_name:
                 if return_arg_name in kwargs:

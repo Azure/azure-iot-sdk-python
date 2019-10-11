@@ -20,6 +20,7 @@ from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.common.evented_callback import EventedCallback
+from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +60,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super(GenericIoTHubClient, self).__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
-        self._iothub_pipeline.on_connected = self._on_connected
-        self._iothub_pipeline.on_disconnected = self._on_disconnected
-        self._iothub_pipeline.on_method_request_received = self._inbox_manager.route_method_request
-        self._iothub_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
+        self._iothub_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
+        self._iothub_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
+        self._iothub_pipeline.on_method_request_received = CallableWeakMethod(
+            self._inbox_manager, "route_method_request"
+        )
+        self._iothub_pipeline.on_twin_patch_received = CallableWeakMethod(
+            self._inbox_manager, "route_twin_patch"
+        )
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -330,7 +335,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
         super(IoTHubDeviceClient, self).__init__(iothub_pipeline=iothub_pipeline)
-        self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
+        self._iothub_pipeline.on_c2d_message_received = CallableWeakMethod(
+            self._inbox_manager, "route_c2d_message"
+        )
 
     def receive_message(self, block=True, timeout=None):
         """Receive a message that has been sent from the Azure IoT Hub.
@@ -374,7 +381,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         super(IoTHubModuleClient, self).__init__(
             iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline
         )
-        self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
+        self._iothub_pipeline.on_input_message_received = CallableWeakMethod(
+            self._inbox_manager, "route_input_message"
+        )
 
     def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.

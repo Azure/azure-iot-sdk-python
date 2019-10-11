@@ -22,46 +22,39 @@ class TestPipelineOperation(object):
 
 
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_base.ConnectOperation,
-    module=this_module,
-    positional_arguments=[],
-    keyword_arguments={"callback": None},
+    cls=pipeline_ops_base.ConnectOperation, module=this_module
 )
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_base.DisconnectOperation,
-    module=this_module,
-    positional_arguments=[],
-    keyword_arguments={"callback": None},
+    cls=pipeline_ops_base.DisconnectOperation, module=this_module
 )
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_base.ReconnectOperation,
-    module=this_module,
-    positional_arguments=[],
-    keyword_arguments={"callback": None},
+    cls=pipeline_ops_base.ReconnectOperation, module=this_module
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.EnableFeatureOperation,
     module=this_module,
-    positional_arguments=["feature_name"],
-    keyword_arguments={"callback": None},
+    positional_arguments=["feature_name", "callback"],
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.DisableFeatureOperation,
     module=this_module,
-    positional_arguments=["feature_name"],
-    keyword_arguments={"callback": None},
+    positional_arguments=["feature_name", "callback"],
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.UpdateSasTokenOperation,
     module=this_module,
-    positional_arguments=["sas_token"],
-    keyword_arguments={"callback": None},
+    positional_arguments=["sas_token", "callback"],
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.SendIotRequestAndWaitForResponseOperation,
     module=this_module,
-    positional_arguments=["request_type", "method", "resource_location", "request_body"],
-    keyword_arguments={"callback": None},
+    positional_arguments=[
+        "request_type",
+        "method",
+        "resource_location",
+        "request_body",
+        "callback",
+    ],
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_base.SendIotRequestOperation,
@@ -72,6 +65,6 @@ pipeline_data_object_test.add_operation_test(
         "resource_location",
         "request_body",
         "request_id",
+        "callback",
     ],
-    keyword_arguments={"callback": None},
 )

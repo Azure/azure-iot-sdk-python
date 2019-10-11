@@ -14,13 +14,11 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
     pipeline_events_base,
-    operation_flow,
 )
 from tests.common.pipeline.helpers import (
     make_mock_stage,
     assert_callback_failed,
     assert_callback_succeeded,
-    UnhandledException,
     all_common_ops,
     all_common_events,
 )
@@ -71,7 +69,7 @@ def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
     stage.pipeline_root = stage
     callback_called = threading.Event()
 
-    def callback(op):
+    def callback(op, error):
         assert threading.current_thread().name == "callback"
         callback_called.set()
 
@@ -181,12 +179,15 @@ fake_payload = "__fake_payload__"
 ops_that_cause_connection = [
     {
         "op_class": pipeline_ops_mqtt.MQTTPublishOperation,
-        "op_init_kwargs": {"topic": fake_topic, "payload": fake_payload},
+        "op_init_kwargs": {"topic": fake_topic, "payload": fake_payload, "callback": 1},
     },
-    {"op_class": pipeline_ops_mqtt.MQTTSubscribeOperation, "op_init_kwargs": {"topic": fake_topic}},
+    {
+        "op_class": pipeline_ops_mqtt.MQTTSubscribeOperation,
+        "op_init_kwargs": {"topic": fake_topic, "callback": 1},
+    },
     {
         "op_class": pipeline_ops_mqtt.MQTTUnsubscribeOperation,
-        "op_init_kwargs": {"topic": fake_topic},
+        "op_init_kwargs": {"topic": fake_topic, "callback": 1},
     },
 ]
 
@@ -207,9 +208,12 @@ class TestEnsureConnectionStageRunOp(object):
         return op
 
     @pytest.fixture
-    def stage(self, mocker):
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
         stage = make_mock_stage(
-            mocker=mocker, stage_to_make=pipeline_stages_base.EnsureConnectionStage
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.EnsureConnectionStage,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
         )
         stage.next.run_op = mocker.MagicMock()
         return stage
@@ -237,15 +241,14 @@ class TestEnsureConnectionStageRunOp(object):
     @pytest.mark.it(
         "Calls the op's callback with the error from the ConnectOperation if that operation fails"
     )
-    def test_connect_failure(self, params, op, stage, fake_exception):
+    def test_connect_failure(self, params, op, stage, arbitrary_exception):
         stage.pipeline_root.connected = False
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        connect_op.error = fake_exception
-        operation_flow.complete_op(stage=stage.next, op=connect_op)
+        stage.next._complete_op(connect_op, error=arbitrary_exception)
 
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Waits for the ConnectOperation to complete before pasing the operation down")
     def test_connect_success(self, params, op, stage):
@@ -254,7 +257,7 @@ class TestEnsureConnectionStageRunOp(object):
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         connect_op = stage.next.run_op.call_args[0][0]
-        operation_flow.complete_op(stage=stage.next, op=connect_op)
+        stage.next._complete_op(connect_op)
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args[0][0] == op
@@ -265,22 +268,21 @@ class TestEnsureConnectionStageRunOp(object):
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        operation_flow.complete_op(stage=stage.next, op=connect_op)
+        stage.next._complete_op(connect_op)
 
-        operation_flow.complete_op(stage=stage.next, op=op)
+        stage.next._complete_op(op)
         assert_callback_succeeded(op=op)
 
     @pytest.mark.it("calls the op's callback when the operation fails after connecting")
-    def test_operation_fails(self, params, op, stage, fake_exception):
+    def test_operation_fails(self, params, op, stage, arbitrary_exception):
         stage.pipeline_root.connected = False
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        operation_flow.complete_op(stage=stage.next, op=connect_op)
-        op.error = fake_exception
-        operation_flow.complete_op(stage=stage.next, op=op)
+        stage.next._complete_op(connect_op)
+        stage.next._complete_op(op, error=arbitrary_exception)
 
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -313,9 +315,12 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 )
 class TestSerializeConnectOpStageRunOp(object):
     @pytest.fixture
-    def stage(self, mocker):
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
         stage = make_mock_stage(
-            mocker=mocker, stage_to_make=pipeline_stages_base.SerializeConnectOpsStage
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.SerializeConnectOpsStage,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
         )
         stage.next.run_op = mocker.MagicMock()
         return stage
@@ -388,7 +393,7 @@ class TestSerializeConnectOpStageRunOp(object):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        operation_flow.complete_op(stage=stage.next, op=connection_op)
+        stage.next._complete_op(connection_op)
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args[0][0] == fake_op
@@ -398,14 +403,13 @@ class TestSerializeConnectOpStageRunOp(object):
     )
     @pytest.mark.it("Fails the operation if the operation that previously blocked the stage fails")
     def test_fails_blocked_op_if_serialized_op_fails(
-        self, params, stage, connection_op, fake_op, fake_exception
+        self, params, stage, connection_op, fake_op, arbitrary_exception
     ):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        connection_op.error = fake_exception
-        operation_flow.complete_op(stage=stage.next, op=connection_op)
-        assert_callback_failed(op=fake_op, error=fake_exception)
+        stage.next._complete_op(connection_op, error=arbitrary_exception)
+        assert_callback_failed(op=fake_op, error=arbitrary_exception)
 
     @pytest.mark.parametrize(
         "params", connection_ops, ids=[x["op_class"].__name__ for x in connection_ops]
@@ -432,7 +436,7 @@ class TestSerializeConnectOpStageRunOp(object):
         for op in fake_ops:
             stage.run_op(op)
 
-        operation_flow.complete_op(stage=stage.next, op=connection_op)
+        stage.next._complete_op(connection_op)
 
         assert stage.next.run_op.call_count == 1 + len(fake_ops)
 
@@ -449,17 +453,16 @@ class TestSerializeConnectOpStageRunOp(object):
     @pytest.mark.it(
         "Fails all pending operations after the operation that previously blocked the stage fails"
     )
-    def test_fails_multiple_ops(self, params, stage, connection_op, fake_ops, fake_exception):
+    def test_fails_multiple_ops(self, params, stage, connection_op, fake_ops, arbitrary_exception):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         for op in fake_ops:
             stage.run_op(op)
 
-        connection_op.error = fake_exception
-        operation_flow.complete_op(stage=stage.next, op=connection_op)
+        stage.next._complete_op(connection_op, error=arbitrary_exception)
 
         for op in fake_ops:
-            assert_callback_failed(op=op, error=fake_exception)
+            assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Does not immediately pass down operations in the queue if an operation in the queue causes the stage to re-block"
@@ -478,7 +481,7 @@ class TestSerializeConnectOpStageRunOp(object):
         # at this point, ops are pended waiting for the first connect to complete.  Verify this and complete the connect.
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == first_connect
-        operation_flow.complete_op(stage=stage.next, op=first_connect)
+        stage.next._complete_op(first_connect)
 
         # The connect is complete.  This passes down first_fake_op and second_connect and second_fake_op gets pended waiting i
         # for second_connect to complete.
@@ -489,7 +492,7 @@ class TestSerializeConnectOpStageRunOp(object):
         assert stage.next.run_op.call_args_list[2][0][0] == second_connect
 
         # now, complete second_connect to give second_fake_op a chance to get passed down
-        operation_flow.complete_op(stage=stage.next, op=second_connect)
+        stage.next._complete_op(second_connect)
         assert stage.next.run_op.call_count == 4
         assert stage.next.run_op.call_args_list[3][0][0] == second_fake_op
 
@@ -542,7 +545,7 @@ class TestSerializeConnectOpStageRunOp(object):
 
         # complete first_connection_op
         stage.pipeline_root.connected = params["mid_connect_flag"]
-        operation_flow.complete_op(stage=stage.next, op=first_connection_op)
+        stage.next._complete_op(first_connection_op)
 
         # second connect_op should be completed without having been passed down.
         assert stage.next.run_op.call_count == 1
@@ -588,8 +591,13 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(object):
         return make_fake_request_and_response(mocker)
 
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_base.CoordinateRequestAndResponseStage)
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.CoordinateRequestAndResponseStage,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
+        )
 
     @pytest.mark.it(
         "Sends an SendIotRequestOperation op to the next stage with the same parameters and a newly allocated request_id"
@@ -629,17 +637,18 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(object):
     @pytest.mark.it(
         "Fails SendIotRequestAndWaitForResponseOperation if an Exception is raised in the SendIotRequestOperation op"
     )
-    def test_new_op_raises_exception(self, stage, op, mocker):
-        stage.next._execute_op = mocker.Mock(side_effect=Exception)
+    def test_new_op_raises_exception(self, stage, op, mocker, arbitrary_exception):
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(op)
         assert_callback_failed(op=op)
 
     @pytest.mark.it("Allows BaseExceptions rised on the SendIotRequestOperation op to propogate")
-    def test_new_op_raises_base_exception(self, stage, op, mocker):
-        stage.next._execute_op = mocker.Mock(side_effect=UnhandledException)
-        with pytest.raises(UnhandledException):
+    def test_new_op_raises_base_exception(self, stage, op, mocker, arbitrary_base_exception):
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
         assert op.callback.call_count == 0
+        assert e_info.value is arbitrary_base_exception
 
 
 @pytest.mark.describe(
@@ -651,8 +660,13 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         return make_fake_request_and_response(mocker)
 
     @pytest.fixture
-    def stage(self, mocker):
-        return make_mock_stage(mocker, pipeline_stages_base.CoordinateRequestAndResponseStage)
+    def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
+        return make_mock_stage(
+            mocker=mocker,
+            stage_to_make=pipeline_stages_base.CoordinateRequestAndResponseStage,
+            exc_to_raise=arbitrary_exception,
+            base_exc_to_raise=arbitrary_base_exception,
+        )
 
     @pytest.fixture
     def iot_request(self, stage, op):
@@ -671,7 +685,7 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         "Completes the SendIotRequestAndWaitForResponseOperation op with the matching request_id including response_body and status_code"
     )
     def test_completes_op_with_matching_request_id(self, stage, op, iot_response):
-        operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
+        stage.next._send_event_up(iot_response)
         assert_callback_succeeded(op=op)
         assert op.status_code == iot_response.status_code
         assert op.response_body == iot_response.response_body
@@ -683,26 +697,28 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         self, stage, op, iot_response, unhandled_error_handler
     ):
         stage.next.previous = None
-        operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
+        stage.next._send_event_up(iot_response)
         assert unhandled_error_handler.call_count == 1
 
     @pytest.mark.it(
         "Does nothing if an IotResponse with an identical request_id is received a second time"
     )
     def test_ignores_duplicate_request_id(self, stage, op, iot_response, unhandled_error_handler):
-        operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
+        stage.next._send_event_up(iot_response)
         assert_callback_succeeded(op=op)
         op.callback.reset_mock()
 
-        operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
+        stage.next._send_event_up(iot_response)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it(
         "Does nothing if an IotResponse with a request_id is received for an operation that returned failure"
     )
-    def test_ignores_request_id_from_failure(self, stage, op, mocker, unhandled_error_handler):
-        stage.next._execute_op = mocker.MagicMock(side_effect=Exception)
+    def test_ignores_request_id_from_failure(
+        self, stage, op, mocker, unhandled_error_handler, arbitrary_exception
+    ):
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
 
         req = stage.next.run_op.call_args[0][0]
@@ -713,13 +729,13 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(object):
         )
 
         op.callback.reset_mock()
-        operation_flow.pass_event_to_previous_stage(stage.next, resp)
+        stage.next._send_event_up(resp)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it("Does nothing if an IotResponse with an unknown request_id is received")
     def test_ignores_unknown_request_id(self, stage, op, iot_response, unhandled_error_handler):
         iot_response.request_id = fake_request_id
-        operation_flow.pass_event_to_previous_stage(stage.next, iot_response)
+        stage.next._send_event_up(iot_response)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0

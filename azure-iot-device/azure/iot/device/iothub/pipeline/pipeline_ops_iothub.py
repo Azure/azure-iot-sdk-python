@@ -18,7 +18,7 @@ class SetX509AuthProviderOperation(PipelineOperation):
     very IoTHub-specific
     """
 
-    def __init__(self, auth_provider, callback=None):
+    def __init__(self, auth_provider, callback):
         """
         Initializer for SetAuthProviderOperation objects.
 
@@ -42,7 +42,7 @@ class SetAuthProviderOperation(PipelineOperation):
     very IoTHub-specific
     """
 
-    def __init__(self, auth_provider, callback=None):
+    def __init__(self, auth_provider, callback):
         """
         Initializer for SetAuthProviderOperation objects.
 
@@ -69,12 +69,12 @@ class SetIoTHubConnectionArgsOperation(PipelineOperation):
         self,
         device_id,
         hostname,
+        callback,
         module_id=None,
         gateway_hostname=None,
         ca_cert=None,
         client_cert=None,
         sas_token=None,
-        callback=None,
     ):
         """
         Initializer for SetIoTHubConnectionArgsOperation objects.
@@ -111,7 +111,7 @@ class SendD2CMessageOperation(PipelineOperation):
     This operation is in the group of IoTHub operations because it is very specific to the IoTHub client
     """
 
-    def __init__(self, message, callback=None):
+    def __init__(self, message, callback):
         """
         Initializer for SendD2CMessageOperation objects.
 
@@ -131,7 +131,7 @@ class SendOutputEventOperation(PipelineOperation):
     This operation is in the group of IoTHub operations because it is very specific to the IoTHub client
     """
 
-    def __init__(self, message, callback=None):
+    def __init__(self, message, callback):
         """
         Initializer for SendOutputEventOperation objects.
 
@@ -152,7 +152,7 @@ class SendMethodResponseOperation(PipelineOperation):
     This operation is in the group of IoTHub operations because it is very specific to the IoTHub client.
     """
 
-    def __init__(self, method_response, callback=None):
+    def __init__(self, method_response, callback):
         """
         Initializer for SendMethodResponseOperation objects.
 
@@ -176,7 +176,7 @@ class GetTwinOperation(PipelineOperation):
     :type twin: Twin
     """
 
-    def __init__(self, callback=None):
+    def __init__(self, callback):
         """
         Initializer for GetTwinOperation objects.
         """
@@ -190,7 +190,7 @@ class PatchTwinReportedPropertiesOperation(PipelineOperation):
     IoT Hub or Azure IoT Edge Hub service.
     """
 
-    def __init__(self, patch, callback=None):
+    def __init__(self, patch, callback):
         """
         Initializer for PatchTwinReportedPropertiesOperation object
 

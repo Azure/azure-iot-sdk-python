@@ -22,6 +22,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
 )
+from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import (
@@ -31,7 +32,6 @@ from tests.common.pipeline.helpers import (
     all_common_events,
     all_except,
     make_mock_stage,
-    UnhandledException,
 )
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
@@ -207,8 +207,13 @@ def create_message_for_output_with_system_and_user_properties(message_content, i
 
 
 @pytest.fixture
-def stage(mocker):
-    return make_mock_stage(mocker, pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage)
+def stage(mocker, arbitrary_exception, arbitrary_base_exception):
+    return make_mock_stage(
+        mocker=mocker,
+        stage_to_make=pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
+        exc_to_raise=arbitrary_exception,
+        base_exc_to_raise=arbitrary_base_exception,
+    )
 
 
 @pytest.fixture
@@ -373,21 +378,22 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
         "Calls the SetIoTHubConnectionArgsOperation callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation raises an Exception"
     )
     def test_set_connection_args_raises_exception(
-        self, stage, mocker, fake_exception, set_connection_args
+        self, stage, mocker, arbitrary_exception, set_connection_args
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(set_connection_args)
-        assert_callback_failed(op=set_connection_args, error=fake_exception)
+        assert_callback_failed(op=set_connection_args, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseExceptions raised inside the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation to propagate"
     )
     def test_set_connection_args_raises_base_exception(
-        self, stage, mocker, fake_base_exception, set_connection_args
+        self, stage, mocker, arbitrary_base_exception, set_connection_args
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
-        with pytest.raises(UnhandledException):
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(set_connection_args)
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
         "Calls the SetIoTHubConnectionArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
@@ -419,10 +425,10 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(object):
         assert stage.next.run_op.call_args[0][0] == op
 
     @pytest.mark.it("Completes the op with failure if some lower stage returns failure")
-    def test_lower_stage_update_sas_token_fails(self, stage, op):
-        op.action = "error"
+    def test_lower_stage_update_sas_token_fails(self, stage, op, arbitrary_exception):
+        op.action = "exception"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Completes the op with success if some lower stage returns success")
     def test_lower_stage_update_sas_token_succeeds(self, stage, op):
@@ -455,10 +461,10 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
     @pytest.mark.it(
         "Completes the op with failure if some lower stage returns failure for the UpdateSasTokenOperation"
     )
-    def test_lower_stage_update_sas_token_fails(self, stage, op):
+    def test_lower_stage_update_sas_token_fails(self, stage, op, arbitrary_exception):
         op.action = "fail"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Passes down a ReconnectOperation instead of completing the op with success after the lower level stage returns success for the UpdateSasTokenOperation"
@@ -467,7 +473,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                op.callback(op)
+                op.callback(op, error=None)
             else:
                 pass
 
@@ -498,14 +504,13 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
     @pytest.mark.it(
         "Completes the op with failure if some lower level stage returns failure for the ReconnectOperation"
     )
-    def test_reconnect_fails(self, stage, op, mocker, fake_exception):
+    def test_reconnect_fails(self, stage, op, mocker, arbitrary_exception):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                op.callback(op)
+                stage.next._complete_op(op, error=None)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                op.error = fake_exception
-                op.callback(op)
+                stage.next._complete_op(op, error=arbitrary_exception)
             else:
                 pass
 
@@ -517,33 +522,33 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
         assert isinstance(
             stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
         )
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
 
 basic_ops = [
     {
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": fake_message},
+        "op_init_kwargs": {"message": fake_message, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
         "op_class": pipeline_ops_iothub.SendOutputEventOperation,
-        "op_init_kwargs": {"message": fake_message},
+        "op_init_kwargs": {"message": fake_message, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
         "op_class": pipeline_ops_iothub.SendMethodResponseOperation,
-        "op_init_kwargs": {"method_response": fake_method_response},
+        "op_init_kwargs": {"method_response": fake_method_response, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
         "op_class": pipeline_ops_base.EnableFeatureOperation,
-        "op_init_kwargs": {"feature_name": constant.C2D_MSG},
+        "op_init_kwargs": {"feature_name": constant.C2D_MSG, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTSubscribeOperation,
     },
     {
         "op_class": pipeline_ops_base.DisableFeatureOperation,
-        "op_init_kwargs": {"feature_name": constant.C2D_MSG},
+        "op_init_kwargs": {"feature_name": constant.C2D_MSG, "callback": None},
         "new_op_class": pipeline_ops_mqtt.MQTTUnsubscribeOperation,
     },
 ]
@@ -570,19 +575,20 @@ class TestIoTHubMQTTConverterBasicOperations(object):
 
     @pytest.mark.it("Calls the original op callback with error if the new_op raises an exception")
     def test_operation_raises_exception(
-        self, params, mocker, stage, stages_configured_for_both, op, fake_exception
+        self, params, mocker, stage, stages_configured_for_both, op, arbitrary_exception
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=fake_exception)
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=fake_exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Allows any any BaseExceptions raised in the new_op to propagate")
     def test_operation_raises_base_exception(
-        self, params, mocker, stage, stages_configured_for_both, op, fake_base_exception
+        self, params, mocker, stage, stages_configured_for_both, op, arbitrary_base_exception
     ):
-        stage.next._execute_op = mocker.Mock(side_effect=fake_base_exception)
-        with pytest.raises(UnhandledException):
+        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
     def test_operation_succeeds(self, params, stage, stages_configured_for_both, op):
@@ -595,7 +601,7 @@ publish_ops = [
         "name": "send telemetry",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body)},
+        "op_init_kwargs": {"message": Message(fake_message_body), "callback": None},
         "topic": "devices/{}/messages/events/{}&{}".format(
             fake_device_id, default_content_type_encoded, default_content_encoding_encoded
         ),
@@ -610,7 +616,8 @@ publish_ops = [
                 fake_message_body,
                 content_type=fake_content_type,
                 content_encoding=fake_content_encoding,
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}".format(
             fake_device_id, fake_content_type_encoded, fake_content_encoding_encoded
@@ -621,7 +628,10 @@ publish_ops = [
         "name": "send telemetry overriding only the content type",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body, content_type=fake_content_type)},
+        "op_init_kwargs": {
+            "message": Message(fake_message_body, content_type=fake_content_type),
+            "callback": None,
+        },
         "topic": "devices/{}/messages/events/{}&{}".format(
             fake_device_id, fake_content_type_encoded, default_content_encoding_encoded
         ),
@@ -631,7 +641,10 @@ publish_ops = [
         "name": "send telemetry with single system property",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body, output_name=fake_output_name)},
+        "op_init_kwargs": {
+            "message": Message(fake_message_body, output_name=fake_output_name),
+            "callback": None,
+        },
         "topic": "devices/{}/messages/events/{}&{}&{}".format(
             fake_device_id,
             fake_output_name_encoded,
@@ -644,7 +657,7 @@ publish_ops = [
         "name": "send security message",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
-        "op_init_kwargs": {"message": create_security_message(fake_message_body)},
+        "op_init_kwargs": {"message": create_security_message(fake_message_body), "callback": None},
         "topic": "devices/{}/messages/events/{}&{}&{}".format(
             fake_device_id,
             default_content_type_encoded,
@@ -660,7 +673,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": Message(
                 fake_message_body, message_id=fake_message_id, output_name=fake_output_name
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}&{}&{}".format(
             fake_device_id,
@@ -676,7 +690,8 @@ publish_ops = [
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {
-            "message": create_message_with_user_properties(fake_message_body, is_multiple=False)
+            "message": create_message_with_user_properties(fake_message_body, is_multiple=False),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}&{}".format(
             fake_device_id,
@@ -691,7 +706,8 @@ publish_ops = [
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {
-            "message": create_message_with_user_properties(fake_message_body, is_multiple=True)
+            "message": create_message_with_user_properties(fake_message_body, is_multiple=True),
+            "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
         "topic1": "devices/{}/messages/events/{}&{}&{}&{}".format(
@@ -717,7 +733,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_with_system_and_user_properties(
                 fake_message_body, is_multiple=False
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/messages/events/{}&{}&{}&{}".format(
             fake_device_id,
@@ -735,7 +752,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_with_system_and_user_properties(
                 fake_message_body, is_multiple=True
-            )
+            ),
+            "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
         "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}".format(
@@ -765,7 +783,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_security_message_with_system_and_user_properties(
                 fake_message_body, is_multiple=True
-            )
+            ),
+            "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
         "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}&{}".format(
@@ -794,7 +813,10 @@ publish_ops = [
         "name": "send output",
         "stage_type": "module",
         "op_class": pipeline_ops_iothub.SendOutputEventOperation,
-        "op_init_kwargs": {"message": Message(fake_message_body, output_name=fake_output_name)},
+        "op_init_kwargs": {
+            "message": Message(fake_message_body, output_name=fake_output_name),
+            "callback": None,
+        },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
             fake_module_id,
@@ -814,7 +836,8 @@ publish_ops = [
                 output_name=fake_output_name,
                 content_type=fake_content_type,
                 content_encoding=fake_content_encoding,
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
@@ -832,7 +855,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": Message(
                 fake_message_body, message_id=fake_message_id, output_name=fake_output_name
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}".format(
             fake_device_id,
@@ -851,7 +875,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_for_output_with_user_properties(
                 fake_message_body, is_multiple=False
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}".format(
             fake_device_id,
@@ -870,7 +895,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_for_output_with_user_properties(
                 fake_message_body, is_multiple=True
-            )
+            ),
+            "callback": None,
         },
         "topic1": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
             fake_device_id,
@@ -899,7 +925,8 @@ publish_ops = [
         "op_init_kwargs": {
             "message": create_message_for_output_with_system_and_user_properties(
                 fake_message_body, is_multiple=False
-            )
+            ),
+            "callback": None,
         },
         "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
             fake_device_id,
@@ -916,7 +943,7 @@ publish_ops = [
         "name": "send method result",
         "stage_type": "both",
         "op_class": pipeline_ops_iothub.SendMethodResponseOperation,
-        "op_init_kwargs": {"method_response": fake_method_response},
+        "op_init_kwargs": {"method_response": fake_method_response, "callback": None},
         "topic": "$iothub/methods/res/__fake_method_status__/?$rid=__fake_request_id__",
         "publish_payload": json.dumps(fake_method_payload),
     },
@@ -1004,7 +1031,9 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
         elif topic_parameters["stage_type"] == "module" and not stage.module_id:
             pytest.skip()
         stage.next._execute_op = mocker.Mock()
-        op = op_parameters["op_class"](feature_name=topic_parameters["feature_name"])
+        op = op_parameters["op_class"](
+            feature_name=topic_parameters["feature_name"], callback=mocker.MagicMock()
+        )
         stage.run_op(op)
         new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, op_parameters["new_op"])
@@ -1022,10 +1051,7 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
         op = op_parameters["op_class"](feature_name=invalid_feature_name, callback=callback)
         callback.reset_mock()
         stage.run_op(op)
-        assert callback.call_count == 1
-        callback_arg = op.callback.call_args[0][0]
-        assert callback_arg == op
-        assert isinstance(callback_arg.error, KeyError)
+        assert_callback_failed(op=op, error=KeyError)
 
 
 @pytest.fixture
@@ -1150,13 +1176,11 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
             callback=callback,
         )
 
-    @pytest.mark.it(
-        "calls the op callback with a NotImplementedError if request_type is not 'twin'"
-    )
+    @pytest.mark.it("calls the op callback with an OperationError if request_type is not 'twin'")
     def test_sends_bad_request_type(self, stage, op):
         op.request_type = "not_twin"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=NotImplementedError)
+        assert_callback_failed(op=op, error=OperationError)
 
     @pytest.mark.it(
         "Runs an MQTTPublishOperation on the next stage with the topic formated as '$iothub/twin/{method}{resource_location}?$rid={request_id}' and the payload as the request_body"
@@ -1173,46 +1197,50 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
         )
         assert new_op.payload == fake_request_body
 
-    @pytest.mark.it("Returns an Exception through the op callback if there is no next stage")
+    @pytest.mark.it("Returns an OperationError through the op callback if there is no next stage")
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=PipelineError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the MQTTPublishOperation and returns them through the op callback"
     )
-    def test_next_stage_raises_exception(self, stage, op):
-        stage.next.run_op.side_effect = Exception
+    def test_next_stage_raises_exception(self, mocker, stage, op, arbitrary_exception):
+        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
+        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
+        # (it is unclear as to why at this time)
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op, error=Exception)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Allows any BaseExceptions raised by the MQTTPublishOperation to propagate")
-    def test_next_stage_raises_base_exception(self, stage, op):
-        stage.next.run_op.side_effect = UnhandledException
-        with pytest.raises(UnhandledException):
+    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
+        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
+        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
+        # (it is unclear as to why at this time)
+        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.run_op(op)
+        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
-        "Returns op.error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
+        "Returns error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
     )
-    def test_publish_op_returns_failure(self, stage, op):
-        error = Exception()
-
+    def test_publish_op_returns_failure(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
-            op.error = error
-            op.callback(op)
+            op.callback(op, error=arbitrary_exception)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=error)
+        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns op.error=None in the operation callback if the MQTTPublishOperation returned op.error=None in its operation callback"
+        "Returns error=None in the operation callback if the MQTTPublishOperation returned error=None in its operation callback"
     )
     def test_publish_op_returns_success(self, stage, op):
         def next_stage_run_op(self, op):
-            op.callback(op)
+            op.callback(op, error=None)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
@@ -1416,14 +1444,16 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
         assert new_event.request_id == fake_request_id
         assert new_event.response_body == fake_payload
 
-    @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
+    @pytest.mark.it(
+        "Calls the unhandled exception handler with a PipelineError if there is no previous stage"
+    )
     def test_no_previous_stage(
         self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
     ):
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
         assert unhandled_error_handler.call_count == 1
-        assert isinstance(unhandled_error_handler.call_args[0][0], NotImplementedError)
+        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineError)
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the requet_id is missing from the topic name"
@@ -1520,14 +1550,16 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(object):
         assert isinstance(new_event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent)
         assert new_event.patch == fake_patch
 
-    @pytest.mark.it("Calls the unhandled exception handler if there is no previous stage")
+    @pytest.mark.it(
+        "Calls the unhandled exception handler with a PipelineError if there is no previous stage"
+    )
     def test_no_previous_stage(
         self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
     ):
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
         assert unhandled_error_handler.call_count == 1
-        assert isinstance(unhandled_error_handler.call_args[0][0], NotImplementedError)
+        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineError)
 
     @pytest.mark.it("Calls the unhandled exception handler if the payload is not a Bytes object")
     def test_payload_not_bytes(
