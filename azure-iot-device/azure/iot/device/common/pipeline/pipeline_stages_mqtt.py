@@ -15,7 +15,6 @@ from . import (
     pipeline_thread,
     pipeline_exceptions,
 )
-
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
 

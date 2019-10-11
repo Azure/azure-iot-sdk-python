@@ -94,7 +94,7 @@ class MQTTTransport(object):
         :param str username: Username for login to the remote broker.
         :param str ca_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
-        :param websockets: Boolean value to determine whether or not to enable a websockets connection in the Transport.
+        :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         """
         self._client_id = client_id
         self._hostname = hostname
