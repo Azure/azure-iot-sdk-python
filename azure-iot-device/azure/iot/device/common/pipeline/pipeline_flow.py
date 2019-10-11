@@ -33,7 +33,7 @@ class PipelineFlow(object):
         is completed, this function will cause the original op to complete.
 
         This function is only really useful if there is no data returned in the
-        new_op that that needs to be copied back into the original_op before
+        worker_op that that needs to be copied back into the original_op before
         completing it.  If data needs to be copied this way, some other method needs
         to be used.  (or a "copy data back" function needs to be added to this function
         as an optional parameter.)
@@ -42,8 +42,8 @@ class PipelineFlow(object):
           different op.  This is most likely the operation that is currently being handled
           by the stage.  This operation is not actually continued, in that it is not
           actually passed down the pipeline.  Instead, the original_op operation is
-          effectively paused while we wait for the new_op operation to complete.  When
-          the new_op operation completes, the original_op operation will also be completed.
+          effectively paused while we wait for the worker_op operation to complete.  When
+          the worker_op operation completes, the original_op operation will also be completed.
         :param PipelineOperation worker_op: Operation that is being passed down the pipeline
           to effectively continue the work represented by the original op.  This is most likely
           a different type of operation that is able to accomplish the intention of the
@@ -53,9 +53,9 @@ class PipelineFlow(object):
         logger.debug("{}({}): continuing with {} op".format(self.name, op.name, worker_op.name))
 
         @pipeline_thread.runs_on_pipeline_thread
-        def worker_op_complete(new_op, error):
+        def worker_op_complete(worker_op, error):
             logger.debug(
-                "{}({}): completing with result from {}".format(self.name, op.name, new_op.name)
+                "{}({}): completing with result from {}".format(self.name, op.name, worker_op.name)
             )
             self._complete_op(op, error=error)
 
@@ -111,6 +111,11 @@ class PipelineFlow(object):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _send_completed_op_up(self, op, error=None):
+        """
+        Sends a previously-completed operation back up the pipeline, usually to the callback.
+        This is used by _complete_op and it's also called from code in the stage itself inside
+        an intercepted return (via _send_op_down_and_intercept_return).
+        """
         if not op.completed:
             raise PipelineError(
                 "Internal pipeline error: attempting to send an incomplete {} op up".format(op.name)
@@ -148,12 +153,22 @@ class PipelineFlow(object):
             handle_exceptions.handle_background_exception(error)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _send_op_down_and_intercept_return(self, op, intercept_return):
+    def _send_op_down_and_intercept_return(self, op, intercepted_return):
+        """
+        Function which sends an op down to the next stage in the pipeline and inserts an
+        "intercepted_return" function in the return path of the op.  This way, a stage can
+        continue processing of any op and use the intercepted_return function to  see the
+        result of the op before returning it all the way to its original callback.  This is
+        useful for stages that want to monitor the progress of ops, such as a TimeoutStage
+        that needs to keep track of how long ops are running and when they complete.
+        When that intercepted_return function is done with the op, it can use
+        _send_completed_op_up() to finish processing the op.
+        """
         old_callback = op.callback
 
         def new_callback(op, error):
             op.callback = old_callback
-            intercept_return(op=op, error=error)
+            intercepted_return(op=op, error=error)
 
         op.callback = new_callback
         self._send_op_down(op)
