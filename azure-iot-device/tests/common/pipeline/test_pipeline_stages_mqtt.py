@@ -201,6 +201,7 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(RunOpTests):
             client_id=fake_client_id,
             hostname=fake_hostname,
             username=fake_username,
+            websockets=False,
             ca_cert=fake_ca_cert,
             x509_cert=fake_certificate,
         )

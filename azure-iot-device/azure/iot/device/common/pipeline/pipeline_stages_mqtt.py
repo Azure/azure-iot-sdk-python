@@ -59,14 +59,28 @@ class MQTTTransportStage(PipelineStage):
             self.sas_token = op.sas_token
             self.client_cert = op.client_cert
 
-            self.transport = MQTTTransport(
-                client_id=self.client_id,
-                hostname=self.hostname,
-                username=self.username,
-                ca_cert=self.ca_cert,
-                x509_cert=self.client_cert,
-                websockets=self.pipeline_root.pipeline_configurations.websockets,
-            )
+            if self.pipeline_root.pipeline_configurations:
+                self.transport = MQTTTransport(
+                    client_id=self.client_id,
+                    hostname=self.hostname,
+                    username=self.username,
+                    ca_cert=self.ca_cert,
+                    x509_cert=self.client_cert,
+                    websockets=self.pipeline_root.pipeline_configurations.websockets,
+                )
+            else:
+                # TODO:
+                # While MQTTWS in provisioning client is not implemented, this is defaulted
+                # to being false for websockets.
+                # When this is implemented there should be no IF here.
+                self.transport = MQTTTransport(
+                    client_id=self.client_id,
+                    hostname=self.hostname,
+                    username=self.username,
+                    ca_cert=self.ca_cert,
+                    x509_cert=self.client_cert,
+                    websockets=False,
+                )
             self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
             self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
             self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
