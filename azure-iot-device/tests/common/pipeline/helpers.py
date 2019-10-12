@@ -134,7 +134,7 @@ def assert_callback_failed(op, callback=None, error=None):
     callback_error_arg = callback.call_args[1]["error"]
     if error:
         if isinstance(error, type):
-            assert isinstance(callback_error_arg, error)
+            assert callback_error_arg.__class__ == error
         else:
             assert callback_error_arg is error
     else:

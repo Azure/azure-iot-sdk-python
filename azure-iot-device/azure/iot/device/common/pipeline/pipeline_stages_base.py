@@ -15,7 +15,7 @@ from six.moves import queue
 from threading import Timer
 from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
-from .operation_flow import PipelineFlow
+from .pipeline_flow import PipelineFlow
 from . import pipeline_thread
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
@@ -377,7 +377,7 @@ class SerializeConnectOpsStage(PipelineStage):
                 )
                 self._send_completed_op_up(op, error)
 
-            self._send_op_down_and_intercept_return(op, intercept_return=on_operation_complete)
+            self._send_op_down_and_intercept_return(op, intercepted_return=on_operation_complete)
 
         else:
             self._send_op_down(op=op)
