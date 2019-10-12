@@ -19,7 +19,7 @@ class PipelineFlow(object):
     @pipeline_thread.runs_on_pipeline_thread
     def _send_worker_op_down(self, worker_op, op):
         """
-        Continue an operation using a new operation.  This means that the new operation
+        Continue an operation using a new worker operation.  This means that the new operation
         will be passed down the pipeline (starting at the next stage). When that new
         operation completes, the original operation will be completed.  In this way,
         a stage can accept one type of operation and, effectively, change that operation
