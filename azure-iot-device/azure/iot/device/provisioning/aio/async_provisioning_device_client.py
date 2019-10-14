@@ -45,9 +45,13 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     async def register(self):
         """
         Register the device with the provisioning service.
+
         Before returning the client will also disconnect from the provisioning service.
         If a registration attempt is made while a previous registration is in progress it may
         throw an error.
+
+        :returns: RegistrationResult indicating the result of the registration.
+        :rtype: :class:`azure.iot.device.RegistrationResult`
         """
         logger.info("Registering with Provisioning Service...")
         register_async = async_adapter.emulate_async(self._polling_machine.register)
@@ -61,6 +65,8 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
     async def cancel(self):
         """
+        Cancel a registration that is in progress.
+
         Before returning the client will also disconnect from the provisioning service.
 
         In case there is no registration in process it will throw an error as there is
