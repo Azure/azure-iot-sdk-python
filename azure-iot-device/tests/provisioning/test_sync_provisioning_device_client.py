@@ -58,34 +58,16 @@ def mock_transport(mocker):
 class TestClientCreate(object):
     xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
 
-    @pytest.mark.it("Is created from a symmetric key and protocol")
-    @pytest.mark.parametrize(
-        "protocol",
-        [
-            pytest.param("mqtt", id="mqtt"),
-            pytest.param(None, id="optional protocol"),
-            pytest.param("amqp", id="amqp", marks=xfail_notimplemented),
-            pytest.param("http", id="http", marks=xfail_notimplemented),
-        ],
-    )
-    def test_create_from_symmetric_key(self, mocker, protocol):
+    @pytest.mark.it("Is created from a symmetric key")
+    def test_create_from_symmetric_key(self, mocker):
         client = ProvisioningDeviceClient.create_from_symmetric_key(
             fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
         )
         assert isinstance(client, ProvisioningDeviceClient)
         assert client._provisioning_pipeline is not None
 
-    @pytest.mark.it("Is created from a x509 certificate key and protocol")
-    @pytest.mark.parametrize(
-        "protocol",
-        [
-            pytest.param("mqtt", id="mqtt"),
-            pytest.param(None, id="optional protocol"),
-            pytest.param("amqp", id="amqp", marks=xfail_notimplemented),
-            pytest.param("http", id="http", marks=xfail_notimplemented),
-        ],
-    )
-    def test_create_from_x509_cert(self, mocker, protocol):
+    @pytest.mark.it("Is created from a x509 certificate key")
+    def test_create_from_x509_cert(self, mocker):
         client = ProvisioningDeviceClient.create_from_x509_certificate(
             fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()
         )
