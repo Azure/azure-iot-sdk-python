@@ -18,10 +18,10 @@ class SetMQTTConnectionArgsOperation(PipelineOperation):
         client_id,
         hostname,
         username,
+        callback,
         ca_cert=None,
         client_cert=None,
         sas_token=None,
-        callback=None,
     ):
         """
         Initializer for SetMQTTConnectionArgsOperation objects.
@@ -54,7 +54,7 @@ class MQTTPublishOperation(PipelineOperation):
     This operation is in the group of MQTT operations because its attributes are very specific to the MQTT protocol.
     """
 
-    def __init__(self, topic, payload, callback=None):
+    def __init__(self, topic, payload, callback):
         """
         Initializer for MQTTPublishOperation objects.
 
@@ -77,7 +77,7 @@ class MQTTSubscribeOperation(PipelineOperation):
     This operation is in the group of MQTT operations because its attributes are very specific to the MQTT protocol.
     """
 
-    def __init__(self, topic, callback=None):
+    def __init__(self, topic, callback):
         """
         Initializer for MQTTSubscribeOperation objects.
 
@@ -98,7 +98,7 @@ class MQTTUnsubscribeOperation(PipelineOperation):
     This operation is in the group of MQTT operations because its attributes are very specific to the MQTT protocol.
     """
 
-    def __init__(self, topic, callback=None):
+    def __init__(self, topic, callback):
         """
         Initializer for MQTTUnsubscribeOperation objects.
 

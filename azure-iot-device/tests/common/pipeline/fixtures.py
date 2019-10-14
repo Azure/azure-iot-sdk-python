@@ -42,36 +42,29 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 
 
 @pytest.fixture
-def op(callback):
-    op = FakeOperation(callback=callback)
+def op(mocker):
+    op = FakeOperation(callback=mocker.MagicMock())
     op.name = "op"
     return op
 
 
 @pytest.fixture
-def op2(callback):
-    op = FakeOperation(callback=callback)
+def op2(mocker):
+    op = FakeOperation(callback=mocker.MagicMock())
     op.name = "op2"
     return op
 
 
 @pytest.fixture
-def op3(callback):
-    op = FakeOperation(callback=callback)
+def op3(mocker):
+    op = FakeOperation(callback=mocker.MagicMock())
     op.name = "op3"
     return op
 
 
 @pytest.fixture
-def finally_op(callback):
-    op = FakeOperation(callback=callback)
-    op.name = "finally_op"
-    return op
-
-
-@pytest.fixture
-def new_op(callback):
-    op = FakeOperation(callback=callback)
+def new_op(mocker):
+    op = FakeOperation(callback=mocker.MagicMock())
     op.name = "new_op"
     return op
 

@@ -10,7 +10,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
-    operation_flow,
     pipeline_thread,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
@@ -54,61 +53,61 @@ class ProvisioningMQTTConverterStage(PipelineStage):
 
             hostname = op.provisioning_host
 
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
+            self._send_worker_op_down(
+                worker_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
                     client_id=client_id,
                     hostname=hostname,
                     username=username,
                     client_cert=op.client_cert,
                     sas_token=op.sas_token,
+                    callback=op.callback,
                 ),
+                op=op,
             )
 
         elif isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
             # Convert Sending the request into MQTT Publish operations
             topic = mqtt_topic.get_topic_for_register(op.request_id)
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=op.request_payload
+            self._send_worker_op_down(
+                worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
+                    topic=topic, payload=op.request_payload, callback=op.callback
                 ),
+                op=op,
             )
 
         elif isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
             # Convert Sending the request into MQTT Publish operations
             topic = mqtt_topic.get_topic_for_query(op.request_id, op.operation_id)
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=op.request_payload
+            self._send_worker_op_down(
+                worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
+                    topic=topic, payload=op.request_payload, callback=op.callback
                 ),
+                op=op,
             )
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling for register gets translated into an MQTT subscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_mqtt.MQTTSubscribeOperation(topic=topic),
+            self._send_worker_op_down(
+                worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(
+                    topic=topic, callback=op.callback
+                ),
+                op=op,
             )
 
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a register response gets turned into an MQTT unsubscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(topic=topic),
+            self._send_worker_op_down(
+                worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(
+                    topic=topic, callback=op.callback
+                ),
+                op=op,
             )
 
         else:
             # All other operations get passed down
-            operation_flow.pass_op_to_next_stage(self, op)
+            self._send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -132,16 +131,15 @@ class ProvisioningMQTTConverterStage(PipelineStage):
                     response = event.payload.decode("utf-8")
                 # Extract pertinent information from mqtt topic
                 # like status code request_id and send it upwards.
-                operation_flow.pass_event_to_previous_stage(
-                    self,
+                self._send_event_up(
                     pipeline_events_provisioning.RegistrationResponseEvent(
                         request_id, status_code, key_values, response
-                    ),
+                    )
                 )
             else:
                 logger.warning("Unknown topic: {} passing up to next handler".format(topic))
-                operation_flow.pass_event_to_previous_stage(self, event)
+                self._send_event_up(event)
 
         else:
             # all other messages get passed up
-            operation_flow.pass_event_to_previous_stage(self, event)
+            self._send_event_up(event)

@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import sys
 
 
 class PipelineOperation(object):
@@ -30,7 +31,7 @@ class PipelineOperation(object):
     :type error: Error
     """
 
-    def __init__(self, callback=None):
+    def __init__(self, callback):
         """
         Initializer for PipelineOperation objects.
 
@@ -45,7 +46,7 @@ class PipelineOperation(object):
         self.name = self.__class__.__name__
         self.callback = callback
         self.needs_connection = False
-        self.error = None
+        self.completed = False
 
 
 class ConnectOperation(PipelineOperation):
@@ -101,7 +102,7 @@ class EnableFeatureOperation(PipelineOperation):
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
-    def __init__(self, feature_name, callback=None):
+    def __init__(self, feature_name, callback):
         """
         Initializer for EnableFeatureOperation objects.
 
@@ -129,7 +130,7 @@ class DisableFeatureOperation(PipelineOperation):
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
-    def __init__(self, feature_name, callback=None):
+    def __init__(self, feature_name, callback):
         """
         Initializer for DisableFeatureOperation objects.
 
@@ -154,7 +155,7 @@ class UpdateSasTokenOperation(PipelineOperation):
     (such as IoTHub or MQTT stages).
     """
 
-    def __init__(self, sas_token, callback=None):
+    def __init__(self, sas_token, callback):
         """
         Initializer for UpdateSasTokenOperation objects.
 
@@ -187,7 +188,7 @@ class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
     :type response_body: Undefined
     """
 
-    def __init__(self, request_type, method, resource_location, request_body, callback=None):
+    def __init__(self, request_type, method, resource_location, request_body, callback):
         """
         Initializer for SendIotRequestAndWaitForResponseOperation objects
 
@@ -222,9 +223,7 @@ class SendIotRequestOperation(PipelineOperation):
     (such as IoTHub or MQTT stages).
     """
 
-    def __init__(
-        self, request_type, method, resource_location, request_body, request_id, callback=None
-    ):
+    def __init__(self, request_type, method, resource_location, request_body, request_id, callback):
         """
         Initializer for SendIotRequestOperation objects
 
