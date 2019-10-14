@@ -143,7 +143,6 @@ def _test_pipeline_root_runs_on_event_received_in_callback_thread(self, stage, m
     callback_called.wait()
 
 
-"""
 TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
     _test_pipeline_root_runs_callback_in_callback_thread
 )
@@ -159,7 +158,6 @@ TestPipelineRootStagePipelineThreading.test_pipeline_root_runs_on_disconnected_i
 TestPipelineRootStagePipelineThreading.test_pipeline_root_runs_on_event_received_in_callback_thread = (
     _test_pipeline_root_runs_on_event_received_in_callback_thread
 )
-"""
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
     cls=pipeline_stages_base.EnsureConnectionStage,

@@ -76,8 +76,8 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id=" No CA certificate "),
-            pytest.param("some-certificate", id=" With CA certificate "),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
     @pytest.mark.parametrize(
@@ -107,8 +107,8 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id=" No CA certificate "),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
     @pytest.mark.parametrize(
@@ -141,8 +141,8 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id=" No CA certificate "),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
     @pytest.mark.parametrize(
@@ -168,8 +168,8 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id=" No CA certificate "),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
     @pytest.mark.parametrize(
