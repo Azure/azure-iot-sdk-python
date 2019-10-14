@@ -103,7 +103,6 @@ class SharedClientCreateFromConnectionStringTests(object):
         assert mock_auth_parse.call_args == mocker.call(connection_string)
         assert mock_auth_parse.return_value.ca_cert is ca_cert
 
-    @pytest.mark.timeout(0)
     @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline")
     @pytest.mark.parametrize(
         "ca_cert",
@@ -1107,7 +1106,6 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
             x509=x509, hostname=self.hostname, device_id=self.device_id
         )
 
-    @pytest.mark.timeout(0)
     @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
     def test_pipeline_creation(self, mocker, client_class, x509, mock_pipeline_init):
         mock_auth = mocker.patch(
