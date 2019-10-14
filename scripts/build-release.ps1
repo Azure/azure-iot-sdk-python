@@ -7,6 +7,10 @@ function Install-Dependencies {
 
 function Update-Version($part, $file) {
     bumpversion.exe $part --config-file .\.bumpverion.cfg --allow-dirty $file
+
+    if($LASTEXITCODE -ne 0) {
+        throw "Bumpversion failed to increment part '$part' for '$file' with code ($LASTEXITCODE)"
+    }
 }
 
 function Invoke-Python {
@@ -21,9 +25,9 @@ function Build {
     $sourceFiles = $env:sources  # sdk repo top folder
     $dist = $env:dist  # release artifacts top folder
 
-    # hashset key is package folder name in repo
+    # hashtable key is package folder name in repository root
 
-    $packages = @{ } # TODO add new packages to this list
+    $packages = @{ } # TODO add new packages to this hashtable
 
     $packages["azure-iot-device"] = [PSCustomObject]@{
         File = "azure\iot\device\constant.py"
@@ -33,6 +37,11 @@ function Build {
     $packages["azure-iot-nspkg"] = [PSCustomObject]@{
         File = "setup.py"
         Version = $env:nspkg_version_part
+    }
+
+    $packages["azure-iot-hub"] = [PSCustomObject]@{
+        File = "azure\iot\hub\constant.py"
+        Version = $env:hub_version_part
     }
 
     New-Item $dist -Force -ItemType Directory
