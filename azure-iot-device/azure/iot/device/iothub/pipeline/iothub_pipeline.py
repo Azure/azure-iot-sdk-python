@@ -21,8 +21,6 @@ from . import (
 )
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
-from azure.iot.device.common.config import BasePipelineConfig
-
 logger = logging.getLogger(__name__)
 
 

@@ -123,6 +123,10 @@ class SharedClientCreateFromConnectionStringTests(object):
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
 
+        mock_config = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        ).return_value
+
         args = (connection_string,)
         kwargs = {}
         if ca_cert:
@@ -132,7 +136,7 @@ class SharedClientCreateFromConnectionStringTests(object):
         client_class.create_from_connection_string(*args, **kwargs)
 
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     @pytest.mark.parametrize(
@@ -224,10 +228,14 @@ class SharedClientCreateFromSharedAccessSignature(object):
             "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
         ).parse.return_value
 
+        mock_config = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        ).return_value
+
         client_class.create_from_shared_access_signature(sas_token_string)
 
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, sas_token_string):
@@ -1099,10 +1107,15 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
             x509=x509, hostname=self.hostname, device_id=self.device_id
         )
 
+    @pytest.mark.timeout(0)
     @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
     def test_pipeline_creation(self, mocker, client_class, x509, mock_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
+        ).return_value
+
+        mock_config = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
         ).return_value
 
         client_class.create_from_x509_certificate(
@@ -1110,7 +1123,7 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
         )
 
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):
@@ -1428,14 +1441,18 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         ).return_value
+        mock_config = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        ).return_value
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
 
         client_class.create_from_edge_environment()
 
         assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
         assert mock_edge_pipeline_init.call_count == 1
+        # This asserts without mock_config because currently edge isn't implemented. When it is, this should be identical to the line aboe.
         assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
@@ -1588,15 +1605,18 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
+        mock_config = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        ).return_value
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
 
         client_class.create_from_edge_environment()
 
         assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
         assert mock_edge_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
     def test_client_instantiation(
@@ -1724,12 +1744,16 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
         ).return_value
 
+        mock_config = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        ).return_value
+
         client_class.create_from_x509_certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
         )
 
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):
