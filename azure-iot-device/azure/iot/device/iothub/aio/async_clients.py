@@ -50,8 +50,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
-        TODO: How to document kwargs?
-        Possible values: iothub_pipeline, edge_pipeline
+        :param iothub_pipeline: The IoTHubPipeline used for the client
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param edge_pipeline: The EdgePipeline used for the client
+        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -121,6 +123,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
+        :type message: :class:`azure.iot.device.Message` or str
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -215,7 +218,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
 
-        :returns: Twin object which was retrieved from the hub
+        :returns: Complete Twin as a JSON dict
+        :rtype: dict
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -246,8 +250,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the service returns an error on the patch operation, this function will raise the
         appropriate error.
 
-        :param reported_properties_patch:
-        :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
+        :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
+        :type reported_properties_patch: dict
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -279,7 +283,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         If no method request is yet available, will wait until it is available.
 
-        :returns: desired property patch. This can be dict, str, int, float, bool, or None (JSON compatible values)
+        :returns: Twin Desired Properties patch as a JSON dict
+        :rtype: dict
         """
         if not self._iothub_pipeline.feature_enabled[constant.TWIN_PATCHES]:
             await self._enable_feature(constant.TWIN_PATCHES)
@@ -340,9 +345,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: EdgePipeline
+        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
         super().__init__(iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline)
         self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
@@ -355,8 +360,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        :param message: Message to send to the given output. Anything passed that is not an instance of the
-            Message class will be converted to Message object.
+        :param message: Message to send to the given output. Anything passed that is not an
+            instance of the Message class will be converted to Message object.
+        :type message: :class:`azure.iot.device.Message` or str
         :param str output_name: Name of the output to send the event to.
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
