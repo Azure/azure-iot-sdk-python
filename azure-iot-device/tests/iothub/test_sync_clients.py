@@ -1521,7 +1521,9 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         else:
             assert mock_config_init.call_args == ()
         assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init)
+        assert mock_iothub_pipeline_init.call_args == mocker.call(
+            mock_auth, mock_config_init.return_value
+        )
         assert mock_edge_pipeline_init.call_count == 1
         # This asserts without mock_config_init because currently edge isn't implemented. When it is, this should be identical to the line aboe.
         assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
@@ -1704,7 +1706,9 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         else:
             assert mock_config_init.call_args == ()
         assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init)
+        assert mock_iothub_pipeline_init.call_args == mocker.call(
+            mock_auth, mock_config_init.return_value
+        )
         assert mock_edge_pipeline_init.call_count == 1
         assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
 
@@ -1864,7 +1868,7 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
         else:
             assert mock_config_init.call_args == ()
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):
