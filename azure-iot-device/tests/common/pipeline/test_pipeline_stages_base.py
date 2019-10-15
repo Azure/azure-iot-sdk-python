@@ -79,7 +79,7 @@ def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
 
 @pytest.mark.it("Runs operation in pipeline thread")
 def _test_pipeline_root_runs_operation_in_pipeline_thread(
-    self, mocker, stage, op, fake_non_pipeline_thread
+    self, mocker, stage, arbitrary_op, fake_non_pipeline_thread
 ):
     # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
     # this test method gets added to, so it's a PipelineRootStage object
@@ -93,7 +93,7 @@ def _test_pipeline_root_runs_operation_in_pipeline_thread(
     mock_execute_op = mocker.MagicMock(mock_execute_op)
     stage._execute_op = mock_execute_op
 
-    stage.run_op(op)
+    stage.run_op(arbitrary_op)
     assert mock_execute_op.call_count == 1
 
 
@@ -128,7 +128,9 @@ def _test_pipeline_root_runs_on_disconnected_in_callback_thread(self, stage, moc
 
 
 @pytest.mark.it("Calls on_event_received_handler in callback thread")
-def _test_pipeline_root_runs_on_event_received_in_callback_thread(self, stage, mocker, event):
+def _test_pipeline_root_runs_on_event_received_in_callback_thread(
+    self, stage, mocker, arbitrary_event
+):
     stage.pipeline_root = stage
     callback_called = threading.Event()
 
@@ -138,7 +140,7 @@ def _test_pipeline_root_runs_on_event_received_in_callback_thread(self, stage, m
 
     stage.on_pipeline_event_handler = callback
 
-    stage.handle_pipeline_event(event)
+    stage.handle_pipeline_event(arbitrary_event)
     callback_called.wait()
 
 
