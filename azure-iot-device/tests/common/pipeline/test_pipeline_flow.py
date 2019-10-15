@@ -56,13 +56,13 @@ class TestSendWorkerOpDown(object):
         op.name = "arbitrary_worker_op"
         return op
 
-    @pytest.mark.it("Runs the new op and does not continue running the original op")
-    def test_runs_worker_op_op(self, mocker, stage, arbitrary_op, arbitrary_worker_op):
+    @pytest.mark.it("Runs the worker op and does not continue running the original op")
+    def test_runs_worker_op(self, mocker, stage, arbitrary_op, arbitrary_worker_op):
         stage._send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args == mocker.call(arbitrary_worker_op)
 
-    @pytest.mark.it("Completes the original op after the new op completes")
+    @pytest.mark.it("Completes the original op after the worker op completes")
     def test_completes_original_op_after_worker_op_completes(
         self, stage, arbitrary_op, arbitrary_worker_op
     ):
@@ -75,7 +75,7 @@ class TestSendWorkerOpDown(object):
         stage.next._complete_op(arbitrary_worker_op)
         assert_callback_succeeded(op=arbitrary_op)
 
-    @pytest.mark.it("Returns the new op failure in the original op if new op fails")
+    @pytest.mark.it("Returns the worker op failure in the original op if worker op fails")
     def test_returns_worker_op_failure_in_original_op(
         self, stage, arbitrary_op, arbitrary_worker_op, arbitrary_exception
     ):
