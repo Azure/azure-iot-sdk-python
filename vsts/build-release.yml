@@ -33,6 +33,7 @@ steps:
     sources: $(Build.SourcesDirectory)
     device_version_part: $(azure-iot-device-version-part)
     nspkg_version_part: $(azure-iot-nspkg-version-part)
+    hub_version_part: $(azure-iot-hub-version-part)
   displayName: 'build release artifacts'
 
 - task: UsePythonVersion@0

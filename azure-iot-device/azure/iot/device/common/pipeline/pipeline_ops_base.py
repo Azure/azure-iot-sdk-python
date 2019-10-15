@@ -48,19 +48,6 @@ class PipelineOperation(object):
         self.needs_connection = False
         self.completed = False
 
-    if "pytest" in sys.modules:
-        # If we're running under pytest, raise an exception if someone tries to use the old-school
-        # "errors are a property of the operation" style.
-        # If you find yourself questioning if this needs to be here, you should remove it.  This is
-        # an interim check while we get used to something new.
-        @property
-        def error(self):
-            assert False
-
-        @error.setter
-        def error(self, error):
-            assert False
-
 
 class ConnectOperation(PipelineOperation):
     """

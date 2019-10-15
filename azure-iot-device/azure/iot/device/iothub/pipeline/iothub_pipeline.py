@@ -229,7 +229,9 @@ class IoTHubPipeline(object):
         Send a request for a full twin to the service.
 
         :param callback: callback which is called when request has been acknowledged by the service.
-        This callback should have one parameter, which will contain the requested twin when called.
+        This callback should have two parameters.  On success, this callback is called with the
+        requested twin and error=None.  On failure, this callback is called with None for the requested
+        twin and error set to the cause of the failure.
 
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
