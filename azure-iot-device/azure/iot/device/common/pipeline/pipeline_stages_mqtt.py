@@ -59,14 +59,14 @@ class MQTTTransportStage(PipelineStage):
             self.sas_token = op.sas_token
             self.client_cert = op.client_cert
 
-            if self.pipeline_root.pipeline_configurations:
+            if self.pipeline_root.pipeline_configuration:
                 self.transport = MQTTTransport(
                     client_id=self.client_id,
                     hostname=self.hostname,
                     username=self.username,
                     ca_cert=self.ca_cert,
                     x509_cert=self.client_cert,
-                    websockets=self.pipeline_root.pipeline_configurations.websockets,
+                    websockets=self.pipeline_root.pipeline_configuration.websockets,
                 )
             else:
                 # TODO:
