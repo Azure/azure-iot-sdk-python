@@ -46,6 +46,9 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         Before returning, the client will also disconnect from the provisioning service.
         If a registration attempt is made while a previous registration is in progress it may
         throw an error.
+
+        :returns: RegistrationResult indicating the result of the registration.
+        :rtype: :class:`azure.iot.device.RegistrationResult`
         """
         logger.info("Registering with Provisioning Service...")
 
@@ -58,6 +61,10 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
     def cancel(self):
         """
+        Cancel a registration that is in progress.
+
+        Before returning the client will also disconnect from the provisioning service.
+
         This is a synchronous call, meaning that this function will not return until the cancellation
         process has completed successfully or the attempt has resulted in a failure. Before returning
         the client will also disconnect from the provisioning service.
