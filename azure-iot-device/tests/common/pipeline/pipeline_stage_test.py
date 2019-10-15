@@ -240,6 +240,7 @@ def add_pipeline_thread_tests(
     class LocalTestObject(object):
         @pytest.fixture
         def stage(self):
+            # BKTODO: Make this more generic
             if cls == PipelineRootStage:
                 return cls(None)
             else:

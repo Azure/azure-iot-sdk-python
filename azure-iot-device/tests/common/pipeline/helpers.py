@@ -78,6 +78,7 @@ def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
         else:
             assert False
 
+    # BKTODO: make this more generic
     if stage_to_make == pipeline_stages_base.PipelineRootStage:
         first_stage = stage_to_make(None)
     else:
