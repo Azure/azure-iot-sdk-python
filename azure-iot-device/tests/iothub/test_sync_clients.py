@@ -143,7 +143,7 @@ class SharedClientCreateFromConnectionStringTests(object):
         client_class.create_from_connection_string(*args, **kwargs)
         assert mock_config_init.call_count == 1
         if websockets:
-            assert mock_config_init.call_args == ({"websockets": websockets},)
+            assert mock_config_init.call_args == mocker.call(websockets=websockets)
         else:
             assert mock_config_init.call_args == ()
         assert mock_pipeline_init.call_count == 1
