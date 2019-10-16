@@ -25,9 +25,9 @@ This repository contains the following libraries:
 
 *Features that are not planned may be prioritized in a future release, but are not currently planned
 
-### Device Client Library
+### Device Client Library ([azure-iot-device](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device))
 
-#### [IoTHub Device Client](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/azure/iot/device/iothub)
+#### IoTHub Device Client
 
 | Features                                                                                                         | Status                     | Description                                                                                                                                                                                                          |
 |------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -39,8 +39,7 @@ This repository contains the following libraries:
 | [Connection Status and Error reporting](https://docs.microsoft.com/en-us/rest/api/iothub/common-error-codes)     | :heavy_multiplication_x:   | Error reporting for IoT Hub supported error code.  *This SDK supports error reporting on authentication and Device Not Found.                                                                                        |
 | Retry policies                                                                                                   | :heavy_check_mark:         | Retry policy for unsuccessful device-to-cloud messages.                                                                                                                                                              |
 
-#### [IoTHub Module Client](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/azure/iot/device/iothub/models)
-
+#### IoTHub Module Client
 | Features                                                                                                         | Status                     | Description                                                                                                                                                                                                          |
 |------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Authentication](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-security-deployment)                     | :heavy_check_mark:         | Connect your device to IoT Hub securely with supported authentication, including private key, SASToken, X-509 Self Signed and Certificate Authority (CA) Signed.                                                     |
@@ -52,7 +51,7 @@ This repository contains the following libraries:
 | Retry policies                                                                                                   | :heavy_check_mark:         | Retry policy for connecting disconnected devices and resubmitting messages.                                                                                                                                          |
 | Direct Invocation of Method on Modules                                                                           | :heavy_check_mark:         | Invoke method calls to another module using using the Edge Gateway.                                                                                                                                                  |
 
-#### [Provisioning Device Client](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/azure/iot/device/provisioning)
+#### Provisioning Device Client
 
 | Features                    | Status             | Description                                                                                                                                                                                                                                                                                                                                        |
 |-----------------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -61,9 +60,9 @@ This repository contains the following libraries:
 | X.509 Enrollment Group      | :heavy_check_mark: | Provisioning via [X.509 leaf certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#leaf-certificate)).  Please review the [samples](./azure-iot-device/samples/) folder on how to create a device client.                                                                                                                  |
 | Symmetric Key Enrollment    | :heavy_check_mark: | Provisioning via [Symmetric key attestation](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)).  Please review the [samples](./azure-iot-device/samples/) folder on how to create a device client.                                                                                                               |
 
-### IoTHub Service Library
+### IoTHub Service Library ([azure-iot-hub](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/azure/iot/hub/iothub_registry_manager.py))
 
-#### [Registry Manager](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/azure/iot/hub/iothub_registry_manager.py)
+#### Registry Manager
 
 | Features                                                                                                      | Status                   | Description                                                                                                                        |
 |---------------------------------------------------------------------------------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
