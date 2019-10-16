@@ -51,7 +51,7 @@ def all_except(all_items, items_to_exclude):
 
 def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
     """
-    make a stage object that we can use in testing.  This stage object is popsulated
+    make a stage object that we can use in testing.  This stage object is populated
     by mocker spies, and it has a next stage that can receive events.  It does not,
     by detfault, have a previous stage or a pipeline root that can receive events
     coming back up.  The previous stage is added by the tests which which require it.
@@ -78,7 +78,11 @@ def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
         else:
             assert False
 
-    first_stage = stage_to_make()
+    # BKTODO: make this more generic
+    if stage_to_make == pipeline_stages_base.PipelineRootStage:
+        first_stage = stage_to_make(None)
+    else:
+        first_stage = stage_to_make()
     first_stage.unhandled_error_handler = mocker.Mock()
     mocker.spy(first_stage, "_execute_op")
     mocker.spy(first_stage, "run_op")

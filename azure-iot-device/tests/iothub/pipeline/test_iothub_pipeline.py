@@ -44,7 +44,7 @@ def auth_provider(mocker):
 
 @pytest.fixture
 def pipeline(mocker, auth_provider):
-    pipeline = IoTHubPipeline(auth_provider)
+    pipeline = IoTHubPipeline(auth_provider, None)
     mocker.patch.object(pipeline._pipeline, "run_op")
     return pipeline
 
@@ -68,19 +68,19 @@ class TestIoTHubPipelineInstantiation(object):
     @pytest.mark.it("Begins tracking the enabled/disabled status of features")
     @pytest.mark.parametrize("feature", all_features)
     def test_features(self, auth_provider, feature):
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         pipeline.feature_enabled[feature]
         # No assertion required - if this doesn't raise a KeyError, it is a success
 
     @pytest.mark.it("Marks all features as disabled")
     def test_features_disabled(self, auth_provider):
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         for key in pipeline.feature_enabled:
             assert not pipeline.feature_enabled[key]
 
     @pytest.mark.it("Sets all handlers to an initial value of None")
     def test_handlers_set_to_none(self, auth_provider):
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         assert pipeline.on_connected is None
         assert pipeline.on_disconnected is None
         assert pipeline.on_c2d_message_received is None
@@ -90,14 +90,14 @@ class TestIoTHubPipelineInstantiation(object):
 
     @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
     def test_handlers_configured(self, auth_provider):
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         assert pipeline._pipeline.on_pipeline_event_handler is not None
         assert pipeline._pipeline.on_connected_handler is not None
         assert pipeline._pipeline.on_disconnected_handler is not None
 
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
     def test_pipeline_configuration(self, auth_provider):
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         curr_stage = pipeline._pipeline
 
         expected_stage_order = [
@@ -131,7 +131,7 @@ class TestIoTHubPipelineInstantiation(object):
     def test_sas_auth(self, mocker, device_connection_string):
         mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
         auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation)
@@ -158,7 +158,7 @@ class TestIoTHubPipelineInstantiation(object):
 
         auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
         with pytest.raises(arbitrary_exception.__class__):
-            IoTHubPipeline(auth_provider)
+            IoTHubPipeline(auth_provider, None)
 
     @pytest.mark.it(
         "Runs a SetX509AuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
@@ -168,7 +168,7 @@ class TestIoTHubPipelineInstantiation(object):
         auth_provider = X509AuthenticationProvider(
             hostname="somehostname", device_id="somedevice", x509=x509
         )
-        pipeline = IoTHubPipeline(auth_provider)
+        pipeline = IoTHubPipeline(auth_provider, None)
         op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation)
@@ -197,7 +197,7 @@ class TestIoTHubPipelineInstantiation(object):
             hostname="somehostname", device_id="somedevice", x509=x509
         )
         with pytest.raises(arbitrary_exception.__class__):
-            IoTHubPipeline(auth_provider)
+            IoTHubPipeline(auth_provider, None)
 
 
 @pytest.mark.describe("IoTHubPipeline - .connect()")
