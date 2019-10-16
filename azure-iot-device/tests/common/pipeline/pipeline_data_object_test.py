@@ -74,7 +74,7 @@ def add_instantiation_test(
     """
 
     # `defaults` contains an array of object attributes that should be set when
-    # we call the initializer will all of the required positional arguments
+    # we call the initializer with all of the required positional arguments
     # and none of the optional keyword arguments.
 
     all_defaults = defaults.copy()

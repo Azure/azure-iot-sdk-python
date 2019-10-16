@@ -25,8 +25,8 @@ class SetX509AuthProviderOperation(PipelineOperation):
         :param object auth_provider: The X509 authorization provider object to use to retrieve connection parameters
           which can be used to connect to the service.
         :param Function callback: The function that gets called when this operation is complete or has failed.
-         The callback function must accept A PipelineOperation object which indicates the specific operation which
-         has completed or failed.
+          The callback function must accept A PipelineOperation object which indicates the specific operation which
+          has completed or failed.
         """
         super(SetX509AuthProviderOperation, self).__init__(callback=callback)
         self.auth_provider = auth_provider
