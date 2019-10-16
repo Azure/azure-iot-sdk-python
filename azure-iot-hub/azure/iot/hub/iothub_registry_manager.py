@@ -31,10 +31,11 @@ class IoTHubRegistryManager(object):
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
 
-        :param: str connection_string: The authentication information
-        (IoTHub connection string) to connect to IoTHub.
+        :param str connection_string: The IoTHub connection string used to authenticate connection
+            with IoTHub.
 
-        :returns: IoTHubRegistryManager object.
+        :returns: Instance of the IoTHubRegistryManager object.
+        :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
 
         self.auth = ConnectionStringAuthentication(connection_string)
@@ -46,9 +47,11 @@ class IoTHubRegistryManager(object):
         :param str device_id: The name (deviceId) of the device.
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
-        :param str status: Initital state of the created device (enabled or disabled).
+        :param str status: Initital state of the created device.
+            (Possible values: "enabled" or "disabled")
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: Device object containing the created device.
         """
@@ -69,9 +72,11 @@ class IoTHubRegistryManager(object):
         :param str device_id: The name (deviceId) of the device.
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
-        :param str status: Initital state of the created device (enabled or disabled).
+        :param str status: Initital state of the created device.
+            (Possible values: "enabled" or "disabled")
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: Device object containing the created device.
         """
@@ -94,9 +99,11 @@ class IoTHubRegistryManager(object):
         """Creates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (deviceId) of the device.
-        :param str status: Initial state of the created device (enabled or disabled).
+        :param str status: Initial state of the created device.
+            (Possible values: "enabled" or "disabled").
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: Device object containing the created device.
         """
@@ -116,9 +123,11 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
-        :param str status: Initital state of the created device (enabled or disabled).
+        :param str status: Initital state of the created device.
+            (Possible values: "enabled" or "disabled").
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The updated Device object containing the created device.
         """
@@ -143,9 +152,11 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
-        :param str status: Initital state of the created device (enabled or disabled).
+        :param str status: Initital state of the created device.
+            (Possible values: "enabled" or "disabled").
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The updated Device object containing the created device.
         """
@@ -170,9 +181,11 @@ class IoTHubRegistryManager(object):
 
         :param str device_id: The name (deviceId) of the device.
         :param str etag: The etag (if_match) value to use for the update operation.
-        :param str status: Initital state of the created device (enabled or disabled).
+        :param str status: Initital state of the created device.
+            (Possible values: "enabled" or "disabled").
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The updated Device object containing the created device.
         """
@@ -191,7 +204,8 @@ class IoTHubRegistryManager(object):
 
         :param str device_id: The name (deviceId) of the device.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The Device object containing the requested device.
         """
@@ -202,7 +216,8 @@ class IoTHubRegistryManager(object):
 
         :param str device_id: The name (deviceId) of the device.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The Configuration object.
         """
@@ -213,7 +228,8 @@ class IoTHubRegistryManager(object):
 
         :param str device_id: The name (deviceId) of the device.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: None.
         """
@@ -225,7 +241,8 @@ class IoTHubRegistryManager(object):
     def get_service_statistics(self):
         """Retrieves the IoTHub service statistics.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The ServiceStatistics object.
         """
@@ -234,7 +251,8 @@ class IoTHubRegistryManager(object):
     def get_device_registry_statistics(self):
         """Retrieves the IoTHub device registry statistics.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The RegistryStatistics object.
         """
@@ -252,7 +270,8 @@ class IoTHubRegistryManager(object):
         :param str secondary_key: Secondary authentication key.
         :param str status: Initital state of the created device (enabled or disabled).
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: Module object containing the created module.
         """
@@ -281,7 +300,8 @@ class IoTHubRegistryManager(object):
         :param str secondary_thumbprint: Secondary X509 thumbprint.
         :param str status: Initital state of the created device (enabled or disabled).
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: Module object containing the created module.
         """
@@ -310,7 +330,8 @@ class IoTHubRegistryManager(object):
         :param str managed_by: The name of the manager device (edge).
         :param str status: Initital state of the created device (enabled or disabled).
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: Module object containing the created module.
         """
@@ -338,7 +359,8 @@ class IoTHubRegistryManager(object):
         :param str secondary_key: Secondary authentication key.
         :param str status: Initital state of the created device (enabled or disabled).
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The updated Module object containing the created module.
         """
@@ -376,7 +398,8 @@ class IoTHubRegistryManager(object):
         :param str secondary_thumbprint: Secondary X509 thumbprint.
         :param str status: Initital state of the created device (enabled or disabled).
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The updated Module object containing the created module.
         """
@@ -409,7 +432,8 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str status: Initital state of the created device (enabled or disabled).
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The updated Module object containing the created module.
         """
@@ -431,7 +455,8 @@ class IoTHubRegistryManager(object):
         :param str device_id: The name (deviceId) of the device.
         :param str module_id: The name (moduleId) of the module.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: The Module object containing the requested module.
         """
@@ -442,7 +467,8 @@ class IoTHubRegistryManager(object):
 
         :param str device_id: The name (deviceId) of the device.
 
-        :raises: HttpOperationError if the HTTP response status is not in [200].
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
 
         :returns: None.
         """
