@@ -16,16 +16,14 @@ async def main():
     # Create instance of the device client using the connection string
     device_client = IoTHubDeviceClient.create_from_connection_string(conn_str, websockets=True)
 
-    # Connect the device client.
-    await device_client.connect()
+    # We do not need to call device_client.connect(), since it will be connected when we send a message.
 
     # Send a single message
     print("Sending message...")
     await device_client.send_message("This is a message that is being sent")
     print("Message successfully sent!")
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, we do not need a disconnect. When the program completes, the client will be disconnected and destroyed.
 
 
 if __name__ == "__main__":
