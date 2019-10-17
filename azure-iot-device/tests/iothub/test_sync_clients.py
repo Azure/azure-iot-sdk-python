@@ -76,11 +76,21 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
-    def test_auth_provider_creation(self, mocker, client_class, connection_string, ca_cert):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_auth_provider_creation(
+        self, mocker, client_class, connection_string, ca_cert, websockets
+    ):
         mock_auth_parse = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse
@@ -89,6 +99,8 @@ class SharedClientCreateFromConnectionStringTests(object):
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client_class.create_from_connection_string(*args, **kwargs)
 
         assert mock_auth_parse.call_count == 1
@@ -99,43 +111,72 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
         ],
     )
     def test_pipeline_creation(
-        self, mocker, client_class, connection_string, ca_cert, mock_pipeline_init
+        self, mocker, client_class, connection_string, ca_cert, websockets, mock_pipeline_init
     ):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
 
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        )
+
         args = (connection_string,)
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client_class.create_from_connection_string(*args, **kwargs)
-
+        assert mock_config_init.call_count == 1
+        if websockets:
+            assert mock_config_init.call_args == mocker.call(websockets=websockets)
+        else:
+            assert mock_config_init.call_args == ()
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
-    def test_client_instantiation(self, mocker, client_class, connection_string, ca_cert):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_client_instantiation(
+        self, mocker, client_class, connection_string, ca_cert, websockets
+    ):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
         spy_init = mocker.spy(client_class, "__init__")
         args = (connection_string,)
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client_class.create_from_connection_string(*args, **kwargs)
-
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
 
@@ -143,15 +184,25 @@ class SharedClientCreateFromConnectionStringTests(object):
     @pytest.mark.parametrize(
         "ca_cert",
         [
-            pytest.param(None, id="No CA certificate"),
-            pytest.param("some-certificate", id="With CA certificate"),
+            pytest.param(None, id=" No CA certificate"),
+            pytest.param("some-certificate", id=" With CA certificate"),
         ],
     )
-    def test_returns_client(self, client_class, connection_string, ca_cert):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_returns_client(self, client_class, connection_string, ca_cert, websockets):
         args = (connection_string,)
         kwargs = {}
         if ca_cert:
             kwargs["ca_cert"] = ca_cert
+        if websockets:
+            kwargs["websockets"] = websockets
         client = client_class.create_from_connection_string(*args, **kwargs)
 
         assert isinstance(client, client_class)
@@ -191,15 +242,38 @@ class SharedClientCreateFromSharedAccessSignature(object):
     @pytest.mark.it(
         "Uses the SharedAccessSignatureAuthenticationProvider to create an IoTHubPipeline"
     )
-    def test_pipeline_creation(self, mocker, client_class, sas_token_string, mock_pipeline_init):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_pipeline_creation(
+        self, mocker, client_class, sas_token_string, websockets, mock_pipeline_init
+    ):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
         ).parse.return_value
 
-        client_class.create_from_shared_access_signature(sas_token_string)
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        )
 
+        kwargs = {}
+        if websockets:
+            kwargs["websockets"] = websockets
+
+        client_class.create_from_shared_access_signature(sas_token_string, **kwargs)
+
+        assert mock_config_init.call_count == 1
+        if websockets:
+            assert mock_config_init.call_args == ({"websockets": websockets},)
+        else:
+            assert mock_config_init.call_args == ()
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, sas_token_string):
@@ -1072,17 +1146,38 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
         )
 
     @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
-    def test_pipeline_creation(self, mocker, client_class, x509, mock_pipeline_init):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_pipeline_creation(self, mocker, client_class, x509, websockets, mock_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
         ).return_value
 
-        client_class.create_from_x509_certificate(
-            x509=x509, hostname=self.hostname, device_id=self.device_id
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
         )
 
+        kwargs = {}
+        if websockets:
+            kwargs["websockets"] = websockets
+
+        client_class.create_from_x509_certificate(
+            x509=x509, hostname=self.hostname, device_id=self.device_id, **kwargs
+        )
+
+        assert mock_config_init.call_count == 1
+        if websockets:
+            assert mock_config_init.call_args == ({"websockets": websockets},)
+        else:
+            assert mock_config_init.call_args == ()
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):
@@ -1395,19 +1490,42 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
     @pytest.mark.it(
         "Uses the IoTEdgeAuthenticationProvider to create an IoTHubPipeline and an EdgePipeline"
     )
-    def test_pipeline_creation(self, mocker, client_class, edge_container_environment):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_pipeline_creation(self, mocker, client_class, websockets, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment)
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         ).return_value
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
 
-        client_class.create_from_edge_environment()
+        kwargs = {}
+        if websockets:
+            kwargs["websockets"] = websockets
 
+        client_class.create_from_edge_environment(**kwargs)
+
+        assert mock_config_init.call_count == 1
+        if websockets:
+            assert mock_config_init.call_args == ({"websockets": websockets},)
+        else:
+            assert mock_config_init.call_args == ()
         assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_iothub_pipeline_init.call_args == mocker.call(
+            mock_auth, mock_config_init.return_value
+        )
         assert mock_edge_pipeline_init.call_count == 1
+        # This asserts without mock_config_init because currently edge isn't implemented. When it is, this should be identical to the line aboe.
         assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
@@ -1555,20 +1673,44 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
     @pytest.mark.it(
         "Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline and an EdgePipeline"
     )
-    def test_pipeline_creation(self, mocker, client_class, edge_local_debug_environment, mock_open):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_pipeline_creation(
+        self, mocker, client_class, edge_local_debug_environment, websockets, mock_open
+    ):
         mocker.patch.dict(os.environ, edge_local_debug_environment)
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+        )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
 
-        client_class.create_from_edge_environment()
+        kwargs = {}
+        if websockets:
+            kwargs["websockets"] = websockets
 
+        client_class.create_from_edge_environment(**kwargs)
+
+        assert mock_config_init.call_count == 1
+        if websockets:
+            assert mock_config_init.call_args == ({"websockets": websockets},)
+        else:
+            assert mock_config_init.call_args == ()
         assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_iothub_pipeline_init.call_args == mocker.call(
+            mock_auth, mock_config_init.return_value
+        )
         assert mock_edge_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
     def test_client_instantiation(
@@ -1691,17 +1833,42 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
         )
 
     @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
-    def test_pipeline_creation(self, mocker, client_class, x509, mock_pipeline_init):
+    @pytest.mark.parametrize(
+        "websockets",
+        [
+            pytest.param(None, id=" Default (No Websockets) "),
+            pytest.param(False, id=" No Websockets "),
+            pytest.param(True, id=" With Websockets "),
+        ],
+    )
+    def test_pipeline_creation(self, mocker, client_class, x509, websockets, mock_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
         ).return_value
 
-        client_class.create_from_x509_certificate(
-            x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
         )
 
+        kwargs = {}
+        if websockets:
+            kwargs["websockets"] = websockets
+
+        client_class.create_from_x509_certificate(
+            x509=x509,
+            hostname=self.hostname,
+            device_id=self.device_id,
+            module_id=self.module_id,
+            **kwargs
+        )
+
+        assert mock_config_init.call_count == 1
+        if websockets:
+            assert mock_config_init.call_args == ({"websockets": websockets},)
+        else:
+            assert mock_config_init.call_args == ()
         assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):

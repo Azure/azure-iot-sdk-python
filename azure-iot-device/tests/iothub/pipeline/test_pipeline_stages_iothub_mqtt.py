@@ -1057,7 +1057,7 @@ class TestIoTHubMQTTConverterWithEnableFeature(object):
 
 @pytest.fixture
 def add_pipeline_root(stage, mocker):
-    root = pipeline_stages_base.PipelineRootStage()
+    root = pipeline_stages_base.PipelineRootStage(mocker.MagicMock())
     mocker.spy(root, "handle_pipeline_event")
     stage.previous = root
     stage.pipeline_root = root

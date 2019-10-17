@@ -7,7 +7,7 @@ import logging
 import pytest
 import sys
 import six
-from azure.iot.device.common import transport_exceptions, handle_exceptions
+from azure.iot.device.common import transport_exceptions, handle_exceptions, config
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -60,6 +60,7 @@ fake_sas_token = "__fake_sas_token__"
 fake_topic = "__fake_topic__"
 fake_payload = "__fake_payload__"
 fake_certificate = "__fake_certificate__"
+fake_boolean = "__fake_boolean__"
 
 ops_handled_by_this_stage = [
     pipeline_ops_base.ConnectOperation,
@@ -94,7 +95,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 @pytest.fixture
 def stage(mocker):
     stage = pipeline_stages_mqtt.MQTTTransportStage()
-    root = pipeline_stages_base.PipelineRootStage()
+    root = pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
 
     stage.previous = root
     root.next = stage
@@ -216,6 +217,24 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(RunOpTests):
             username=fake_username,
             ca_cert=fake_ca_cert,
             x509_cert=fake_certificate,
+            websockets=False,
+        )
+
+    @pytest.mark.it(
+        "Initializes the MQTTTransport object with the passed websockets from setting the PipelineRootStage config"
+    )
+    def test_receives_correct_config(self, stage, transport, mocker, op_set_connection_args):
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            config.BasePipelineConfig(websockets="__fake_boolean__")
+        )
+        stage.run_op(op_set_connection_args)
+        assert transport.call_args == mocker.call(
+            client_id=fake_client_id,
+            hostname=fake_hostname,
+            username=fake_username,
+            ca_cert=fake_ca_cert,
+            x509_cert=fake_certificate,
+            websockets="__fake_boolean__",
         )
 
     @pytest.mark.it("Sets handlers on the transport")

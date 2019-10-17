@@ -14,6 +14,8 @@ import io
 from . import auth
 from . import pipeline
 
+from azure.iot.device.common import config
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +46,14 @@ class AbstractIoTHubClient(object):
         self._edge_pipeline = None
 
     @classmethod
-    def create_from_connection_string(cls, connection_string, ca_cert=None):
+    def create_from_connection_string(cls, connection_string, ca_cert=None, **kwargs):
         """
         Instantiate the client from a IoTHub device or module connection string.
 
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
         :param str ca_cert: The trusted certificate chain. Only necessary when using a
             connection string with a GatewayHostName parameter.
+        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
 
         :raises: ValueError if given an invalid connection_string.
 
@@ -61,24 +64,26 @@ class AbstractIoTHubClient(object):
         # in order to differentiate types of connection strings.
         authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
         authentication_provider.ca_cert = ca_cert  # TODO: make this part of the instantiation
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        pipeline_configuration = config.BasePipelineConfig(**kwargs)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
     @classmethod
-    def create_from_shared_access_signature(cls, sas_token):
+    def create_from_shared_access_signature(cls, sas_token, **kwargs):
         """
         Instantiate the client from a Shared Access Signature (SAS) token.
-
         This method of instantiation is not recommended for general usage.
 
         :param str sas_token: The string representation of a SAS token.
+        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
 
         :raises: ValueError if given an invalid sas_token
 
         :returns: An instance of an IoTHub client that uses a SAS token for authentication.
         """
         authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        pipeline_configuration = config.BasePipelineConfig(**kwargs)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
@@ -117,7 +122,7 @@ class AbstractIoTHubClient(object):
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id):
+    def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
         """
         Instantiate a client which using X509 certificate authentication.
 
@@ -129,13 +134,15 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
+        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id
         )
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        pipeline_configuration = config.BasePipelineConfig(**kwargs)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
     @abc.abstractmethod
@@ -157,12 +164,14 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         self._edge_pipeline = edge_pipeline
 
     @classmethod
-    def create_from_edge_environment(cls):
+    def create_from_edge_environment(cls, **kwargs):
         """
         Instantiate the client from the IoT Edge environment.
 
         This method can only be run from inside an IoT Edge container, or in a debugging
         environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
+
+        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid
@@ -230,12 +239,14 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err = OSError("Unexpected failure in IoTEdge")
                 new_err.__cause__ = e
                 raise new_err
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+
+        pipeline_configuration = config.BasePipelineConfig(**kwargs)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         edge_pipeline = pipeline.EdgePipeline(authentication_provider)
         return cls(iothub_pipeline, edge_pipeline=edge_pipeline)
 
     @classmethod
-    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id):
+    def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
         """
         Instantiate a client which using X509 certificate authentication.
 
@@ -248,13 +259,15 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type x509: :class:`azure.iot.device.X509`
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
         :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
+        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id, module_id=module_id
         )
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider)
+        pipeline_configuration = config.BasePipelineConfig(**kwargs)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
     @abc.abstractmethod

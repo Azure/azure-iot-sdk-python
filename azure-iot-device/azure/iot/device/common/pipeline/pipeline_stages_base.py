@@ -185,12 +185,13 @@ class PipelineRootStage(PipelineStage):
     :type on_disconnected_handler: Function
     """
 
-    def __init__(self):
+    def __init__(self, pipeline_configuration=None):
         super(PipelineRootStage, self).__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
         self.connected = False
+        self.pipeline_configuration = pipeline_configuration
 
     def run_op(self, op):
         op.callback = pipeline_thread.invoke_on_callback_thread_nowait(op.callback)

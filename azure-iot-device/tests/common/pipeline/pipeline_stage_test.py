@@ -16,7 +16,7 @@ from tests.common.pipeline.helpers import (
     get_arg_count,
     add_mock_method_waiter,
 )
-from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
+from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
 from azure.iot.device.common.pipeline import pipeline_thread
 
@@ -33,6 +33,8 @@ def add_base_pipeline_stage_tests(
     methods_that_enter_pipeline_thread=[],
     methods_that_can_run_in_any_thread=[],
     extra_initializer_defaults={},
+    positional_arguments=[],
+    keyword_arguments={},
 ):
     """
     Add all of the "basic" tests for validating a pipeline stage.  This includes tests for
@@ -44,6 +46,8 @@ def add_base_pipeline_stage_tests(
         module=module,
         defaults={"name": cls.__name__, "next": None, "previous": None, "pipeline_root": None},
         extra_defaults=extra_initializer_defaults,
+        positional_arguments=positional_arguments,
+        keyword_arguments=keyword_arguments,
     )
     add_unknown_ops_tests(cls=cls, module=module, all_ops=all_ops, handled_ops=handled_ops)
     add_unknown_events_tests(
@@ -236,7 +240,11 @@ def add_pipeline_thread_tests(
     class LocalTestObject(object):
         @pytest.fixture
         def stage(self):
-            return cls()
+            # BKTODO: Make this more generic
+            if cls == PipelineRootStage:
+                return cls(None)
+            else:
+                return cls()
 
         @pytest.mark.parametrize("method_name", methods_that_assert_pipeline_thread)
         @pytest.mark.it("Enforces use of the pipeline thread when calling method")

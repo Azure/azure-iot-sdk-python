@@ -25,11 +25,13 @@ logger = logging.getLogger(__name__)
 
 
 class IoTHubPipeline(object):
-    def __init__(self, auth_provider):
+    def __init__(self, auth_provider, pipeline_configuration):
         """
         Constructor for instantiating a pipeline adapter object
         :param auth_provider: The authentication provider
+        :param protocol: The protocol for connecting to IoT Hub
         """
+
         self.feature_enabled = {
             constant.C2D_MSG: False,
             constant.INPUT_MSG: False,
@@ -47,7 +49,7 @@ class IoTHubPipeline(object):
         self.on_twin_patch_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage()
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
