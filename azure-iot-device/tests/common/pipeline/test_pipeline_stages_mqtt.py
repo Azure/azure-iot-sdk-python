@@ -175,13 +175,14 @@ class RunOpTests(object):
     @pytest.mark.it(
         "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
     )
-    def test_completes_operation_with_error(self, mocker, stage, arbitrary_exception):
-        mock_op = FakeOperation(callback=mocker.MagicMock())
+    def test_completes_operation_with_error(self, mocker, stage, arbitrary_exception, arbitrary_op):
         stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
 
-        stage.run_op(mock_op)
-        assert mock_op.callback.call_count == 1
-        assert mock_op.callback.call_args == mocker.call(mock_op, error=arbitrary_exception)
+        stage.run_op(arbitrary_op)
+        assert arbitrary_op.callback.call_count == 1
+        assert arbitrary_op.callback.call_args == mocker.call(
+            arbitrary_op, error=arbitrary_exception
+        )
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propogate"

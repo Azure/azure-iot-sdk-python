@@ -94,14 +94,14 @@ def mock_stage(mocker, arbitrary_exception, arbitrary_base_exception):
 
 
 @pytest.fixture
-def set_security_client_args(callback):
+def set_security_client_args(mocker):
     op = pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
         provisioning_host=fake_provisioning_host,
         registration_id=fake_registration_id,
         id_scope=fake_id_scope,
         sas_token=fake_sas_token,
         client_cert=fake_client_cert,
-        callback=callback,
+        callback=mocker.MagicMock(),
     )
     return op
 
@@ -238,8 +238,8 @@ basic_ops = [
 
 
 @pytest.fixture
-def op(params, callback):
-    op = params["op_class"](callback=callback, **params["op_init_kwargs"])
+def op(params, mocker):
+    op = params["op_class"](callback=mocker.MagicMock(), **params["op_init_kwargs"])
     return op
 
 

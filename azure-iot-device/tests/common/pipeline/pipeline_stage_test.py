@@ -72,9 +72,9 @@ def add_unknown_ops_tests(cls, module, all_ops, handled_ops):
     @pytest.mark.describe("{} - .run_op() -- unknown and unhandled operations".format(cls.__name__))
     class LocalTestObject(object):
         @pytest.fixture
-        def op(self, op_cls, callback):
+        def op(self, op_cls, mocker):
             op = make_mock_op_or_event(op_cls)
-            op.callback = callback
+            op.callback = mocker.MagicMock()
             op.action = "pend"
             add_mock_method_waiter(op, "callback")
             return op
