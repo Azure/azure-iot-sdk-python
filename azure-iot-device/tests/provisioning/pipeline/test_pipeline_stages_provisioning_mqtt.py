@@ -377,7 +377,7 @@ class TestProvisioningMQTTConverterWithEnable(object):
 
 @pytest.fixture
 def add_pipeline_root(mock_stage, mocker):
-    root = pipeline_stages_base.PipelineRootStage()
+    root = pipeline_stages_base.PipelineRootStage(mocker.MagicMock())
     mocker.spy(root, "handle_pipeline_event")
     mock_stage.previous = root
 
