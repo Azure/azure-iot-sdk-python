@@ -25,7 +25,7 @@ pipeline_data_object_test.add_operation_test(
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_provisioning.SendRegistrationRequestOperation,
     module=this_module,
-    positional_arguments=["request_id", "request_payload", "callback"],
+    positional_arguments=["request_id", "request_payload", "registration_id", "callback"],
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_provisioning.SendQueryRequestOperation,

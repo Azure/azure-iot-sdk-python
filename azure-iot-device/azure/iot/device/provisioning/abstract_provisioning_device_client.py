@@ -32,6 +32,7 @@ class AbstractProvisioningDeviceClient(object):
         :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
         """
         self._provisioning_pipeline = provisioning_pipeline
+        self._provisioning_payload = None
 
     @classmethod
     def create_from_symmetric_key(cls, provisioning_host, registration_id, id_scope, symmetric_key):
@@ -102,6 +103,20 @@ class AbstractProvisioningDeviceClient(object):
         Cancel an in progress registration of the device with the Device Provisioning Service.
         """
         pass
+
+    @property
+    def provisioning_payload(self):
+        return self._provisioning_payload
+
+    @provisioning_payload.setter
+    def provisioning_payload(self, provisioning_payload):
+        """
+        Set the payload that will form the request payload in a registration request.
+
+        :param provisioning_payload: The payload that can be supplied by the user.
+        :type provisioning_payload: This can be an object or dictionary or a string or an integer.
+        """
+        self._provisioning_payload = provisioning_payload
 
 
 def log_on_register_complete(result=None):
