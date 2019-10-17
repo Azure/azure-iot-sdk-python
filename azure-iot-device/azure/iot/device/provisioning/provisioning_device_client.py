@@ -53,7 +53,9 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Registering with Provisioning Service...")
 
         register_complete = EventedCallback(return_arg_name="result")
-        self._polling_machine.register(callback=register_complete)
+        self._polling_machine.register(
+            payload=self._provisioning_payload, callback=register_complete
+        )
         result = register_complete.wait_for_completion()
 
         log_on_register_complete(result)

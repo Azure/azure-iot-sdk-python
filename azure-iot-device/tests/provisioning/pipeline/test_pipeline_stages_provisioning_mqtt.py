@@ -29,6 +29,7 @@ from tests.common.pipeline.helpers import (
 )
 from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
 from tests.common.pipeline import pipeline_stage_test
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -93,14 +94,14 @@ def mock_stage(mocker, arbitrary_exception, arbitrary_base_exception):
 
 
 @pytest.fixture
-def set_security_client_args(callback):
+def set_security_client_args(mocker):
     op = pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
         provisioning_host=fake_provisioning_host,
         registration_id=fake_registration_id,
         id_scope=fake_id_scope,
         sas_token=fake_sas_token,
         client_cert=fake_client_cert,
-        callback=callback,
+        callback=mocker.MagicMock(),
     )
     return op
 
@@ -207,7 +208,11 @@ class TestProvisioningMQTTConverterWithSetProvisioningClientConnectionArgsOperat
 basic_ops = [
     {
         "op_class": pipeline_ops_provisioning.SendRegistrationRequestOperation,
-        "op_init_kwargs": {"request_id": fake_request_id, "request_payload": fake_mqtt_payload},
+        "op_init_kwargs": {
+            "request_id": fake_request_id,
+            "request_payload": fake_mqtt_payload,
+            "registration_id": fake_registration_id,
+        },
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
@@ -233,8 +238,8 @@ basic_ops = [
 
 
 @pytest.fixture
-def op(params, callback):
-    op = params["op_class"](callback=callback, **params["op_init_kwargs"])
+def op(params, mocker):
+    op = params["op_class"](callback=mocker.MagicMock(), **params["op_init_kwargs"])
     return op
 
 
@@ -276,13 +281,34 @@ class TestProvisioningMQTTConverterBasicOperations(object):
 
 publish_ops = [
     {
-        "name": "send register request",
+        "name": "send register request with no payload",
         "op_class": pipeline_ops_provisioning.SendRegistrationRequestOperation,
-        "op_init_kwargs": {"request_id": fake_request_id, "request_payload": fake_mqtt_payload},
+        "op_init_kwargs": {
+            "request_id": fake_request_id,
+            "request_payload": None,
+            "registration_id": fake_registration_id,
+        },
         "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
             request_id=fake_request_id
         ),
-        "publish_payload": fake_mqtt_payload,
+        "publish_payload": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+            reg_id=fake_registration_id, json_payload=json.dumps(None)
+        ),
+    },
+    {
+        "name": "send register request with payload",
+        "op_class": pipeline_ops_provisioning.SendRegistrationRequestOperation,
+        "op_init_kwargs": {
+            "request_id": fake_request_id,
+            "request_payload": fake_mqtt_payload,
+            "registration_id": fake_registration_id,
+        },
+        "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
+            request_id=fake_request_id
+        ),
+        "publish_payload": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+            reg_id=fake_registration_id, json_payload=json.dumps(fake_mqtt_payload)
+        ),
     },
     {
         "name": "send query request",

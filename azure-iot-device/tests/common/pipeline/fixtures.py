@@ -14,25 +14,13 @@ from azure.iot.device.common.pipeline import (
 )
 
 
-# TODO: remove this fixture
-# Using it is dangerous if multiple ops use this same callback
-# within the scope of the same test
-# (i.e. an op under test, and an op run in test setup)
-# What happens is that those operations all are tied together with this
-# same callback mock, and the same callback is called multiple times
-# leading to unexpected behavior
-@pytest.fixture
-def callback(mocker):
-    return mocker.MagicMock()
-
-
 class FakeEvent(pipeline_events_base.PipelineEvent):
     def __init__(self):
         super(FakeEvent, self).__init__()
 
 
 @pytest.fixture
-def event():
+def arbitrary_event():
     return FakeEvent()
 
 
@@ -42,30 +30,9 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 
 
 @pytest.fixture
-def op(mocker):
+def arbitrary_op(mocker):
     op = FakeOperation(callback=mocker.MagicMock())
-    op.name = "op"
-    return op
-
-
-@pytest.fixture
-def op2(mocker):
-    op = FakeOperation(callback=mocker.MagicMock())
-    op.name = "op2"
-    return op
-
-
-@pytest.fixture
-def op3(mocker):
-    op = FakeOperation(callback=mocker.MagicMock())
-    op.name = "op3"
-    return op
-
-
-@pytest.fixture
-def new_op(mocker):
-    op = FakeOperation(callback=mocker.MagicMock())
-    op.name = "new_op"
+    op.name = "arbitrary_op"
     return op
 
 

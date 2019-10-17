@@ -110,11 +110,12 @@ def security_stage(mocker, arbitrary_exception, arbitrary_base_exception):
 
 
 @pytest.fixture
-def set_security_client(callback, params_security_ops):
+def set_security_client(mocker, params_security_ops):
     # Create new security client every time to pass into fixture to avoid re-use of old security client
     # Otherwise the exception/failure raised by one test is makes the next test fail.
     op = params_security_ops["current_op_class"](
-        security_client=params_security_ops["security_client_function_name"](), callback=callback
+        security_client=params_security_ops["security_client_function_name"](),
+        callback=mocker.MagicMock(),
     )
     return op
 
