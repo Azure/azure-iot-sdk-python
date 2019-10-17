@@ -32,7 +32,7 @@ async def main():
 
         properties = {"House": "Gryffindor", "Muggle-Born": "False"}
         wizard_a = Wizard("Harry", "Potter", properties)
-        provisioning_device_client.set_provisioning_payload(wizard_a)
+        provisioning_device_client.provisioning_payload = wizard_a
         return await provisioning_device_client.register()
 
     results = await asyncio.gather(register_device())

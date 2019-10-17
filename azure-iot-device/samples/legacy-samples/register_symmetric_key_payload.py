@@ -29,7 +29,7 @@ provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
 properties = {"House": "Gryffindor", "Muggle-Born": "False"}
 wizard_a = Wizard("Harry", "Potter", properties)
 
-provisioning_device_client.set_provisioning_payload(wizard_a)
+provisioning_device_client.provisioning_payload = wizard_a
 registration_result = provisioning_device_client.register()
 # The result can be directly printed to view the important details.
 print(registration_result)

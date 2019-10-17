@@ -158,7 +158,7 @@ class TestClientRegister(object):
 
         user_payload = "petrificus totalus"
         client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
-        client.set_provisioning_payload(user_payload)
+        client.provisioning_payload = user_payload
         result = client.register()
 
         assert mock_polling_machine.register.call_count == 1
@@ -192,8 +192,8 @@ class TestClientCancel(object):
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - .set_provisioning_payload()")
-class TestClientSetPayload(object):
-    @pytest.mark.it("Sets the payload on the request payload attribute")
+class TestClientProvisioningPayload(object):
+    @pytest.mark.it("Sets the payload on the provisioning payload attribute")
     @pytest.mark.parametrize(
         "payload_input",
         [
@@ -213,5 +213,28 @@ class TestClientSetPayload(object):
         mock_polling_machine_init.return_value = mock_polling_machine
 
         client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
-        client.set_provisioning_payload(payload_input)
-        assert client._request_payload == payload_input
+        client.provisioning_payload = payload_input
+        assert client._provisioning_payload == payload_input
+
+    @pytest.mark.it("Gets the payload from the provisioning payload property")
+    @pytest.mark.parametrize(
+        "payload_input",
+        [
+            pytest.param("Hello Hogwarts", id="String input"),
+            pytest.param(222, id="Integer input"),
+            pytest.param(object(), id="Object input"),
+            pytest.param(None, id="None input"),
+            pytest.param([1, "str"], id="List input"),
+            pytest.param({"a": 2}, id="Dictionary input"),
+        ],
+    )
+    def test_get_payload(self, mocker, mock_polling_machine, payload_input):
+        mqtt_provisioning_pipeline = mocker.MagicMock()
+        mock_polling_machine_init = mocker.patch(
+            "azure.iot.device.provisioning.provisioning_device_client.PollingMachine"
+        )
+        mock_polling_machine_init.return_value = mock_polling_machine
+
+        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
+        client.provisioning_payload = payload_input
+        assert client.provisioning_payload == payload_input

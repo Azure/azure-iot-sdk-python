@@ -78,7 +78,9 @@ class ProvisioningMQTTConverterStage(PipelineStage):
 
             self._send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=registration_payload.get_json(), callback=op.callback
+                    topic=topic,
+                    payload=registration_payload.get_json_string(),
+                    callback=op.callback,
                 ),
                 op=op,
             )
@@ -164,5 +166,5 @@ class DeviceRegistrationPayload(object):
         self.registrationId = registration_id
         self.payload = custom_payload
 
-    def get_json(self):
+    def get_json_string(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

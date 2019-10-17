@@ -20,6 +20,7 @@ class Wizard(object):
         self.props = dict_of_stuff
 
 
+@pytest.mark.it("Init of abstract client raises exception")
 def test_raises_exception_on_init_of_abstract_client(mocker):
     fake_pipeline = mocker.MagicMock()
     with pytest.raises(TypeError):
