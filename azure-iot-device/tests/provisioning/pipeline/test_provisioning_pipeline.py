@@ -92,6 +92,11 @@ def input_security_client(params_security_clients):
     return params_security_clients["client_class"](**params_security_clients["init_kwargs"])
 
 
+@pytest.fixture
+def pipeline_configuration(mocker):
+    return mocker.MagicMock()
+
+
 # automatically mock the transport for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_mqtt_transport(mocker):
@@ -101,8 +106,10 @@ def mock_mqtt_transport(mocker):
 
 
 @pytest.fixture(scope="function")
-def mock_provisioning_pipeline(mocker, input_security_client, mock_mqtt_transport):
-    provisioning_pipeline = ProvisioningPipeline(input_security_client)
+def mock_provisioning_pipeline(
+    mocker, input_security_client, mock_mqtt_transport, pipeline_configuration
+):
+    provisioning_pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
     provisioning_pipeline.on_connected = mocker.MagicMock()
     provisioning_pipeline.on_disconnected = mocker.MagicMock()
     provisioning_pipeline.on_message_received = mocker.MagicMock()
@@ -118,16 +125,18 @@ def mock_provisioning_pipeline(mocker, input_security_client, mock_mqtt_transpor
 @pytest.mark.describe("Provisioning pipeline - Initializer")
 class TestInit(object):
     @pytest.mark.it("Happens correctly with the specific security client")
-    def test_instantiates_correctly(self, params_security_clients, input_security_client):
-        provisioning_pipeline = ProvisioningPipeline(input_security_client)
+    def test_instantiates_correctly(
+        self, params_security_clients, input_security_client, pipeline_configuration
+    ):
+        provisioning_pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
         assert provisioning_pipeline._pipeline is not None
 
     @pytest.mark.it("Calls the correct op to pass the security client args into the pipeline")
     def test_passes_security_client_args(
-        self, mocker, params_security_clients, input_security_client
+        self, mocker, params_security_clients, input_security_client, pipeline_configuration
     ):
         mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
-        provisioning_pipeline = ProvisioningPipeline(input_security_client)
+        provisioning_pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
 
         op = provisioning_pipeline._pipeline.run_op.call_args[0][1]
         assert provisioning_pipeline._pipeline.run_op.call_count == 1
@@ -136,7 +145,12 @@ class TestInit(object):
 
     @pytest.mark.it("Raises an exception if the pipeline op to set security client args fails")
     def test_passes_security_client_args_failure(
-        self, mocker, params_security_clients, input_security_client, arbitrary_exception
+        self,
+        mocker,
+        params_security_clients,
+        input_security_client,
+        arbitrary_exception,
+        pipeline_configuration,
     ):
         old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
@@ -154,7 +168,7 @@ class TestInit(object):
         )
 
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            ProvisioningPipeline(input_security_client)
+            ProvisioningPipeline(input_security_client, pipeline_configuration)
         assert e_info.value is arbitrary_exception
 
 

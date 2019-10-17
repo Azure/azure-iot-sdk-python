@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProvisioningPipeline(object):
-    def __init__(self, security_client):
+    def __init__(self, security_client, pipeline_configuration):
         """
         Constructor for instantiating a pipeline
         :param security_client: The security client which stores credentials
@@ -32,7 +32,7 @@ class ProvisioningPipeline(object):
         self.on_message_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage()
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage())
             .append_stage(pipeline_stages_base.EnsureConnectionStage())
