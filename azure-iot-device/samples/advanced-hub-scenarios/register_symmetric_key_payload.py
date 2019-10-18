@@ -10,8 +10,8 @@ from azure.iot.device.aio import ProvisioningDeviceClient
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
-registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
-symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
+registration_id = os.getenv("PROVISIONING_REGISTRATION_ID_PAYLOAD")
+symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY_PAYLOAD")
 
 
 class Wizard(object):
