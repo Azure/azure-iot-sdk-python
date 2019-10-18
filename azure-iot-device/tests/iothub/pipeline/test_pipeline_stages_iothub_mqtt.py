@@ -442,9 +442,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(
 @pytest.mark.describe(
     "IoTHubMQTTConverterStage - .run_op() -- called with UpdateSasTokenOperation if the transport is connected"
 )
-class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
-    IoTHubMQTTConverterStageTestBase
-):
+class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(IoTHubMQTTConverterStageTestBase):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.UpdateSasTokenOperation(

@@ -80,7 +80,10 @@ def add_unknown_ops_tests(cls, module, all_ops, handled_ops):
 
         @pytest.fixture
         def stage(self):
-            return cls()
+            if cls == PipelineRootStage:
+                return cls(None)
+            else:
+                return cls()
 
         @pytest.mark.it("Passes unknown operation to next stage")
         @pytest.mark.parametrize("op_cls", unknown_ops)
