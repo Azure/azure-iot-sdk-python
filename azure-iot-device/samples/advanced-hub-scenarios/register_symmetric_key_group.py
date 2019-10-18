@@ -38,7 +38,6 @@ async def main():
 
         return await provisioning_device_client.register()
 
-
     results = await asyncio.gather(register_device())
     registration_result = results[0]
     print("The complete registration result is")
