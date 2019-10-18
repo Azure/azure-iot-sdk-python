@@ -10,11 +10,11 @@ import threading
 import concurrent.futures
 from tests.common.pipeline.helpers import (
     all_except,
-    make_mock_stage,
     make_mock_op_or_event,
     assert_callback_failed,
     get_arg_count,
     add_mock_method_waiter,
+    StageTestBase,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
@@ -70,23 +70,17 @@ def add_unknown_ops_tests(cls, module, all_ops, handled_ops):
     unknown_ops = all_except(all_items=all_ops, items_to_exclude=handled_ops)
 
     @pytest.mark.describe("{} - .run_op() -- unknown and unhandled operations".format(cls.__name__))
-    class LocalTestObject(object):
+    class LocalTestObject(StageTestBase):
         @pytest.fixture
         def op(self, op_cls, mocker):
             op = make_mock_op_or_event(op_cls)
             op.callback = mocker.MagicMock()
-            op.action = "pend"
             add_mock_method_waiter(op, "callback")
             return op
 
         @pytest.fixture
-        def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
-            return make_mock_stage(
-                mocker=mocker,
-                stage_to_make=cls,
-                exc_to_raise=arbitrary_exception,
-                base_exc_to_raise=arbitrary_base_exception,
-            )
+        def stage(self):
+            return cls()
 
         @pytest.mark.it("Passes unknown operation to next stage")
         @pytest.mark.parametrize("op_cls", unknown_ops)
@@ -105,20 +99,25 @@ def add_unknown_ops_tests(cls, module, all_ops, handled_ops):
 
         @pytest.mark.it("Catches Exceptions raised when passing unknown operation to next stage")
         @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_to_next_stage_which_throws_exception(self, op_cls, op, stage):
-            op.action = "exception"
+        def test_passes_op_to_next_stage_which_throws_exception(
+            self, op_cls, op, stage, next_stage_raises_arbitrary_exception, arbitrary_exception
+        ):
             stage.run_op(op)
             op.wait_for_callback_to_be_called()
-            assert_callback_failed(op=op)
+            assert_callback_failed(op=op, error=arbitrary_exception)
 
         @pytest.mark.it(
             "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
         )
         @pytest.mark.parametrize("op_cls", unknown_ops)
         def test_passes_op_to_next_stage_which_throws_base_exception(
-            self, op_cls, op, stage, arbitrary_base_exception
+            self,
+            op_cls,
+            op,
+            stage,
+            next_stage_raises_arbitrary_base_exception,
+            arbitrary_base_exception,
         ):
-            op.action = "base_exception"
             with pytest.raises(arbitrary_base_exception.__class__) as e_info:
                 stage.run_op(op)
             assert e_info.value is arbitrary_base_exception
@@ -142,36 +141,22 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
         "{} - .handle_pipeline_event() -- unknown and unhandled events".format(cls.__name__)
     )
     @pytest.mark.parametrize("event_cls", unknown_events)
-    class LocalTestObject(object):
+    class LocalTestObject(StageTestBase):
         @pytest.fixture
         def event(self, event_cls):
             return make_mock_op_or_event(event_cls)
 
         @pytest.fixture
-        def stage(self, mocker, arbitrary_exception, arbitrary_base_exception):
-            return make_mock_stage(
-                mocker=mocker,
-                stage_to_make=cls,
-                exc_to_raise=arbitrary_exception,
-                base_exc_to_raise=arbitrary_base_exception,
-            )
+        def stage(self):
+            return cls()
 
         @pytest.fixture
-        def previous(self, stage, mocker):
-            class PreviousStage(PipelineStage):
-                def __init__(self):
-                    super(PreviousStage, self).__init__()
-                    self.handle_pipeline_event = mocker.MagicMock()
-
-                def _execute_op(self, op):
-                    pass
-
-            previous = PreviousStage()
-            stage.previous = previous
-            return previous
+        def previous(self, stage, stage_base_configuration):
+            return stage.previous
 
         @pytest.mark.it("Passes unknown event to previous stage")
-        def test_passes_event_to_previous_stage(self, event_cls, stage, event, previous):
+        def test_passes_event_to_previous_stage(self, event_cls, stage, event, previous, mocker):
+            mocker.spy(previous, "handle_pipeline_event")
             stage.handle_pipeline_event(event)
             assert previous.handle_pipeline_event.call_count == 1
             assert previous.handle_pipeline_event.call_args[0][0] == event
@@ -180,14 +165,22 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
         def test_passes_event_with_no_previous_stage(
             self, event_cls, stage, event, unhandled_error_handler
         ):
+            stage.previous = None
             stage.handle_pipeline_event(event)
             assert unhandled_error_handler.call_count == 1
 
         @pytest.mark.it("Catches Exceptions raised when passing unknown event to previous stage")
         def test_passes_event_to_previous_stage_which_throws_exception(
-            self, event_cls, stage, event, previous, unhandled_error_handler, arbitrary_exception
+            self,
+            event_cls,
+            stage,
+            event,
+            previous,
+            unhandled_error_handler,
+            arbitrary_exception,
+            mocker,
         ):
-            previous.handle_pipeline_event.side_effect = arbitrary_exception
+            previous.handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
             stage.handle_pipeline_event(event)
             assert unhandled_error_handler.call_count == 1
             assert unhandled_error_handler.call_args[0][0] == arbitrary_exception
@@ -203,8 +196,9 @@ def add_unknown_events_tests(cls, module, all_events, handled_events):
             previous,
             unhandled_error_handler,
             arbitrary_base_exception,
+            mocker,
         ):
-            previous.handle_pipeline_event.side_effect = arbitrary_base_exception
+            previous.handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
             with pytest.raises(arbitrary_base_exception.__class__) as e_info:
                 stage.handle_pipeline_event(event)
             assert unhandled_error_handler.call_count == 0
