@@ -93,7 +93,7 @@ def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
     mocker.spy(next_stage, "run_op")
 
     first_stage.next = next_stage
-    # TODO: this is sloppy.  we should have a real root here for testing.
+    # BKTODO: this is sloppy.  we should have a real root here for testing.
     first_stage.pipeline_root = first_stage
 
     next_stage.previous = first_stage
