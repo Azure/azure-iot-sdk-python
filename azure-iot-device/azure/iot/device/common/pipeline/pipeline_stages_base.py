@@ -185,7 +185,7 @@ class PipelineRootStage(PipelineStage):
     :type on_disconnected_handler: Function
     """
 
-    def __init__(self, pipeline_configuration=None):
+    def __init__(self, pipeline_configuration):
         super(PipelineRootStage, self).__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
