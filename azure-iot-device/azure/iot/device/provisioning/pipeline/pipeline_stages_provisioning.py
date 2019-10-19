@@ -22,7 +22,7 @@ class UseSecurityClientStage(PipelineStage):
         if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation):
 
             security_client = op.security_client
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
                     provisioning_host=security_client.provisioning_host,
                     registration_id=security_client.registration_id,
@@ -35,7 +35,7 @@ class UseSecurityClientStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_provisioning.SetX509SecurityClientOperation):
             security_client = op.security_client
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
                     provisioning_host=security_client.provisioning_host,
                     registration_id=security_client.registration_id,
@@ -47,4 +47,4 @@ class UseSecurityClientStage(PipelineStage):
             )
 
         else:
-            self._send_op_down(op)
+            self.send_op_down(op)

@@ -152,7 +152,7 @@ class TestIoTHubPipelineInstantiation(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
-                self._complete_op(op, error=arbitrary_exception)
+                self.complete_op(op, error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 
@@ -189,7 +189,7 @@ class TestIoTHubPipelineInstantiation(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
-                self._complete_op(op, error=arbitrary_exception)
+                self.complete_op(op, error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 

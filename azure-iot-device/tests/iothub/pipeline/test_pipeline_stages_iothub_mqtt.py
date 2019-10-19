@@ -510,9 +510,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(IoTHubMQTTConv
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                stage.next._complete_op(op, error=None)
+                stage.next.complete_op(op, error=None)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                stage.next._complete_op(op, error=arbitrary_exception)
+                stage.next.complete_op(op, error=arbitrary_exception)
             else:
                 pass
 

@@ -38,12 +38,12 @@ class PipelineFlowTestBase(StageTestBase):
     def stage(self):
         class MockPipelineStage(pipeline_stages_base.PipelineStage):
             def _execute_op(self, op):
-                self._send_op_down(op)
+                self.send_op_down(op)
 
         return MockPipelineStage()
 
 
-@pytest.mark.describe("PipelineFlow - ._send_worker_op_down()")
+@pytest.mark.describe("PipelineFlow - .send_worker_op_down()")
 class TestSendWorkerOpDown(PipelineFlowTestBase):
     @pytest.fixture
     def arbitrary_worker_op(self, mocker):
@@ -53,7 +53,7 @@ class TestSendWorkerOpDown(PipelineFlowTestBase):
 
     @pytest.mark.it("Runs the worker op and does not continue running the original op")
     def test_runs_worker_op(self, mocker, stage, arbitrary_op, arbitrary_worker_op):
-        stage._send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
+        stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args == mocker.call(arbitrary_worker_op)
 
@@ -63,10 +63,10 @@ class TestSendWorkerOpDown(PipelineFlowTestBase):
     ):
         callback = arbitrary_op.callback
 
-        stage._send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
+        stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
         assert callback.call_count == 0  # because arbitrary_worker_op is pending
 
-        stage.next._complete_op(arbitrary_worker_op)
+        stage.next.complete_op(arbitrary_worker_op)
         assert_callback_succeeded(op=arbitrary_op)
 
     @pytest.mark.it("Returns the worker op failure in the original op if worker op fails")
@@ -78,35 +78,35 @@ class TestSendWorkerOpDown(PipelineFlowTestBase):
         arbitrary_exception,
         next_stage_raises_arbitrary_exception,
     ):
-        stage._send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
+        stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
         assert_callback_failed(arbitrary_op, error=arbitrary_exception)
 
 
-@pytest.mark.describe("PipelineFlow - ._send_op_down()")
+@pytest.mark.describe("PipelineFlow - .send_op_down()")
 class TestSendOpDown(PipelineFlowTestBase):
     @pytest.mark.it("Fails the op if there is no next stage")
     def test_fails_op_when_no_next_stage(self, stage, arbitrary_op):
         stage.next = None
-        stage._send_op_down(arbitrary_op)
+        stage.send_op_down(arbitrary_op)
         assert_callback_failed(op=arbitrary_op, error=pipeline_exceptions.PipelineError)
 
     @pytest.mark.it("Passes the op to the next stage")
     def test_passes_op_to_next_stage(self, mocker, stage, arbitrary_op):
-        stage._send_op_down(arbitrary_op)
+        stage.send_op_down(arbitrary_op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args == mocker.call(arbitrary_op)
 
 
-@pytest.mark.describe("PipelineFlow - ._complete_op()")
+@pytest.mark.describe("PipelineFlow - .complete_op()")
 class TestCompleteOp(PipelineFlowTestBase):
     @pytest.mark.it("Calls the op callback on success")
     def test_calls_callback_on_success(self, stage, arbitrary_op):
-        stage._complete_op(arbitrary_op)
+        stage.complete_op(arbitrary_op)
         assert_callback_succeeded(arbitrary_op)
 
     @pytest.mark.it("Calls the op callback on failure")
     def test_calls_callback_on_error(self, stage, arbitrary_op, arbitrary_exception):
-        stage._complete_op(arbitrary_op, error=arbitrary_exception)
+        stage.complete_op(arbitrary_op, error=arbitrary_exception)
         assert_callback_failed(op=arbitrary_op, error=arbitrary_exception)
 
     @pytest.mark.it(
@@ -114,8 +114,8 @@ class TestCompleteOp(PipelineFlowTestBase):
     )
     def test_background_exception_if_called_twice(self, stage, arbitrary_op, mocker):
         mocker.spy(handle_exceptions, "handle_background_exception")
-        stage._complete_op(arbitrary_op)
-        stage._complete_op(arbitrary_op)
+        stage.complete_op(arbitrary_op)
+        stage.complete_op(arbitrary_op)
         assert handle_exceptions.handle_background_exception.call_count == 1
         assert (
             handle_exceptions.handle_background_exception.call_args[0][0].__class__
@@ -124,9 +124,9 @@ class TestCompleteOp(PipelineFlowTestBase):
 
     @pytest.mark.it("Does not call the callback if the op has previously been completed")
     def test_no_callback_if_called_twice(self, stage, arbitrary_op):
-        stage._complete_op(arbitrary_op)
+        stage.complete_op(arbitrary_op)
         arbitrary_op.callback.reset_mock()
-        stage._complete_op(arbitrary_op)
+        stage.complete_op(arbitrary_op)
         assert arbitrary_op.callback.call_count == 0
 
     @pytest.mark.it(
@@ -136,7 +136,7 @@ class TestCompleteOp(PipelineFlowTestBase):
         self, stage, arbitrary_op, arbitrary_exception, mocker, unhandled_error_handler
     ):
         arbitrary_op.callback = mocker.Mock(side_effect=arbitrary_exception)
-        stage._complete_op(arbitrary_op)
+        stage.complete_op(arbitrary_op)
         assert arbitrary_op.callback.call_count == 1
         assert arbitrary_op.callback.call_args == mocker.call(arbitrary_op, error=None)
         assert unhandled_error_handler.call_count == 1
@@ -148,21 +148,21 @@ class TestCompleteOp(PipelineFlowTestBase):
     ):
         arbitrary_op.callback = mocker.Mock(side_effect=arbitrary_base_exception)
         with pytest.raises(arbitrary_base_exception.__class__):
-            stage._complete_op(arbitrary_op)
+            stage.complete_op(arbitrary_op)
 
 
-@pytest.mark.describe("PipelineFlow - ._send_completed_op_up()")
+@pytest.mark.describe("PipelineFlow - .send_completed_op_up()")
 class TestSendCompletedOpUp(PipelineFlowTestBase):
     @pytest.mark.it("Calls the op callback on success")
     def test_calls_callback_on_success(self, stage, arbitrary_op):
         arbitrary_op.completed = True
-        stage._send_completed_op_up(arbitrary_op)
+        stage.send_completed_op_up(arbitrary_op)
         assert_callback_succeeded(arbitrary_op)
 
     @pytest.mark.it("Calls the op callback on failure")
     def test_calls_callback_on_error(self, stage, arbitrary_op, arbitrary_exception):
         arbitrary_op.completed = True
-        stage._send_completed_op_up(arbitrary_op, error=arbitrary_exception)
+        stage.send_completed_op_up(arbitrary_op, error=arbitrary_exception)
         assert_callback_failed(op=arbitrary_op, error=arbitrary_exception)
 
     @pytest.mark.it(
@@ -170,7 +170,7 @@ class TestSendCompletedOpUp(PipelineFlowTestBase):
     )
     def test_error_if_not_completed(self, stage, arbitrary_op):
         with pytest.raises(pipeline_exceptions.PipelineError):
-            stage._send_completed_op_up(arbitrary_op)
+            stage.send_completed_op_up(arbitrary_op)
 
     @pytest.mark.it(
         "Handles Exceptions raised in operation callback and passes them to the unhandled error handler"
@@ -180,7 +180,7 @@ class TestSendCompletedOpUp(PipelineFlowTestBase):
     ):
         arbitrary_op.callback = mocker.Mock(side_effect=arbitrary_exception)
         arbitrary_op.completed = True
-        stage._send_completed_op_up(arbitrary_op)
+        stage.send_completed_op_up(arbitrary_op)
         assert arbitrary_op.callback.call_count == 1
         assert arbitrary_op.callback.call_args == mocker.call(arbitrary_op, error=None)
         assert unhandled_error_handler.call_count == 1
@@ -193,25 +193,25 @@ class TestSendCompletedOpUp(PipelineFlowTestBase):
         arbitrary_op.callback = mocker.Mock(side_effect=arbitrary_base_exception)
         arbitrary_op.completed = True
         with pytest.raises(arbitrary_base_exception.__class__):
-            stage._send_completed_op_up(arbitrary_op)
+            stage.send_completed_op_up(arbitrary_op)
 
 
-@pytest.mark.describe("PipelineFlow - ._send_op_down_and_intercept_return()")
+@pytest.mark.describe("PipelineFlow - .send_op_down_and_intercept_return()")
 class TestSendOpDownAndInterceptReturn(PipelineFlowTestBase):
-    @pytest.mark.it("Calls _send_op_down to send the op down")
+    @pytest.mark.it("Calls send_op_down to send the op down")
     def test_sends_op_down(self, stage, arbitrary_op, mocker):
         intercepted_return = mocker.MagicMock()
-        mocker.spy(stage, "_send_op_down")
-        stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
-        assert stage._send_op_down.call_count == 1
-        assert stage._send_op_down.call_args == mocker.call(arbitrary_op)
+        mocker.spy(stage, "send_op_down")
+        stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(arbitrary_op)
 
     @pytest.mark.it("Calls the intercepted_return function when the op succeeds")
     def test_calls_intercepted_return_on_op_success(
         self, stage, arbitrary_op, mocker, next_stage_succeeds
     ):
         intercepted_return = mocker.MagicMock()
-        stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
+        stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
         assert intercepted_return.call_args == mocker.call(op=arbitrary_op, error=None)
 
     @pytest.mark.it("Calls the intercepted_return function when the op fails")
@@ -224,7 +224,7 @@ class TestSendOpDownAndInterceptReturn(PipelineFlowTestBase):
         next_stage_raises_arbitrary_exception,
     ):
         intercepted_return = mocker.MagicMock()
-        stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
+        stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
         assert intercepted_return.call_args == mocker.call(
             op=arbitrary_op, error=arbitrary_exception
         )
@@ -237,16 +237,16 @@ class TestSendOpDownAndInterceptReturn(PipelineFlowTestBase):
     ):
         saved_callback = arbitrary_op.callback
         intercepted_return = mocker.MagicMock()
-        stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
+        stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
         assert intercepted_return.call_args[1]["op"].callback == saved_callback
 
 
-@pytest.mark.describe("PipelineFlow - ._send_event_up()")
+@pytest.mark.describe("PipelineFlow - .send_event_up()")
 class TestSendEventUp(PipelineFlowTestBase):
     @pytest.mark.it("Calls handle_pipeline_event on the previous stage")
     def test_calls_handle_pipeline_event(self, stage, arbitrary_event, mocker):
         mocker.spy(stage, "handle_pipeline_event")
-        stage.next._send_event_up(arbitrary_event)
+        stage.next.send_event_up(arbitrary_event)
         assert stage.handle_pipeline_event.call_count == 1
         assert stage.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
@@ -256,7 +256,7 @@ class TestSendEventUp(PipelineFlowTestBase):
     def test_no_previous_stage(self, stage, arbitrary_event, mocker):
         stage.previous = None
         mocker.spy(handle_exceptions, "handle_background_exception")
-        stage._send_event_up(arbitrary_event)
+        stage.send_event_up(arbitrary_event)
         assert handle_exceptions.handle_background_exception.call_count == 1
         assert (
             handle_exceptions.handle_background_exception.call_args[0][0].__class__
