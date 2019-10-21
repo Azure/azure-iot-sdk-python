@@ -7,6 +7,7 @@ import inspect
 import pytest
 import functools
 from threading import Event
+from azure.iot.device.common import config
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -49,59 +50,53 @@ def all_except(all_items, items_to_exclude):
     return [x for x in all_items if x not in items_to_exclude]
 
 
-def make_mock_stage(mocker, stage_to_make, exc_to_raise, base_exc_to_raise):
-    """
-    make a stage object that we can use in testing.  This stage object is populated
-    by mocker spies, and it has a next stage that can receive events.  It does not,
-    by detfault, have a previous stage or a pipeline root that can receive events
-    coming back up.  The previous stage is added by the tests which which require it.
+class StageTestBase(object):
+    @pytest.fixture(autouse=True)
+    def stage_base_configuration(self, stage, mocker):
+        """
+        This fixture configures the stage for testing.  This is automatically
+        applied, so it will be called before your test runs, but it's not
+        guaranteed to be called before any other fixtures run.  If you have
+        a fixture that needs to rely on the stage being configured, then
+        you have to add a manual dependency inside that fixture (like we do in
+        next_stage_succeeds_all_ops below)
+        """
 
-    raised_exc and raised_base_exc are provided instances of some subclasses of
-    Exception and BaseException respectively, that will be raised as a result of
-    "fail", "exception" or "base_exception" actions. This is necessary until the content
-    of this function can more easily be fixture-ized
-    """
-    # because PipelineStage is abstract, we need something concrete
-    class NextStageForTest(pipeline_stages_base.PipelineStage):
-        def _execute_op(self, op):
-            self._send_op_down(op)
+        class NextStageForTest(pipeline_stages_base.PipelineStage):
+            def _execute_op(self, op):
+                pass
 
-    def stage_execute_op(self, op):
-        if getattr(op, "action", None) is None or op.action == "pass":
-            self._complete_op(op)
-        elif op.action == "fail" or op.action == "exception":
-            raise exc_to_raise
-        elif op.action == "base_exception":
-            raise base_exc_to_raise
-        elif op.action == "pend":
-            pass
-        else:
-            assert False
+        next = NextStageForTest()
+        root = (
+            pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
+            .append_stage(stage)
+            .append_stage(next)
+        )
 
-    # BKTODO: make this more generic
-    if stage_to_make == pipeline_stages_base.PipelineRootStage:
-        first_stage = stage_to_make(None)
-    else:
-        first_stage = stage_to_make()
-    first_stage.unhandled_error_handler = mocker.Mock()
-    mocker.spy(first_stage, "_execute_op")
-    mocker.spy(first_stage, "run_op")
+        mocker.spy(stage, "_execute_op")
+        mocker.spy(stage, "run_op")
 
-    next_stage = NextStageForTest()
-    next_stage._execute_op = functools.partial(stage_execute_op, next_stage)
-    mocker.spy(next_stage, "_execute_op")
-    mocker.spy(next_stage, "run_op")
+        mocker.spy(next, "_execute_op")
+        mocker.spy(next, "run_op")
 
-    first_stage.next = next_stage
-    # TODO: this is sloppy.  we should have a real root here for testing.
-    first_stage.pipeline_root = first_stage
+        return root
 
-    next_stage.previous = first_stage
-    next_stage.pipeline_root = first_stage
+    @pytest.fixture
+    def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
+        stage.next._execute_op = stage._complete_op
+        mocker.spy(stage.next, "_execute_op")
 
-    first_stage.pipeline_root.connected = False
+    @pytest.fixture
+    def next_stage_raises_arbitrary_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_exception
+    ):
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
 
-    return first_stage
+    @pytest.fixture
+    def next_stage_raises_arbitrary_base_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_base_exception
+    ):
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
 
 def assert_callback_succeeded(op, callback=None):

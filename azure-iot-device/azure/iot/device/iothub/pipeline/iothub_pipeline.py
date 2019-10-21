@@ -49,7 +49,7 @@ class IoTHubPipeline(object):
         self.on_twin_patch_received = None
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
