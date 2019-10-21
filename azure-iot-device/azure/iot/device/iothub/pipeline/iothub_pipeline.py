@@ -54,6 +54,8 @@ class IoTHubPipeline(object):
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage())
+            .append_stage(pipeline_stages_base.RetryStage())
+            .append_stage(pipeline_stages_base.TimeoutStage())
             .append_stage(pipeline_stages_base.EnsureConnectionStage())
             .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())

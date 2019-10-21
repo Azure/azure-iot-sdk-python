@@ -38,3 +38,11 @@ class ProtocolClientError(ChainableException):
     """
 
     pass
+
+
+class PipelineTimeoutError(ChainableException):
+    """
+    Pipeline operation timed out
+    """
+
+    pass

@@ -15,7 +15,5 @@ class ChainableException(Exception):
         self.__cause__ = cause
         super(ChainableException, self).__init__(message)
 
-    def __repr__(self):
-        return "{} caused by {}".format(
-            super(ChainableException, self).__repr__(), self.__cause__.__repr__()
-        )
+    def __str__(self):
+        return "{} caused by {}".format(super(ChainableException, self).__str__(), self.__cause__)

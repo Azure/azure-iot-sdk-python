@@ -17,7 +17,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from .pipeline_flow import PipelineFlow
 from . import pipeline_thread
-from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common import handle_exceptions, transport_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
@@ -526,3 +526,110 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 )
         else:
             self._send_event_up(event)
+
+
+class TimeoutStage(PipelineStage):
+    def __init__(self):
+        super(TimeoutStage, self).__init__()
+        self.timeout_intervals = {
+            pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
+            pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
+        }
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _should_watch_for_timeout(self, op):
+        return op.__class__ in self.timeout_intervals
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _execute_op(self, op):
+        if self._should_watch_for_timeout(op):
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def on_timeout():
+                this = self_weakref()
+                logger.info("{}({}): returning timeout error".format(this.name, op.name))
+                self._complete_op(
+                    op,
+                    transport_exceptions.PipelineTimeoutError(
+                        "operation timed out before protocol client could respond"
+                    ),
+                )
+
+            logger.debug("{}({}): Creating timer".format(self.name, op.name))
+            op.timeout_timer = Timer(self.timeout_intervals[op.__class__], on_timeout)
+            op.timeout_timer.start()
+
+            logger.debug("{}({}): Sending down".format(self.name, op.name))
+            self._send_op_down_and_intercept_return(
+                op=op, intercepted_return=self._on_intercepted_return
+            )
+        else:
+            self._send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _on_intercepted_return(self, op, error):
+        del op.timeout_timer
+        logger.debug("{}({}): Op completed".format(self.name, op.name))
+        self._send_completed_op_up(op, error)
+
+
+class RetryStage(PipelineStage):
+    def __init__(self):
+        super(RetryStage, self).__init__()
+        self.retry_intervals = {
+            pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
+            pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
+        }
+        self.waiting_to_retry = []
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _execute_op(self, op):
+        self._send_op_down_and_intercept_return(
+            op=op, intercepted_return=self._on_intercepted_return
+        )
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _should_watch_for_retry(self, op):
+        return op.__class__ in self.retry_intervals
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _should_retry(self, op, error):
+        if error:
+            if self._should_watch_for_retry(op):
+                if error.__class__ == transport_exceptions.PipelineTimeoutError:
+                    return True
+        return False
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _on_intercepted_return(self, op, error):
+        if self._should_retry(op, error):
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def do_retry():
+                this = self_weakref()
+                logger.info("{}({}): retrying".format(this.name, op.name))
+                del op.retry_timer
+                op.completed = False
+                this.waiting_to_retry.remove(op)
+                # Don't just send it down directly.  Instead, go through _execute_op so we get
+                # retry functionality this time too
+                this._execute_op(op)
+
+            interval = self.retry_intervals[op.__class__]
+            logger.warning(
+                "{}({}): Op needs retry with interval {} because of {}.  Setting timer.".format(
+                    self.name, op.name, interval, error
+                )
+            )
+
+            # if we don't keep track of this op, it might get collected.
+            self.waiting_to_retry.append(op)
+            op.retry_timer = Timer(self.retry_intervals[op.__class__], do_retry)
+            op.retry_timer.start()
+
+        else:
+            if getattr(op, "retry_timer", None):
+                del op.retry_timer
+            self._send_completed_op_up(op, error)
