@@ -70,6 +70,7 @@ class RegistrationState(object):
         created_date_time=None,
         last_update_date_time=None,
         etag=None,
+        payload=None
     ):
         """
         :param device_id: Desired device id for the provisioned device
@@ -79,6 +80,7 @@ class RegistrationState(object):
         :param created_date_time: Registration create date time (in UTC).
         :param last_update_date_time: Last updated date time (in UTC).
         :param etag: The entity tag associated with the resource.
+        :param payload: The payload with which hub is responding
         """
         self._device_id = device_id
         self._assigned_hub = assigned_hub
@@ -86,6 +88,7 @@ class RegistrationState(object):
         self._created_date_time = created_date_time
         self._last_update_date_time = last_update_date_time
         self._etag = etag
+        self._response_payload = payload
 
     @property
     def device_id(self):
@@ -111,5 +114,10 @@ class RegistrationState(object):
     def etag(self):
         return self._etag
 
+    @property
+    def response_payload(self):
+        payload = "" if self._response_payload is None else self._response_payload
+        return payload
+
     def __str__(self):
-        return "\n".join([self.device_id, self.assigned_hub, self.sub_status])
+        return "\n".join([self.device_id, self.assigned_hub, self.sub_status, self.response_payload])

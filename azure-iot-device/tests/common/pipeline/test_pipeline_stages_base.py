@@ -14,6 +14,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
     pipeline_events_base,
+    pipeline_exceptions,
 )
 from tests.common.pipeline.helpers import (
     assert_callback_failed,
@@ -21,6 +22,8 @@ from tests.common.pipeline.helpers import (
     all_common_ops,
     all_common_events,
     StageTestBase,
+    all_except,
+    make_mock_op_or_event,
 )
 from tests.common.pipeline import pipeline_stage_test
 
@@ -715,3 +718,460 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
         stage.next._send_event_up(iot_response)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0
+
+
+"""
+A note on terms in the TimeoutStage tests:
+    No-timeout ops are ops that don't need a timeout check
+    Yes-timeout ops are ops that do need a timeout check
+"""
+timeout_intervals = {
+    pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
+    pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
+}
+yes_timeout_ops = list(timeout_intervals.keys())
+no_timeout_ops = all_except(all_common_ops, yes_timeout_ops)
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    cls=pipeline_stages_base.TimeoutStage,
+    module=this_module,
+    all_ops=all_common_ops,
+    handled_ops=yes_timeout_ops,
+    all_events=all_common_events,
+    handled_events=[],
+    extra_initializer_defaults={"timeout_intervals": timeout_intervals},
+)
+
+
+@pytest.fixture()
+def mock_timer(mocker):
+    return mocker.patch(
+        "azure.iot.device.common.pipeline.pipeline_stages_base.Timer", autospec=True
+    )
+
+
+@pytest.mark.describe("TimeoutStage - run_op()")
+class TestTimeoutStageRunOp(StageTestBase):
+    @pytest.fixture(params=yes_timeout_ops)
+    def yes_timeout_op(self, request, mocker):
+        op = make_mock_op_or_event(request.param)
+        op.callback = mocker.MagicMock()
+        return op
+
+    @pytest.fixture(params=no_timeout_ops)
+    def no_timeout_op(self, request, mocker):
+        op = make_mock_op_or_event(request.param)
+        op.callback = mocker.MagicMock()
+        return op
+
+    @pytest.fixture
+    def stage(self):
+        return pipeline_stages_base.TimeoutStage()
+
+    @pytest.mark.it("Sends ops that don't need a timer to the next stage")
+    def test_sends_no_timer_op_down(self, stage, mock_timer, no_timeout_op):
+        stage.run_op(no_timeout_op)
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == no_timeout_op
+
+    @pytest.mark.it("Sends ops that do need a timer to the next stage")
+    def test_sends_yes_timer_op_down(self, stage, mock_timer, yes_timeout_op):
+        stage.run_op(yes_timeout_op)
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == yes_timeout_op
+
+    @pytest.mark.it("Does not set a timer for ops that don't need a timer set")
+    def test_does_not_set_timer(self, stage, mock_timer, no_timeout_op):
+        stage.run_op(no_timeout_op)
+        assert mock_timer.call_count == 0
+
+    @pytest.mark.it("Set a timer for ops that need a timer set")
+    def test_sets_timer(self, stage, mock_timer, yes_timeout_op):
+        stage.run_op(yes_timeout_op)
+        assert mock_timer.call_count == 1
+
+    @pytest.mark.it("Starts the timer based on the timeout interval")
+    def test_uses_timeout_interval(self, stage, mock_timer, yes_timeout_op):
+        stage.run_op(yes_timeout_op)
+        assert mock_timer.call_args[0][0] == timeout_intervals[yes_timeout_op.__class__]
+        assert mock_timer.return_value.start.call_count == 1
+        assert yes_timeout_op.timeout_timer == mock_timer.return_value
+
+    @pytest.mark.it("Clears the timer when the op completes successfully")
+    def test_clears_timer_on_success(self, stage, mock_timer, yes_timeout_op, next_stage_succeeds):
+        stage.run_op(yes_timeout_op)
+        assert getattr(yes_timeout_op, "timeout_timer", None) is None
+
+    @pytest.mark.it("Clears the timer when the op fails with an arbitrary exception")
+    def test_clears_timer_on_arbitrary_exception(
+        self, stage, mock_timer, yes_timeout_op, next_stage_raises_arbitrary_exception
+    ):
+        stage.run_op(yes_timeout_op)
+        assert getattr(yes_timeout_op, "timeout_timer", None) is None
+
+    @pytest.mark.it("Does not clear the timer when the op fails with an arbitrary base exception")
+    def test_doesnt_clear_timer_on_arbitrary_base_exception(
+        self,
+        stage,
+        mock_timer,
+        yes_timeout_op,
+        next_stage_raises_arbitrary_base_exception,
+        arbitrary_base_exception,
+    ):
+        with pytest.raises(arbitrary_base_exception.__class__):
+            stage.run_op(yes_timeout_op)
+        assert yes_timeout_op.timeout_timer == mock_timer.return_value
+
+    @pytest.mark.it("Clears the timer when the op times out")
+    def test_clears_timer_on_timeout(self, stage, mock_timer, yes_timeout_op):
+        stage.run_op(yes_timeout_op)
+        assert yes_timeout_op.timeout_timer == mock_timer.return_value
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        assert getattr(yes_timeout_op, "timeout_timer", None) is None
+
+    @pytest.mark.it("Calls the original callback with no error when the op completes with no error")
+    def test_calls_callback_on_success(
+        self, stage, mock_timer, yes_timeout_op, next_stage_succeeds
+    ):
+        stage.run_op(yes_timeout_op)
+        assert_callback_succeeded(op=yes_timeout_op)
+
+    @pytest.mark.it(
+        "Calls the original callback with error when the op fails with an arbitrary exception"
+    )
+    def test_calls_callback_on_arbitrary_exception(
+        self,
+        stage,
+        mock_timer,
+        yes_timeout_op,
+        next_stage_raises_arbitrary_exception,
+        arbitrary_exception,
+    ):
+        stage.run_op(yes_timeout_op)
+        assert_callback_failed(op=yes_timeout_op, error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Does not call the original callback when the op fails with an an arbitrary base exception"
+    )
+    def test_calls_callback_on_arbitrary_base_exception(
+        self,
+        stage,
+        mock_timer,
+        yes_timeout_op,
+        next_stage_raises_arbitrary_base_exception,
+        arbitrary_base_exception,
+    ):
+        callback = yes_timeout_op.callback  # capture before run_op because it changes inside run_op
+        with pytest.raises(arbitrary_base_exception.__class__):
+            stage.run_op(yes_timeout_op)
+        assert callback.call_count == 0
+
+    @pytest.mark.it("Calls the original callback with a PipelineTimeoutError when the op times out")
+    def test_calls_callback_on_timeout(self, stage, mock_timer, yes_timeout_op):
+        stage.run_op(yes_timeout_op)
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        assert_callback_failed(op=yes_timeout_op, error=pipeline_exceptions.PipelineTimeoutError)
+
+
+"""
+A note on terms in the RetryStage tests:
+    No-retry ops are ops that will never be retried.
+    Yes-retry ops are ops that might be retired, depending on the error.
+    Retry errors are errors that cause a retry for yes-retry ops
+    Arbitrary errors will never cause a retry
+"""
+
+retry_intervals = {
+    pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
+    pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
+}
+yes_retry_ops = list(retry_intervals.keys())
+no_retry_ops = all_except(all_common_ops, yes_retry_ops)
+retry_errors = [pipeline_exceptions.PipelineTimeoutError]
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    cls=pipeline_stages_base.RetryStage,
+    module=this_module,
+    all_ops=all_common_ops,
+    handled_ops=[],
+    all_events=all_common_events,
+    handled_events=[],
+    extra_initializer_defaults={"retry_intervals": retry_intervals, "ops_waiting_to_retry": []},
+)
+
+
+class RetryStageTestOpSend(object):
+    """
+    Tests for RetryStage to verify that ops get sent down
+    """
+
+    @pytest.fixture(params=no_retry_ops)
+    def no_retry_op(self, request, mocker):
+        op = make_mock_op_or_event(request.param)
+        op.callback = mocker.MagicMock()
+        return op
+
+    @pytest.fixture(params=yes_retry_ops)
+    def yes_retry_op(self, request, mocker):
+        op = make_mock_op_or_event(request.param)
+        op.callback = mocker.MagicMock()
+        return op
+
+    @pytest.mark.it("Sends ops that don't need retry to the next stage")
+    def test_sends_no_retry_op_down(self, stage, no_retry_op):
+        stage.run_op(no_retry_op)
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == no_retry_op
+
+    @pytest.mark.it("Sends ops that do need retry to the next stage")
+    def test_sends_yes_retry_op_down(self, stage, yes_retry_op):
+        stage.run_op(yes_retry_op)
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == yes_retry_op
+
+
+class RetryStageTestNoRetryOpCallback(object):
+    """
+    Tests for RetryStage for callbacks with no-retry ops.
+    """
+
+    @pytest.fixture(params=retry_errors)
+    def retry_error(self, request):
+        return request.param()
+
+    @pytest.mark.it(
+        "Calls the op callback with no error when an op that doesn't need retry succeeds"
+    )
+    def test_calls_callback_on_no_retry_op_success(self, stage, no_retry_op, next_stage_succeeds):
+        stage.run_op(no_retry_op)
+        assert_callback_succeeded(op=no_retry_op)
+
+    @pytest.mark.it(
+        "Calls the op callback with the correct error when an op that doesn't need retry fail with an arbitrary error"
+    )
+    def test_calls_callback_on_no_retry_op_arbitrary_exception(
+        self, stage, no_retry_op, next_stage_raises_arbitrary_exception, arbitrary_exception
+    ):
+        stage.run_op(no_retry_op)
+        assert_callback_failed(op=no_retry_op, error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Calls the op callback with the correct error when an op that doesn't need retry fail with a retry error"
+    )
+    def test_calls_callback_on_no_retry_op_retry_error(self, stage, no_retry_op, retry_error):
+        stage.run_op(no_retry_op)
+        stage.next._complete_op(op=no_retry_op, error=retry_error)
+        assert_callback_failed(op=no_retry_op, error=retry_error)
+
+
+class RetryStageTestNoRetryOpSetTimer(object):
+    """
+    Tests for RetryStage for not setting a timer for no-retry ops
+    """
+
+    @pytest.mark.it("Does not set a retry timer when an op that doesn't need retry succeeds")
+    def test_no_timer_on_no_retry_op_success(
+        self, stage, no_retry_op, next_stage_succeeds, mock_timer
+    ):
+        stage.run_op(no_retry_op)
+        assert mock_timer.call_count == 0
+
+    @pytest.mark.it(
+        "Does not set a retry timer when an op that doesn't need retry fail with an arbitrary error"
+    )
+    def test_no_timer_on_no_retry_op_arbitrary_exception(
+        self, stage, no_retry_op, next_stage_raises_arbitrary_exception, mock_timer
+    ):
+        stage.run_op(no_retry_op)
+        assert mock_timer.call_count == 0
+
+    @pytest.mark.it(
+        "Does not set a retry timer when an op that doesn't need retry fail with a retry error"
+    )
+    def test_no_timer_on_no_retry_op_retry_error(self, stage, no_retry_op, retry_error, mock_timer):
+        stage.run_op(no_retry_op)
+        stage.next._complete_op(op=no_retry_op, error=retry_error)
+        assert mock_timer.call_count == 0
+
+
+class RetryStageTestYesRetryOpCallback(object):
+    """
+    Tests for RetryStage for callbacks with yes-retry ops
+    """
+
+    @pytest.mark.it("Calls the op callback with no error when an op that need retry succeeds")
+    def test_callback_on_yes_retry_op_success(self, stage, yes_retry_op, next_stage_succeeds):
+        stage.run_op(yes_retry_op)
+        assert_callback_succeeded(op=yes_retry_op)
+
+    @pytest.mark.it(
+        "Calls the op callback with error when an op that need retry fails with an arbitrary error"
+    )
+    def test_callback_on_yes_retry_op_arbitrary_exception(
+        self, stage, yes_retry_op, next_stage_raises_arbitrary_exception, arbitrary_exception
+    ):
+        stage.run_op(yes_retry_op)
+        assert_callback_failed(op=yes_retry_op, error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Does not call the op callback when an op that need retry fail with a retry error"
+    )
+    def test_no_callback_on_yes_retry_op_retry_error(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert yes_retry_op.callback.call_count == 0
+
+
+class RetryStageTestYesRetryOpSetTimer(object):
+    """
+    Tests for RetryStage for setting or not setting timers for yes-retry ops
+    """
+
+    @pytest.mark.it("Does not set a retry timer when an op that need retry succeeds")
+    def test_no_timer_on_yes_retry_op_success(
+        self, stage, yes_retry_op, next_stage_succeeds, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        assert mock_timer.call_count == 0
+
+    @pytest.mark.it(
+        "Does not set a retry timer when an op that need retry fail with an arbitrary error"
+    )
+    def test_no_timer_on_yes_retry_op_arbitrary_exception(
+        self, stage, yes_retry_op, next_stage_raises_arbitrary_exception, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        assert mock_timer.call_count == 0
+
+    @pytest.mark.it("Sets a retry timer when an op that need retry fail with retry error")
+    def test_yes_timer_on_yes_retry_op_retry_error(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert mock_timer.call_count == 1
+
+    @pytest.mark.it("Uses the correct timout when setting a retry timer")
+    def test_uses_correct_timer_interval(self, stage, yes_retry_op, retry_error, mock_timer):
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert mock_timer.call_args[0][0] == retry_intervals[yes_retry_op.__class__]
+
+
+class RetryStageTestResubmitOp(object):
+    """
+    Tests for RetryStage for resubmiting ops for retry
+    """
+
+    @pytest.mark.it("Retries an op that needs retry after the retry interval elapses")
+    def test_resubmits_after_retry_interval_elapses(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        assert stage.next.run_op.call_count == 1
+        stage.next.run_op.reset_mock()
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        assert stage.next.run_op.call_count == 1
+        assert stage.next.run_op.call_args[0][0] == yes_retry_op
+
+    @pytest.mark.it("Clears the complete attribute on the op when retrying")
+    def test_clears_complete_attribute_before_resubmitting(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert yes_retry_op.completed
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        assert not yes_retry_op.completed
+
+    @pytest.mark.it("Clears the retry timer attribute on the op when retrying")
+    def test_clears_retry_timer_before_retrying(self, stage, yes_retry_op, retry_error, mock_timer):
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert yes_retry_op.retry_timer
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        assert getattr(yes_retry_op, "retry_timer", None) is None
+
+
+class RetryStageTestResubmitedOpCompletion(object):
+    """
+    Tests for RetryStage for resubmitted op completion
+    """
+
+    @pytest.mark.it("Calls the original callback with success when the retried op succeeds")
+    def test_calls_callback_on_retried_op_success(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        op_callback = yes_retry_op.callback
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        assert op_callback.call_count == 0
+        stage.next._complete_op(op=yes_retry_op)
+        assert yes_retry_op.callback == op_callback
+        assert_callback_succeeded(op=yes_retry_op)
+
+    @pytest.mark.it(
+        "Calls the original callback with error when the retried op compltes with an arbitrary error"
+    )
+    def test_calls_callback_on_retried_op_arbitrary_exception(
+        self, stage, yes_retry_op, retry_error, mock_timer, arbitrary_exception, mocker
+    ):
+
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        stage.next._complete_op(op=yes_retry_op, error=arbitrary_exception)
+        assert_callback_failed(op=yes_retry_op, error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Does not calls the original callback with error when the retried op compltes with an retry error"
+    )
+    def test_no_callback_on_retried_op_retry_error(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        op_callback = yes_retry_op.callback
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert op_callback.call_count == 0
+
+    @pytest.mark.it("Sets a new retry timer error when the retried op compltes with an retry error")
+    def test_sets_timer_on_retried_op_retry_error(
+        self, stage, yes_retry_op, retry_error, mock_timer
+    ):
+        stage.run_op(yes_retry_op)
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert mock_timer.call_count == 1
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
+        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        assert mock_timer.call_count == 2
+
+
+@pytest.mark.describe("RetryStage - run_op()")
+class TestRetryStageRunOp(
+    StageTestBase,
+    RetryStageTestOpSend,
+    RetryStageTestNoRetryOpCallback,
+    RetryStageTestNoRetryOpSetTimer,
+    RetryStageTestYesRetryOpCallback,
+    RetryStageTestYesRetryOpSetTimer,
+    RetryStageTestResubmitOp,
+    RetryStageTestResubmitedOpCompletion,
+):
+    @pytest.fixture
+    def stage(self):
+        return pipeline_stages_base.RetryStage()
