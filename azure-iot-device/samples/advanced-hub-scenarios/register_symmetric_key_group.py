@@ -20,6 +20,12 @@ master_symmetric_key = os.getenv("PROVISIONING_MASTER_SYMMETRIC_KEY")
 
 
 def derive_device_key():
+    """
+    The unique registration ID and the group master key should be encoded into "utf-8"
+    After this the encoded group master key must be used to compute an HMAC-SHA256 of the encoded registration ID.
+    Finally the result must be converted into Base64 format.
+    The device key is the "utf-8" decoding of the above result.
+    """
     message = registration_id.encode("utf-8")
     signing_key = base64.b64decode(master_symmetric_key.encode("utf-8"))
     signed_hmac = hmac.HMAC(signing_key, message, hashlib.sha256)
