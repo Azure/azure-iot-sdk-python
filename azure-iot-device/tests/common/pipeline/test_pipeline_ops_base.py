@@ -16,9 +16,9 @@ logging.basicConfig(level=logging.DEBUG)
 @pytest.mark.describe("PipelineOperation")
 class TestPipelineOperation(object):
     @pytest.mark.it("Can't be instantiated")
-    def test_instantiate(self):
+    def test_instantiate(self, mocker):
         with pytest.raises(TypeError):
-            pipeline_ops_base.PipelineOperation()
+            pipeline_ops_base.PipelineOperation(mocker.MagicMock())
 
 
 pipeline_data_object_test.add_operation_test(

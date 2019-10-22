@@ -99,6 +99,38 @@ class StageTestBase(object):
         stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
 
+class StageRunOpTestBase(StageTestBase):
+    """All PipelineStage .run_op() tests should inherit from this base class.
+    It provides basic tests for dealing with exceptions.
+    """
+
+    @pytest.mark.it(
+        "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
+    )
+    def test_completes_operation_with_error(self, mocker, stage, arbitrary_exception, arbitrary_op):
+        stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
+
+        stage.run_op(arbitrary_op)
+        assert_callback_failed(arbitrary_op, error=arbitrary_exception)
+
+        # assert arbitrary_op.callback.call_count == 1
+        # assert arbitrary_op.callback.call_args == mocker.call(
+        #     arbitrary_op, error=arbitrary_exception
+        # )
+
+    @pytest.mark.it(
+        "Allows any BaseException that was raised during execution of the operation to propogate"
+    )
+    def test_base_exception_propogates(self, mocker, stage, arbitrary_base_exception):
+        execution_exception = arbitrary_base_exception
+        mock_op = mocker.MagicMock()
+        stage._execute_op = mocker.MagicMock(side_effect=execution_exception)
+
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            stage.run_op(mock_op)
+        assert e_info.value is arbitrary_base_exception
+
+
 def assert_callback_succeeded(op, callback=None):
     if not callback:
         callback = op.callback

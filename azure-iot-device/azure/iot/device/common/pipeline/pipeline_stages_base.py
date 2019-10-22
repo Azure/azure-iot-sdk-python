@@ -538,7 +538,7 @@ class SerializeConnectOpsStage(PipelineStage):
             self.send_op_down_and_intercept_return(op, intercepted_return=on_operation_complete)
 
         else:
-            self.send_op_down(op=op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):

@@ -15,6 +15,7 @@ from tests.common.pipeline.helpers import (
     get_arg_count,
     add_mock_method_waiter,
     StageTestBase,
+    StageRunOpTestBase,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
@@ -74,7 +75,7 @@ def _add_unknown_ops_tests(cls, module, all_ops, handled_ops):
     unknown_ops = all_except(all_items=all_ops, items_to_exclude=handled_ops)
 
     @pytest.mark.describe("{} - .run_op() -- unknown and unhandled operations".format(cls.__name__))
-    class LocalTestObject(StageTestBase):
+    class LocalTestObject(StageRunOpTestBase):
         @pytest.fixture
         def op(self, op_cls, mocker):
             op = make_mock_op_or_event(op_cls)
@@ -89,45 +90,38 @@ def _add_unknown_ops_tests(cls, module, all_ops, handled_ops):
             else:
                 return cls()
 
-        @pytest.mark.it("Passes unknown operation to next stage")
+        @pytest.mark.it("Passes unknown operation down to the next stage")
         @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_to_next_stage(self, op_cls, op, stage):
+        def test_passes_op_to_next_stage(self, mocker, op_cls, op, stage):
+            mocker.spy(stage, "send_op_down")
             stage.run_op(op)
-            assert stage.next.run_op.call_count == 1
-            assert stage.next.run_op.call_args[0][0] == op
+            assert stage.send_op_down.call_count == 1
+            assert stage.send_op_down.call_args == mocker.call(op)
 
-        @pytest.mark.it("Fails unknown operation if there is no next stage")
-        @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_with_no_next_stage(self, op_cls, op, stage):
-            stage.next = None
-            stage.run_op(op)
-            op.wait_for_callback_to_be_called()
-            assert_callback_failed(op=op)
+        # @pytest.mark.it("Catches Exceptions raised when passing unknown operation to next stage")
+        # @pytest.mark.parametrize("op_cls", unknown_ops)
+        # def test_passes_op_to_next_stage_which_throws_exception(
+        #     self, op_cls, op, stage, next_stage_raises_arbitrary_exception, arbitrary_exception
+        # ):
+        #     stage.run_op(op)
+        #     op.wait_for_callback_to_be_called()
+        #     assert_callback_failed(op=op, error=arbitrary_exception)
 
-        @pytest.mark.it("Catches Exceptions raised when passing unknown operation to next stage")
-        @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_to_next_stage_which_throws_exception(
-            self, op_cls, op, stage, next_stage_raises_arbitrary_exception, arbitrary_exception
-        ):
-            stage.run_op(op)
-            op.wait_for_callback_to_be_called()
-            assert_callback_failed(op=op, error=arbitrary_exception)
-
-        @pytest.mark.it(
-            "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
-        )
-        @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_to_next_stage_which_throws_base_exception(
-            self,
-            op_cls,
-            op,
-            stage,
-            next_stage_raises_arbitrary_base_exception,
-            arbitrary_base_exception,
-        ):
-            with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-                stage.run_op(op)
-            assert e_info.value is arbitrary_base_exception
+        # @pytest.mark.it(
+        #     "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
+        # )
+        # @pytest.mark.parametrize("op_cls", unknown_ops)
+        # def test_passes_op_to_next_stage_which_throws_base_exception(
+        #     self,
+        #     op_cls,
+        #     op,
+        #     stage,
+        #     next_stage_raises_arbitrary_base_exception,
+        #     arbitrary_base_exception,
+        # ):
+        #     with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+        #         stage.run_op(op)
+        #     assert e_info.value is arbitrary_base_exception
 
     setattr(module, "Test{}UnknownOps".format(cls.__name__), LocalTestObject)
 
