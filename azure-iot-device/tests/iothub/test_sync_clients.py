@@ -131,7 +131,7 @@ class SharedClientCreateFromConnectionStringTests(object):
         ).parse.return_value
 
         mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+            "azure.iot.device.iothub.abstract_clients.config.IoTHubPipelineConfig"
         )
 
         args = (connection_string,)
@@ -258,7 +258,7 @@ class SharedClientCreateFromSharedAccessSignature(object):
         ).parse.return_value
 
         mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+            "azure.iot.device.iothub.abstract_clients.config.IoTHubPipelineConfig"
         )
 
         kwargs = {}
@@ -1160,7 +1160,7 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
         ).return_value
 
         mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+            "azure.iot.device.iothub.abstract_clients.config.IoTHubPipelineConfig"
         )
 
         kwargs = {}
@@ -1504,7 +1504,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         ).return_value
         mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+            "azure.iot.device.iothub.abstract_clients.config.IoTHubPipelineConfig"
         )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
@@ -1689,7 +1689,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
         mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+            "azure.iot.device.iothub.abstract_clients.config.IoTHubPipelineConfig"
         )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
@@ -1847,7 +1847,7 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
         ).return_value
 
         mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.config.BasePipelineConfig"
+            "azure.iot.device.iothub.abstract_clients.config.IoTHubPipelineConfig"
         )
 
         kwargs = {}

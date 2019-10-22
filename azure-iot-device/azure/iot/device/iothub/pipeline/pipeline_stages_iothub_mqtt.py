@@ -55,11 +55,17 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 ("api-version", pkg_constant.IOTHUB_API_VERSION),
                 ("DeviceClientType", pkg_constant.USER_AGENT),
             ]
-            username = "{hostname}/{client_id}/?{query_params}".format(
-                hostname=op.hostname,
-                client_id=client_id,
-                query_params=urllib.parse.urlencode(query_param_seq),
-            )
+            # According to the Azure IoT Hub User Agent Spec for MQTT:
+            # Append entire string to username field in CONNECT packet
+            # The spec also defines defines a custom user agent that the user can set.
+            if self.pipeline_root.pipeline_configuration.product_info:
+                username = self.pipeline_root.pipeline_configuration.product_info
+            else:
+                username = "{hostname}/{client_id}/?{query_params}".format(
+                    hostname=op.hostname,
+                    client_id=client_id,
+                    query_params=urllib.parse.urlencode(query_param_seq),
+                )
 
             if op.gateway_hostname:
                 hostname = op.gateway_hostname

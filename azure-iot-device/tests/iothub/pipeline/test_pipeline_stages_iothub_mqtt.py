@@ -36,6 +36,7 @@ from tests.common.pipeline.helpers import (
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
+from azure.iot.device.iothub import config
 import uuid
 
 logging.basicConfig(level=logging.DEBUG)
@@ -225,6 +226,42 @@ def set_connection_args_for_module(set_connection_args):
 
 
 class IoTHubMQTTConverterStageTestBase(StageTestBase):
+
+    # This is initially defined in helpers.py under the common pipeline tests,
+    # However that definition is for IoTHub specifically, because we need to
+    # make sure that root is configured using the IoTHubPipelineConfig.
+    # YMTODO: The comment below states that it's not guaranteed to be called
+    # before other fixtures run. Because of that, maybe I need to do something different...
+    @pytest.fixture(autouse=True)
+    def stage_base_configuration(self, stage, mocker):
+        """
+        This fixture configures the stage for testing.  This is automatically
+        applied, so it will be called before your test runs, but it's not
+        guaranteed to be called before any other fixtures run.  If you have
+        a fixture that needs to rely on the stage being configured, then
+        you have to add a manual dependency inside that fixture (like we do in
+        next_stage_succeeds_all_ops below)
+        """
+
+        class NextStageForTest(pipeline_stages_base.PipelineStage):
+            def _execute_op(self, op):
+                pass
+
+        next = NextStageForTest()
+        root = (
+            pipeline_stages_base.PipelineRootStage(config.IoTHubPipelineConfig())
+            .append_stage(stage)
+            .append_stage(next)
+        )
+
+        mocker.spy(stage, "_execute_op")
+        mocker.spy(stage, "run_op")
+
+        mocker.spy(next, "_execute_op")
+        mocker.spy(next, "run_op")
+
+        return root
+
     @pytest.fixture
     def stage(self):
         return pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage()
