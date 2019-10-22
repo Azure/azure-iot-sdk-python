@@ -26,6 +26,14 @@ class OperationError(PipelineException):
     pass
 
 
+class PipelineTimeoutError(PipelineException):
+    """
+    Pipeline operation timed out
+    """
+
+    pass
+
+
 class PipelineError(PipelineException):
     """Error in Pipeline"""
 
