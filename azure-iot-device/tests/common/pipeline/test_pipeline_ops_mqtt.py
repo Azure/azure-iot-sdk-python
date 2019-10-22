@@ -27,11 +27,11 @@ pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_mqtt.MQTTSubscribeOperation,
     module=this_module,
     positional_arguments=["topic", "callback"],
-    extra_defaults={"needs_connection": True},
+    extra_defaults={"needs_connection": True, "retry_timer": None, "timeout_timer": None},
 )
 pipeline_data_object_test.add_operation_test(
     cls=pipeline_ops_mqtt.MQTTUnsubscribeOperation,
     module=this_module,
     positional_arguments=["topic", "callback"],
-    extra_defaults={"needs_connection": True},
+    extra_defaults={"needs_connection": True, "retry_timer": None, "timeout_timer": None},
 )
