@@ -4,6 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class BasePipelineConfig(object):
     """A base class for storing all configurations/options shared across the Azure IoT Python Device Client Library.

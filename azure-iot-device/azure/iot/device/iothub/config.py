@@ -18,12 +18,12 @@ class IoTHubPipelineConfig(BasePipelineConfig):
 
     super
 
-    def __init__(self, product_info=None, **kwargs):
+    def __init__(self, product_info="", **kwargs):
         """Initializer for IoTHubPipelineConfig which passes all unrecognized keyword-args down to BasePipelineConfig
         to be evaluated. This stacked options setting is to allow for unique configuration options to exist between the
         IoTHub Client and the Provisioning Client, while maintaining a base configuration class with shared config options.
 
-        :param string product_info: A custom identification string for the type of device connecting to Azure IoT Hub.
+        :param str product_info: A custom identification string for the type of device connecting to Azure IoT Hub.
         """
         super(IoTHubPipelineConfig, self).__init__(**kwargs)
         self.product_info = product_info

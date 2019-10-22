@@ -53,7 +53,9 @@ class AbstractIoTHubClient(object):
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
         :param str ca_cert: The trusted certificate chain. Only necessary when using a
             connection string with a GatewayHostName parameter.
-        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
+
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
+        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
 
         :raises: ValueError if given an invalid connection_string.
 
@@ -75,7 +77,9 @@ class AbstractIoTHubClient(object):
         This method of instantiation is not recommended for general usage.
 
         :param str sas_token: The string representation of a SAS token.
-        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
+
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
+        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
 
         :raises: ValueError if given an invalid sas_token
 
@@ -134,7 +138,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
-        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
+
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
+        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
@@ -171,7 +177,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         This method can only be run from inside an IoT Edge container, or in a debugging
         environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
 
-        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
+        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid
@@ -259,7 +266,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type x509: :class:`azure.iot.device.X509`
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
         :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
-        :param bool websockets: Default is False. Set to true if using MQTT over websockets.
+
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
+        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """

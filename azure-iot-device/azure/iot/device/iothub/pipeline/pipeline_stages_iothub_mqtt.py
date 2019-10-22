@@ -51,21 +51,20 @@ class IoTHubMQTTConverterStage(PipelineStage):
             else:
                 client_id = op.device_id
 
-            query_param_seq = [
-                ("api-version", pkg_constant.IOTHUB_API_VERSION),
-                ("DeviceClientType", pkg_constant.USER_AGENT),
-            ]
-            # According to the Azure IoT Hub User Agent Spec for MQTT:
-            # Append entire string to username field in CONNECT packet
-            # The spec also defines defines a custom user agent that the user can set.
-            if self.pipeline_root.pipeline_configuration.product_info:
-                username = self.pipeline_root.pipeline_configuration.product_info
-            else:
-                username = "{hostname}/{client_id}/?{query_params}".format(
-                    hostname=op.hostname,
-                    client_id=client_id,
-                    query_params=urllib.parse.urlencode(query_param_seq),
-                )
+            # For MQTT, the entire user agent string should be appended to the username field in the connect packet
+            # For example, the username may look like this without custom parameters:
+            # yosephsandboxhub.azure-devices.net/alpha/?api-version=2018-06-30&DeviceClientType=py-azure-iot-device%2F2.0.0-preview.12
+            # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
+            query_param = "api-version={api_version}&DeviceClientType={python_user_agent}{custom_product_info}".format(
+                api_version=pkg_constant.IOTHUB_API_VERSION,
+                python_user_agent=pkg_constant.USER_AGENT,
+                custom_product_info=self.pipeline_root.pipeline_configuration.product_info,
+            )
+            username = "{hostname}/{client_id}/?{query_params}".format(
+                hostname=op.hostname,
+                client_id=client_id,
+                query_params=urllib.parse.quote(query_param),
+            )
 
             if op.gateway_hostname:
                 hostname = op.gateway_hostname
