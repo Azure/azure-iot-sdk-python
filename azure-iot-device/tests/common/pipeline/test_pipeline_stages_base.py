@@ -14,8 +14,8 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
     pipeline_events_base,
+    pipeline_exceptions,
 )
-from azure.iot.device.common import transport_exceptions
 from tests.common.pipeline.helpers import (
     assert_callback_failed,
     assert_callback_succeeded,
@@ -802,14 +802,14 @@ class TestTimeoutStageRunOp(StageTestBase):
         stage.run_op(yes_timeout_op)
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
 
-    @pytest.mark.it("Clears the timer when the op raises an arbitrary exception")
+    @pytest.mark.it("Clears the timer when the op fails with an arbitrary exception")
     def test_clears_timer_on_arbitrary_exception(
         self, stage, mock_timer, yes_timeout_op, next_stage_raises_arbitrary_exception
     ):
         stage.run_op(yes_timeout_op)
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
 
-    @pytest.mark.it("Does not clear the timer when the op raises an arbitrary base exception")
+    @pytest.mark.it("Does not clear the timer when the op fails with an arbitrary base exception")
     def test_doesnt_clear_timer_on_arbitrary_base_exception(
         self,
         stage,
@@ -838,7 +838,7 @@ class TestTimeoutStageRunOp(StageTestBase):
         assert_callback_succeeded(op=yes_timeout_op)
 
     @pytest.mark.it(
-        "Calls the original callback with error when the op raises an arbitrary exception"
+        "Calls the original callback with error when the op fails with an arbitrary exception"
     )
     def test_calls_callback_on_arbitrary_exception(
         self,
@@ -852,7 +852,7 @@ class TestTimeoutStageRunOp(StageTestBase):
         assert_callback_failed(op=yes_timeout_op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Does not call the original callback when the op raises an an arbitrary base exception"
+        "Does not call the original callback when the op fails with an an arbitrary base exception"
     )
     def test_calls_callback_on_arbitrary_base_exception(
         self,
@@ -872,7 +872,7 @@ class TestTimeoutStageRunOp(StageTestBase):
         stage.run_op(yes_timeout_op)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        assert_callback_failed(op=yes_timeout_op, error=transport_exceptions.PipelineTimeoutError)
+        assert_callback_failed(op=yes_timeout_op, error=pipeline_exceptions.PipelineTimeoutError)
 
 
 """
@@ -889,7 +889,7 @@ retry_intervals = {
 }
 yes_retry_ops = list(retry_intervals.keys())
 no_retry_ops = all_except(all_common_ops, yes_retry_ops)
-retry_errors = [transport_exceptions.PipelineTimeoutError]
+retry_errors = [pipeline_exceptions.PipelineTimeoutError]
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
     cls=pipeline_stages_base.RetryStage,
@@ -898,7 +898,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     handled_ops=[],
     all_events=all_common_events,
     handled_events=[],
-    extra_initializer_defaults={"retry_intervals": retry_intervals, "waiting_to_retry": []},
+    extra_initializer_defaults={"retry_intervals": retry_intervals, "ops_waiting_to_retry": []},
 )
 
 

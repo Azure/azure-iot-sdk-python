@@ -17,7 +17,8 @@ from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from .pipeline_flow import PipelineFlow
 from . import pipeline_thread
-from azure.iot.device.common import handle_exceptions, transport_exceptions
+from . import pipeline_exceptions
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
@@ -542,19 +543,16 @@ class TimeoutStage(PipelineStage):
     do with that error and act accordingly (either return the error to the user or
     retry).
 
-    This stage currently assumes that all timed out operatoins are just "lost".
+    This stage currently assumes that all timed out operation are just "lost".
     It does not attempt to cancel the operation, as Paho doesn't have a way to
     cancel an operation, and with QOS=1, sending a pub or sub twice is not
     catastrophic.
-
-    The long term intention of this stage is that the timeout intervals themselves
-    will eventually come from a retry policy.
 
     Also, as a long-term plan, the operations that need to be watched for timeout
     will become an initialization parameter for this stage so that differet
     instances of this stage can watch for timeouts on different operations.
     This will be done because we want a lower-level timeout stage which can watch
-    for timeouts at the MQTT level, and we want a higher- level timeout stage which
+    for timeouts at the MQTT level, and we want a higher-level timeout stage which
     can watch for timeouts at the iothub level.  In this way, an MQTT operation that
     times out can be retried as an MQTT operation and a higher-level IoTHub operation
     which times out can be retried as an IoTHub operation (which might necessitate
@@ -563,21 +561,16 @@ class TimeoutStage(PipelineStage):
 
     def __init__(self):
         super(TimeoutStage, self).__init__()
+        # use a fixed list and fixed intervals for now.  Later, this info will come in
+        # as an init param or a retry poicy
         self.timeout_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
         }
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _should_watch_for_timeout(self, op):
-        """
-        Return True if this stage needs to put a timer on this operation
-        """
-        return op.__class__ in self.timeout_intervals
-
-    @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
-        if self._should_watch_for_timeout(op):
+        if type(op) in self.timeout_intervals:
             # Create a timer to watch for operation timeout on this op and attach it
             # to the op.
             self_weakref = weakref.ref(self)
@@ -588,13 +581,13 @@ class TimeoutStage(PipelineStage):
                 logger.info("{}({}): returning timeout error".format(this.name, op.name))
                 this._complete_op(
                     op,
-                    transport_exceptions.PipelineTimeoutError(
+                    pipeline_exceptions.PipelineTimeoutError(
                         "operation timed out before protocol client could respond"
                     ),
                 )
 
             logger.debug("{}({}): Creating timer".format(self.name, op.name))
-            op.timeout_timer = Timer(self.timeout_intervals[op.__class__], on_timeout)
+            op.timeout_timer = Timer(self.timeout_intervals[type(op)], on_timeout)
             op.timeout_timer.start()
 
             # Send the op down, but intercept the return of the op so we can
@@ -609,7 +602,7 @@ class TimeoutStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _on_intercepted_return(self, op, error):
         # When an op comes back, delete the timer and pass it right up.
-        del op.timeout_timer
+        op.timeout_timer = None
         logger.debug("{}({}): Op completed".format(self.name, op.name))
         self._send_completed_op_up(op, error)
 
@@ -619,15 +612,6 @@ class RetryStage(PipelineStage):
     The purpose of the retry stage is to watch specific operations for specific
     errors and retry the operations as appropriate.
 
-    This stage is currently very specific as it watches a hardcoded set of
-    operations for a hardcoded set of errors and retries after a hardcoded
-    period of time.
-
-    Like the TimeoutStage, the hardcoded nature of this stage will eventually
-    be provided by initialization parameters, and there will likely be two
-    retry stages which can handle IoTHub and MQTT retries at different levels
-    of the pipeline.
-
     Unlike the TimeoutStage, this stage will never need to worry about cancelling
     failed operations.  When an operation is retried at this stage, it is already
     considered "failed", so no cancellation needs to be done.
@@ -635,20 +619,25 @@ class RetryStage(PipelineStage):
 
     def __init__(self):
         super(RetryStage, self).__init__()
+        # Retry intervals are hardcoded for now. Later, they come in as an
+        # init param, probably via retry policy.
         self.retry_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
         }
-        self.waiting_to_retry = []
+        self.ops_waiting_to_retry = []
 
     @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
         """
         Send all ops down and intercept their return to "watch for retry"
         """
-        self._send_op_down_and_intercept_return(
-            op=op, intercepted_return=self._on_intercepted_return
-        )
+        if self._should_watch_for_retry(op):
+            self._send_op_down_and_intercept_return(
+                op=op, intercepted_return=self._on_intercepted_return
+            )
+        else:
+            self._send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _should_watch_for_retry(self, op):
@@ -656,7 +645,7 @@ class RetryStage(PipelineStage):
         Return True if this op needs to be watched for retry.  This can be
         called before the op runs.
         """
-        return op.__class__ in self.retry_intervals
+        return type(op) in self.retry_intervals
 
     @pipeline_thread.runs_on_pipeline_thread
     def _should_retry(self, op, error):
@@ -666,7 +655,7 @@ class RetryStage(PipelineStage):
         """
         if error:
             if self._should_watch_for_retry(op):
-                if error.__class__ == transport_exceptions.PipelineTimeoutError:
+                if type(error) == pipeline_exceptions.PipelineTimeoutError:
                     return True
         return False
 
@@ -684,14 +673,14 @@ class RetryStage(PipelineStage):
             def do_retry():
                 this = self_weakref()
                 logger.info("{}({}): retrying".format(this.name, op.name))
-                del op.retry_timer
+                op.retry_timer = None
                 op.completed = False
-                this.waiting_to_retry.remove(op)
+                this.ops_waiting_to_retry.remove(op)
                 # Don't just send it down directly.  Instead, go through _execute_op so we get
                 # retry functionality this time too
                 this._execute_op(op)
 
-            interval = self.retry_intervals[op.__class__]
+            interval = self.retry_intervals[type(op)]
             logger.warning(
                 "{}({}): Op needs retry with interval {} because of {}.  Setting timer.".format(
                     self.name, op.name, interval, error
@@ -699,11 +688,11 @@ class RetryStage(PipelineStage):
             )
 
             # if we don't keep track of this op, it might get collected.
-            self.waiting_to_retry.append(op)
-            op.retry_timer = Timer(self.retry_intervals[op.__class__], do_retry)
+            self.ops_waiting_to_retry.append(op)
+            op.retry_timer = Timer(self.retry_intervals[type(op)], do_retry)
             op.retry_timer.start()
 
         else:
-            if getattr(op, "retry_timer", None):
-                del op.retry_timer
+            if op.retry_timer:
+                op.retry_timer = None
             self._send_completed_op_up(op, error)
