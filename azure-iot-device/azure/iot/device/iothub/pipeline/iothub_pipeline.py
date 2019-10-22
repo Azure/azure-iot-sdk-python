@@ -48,12 +48,16 @@ class IoTHubPipeline(object):
         self.on_method_request_received = None
         self.on_twin_patch_received = None
 
+        # Currently a single timeout stage and a single retry stage for MQTT retry only.
+        # Later, a higher level timeout and a higher level retry stage.
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage())
+            .append_stage(pipeline_stages_base.RetryStage())
+            .append_stage(pipeline_stages_base.TimeoutStage())
             .append_stage(pipeline_stages_base.EnsureConnectionStage())
             .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())

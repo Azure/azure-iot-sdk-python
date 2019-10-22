@@ -7,6 +7,7 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
+import sys
 import threading
 import traceback
 import weakref
@@ -122,7 +123,7 @@ class MQTTTransport(object):
 
         # Instaniate the client
         if self._websockets:
-            # MQTT Over Websockets
+            logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
                 client_id=self._client_id,
                 clean_session=False,
@@ -131,7 +132,7 @@ class MQTTTransport(object):
             )
             mqtt_client.ws_set_options(path="/$iothub/websocket")
         else:
-            # Standard MQTT
+            logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
                 client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
             )
@@ -178,6 +179,7 @@ class MQTTTransport(object):
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
+            logger.debug("".join(traceback.format_stack()))
 
             cause = None
             if rc:  # i.e. if there is an error
@@ -283,10 +285,12 @@ class MQTTTransport(object):
 
         try:
             if self._websockets:
+                logger.info("Connect using port 443 (websockets)")
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=443, keepalive=DEFAULT_KEEPALIVE
                 )
             else:
+                logger.info("Connect using port 8883 (TCP)")
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )

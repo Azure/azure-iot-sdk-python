@@ -22,6 +22,7 @@ from tests.common.pipeline.helpers import (
     all_common_ops,
     all_common_events,
     all_except,
+    StageTestBase,
 )
 from tests.common.pipeline import pipeline_stage_test
 
@@ -90,26 +91,6 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
         "_on_mqtt_disconnected",
     ],
 )
-
-
-@pytest.fixture
-def stage(mocker):
-    stage = pipeline_stages_mqtt.MQTTTransportStage()
-    root = pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
-
-    stage.previous = root
-    root.next = stage
-    stage.pipeline_root = root
-
-    mocker.spy(root, "handle_pipeline_event")
-    mocker.spy(root, "on_connected")
-    mocker.spy(root, "on_disconnected")
-
-    mocker.spy(stage, "_on_mqtt_connected")
-    mocker.spy(stage, "_on_mqtt_connection_failure")
-    mocker.spy(stage, "_on_mqtt_disconnected")
-
-    return stage
 
 
 @pytest.fixture
@@ -197,10 +178,34 @@ class RunOpTests(object):
         assert e_info.value is arbitrary_base_exception
 
 
+class MQTTTransportStageTestBase(StageTestBase):
+    """
+    Base class for all tests in this file.
+    """
+
+    @pytest.fixture
+    def stage(self):
+        return pipeline_stages_mqtt.MQTTTransportStage()
+
+    @pytest.fixture(autouse=True)
+    def fix_base_fixtures_for_these_tests(self, stage, stage_base_configuration, mocker):
+        # run this fixture after stage_base_configuration to further configure the pipeline for these tests
+
+        stage.next = None
+
+        mocker.spy(stage.pipeline_root, "handle_pipeline_event")
+        mocker.spy(stage.pipeline_root, "on_connected")
+        mocker.spy(stage.pipeline_root, "on_disconnected")
+
+        mocker.spy(stage, "_on_mqtt_connected")
+        mocker.spy(stage, "_on_mqtt_connection_failure")
+        mocker.spy(stage, "_on_mqtt_disconnected")
+
+
 @pytest.mark.describe(
     "MQTTTransportStage - .run_op() -- called with pipeline_ops_mqtt.SetMQTTConnectionArgsOperation"
 )
-class TestMQTTProviderRunOpWithSetConnectionArgs(RunOpTests):
+class TestMQTTTransportStageRunOpWithSetConnectionArgs(MQTTTransportStageTestBase, RunOpTests):
     @pytest.mark.it("Creates an MQTTTransport object")
     def test_creates_transport(self, stage, transport, op_set_connection_args):
         stage.run_op(op_set_connection_args)
@@ -263,7 +268,7 @@ class TestMQTTProviderRunOpWithSetConnectionArgs(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with ConnectOperation")
-class TestMQTTProviderExecuteOpWithConnect(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithConnect(MQTTTransportStageTestBase, RunOpTests):
     @pytest.mark.it("Sets the ConnectOperation as the pending connection operation")
     def test_sets_pending_operation(self, stage, create_transport, op_connect):
         stage.run_op(op_connect)
@@ -312,7 +317,7 @@ class TestMQTTProviderExecuteOpWithConnect(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with ReconnectOperation")
-class TestMQTTProviderExecuteOpWithReconnect(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithReconnect(MQTTTransportStageTestBase, RunOpTests):
     @pytest.mark.it("Sets the ReconnectOperation as the pending connection operation")
     def test_sets_pending_operation(self, stage, create_transport, op_reconnect):
         stage.run_op(op_reconnect)
@@ -363,7 +368,7 @@ class TestMQTTProviderExecuteOpWithReconnect(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with DisconnectOperation")
-class TestMQTTProviderExecuteOpWithDisconnect(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithDisconnect(MQTTTransportStageTestBase, RunOpTests):
     @pytest.mark.it("Sets the DisconnectOperation as the pending connection operation")
     def test_sets_pending_operation(self, stage, create_transport, op_disconnect):
         stage.run_op(op_disconnect)
@@ -414,7 +419,9 @@ class TestMQTTProviderExecuteOpWithDisconnect(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTPublishOperation")
-class TestMQTTProviderExecuteOpWithMQTTPublishOperation(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithMQTTPublishOperation(
+    MQTTTransportStageTestBase, RunOpTests
+):
     @pytest.mark.it("Does an MQTT publish via the MQTTTransport")
     def test_mqtt_publish(self, mocker, stage, create_transport, op_publish):
         stage.run_op(op_publish)
@@ -437,7 +444,9 @@ class TestMQTTProviderExecuteOpWithMQTTPublishOperation(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTSubscribeOperation")
-class TestMQTTProviderExecuteOpWithMQTTSubscribeOperation(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithMQTTSubscribeOperation(
+    MQTTTransportStageTestBase, RunOpTests
+):
     @pytest.mark.it("Does an MQTT subscribe via the MQTTTransport")
     def test_mqtt_publish(self, mocker, stage, create_transport, op_subscribe):
         stage.run_op(op_subscribe)
@@ -460,7 +469,9 @@ class TestMQTTProviderExecuteOpWithMQTTSubscribeOperation(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTUnsubscribeOperation")
-class TestMQTTProviderExecuteOpWithMQTTUnsubscribeOperation(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithMQTTUnsubscribeOperation(
+    MQTTTransportStageTestBase, RunOpTests
+):
     @pytest.mark.it("Does an MQTT unsubscribe via the MQTTTransport")
     def test_mqtt_publish(self, mocker, stage, create_transport, op_unsubscribe):
         stage.run_op(op_unsubscribe)
@@ -483,7 +494,9 @@ class TestMQTTProviderExecuteOpWithMQTTUnsubscribeOperation(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with UpdateSasTokenOperation")
-class TestMQTTProviderExecuteOpWithUpdateSasTokenoperation(RunOpTests):
+class TestMQTTTransportStageExecuteOpWithUpdateSasTokenoperation(
+    MQTTTransportStageTestBase, RunOpTests
+):
     @pytest.mark.it("Saves the token and completes immediately")
     def test_mqtt_publish(self, mocker, stage, create_transport):
         cb = mocker.MagicMock()
@@ -496,7 +509,7 @@ class TestMQTTProviderExecuteOpWithUpdateSasTokenoperation(RunOpTests):
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT message received")
-class TestMQTTProviderProtocolClientEvents(object):
+class TestMQTTTransportStageProtocolClientEvents(MQTTTransportStageTestBase):
     @pytest.mark.it("Fires an IncomingMQTTMessageEvent event for each MQTT message received")
     def test_incoming_message_handler(self, stage, create_transport, mocker):
         stage.transport.on_mqtt_message_received_handler(topic=fake_topic, payload=fake_payload)
@@ -513,7 +526,7 @@ class TestMQTTProviderProtocolClientEvents(object):
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT connected")
-class TestMQTTProviderOnConnected(object):
+class TestMQTTTransportStageOnConnected(MQTTTransportStageTestBase):
     @pytest.mark.it("Calls self.on_connected when the transport connected event fires")
     @pytest.mark.parametrize(
         "pending_connection_op",
@@ -571,7 +584,7 @@ class TestMQTTProviderOnConnected(object):
 
 
 @pytest.mark.describe("MQTTTarnsportStage - EVENT: MQTT connection failure")
-class TestMQTTProviderOnConnectionFailure(object):
+class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestBase):
     @pytest.mark.it(
         "Does not call self.on_connected when the transport connection failure event fires"
     )
@@ -653,7 +666,7 @@ class TestMQTTProviderOnConnectionFailure(object):
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT disconnected")
-class TestMQTTProviderOnDisconnected(object):
+class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
     @pytest.mark.it("Calls self.on_disconnected when the transport disconnected event fires")
     @pytest.mark.parametrize(
         "cause",

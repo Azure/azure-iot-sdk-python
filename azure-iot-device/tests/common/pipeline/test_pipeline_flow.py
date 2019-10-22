@@ -14,9 +14,9 @@ from azure.iot.device.common.pipeline import (
 )
 from azure.iot.device.common import handle_exceptions
 from tests.common.pipeline.helpers import (
-    make_mock_stage,
     assert_callback_failed,
     assert_callback_succeeded,
+    StageTestBase,
 )
 from .fixtures import FakeOperation
 
@@ -33,23 +33,18 @@ def apply_fake_pipeline_thread(fake_pipeline_thread):
     pass
 
 
-class MockPipelineStage(pipeline_stages_base.PipelineStage):
-    def _execute_op(self, op):
-        self._send_op_down(op)
+class PipelineFlowTestBase(StageTestBase):
+    @pytest.fixture
+    def stage(self):
+        class MockPipelineStage(pipeline_stages_base.PipelineStage):
+            def _execute_op(self, op):
+                self._send_op_down(op)
 
-
-@pytest.fixture
-def stage(mocker, arbitrary_exception, arbitrary_base_exception):
-    return make_mock_stage(
-        mocker=mocker,
-        stage_to_make=MockPipelineStage,
-        exc_to_raise=arbitrary_exception,
-        base_exc_to_raise=arbitrary_base_exception,
-    )
+        return MockPipelineStage()
 
 
 @pytest.mark.describe("PipelineFlow - ._send_worker_op_down()")
-class TestSendWorkerOpDown(object):
+class TestSendWorkerOpDown(PipelineFlowTestBase):
     @pytest.fixture
     def arbitrary_worker_op(self, mocker):
         op = FakeOperation(callback=mocker.MagicMock())
@@ -67,7 +62,6 @@ class TestSendWorkerOpDown(object):
         self, stage, arbitrary_op, arbitrary_worker_op
     ):
         callback = arbitrary_op.callback
-        arbitrary_worker_op.action = "pend"
 
         stage._send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
         assert callback.call_count == 0  # because arbitrary_worker_op is pending
@@ -77,15 +71,19 @@ class TestSendWorkerOpDown(object):
 
     @pytest.mark.it("Returns the worker op failure in the original op if worker op fails")
     def test_returns_worker_op_failure_in_original_op(
-        self, stage, arbitrary_op, arbitrary_worker_op, arbitrary_exception
+        self,
+        stage,
+        arbitrary_op,
+        arbitrary_worker_op,
+        arbitrary_exception,
+        next_stage_raises_arbitrary_exception,
     ):
-        arbitrary_worker_op.action = "fail"
         stage._send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
         assert_callback_failed(arbitrary_op, error=arbitrary_exception)
 
 
 @pytest.mark.describe("PipelineFlow - ._send_op_down()")
-class TestSendOpDown(object):
+class TestSendOpDown(PipelineFlowTestBase):
     @pytest.mark.it("Fails the op if there is no next stage")
     def test_fails_op_when_no_next_stage(self, stage, arbitrary_op):
         stage.next = None
@@ -100,7 +98,7 @@ class TestSendOpDown(object):
 
 
 @pytest.mark.describe("PipelineFlow - ._complete_op()")
-class TestCompleteOp(object):
+class TestCompleteOp(PipelineFlowTestBase):
     @pytest.mark.it("Calls the op callback on success")
     def test_calls_callback_on_success(self, stage, arbitrary_op):
         stage._complete_op(arbitrary_op)
@@ -154,7 +152,7 @@ class TestCompleteOp(object):
 
 
 @pytest.mark.describe("PipelineFlow - ._send_completed_op_up()")
-class TestSendCompletedOpUp(object):
+class TestSendCompletedOpUp(PipelineFlowTestBase):
     @pytest.mark.it("Calls the op callback on success")
     def test_calls_callback_on_success(self, stage, arbitrary_op):
         arbitrary_op.completed = True
@@ -199,7 +197,7 @@ class TestSendCompletedOpUp(object):
 
 
 @pytest.mark.describe("PipelineFlow - ._send_op_down_and_intercept_return()")
-class TestSendOpDownAndInterceptReturn(object):
+class TestSendOpDownAndInterceptReturn(PipelineFlowTestBase):
     @pytest.mark.it("Calls _send_op_down to send the op down")
     def test_sends_op_down(self, stage, arbitrary_op, mocker):
         intercepted_return = mocker.MagicMock()
@@ -209,16 +207,22 @@ class TestSendOpDownAndInterceptReturn(object):
         assert stage._send_op_down.call_args == mocker.call(arbitrary_op)
 
     @pytest.mark.it("Calls the intercepted_return function when the op succeeds")
-    def test_calls_intercepted_return_on_op_success(self, stage, arbitrary_op, mocker):
+    def test_calls_intercepted_return_on_op_success(
+        self, stage, arbitrary_op, mocker, next_stage_succeeds
+    ):
         intercepted_return = mocker.MagicMock()
         stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
         assert intercepted_return.call_args == mocker.call(op=arbitrary_op, error=None)
 
     @pytest.mark.it("Calls the intercepted_return function when the op fails")
     def test_calls_intercepted_return_on_op_failure(
-        self, stage, arbitrary_op, mocker, arbitrary_exception
+        self,
+        stage,
+        arbitrary_op,
+        mocker,
+        arbitrary_exception,
+        next_stage_raises_arbitrary_exception,
     ):
-        arbitrary_op.action = "fail"
         intercepted_return = mocker.MagicMock()
         stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
         assert intercepted_return.call_args == mocker.call(
@@ -228,7 +232,9 @@ class TestSendOpDownAndInterceptReturn(object):
     @pytest.mark.it(
         "Ensures that the op callback is set to its original value when the intercepted_return function is called"
     )
-    def test_restores_callback_before_calling_intercepted_return(self, stage, arbitrary_op, mocker):
+    def test_restores_callback_before_calling_intercepted_return(
+        self, stage, arbitrary_op, mocker, next_stage_succeeds
+    ):
         saved_callback = arbitrary_op.callback
         intercepted_return = mocker.MagicMock()
         stage._send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
@@ -236,7 +242,7 @@ class TestSendOpDownAndInterceptReturn(object):
 
 
 @pytest.mark.describe("PipelineFlow - ._send_event_up()")
-class TestSendEventUp(object):
+class TestSendEventUp(PipelineFlowTestBase):
     @pytest.mark.it("Calls handle_pipeline_event on the previous stage")
     def test_calls_handle_pipeline_event(self, stage, arbitrary_event, mocker):
         mocker.spy(stage, "handle_pipeline_event")
@@ -248,6 +254,7 @@ class TestSendEventUp(object):
         "Calls handle_background_exception with a PipelineError if there is no previous stage"
     )
     def test_no_previous_stage(self, stage, arbitrary_event, mocker):
+        stage.previous = None
         mocker.spy(handle_exceptions, "handle_background_exception")
         stage._send_event_up(arbitrary_event)
         assert handle_exceptions.handle_background_exception.call_count == 1

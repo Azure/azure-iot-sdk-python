@@ -58,29 +58,14 @@ class MQTTTransportStage(PipelineStage):
             self.ca_cert = op.ca_cert
             self.sas_token = op.sas_token
             self.client_cert = op.client_cert
-
-            if self.pipeline_root.pipeline_configuration:
-                self.transport = MQTTTransport(
-                    client_id=self.client_id,
-                    hostname=self.hostname,
-                    username=self.username,
-                    ca_cert=self.ca_cert,
-                    x509_cert=self.client_cert,
-                    websockets=self.pipeline_root.pipeline_configuration.websockets,
-                )
-            else:
-                # TODO:
-                # While MQTTWS in provisioning client is not implemented, this is defaulted
-                # to being false for websockets.
-                # When this is implemented there should be no IF here.
-                self.transport = MQTTTransport(
-                    client_id=self.client_id,
-                    hostname=self.hostname,
-                    username=self.username,
-                    ca_cert=self.ca_cert,
-                    x509_cert=self.client_cert,
-                    websockets=False,
-                )
+            self.transport = MQTTTransport(
+                client_id=self.client_id,
+                hostname=self.hostname,
+                username=self.username,
+                ca_cert=self.ca_cert,
+                x509_cert=self.client_cert,
+                websockets=self.pipeline_root.pipeline_configuration.websockets,
+            )
             self.transport.on_mqtt_connected_handler = CallableWeakMethod(
                 self, "_on_mqtt_connected"
             )
