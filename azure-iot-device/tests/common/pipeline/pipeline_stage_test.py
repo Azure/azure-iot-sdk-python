@@ -16,6 +16,7 @@ from tests.common.pipeline.helpers import (
     add_mock_method_waiter,
     StageTestBase,
     StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
 from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
@@ -76,9 +77,9 @@ def _add_unknown_ops_tests(cls, module, all_ops, handled_ops):
 
     @pytest.mark.describe("{} - .run_op() -- unknown and unhandled operations".format(cls.__name__))
     class LocalTestObject(StageRunOpTestBase):
-        @pytest.fixture
-        def op(self, op_cls, mocker):
-            op = make_mock_op_or_event(op_cls)
+        @pytest.fixture(params=unknown_ops)
+        def op(self, request, mocker):
+            op = make_mock_op_or_event(request.param)
             op.callback = mocker.MagicMock()
             add_mock_method_waiter(op, "callback")
             return op
@@ -91,37 +92,11 @@ def _add_unknown_ops_tests(cls, module, all_ops, handled_ops):
                 return cls()
 
         @pytest.mark.it("Passes unknown operation down to the next stage")
-        @pytest.mark.parametrize("op_cls", unknown_ops)
-        def test_passes_op_to_next_stage(self, mocker, op_cls, op, stage):
+        def test_passes_op_to_next_stage(self, mocker, op, stage):
             mocker.spy(stage, "send_op_down")
             stage.run_op(op)
             assert stage.send_op_down.call_count == 1
             assert stage.send_op_down.call_args == mocker.call(op)
-
-        # @pytest.mark.it("Catches Exceptions raised when passing unknown operation to next stage")
-        # @pytest.mark.parametrize("op_cls", unknown_ops)
-        # def test_passes_op_to_next_stage_which_throws_exception(
-        #     self, op_cls, op, stage, next_stage_raises_arbitrary_exception, arbitrary_exception
-        # ):
-        #     stage.run_op(op)
-        #     op.wait_for_callback_to_be_called()
-        #     assert_callback_failed(op=op, error=arbitrary_exception)
-
-        # @pytest.mark.it(
-        #     "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
-        # )
-        # @pytest.mark.parametrize("op_cls", unknown_ops)
-        # def test_passes_op_to_next_stage_which_throws_base_exception(
-        #     self,
-        #     op_cls,
-        #     op,
-        #     stage,
-        #     next_stage_raises_arbitrary_base_exception,
-        #     arbitrary_base_exception,
-        # ):
-        #     with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-        #         stage.run_op(op)
-        #     assert e_info.value is arbitrary_base_exception
 
     setattr(module, "Test{}UnknownOps".format(cls.__name__), LocalTestObject)
 
@@ -141,69 +116,22 @@ def _add_unknown_events_tests(cls, module, all_events, handled_events):
     @pytest.mark.describe(
         "{} - .handle_pipeline_event() -- unknown and unhandled events".format(cls.__name__)
     )
-    @pytest.mark.parametrize("event_cls", unknown_events)
-    class LocalTestObject(StageTestBase):
-        @pytest.fixture
-        def event(self, event_cls):
-            return make_mock_op_or_event(event_cls)
+    class LocalTestObject(StageHandlePipelineEventTestBase):
+        @pytest.fixture(params=unknown_events)
+        def event(self, request):
+            return make_mock_op_or_event(request.param)
 
         @pytest.fixture
         def stage(self):
             return cls()
 
-        @pytest.fixture
-        def previous(self, stage, stage_base_configuration):
-            return stage.previous
-
         @pytest.mark.it("Passes unknown event to previous stage")
-        def test_passes_event_to_previous_stage(self, event_cls, stage, event, previous, mocker):
-            mocker.spy(previous, "handle_pipeline_event")
+        def test_passes_event_to_previous_stage(self, stage, event, mocker):
+            mocker.spy(stage, "send_event_up")
             stage.handle_pipeline_event(event)
-            assert previous.handle_pipeline_event.call_count == 1
-            assert previous.handle_pipeline_event.call_args[0][0] == event
 
-        @pytest.mark.it("Calls unhandled exception handler if there is no previous stage")
-        def test_passes_event_with_no_previous_stage(
-            self, event_cls, stage, event, unhandled_error_handler
-        ):
-            stage.previous = None
-            stage.handle_pipeline_event(event)
-            assert unhandled_error_handler.call_count == 1
-
-        @pytest.mark.it("Catches Exceptions raised when passing unknown event to previous stage")
-        def test_passes_event_to_previous_stage_which_throws_exception(
-            self,
-            event_cls,
-            stage,
-            event,
-            previous,
-            unhandled_error_handler,
-            arbitrary_exception,
-            mocker,
-        ):
-            previous.handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
-            stage.handle_pipeline_event(event)
-            assert unhandled_error_handler.call_count == 1
-            assert unhandled_error_handler.call_args[0][0] == arbitrary_exception
-
-        @pytest.mark.it(
-            "Allows BaseExceptions raised when passing unknown operation to next start to propogate"
-        )
-        def test_passes_event_to_previous_stage_which_throws_base_exception(
-            self,
-            event_cls,
-            stage,
-            event,
-            previous,
-            unhandled_error_handler,
-            arbitrary_base_exception,
-            mocker,
-        ):
-            previous.handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
-            with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-                stage.handle_pipeline_event(event)
-            assert unhandled_error_handler.call_count == 0
-            assert e_info.value is arbitrary_base_exception
+            assert stage.send_event_up.call_count == 1
+            assert stage.send_event_up.call_args == mocker.call(event)
 
     setattr(module, "Test{}UnknownEvents".format(cls.__name__), LocalTestObject)
 
@@ -292,12 +220,14 @@ def _add_pipeline_thread_tests(
 def _add_pipeline_flow_tests(cls, module):
     class PipelineFlowTestBase(StageTestBase):
         @pytest.fixture
-        def stage(self):
-            class MockPipelineStage(PipelineStage):
-                def _execute_op(self, op):
-                    self.send_op_down(op)
-
-            return MockPipelineStage()
+        def stage(self, mocker):
+            if cls == PipelineRootStage:
+                stage = cls(None)
+            else:
+                stage = cls()
+            stage.next = mocker.MagicMock()
+            stage.previous = mocker.MagicMock()
+            return stage
 
     @pytest.mark.describe("{} - .send_worker_op_down()".format(cls.__name__))
     class SendWorkerOpDownTests(PipelineFlowTestBase):
@@ -307,45 +237,65 @@ def _add_pipeline_flow_tests(cls, module):
             op.name = "arbitrary_worker_op"
             return op
 
-        @pytest.mark.it("Runs the worker op and does not continue running the original op")
-        def test_runs_worker_op(self, mocker, stage, arbitrary_op, arbitrary_worker_op):
-            stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
-            assert stage.next.run_op.call_count == 1
-            assert stage.next.run_op.call_args == mocker.call(arbitrary_worker_op)
+        @pytest.mark.it("Sends the worker operation to down to the next stage")
+        def test_sends_worker_op_down(self, mocker, stage, arbitrary_op, arbitrary_worker_op):
+            mocker.spy(stage, "send_op_down")
 
-        @pytest.mark.it("Completes the original op after the worker op completes")
-        def test_completes_original_op_after_worker_op_completes(
-            self, stage, arbitrary_op, arbitrary_worker_op
+            stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
+
+            assert stage.send_op_down.call_count == 1
+            assert stage.send_op_down.call_args == mocker.call(arbitrary_worker_op)
+
+        @pytest.mark.it(
+            "Completes the original operation successfully upon successful completion of the worker operation"
+        )
+        def test_completes_original_operation_w_success(
+            self, mocker, stage, arbitrary_op, arbitrary_worker_op
         ):
-            callback = arbitrary_op.callback
+            mocker.spy(stage, "complete_op")
 
             stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
-            assert callback.call_count == 0  # because arbitrary_worker_op is pending
+            assert stage.complete_op.call_count == 0
+            arbitrary_worker_op.callback(arbitrary_worker_op, None)  # successful completion
 
-            stage.next.complete_op(arbitrary_worker_op)
-            assert_callback_succeeded(op=arbitrary_op)
+            assert stage.complete_op.call_count == 1
+            assert stage.complete_op.call_args == mocker.call(arbitrary_op, error=None)
 
-        @pytest.mark.it("Returns the worker op failure in the original op if worker op fails")
-        def test_returns_worker_op_failure_in_original_op(
-            self,
-            stage,
-            arbitrary_op,
-            arbitrary_worker_op,
-            arbitrary_exception,
-            next_stage_raises_arbitrary_exception,
+        @pytest.mark.it(
+            "Completes the original operation with the error from the worker op, if the worker op is completed with error"
+        )
+        def test_completes_original_operation_w_failure(
+            self, mocker, stage, arbitrary_op, arbitrary_worker_op, arbitrary_exception
         ):
+            mocker.spy(stage, "complete_op")
+
             stage.send_worker_op_down(worker_op=arbitrary_worker_op, op=arbitrary_op)
-            assert_callback_failed(arbitrary_op, error=arbitrary_exception)
+            assert stage.complete_op.call_count == 0
+            arbitrary_worker_op.callback(
+                arbitrary_worker_op, arbitrary_exception
+            )  # successful completion
+
+            assert stage.complete_op.call_count == 1
+            assert stage.complete_op.call_args == mocker.call(
+                arbitrary_op, error=arbitrary_exception
+            )
 
     @pytest.mark.describe("{} - .send_op_down()".format(cls.__name__))
     class SendOpDownTests(PipelineFlowTestBase):
-        @pytest.mark.it("Fails the op if there is no next stage")
-        def test_fails_op_when_no_next_stage(self, stage, arbitrary_op):
+        @pytest.mark.it("Completes the op with failure if there is no next stage")
+        def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
+            mocker.spy(stage, "complete_op")
             stage.next = None
-            stage.send_op_down(arbitrary_op)
-            assert_callback_failed(op=arbitrary_op, error=pipeline_exceptions.PipelineError)
 
-        @pytest.mark.it("Passes the op to the next stage")
+            stage.send_op_down(arbitrary_op)
+
+            assert stage.complete_op.call_count == 1
+            assert stage.complete_op.call_args[0][0] is arbitrary_op
+            assert (
+                type(stage.complete_op.call_args[1]["error"]) == pipeline_exceptions.PipelineError
+            )
+
+        @pytest.mark.it("Passes the op to the next stage's .run_op() method")
         def test_passes_op_to_next_stage(self, mocker, stage, arbitrary_op):
             stage.send_op_down(arbitrary_op)
             assert stage.next.run_op.call_count == 1
@@ -353,28 +303,60 @@ def _add_pipeline_flow_tests(cls, module):
 
     @pytest.mark.describe("{} - .complete_op()".format(cls.__name__))
     class CompleteOpTests(PipelineFlowTestBase):
-        @pytest.mark.it("Calls the op callback on success")
-        def test_calls_callback_on_success(self, stage, arbitrary_op):
-            stage.complete_op(arbitrary_op)
-            assert_callback_succeeded(arbitrary_op)
+        @pytest.mark.it(
+            "Marks the operation as completed and sends it up the pipeline if the operation is not yet completed"
+        )
+        @pytest.mark.parametrize(
+            "error",
+            [
+                pytest.param(None, id="Complete successfully"),
+                pytest.param(Exception(), id="Complete with failure due to error"),
+            ],
+        )
+        def test_uncompleted_op(self, mocker, stage, arbitrary_op, error):
+            mocker.spy(stage, "send_completed_op_up")
 
-        @pytest.mark.it("Calls the op callback on failure")
-        def test_calls_callback_on_error(self, stage, arbitrary_op, arbitrary_exception):
-            stage.complete_op(arbitrary_op, error=arbitrary_exception)
-            assert_callback_failed(op=arbitrary_op, error=arbitrary_exception)
+            stage.complete_op(arbitrary_op, error)
+
+            assert arbitrary_op.completed is True
+            assert stage.send_completed_op_up.call_count == 1
+            assert stage.send_completed_op_up.call_args == mocker.call(arbitrary_op, error)
 
         @pytest.mark.it(
-            "Calls handle_background_exception with a PipelineError if the op has previously been completed"
+            "Sends a PipelineError to the background exception handler instead of sending the operation up the pipeline, if the operation is already completed"
         )
-        def test_background_exception_if_called_twice(self, stage, arbitrary_op, mocker):
+        @pytest.mark.parametrize(
+            "error",
+            [
+                pytest.param(None, id="Complete successfully"),
+                pytest.param(Exception(), id="Complete with failure due to error"),
+            ],
+        )
+        def test_op_already_completed(self, mocker, stage, arbitrary_op, error):
             mocker.spy(handle_exceptions, "handle_background_exception")
-            stage.complete_op(arbitrary_op)
-            stage.complete_op(arbitrary_op)
+            mocker.spy(stage, "send_completed_op_up")
+            arbitrary_op.completed = True
+
+            stage.complete_op(arbitrary_op, error)
+
             assert handle_exceptions.handle_background_exception.call_count == 1
             assert (
-                handle_exceptions.handle_background_exception.call_args[0][0].__class__
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
                 == pipeline_exceptions.PipelineError
             )
+            assert stage.send_completed_op_up.call_count == 0
+
+        @pytest.mark.it(
+            "Defaults the 'error' parameter to None (i.e. Successful completion) if not specified"
+        )
+        def test_no_error_specified(self, mocker, stage, arbitrary_op):
+            mocker.spy(stage, "send_completed_op_up")
+
+            stage.complete_op(arbitrary_op)
+
+            assert arbitrary_op.completed is True
+            assert stage.send_completed_op_up.call_count == 1
+            assert stage.send_completed_op_up.call_args == mocker.call(arbitrary_op, None)
 
     @pytest.mark.describe("{} - .send_completed_op_up()".format(cls.__name__))
     class SendCompletedOpUpTests(PipelineFlowTestBase):
@@ -398,7 +380,7 @@ def _add_pipeline_flow_tests(cls, module):
                 stage.send_completed_op_up(arbitrary_op)
 
         @pytest.mark.it(
-            "Handles Exceptions raised in operation callback and passes them to the unhandled error handler"
+            "Handles Exceptions raised in the operation callback by passing them to the background exception handler"
         )
         def test_op_callback_raises_exception(
             self, stage, arbitrary_op, arbitrary_exception, mocker, unhandled_error_handler
@@ -411,7 +393,7 @@ def _add_pipeline_flow_tests(cls, module):
             assert unhandled_error_handler.call_count == 1
             assert unhandled_error_handler.call_args == mocker.call(arbitrary_exception)
 
-        @pytest.mark.it("Allows any BaseExceptions raised in operation callback to propagate")
+        @pytest.mark.it("Allows any BaseExceptions raised in the operation callback to propagate")
         def test_op_callback_raises_base_exception(
             self, stage, arbitrary_op, arbitrary_base_exception, mocker
         ):
@@ -422,67 +404,81 @@ def _add_pipeline_flow_tests(cls, module):
 
     @pytest.mark.describe("{} - .send_op_down_and_intercept_return()".format(cls.__name__))
     class SendOpDownAndInterceptReturnTests(PipelineFlowTestBase):
-        @pytest.mark.it("Calls send_op_down to send the op down")
+        @pytest.mark.it(
+            "Sends the operation down the pipeline after replacing its original callback"
+        )
         def test_sends_op_down(self, stage, arbitrary_op, mocker):
             intercepted_return = mocker.MagicMock()
+            original_callback = arbitrary_op.callback
             mocker.spy(stage, "send_op_down")
+
             stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
+
             assert stage.send_op_down.call_count == 1
             assert stage.send_op_down.call_args == mocker.call(arbitrary_op)
+            assert arbitrary_op.callback is not original_callback
 
-        @pytest.mark.it("Calls the intercepted_return function when the op succeeds")
-        def test_calls_intercepted_return_on_op_success(
-            self, stage, arbitrary_op, mocker, next_stage_succeeds
-        ):
+        @pytest.mark.it("Calls the intercepted_return function upon completion of the operation")
+        @pytest.mark.parametrize(
+            "error",
+            [
+                pytest.param(None, id="Completed successfully"),
+                pytest.param(Exception(), id="Completed with failure due to error"),
+            ],
+        )
+        def test_intercept_called(self, stage, arbitrary_op, error, mocker):
             intercepted_return = mocker.MagicMock()
-            stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
-            assert intercepted_return.call_args == mocker.call(op=arbitrary_op, error=None)
+            original_callback = arbitrary_op.callback
 
-        @pytest.mark.it("Calls the intercepted_return function when the op fails")
-        def test_calls_intercepted_return_on_op_failure(
-            self,
-            stage,
-            arbitrary_op,
-            mocker,
-            arbitrary_exception,
-            next_stage_raises_arbitrary_exception,
-        ):
-            intercepted_return = mocker.MagicMock()
             stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
-            assert intercepted_return.call_args == mocker.call(
-                op=arbitrary_op, error=arbitrary_exception
-            )
+            arbitrary_op.callback(arbitrary_op, error)  # Complete op
+
+            assert intercepted_return.call_count == 1
+            assert intercepted_return.call_args == mocker.call(op=arbitrary_op, error=error)
+            assert original_callback.call_count == 0  # Original cb not called
 
         @pytest.mark.it(
-            "Ensures that the op callback is set to its original value when the intercepted_return function is called"
+            "Resets the original callback to the operation upon completion of the operation"
         )
-        def test_restores_callback_before_calling_intercepted_return(
-            self, stage, arbitrary_op, mocker, next_stage_succeeds
-        ):
-            saved_callback = arbitrary_op.callback
+        @pytest.mark.parametrize(
+            "error",
+            [
+                pytest.param(None, id="Completed successfully"),
+                pytest.param(Exception(), id="Completed with failure due to error"),
+            ],
+        )
+        def test_callback_reset(self, stage, arbitrary_op, error, mocker):
             intercepted_return = mocker.MagicMock()
+            original_callback = arbitrary_op.callback
+
             stage.send_op_down_and_intercept_return(arbitrary_op, intercepted_return)
-            assert intercepted_return.call_args[1]["op"].callback == saved_callback
+            assert arbitrary_op.callback is not original_callback
+            arbitrary_op.callback(arbitrary_op, error)  # Complete op
+
+            assert arbitrary_op.callback is original_callback
 
     @pytest.mark.describe("{} - .send_event_up()".format(cls.__name__))
     class SendEventUpTests(PipelineFlowTestBase):
-        @pytest.mark.it("Calls handle_pipeline_event on the previous stage")
+        @pytest.mark.it(
+            "Passes the event up to the previous stage's .handle_pipeline_event() method"
+        )
         def test_calls_handle_pipeline_event(self, stage, arbitrary_event, mocker):
-            mocker.spy(stage, "handle_pipeline_event")
-            stage.next.send_event_up(arbitrary_event)
-            assert stage.handle_pipeline_event.call_count == 1
-            assert stage.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
+            stage.send_event_up(arbitrary_event)
+            assert stage.previous.handle_pipeline_event.call_count == 1
+            assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
         @pytest.mark.it(
-            "Calls handle_background_exception with a PipelineError if there is no previous stage"
+            "Sends a PipelineError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
         )
         def test_no_previous_stage(self, stage, arbitrary_event, mocker):
             stage.previous = None
             mocker.spy(handle_exceptions, "handle_background_exception")
+
             stage.send_event_up(arbitrary_event)
+
             assert handle_exceptions.handle_background_exception.call_count == 1
             assert (
-                handle_exceptions.handle_background_exception.call_args[0][0].__class__
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
                 == pipeline_exceptions.PipelineError
             )
 
