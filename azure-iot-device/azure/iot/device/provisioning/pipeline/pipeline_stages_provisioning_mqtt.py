@@ -54,7 +54,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
 
             hostname = op.provisioning_host
 
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
                     client_id=client_id,
                     hostname=hostname,
@@ -76,7 +76,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
                 registration_id=op.registration_id, custom_payload=op.request_payload
             )
 
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
                     topic=topic,
                     payload=registration_payload.get_json_string(),
@@ -88,7 +88,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
         elif isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
             # Convert Sending the request into MQTT Publish operations
             topic = mqtt_topic.get_topic_for_query(op.request_id, op.operation_id)
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
                     topic=topic, payload=op.request_payload, callback=op.callback
                 ),
@@ -98,7 +98,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling for register gets translated into an MQTT subscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(
                     topic=topic, callback=op.callback
                 ),
@@ -108,7 +108,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a register response gets turned into an MQTT unsubscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(
                     topic=topic, callback=op.callback
                 ),
@@ -117,7 +117,7 @@ class ProvisioningMQTTConverterStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            self._send_op_down(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -141,18 +141,18 @@ class ProvisioningMQTTConverterStage(PipelineStage):
                     response = event.payload.decode("utf-8")
                 # Extract pertinent information from mqtt topic
                 # like status code request_id and send it upwards.
-                self._send_event_up(
+                self.send_event_up(
                     pipeline_events_provisioning.RegistrationResponseEvent(
                         request_id, status_code, key_values, response
                     )
                 )
             else:
                 logger.warning("Unknown topic: {} passing up to next handler".format(topic))
-                self._send_event_up(event)
+                self.send_event_up(event)
 
         else:
             # all other messages get passed up
-            self._send_event_up(event)
+            self.send_event_up(event)
 
 
 class DeviceRegistrationPayload(object):

@@ -111,6 +111,8 @@ class TestIoTHubPipelineInstantiation(object):
             pipeline_stages_iothub.HandleTwinOperationsStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,
             pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
+            pipeline_stages_base.RetryStage,
+            pipeline_stages_base.TimeoutStage,
             pipeline_stages_base.EnsureConnectionStage,
             pipeline_stages_base.SerializeConnectOpsStage,
             pipeline_stages_mqtt.MQTTTransportStage,
@@ -152,7 +154,7 @@ class TestIoTHubPipelineInstantiation(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
-                self._complete_op(op, error=arbitrary_exception)
+                self.complete_op(op, error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 
@@ -189,7 +191,7 @@ class TestIoTHubPipelineInstantiation(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
-                self._complete_op(op, error=arbitrary_exception)
+                self.complete_op(op, error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 

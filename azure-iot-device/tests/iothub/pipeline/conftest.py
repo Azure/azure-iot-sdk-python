@@ -8,4 +8,6 @@ from tests.common.pipeline.fixtures import (
     fake_pipeline_thread,
     fake_non_pipeline_thread,
     unhandled_error_handler,
+    arbitrary_op,
+    arbitrary_event,
 )
