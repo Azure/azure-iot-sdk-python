@@ -14,7 +14,7 @@ import io
 from . import auth
 from . import pipeline
 
-from azure.iot.device.iothub import config
+from azure.iot.device.iothub.pipeline.config import IoTHubPipelineConfig
 
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class AbstractIoTHubClient(object):
         # in order to differentiate types of connection strings.
         authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
         authentication_provider.ca_cert = ca_cert  # TODO: make this part of the instantiation
-        pipeline_configuration = config.IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
@@ -86,7 +86,7 @@ class AbstractIoTHubClient(object):
         :returns: An instance of an IoTHub client that uses a SAS token for authentication.
         """
         authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
-        pipeline_configuration = config.IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
@@ -147,7 +147,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id
         )
-        pipeline_configuration = config.IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
@@ -247,7 +247,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err.__cause__ = e
                 raise new_err
 
-        pipeline_configuration = config.IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         edge_pipeline = pipeline.EdgePipeline(authentication_provider)
         return cls(iothub_pipeline, edge_pipeline=edge_pipeline)
@@ -275,7 +275,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id, module_id=module_id
         )
-        pipeline_configuration = config.IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 

@@ -21,6 +21,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_events_iothub,
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
+    config,
 )
 from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.iothub.models.message import Message
@@ -36,7 +37,6 @@ from tests.common.pipeline.helpers import (
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
-from azure.iot.device.iothub import config
 import uuid
 
 logging.basicConfig(level=logging.DEBUG)

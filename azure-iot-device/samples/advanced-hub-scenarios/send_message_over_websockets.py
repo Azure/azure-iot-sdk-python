@@ -14,9 +14,7 @@ async def main():
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
     # Create instance of the device client using the connection string
-    device_client = IoTHubDeviceClient.create_from_connection_string(
-        conn_str, websockets=True, product_info="custom/custom (This is my custom product info)"
-    )
+    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str, websockets=True)
 
     # We do not need to call device_client.connect(), since it will be connected when we send a message.
 

@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-from azure.iot.device.common.config import BasePipelineConfig
+from azure.iot.device.common.pipeline.config import BasePipelineConfig
 
 logger = logging.getLogger(__name__)
 

@@ -55,15 +55,15 @@ class IoTHubMQTTConverterStage(PipelineStage):
             # For example, the username may look like this without custom parameters:
             # yosephsandboxhub.azure-devices.net/alpha/?api-version=2018-06-30&DeviceClientType=py-azure-iot-device%2F2.0.0-preview.12
             # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
-            query_param = "api-version={api_version}&DeviceClientType={python_user_agent}{custom_product_info}".format(
-                api_version=pkg_constant.IOTHUB_API_VERSION,
-                python_user_agent=pkg_constant.USER_AGENT,
-                custom_product_info=self.pipeline_root.pipeline_configuration.product_info,
-            )
-            username = "{hostname}/{client_id}/?{query_params}".format(
+            query_param_seq = [
+                ("api-version", pkg_constant.IOTHUB_API_VERSION),
+                ("DeviceClientType", pkg_constant.USER_AGENT),
+            ]
+            username = "{hostname}/{client_id}/?{query_params}{optional_product_info}".format(
                 hostname=op.hostname,
                 client_id=client_id,
-                query_params=urllib.parse.quote(query_param),
+                query_params=urllib.parse.urlencode(query_param_seq),
+                optional_product_info=self.pipeline_root.pipeline_configuration.product_info,
             )
 
             if op.gateway_hostname:
