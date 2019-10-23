@@ -213,7 +213,7 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
         return op
 
     @pytest.fixture
-    def stage(self, mocker):
+    def stage(self):
         return pipeline_stages_base.EnsureConnectionStage()
 
     @pytest.mark.it("Passes the operation down the pipline when the transport is already connected")
