@@ -802,6 +802,7 @@ class TestTimeoutStageRunOp(StageTestBase):
     @pytest.mark.it("Clears the timer when the op completes successfully")
     def test_clears_timer_on_success(self, stage, mock_timer, yes_timeout_op, next_stage_succeeds):
         stage.run_op(yes_timeout_op)
+        assert mock_timer.return_value.cancel.call_count == 1
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
 
     @pytest.mark.it("Clears the timer when the op fails with an arbitrary exception")
@@ -809,6 +810,7 @@ class TestTimeoutStageRunOp(StageTestBase):
         self, stage, mock_timer, yes_timeout_op, next_stage_raises_arbitrary_exception
     ):
         stage.run_op(yes_timeout_op)
+        assert mock_timer.return_value.cancel.call_count == 1
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
 
     @pytest.mark.it("Does not clear the timer when the op fails with an arbitrary base exception")
@@ -822,6 +824,7 @@ class TestTimeoutStageRunOp(StageTestBase):
     ):
         with pytest.raises(arbitrary_base_exception.__class__):
             stage.run_op(yes_timeout_op)
+        assert mock_timer.return_value.cancel.call_count == 0
         assert yes_timeout_op.timeout_timer == mock_timer.return_value
 
     @pytest.mark.it("Clears the timer when the op times out")

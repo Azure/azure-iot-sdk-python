@@ -758,7 +758,9 @@ class TimeoutStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _on_intercepted_return(self, op, error):
         # When an op comes back, delete the timer and pass it right up.
-        op.timeout_timer = None
+        if op.timeout_timer:
+            op.timeout_timer.cancel()
+            op.timeout_timer = None
         logger.debug("{}({}): Op completed".format(self.name, op.name))
         self.send_completed_op_up(op, error)
 
