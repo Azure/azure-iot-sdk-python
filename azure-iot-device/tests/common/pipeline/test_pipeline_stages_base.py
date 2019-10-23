@@ -22,6 +22,8 @@ from tests.common.pipeline.helpers import (
     all_common_ops,
     all_common_events,
     StageTestBase,
+    StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
     all_except,
     make_mock_op_or_event,
 )
@@ -203,7 +205,7 @@ ops_that_cause_connection = [
 @pytest.mark.describe(
     "EnsureConnectionStage - .run_op() -- called with operation that causes a connection to be established"
 )
-class TestEnsureConnectionStageRunOp(StageTestBase):
+class TestEnsureConnectionStageRunOp(StageRunOpTestBase):
     @pytest.fixture
     def op(self, mocker, params):
         op = params["op_class"](**params["op_init_kwargs"])
@@ -211,8 +213,11 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
         return op
 
     @pytest.fixture
-    def stage(self):
-        return pipeline_stages_base.EnsureConnectionStage()
+    def stage(self, mocker):
+        stage = pipeline_stages_base.EnsureConnectionStage()
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(mocker.MagicMock())
+        stage.next = mocker.MagicMock()
+        return stage
 
     @pytest.mark.it("Passes the operation down the pipline when the transport is already connected")
     def test_operation_alrady_connected(self, params, op, stage):
@@ -309,7 +314,7 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 @pytest.mark.describe(
     "SerializeConnectOpsStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
 )
-class TestSerializeConnectOpStageRunOp(StageTestBase):
+class TestSerializeConnectOpStageRunOp(StageRunOpTestBase):
     @pytest.fixture
     def stage(self):
         return pipeline_stages_base.SerializeConnectOpsStage()
@@ -574,7 +579,7 @@ def make_fake_request_and_response(mocker):
 @pytest.mark.describe(
     "CoordinateRequestAndResponse - .run_op() -- called with SendIotRequestAndWaitForResponseOperation"
 )
-class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
+class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageRunOpTestBase):
     @pytest.fixture
     def op(self, mocker):
         return make_fake_request_and_response(mocker)
@@ -638,7 +643,7 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
 @pytest.mark.describe(
     "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- called with IotResponseEvent"
 )
-class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
+class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageHandlePipelineEventTestBase):
     @pytest.fixture
     def op(self, mocker):
         return make_fake_request_and_response(mocker)
@@ -751,7 +756,7 @@ def mock_timer(mocker):
 
 
 @pytest.mark.describe("TimeoutStage - run_op()")
-class TestTimeoutStageRunOp(StageTestBase):
+class TestTimeoutStageRunOp(StageRunOpTestBase):
     @pytest.fixture(params=yes_timeout_ops)
     def yes_timeout_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
@@ -1163,7 +1168,7 @@ class RetryStageTestResubmitedOpCompletion(object):
 
 @pytest.mark.describe("RetryStage - run_op()")
 class TestRetryStageRunOp(
-    StageTestBase,
+    StageRunOpTestBase,
     RetryStageTestOpSend,
     RetryStageTestNoRetryOpCallback,
     RetryStageTestNoRetryOpSetTimer,
