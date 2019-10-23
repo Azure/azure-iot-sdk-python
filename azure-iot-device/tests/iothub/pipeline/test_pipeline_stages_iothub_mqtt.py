@@ -390,6 +390,40 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTConverterStageTes
             encoded_user_agent,
         )
 
+    @pytest.mark.it(
+        "Appends product_info to connection_args.username to if self.pipeline_root.pipeline_configuration.product_info is not None"
+    )
+    @pytest.mark.parametrize(
+        "fake_product_info, expected_product_info",
+        [
+            ("", ""),
+            ("__fake_product_info__", "__fake_product_info__"),
+            (4, 4),
+            (
+                ["fee,fi,fo,fum"],
+                "%5B%27fee%2Cfi%2Cfo%2Cfum%27%5D",
+            ),  # URI Encoding for str version of list
+            (
+                {"fake_key": "fake_value"},
+                "%7B%27fake_key%27%3A%20%27fake_value%27%7D",
+            ),  # URI Encoding for str version of dict
+        ],
+    )
+    def test_appends_product_info_to_device_username(
+        self, stage, set_connection_args, fake_product_info, expected_product_info
+    ):
+        set_connection_args.gateway_hostname = fake_gateway_hostname
+        stage.pipeline_root.pipeline_configuration.product_info = fake_product_info
+        stage.run_op(set_connection_args)
+        new_op = stage.next._execute_op.call_args[0][0]
+        assert new_op.username == "{}/{}/?api-version={}&DeviceClientType={}{}".format(
+            fake_hostname,
+            fake_device_id,
+            pkg_constant.IOTHUB_API_VERSION,
+            encoded_user_agent,
+            expected_product_info,
+        )
+
     @pytest.mark.it("Sets connection_args.ca_cert to auth_provider.ca_cert")
     def test_sets_ca_cert(self, stage, set_connection_args):
         set_connection_args.ca_cert = fake_ca_cert

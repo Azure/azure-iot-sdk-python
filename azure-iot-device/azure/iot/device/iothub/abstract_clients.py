@@ -55,7 +55,7 @@ class AbstractIoTHubClient(object):
             connection string with a GatewayHostName parameter.
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
+        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
         :raises: ValueError if given an invalid connection_string.
 
@@ -79,7 +79,7 @@ class AbstractIoTHubClient(object):
         :param str sas_token: The string representation of a SAS token.
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
+        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
         :raises: ValueError if given an invalid sas_token
 
@@ -140,7 +140,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
+        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
@@ -178,7 +178,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
+        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid
@@ -268,7 +268,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str product_info: Configuration Option. Default is empty string. Custom product info to be appended to user agent string.
+        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """

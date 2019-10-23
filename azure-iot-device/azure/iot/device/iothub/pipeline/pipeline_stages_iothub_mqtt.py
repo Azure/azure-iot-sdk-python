@@ -63,7 +63,9 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 hostname=op.hostname,
                 client_id=client_id,
                 query_params=urllib.parse.urlencode(query_param_seq),
-                optional_product_info=self.pipeline_root.pipeline_configuration.product_info,
+                optional_product_info=urllib.parse.quote(
+                    str(self.pipeline_root.pipeline_configuration.product_info)
+                ),
             )
 
             if op.gateway_hostname:
