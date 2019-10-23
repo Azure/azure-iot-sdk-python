@@ -122,6 +122,7 @@ fake_message_user_property_2_encoded = "sorted-house=hufflepuff"
 ops_handled_by_this_stage = [
     pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
+    pipeline_ops_base.UpdateSasTokenOperation,
     pipeline_ops_iothub.SendOutputEventOperation,
     pipeline_ops_iothub.SendMethodResponseOperation,
     pipeline_ops_base.SendIotRequestOperation,
@@ -510,9 +511,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(IoTHubMQTTConv
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                stage.next._complete_op(op, error=None)
+                stage.next.complete_op(op, error=None)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                stage.next._complete_op(op, error=arbitrary_exception)
+                stage.next.complete_op(op, error=arbitrary_exception)
             else:
                 pass
 

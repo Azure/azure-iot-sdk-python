@@ -22,6 +22,8 @@ from tests.common.pipeline.helpers import (
     all_common_ops,
     all_common_events,
     StageTestBase,
+    StageRunOpTestBase,
+    StageHandlePipelineEventTestBase,
     all_except,
     make_mock_op_or_event,
 )
@@ -242,7 +244,7 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        stage.next._complete_op(connect_op, error=arbitrary_exception)
+        stage.next.complete_op(connect_op, error=arbitrary_exception)
 
         assert_callback_failed(op=op, error=arbitrary_exception)
 
@@ -253,7 +255,7 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         connect_op = stage.next.run_op.call_args[0][0]
-        stage.next._complete_op(connect_op)
+        stage.next.complete_op(connect_op)
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args[0][0] == op
@@ -264,9 +266,9 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        stage.next._complete_op(connect_op)
+        stage.next.complete_op(connect_op)
 
-        stage.next._complete_op(op)
+        stage.next.complete_op(op)
         assert_callback_succeeded(op=op)
 
     @pytest.mark.it("calls the op's callback when the operation fails after connecting")
@@ -275,8 +277,8 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        stage.next._complete_op(connect_op)
-        stage.next._complete_op(op, error=arbitrary_exception)
+        stage.next.complete_op(connect_op)
+        stage.next.complete_op(op, error=arbitrary_exception)
 
         assert_callback_failed(op=op, error=arbitrary_exception)
 
@@ -382,7 +384,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        stage.next._complete_op(connection_op)
+        stage.next.complete_op(connection_op)
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args[0][0] == fake_op
@@ -397,7 +399,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        stage.next._complete_op(connection_op, error=arbitrary_exception)
+        stage.next.complete_op(connection_op, error=arbitrary_exception)
         assert_callback_failed(op=fake_op, error=arbitrary_exception)
 
     @pytest.mark.parametrize(
@@ -425,7 +427,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         for op in fake_ops:
             stage.run_op(op)
 
-        stage.next._complete_op(connection_op)
+        stage.next.complete_op(connection_op)
 
         assert stage.next.run_op.call_count == 1 + len(fake_ops)
 
@@ -448,7 +450,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         for op in fake_ops:
             stage.run_op(op)
 
-        stage.next._complete_op(connection_op, error=arbitrary_exception)
+        stage.next.complete_op(connection_op, error=arbitrary_exception)
 
         for op in fake_ops:
             assert_callback_failed(op=op, error=arbitrary_exception)
@@ -470,7 +472,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         # at this point, ops are pended waiting for the first connect to complete.  Verify this and complete the connect.
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == first_connect
-        stage.next._complete_op(first_connect)
+        stage.next.complete_op(first_connect)
 
         # The connect is complete.  This passes down first_fake_op and second_connect and second_fake_op gets pended waiting i
         # for second_connect to complete.
@@ -481,7 +483,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         assert stage.next.run_op.call_args_list[2][0][0] == second_connect
 
         # now, complete second_connect to give second_fake_op a chance to get passed down
-        stage.next._complete_op(second_connect)
+        stage.next.complete_op(second_connect)
         assert stage.next.run_op.call_count == 4
         assert stage.next.run_op.call_args_list[3][0][0] == second_fake_op
 
@@ -534,7 +536,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
 
         # complete first_connection_op
         stage.pipeline_root.connected = params["mid_connect_flag"]
-        stage.next._complete_op(first_connection_op)
+        stage.next.complete_op(first_connection_op)
 
         # second connect_op should be completed without having been passed down.
         assert stage.next.run_op.call_count == 1
@@ -664,7 +666,7 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
         "Completes the SendIotRequestAndWaitForResponseOperation op with the matching request_id including response_body and status_code"
     )
     def test_completes_op_with_matching_request_id(self, stage, op, iot_response):
-        stage.next._send_event_up(iot_response)
+        stage.next.send_event_up(iot_response)
         assert_callback_succeeded(op=op)
         assert op.status_code == iot_response.status_code
         assert op.response_body == iot_response.response_body
@@ -676,18 +678,18 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
         self, stage, op, iot_response, unhandled_error_handler
     ):
         stage.next.previous = None
-        stage.next._send_event_up(iot_response)
+        stage.next.send_event_up(iot_response)
         assert unhandled_error_handler.call_count == 1
 
     @pytest.mark.it(
         "Does nothing if an IotResponse with an identical request_id is received a second time"
     )
     def test_ignores_duplicate_request_id(self, stage, op, iot_response, unhandled_error_handler):
-        stage.next._send_event_up(iot_response)
+        stage.next.send_event_up(iot_response)
         assert_callback_succeeded(op=op)
         op.callback.reset_mock()
 
-        stage.next._send_event_up(iot_response)
+        stage.next.send_event_up(iot_response)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
@@ -708,14 +710,14 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
         )
 
         op.callback.reset_mock()
-        stage.next._send_event_up(resp)
+        stage.next.send_event_up(resp)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it("Does nothing if an IotResponse with an unknown request_id is received")
     def test_ignores_unknown_request_id(self, stage, op, iot_response, unhandled_error_handler):
         iot_response.request_id = fake_request_id
-        stage.next._send_event_up(iot_response)
+        stage.next.send_event_up(iot_response)
         assert op.callback.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
@@ -962,7 +964,7 @@ class RetryStageTestNoRetryOpCallback(object):
     )
     def test_calls_callback_on_no_retry_op_retry_error(self, stage, no_retry_op, retry_error):
         stage.run_op(no_retry_op)
-        stage.next._complete_op(op=no_retry_op, error=retry_error)
+        stage.next.complete_op(op=no_retry_op, error=retry_error)
         assert_callback_failed(op=no_retry_op, error=retry_error)
 
 
@@ -992,7 +994,7 @@ class RetryStageTestNoRetryOpSetTimer(object):
     )
     def test_no_timer_on_no_retry_op_retry_error(self, stage, no_retry_op, retry_error, mock_timer):
         stage.run_op(no_retry_op)
-        stage.next._complete_op(op=no_retry_op, error=retry_error)
+        stage.next.complete_op(op=no_retry_op, error=retry_error)
         assert mock_timer.call_count == 0
 
 
@@ -1022,7 +1024,7 @@ class RetryStageTestYesRetryOpCallback(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert yes_retry_op.callback.call_count == 0
 
 
@@ -1052,13 +1054,13 @@ class RetryStageTestYesRetryOpSetTimer(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_count == 1
 
     @pytest.mark.it("Uses the correct timout when setting a retry timer")
     def test_uses_correct_timer_interval(self, stage, yes_retry_op, retry_error, mock_timer):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_args[0][0] == retry_intervals[yes_retry_op.__class__]
 
 
@@ -1074,7 +1076,7 @@ class RetryStageTestResubmitOp(object):
         stage.run_op(yes_retry_op)
         assert stage.next.run_op.call_count == 1
         stage.next.run_op.reset_mock()
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
         assert stage.next.run_op.call_count == 1
@@ -1085,7 +1087,7 @@ class RetryStageTestResubmitOp(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert yes_retry_op.completed
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
@@ -1094,7 +1096,7 @@ class RetryStageTestResubmitOp(object):
     @pytest.mark.it("Clears the retry timer attribute on the op when retrying")
     def test_clears_retry_timer_before_retrying(self, stage, yes_retry_op, retry_error, mock_timer):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert yes_retry_op.retry_timer
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
@@ -1112,11 +1114,11 @@ class RetryStageTestResubmitedOpCompletion(object):
     ):
         op_callback = yes_retry_op.callback
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
         assert op_callback.call_count == 0
-        stage.next._complete_op(op=yes_retry_op)
+        stage.next.complete_op(op=yes_retry_op)
         assert yes_retry_op.callback == op_callback
         assert_callback_succeeded(op=yes_retry_op)
 
@@ -1128,10 +1130,10 @@ class RetryStageTestResubmitedOpCompletion(object):
     ):
 
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        stage.next._complete_op(op=yes_retry_op, error=arbitrary_exception)
+        stage.next.complete_op(op=yes_retry_op, error=arbitrary_exception)
         assert_callback_failed(op=yes_retry_op, error=arbitrary_exception)
 
     @pytest.mark.it(
@@ -1142,10 +1144,10 @@ class RetryStageTestResubmitedOpCompletion(object):
     ):
         op_callback = yes_retry_op.callback
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert op_callback.call_count == 0
 
     @pytest.mark.it("Sets a new retry timer error when the retried op compltes with an retry error")
@@ -1153,11 +1155,11 @@ class RetryStageTestResubmitedOpCompletion(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_count == 1
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_count == 2
 
 
