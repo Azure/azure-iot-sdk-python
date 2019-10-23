@@ -964,7 +964,7 @@ class RetryStageTestNoRetryOpCallback(object):
     )
     def test_calls_callback_on_no_retry_op_retry_error(self, stage, no_retry_op, retry_error):
         stage.run_op(no_retry_op)
-        stage.next._complete_op(op=no_retry_op, error=retry_error)
+        stage.next.complete_op(op=no_retry_op, error=retry_error)
         assert_callback_failed(op=no_retry_op, error=retry_error)
 
 
@@ -994,7 +994,7 @@ class RetryStageTestNoRetryOpSetTimer(object):
     )
     def test_no_timer_on_no_retry_op_retry_error(self, stage, no_retry_op, retry_error, mock_timer):
         stage.run_op(no_retry_op)
-        stage.next._complete_op(op=no_retry_op, error=retry_error)
+        stage.next.complete_op(op=no_retry_op, error=retry_error)
         assert mock_timer.call_count == 0
 
 
@@ -1024,7 +1024,7 @@ class RetryStageTestYesRetryOpCallback(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert yes_retry_op.callback.call_count == 0
 
 
@@ -1054,13 +1054,13 @@ class RetryStageTestYesRetryOpSetTimer(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_count == 1
 
     @pytest.mark.it("Uses the correct timout when setting a retry timer")
     def test_uses_correct_timer_interval(self, stage, yes_retry_op, retry_error, mock_timer):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_args[0][0] == retry_intervals[yes_retry_op.__class__]
 
 
@@ -1076,7 +1076,7 @@ class RetryStageTestResubmitOp(object):
         stage.run_op(yes_retry_op)
         assert stage.next.run_op.call_count == 1
         stage.next.run_op.reset_mock()
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
         assert stage.next.run_op.call_count == 1
@@ -1087,7 +1087,7 @@ class RetryStageTestResubmitOp(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert yes_retry_op.completed
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
@@ -1096,7 +1096,7 @@ class RetryStageTestResubmitOp(object):
     @pytest.mark.it("Clears the retry timer attribute on the op when retrying")
     def test_clears_retry_timer_before_retrying(self, stage, yes_retry_op, retry_error, mock_timer):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert yes_retry_op.retry_timer
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
@@ -1114,11 +1114,11 @@ class RetryStageTestResubmitedOpCompletion(object):
     ):
         op_callback = yes_retry_op.callback
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
         assert op_callback.call_count == 0
-        stage.next._complete_op(op=yes_retry_op)
+        stage.next.complete_op(op=yes_retry_op)
         assert yes_retry_op.callback == op_callback
         assert_callback_succeeded(op=yes_retry_op)
 
@@ -1130,10 +1130,10 @@ class RetryStageTestResubmitedOpCompletion(object):
     ):
 
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        stage.next._complete_op(op=yes_retry_op, error=arbitrary_exception)
+        stage.next.complete_op(op=yes_retry_op, error=arbitrary_exception)
         assert_callback_failed(op=yes_retry_op, error=arbitrary_exception)
 
     @pytest.mark.it(
@@ -1144,10 +1144,10 @@ class RetryStageTestResubmitedOpCompletion(object):
     ):
         op_callback = yes_retry_op.callback
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert op_callback.call_count == 0
 
     @pytest.mark.it("Sets a new retry timer error when the retried op compltes with an retry error")
@@ -1155,11 +1155,11 @@ class RetryStageTestResubmitedOpCompletion(object):
         self, stage, yes_retry_op, retry_error, mock_timer
     ):
         stage.run_op(yes_retry_op)
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_count == 1
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        stage.next._complete_op(op=yes_retry_op, error=retry_error)
+        stage.next.complete_op(op=yes_retry_op, error=retry_error)
         assert mock_timer.call_count == 2
 
 

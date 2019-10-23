@@ -84,7 +84,7 @@ class StageTestBase(object):
 
     @pytest.fixture
     def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
-        stage.next._execute_op = stage._complete_op
+        stage.next._execute_op = stage.complete_op
         mocker.spy(stage.next, "_execute_op")
 
     @pytest.fixture
