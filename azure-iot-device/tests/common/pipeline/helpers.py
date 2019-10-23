@@ -52,9 +52,55 @@ def all_except(all_items, items_to_exclude):
 
 # TODO: Remove this definition
 class StageTestBase(object):
-    pass
+    @pytest.fixture(autouse=True)
+    def stage_base_configuration(self, stage, mocker):
+        """
+        This fixture configures the stage for testing.  This is automatically
+        applied, so it will be called before your test runs, but it's not
+        guaranteed to be called before any other fixtures run.  If you have
+        a fixture that needs to rely on the stage being configured, then
+        you have to add a manual dependency inside that fixture (like we do in
+        next_stage_succeeds_all_ops below)
+        """
+
+        class NextStageForTest(pipeline_stages_base.PipelineStage):
+            def _execute_op(self, op):
+                pass
+
+        next = NextStageForTest()
+        root = (
+            pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
+            .append_stage(stage)
+            .append_stage(next)
+        )
+
+        mocker.spy(stage, "_execute_op")
+        mocker.spy(stage, "run_op")
+
+        mocker.spy(next, "_execute_op")
+        mocker.spy(next, "run_op")
+
+        return root
+
+    @pytest.fixture
+    def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
+        stage.next._execute_op = stage._complete_op
+        mocker.spy(stage.next, "_execute_op")
+
+    @pytest.fixture
+    def next_stage_raises_arbitrary_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_exception
+    ):
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
+
+    @pytest.fixture
+    def next_stage_raises_arbitrary_base_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_base_exception
+    ):
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
 
+# TODO: refactor all .run_op() tests to use this
 class StageRunOpTestBase(object):
     """All PipelineStage .run_op() tests should inherit from this base class.
     It provides basic tests for dealing with exceptions.
@@ -83,6 +129,7 @@ class StageRunOpTestBase(object):
         assert e_info.value is arbitrary_base_exception
 
 
+# TODO: refactor all .handle_pipeline_event() tests to use this
 class StageHandlePipelineEventTestBase(object):
     """All PipelineStage .handle_pipeline_event() tests should inherit from this base class.
     It provides basic tests for dealing with exceptions.
