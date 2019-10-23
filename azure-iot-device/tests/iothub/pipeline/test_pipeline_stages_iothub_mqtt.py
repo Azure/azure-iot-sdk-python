@@ -122,6 +122,7 @@ fake_message_user_property_2_encoded = "sorted-house=hufflepuff"
 ops_handled_by_this_stage = [
     pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
+    pipeline_ops_base.UpdateSasTokenOperation,
     pipeline_ops_iothub.SendOutputEventOperation,
     pipeline_ops_iothub.SendMethodResponseOperation,
     pipeline_ops_base.SendIotRequestOperation,

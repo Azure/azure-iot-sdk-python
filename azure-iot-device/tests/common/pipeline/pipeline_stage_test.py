@@ -218,7 +218,7 @@ def _add_pipeline_thread_tests(
 
 
 def _add_pipeline_flow_tests(cls, module):
-    class PipelineFlowTestBase(StageTestBase):
+    class PipelineFlowTestBase(object):
         @pytest.fixture
         def stage(self, mocker):
             if cls == PipelineRootStage:
