@@ -7,6 +7,7 @@ import inspect
 import pytest
 import functools
 from threading import Event
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
