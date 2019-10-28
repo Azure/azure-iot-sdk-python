@@ -71,11 +71,11 @@ class SharedClientInstantiationTests(object):
 
 
 class ConfigurationSharedClientCreateFromConnectionStringTests(object):
-    @pytest.mark.it("Sets all options to default when no user configuration provided")
+    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
     def test_pipeline_configuration_defaults(
         self, mocker, mock_pipeline_init, client_class, connection_string
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
@@ -105,7 +105,7 @@ class ConfigurationSharedClientCreateFromConnectionStringTests(object):
     def test_pipeline_configuration(
         self, mocker, mock_pipeline_init, client_class, connection_string, websockets, product_info
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
@@ -127,7 +127,7 @@ class ConfigurationSharedClientCreateFromConnectionStringTests(object):
     def test_pipeline_configuration_fails_with_bad_option(
         self, mocker, mock_pipeline_init, client_class, connection_string
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         args = (connection_string,)
         kwargs = {"bad_option": "__fake_parameter__"}
@@ -247,11 +247,11 @@ class SharedClientCreateFromConnectionStringTests(object):
 
 
 class ConfigurationSharedClientCreateFromSharedAccessSignature(object):
-    @pytest.mark.it("Sets all options to default when no user configuration provided")
+    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
     def test_pipeline_configuration_defaults(
         self, mocker, mock_pipeline_init, client_class, sas_token_string
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
@@ -280,7 +280,7 @@ class ConfigurationSharedClientCreateFromSharedAccessSignature(object):
     def test_pipeline_configuration(
         self, mocker, mock_pipeline_init, client_class, sas_token_string, websockets, product_info
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
@@ -301,7 +301,7 @@ class ConfigurationSharedClientCreateFromSharedAccessSignature(object):
     def test_pipeline_configuration_fails_with_bad_option(
         self, mocker, mock_pipeline_init, client_class, sas_token_string
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         kwargs = {"bad_option": "__fake_parameter__"}
 
@@ -1195,15 +1195,15 @@ class TestIoTHubDeviceClientCreateFromSharedAccessSignature(
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Synchronous) - .create_from_x509_certificate() Configuration"
+    "IoTHubDeviceClient (Synchronous) - .create_from_x509_certificate() -- Configuration"
 )
 class TestConfigurationIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsConfig):
     hostname = "durmstranginstitute.farend"
     device_id = "MySnitch"
 
-    @pytest.mark.it("Sets all options to default when no user configuration provided")
+    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
     def test_pipeline_configuration_defaults(self, mocker, mock_pipeline_init, client_class, x509):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
@@ -1233,7 +1233,7 @@ class TestConfigurationIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceC
     def test_pipeline_configuration(
         self, mocker, mock_pipeline_init, client_class, x509, websockets, product_info
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
@@ -1256,7 +1256,7 @@ class TestConfigurationIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceC
     def test_pipeline_configuration_fails_with_bad_option(
         self, mocker, mock_pipeline_init, client_class, x509
     ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider").parse
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         kwargs = {"bad_option": "__fake_parameter__"}
 
@@ -1702,7 +1702,90 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         assert e_info.value.__cause__ is my_edge_error
 
 
-# YMTODO: Add TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv
+@pytest.mark.describe(
+    "IoTHubModuleClient (Synchronous) - .create_from_edge_environment() -- Edge Local Debug Environment -- Configuration"
+)
+class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
+    IoTHubModuleClientTestsConfig
+):
+    @pytest.fixture
+    def mock_open(self, mocker):
+        return mocker.patch.object(io, "open")
+
+    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
+    def test_pipeline_configuration_defaults(
+        self, mocker, client_class, edge_local_debug_environment, mock_open
+    ):
+        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
+
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
+            wraps=IoTHubPipelineConfig,
+        )
+        mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+        mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
+
+        client_class.create_from_edge_environment()
+
+        assert mock_config_init.call_count == 1
+        assert mock_config_init.call_args == mocker.call()
+        assert mock_iothub_pipeline_init.call_args[0][1].websockets is False
+        assert mock_iothub_pipeline_init.call_args[0][1].product_info == ""
+
+    @pytest.mark.it("Sets all valid configuration options to the user supplied values")
+    @pytest.mark.parametrize(
+        "websockets, product_info",
+        [
+            pytest.param((None, None), (None, None), id=" Setting to None"),
+            pytest.param(
+                (True, True),
+                ("__fake_product_info__", "__fake_product_info__"),
+                id=" Expected Values",
+            ),
+        ],
+    )
+    def test_pipeline_configuration(
+        self,
+        mocker,
+        client_class,
+        edge_local_debug_environment,
+        websockets,
+        product_info,
+        mock_open,
+    ):
+        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
+
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
+            wraps=IoTHubPipelineConfig,
+        )
+        mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+        mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
+
+        kwargs = {"websockets": websockets[0], "product_info": product_info[0]}
+
+        client_class.create_from_edge_environment(**kwargs)
+
+        assert mock_config_init.call_count == 1
+        assert mock_config_init.call_args == mocker.call(
+            websockets=websockets[0], product_info=product_info[0]
+        )
+        assert mock_iothub_pipeline_init.call_args[0][1].websockets == websockets[1]
+        assert mock_iothub_pipeline_init.call_args[0][1].product_info == product_info[1]
+
+    @pytest.mark.it("Throws if invalid configuration option is provided")
+    def test_pipeline_configuration_fails_with_bad_option(
+        self, mocker, mock_pipeline_init, client_class, edge_local_debug_environment, mock_open
+    ):
+        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
+
+        kwargs = {"bad_option": "__fake_parameter__"}
+
+        with pytest.raises(TypeError):
+            client_class.create_from_edge_environment(**kwargs)
 
 
 @pytest.mark.describe(
@@ -1906,7 +1989,88 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         assert e_info.value.__cause__ is error
 
 
-# YMTODO: Add TestConfigurationIoTHubModuleClientCreateFromX509Certificate
+@pytest.mark.describe(
+    "IoTHubModuleClient (Synchronous) - .create_from_x509_certificate() -- Configuration"
+)
+class TestConfigurationIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsConfig):
+    hostname = "durmstranginstitute.farend"
+    device_id = "MySnitch"
+    module_id = "Charms"
+
+    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
+    def test_pipeline_configuration_defaults(self, mocker, client_class, mock_pipeline_init, x509):
+        mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
+
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
+            wraps=IoTHubPipelineConfig,
+        )
+
+        client_class.create_from_x509_certificate(
+            x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
+        )
+
+        assert mock_config_init.call_count == 1
+        assert mock_config_init.call_args == mocker.call()
+        assert mock_pipeline_init.call_args[0][1].websockets is False
+        assert mock_pipeline_init.call_args[0][1].product_info == ""
+
+    @pytest.mark.it("Sets all valid configuration options to the user supplied values")
+    @pytest.mark.parametrize(
+        "websockets, product_info",
+        [
+            pytest.param((None, None), (None, None), id=" Setting to None"),
+            pytest.param(
+                (True, True),
+                ("__fake_product_info__", "__fake_product_info__"),
+                id=" Expected Values",
+            ),
+        ],
+    )
+    def test_pipeline_configuration(
+        self, mocker, client_class, mock_pipeline_init, x509, websockets, product_info
+    ):
+        mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
+
+        mock_config_init = mocker.patch(
+            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
+            wraps=IoTHubPipelineConfig,
+        )
+
+        kwargs = {"websockets": websockets[0], "product_info": product_info[0]}
+
+        client_class.create_from_x509_certificate(
+            x509=x509,
+            hostname=self.hostname,
+            device_id=self.device_id,
+            module_id=self.module_id,
+            **kwargs
+        )
+
+        assert mock_config_init.call_count == 1
+        assert mock_config_init.call_args == mocker.call(
+            websockets=websockets[0], product_info=product_info[0]
+        )
+
+        assert mock_pipeline_init.call_args[0][1].websockets == websockets[1]
+        assert mock_pipeline_init.call_args[0][1].product_info == product_info[1]
+
+    @pytest.mark.it("Throws if invalid configuration option is provided")
+    def test_pipeline_configuration_fails_with_bad_option(
+        self, mocker, mock_pipeline_init, client_class, x509
+    ):
+        mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
+
+        kwargs = {"bad_option": "__fake_parameter__"}
+
+        with pytest.raises(TypeError):
+            client_class.create_from_x509_certificate(
+                x509=x509,
+                hostname=self.hostname,
+                device_id=self.device_id,
+                module_id=self.module_id,
+                **kwargs
+            )
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .create_from_x509_certificate()")
