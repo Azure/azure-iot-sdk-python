@@ -114,7 +114,7 @@ def result_from_register(registration_id, symmetric_key, protocol):
         registration_id=registration_id,
         id_scope=ID_SCOPE,
         symmetric_key=symmetric_key,
-        websockets=protocol_boolean_mapping(protocol),
+        websockets=protocol_boolean_mapping[protocol],
     )
 
     return provisioning_device_client.register()

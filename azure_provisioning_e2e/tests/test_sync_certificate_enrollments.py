@@ -296,7 +296,7 @@ def result_from_register(registration_id, device_cert_file, device_key_file, pro
         registration_id=registration_id,
         id_scope=ID_SCOPE,
         x509=x509,
-        websockets=protocol_boolean_mapping(protocol),
+        websockets=protocol_boolean_mapping[protocol],
     )
 
     return provisioning_device_client.register()
