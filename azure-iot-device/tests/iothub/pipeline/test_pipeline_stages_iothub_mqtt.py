@@ -382,7 +382,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTConverterStageTes
         "fake_product_info, expected_product_info",
         [
             ("", ""),
-            ("__fake:product:info__", "__fake%3Aproduct%3Ainfo%0A__"),
+            ("__fake:product:info__", "__fake%3Aproduct%3Ainfo__"),
             (4, 4),
             (
                 ["fee,fi,fo,fum"],
