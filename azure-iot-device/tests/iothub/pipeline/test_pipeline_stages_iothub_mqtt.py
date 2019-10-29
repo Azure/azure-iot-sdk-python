@@ -227,23 +227,8 @@ def set_connection_args_for_module(set_connection_args):
 
 
 class IoTHubMQTTConverterStageTestBase(StageTestBase):
-
-    # This is initially defined in helpers.py under the common pipeline tests,
-    # However that definition is for IoTHub specifically, because we need to
-    # make sure that root is configured using the IoTHubPipelineConfig.
-    # YMTODO: The comment below states that it's not guaranteed to be called
-    # before other fixtures run. Because of that, maybe I need to do something different...
     @pytest.fixture(autouse=True)
     def stage_base_configuration(self, stage, mocker):
-        """
-        This fixture configures the stage for testing.  This is automatically
-        applied, so it will be called before your test runs, but it's not
-        guaranteed to be called before any other fixtures run.  If you have
-        a fixture that needs to rely on the stage being configured, then
-        you have to add a manual dependency inside that fixture (like we do in
-        next_stage_succeeds_all_ops below)
-        """
-
         class NextStageForTest(pipeline_stages_base.PipelineStage):
             def _execute_op(self, op):
                 pass
@@ -397,7 +382,7 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTConverterStageTes
         "fake_product_info, expected_product_info",
         [
             ("", ""),
-            ("__fake_product_info__", "__fake_product_info__"),
+            ("__fake:product:info__", "__fake%3Aproduct%3Ainfo%0A__"),
             (4, 4),
             (
                 ["fee,fi,fo,fum"],
