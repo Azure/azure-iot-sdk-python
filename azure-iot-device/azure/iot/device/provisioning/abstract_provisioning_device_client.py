@@ -14,7 +14,7 @@ import logging
 from .security.sk_security_client import SymmetricKeySecurityClient
 from .security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
-from azure.iot.device.common.config import BasePipelineConfig
+from azure.iot.device.common.pipeline.config import BasePipelineConfig
 
 logger = logging.getLogger(__name__)
 
