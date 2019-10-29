@@ -44,8 +44,6 @@ try:
     # RegistryManager
     iothub_registry_manager = IoTHubRegistryManager(connection_str)
 
-    device = iothub_registry_manager.get_device(device_id)
-
     # Create Module
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
     secondary_key = "111222333444555666777888999000aaabbbcccdddee"
