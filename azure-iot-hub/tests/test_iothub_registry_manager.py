@@ -882,16 +882,20 @@ class TestGetModule(object):
 class TestDeleteModule(object):
     @pytest.mark.it("Deletes module for the provided device id")
     def test_delete_module(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.delete_module(fake_device_id)
+        iothub_registry_manager.delete_module(fake_device_id, fake_module_id)
 
         assert mock_service_operations.delete_module.call_count == 1
-        assert mock_service_operations.delete_module.call_args == mocker.call(fake_device_id, "*")
+        assert mock_service_operations.delete_module.call_args == mocker.call(
+            fake_device_id, fake_module_id, "*"
+        )
 
     @pytest.mark.it("Deletes module with an etag for the provided device id and etag")
     def test_delete_module_with_etag(
         self, mocker, mock_service_operations, iothub_registry_manager
     ):
-        iothub_registry_manager.delete_module(device_id=fake_device_id, etag=fake_etag)
+        iothub_registry_manager.delete_module(
+            device_id=fake_device_id, module_id=fake_module_id, etag=fake_etag
+        )
 
         assert mock_service_operations.delete_module.call_count == 1
         assert mock_service_operations.delete_module.call_args == mocker.call(

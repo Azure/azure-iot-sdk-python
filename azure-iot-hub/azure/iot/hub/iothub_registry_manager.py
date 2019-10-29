@@ -281,7 +281,7 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "status": status,
+            # "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
         module = Module(**kwargs)
@@ -313,7 +313,7 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "status": status,
+            # "status": status,
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
@@ -370,7 +370,7 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "status": status,
+            # "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
@@ -462,7 +462,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.get_module(device_id, module_id)
 
-    def delete_module(self, device_id, etag=None):
+    def delete_module(self, device_id, module_id, etag=None):
         """Deletes a module identity for a device from IoTHub.
 
         :param str device_id: The name (deviceId) of the device.
@@ -475,4 +475,4 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.service.delete_module(device_id, etag)
+        self.protocol.service.delete_module(device_id, module_id, etag)
