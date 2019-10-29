@@ -258,9 +258,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.get_device_registry_statistics()
 
-    def create_module_with_sas(
-        self, device_id, module_id, managed_by, primary_key, secondary_key, status
-    ):
+    def create_module_with_sas(self, device_id, module_id, managed_by, primary_key, secondary_key):
         """Creates a module identity for a device on IoTHub using SAS authentication.
 
         :param str device_id: The name (deviceId) of the device.
@@ -268,7 +266,6 @@ class IoTHubRegistryManager(object):
         :param str managed_by: The name of the manager device (edge).
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
-        :param str status: Initital state of the created device (enabled or disabled).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -281,7 +278,6 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            # "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
         module = Module(**kwargs)
@@ -289,7 +285,7 @@ class IoTHubRegistryManager(object):
         return self.protocol.service.create_or_update_module(device_id, module_id, module)
 
     def create_module_with_x509(
-        self, device_id, module_id, managed_by, primary_thumbprint, secondary_thumbprint, status
+        self, device_id, module_id, managed_by, primary_thumbprint, secondary_thumbprint
     ):
         """Creates a module identity for a device on IoTHub using X509 authentication.
 
@@ -298,7 +294,6 @@ class IoTHubRegistryManager(object):
         :param str managed_by: The name of the manager device (edge).
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
-        :param str status: Initital state of the created device (enabled or disabled).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -313,7 +308,6 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            # "status": status,
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
@@ -322,13 +316,12 @@ class IoTHubRegistryManager(object):
 
         return self.protocol.service.create_or_update_module(device_id, module_id, module)
 
-    def create_module_with_certificate_authority(self, device_id, module_id, managed_by, status):
+    def create_module_with_certificate_authority(self, device_id, module_id, managed_by):
         """Creates a module identity for a device on IoTHub using certificate authority.
 
         :param str device_id: The name (deviceId) of the device.
         :param str module_id: The name (moduleID) of the module.
         :param str managed_by: The name of the manager device (edge).
-        :param str status: Initital state of the created device (enabled or disabled).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -339,7 +332,6 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "status": status,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
         }
         module = Module(**kwargs)
@@ -347,7 +339,7 @@ class IoTHubRegistryManager(object):
         return self.protocol.service.create_or_update_module(device_id, module_id, module)
 
     def update_module_with_sas(
-        self, device_id, module_id, managed_by, etag, primary_key, secondary_key, status
+        self, device_id, module_id, managed_by, etag, primary_key, secondary_key
     ):
         """Updates a module identity for a device on IoTHub using SAS authentication.
 
@@ -357,7 +349,6 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
-        :param str status: Initital state of the created device (enabled or disabled).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -370,7 +361,6 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            # "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
@@ -379,14 +369,7 @@ class IoTHubRegistryManager(object):
         return self.protocol.service.create_or_update_module(device_id, module_id, module, "*")
 
     def update_module_with_x509(
-        self,
-        device_id,
-        module_id,
-        managed_by,
-        etag,
-        primary_thumbprint,
-        secondary_thumbprint,
-        status,
+        self, device_id, module_id, managed_by, etag, primary_thumbprint, secondary_thumbprint
     ):
         """Updates a module identity for a device on IoTHub using X509 authentication.
 
@@ -396,7 +379,6 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
-        :param str status: Initital state of the created device (enabled or disabled).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -411,7 +393,6 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
@@ -421,16 +402,13 @@ class IoTHubRegistryManager(object):
 
         return self.protocol.service.create_or_update_module(device_id, module_id, module)
 
-    def update_module_with_certificate_authority(
-        self, device_id, module_id, managed_by, etag, status
-    ):
+    def update_module_with_certificate_authority(self, device_id, module_id, managed_by, etag):
         """Updates a module identity for a device on IoTHub using certificate authority.
 
         :param str device_id: The name (deviceId) of the device.
         :param str module_id: The name (moduleID) of the module.
         :param str managed_by: The name of the manager device (edge).
         :param str etag: The etag (if_match) value to use for the update operation.
-        :param str status: Initital state of the created device (enabled or disabled).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -441,7 +419,6 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
         }

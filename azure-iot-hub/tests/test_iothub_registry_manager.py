@@ -471,7 +471,7 @@ class TestCreateModuleWithSymmetricKey(object):
         (fake_primary_key, fake_secondary_key),
     ]
 
-    @pytest.mark.it("Initializes module with device id, module id, managed_by status and sas auth")
+    @pytest.mark.it("Initializes module with device id, module id, managed_by and sas auth")
     @pytest.mark.parametrize(
         "primary_key, secondary_key", testdata, ids=["Primary Key", "Secondary Key", "Both Keys"]
     )
@@ -482,7 +482,6 @@ class TestCreateModuleWithSymmetricKey(object):
             device_id=fake_device_id,
             module_id=fake_module_id,
             managed_by=fake_managed_by,
-            status=fake_status,
             primary_key=primary_key,
             secondary_key=secondary_key,
         )
@@ -492,7 +491,6 @@ class TestCreateModuleWithSymmetricKey(object):
         assert mock_module_constructor.call_args[1]["module_id"] == fake_module_id
         assert mock_module_constructor.call_args[1]["managed_by"] == fake_managed_by
         assert mock_module_constructor.call_args[1]["device_id"] == fake_device_id
-        assert mock_module_constructor.call_args[1]["status"] == fake_status
         assert isinstance(
             mock_module_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -519,7 +517,6 @@ class TestCreateModuleWithSymmetricKey(object):
     ):
         iothub_registry_manager.create_module_with_sas(
             device_id=fake_device_id,
-            status=fake_status,
             module_id=fake_module_id,
             managed_by=fake_managed_by,
             primary_key=primary_key,
@@ -544,9 +541,7 @@ class TestCreateModuleWithX509(object):
         (fake_primary_thumbprint, fake_secondary_thumbprint),
     ]
 
-    @pytest.mark.it(
-        "Initializes module with device id, module id, managed_by, status and X509 auth"
-    )
+    @pytest.mark.it("Initializes module with device id, module id, managed_by and X509 auth")
     @pytest.mark.parametrize(
         "primary_thumbprint, secondary_thumbprint",
         testdata,
@@ -561,7 +556,6 @@ class TestCreateModuleWithX509(object):
     ):
         iothub_registry_manager.create_module_with_x509(
             device_id=fake_device_id,
-            status=fake_status,
             module_id=fake_module_id,
             managed_by=fake_managed_by,
             primary_thumbprint=primary_thumbprint,
@@ -572,7 +566,6 @@ class TestCreateModuleWithX509(object):
         assert mock_module_constructor.call_args[1]["module_id"] == fake_module_id
         assert mock_module_constructor.call_args[1]["managed_by"] == fake_managed_by
         assert mock_module_constructor.call_args[1]["device_id"] == fake_device_id
-        assert mock_module_constructor.call_args[1]["status"] == fake_status
         assert isinstance(
             mock_module_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -601,7 +594,6 @@ class TestCreateModuleWithX509(object):
     ):
         iothub_registry_manager.create_module_with_x509(
             device_id=fake_device_id,
-            status=fake_status,
             module_id=fake_module_id,
             managed_by=fake_managed_by,
             primary_thumbprint=primary_thumbprint,
@@ -619,22 +611,18 @@ class TestCreateModuleWithX509(object):
 
 @pytest.mark.describe("IoTHubRegistryManager - .create_module_with_certificate_authority()")
 class TestCreateModuleWithCA(object):
-    @pytest.mark.it("Initializes module with device id, module id, managed_by, status and ca auth")
+    @pytest.mark.it("Initializes module with device id, module id, managed_by and ca auth")
     def test_initializes_device_with_kwargs_for_certificate_authority(
         self, mock_module_constructor, iothub_registry_manager
     ):
         iothub_registry_manager.create_module_with_certificate_authority(
-            device_id=fake_device_id,
-            status=fake_status,
-            module_id=fake_module_id,
-            managed_by=fake_managed_by,
+            device_id=fake_device_id, module_id=fake_module_id, managed_by=fake_managed_by
         )
 
         assert mock_module_constructor.call_count == 1
         assert mock_module_constructor.call_args[1]["module_id"] == fake_module_id
         assert mock_module_constructor.call_args[1]["managed_by"] == fake_managed_by
         assert mock_module_constructor.call_args[1]["device_id"] == fake_device_id
-        assert mock_module_constructor.call_args[1]["status"] == fake_status
         assert isinstance(
             mock_module_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -650,10 +638,7 @@ class TestCreateModuleWithCA(object):
         self, mock_module_constructor, mock_service_operations, iothub_registry_manager
     ):
         iothub_registry_manager.create_module_with_certificate_authority(
-            device_id=fake_device_id,
-            status=fake_status,
-            module_id=fake_module_id,
-            managed_by=fake_managed_by,
+            device_id=fake_device_id, module_id=fake_module_id, managed_by=fake_managed_by
         )
 
         assert mock_service_operations.create_or_update_module.call_count == 1
@@ -670,7 +655,7 @@ class TestUpdateModuleWithSymmetricKey(object):
 
     testdata = [(fake_primary_key, None), (None, fake_secondary_key)]
 
-    @pytest.mark.it("Initializes module with device id, module id, managed_by status and sas auth")
+    @pytest.mark.it("Initializes module with device id, module id, managed_by and sas auth")
     @pytest.mark.parametrize(
         "primary_key, secondary_key", testdata, ids=["Primary Key", "Secondary Key"]
     )
@@ -681,7 +666,6 @@ class TestUpdateModuleWithSymmetricKey(object):
             device_id=fake_device_id,
             module_id=fake_module_id,
             managed_by=fake_managed_by,
-            status=fake_status,
             etag=fake_etag,
             primary_key=primary_key,
             secondary_key=secondary_key,
@@ -692,7 +676,6 @@ class TestUpdateModuleWithSymmetricKey(object):
         assert mock_module_constructor.call_args[1]["module_id"] == fake_module_id
         assert mock_module_constructor.call_args[1]["managed_by"] == fake_managed_by
         assert mock_module_constructor.call_args[1]["device_id"] == fake_device_id
-        assert mock_module_constructor.call_args[1]["status"] == fake_status
         assert isinstance(
             mock_module_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -720,7 +703,6 @@ class TestUpdateModuleWithSymmetricKey(object):
         iothub_registry_manager.update_module_with_sas(
             device_id=fake_device_id,
             module_id=fake_module_id,
-            status=fake_status,
             etag=fake_etag,
             managed_by=fake_managed_by,
             primary_key=primary_key,
@@ -741,9 +723,7 @@ class TestUpdateModuleWithX509(object):
 
     testdata = [(fake_primary_thumbprint, None), (None, fake_secondary_thumbprint)]
 
-    @pytest.mark.it(
-        "Initializes module with device id, module id, managed_by, status and X509 auth"
-    )
+    @pytest.mark.it("Initializes module with device id, module id, managed_by and X509 auth")
     @pytest.mark.parametrize(
         "primary_thumbprint, secondary_thumbprint",
         testdata,
@@ -759,7 +739,6 @@ class TestUpdateModuleWithX509(object):
         iothub_registry_manager.update_module_with_x509(
             device_id=fake_device_id,
             module_id=fake_module_id,
-            status=fake_status,
             etag=fake_etag,
             managed_by=fake_managed_by,
             primary_thumbprint=primary_thumbprint,
@@ -770,7 +749,6 @@ class TestUpdateModuleWithX509(object):
         assert mock_module_constructor.call_args[1]["module_id"] == fake_module_id
         assert mock_module_constructor.call_args[1]["managed_by"] == fake_managed_by
         assert mock_module_constructor.call_args[1]["device_id"] == fake_device_id
-        assert mock_module_constructor.call_args[1]["status"] == fake_status
         assert isinstance(
             mock_module_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -800,7 +778,6 @@ class TestUpdateModuleWithX509(object):
         iothub_registry_manager.update_module_with_x509(
             device_id=fake_device_id,
             module_id=fake_module_id,
-            status=fake_status,
             etag=fake_etag,
             managed_by=fake_managed_by,
             primary_thumbprint=primary_thumbprint,
@@ -818,7 +795,7 @@ class TestUpdateModuleWithX509(object):
 
 @pytest.mark.describe("IoTHubRegistryManager - .update_module_with_certificate_authority()")
 class TestUpdateModuleWithCA(object):
-    @pytest.mark.it("Initializes module with device id, module id, managed_by, status and ca auth")
+    @pytest.mark.it("Initializes module with device id, module id, managed_by and ca auth")
     def test_initializes_device_with_kwargs_for_certificate_authority(
         self, mock_module_constructor, iothub_registry_manager
     ):
@@ -826,7 +803,6 @@ class TestUpdateModuleWithCA(object):
             device_id=fake_device_id,
             module_id=fake_module_id,
             etag=fake_etag,
-            status=fake_status,
             managed_by=fake_managed_by,
         )
 
@@ -834,7 +810,6 @@ class TestUpdateModuleWithCA(object):
         assert mock_module_constructor.call_args[1]["module_id"] == fake_module_id
         assert mock_module_constructor.call_args[1]["managed_by"] == fake_managed_by
         assert mock_module_constructor.call_args[1]["device_id"] == fake_device_id
-        assert mock_module_constructor.call_args[1]["status"] == fake_status
         assert isinstance(
             mock_module_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -853,7 +828,6 @@ class TestUpdateModuleWithCA(object):
             device_id=fake_device_id,
             module_id=fake_module_id,
             etag=fake_etag,
-            status=fake_status,
             managed_by=fake_managed_by,
         )
 
@@ -899,7 +873,7 @@ class TestDeleteModule(object):
 
         assert mock_service_operations.delete_module.call_count == 1
         assert mock_service_operations.delete_module.call_args == mocker.call(
-            fake_device_id, fake_etag
+            fake_device_id, fake_module_id, fake_etag
         )
 
 
