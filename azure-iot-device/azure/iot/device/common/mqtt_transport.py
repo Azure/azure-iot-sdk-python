@@ -11,6 +11,7 @@ import sys
 import threading
 import traceback
 import weakref
+import socket
 from . import transport_exceptions as exceptions
 
 logger = logging.getLogger(__name__)
@@ -65,11 +66,14 @@ def _create_error_from_rc_code(rc):
     """
     Given a paho rc code, return an Exception that can be raised
     """
-    message = mqtt.error_string(rc)
-    if rc in paho_rc_to_error:
+    if rc == 1:
+        # Paho returns rc=1 to mean "something went wrong.  stop".  We manually translate this to a ConnectionDroppedError.
+        return exceptions.ConnectionDroppedError("Paho returned rc==1")
+    elif rc in paho_rc_to_error:
+        message = mqtt.error_string(rc)
         return paho_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown CONACK rc={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown CONACK rc=={}".format(rc))
 
 
 class MQTTTransport(object):
@@ -294,6 +298,10 @@ class MQTTTransport(object):
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
+        except socket.error as e:
+            # If the socket can't open (e.g. using iptables REJECT), we get a
+            # socket.error.  Convert this into ConnectionFailedError so we can retry
+            raise exceptions.ConnectionFailedError(cause=e)
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e

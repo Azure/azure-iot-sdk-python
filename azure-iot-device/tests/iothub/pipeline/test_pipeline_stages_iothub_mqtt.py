@@ -22,7 +22,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
 )
-from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
+from azure.iot.device.iothub.pipeline.exceptions import PipelineConfigurationError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import (
@@ -1182,11 +1182,13 @@ class TestIotHubMQTTConverterWithSendIotRequest(IoTHubMQTTConverterStageTestBase
             callback=mocker.MagicMock(),
         )
 
-    @pytest.mark.it("calls the op callback with an OperationError if request_type is not 'twin'")
+    @pytest.mark.it(
+        "calls the op callback with an PipelineConfigurationError if request_type is not 'twin'"
+    )
     def test_sends_bad_request_type(self, stage, op):
         op.request_type = "not_twin"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=OperationError)
+        assert_callback_failed(op=op, error=PipelineConfigurationError)
 
     @pytest.mark.it(
         "Runs an MQTTPublishOperation on the next stage with the topic formated as '$iothub/twin/{method}{resource_location}?$rid={request_id}' and the payload as the request_body"
@@ -1203,11 +1205,13 @@ class TestIotHubMQTTConverterWithSendIotRequest(IoTHubMQTTConverterStageTestBase
         )
         assert new_op.payload == fake_request_body
 
-    @pytest.mark.it("Returns an OperationError through the op callback if there is no next stage")
+    @pytest.mark.it(
+        "Returns an PipelineConfigurationError through the op callback if there is no next stage"
+    )
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=PipelineError)
+        assert_callback_failed(op=op, error=PipelineConfigurationError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the MQTTPublishOperation and returns them through the op callback"
@@ -1451,7 +1455,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(IoTHubMQTTConverter
         assert new_event.response_body == fake_payload
 
     @pytest.mark.it(
-        "Calls the unhandled exception handler with a PipelineError if there is no previous stage"
+        "Calls the unhandled exception handler with a PipelineConfigurationError if there is no previous stage"
     )
     def test_no_previous_stage(
         self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
@@ -1459,7 +1463,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(IoTHubMQTTConverter
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
         assert unhandled_error_handler.call_count == 1
-        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineError)
+        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineConfigurationError)
 
     @pytest.mark.it(
         "Calls the unhandled exception handler if the requet_id is missing from the topic name"
@@ -1557,7 +1561,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(IoTHubMQTTConverterSta
         assert new_event.patch == fake_patch
 
     @pytest.mark.it(
-        "Calls the unhandled exception handler with a PipelineError if there is no previous stage"
+        "Calls the unhandled exception handler with a PipelineConfigurationError if there is no previous stage"
     )
     def test_no_previous_stage(
         self, stage, fixup_stage_for_test, fake_event, unhandled_error_handler
@@ -1565,7 +1569,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(IoTHubMQTTConverterSta
         stage.previous = None
         stage.handle_pipeline_event(fake_event)
         assert unhandled_error_handler.call_count == 1
-        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineError)
+        assert isinstance(unhandled_error_handler.call_args[0][0], PipelineConfigurationError)
 
     @pytest.mark.it("Calls the unhandled exception handler if the payload is not a Bytes object")
     def test_payload_not_bytes(

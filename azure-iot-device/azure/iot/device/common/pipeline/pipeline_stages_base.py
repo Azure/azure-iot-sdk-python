@@ -1,4 +1,3 @@
-# --------------------------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
@@ -17,7 +16,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
 from . import pipeline_exceptions
-from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common import handle_exceptions, transport_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
@@ -223,7 +222,7 @@ class PipelineStage(object):
         """
         if not self.next:
             logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
-            error = pipeline_exceptions.PipelineError(
+            error = pipeline_exceptions.PipelineConfigurationError(
                 "{} not handled after {} stage with no next stage".format(op.name, self.name)
             )
             self.complete_op(op, error=error)
@@ -296,7 +295,7 @@ class PipelineStage(object):
             self.previous.handle_pipeline_event(event)
         else:
             logger.error("{}({}): Error: unhandled event".format(self.name, event.name))
-            error = pipeline_exceptions.PipelineError(
+            error = pipeline_exceptions.PipelineConfigurationError(
                 "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
             )
             handle_exceptions.handle_background_exception(error)
@@ -782,6 +781,8 @@ class RetryStage(PipelineStage):
         self.retry_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
+            pipeline_ops_base.ConnectOperation: 20,
+            pipeline_ops_mqtt.MQTTPublishOperation: 20,
         }
         self.ops_waiting_to_retry = []
 
@@ -813,7 +814,11 @@ class RetryStage(PipelineStage):
         """
         if error:
             if self._should_watch_for_retry(op):
-                if type(error) == pipeline_exceptions.PipelineTimeoutError:
+                if type(error) in [
+                    pipeline_exceptions.PipelineTimeoutError,
+                    transport_exceptions.ConnectionDroppedError,
+                    transport_exceptions.ConnectionFailedError,
+                ]:
                     return True
         return False
 
@@ -854,3 +859,131 @@ class RetryStage(PipelineStage):
             if op.retry_timer:
                 op.retry_timer = None
             self.send_completed_op_up(op, error)
+
+
+transient_connect_errors = [
+    pipeline_exceptions.OperationCancelled,
+    pipeline_exceptions.PipelineTimeoutError,
+    pipeline_exceptions.PipelineError,
+    transport_exceptions.ConnectionFailedError,
+    transport_exceptions.ConnectionDroppedError,
+]
+
+
+class ReconnectStage(PipelineStage):
+    def __init__(self):
+        super(ReconnectStage, self).__init__()
+        self.reconnect_timer = None
+        self.virtually_connected = False
+        # connect delay is hardcoded for now.  Later, this comes from a retry policy
+        self.reconnect_delay = 10
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _execute_op(self, op):
+        if isinstance(op, pipeline_ops_base.ConnectOperation):
+            self.virtually_connected = True
+            self.send_op_down(op)
+
+        elif isinstance(op, pipeline_ops_base.DisconnectOperation):
+            self.virtually_connected = False
+            self.send_op_down(op)
+
+        else:
+            self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _set_reconnect_timer(self):
+        """
+        Set a timer to reconnect after some period of time
+        """
+
+        self._clear_reconnect_timer()
+
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.invoke_on_pipeline_thread_nowait
+        def on_reconnect_timer_expired():
+            this = self_weakref()
+
+            if not this.pipeline_root.connected:
+                logger.info(
+                    "{}: reconnect timer expired.  Sending connect op down".format(this.name)
+                )
+
+                def on_connect_complete(op, error):
+                    inner_this = self_weakref()
+                    if error:
+                        if type(error) in transient_connect_errors:
+                            logger.debug(
+                                "{}: reconnect failed because {}.  Setting new timer.".format(
+                                    inner_this.name, error
+                                )
+                            )
+                            inner_this._set_reconnect_timer()
+                        else:
+                            logger.debug(
+                                "{}: reconnect failed because {}.  Not setting new timer.".format(
+                                    inner_this.name, error
+                                )
+                            )
+                    else:
+                        logger.debug("{}: reconnect successful".format(inner_this.name))
+
+                logger.debug("{}: Sending connect operation down".format(this.name))
+                this.send_op_down(pipeline_ops_base.ConnectOperation(on_connect_complete))
+            else:
+                logger.debug(
+                    "{}: retry timer expired, but client is connected.  Doing nothing".format(
+                        this.name
+                    )
+                )
+
+        logger.info("{}: Setting reconnect timer".format(self.name))
+        self.reconnect_timer = Timer(self.reconnect_delay, on_reconnect_timer_expired)
+        self.reconnect_timer.start()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _clear_reconnect_timer(self):
+        """
+        Clear any previous reconnect timer
+        """
+        if self.reconnect_timer:
+            logger.info("{}: Clearing reconnect timer".format(self.name))
+            self.reconnect_timer.cancel()
+            self.reconnect_timer = None
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def on_connected(self):
+        """
+        Called by lower layers when the protocol client connects
+        """
+        logger.debug("{}: on_connected".format(self.name))
+
+        self._clear_reconnect_timer()
+
+        if self.previous:
+            self.previous.on_connected()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def on_disconnected(self):
+        """
+        Called by lower layers when the protocol client disconnects
+        """
+        logger.debug("{}: on_disconnected".format(self.name))
+        if self.pipeline_root.connected:
+            if self.virtually_connected:
+                logger.info(
+                    "{}: disconnected but virtually connected.  Triggering reconnect timer.".format(
+                        self.name
+                    )
+                )
+                self._set_reconnect_timer()
+            else:
+                logger.info(
+                    "{}: disconnected, but not virtually connected.  Not triggering reconnect timer.".format(
+                        self.name
+                    )
+                )
+
+        if self.previous:
+            self.previous.on_disconnected()

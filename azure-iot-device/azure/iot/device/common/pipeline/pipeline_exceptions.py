@@ -20,12 +20,6 @@ class OperationCancelled(PipelineException):
     pass
 
 
-class OperationError(PipelineException):
-    """Error while executing an Operation"""
-
-    pass
-
-
 class PipelineTimeoutError(PipelineException):
     """
     Pipeline operation timed out
@@ -35,6 +29,12 @@ class PipelineTimeoutError(PipelineException):
 
 
 class PipelineError(PipelineException):
-    """Error in Pipeline"""
+    """Error in pipeline"""
+
+    pass
+
+
+class PipelineConfigurationError(PipelineException):
+    """Error caused by incorrect pipeline configuration"""
 
     pass

@@ -14,7 +14,7 @@ from azure.iot.device.exceptions import ServiceError
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import pipeline_ops_base
 from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
-from azure.iot.device.iothub.pipeline.exceptions import PipelineError
+from azure.iot.device.iothub.pipeline.exceptions import PipelineConfigurationError
 from tests.common.pipeline.helpers import (
     assert_callback_succeeded,
     assert_callback_failed,
@@ -396,11 +396,13 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert new_op.resource_location == "/"
         assert new_op.request_body == " "
 
-    @pytest.mark.it("Returns a PipelineError through the op callback if there is no next stage")
+    @pytest.mark.it(
+        "Returns a PipelineConfigurationError through the op callback if there is no next stage"
+    )
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=PipelineError)
+        assert_callback_failed(op=op, error=PipelineConfigurationError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
@@ -500,11 +502,13 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         assert new_op.resource_location == "/properties/reported/"
         assert new_op.request_body == patch_as_string
 
-    @pytest.mark.it("Returns an PipelineError through the op callback if there is no next stage")
+    @pytest.mark.it(
+        "Returns an PipelineConfigurationError through the op callback if there is no next stage"
+    )
     def test_runs_with_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
-        assert_callback_failed(op=op, error=PipelineError)
+        assert_callback_failed(op=op, error=PipelineConfigurationError)
 
     @pytest.mark.it(
         "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"

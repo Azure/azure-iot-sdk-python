@@ -292,7 +292,8 @@ def _add_pipeline_flow_tests(cls, module):
             assert stage.complete_op.call_count == 1
             assert stage.complete_op.call_args[0][0] is arbitrary_op
             assert (
-                type(stage.complete_op.call_args[1]["error"]) == pipeline_exceptions.PipelineError
+                type(stage.complete_op.call_args[1]["error"])
+                == pipeline_exceptions.PipelineConfigurationError
             )
 
         @pytest.mark.it("Passes the op to the next stage's .run_op() method")
@@ -468,7 +469,7 @@ def _add_pipeline_flow_tests(cls, module):
             assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
         @pytest.mark.it(
-            "Sends a PipelineError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
+            "Sends a PipelineConfigurationError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
         )
         def test_no_previous_stage(self, stage, arbitrary_event, mocker):
             stage.previous = None
@@ -479,7 +480,7 @@ def _add_pipeline_flow_tests(cls, module):
             assert handle_exceptions.handle_background_exception.call_count == 1
             assert (
                 type(handle_exceptions.handle_background_exception.call_args[0][0])
-                == pipeline_exceptions.PipelineError
+                == pipeline_exceptions.PipelineConfigurationError
             )
 
     setattr(module, "Test{}SendWorkerOpDown".format(cls.__name__), SendWorkerOpDownTests)

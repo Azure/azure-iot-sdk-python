@@ -199,7 +199,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                     op=op,
                 )
             else:
-                raise pipeline_exceptions.OperationError(
+                raise pipeline_exceptions.PipelineConfigurationError(
                     "SendIotRequestOperation request_type {} not supported".format(op.request_type)
                 )
 
