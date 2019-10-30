@@ -1220,7 +1220,7 @@ class TestReconnectStageRunOp(StageTestBase):
     )
     def test_connect_op_virtual_connection_failure(self, mocker, stage, arbitrary_exception):
         op = pipeline_ops_base.ConnectOperation(mocker.MagicMock())
-        stage.next._execute_op.side_effect = arbitrary_exception
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
         assert op.callback.call_count == 1
         assert op.callback.call_args[1]["error"] == arbitrary_exception
@@ -1241,7 +1241,7 @@ class TestReconnectStageRunOp(StageTestBase):
     def test_disconnect_op_virtual_connection_failure(self, mocker, stage, arbitrary_exception):
         op = pipeline_ops_base.DisconnectOperation(mocker.MagicMock())
         stage.virtually_connected = True
-        stage.next._execute_op.side_effect = arbitrary_exception
+        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
         assert op.callback.call_count == 1
         assert op.callback.call_args[1]["error"] == arbitrary_exception
