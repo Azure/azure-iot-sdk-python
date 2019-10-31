@@ -23,7 +23,7 @@ class PipelineOperation(object):
       successfully or with a failure.
     :type callback: Function
     :ivar needs_connection: This is an attribute that indicates whether a particular operation
-      requires a connection to operate.  This is currently used by the EnsureConnectionStage
+      requires a connection to operate.  This is currently used by the ConnectForOpsThatNeedItStage
       stage, but this functionality will be revamped shortly.
     :type needs_connection: Boolean
     :ivar error: The presence of a value in the error attribute indicates that the operation failed,
@@ -169,7 +169,7 @@ class UpdateSasTokenOperation(PipelineOperation):
         self.sas_token = sas_token
 
 
-class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
+class RequestAndResponseOperation(PipelineOperation):
     """
     A PipelineOperation object which wraps the common operation of sending a request to iothub with a request_id ($rid)
     value and waiting for a response with the same $rid value.  This convention is used by both Twin and Provisioning
@@ -190,7 +190,7 @@ class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
 
     def __init__(self, request_type, method, resource_location, request_body, callback):
         """
-        Initializer for SendIotRequestAndWaitForResponseOperation objects
+        Initializer for RequestAndResponseOperation objects
 
         :param str request_type: The type of request.  This is a string which is used by protocol-specific stages to
           generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
@@ -205,7 +205,7 @@ class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SendIotRequestAndWaitForResponseOperation, self).__init__(callback=callback)
+        super(RequestAndResponseOperation, self).__init__(callback=callback)
         self.request_type = request_type
         self.method = method
         self.resource_location = resource_location
@@ -214,10 +214,10 @@ class SendIotRequestAndWaitForResponseOperation(PipelineOperation):
         self.response_body = None
 
 
-class SendIotRequestOperation(PipelineOperation):
+class RequestOperation(PipelineOperation):
     """
-    A PipelineOperation object which is the first part of an SendIotRequestAndWaitForResponseOperation operation (the request). The second
-    part of the SendIotRequestAndWaitForResponseOperation operation (the response) is returned via an IotResponseEvent event.
+    A PipelineOperation object which is the first part of an RequestAndResponseOperation operation (the request). The second
+    part of the RequestAndResponseOperation operation (the response) is returned via an ResponseEvent event.
 
     Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
     (such as IoTHub or MQTT stages).
@@ -225,7 +225,7 @@ class SendIotRequestOperation(PipelineOperation):
 
     def __init__(self, request_type, method, resource_location, request_body, request_id, callback):
         """
-        Initializer for SendIotRequestOperation objects
+        Initializer for RequestOperation objects
 
         :param str request_type: The type of request.  This is a string which is used by protocol-specific stages to
           generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
@@ -240,7 +240,7 @@ class SendIotRequestOperation(PipelineOperation):
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
         """
-        super(SendIotRequestOperation, self).__init__(callback=callback)
+        super(RequestOperation, self).__init__(callback=callback)
         self.method = method
         self.resource_location = resource_location
         self.request_type = request_type

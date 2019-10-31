@@ -48,11 +48,11 @@ class PipelineStage(object):
     (use an auth provider) and converts it into something more generic (here is your device_id, etc, and use
     this SAS token when connecting).
 
-    An example of a generic-to-specific stage is IoTHubMQTTConverterStage which converts IoTHub operations
+    An example of a generic-to-specific stage is ConvertFromIoTHubOpToMQTTStage which converts IoTHub operations
     (such as SendD2CMessageOperation) to MQTT operations (such as Publish).
 
     Each stage should also work in the broadest domain possible.  For example a generic stage (say
-    "EnsureConnectionStage") that initiates a connection if any arbitrary operation needs a connection is more useful
+    "ConnectForOpsThatNeedItStage") that initiates a connection if any arbitrary operation needs a connection is more useful
     than having some MQTT-specific code that re-connects to the MQTT broker if the user calls Publish and
     there's no connection.
 
@@ -308,7 +308,7 @@ class PipelineStage(object):
         "intercepted_return" function in the return path of the op.  This way, a stage can
         continue processing of any op and use the intercepted_return function to  see the
         result of the op before returning it all the way to its original callback.  This is
-        useful for stages that want to monitor the progress of ops, such as a TimeoutStage
+        useful for stages that want to monitor the progress of ops, such as a AddTimeoutStage
         that needs to keep track of how long ops are running and when they complete.
         When that intercepted_return function is done with the op, it can use
         send_completed_op_up() to finish processing the op.
@@ -419,7 +419,7 @@ class PipelineRootStage(PipelineStage):
             pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
 
 
-class EnsureConnectionStage(PipelineStage):
+class ConnectForOpsThatNeedItStage(PipelineStage):
     """
     This stage is responsible for ensuring that the protocol is connected when
     it needs to be connected.
@@ -468,7 +468,7 @@ class EnsureConnectionStage(PipelineStage):
         self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
-class SerializeConnectOpsStage(PipelineStage):
+class BlockWhileConnectingOrDisconnectingStage(PipelineStage):
     """
     This stage is responsible for serializing connect, disconnect, and reconnect ops on
     the pipeline, such that only a single one of these ops can go past this stage at a
@@ -478,7 +478,7 @@ class SerializeConnectOpsStage(PipelineStage):
     """
 
     def __init__(self):
-        super(SerializeConnectOpsStage, self).__init__()
+        super(BlockWhileConnectingOrDisconnectingStage, self).__init__()
         self.queue = queue.Queue()
         self.blocked = False
 
@@ -585,9 +585,9 @@ class SerializeConnectOpsStage(PipelineStage):
 
 class CoordinateRequestAndResponseStage(PipelineStage):
     """
-    Pipeline stage which is responsible for coordinating SendIotRequestAndWaitForResponseOperation operations.  For each
-    SendIotRequestAndWaitForResponseOperation operation, this stage passes down a SendIotRequestOperation operation and waits for
-    an IotResponseEvent event.  All other events are passed down unmodified.
+    Pipeline stage which is responsible for coordinating RequestAndResponseOperation operations.  For each
+    RequestAndResponseOperation operation, this stage passes down a RequestOperation operation and waits for
+    an ResponseEvent event.  All other events are passed down unmodified.
     """
 
     def __init__(self):
@@ -596,10 +596,10 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
-        if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation):
-            # Convert SendIotRequestAndWaitForResponseOperation operation into a SendIotRequestOperation operation
-            # and send it down.  A lower level will convert the SendIotRequestOperation into an
-            # actual protocol client operation.  The SendIotRequestAndWaitForResponseOperation operation will be
+        if isinstance(op, pipeline_ops_base.RequestAndResponseOperation):
+            # Convert RequestAndResponseOperation operation into a RequestOperation operation
+            # and send it down.  A lower level will convert the RequestOperation into an
+            # actual protocol client operation.  The RequestAndResponseOperation operation will be
             # completed when the corresponding IotResponse event is received in this stage.
 
             request_id = str(uuid.uuid4())
@@ -634,7 +634,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             )
             self.pending_responses[request_id] = op
 
-            new_op = pipeline_ops_base.SendIotRequestOperation(
+            new_op = pipeline_ops_base.RequestOperation(
                 method=op.method,
                 resource_location=op.resource_location,
                 request_body=op.request_body,
@@ -649,8 +649,8 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
-        if isinstance(event, pipeline_events_base.IotResponseEvent):
-            # match IotResponseEvent events to the saved dictionary of SendIotRequestAndWaitForResponseOperation
+        if isinstance(event, pipeline_events_base.ResponseEvent):
+            # match ResponseEvent events to the saved dictionary of RequestAndResponseOperation
             # operations which have not received responses yet.  If the operation is found,
             # complete it.
 
@@ -685,7 +685,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             self.send_event_up(event)
 
 
-class TimeoutStage(PipelineStage):
+class AddTimeoutStage(PipelineStage):
     """
     The purpose of the timeout stage is to add timeout errors to select operations
 
@@ -716,7 +716,7 @@ class TimeoutStage(PipelineStage):
     """
 
     def __init__(self):
-        super(TimeoutStage, self).__init__()
+        super(AddTimeoutStage, self).__init__()
         # use a fixed list and fixed intervals for now.  Later, this info will come in
         # as an init param or a retry poicy
         self.timeout_intervals = {
@@ -765,18 +765,18 @@ class TimeoutStage(PipelineStage):
         self.send_completed_op_up(op, error)
 
 
-class RetryStage(PipelineStage):
+class RetryOnErrorStage(PipelineStage):
     """
     The purpose of the retry stage is to watch specific operations for specific
     errors and retry the operations as appropriate.
 
-    Unlike the TimeoutStage, this stage will never need to worry about cancelling
+    Unlike the AddTimeoutStage, this stage will never need to worry about cancelling
     failed operations.  When an operation is retried at this stage, it is already
     considered "failed", so no cancellation needs to be done.
     """
 
     def __init__(self):
-        super(RetryStage, self).__init__()
+        super(RetryOnErrorStage, self).__init__()
         # Retry intervals are hardcoded for now. Later, they come in as an
         # init param, probably via retry policy.
         self.retry_intervals = {
