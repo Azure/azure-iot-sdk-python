@@ -23,7 +23,7 @@ class PipelineOperation(object):
       successfully or with a failure.
     :type callback: Function
     :ivar needs_connection: This is an attribute that indicates whether a particular operation
-      requires a connection to operate.  This is currently used by the ConnectForOpsThatNeedItStage
+      requires a connection to operate.  This is currently used by the AutoConnectStage
       stage, but this functionality will be revamped shortly.
     :type needs_connection: Boolean
     :ivar error: The presence of a value in the error attribute indicates that the operation failed,

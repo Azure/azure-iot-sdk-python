@@ -92,12 +92,12 @@ class UseAuthProviderStage(PipelineStage):
         )
 
 
-class ConvertTwinOpToRequestAndResponseStage(PipelineStage):
+class TwinRequestResponseStage(PipelineStage):
     """
     PipelineStage which handles twin operations. In particular, it converts twin GET and PATCH
     operations into RequestAndResponseOperation operations.  This is done at the IoTHub level because
     there is nothing protocol-specific about this code.  The protocol-specific implementation
-    for twin requests and responses is handled inside ConvertFromIoTHubOpToMQTTStage, when it converts
+    for twin requests and responses is handled inside IoTHubMQTTTranslationStage, when it converts
     the RequestOperation to a protocol-specific send operation and when it converts the
     protocol-specific receive event into an ResponseEvent event.
     """

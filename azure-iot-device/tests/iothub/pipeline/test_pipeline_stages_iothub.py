@@ -353,7 +353,7 @@ class TestUseAuthProviderOnSasTokenUpdated(StageTestBase):
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_iothub.ConvertTwinOpToRequestAndResponseStage,
+    cls=pipeline_stages_iothub.TwinRequestResponseStage,
     module=this_module,
     all_ops=all_common_ops + all_iothub_ops,
     handled_ops=[
@@ -366,12 +366,12 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 
 @pytest.mark.describe(
-    "ConvertTwinOpToRequestAndResponseStage - .run_op() -- called with GetTwinOperation"
+    "TwinRequestResponseStage - .run_op() -- called with GetTwinOperation"
 )
 class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_iothub.ConvertTwinOpToRequestAndResponseStage()
+        return pipeline_stages_iothub.TwinRequestResponseStage()
 
     @pytest.fixture
     def op(self, stage, mocker):
@@ -468,12 +468,12 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
 
 
 @pytest.mark.describe(
-    "ConvertTwinOpToRequestAndResponseStage - .run_op() -- called with PatchTwinReportedPropertiesOperation"
+    "TwinRequestResponseStage - .run_op() -- called with PatchTwinReportedPropertiesOperation"
 )
 class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_iothub.ConvertTwinOpToRequestAndResponseStage()
+        return pipeline_stages_iothub.TwinRequestResponseStage()
 
     @pytest.fixture
     def patch(self):

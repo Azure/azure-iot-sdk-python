@@ -167,7 +167,7 @@ TestPipelineRootStagePipelineThreading.test_pipeline_root_runs_on_event_received
 )
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.ConnectForOpsThatNeedItStage,
+    cls=pipeline_stages_base.AutoConnectStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=[
@@ -203,9 +203,9 @@ ops_that_cause_connection = [
     ids=[x["op_class"].__name__ for x in ops_that_cause_connection],
 )
 @pytest.mark.describe(
-    "ConnectForOpsThatNeedItStage - .run_op() -- called with operation that causes a connection to be established"
+    "AutoConnectStage - .run_op() -- called with operation that causes a connection to be established"
 )
-class TestConnectForOpsThatNeedItStageRunOp(StageTestBase):
+class TestAutoConnectStageRunOp(StageTestBase):
     @pytest.fixture
     def op(self, mocker, params):
         op = params["op_class"](**params["op_init_kwargs"])
@@ -214,7 +214,7 @@ class TestConnectForOpsThatNeedItStageRunOp(StageTestBase):
 
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.ConnectForOpsThatNeedItStage()
+        return pipeline_stages_base.AutoConnectStage()
 
     @pytest.mark.it("Passes the operation down the pipline when the transport is already connected")
     def test_operation_alrady_connected(self, params, op, stage):
@@ -284,7 +284,7 @@ class TestConnectForOpsThatNeedItStageRunOp(StageTestBase):
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.BlockWhileConnectingOrDisconnectingStage,
+    cls=pipeline_stages_base.ConnectionLockStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=[
@@ -309,12 +309,12 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 
 
 @pytest.mark.describe(
-    "BlockWhileConnectingOrDisconnectingStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
+    "ConnectionLockStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
 )
 class TestSerializeConnectOpStageRunOp(StageTestBase):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.BlockWhileConnectingOrDisconnectingStage()
+        return pipeline_stages_base.ConnectionLockStage()
 
     @pytest.fixture
     def connection_op(self, mocker, params):
@@ -723,7 +723,7 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
 
 
 """
-A note on terms in the AddTimeoutStage tests:
+A note on terms in the OpTimeoutStage tests:
     No-timeout ops are ops that don't need a timeout check
     Yes-timeout ops are ops that do need a timeout check
 """
@@ -735,7 +735,7 @@ yes_timeout_ops = list(timeout_intervals.keys())
 no_timeout_ops = all_except(all_common_ops, yes_timeout_ops)
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.AddTimeoutStage,
+    cls=pipeline_stages_base.OpTimeoutStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=yes_timeout_ops,
@@ -752,8 +752,8 @@ def mock_timer(mocker):
     )
 
 
-@pytest.mark.describe("AddTimeoutStage - run_op()")
-class TestAddTimeoutStageRunOp(StageTestBase):
+@pytest.mark.describe("OpTimeoutStage - run_op()")
+class TestOpTimeoutStageRunOp(StageTestBase):
     @pytest.fixture(params=yes_timeout_ops)
     def yes_timeout_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
@@ -768,7 +768,7 @@ class TestAddTimeoutStageRunOp(StageTestBase):
 
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.AddTimeoutStage()
+        return pipeline_stages_base.OpTimeoutStage()
 
     @pytest.mark.it("Sends ops that don't need a timer to the next stage")
     def test_sends_no_timer_op_down(self, stage, mock_timer, no_timeout_op):
@@ -881,7 +881,7 @@ class TestAddTimeoutStageRunOp(StageTestBase):
 
 
 """
-A note on terms in the RetryOnErrorStage tests:
+A note on terms in the RetryStage tests:
     No-retry ops are ops that will never be retried.
     Yes-retry ops are ops that might be retired, depending on the error.
     Retry errors are errors that cause a retry for yes-retry ops
@@ -897,7 +897,7 @@ no_retry_ops = all_except(all_common_ops, yes_retry_ops)
 retry_errors = [pipeline_exceptions.PipelineTimeoutError]
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.RetryOnErrorStage,
+    cls=pipeline_stages_base.RetryStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=[],
@@ -907,9 +907,9 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-class RetryOnErrorStageTestOpSend(object):
+class RetryStageTestOpSend(object):
     """
-    Tests for RetryOnErrorStage to verify that ops get sent down
+    Tests for RetryStage to verify that ops get sent down
     """
 
     @pytest.fixture(params=no_retry_ops)
@@ -937,9 +937,9 @@ class RetryOnErrorStageTestOpSend(object):
         assert stage.next.run_op.call_args[0][0] == yes_retry_op
 
 
-class RetryOnErrorStageTestNoRetryOpCallback(object):
+class RetryStageTestNoRetryOpCallback(object):
     """
-    Tests for RetryOnErrorStage for callbacks with no-retry ops.
+    Tests for RetryStage for callbacks with no-retry ops.
     """
 
     @pytest.fixture(params=retry_errors)
@@ -971,9 +971,9 @@ class RetryOnErrorStageTestNoRetryOpCallback(object):
         assert_callback_failed(op=no_retry_op, error=retry_error)
 
 
-class RetryOnErrorStageTestNoRetryOpSetTimer(object):
+class RetryStageTestNoRetryOpSetTimer(object):
     """
-    Tests for RetryOnErrorStage for not setting a timer for no-retry ops
+    Tests for RetryStage for not setting a timer for no-retry ops
     """
 
     @pytest.mark.it("Does not set a retry timer when an op that doesn't need retry succeeds")
@@ -1001,9 +1001,9 @@ class RetryOnErrorStageTestNoRetryOpSetTimer(object):
         assert mock_timer.call_count == 0
 
 
-class RetryOnErrorStageTestYesRetryOpCallback(object):
+class RetryStageTestYesRetryOpCallback(object):
     """
-    Tests for RetryOnErrorStage for callbacks with yes-retry ops
+    Tests for RetryStage for callbacks with yes-retry ops
     """
 
     @pytest.mark.it("Calls the op callback with no error when an op that need retry succeeds")
@@ -1031,9 +1031,9 @@ class RetryOnErrorStageTestYesRetryOpCallback(object):
         assert yes_retry_op.callback.call_count == 0
 
 
-class RetryOnErrorStageTestYesRetryOpSetTimer(object):
+class RetryStageTestYesRetryOpSetTimer(object):
     """
-    Tests for RetryOnErrorStage for setting or not setting timers for yes-retry ops
+    Tests for RetryStage for setting or not setting timers for yes-retry ops
     """
 
     @pytest.mark.it("Does not set a retry timer when an op that need retry succeeds")
@@ -1067,9 +1067,9 @@ class RetryOnErrorStageTestYesRetryOpSetTimer(object):
         assert mock_timer.call_args[0][0] == retry_intervals[yes_retry_op.__class__]
 
 
-class RetryOnErrorStageTestResubmitOp(object):
+class RetryStageTestResubmitOp(object):
     """
-    Tests for RetryOnErrorStage for resubmiting ops for retry
+    Tests for RetryStage for resubmiting ops for retry
     """
 
     @pytest.mark.it("Retries an op that needs retry after the retry interval elapses")
@@ -1106,9 +1106,9 @@ class RetryOnErrorStageTestResubmitOp(object):
         assert getattr(yes_retry_op, "retry_timer", None) is None
 
 
-class RetryOnErrorStageTestResubmitedOpCompletion(object):
+class RetryStageTestResubmitedOpCompletion(object):
     """
-    Tests for RetryOnErrorStage for resubmitted op completion
+    Tests for RetryStage for resubmitted op completion
     """
 
     @pytest.mark.it("Calls the original callback with success when the retried op succeeds")
@@ -1166,17 +1166,17 @@ class RetryOnErrorStageTestResubmitedOpCompletion(object):
         assert mock_timer.call_count == 2
 
 
-@pytest.mark.describe("RetryOnErrorStage - run_op()")
-class TestRetryOnErrorStageRunOp(
+@pytest.mark.describe("RetryStage - run_op()")
+class TestRetryStageRunOp(
     StageTestBase,
-    RetryOnErrorStageTestOpSend,
-    RetryOnErrorStageTestNoRetryOpCallback,
-    RetryOnErrorStageTestNoRetryOpSetTimer,
-    RetryOnErrorStageTestYesRetryOpCallback,
-    RetryOnErrorStageTestYesRetryOpSetTimer,
-    RetryOnErrorStageTestResubmitOp,
-    RetryOnErrorStageTestResubmitedOpCompletion,
+    RetryStageTestOpSend,
+    RetryStageTestNoRetryOpCallback,
+    RetryStageTestNoRetryOpSetTimer,
+    RetryStageTestYesRetryOpCallback,
+    RetryStageTestYesRetryOpSetTimer,
+    RetryStageTestResubmitOp,
+    RetryStageTestResubmitedOpCompletion,
 ):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.RetryOnErrorStage()
+        return pipeline_stages_base.RetryStage()

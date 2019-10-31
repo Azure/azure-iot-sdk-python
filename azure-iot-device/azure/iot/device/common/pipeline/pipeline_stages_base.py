@@ -48,11 +48,11 @@ class PipelineStage(object):
     (use an auth provider) and converts it into something more generic (here is your device_id, etc, and use
     this SAS token when connecting).
 
-    An example of a generic-to-specific stage is ConvertFromIoTHubOpToMQTTStage which converts IoTHub operations
+    An example of a generic-to-specific stage is IoTHubMQTTTranslationStage which converts IoTHub operations
     (such as SendD2CMessageOperation) to MQTT operations (such as Publish).
 
     Each stage should also work in the broadest domain possible.  For example a generic stage (say
-    "ConnectForOpsThatNeedItStage") that initiates a connection if any arbitrary operation needs a connection is more useful
+    "AutoConnectStage") that initiates a connection if any arbitrary operation needs a connection is more useful
     than having some MQTT-specific code that re-connects to the MQTT broker if the user calls Publish and
     there's no connection.
 
@@ -308,7 +308,7 @@ class PipelineStage(object):
         "intercepted_return" function in the return path of the op.  This way, a stage can
         continue processing of any op and use the intercepted_return function to  see the
         result of the op before returning it all the way to its original callback.  This is
-        useful for stages that want to monitor the progress of ops, such as a AddTimeoutStage
+        useful for stages that want to monitor the progress of ops, such as a OpTimeoutStage
         that needs to keep track of how long ops are running and when they complete.
         When that intercepted_return function is done with the op, it can use
         send_completed_op_up() to finish processing the op.
@@ -419,7 +419,7 @@ class PipelineRootStage(PipelineStage):
             pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
 
 
-class ConnectForOpsThatNeedItStage(PipelineStage):
+class AutoConnectStage(PipelineStage):
     """
     This stage is responsible for ensuring that the protocol is connected when
     it needs to be connected.
@@ -468,7 +468,7 @@ class ConnectForOpsThatNeedItStage(PipelineStage):
         self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
-class BlockWhileConnectingOrDisconnectingStage(PipelineStage):
+class ConnectionLockStage(PipelineStage):
     """
     This stage is responsible for serializing connect, disconnect, and reconnect ops on
     the pipeline, such that only a single one of these ops can go past this stage at a
@@ -478,7 +478,7 @@ class BlockWhileConnectingOrDisconnectingStage(PipelineStage):
     """
 
     def __init__(self):
-        super(BlockWhileConnectingOrDisconnectingStage, self).__init__()
+        super(ConnectionLockStage, self).__init__()
         self.queue = queue.Queue()
         self.blocked = False
 
@@ -685,7 +685,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             self.send_event_up(event)
 
 
-class AddTimeoutStage(PipelineStage):
+class OpTimeoutStage(PipelineStage):
     """
     The purpose of the timeout stage is to add timeout errors to select operations
 
@@ -716,7 +716,7 @@ class AddTimeoutStage(PipelineStage):
     """
 
     def __init__(self):
-        super(AddTimeoutStage, self).__init__()
+        super(OpTimeoutStage, self).__init__()
         # use a fixed list and fixed intervals for now.  Later, this info will come in
         # as an init param or a retry poicy
         self.timeout_intervals = {
@@ -765,18 +765,18 @@ class AddTimeoutStage(PipelineStage):
         self.send_completed_op_up(op, error)
 
 
-class RetryOnErrorStage(PipelineStage):
+class RetryStage(PipelineStage):
     """
     The purpose of the retry stage is to watch specific operations for specific
     errors and retry the operations as appropriate.
 
-    Unlike the AddTimeoutStage, this stage will never need to worry about cancelling
+    Unlike the OpTimeoutStage, this stage will never need to worry about cancelling
     failed operations.  When an operation is retried at this stage, it is already
     considered "failed", so no cancellation needs to be done.
     """
 
     def __init__(self):
-        super(RetryOnErrorStage, self).__init__()
+        super(RetryStage, self).__init__()
         # Retry intervals are hardcoded for now. Later, they come in as an
         # init param, probably via retry policy.
         self.retry_intervals = {

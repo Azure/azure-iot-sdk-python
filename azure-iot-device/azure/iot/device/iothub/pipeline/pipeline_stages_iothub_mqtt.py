@@ -24,14 +24,14 @@ from azure.iot.device import constant as pkg_constant
 logger = logging.getLogger(__name__)
 
 
-class ConvertFromIoTHubOpToMQTTStage(PipelineStage):
+class IoTHubMQTTTranslationStage(PipelineStage):
     """
     PipelineStage which converts other Iot and IoTHub operations into MQTT operations.  This stage also
     converts mqtt pipeline events into Iot and IoTHub pipeline events.
     """
 
     def __init__(self):
-        super(ConvertFromIoTHubOpToMQTTStage, self).__init__()
+        super(IoTHubMQTTTranslationStage, self).__init__()
         self.feature_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
