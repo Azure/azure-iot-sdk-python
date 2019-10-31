@@ -365,9 +365,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe(
-    "TwinRequestResponseStage - .run_op() -- called with GetTwinOperation"
-)
+@pytest.mark.describe("TwinRequestResponseStage - .run_op() -- called with GetTwinOperation")
 class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
     @pytest.fixture
     def stage(self):

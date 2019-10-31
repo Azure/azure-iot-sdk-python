@@ -248,9 +248,7 @@ def op(params, mocker):
     ids=["{}->{}".format(x["op_class"].__name__, x["new_op_class"].__name__) for x in basic_ops],
 )
 @pytest.mark.describe("ProvisioningMQTTTranslationStage basic operation tests")
-class TestProvisioningMQTTTranslationStageBasicOperations(
-    ProvisioningMQTTTranslationStageTestBase
-):
+class TestProvisioningMQTTTranslationStageBasicOperations(ProvisioningMQTTTranslationStageTestBase):
     @pytest.mark.it("Runs an operation on the next stage")
     def test_runs_publish(self, params, stage, stages_configured, op):
         stage.run_op(op)
@@ -331,9 +329,7 @@ publish_ops = [
 
 @pytest.mark.parametrize("params", publish_ops, ids=[x["name"] for x in publish_ops])
 @pytest.mark.describe("ProvisioningMQTTTranslationStage run_op function for publish operations")
-class TestProvisioningMQTTTranslationStageForPublishOps(
-    ProvisioningMQTTTranslationStageTestBase
-):
+class TestProvisioningMQTTTranslationStageForPublishOps(ProvisioningMQTTTranslationStageTestBase):
     @pytest.mark.it("Uses correct registration topic string when publishing")
     def test_uses_topic_for(self, stage, stages_configured, params, op):
         stage.run_op(op)
@@ -362,9 +358,7 @@ sub_unsub_operations = [
 @pytest.mark.describe(
     "ProvisioningMQTTTranslationStage run_op function with EnableFeature operation"
 )
-class TestProvisioningMQTTTranslationStageWithEnable(
-    ProvisioningMQTTTranslationStageTestBase
-):
+class TestProvisioningMQTTTranslationStageWithEnable(ProvisioningMQTTTranslationStageTestBase):
     @pytest.mark.parametrize(
         "op_parameters",
         sub_unsub_operations,
