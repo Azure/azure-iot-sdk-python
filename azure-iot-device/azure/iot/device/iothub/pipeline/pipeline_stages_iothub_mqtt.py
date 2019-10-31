@@ -24,14 +24,14 @@ from azure.iot.device import constant as pkg_constant
 logger = logging.getLogger(__name__)
 
 
-class IoTHubMQTTConverterStage(PipelineStage):
+class IoTHubMQTTTranslationStage(PipelineStage):
     """
     PipelineStage which converts other Iot and IoTHub operations into MQTT operations.  This stage also
     converts mqtt pipeline events into Iot and IoTHub pipeline events.
     """
 
     def __init__(self):
-        super(IoTHubMQTTConverterStage, self).__init__()
+        super(IoTHubMQTTTranslationStage, self).__init__()
         self.feature_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -192,7 +192,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 op=op,
             )
 
-        elif isinstance(op, pipeline_ops_base.SendIotRequestOperation):
+        elif isinstance(op, pipeline_ops_base.RequestOperation):
             if op.request_type == pipeline_constant.TWIN:
                 topic = mqtt_topic_iothub.get_twin_topic_for_publish(
                     method=op.method,
@@ -207,7 +207,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 )
             else:
                 raise pipeline_exceptions.OperationError(
-                    "SendIotRequestOperation request_type {} not supported".format(op.request_type)
+                    "RequestOperation request_type {} not supported".format(op.request_type)
                 )
 
         else:
@@ -270,7 +270,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 request_id = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
                 status_code = int(mqtt_topic_iothub.get_twin_status_code_from_topic(topic))
                 self.send_event_up(
-                    pipeline_events_base.IotResponseEvent(
+                    pipeline_events_base.ResponseEvent(
                         request_id=request_id, status_code=status_code, response_body=event.payload
                     )
                 )

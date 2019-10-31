@@ -46,7 +46,7 @@ pipeline_data_object_test.add_operation_test(
     positional_arguments=["sas_token", "callback"],
 )
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_base.SendIotRequestAndWaitForResponseOperation,
+    cls=pipeline_ops_base.RequestAndResponseOperation,
     module=this_module,
     positional_arguments=[
         "request_type",
@@ -57,7 +57,7 @@ pipeline_data_object_test.add_operation_test(
     ],
 )
 pipeline_data_object_test.add_operation_test(
-    cls=pipeline_ops_base.SendIotRequestOperation,
+    cls=pipeline_ops_base.RequestOperation,
     module=this_module,
     positional_arguments=[
         "request_type",

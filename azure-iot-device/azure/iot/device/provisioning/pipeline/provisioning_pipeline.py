@@ -35,9 +35,9 @@ class ProvisioningPipeline(object):
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
-            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage())
-            .append_stage(pipeline_stages_base.EnsureConnectionStage())
-            .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
+            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
+            .append_stage(pipeline_stages_base.AutoConnectStage())
+            .append_stage(pipeline_stages_base.ConnectionLockStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 

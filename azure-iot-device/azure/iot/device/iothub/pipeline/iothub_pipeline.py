@@ -53,13 +53,13 @@ class IoTHubPipeline(object):
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
-            .append_stage(pipeline_stages_iothub.HandleTwinOperationsStage())
+            .append_stage(pipeline_stages_iothub.TwinRequestResponseStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
-            .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage())
+            .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
             .append_stage(pipeline_stages_base.RetryStage())
-            .append_stage(pipeline_stages_base.TimeoutStage())
-            .append_stage(pipeline_stages_base.EnsureConnectionStage())
-            .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
+            .append_stage(pipeline_stages_base.OpTimeoutStage())
+            .append_stage(pipeline_stages_base.AutoConnectStage())
+            .append_stage(pipeline_stages_base.ConnectionLockStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
