@@ -499,7 +499,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(
 @pytest.mark.describe(
     "ConvertFromIoTHubOpToMQTTStage - .run_op() -- called with UpdateSasTokenOperation if the transport is connected"
 )
-class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(ConvertFromIoTHubOpToMQTTStageTestBase):
+class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
+    ConvertFromIoTHubOpToMQTTStageTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.UpdateSasTokenOperation(
@@ -618,7 +620,9 @@ basic_ops = [
     basic_ops,
     ids=["{}->{}".format(x["op_class"].__name__, x["new_op_class"].__name__) for x in basic_ops],
 )
-@pytest.mark.describe("ConvertFromIoTHubOpToMQTTStage - .run_op() -- called with basic MQTT operations")
+@pytest.mark.describe(
+    "ConvertFromIoTHubOpToMQTTStage - .run_op() -- called with basic MQTT operations"
+)
 class TestIoTHubMQTTConverterBasicOperations(ConvertFromIoTHubOpToMQTTStageTestBase):
     @pytest.fixture
     def op(self, params, mocker):
@@ -1012,7 +1016,9 @@ publish_ops = [
 
 
 @pytest.mark.parametrize("params", publish_ops, ids=[x["name"] for x in publish_ops])
-@pytest.mark.describe("ConvertFromIoTHubOpToMQTTStage - .run_op() -- called with publish operations")
+@pytest.mark.describe(
+    "ConvertFromIoTHubOpToMQTTStage - .run_op() -- called with publish operations"
+)
 class TestIoTHubMQTTConverterForPublishOps(ConvertFromIoTHubOpToMQTTStageTestBase):
     @pytest.fixture
     def op(self, params, mocker):
@@ -1319,7 +1325,9 @@ def input_message_event():
 @pytest.mark.describe(
     "ConvertFromIoTHubOpToMQTTStage - .handle_pipeline_event() -- called with input message topic"
 )
-class TestIoTHubMQTTConverterHandlePipelineEventInputMessages(ConvertFromIoTHubOpToMQTTStageTestBase):
+class TestIoTHubMQTTConverterHandlePipelineEventInputMessages(
+    ConvertFromIoTHubOpToMQTTStageTestBase
+):
     @pytest.mark.it(
         "Converts mqtt message with topic devices/device_id/modules/module_id/inputs/input_name/ to input event"
     )
@@ -1385,7 +1393,9 @@ def method_request_event():
 @pytest.mark.describe(
     "ConvertFromIoTHubOpToMQTTStage - .handle_pipeline_event() -- called with method request topic"
 )
-class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(ConvertFromIoTHubOpToMQTTStageTestBase):
+class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(
+    ConvertFromIoTHubOpToMQTTStageTestBase
+):
     @pytest.mark.it(
         "Converts mqtt messages with topic $iothub/methods/POST/{method name}/?$rid={request id} to method request events"
     )
@@ -1437,7 +1447,9 @@ class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(ConvertFromIoTHubO
 @pytest.mark.describe(
     "IotHubMQTTConverter - .handle_pipeline_event() -- called with twin response topic"
 )
-class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(ConvertFromIoTHubOpToMQTTStageTestBase):
+class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(
+    ConvertFromIoTHubOpToMQTTStageTestBase
+):
     @pytest.fixture
     def fake_request_id(self):
         return "__fake_request_id__"

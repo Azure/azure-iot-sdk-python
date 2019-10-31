@@ -248,7 +248,9 @@ def op(params, mocker):
     ids=["{}->{}".format(x["op_class"].__name__, x["new_op_class"].__name__) for x in basic_ops],
 )
 @pytest.mark.describe("ConvertFromProvisioningOpToMQTTStage basic operation tests")
-class TestConvertFromProvisioningOpToMQTTStageBasicOperations(ConvertFromProvisioningOpToMQTTStageTestBase):
+class TestConvertFromProvisioningOpToMQTTStageBasicOperations(
+    ConvertFromProvisioningOpToMQTTStageTestBase
+):
     @pytest.mark.it("Runs an operation on the next stage")
     def test_runs_publish(self, params, stage, stages_configured, op):
         stage.run_op(op)
@@ -329,7 +331,9 @@ publish_ops = [
 
 @pytest.mark.parametrize("params", publish_ops, ids=[x["name"] for x in publish_ops])
 @pytest.mark.describe("ConvertFromProvisioningOpToMQTTStage run_op function for publish operations")
-class TestConvertFromProvisioningOpToMQTTStageForPublishOps(ConvertFromProvisioningOpToMQTTStageTestBase):
+class TestConvertFromProvisioningOpToMQTTStageForPublishOps(
+    ConvertFromProvisioningOpToMQTTStageTestBase
+):
     @pytest.mark.it("Uses correct registration topic string when publishing")
     def test_uses_topic_for(self, stage, stages_configured, params, op):
         stage.run_op(op)
@@ -355,8 +359,12 @@ sub_unsub_operations = [
 ]
 
 
-@pytest.mark.describe("ConvertFromProvisioningOpToMQTTStage run_op function with EnableFeature operation")
-class TestConvertFromProvisioningOpToMQTTStageWithEnable(ConvertFromProvisioningOpToMQTTStageTestBase):
+@pytest.mark.describe(
+    "ConvertFromProvisioningOpToMQTTStage run_op function with EnableFeature operation"
+)
+class TestConvertFromProvisioningOpToMQTTStageWithEnable(
+    ConvertFromProvisioningOpToMQTTStageTestBase
+):
     @pytest.mark.parametrize(
         "op_parameters",
         sub_unsub_operations,
@@ -375,7 +383,9 @@ class TestConvertFromProvisioningOpToMQTTStageWithEnable(ConvertFromProvisioning
 
 
 @pytest.mark.describe("ConvertFromProvisioningOpToMQTTStage _handle_pipeline_event")
-class TestConvertFromProvisioningOpToMQTTStageHandlePipelineEvent(ConvertFromProvisioningOpToMQTTStageTestBase):
+class TestConvertFromProvisioningOpToMQTTStageHandlePipelineEvent(
+    ConvertFromProvisioningOpToMQTTStageTestBase
+):
     @pytest.mark.it("Passes up any mqtt messages with topics that aren't matched by this stage")
     def test_passes_up_mqtt_message_with_unknown_topic(self, stage, stages_configured, mocker):
         event = pipeline_events_mqtt.IncomingMQTTMessageEvent(
