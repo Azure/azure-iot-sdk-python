@@ -380,7 +380,7 @@ class TestConnect(object):
         assert e_info.value.__cause__ is arbitrary_exception
 
     @pytest.mark.it(
-        "Raises a ConnectionFailedException if Paho connect raises a socket.error Exception"
+        "Raises a ConnectionFailedError if Paho connect raises a socket.error Exception"
     )
     def test_client_raises_socket_error(
         self, mocker, mock_mqtt_client, transport, arbitrary_exception
