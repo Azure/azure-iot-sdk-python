@@ -4,6 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 import sys
+import logging
+import traceback
+from . import pipeline_exceptions
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineOperation(object):
@@ -44,9 +49,44 @@ class PipelineOperation(object):
                 "Cannot instantiate PipelineOperation object.  You need to use a derived class"
             )
         self.name = self.__class__.__name__
-        self.callback = callback
+        self.callback = callback  # TODO: remove this
+        self.callbacks = []
         self.needs_connection = False
         self.completed = False
+
+        self.add_callback(callback)
+
+    def add_callback(self, callback):
+        self.callbacks.append(callback)
+
+    # TODO: Is this decorator necessary?
+    # @pipeline_thread.runs_on_pipeline_thread
+    def complete(self, error=None):
+        if error:
+            logger.error("{}: completing with error {}".format(self.name, error))
+        else:
+            logger.debug("{}: completing without error".format(self.name))
+
+        if self.completed:
+            logger.error("{}: has already been completed!".format(self.name))
+            e = pipeline_exceptions.OperationError(
+                "Attempting to complete an already-completed operation: {}".format(self.name)
+            )
+            raise e  # TODO: is this always valid? Ever valid?
+            # handle_exceptions.handle_background_exception(e)
+        else:
+            self.completed = True
+
+            for callback in self.callbacks:
+                try:
+                    callback(self, error=error)
+                except Exception as e:
+                    logger.error(
+                        "Unhandled error while triggering callback for {}".format(self.name)
+                    )
+                    logger.error(traceback.format_exc())
+                    raise e
+                    # handle_exceptions.handle_background_exception(e)  # TODO: what to do with this?
 
 
 class ConnectOperation(PipelineOperation):
