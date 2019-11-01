@@ -92,14 +92,14 @@ class UseAuthProviderStage(PipelineStage):
         )
 
 
-class HandleTwinOperationsStage(PipelineStage):
+class TwinRequestResponseStage(PipelineStage):
     """
     PipelineStage which handles twin operations. In particular, it converts twin GET and PATCH
-    operations into SendIotRequestAndWaitForResponseOperation operations.  This is done at the IoTHub level because
+    operations into RequestAndResponseOperation operations.  This is done at the IoTHub level because
     there is nothing protocol-specific about this code.  The protocol-specific implementation
-    for twin requests and responses is handled inside IoTHubMQTTConverterStage, when it converts
-    the SendIotRequestOperation to a protocol-specific send operation and when it converts the
-    protocol-specific receive event into an IotResponseEvent event.
+    for twin requests and responses is handled inside IoTHubMQTTTranslationStage, when it converts
+    the RequestOperation to a protocol-specific send operation and when it converts the
+    protocol-specific receive event into an ResponseEvent event.
     """
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -125,7 +125,7 @@ class HandleTwinOperationsStage(PipelineStage):
                 self.complete_op(op, error=error)
 
             self.send_op_down(
-                pipeline_ops_base.SendIotRequestAndWaitForResponseOperation(
+                pipeline_ops_base.RequestAndResponseOperation(
                     request_type=constant.TWIN,
                     method="GET",
                     resource_location="/",
@@ -150,7 +150,7 @@ class HandleTwinOperationsStage(PipelineStage):
             )
 
             self.send_op_down(
-                pipeline_ops_base.SendIotRequestAndWaitForResponseOperation(
+                pipeline_ops_base.RequestAndResponseOperation(
                     request_type=constant.TWIN,
                     method="PATCH",
                     resource_location="/properties/reported/",

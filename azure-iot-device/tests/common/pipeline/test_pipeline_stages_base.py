@@ -167,7 +167,7 @@ TestPipelineRootStagePipelineThreading.test_pipeline_root_runs_on_event_received
 )
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.EnsureConnectionStage,
+    cls=pipeline_stages_base.AutoConnectStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=[
@@ -203,9 +203,9 @@ ops_that_cause_connection = [
     ids=[x["op_class"].__name__ for x in ops_that_cause_connection],
 )
 @pytest.mark.describe(
-    "EnsureConnectionStage - .run_op() -- called with operation that causes a connection to be established"
+    "AutoConnectStage - .run_op() -- called with operation that causes a connection to be established"
 )
-class TestEnsureConnectionStageRunOp(StageTestBase):
+class TestAutoConnectStageRunOp(StageTestBase):
     @pytest.fixture
     def op(self, mocker, params):
         op = params["op_class"](**params["op_init_kwargs"])
@@ -214,7 +214,7 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
 
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.EnsureConnectionStage()
+        return pipeline_stages_base.AutoConnectStage()
 
     @pytest.mark.it("Passes the operation down the pipline when the transport is already connected")
     def test_operation_alrady_connected(self, params, op, stage):
@@ -284,7 +284,7 @@ class TestEnsureConnectionStageRunOp(StageTestBase):
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.SerializeConnectOpsStage,
+    cls=pipeline_stages_base.ConnectionLockStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=[
@@ -309,12 +309,12 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 
 
 @pytest.mark.describe(
-    "SerializeConnectOpsStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
+    "ConnectionLockStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
 )
 class TestSerializeConnectOpStageRunOp(StageTestBase):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.SerializeConnectOpsStage()
+        return pipeline_stages_base.ConnectionLockStage()
 
     @pytest.fixture
     def connection_op(self, mocker, params):
@@ -547,9 +547,9 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     cls=pipeline_stages_base.CoordinateRequestAndResponseStage,
     module=this_module,
     all_ops=all_common_ops,
-    handled_ops=[pipeline_ops_base.SendIotRequestAndWaitForResponseOperation],
+    handled_ops=[pipeline_ops_base.RequestAndResponseOperation],
     all_events=all_common_events,
-    handled_events=[pipeline_events_base.IotResponseEvent],
+    handled_events=[pipeline_events_base.ResponseEvent],
     extra_initializer_defaults={"pending_responses": dict},
 )
 
@@ -564,7 +564,7 @@ fake_request_id = "__fake_request_id__"
 
 
 def make_fake_request_and_response(mocker):
-    return pipeline_ops_base.SendIotRequestAndWaitForResponseOperation(
+    return pipeline_ops_base.RequestAndResponseOperation(
         request_type=fake_request_type,
         method=fake_method,
         resource_location=fake_resource_location,
@@ -574,7 +574,7 @@ def make_fake_request_and_response(mocker):
 
 
 @pytest.mark.describe(
-    "CoordinateRequestAndResponse - .run_op() -- called with SendIotRequestAndWaitForResponseOperation"
+    "CoordinateRequestAndResponse - .run_op() -- called with RequestAndResponseOperation"
 )
 class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
     @pytest.fixture
@@ -586,13 +586,13 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
         return pipeline_stages_base.CoordinateRequestAndResponseStage()
 
     @pytest.mark.it(
-        "Sends an SendIotRequestOperation op to the next stage with the same parameters and a newly allocated request_id"
+        "Sends an RequestOperation op to the next stage with the same parameters and a newly allocated request_id"
     )
     def test_sends_op_and_validates_new_op(self, stage, op):
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         new_op = stage.next.run_op.call_args[0][0]
-        assert isinstance(new_op, pipeline_ops_base.SendIotRequestOperation)
+        assert isinstance(new_op, pipeline_ops_base.RequestOperation)
         assert new_op.request_type == op.request_type
         assert new_op.method == op.method
         assert new_op.resource_location == op.resource_location
@@ -604,7 +604,7 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
         stage.run_op(op)
         assert op.callback.call_count == 0
 
-    @pytest.mark.it("Fails SendIotRequestAndWaitForResponseOperation if there is no next stage")
+    @pytest.mark.it("Fails RequestAndResponseOperation if there is no next stage")
     def test_no_next_stage(self, stage, op):
         stage.next = None
         stage.run_op(op)
@@ -621,14 +621,14 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
         assert new_op.request_id != new_op2.request_id
 
     @pytest.mark.it(
-        "Fails SendIotRequestAndWaitForResponseOperation if an Exception is raised in the SendIotRequestOperation op"
+        "Fails RequestAndResponseOperation if an Exception is raised in the RequestOperation op"
     )
     def test_new_op_raises_exception(self, stage, op, mocker, arbitrary_exception):
         stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(op)
         assert_callback_failed(op=op)
 
-    @pytest.mark.it("Allows BaseExceptions rised on the SendIotRequestOperation op to propogate")
+    @pytest.mark.it("Allows BaseExceptions rised on the RequestOperation op to propogate")
     def test_new_op_raises_base_exception(self, stage, op, mocker, arbitrary_base_exception):
         stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
@@ -638,7 +638,7 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
 
 
 @pytest.mark.describe(
-    "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- called with IotResponseEvent"
+    "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- called with ResponseEvent"
 )
 class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
     @pytest.fixture
@@ -656,14 +656,14 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
 
     @pytest.fixture
     def iot_response(self, stage, iot_request):
-        return pipeline_events_base.IotResponseEvent(
+        return pipeline_events_base.ResponseEvent(
             request_id=iot_request.request_id,
             status_code=fake_status_code,
             response_body=fake_response_body,
         )
 
     @pytest.mark.it(
-        "Completes the SendIotRequestAndWaitForResponseOperation op with the matching request_id including response_body and status_code"
+        "Completes the RequestAndResponseOperation op with the matching request_id including response_body and status_code"
     )
     def test_completes_op_with_matching_request_id(self, stage, op, iot_response):
         stage.next.send_event_up(iot_response)
@@ -703,7 +703,7 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
         stage.run_op(op)
 
         req = stage.next.run_op.call_args[0][0]
-        resp = pipeline_events_base.IotResponseEvent(
+        resp = pipeline_events_base.ResponseEvent(
             request_id=req.request_id,
             status_code=fake_status_code,
             response_body=fake_response_body,
@@ -723,7 +723,7 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
 
 
 """
-A note on terms in the TimeoutStage tests:
+A note on terms in the OpTimeoutStage tests:
     No-timeout ops are ops that don't need a timeout check
     Yes-timeout ops are ops that do need a timeout check
 """
@@ -735,7 +735,7 @@ yes_timeout_ops = list(timeout_intervals.keys())
 no_timeout_ops = all_except(all_common_ops, yes_timeout_ops)
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_base.TimeoutStage,
+    cls=pipeline_stages_base.OpTimeoutStage,
     module=this_module,
     all_ops=all_common_ops,
     handled_ops=yes_timeout_ops,
@@ -752,8 +752,8 @@ def mock_timer(mocker):
     )
 
 
-@pytest.mark.describe("TimeoutStage - run_op()")
-class TestTimeoutStageRunOp(StageTestBase):
+@pytest.mark.describe("OpTimeoutStage - run_op()")
+class TestOpTimeoutStageRunOp(StageTestBase):
     @pytest.fixture(params=yes_timeout_ops)
     def yes_timeout_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
@@ -768,7 +768,7 @@ class TestTimeoutStageRunOp(StageTestBase):
 
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_base.TimeoutStage()
+        return pipeline_stages_base.OpTimeoutStage()
 
     @pytest.mark.it("Sends ops that don't need a timer to the next stage")
     def test_sends_no_timer_op_down(self, stage, mock_timer, no_timeout_op):

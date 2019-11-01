@@ -353,7 +353,7 @@ class TestUseAuthProviderOnSasTokenUpdated(StageTestBase):
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_iothub.HandleTwinOperationsStage,
+    cls=pipeline_stages_iothub.TwinRequestResponseStage,
     module=this_module,
     all_ops=all_common_ops + all_iothub_ops,
     handled_ops=[
@@ -365,11 +365,11 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe("HandleTwinOperationsStage - .run_op() -- called with GetTwinOperation")
+@pytest.mark.describe("TwinRequestResponseStage - .run_op() -- called with GetTwinOperation")
 class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_iothub.HandleTwinOperationsStage()
+        return pipeline_stages_iothub.TwinRequestResponseStage()
 
     @pytest.fixture
     def op(self, stage, mocker):
@@ -384,13 +384,13 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         return json.dumps(twin).encode("utf-8")
 
     @pytest.mark.it(
-        "Runs a SendIotRequestAndWaitForResponseOperation operation on the next stage with request_type='twin', method='GET', resource_location='/', and request_body=' '"
+        "Runs a RequestAndResponseOperation operation on the next stage with request_type='twin', method='GET', resource_location='/', and request_body=' '"
     )
     def test_sends_new_operation(self, stage, op):
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         new_op = stage.next.run_op.call_args[0][0]
-        assert isinstance(new_op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation)
+        assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
         assert new_op.request_type == "twin"
         assert new_op.method == "GET"
         assert new_op.resource_location == "/"
@@ -403,7 +403,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert_callback_failed(op=op, error=PipelineError)
 
     @pytest.mark.it(
-        "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
+        "Handles any Exceptions raised by the RequestAndResponseOperation and returns them through the op callback"
     )
     def test_next_stage_raises_exception(self, stage, op, mocker, arbitrary_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
@@ -414,7 +414,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
+        "Allows any BaseExceptions raised by the RequestAndResponseOperation to propagate"
     )
     def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
@@ -426,7 +426,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
-        "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
+        "Returns any error in the RequestAndResponseOperation callback through the op callback"
     )
     def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
@@ -437,7 +437,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns a ServiceError in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
+        "Returns a ServiceError in the op callback if the RequestAndResponseOperation returns a status code >= 300"
     )
     def test_next_stage_returns_status_over_300(self, stage, op):
         def next_stage_run_op(self, op):
@@ -451,7 +451,7 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert_callback_failed(op=op, error=ServiceError)
 
     @pytest.mark.it(
-        "Decodes, deserializes, and returns the request_body from SendIotRequestAndWaitForResponseOperation as the twin attribute on the op along with no error if the status code < 300"
+        "Decodes, deserializes, and returns the request_body from RequestAndResponseOperation as the twin attribute on the op along with no error if the status code < 300"
     )
     def test_next_stage_completes_correctly(self, stage, op, twin, twin_as_bytes):
         def next_stage_run_op(self, op):
@@ -466,12 +466,12 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
 
 
 @pytest.mark.describe(
-    "HandleTwinOperationsStage - .run_op() -- called with PatchTwinReportedPropertiesOperation"
+    "TwinRequestResponseStage - .run_op() -- called with PatchTwinReportedPropertiesOperation"
 )
 class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase):
     @pytest.fixture
     def stage(self):
-        return pipeline_stages_iothub.HandleTwinOperationsStage()
+        return pipeline_stages_iothub.TwinRequestResponseStage()
 
     @pytest.fixture
     def patch(self):
@@ -488,13 +488,13 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         )
 
     @pytest.mark.it(
-        "Runs a SendIotRequestAndWaitForResponseOperation operation on the next stage with request_type='twin', method='PATCH', resource_location='/properties/reported/', and the request_body attribute set to a stringification of the patch"
+        "Runs a RequestAndResponseOperation operation on the next stage with request_type='twin', method='PATCH', resource_location='/properties/reported/', and the request_body attribute set to a stringification of the patch"
     )
     def test_sends_new_operation(self, stage, op, patch_as_string):
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         new_op = stage.next.run_op.call_args[0][0]
-        assert isinstance(new_op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation)
+        assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
         assert new_op.request_type == "twin"
         assert new_op.method == "PATCH"
         assert new_op.resource_location == "/properties/reported/"
@@ -507,7 +507,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         assert_callback_failed(op=op, error=PipelineError)
 
     @pytest.mark.it(
-        "Handles any Exceptions raised by the SendIotRequestAndWaitForResponseOperation and returns them through the op callback"
+        "Handles any Exceptions raised by the RequestAndResponseOperation and returns them through the op callback"
     )
     def test_next_stage_raises_exception(self, stage, op, arbitrary_exception, mocker):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
@@ -518,7 +518,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Allows any BaseExceptions raised by the SendIotRequestAndWaitForResponseOperation to propagate"
+        "Allows any BaseExceptions raised by the RequestAndResponseOperation to propagate"
     )
     def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
         # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
@@ -530,7 +530,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
-        "Returns any error in the SendIotRequestAndWaitForResponseOperation callback through the op callback"
+        "Returns any error in the RequestAndResponseOperation callback through the op callback"
     )
     def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
         def next_stage_run_op(self, op):
@@ -541,7 +541,7 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns a ServiceError in the op callback if the SendIotRequestAndWaitForResponseOperation returns a status code >= 300"
+        "Returns a ServiceError in the op callback if the RequestAndResponseOperation returns a status code >= 300"
     )
     def test_next_stage_returns_status_over_300(self, stage, op):
         def next_stage_run_op(self, op):

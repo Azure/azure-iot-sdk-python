@@ -24,14 +24,14 @@ import json
 logger = logging.getLogger(__name__)
 
 
-class ProvisioningMQTTConverterStage(PipelineStage):
+class ProvisioningMQTTTranslationStage(PipelineStage):
     """
     PipelineStage which converts other Provisioning pipeline operations into MQTT operations. This stage also
     converts MQTT pipeline events into Provisioning pipeline events.
     """
 
     def __init__(self):
-        super(ProvisioningMQTTConverterStage, self).__init__()
+        super(ProvisioningMQTTTranslationStage, self).__init__()
         self.action_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
