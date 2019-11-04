@@ -12,9 +12,14 @@ import logging
 from azure.iot.device.common.evented_callback import EventedCallback
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
 from .abstract_provisioning_device_client import log_on_register_complete
-from .internal.polling_machine import PollingMachine
+from azure.iot.device.provisioning.pipeline import constant as dps_constant
 
 logger = logging.getLogger(__name__)
+
+
+def handle_result(callback):
+    # TODO Define exceptions and handle
+    pass
 
 
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
@@ -35,7 +40,6 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
         """
         super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
-        self._polling_machine = PollingMachine(provisioning_pipeline)
 
     def register(self):
         """
@@ -52,10 +56,15 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Registering with Provisioning Service...")
 
+        if not self._provisioning_pipeline.responses_enabled[dps_constant.REGISTER]:
+            self._enable_responses()
+
         register_complete = EventedCallback(return_arg_name="result")
-        self._polling_machine.register(
+
+        self._provisioning_pipeline.register(
             payload=self._provisioning_payload, callback=register_complete
         )
+
         result = register_complete.wait_for_completion()
 
         log_on_register_complete(result)
@@ -77,7 +86,22 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Cancelling the current registration process")
 
         cancel_complete = EventedCallback()
-        self._polling_machine.cancel(callback=cancel_complete)
+        self._provisioning_pipeline.disconnect(callback=cancel_complete)
         cancel_complete.wait_for_completion()
 
         logger.info("Successfully cancelled the current registration process")
+
+    def _enable_responses(self):
+        """Enable to receive responses from Device Provisioning Service.
+
+        This is a synchronous call, meaning that this function will not return until the feature
+        has been enabled.
+
+        """
+        logger.info("Enabling reception of response from Device Provisioning Service...")
+
+        callback = EventedCallback()
+        self._provisioning_pipeline.enable_responses(callback=callback)
+        callback.wait_for_completion()
+
+        logger.info("Successfully subscribed to Device Provisioning Service to receive responses")

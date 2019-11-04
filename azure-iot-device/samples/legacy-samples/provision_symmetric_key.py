@@ -6,6 +6,11 @@
 import os
 from azure.iot.device import ProvisioningDeviceClient
 
+# TODO Remove logging
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
@@ -23,7 +28,7 @@ registration_result = provisioning_device_client.register()
 print(registration_result)
 
 # Individual attributes can be seen as well
-print("The request_id was :-")
-print(registration_result.request_id)
+print("The status was :-")
+print(registration_result.status)
 print("The etag is :-")
 print(registration_result.registration_state.etag)

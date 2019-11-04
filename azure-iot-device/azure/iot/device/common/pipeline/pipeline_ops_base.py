@@ -186,9 +186,22 @@ class RequestAndResponseOperation(PipelineOperation):
     :type status_code: int
     :ivar response_body: The body of the response.
     :type response_body: Undefined
+    :ivar registration_id: The registration ID is used to uniquely identify a device in the Device Provisioning Service.
+    :type registration_id: str
+    :ivar operation_id: The id of the operation as returned by the initial provisioning request.
+    :type operation_id: str
     """
 
-    def __init__(self, request_type, method, resource_location, request_body, callback):
+    def __init__(
+        self,
+        request_type,
+        method,
+        resource_location,
+        request_body,
+        callback,
+        operation_id=None,
+        registration_id=None,
+    ):
         """
         Initializer for RequestAndResponseOperation objects
 
@@ -212,6 +225,9 @@ class RequestAndResponseOperation(PipelineOperation):
         self.request_body = request_body
         self.status_code = None
         self.response_body = None
+        # TODO Question : If not here we have to define new op DPSRequestAndWaitForResponseOperation
+        self.registration_id = registration_id
+        self.operation_id = operation_id
 
 
 class RequestOperation(PipelineOperation):
@@ -223,7 +239,17 @@ class RequestOperation(PipelineOperation):
     (such as IoTHub or MQTT stages).
     """
 
-    def __init__(self, request_type, method, resource_location, request_body, request_id, callback):
+    def __init__(
+        self,
+        request_type,
+        method,
+        resource_location,
+        request_body,
+        request_id,
+        callback,
+        operation_id=None,
+        registration_id=None,
+    ):
         """
         Initializer for RequestOperation objects
 
@@ -239,6 +265,8 @@ class RequestOperation(PipelineOperation):
         :param Function callback: The function that gets called when this operation is complete or has
           failed.  The callback function must accept A PipelineOperation object which indicates
           the specific operation which has completed or failed.
+        :param str registration_id: The registration ID is used to uniquely identify a device in the Device Provisioning Service.
+        :param str operation_id: The id of the operation as returned by the initial provisioning request.
         """
         super(RequestOperation, self).__init__(callback=callback)
         self.method = method
@@ -246,3 +274,6 @@ class RequestOperation(PipelineOperation):
         self.request_type = request_type
         self.request_body = request_body
         self.request_id = request_id
+        # TODO Question : If not here we have to define new op DPSRequestOperation
+        self.registration_id = registration_id
+        self.operation_id = operation_id

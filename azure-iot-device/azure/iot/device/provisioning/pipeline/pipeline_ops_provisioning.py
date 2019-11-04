@@ -4,6 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 from azure.iot.device.common.pipeline.pipeline_ops_base import PipelineOperation
+from azure.iot.device.common.pipeline.pipeline_ops_base import (
+    RequestAndResponseOperation,
+    RequestOperation,
+)
 
 
 class SetSymmetricKeySecurityClientOperation(PipelineOperation):
@@ -99,11 +103,10 @@ class SendRegistrationRequestOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_id, request_payload, registration_id, callback=None):
+    def __init__(self, request_payload, registration_id, registration_result=None, callback=None):
         """
         Initializer for SendRegistrationRequestOperation objects.
 
-        :param request_id : The id of the request being sent
         :param request_payload: The request that we are sending to the service
         :param registration_id: The registration ID is used to uniquely identify a device in the Device Provisioning Service.
         :param Function callback: The function that gets called when this operation is complete or has failed.
@@ -111,9 +114,10 @@ class SendRegistrationRequestOperation(PipelineOperation):
          has completed or failed.
         """
         super(SendRegistrationRequestOperation, self).__init__(callback=callback)
-        self.request_id = request_id
         self.request_payload = request_payload
         self.registration_id = registration_id
+        self.registration_result = registration_result
+        self.retry_after_timer = None
 
 
 class SendQueryRequestOperation(PipelineOperation):
@@ -124,7 +128,7 @@ class SendQueryRequestOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_id, operation_id, request_payload, callback):
+    def __init__(self, operation_id, request_payload, registration_result=None, callback=None):
         """
         Initializer for SendRegistrationRequestOperation objects.
 
@@ -135,6 +139,7 @@ class SendQueryRequestOperation(PipelineOperation):
          has completed or failed.
         """
         super(SendQueryRequestOperation, self).__init__(callback=callback)
-        self.request_id = request_id
         self.operation_id = operation_id
         self.request_payload = request_payload
+        self.registration_result = registration_result
+        self.polling_timer = None

@@ -17,9 +17,14 @@ from azure.iot.device.provisioning.abstract_provisioning_device_client import (
 from azure.iot.device.provisioning.abstract_provisioning_device_client import (
     log_on_register_complete,
 )
-from azure.iot.device.provisioning.internal.polling_machine import PollingMachine
+from azure.iot.device.provisioning.pipeline import constant as dps_constant
 
 logger = logging.getLogger(__name__)
+
+
+async def handle_result(callback):
+    # TODO Define exceptions and handle
+    pass
 
 
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
@@ -40,7 +45,6 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
         """
         super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
-        self._polling_machine = PollingMachine(provisioning_pipeline)
 
     async def register(self):
         """
@@ -54,7 +58,11 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         :rtype: :class:`azure.iot.device.RegistrationResult`
         """
         logger.info("Registering with Provisioning Service...")
-        register_async = async_adapter.emulate_async(self._polling_machine.register)
+
+        if not self._provisioning_pipeline.responses_enabled[dps_constant.REGISTER]:
+            await self._enable_responses()
+
+        register_async = async_adapter.emulate_async(self._provisioning_pipeline.register)
 
         callback = async_adapter.AwaitableCallback(return_arg_name="result")
         await register_async(payload=self._provisioning_payload, callback=callback)
@@ -73,10 +81,22 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         no registration process to cancel.
         """
         logger.info("Disconnecting from Provisioning Service...")
-        cancel_async = async_adapter.emulate_async(self._polling_machine.cancel)
+        cancel_async = async_adapter.emulate_async(self._provisioning_pipeline.disconnect)
 
         callback = async_adapter.AwaitableCallback()
         await cancel_async(callback=callback)
         await callback.completion()
 
         logger.info("Successfully cancelled the current registration process")
+
+    async def _enable_responses(self):
+        """Enable to receive responses from Device Provisioning Service.
+        """
+        logger.info("Enabling reception of response from Device Provisioning Service...")
+        subscribe_async = async_adapter.emulate_async(self._provisioning_pipeline.enable_responses)
+
+        callback = async_adapter.AwaitableCallback()
+        await subscribe_async(callback=callback)
+        await callback.completion()
+
+        logger.info("Successfully subscribed to Device Provisioning Service to receive responses")

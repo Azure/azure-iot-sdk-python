@@ -33,7 +33,6 @@ class TestRegistrationResult(object):
         fake_registration_state = create_registration_state()
         registration_result = create_registration_result(fake_registration_state)
 
-        assert registration_result.request_id == fake_request_id
         assert registration_result.operation_id == fake_operation_id
         assert registration_result.status == fake_status
         assert registration_result.registration_state == fake_registration_state
@@ -56,7 +55,6 @@ class TestRegistrationResult(object):
     @pytest.mark.parametrize(
         "input_setter_code",
         [
-            pytest.param('registration_result.request_id = "RequestId123"', id="Request Id"),
             pytest.param('registration_result.operation_id = "WhompingWillow"', id="Operation Id"),
             pytest.param('registration_result.status = "Apparating"', id="Status"),
             pytest.param(
@@ -127,4 +125,4 @@ def create_registration_state(payload=None):
 
 
 def create_registration_result(registration_state=None):
-    return RegistrationResult(fake_request_id, fake_operation_id, fake_status, registration_state)
+    return RegistrationResult(fake_operation_id, fake_status, registration_state)

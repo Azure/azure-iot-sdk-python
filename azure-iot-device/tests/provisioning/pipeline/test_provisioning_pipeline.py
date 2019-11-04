@@ -236,9 +236,7 @@ class TestConnect(object):
         mock_mqtt_transport.reset_mock()
         mock_provisioning_pipeline.on_connected.reset_mock()
 
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id, request_payload=fake_mqtt_payload
-        )
+        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
         mock_provisioning_pipeline.connect()
 
         mock_mqtt_transport.connect.assert_not_called()
@@ -257,14 +255,17 @@ class TestConnect(object):
 class TestSendRegister(object):
     @pytest.mark.it("Request calls publish on provider")
     def test_send_register_request_calls_publish_on_provider(
-        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
+        self, mocker, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
+        mock_init_uuid = mocker.patch(
+            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
+        )
+        mock_init_uuid.return_value = fake_request_id
+
         mock_provisioning_pipeline.connect()
         mock_mqtt_transport.on_mqtt_connected_handler()
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id, request_payload=fake_mqtt_payload
-        )
+        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
 
         assert mock_mqtt_transport.connect.call_count == 1
 
@@ -285,12 +286,15 @@ class TestSendRegister(object):
 
     @pytest.mark.it("Request queues and connects before calling publish on provider")
     def test_send_request_queues_and_connects_before_sending(
-        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
+        self, mocker, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
-        # send an event
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id, request_payload=fake_mqtt_payload
+
+        mock_init_uuid = mocker.patch(
+            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
         )
+        mock_init_uuid.return_value = fake_request_id
+        # send an event
+        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
 
         # verify that we called connect
         assert mock_mqtt_transport.connect.call_count == 1
@@ -325,8 +329,13 @@ class TestSendRegister(object):
 
     @pytest.mark.it("Request queues and waits for connect to be completed")
     def test_send_request_queues_if_waiting_for_connect_complete(
-        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
+        self, mocker, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
     ):
+        mock_init_uuid = mocker.patch(
+            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
+        )
+        mock_init_uuid.return_value = fake_request_id
+
         # start connecting and verify that we've called into the transport
         mock_provisioning_pipeline.connect()
         assert mock_mqtt_transport.connect.call_count == 1
@@ -338,9 +347,7 @@ class TestSendRegister(object):
             assert mock_mqtt_transport.connect.call_args[1]["password"] is None
 
         # send an event
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id, request_payload=fake_mqtt_payload
-        )
+        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
 
         # verify that we're not connected yet and verify that we havent't published yet
         mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
@@ -366,9 +373,13 @@ class TestSendRegister(object):
     def test_send_request_sends_overlapped_events(
         self, mock_provisioning_pipeline, mock_mqtt_transport, mocker
     ):
+        mock_init_uuid = mocker.patch(
+            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
+        )
+        mock_init_uuid.return_value = fake_request_id
+
         fake_request_id_1 = fake_request_id
         fake_msg_1 = fake_mqtt_payload
-        fake_request_id_2 = "request_4567"
         fake_msg_2 = "Petrificus Totalus"
 
         # connect
@@ -378,9 +389,7 @@ class TestSendRegister(object):
 
         # send an event
         callback_1 = mocker.MagicMock()
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id_1, request_payload=fake_msg_1, callback=callback_1
-        )
+        mock_provisioning_pipeline.register(payload=fake_msg_1, callback=callback_1)
 
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id_1
@@ -393,9 +402,7 @@ class TestSendRegister(object):
         # while we're waiting for that send to complete, send another event
         callback_2 = mocker.MagicMock()
         # provisioning_pipeline.send_message(fake_msg_2, callback_2)
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id_2, request_payload=fake_msg_2, callback=callback_2
-        )
+        mock_provisioning_pipeline.register(payload=fake_msg_2, callback=callback_2)
 
         # verify that we've called publish twice and verify that neither send_message
         # has completed (because we didn't do anything here to complete it).
@@ -412,48 +419,12 @@ class TestSendRegister(object):
         mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
 
         # send an event
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id, request_payload=fake_mqtt_payload
-        )
+        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
         mock_mqtt_transport.on_mqtt_published(0)
 
         # disconnect
         mock_provisioning_pipeline.disconnect()
         mock_mqtt_transport.disconnect.assert_called_once_with()
-
-
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Send Query")
-class TestSendQuery(object):
-    @pytest.mark.it("Request calls publish on provider")
-    def test_send_query_calls_publish_on_provider(
-        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-        mock_provisioning_pipeline.send_request(
-            request_id=fake_request_id,
-            request_payload=fake_mqtt_payload,
-            operation_id=fake_operation_id,
-        )
-
-        assert mock_mqtt_transport.connect.call_count == 1
-
-        if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-        elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
-
-        fake_publish_topic = "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={}&operationId={}".format(
-            fake_request_id, fake_operation_id
-        )
-
-        mock_mqtt_transport.wait_for_publish_to_be_called()
-        assert mock_mqtt_transport.publish.call_count == 1
-        assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_mqtt_payload
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)

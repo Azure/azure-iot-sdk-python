@@ -13,9 +13,9 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
     pipeline_stages_provisioning_mqtt,
 )
-from azure.iot.device.provisioning.pipeline import pipeline_events_provisioning
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device.provisioning.security import SymmetricKeySecurityClient, X509SecurityClient
+from azure.iot.device.provisioning.pipeline import constant as dps_constants
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,8 @@ class ProvisioningPipeline(object):
         Constructor for instantiating a pipeline
         :param security_client: The security client which stores credentials
         """
+        self.responses_enabled = {dps_constants.REGISTER: False}
+
         # Event Handlers - Will be set by Client after instantiation of pipeline
         self.on_connected = None
         self.on_disconnected = None
@@ -35,6 +37,10 @@ class ProvisioningPipeline(object):
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
+            .append_stage(pipeline_stages_provisioning.RegistrationStage())
+            .append_stage(pipeline_stages_provisioning.PollingStatusStage())
+            .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
+            # TODO Add time out stage here
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
             .append_stage(pipeline_stages_base.AutoConnectStage())
             .append_stage(pipeline_stages_base.ConnectionLockStage())
@@ -42,19 +48,7 @@ class ProvisioningPipeline(object):
         )
 
         def _on_pipeline_event(event):
-            if isinstance(event, pipeline_events_provisioning.RegistrationResponseEvent):
-                if self.on_message_received:
-                    self.on_message_received(
-                        event.request_id,
-                        event.status_code,
-                        event.key_values,
-                        event.response_payload,
-                    )
-                else:
-                    logger.warning("Provisioning event received with no handler.  dropping.")
-
-            else:
-                logger.warning("Dropping unknown pipeline event {}".format(event.name))
+            logger.warning("Dropping unknown pipeline event {}".format(event.name))
 
         def _on_connected():
             if self.on_connected:
@@ -118,40 +112,6 @@ class ProvisioningPipeline(object):
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=pipeline_callback))
 
-    def send_request(self, request_id, request_payload, operation_id=None, callback=None):
-        """
-        Send a request to the Device Provisioning Service.
-        :param request_id: The id of the request
-        :param request_payload: The request which is to be sent.
-        :param operation_id: The id of the operation.
-        :param callback: callback which is called when the message publish has been acknowledged by the service.
-        """
-
-        def pipeline_callback(op, error):
-            if error:
-                # TODO we need error semantics on the client
-                exit(1)
-            if callback:
-                callback()
-
-        op = None
-        if operation_id is not None:
-            op = pipeline_ops_provisioning.SendQueryRequestOperation(
-                request_id=request_id,
-                operation_id=operation_id,
-                request_payload=request_payload,
-                callback=pipeline_callback,
-            )
-        else:
-            op = pipeline_ops_provisioning.SendRegistrationRequestOperation(
-                request_id=request_id,
-                request_payload=request_payload,
-                registration_id=self._registration_id,
-                callback=pipeline_callback,
-            )
-
-        self._pipeline.run_op(op)
-
     def enable_responses(self, callback=None):
         """
         Disable response from the DPS service by subscribing to the appropriate topics.
@@ -159,6 +119,8 @@ class ProvisioningPipeline(object):
         :param callback: callback which is called when the feature is enabled
         """
         logger.debug("enable_responses called")
+
+        self.responses_enabled[dps_constants.REGISTER] = True
 
         def pipeline_callback(op, error):
             if error:
@@ -188,4 +150,17 @@ class ProvisioningPipeline(object):
 
         self._pipeline.run_op(
             pipeline_ops_base.DisableFeatureOperation(feature_name=None, callback=pipeline_callback)
+        )
+
+    def register(self, payload=None, callback=None):
+        def on_complete(op, error):
+            if error:
+                callback(error=error, result=None)
+            else:
+                callback(result=op.registration_result)
+
+        self._pipeline.run_op(
+            pipeline_ops_provisioning.SendRegistrationRequestOperation(
+                request_payload=payload, registration_id=self._registration_id, callback=on_complete
+            )
         )
