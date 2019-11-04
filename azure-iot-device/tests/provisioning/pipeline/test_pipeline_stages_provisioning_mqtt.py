@@ -13,9 +13,9 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
+    pipeline_events_base,
 )
 from azure.iot.device.provisioning.pipeline import (
-    pipeline_events_provisioning,
     pipeline_ops_provisioning,
     pipeline_stages_provisioning_mqtt,
 )
@@ -27,9 +27,10 @@ from tests.common.pipeline.helpers import (
     all_except,
     StageTestBase,
 )
-from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
+from tests.provisioning.pipeline.helpers import all_provisioning_ops
 from tests.common.pipeline import pipeline_stage_test
 import json
+from azure.iot.device.provisioning.pipeline import constant as pipeline_constant
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -64,8 +65,7 @@ fake_response_topic = "$dps/registrations/res/200/?$rid={}".format(fake_request_
 
 ops_handled_by_this_stage = [
     pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
-    pipeline_ops_provisioning.SendRegistrationRequestOperation,
-    pipeline_ops_provisioning.SendQueryRequestOperation,
+    pipeline_ops_base.RequestOperation,
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,
 ]
@@ -77,7 +77,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     module=this_module,
     all_ops=all_common_ops + all_provisioning_ops,
     handled_ops=ops_handled_by_this_stage,
-    all_events=all_common_events + all_provisioning_events,
+    all_events=all_common_events,
     handled_events=events_handled_by_this_stage,
     extra_initializer_defaults={"action_to_topic": dict},
 )
@@ -197,20 +197,26 @@ class TestProvisioningMQTTTranslationStageWithSetProvisioningClientConnectionArg
 
 basic_ops = [
     {
-        "op_class": pipeline_ops_provisioning.SendRegistrationRequestOperation,
+        "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "request_payload": fake_mqtt_payload,
             "registration_id": fake_registration_id,
+            "request_type": pipeline_constant.REGISTER,
+            "method": "PUT",
+            "resource_location": "/",
+            "request_body": "test payload",
         },
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
     {
-        "op_class": pipeline_ops_provisioning.SendQueryRequestOperation,
+        "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "operation_id": fake_operation_id,
-            "request_payload": fake_mqtt_payload,
+            "registration_id": fake_registration_id,
+            "request_type": pipeline_constant.QUERY,
+            "method": "GET",
+            "resource_location": "/",
+            "request_body": "test payload",
         },
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
     },
@@ -277,11 +283,14 @@ class TestProvisioningMQTTTranslationStageBasicOperations(ProvisioningMQTTTransl
 publish_ops = [
     {
         "name": "send register request with no payload",
-        "op_class": pipeline_ops_provisioning.SendRegistrationRequestOperation,
+        "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "request_payload": None,
             "registration_id": fake_registration_id,
+            "request_type": pipeline_constant.REGISTER,
+            "method": "PUT",
+            "resource_location": "/",
+            "request_body": None,
         },
         "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
             request_id=fake_request_id
@@ -292,11 +301,14 @@ publish_ops = [
     },
     {
         "name": "send register request with payload",
-        "op_class": pipeline_ops_provisioning.SendRegistrationRequestOperation,
+        "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "request_payload": fake_mqtt_payload,
             "registration_id": fake_registration_id,
+            "request_type": pipeline_constant.REGISTER,
+            "method": "PUT",
+            "resource_location": "/",
+            "request_body": fake_mqtt_payload,
         },
         "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
             request_id=fake_request_id
@@ -307,11 +319,14 @@ publish_ops = [
     },
     {
         "name": "send query request",
-        "op_class": pipeline_ops_provisioning.SendQueryRequestOperation,
+        "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
             "operation_id": fake_operation_id,
-            "request_payload": fake_mqtt_payload,
+            "request_type": pipeline_constant.QUERY,
+            "method": "GET",
+            "resource_location": "/",
+            "request_body": fake_mqtt_payload,
         },
         "topic": "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={request_id}&operationId={operation_id}".format(
             request_id=fake_request_id, operation_id=fake_operation_id
@@ -387,7 +402,7 @@ class TestProvisioningMQTTTranslationStageHandlePipelineEvent(
 @pytest.fixture
 def dps_response_event():
     return pipeline_events_mqtt.IncomingMQTTMessageEvent(
-        topic=fake_response_topic, payload=fake_mqtt_payload.encode("utf-8")
+        topic=fake_response_topic, payload=fake_mqtt_payload
     )
 
 
@@ -404,7 +419,7 @@ class TestProvisioningMQTTConverterHandlePipelineEventRegistrationResponse(
         stage.handle_pipeline_event(dps_response_event)
         assert stage.previous.handle_pipeline_event.call_count == 1
         new_event = stage.previous.handle_pipeline_event.call_args[0][0]
-        assert isinstance(new_event, pipeline_events_provisioning.RegistrationResponseEvent)
+        assert isinstance(new_event, pipeline_events_base.ResponseEvent)
 
     @pytest.mark.it("Extracts message properties from the mqtt topic for c2d messages")
     def test_extracts_some_properties_from_topic(
@@ -413,7 +428,7 @@ class TestProvisioningMQTTConverterHandlePipelineEventRegistrationResponse(
         stage.handle_pipeline_event(dps_response_event)
         new_event = stage.previous.handle_pipeline_event.call_args[0][0]
         assert new_event.request_id == fake_request_id
-        assert new_event.status_code == "200"
+        assert new_event.status_code == 200
 
     @pytest.mark.it("Passes up other messages")
     def test_if_topic_is_not_response(self, mocker, stage, stages_configured):

@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 import pytest
 import logging
-from azure.iot.device.provisioning.internal.polling_machine import PollingMachine
 from azure.iot.device.provisioning.aio.async_provisioning_device_client import (
     ProvisioningDeviceClient,
 )
@@ -15,6 +14,8 @@ from azure.iot.device.provisioning.models.registration_result import (
 )
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
+from azure.iot.device.common import async_adapter
+import asyncio
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.asyncio
@@ -37,9 +38,7 @@ fake_registration_state = RegistrationState(fake_device_id, fake_assigned_hub, f
 
 
 def create_success_result():
-    return RegistrationResult(
-        fake_request_id, fake_operation_id, fake_status, fake_registration_state
-    )
+    return RegistrationResult(fake_operation_id, fake_status, fake_registration_state)
 
 
 def create_error():
@@ -50,8 +49,38 @@ def fake_x509():
     return X509(fake_x509_cert_file_value, fake_x509_cert_key_file, fake_pass_phrase)
 
 
-# automatically mock the transport for all tests in this file.
+async def create_completed_future(result=None):
+    f = asyncio.Future()
+    f.set_result(result)
+    return f
+
+
 @pytest.fixture(autouse=True)
+def provisioning_pipeline(mocker):
+    return mocker.MagicMock(wraps=FakeProvisioningPipeline())
+
+
+class FakeProvisioningPipeline:
+    def __init__(self):
+        self.responses_enabled = {}
+
+    def connect(self, callback):
+        callback()
+
+    def disconnect(self, callback):
+        callback()
+
+    def enable_responses(self, callback):
+        callback()
+
+    def disable_responses(self, callback):
+        callback()
+
+    def register(self, payload, callback):
+        callback(result={})
+
+
+@pytest.fixture
 def mock_transport(mocker):
     mocker.patch(
         "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
@@ -89,7 +118,7 @@ class TestClientCreate(object):
             pytest.param("http", id="http", marks=xfail_notimplemented),
         ],
     )
-    async def test_create_from_x509_cert(self, mocker, protocol):
+    async def test_create_from_x509_cert(self, mocker, protocol, mock_transport):
         client = ProvisioningDeviceClient.create_from_x509_certificate(
             fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()
         )
@@ -99,120 +128,104 @@ class TestClientCreate(object):
 
 @pytest.mark.describe("ProvisioningDeviceClient - .register()")
 class TestClientRegister(object):
-    @pytest.mark.it(
-        "Calls register on polling machine with passed in callback and returns the registration result"
-    )
-    async def test_client_register_success_calls_polling_machine_register_with_callback(
-        self, mocker, mock_polling_machine
+    @pytest.mark.it("Implicitly enables responses from provisioning service if not already enabled")
+    async def test_enables_provisioning_only_if_not_already_enabled(
+        self, mocker, provisioning_pipeline
     ):
         # Override callback to pass successful result
         def register_complete_success_callback(payload, callback):
             callback(result=create_success_result())
 
         mocker.patch.object(
-            mock_polling_machine, "register", side_effect=register_complete_success_callback
+            provisioning_pipeline, "register", side_effect=register_complete_success_callback
         )
 
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.aio.async_provisioning_device_client.PollingMachine"
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = False
+
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        await client.register()
+
+        assert provisioning_pipeline.enable_responses.call_count == 1
+
+        provisioning_pipeline.enable_responses.reset_mock()
+
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = True
+        await client.register()
+        assert provisioning_pipeline.enable_responses.call_count == 0
+
+    @pytest.mark.it("Begins a 'register' pipeline operation")
+    async def test_register_calls_pipeline_register(self, provisioning_pipeline, mocker):
+        def register_complete_success_callback(payload, callback):
+            callback(result=create_success_result())
+
+        mocker.patch.object(
+            provisioning_pipeline, "register", side_effect=register_complete_success_callback
         )
-        mock_polling_machine_init.return_value = mock_polling_machine
-
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
-        result = await client.register()
-
-        assert mock_polling_machine.register.call_count == 1
-        assert mock_polling_machine.register.call_args[1]["payload"] is None
-        assert callable(mock_polling_machine.register.call_args[1]["callback"])
-        assert result is not None
-        assert result.registration_state == fake_registration_state
-        assert result.status == fake_status
-        assert result.registration_state == fake_registration_state
-        assert result.registration_state.device_id == fake_device_id
-        assert result.registration_state.assigned_hub == fake_assigned_hub
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        await client.register()
+        assert provisioning_pipeline.register.call_count == 1
 
     @pytest.mark.it(
-        "Calls register on polling machine with passed in callback and raises the error when an error has occurred"
+        "Waits for the completion of the 'register' pipeline operation before returning"
     )
-    async def test_client_register_failure_calls_polling_machine_register_with_callback(
-        self, mocker, mock_polling_machine
-    ):
+    async def test_waits_for_pipeline_op_completion(self, mocker, provisioning_pipeline):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(create_success_result())
+        provisioning_pipeline.responses_enabled.__getitem__.return_value = True
+
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        client._provisioning_payload = "payload"
+        await client.register()
+
+        # Assert callback is sent to pipeline
+        assert provisioning_pipeline.register.call_args[1]["payload"] == "payload"
+        assert provisioning_pipeline.register.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it("Returns the registration result that the pipeline returned")
+    async def test_verifies_registration_result_returned(self, mocker, provisioning_pipeline):
+        result = create_success_result()
+
+        def register_complete_success_callback(payload, callback):
+            callback(result=result)
+
+        mocker.patch.object(
+            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+        )
+
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+        result_returned = await client.register()
+        assert result_returned == result
+
+    @pytest.mark.it("Returns the error that the pipeline returned")
+    async def test_verifies_error_returned(self, mocker, provisioning_pipeline):
+        error = create_error()
+
         # Override callback to pass successful result
         def register_complete_failure_callback(payload, callback):
-            callback(result=None, error=create_error())
+            callback(result=None, error=error)
 
         mocker.patch.object(
-            mock_polling_machine, "register", side_effect=register_complete_failure_callback
+            provisioning_pipeline, "register", side_effect=register_complete_failure_callback
         )
 
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.aio.async_provisioning_device_client.PollingMachine"
-        )
-        mock_polling_machine_init.return_value = mock_polling_machine
-
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
+        client = ProvisioningDeviceClient(provisioning_pipeline)
         with pytest.raises(RuntimeError):
-            await client.register()
-
-        assert mock_polling_machine.register.call_count == 1
-        assert mock_polling_machine.register.call_args[1]["payload"] is None
-        assert callable(mock_polling_machine.register.call_args[1]["callback"])
-
-    @pytest.mark.it(
-        "Calls register on polling machine with user given payload and passed in callback and returns result"
-    )
-    async def test_client_register_calls_polling_machine_register_with_payload_and_callback(
-        self, mocker, mock_polling_machine
-    ):
-        # Override callback to pass successful result
-        def register_complete_success_callback(payload, callback):
-            callback(result=create_success_result())
-
-        mocker.patch.object(
-            mock_polling_machine, "register", side_effect=register_complete_success_callback
-        )
-
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.aio.async_provisioning_device_client.PollingMachine"
-        )
-        mock_polling_machine_init.return_value = mock_polling_machine
-
-        user_payload = "petrificus totalus"
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
-        client.provisioning_payload = user_payload
-        result = await client.register()
-
-        assert mock_polling_machine.register.call_count == 1
-        assert mock_polling_machine.register.call_args[1]["payload"] == user_payload
-        assert callable(mock_polling_machine.register.call_args[1]["callback"])
-        assert result is not None
-        assert result.registration_state == fake_registration_state
-        assert result.status == fake_status
-        assert result.registration_state == fake_registration_state
-        assert result.registration_state.device_id == fake_device_id
-        assert result.registration_state.assigned_hub == fake_assigned_hub
+            error_returned = await client.register()
+            assert error_returned == error
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - .cancel()")
 class TestClientCancel(object):
-    @pytest.mark.it("Calls cancel on polling machine with passed in callback")
-    async def test_client_cancel_calls_polling_machine_cancel_with_callback(
-        self, mocker, mock_polling_machine
-    ):
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.aio.async_provisioning_device_client.PollingMachine"
-        )
-        mock_polling_machine_init.return_value = mock_polling_machine
+    @pytest.mark.it("Begins a 'disconnect' pipeline operation")
+    async def test_client_cancel_calls_pipeline_disconnect(self, mocker, provisioning_pipeline):
 
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
+        client = ProvisioningDeviceClient(provisioning_pipeline)
         await client.cancel()
 
-        assert mock_polling_machine.cancel.call_count == 1
-        assert callable(mock_polling_machine.cancel.call_args[1]["callback"])
+        assert provisioning_pipeline.disconnect.call_count == 1
+        assert callable(provisioning_pipeline.disconnect.call_args[1]["callback"])
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - .set_provisioning_payload()")
@@ -229,14 +242,10 @@ class TestClientProvisioningPayload(object):
             pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
-    async def test_set_payload(self, mocker, mock_polling_machine, payload_input):
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.provisioning_device_client.PollingMachine"
-        )
-        mock_polling_machine_init.return_value = mock_polling_machine
+    async def test_set_payload(self, mocker, payload_input):
+        provisioning_pipeline = mocker.MagicMock()
 
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
+        client = ProvisioningDeviceClient(provisioning_pipeline)
         client.provisioning_payload = payload_input
         assert client._provisioning_payload == payload_input
 
@@ -252,13 +261,9 @@ class TestClientProvisioningPayload(object):
             pytest.param({"a": 2}, id="Dictionary input"),
         ],
     )
-    async def test_get_payload(self, mocker, mock_polling_machine, payload_input):
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.provisioning_device_client.PollingMachine"
-        )
-        mock_polling_machine_init.return_value = mock_polling_machine
+    async def test_get_payload(self, mocker, payload_input):
+        provisioning_pipeline = mocker.MagicMock()
 
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
+        client = ProvisioningDeviceClient(provisioning_pipeline)
         client.provisioning_payload = payload_input
         assert client.provisioning_payload == payload_input

@@ -25,7 +25,7 @@ from tests.common.pipeline.helpers import (
     StageTestBase,
 )
 from azure.iot.device.common.pipeline import pipeline_events_base
-from tests.provisioning.pipeline.helpers import all_provisioning_ops, all_provisioning_events
+from tests.provisioning.pipeline.helpers import all_provisioning_ops
 from tests.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.DEBUG)
@@ -55,7 +55,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
         pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
         pipeline_ops_provisioning.SetX509SecurityClientOperation,
     ],
-    all_events=all_common_events + all_provisioning_events,
+    all_events=all_common_events,
     handled_events=[],
 )
 

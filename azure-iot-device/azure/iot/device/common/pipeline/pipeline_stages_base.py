@@ -540,6 +540,8 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 request_id=request_id,
                 request_type=op.request_type,
                 callback=on_send_request_done,
+                operation_id=op.operation_id,
+                registration_id=op.registration_id,
             )
             self.send_op_down(new_op)
 
@@ -563,6 +565,8 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 del (self.pending_responses[event.request_id])
                 op.status_code = event.status_code
                 op.response_body = event.response_body
+                # DPS Specific Code
+                op.retry_after = event.retry_after
                 logger.debug(
                     "{}({}): Completing {} request to {} resource {} with status {}".format(
                         self.name,
