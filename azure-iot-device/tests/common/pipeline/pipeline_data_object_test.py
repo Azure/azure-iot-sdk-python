@@ -44,6 +44,10 @@ def add_operation_test(
         positional_arguments=positional_arguments,
         keyword_arguments=keyword_arguments,
     )
+    # add_completion_test(
+    #     cls=cls,
+    #     module=module,
+    # )
 
 
 def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}):
@@ -63,6 +67,13 @@ def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyw
         positional_arguments=positional_arguments,
         keyword_arguments=keyword_arguments,
     )
+
+
+# # TODO: move this elsewhere
+# def add_complete_tests(cls, module):
+
+#     @pytest.mark.describe("{} - .complete()".format(cls.__name__))
+#     class LocalTestObject(object):
 
 
 def add_instantiation_test(

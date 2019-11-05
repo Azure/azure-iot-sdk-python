@@ -82,7 +82,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     ca_cert=op.ca_cert,
                     client_cert=op.client_cert,
                     sas_token=op.sas_token,
-                    callback=op.callback,
+                    callback=None,
                 ),
                 op=op,
             )
@@ -154,7 +154,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
             self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=op.message.data, callback=op.callback
+                    topic=topic, payload=op.message.data, callback=None
                 ),
                 op=op,
             )
@@ -167,7 +167,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             payload = json.dumps(op.method_response.payload)
             self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=payload, callback=op.callback
+                    topic=topic, payload=payload, callback=None
                 ),
                 op=op,
             )
@@ -176,9 +176,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # Enabling a feature gets translated into an MQTT subscribe operation
             topic = self.feature_to_topic[op.feature_name]
             self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(
-                    topic=topic, callback=op.callback
-                ),
+                worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(topic=topic, callback=None),
                 op=op,
             )
 
@@ -186,9 +184,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # Disabling a feature gets turned into an MQTT unsubscribe operation
             topic = self.feature_to_topic[op.feature_name]
             self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(
-                    topic=topic, callback=op.callback
-                ),
+                worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(topic=topic, callback=None),
                 op=op,
             )
 
@@ -201,7 +197,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
                 self.send_worker_op_down(
                     worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                        topic=topic, payload=op.request_body, callback=op.callback
+                        topic=topic, payload=op.request_body, callback=None
                     ),
                     op=op,
                 )

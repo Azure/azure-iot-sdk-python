@@ -43,7 +43,7 @@ class UseAuthProviderStage(PipelineStage):
                     gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
                     ca_cert=getattr(self.auth_provider, "ca_cert", None),
                     sas_token=self.auth_provider.get_current_sas_token(),
-                    callback=op.callback,
+                    callback=None,
                 ),
                 op=op,
             )
@@ -57,7 +57,7 @@ class UseAuthProviderStage(PipelineStage):
                     gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
                     ca_cert=getattr(self.auth_provider, "ca_cert", None),
                     client_cert=self.auth_provider.get_x509_certificate(),
-                    callback=op.callback,
+                    callback=None,
                 ),
                 op=op,
             )
@@ -122,7 +122,7 @@ class TwinRequestResponseStage(PipelineStage):
                 error = map_twin_error(error=error, twin_op=twin_op)
                 if not error:
                     op.twin = json.loads(twin_op.response_body.decode("utf-8"))
-                self.complete_op(op, error=error)
+                op.complete(error=error)
 
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
@@ -143,7 +143,7 @@ class TwinRequestResponseStage(PipelineStage):
                     )
                 )
                 error = map_twin_error(error=error, twin_op=twin_op)
-                self.complete_op(op, error=error)
+                op.complete(error=error)
 
             logger.debug(
                 "{}({}): Sending reported properties patch: {}".format(self.name, op.name, op.patch)

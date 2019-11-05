@@ -7,6 +7,8 @@ import sys
 import logging
 import traceback
 from . import pipeline_exceptions
+from . import pipeline_thread
+from azure.iot.device.common import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +51,26 @@ class PipelineOperation(object):
                 "Cannot instantiate PipelineOperation object.  You need to use a derived class"
             )
         self.name = self.__class__.__name__
-        self.callback = callback  # TODO: remove this
+        # self.callback = callback
         self.callbacks = []
         self.needs_connection = False
         self.completed = False
+        self.error = None
 
         self.add_callback(callback)
 
     def add_callback(self, callback):
-        self.callbacks.append(callback)
+        # CT-TODO: this check is necessary due to the wonkiness of callbacks being
+        # required to be set for worker ops before the proper callback magic is set up
+        if callback:
+            # callback = pipeline_thread.invoke_on_callback_thread_nowait(callback)   #CT-TODO: does this work?
+            self.callbacks.append(callback)
 
-    # TODO: Is this decorator necessary?
-    # @pipeline_thread.runs_on_pipeline_thread
+    @pipeline_thread.runs_on_pipeline_thread
     def complete(self, error=None):
         if error:
             logger.error("{}: completing with error {}".format(self.name, error))
+            self.error = error
         else:
             logger.debug("{}: completing without error".format(self.name))
 
@@ -72,12 +79,19 @@ class PipelineOperation(object):
             e = pipeline_exceptions.OperationError(
                 "Attempting to complete an already-completed operation: {}".format(self.name)
             )
-            raise e  # TODO: is this always valid? Ever valid?
-            # handle_exceptions.handle_background_exception(e)
+            handle_exceptions.handle_background_exception(
+                e
+            )  # This is not always valid? This could happen not in a cb
         else:
             self.completed = True
 
-            for callback in self.callbacks:
+            while self.callbacks:
+                if not self.completed:
+                    logger.debug(
+                        "{}: Operation no longer complete! Suspending completion".format(self.name)
+                    )
+                    break
+                callback = self.callbacks.pop()
                 try:
                     callback(self, error=error)
                 except Exception as e:
@@ -85,8 +99,14 @@ class PipelineOperation(object):
                         "Unhandled error while triggering callback for {}".format(self.name)
                     )
                     logger.error(traceback.format_exc())
-                    raise e
-                    # handle_exceptions.handle_background_exception(e)  # TODO: what to do with this?
+                    handle_exceptions.handle_background_exception(
+                        e
+                    )  # CT-TODO: what to do with this?
+
+    def uncomplete(self):
+        logger.debug("{}: Uncompleting".format(self.name))
+        self.completed = False
+        self.error = None
 
 
 class ConnectOperation(PipelineOperation):

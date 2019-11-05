@@ -66,21 +66,21 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     positional_arguments=["pipeline_configuration"],
 )
 
+# TODO: move elsewhere
+# @pytest.mark.it("Calls operation callback in callback thread")
+# def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
+#     # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
+#     # this test method gets added to, so it's a PipelineRootStage object
+#     stage.pipeline_root = stage
+#     callback_called = threading.Event()
 
-@pytest.mark.it("Calls operation callback in callback thread")
-def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
-    # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
-    # this test method gets added to, so it's a PipelineRootStage object
-    stage.pipeline_root = stage
-    callback_called = threading.Event()
+#     def callback(op, error):
+#         assert threading.current_thread().name == "callback"
+#         callback_called.set()
 
-    def callback(op, error):
-        assert threading.current_thread().name == "callback"
-        callback_called.set()
-
-    op = pipeline_ops_base.ConnectOperation(callback=callback)
-    stage.run_op(op)
-    callback_called.wait()
+#     op = pipeline_ops_base.ConnectOperation(callback=callback)
+#     stage.run_op(op)
+#     callback_called.wait()
 
 
 @pytest.mark.it("Runs operation in pipeline thread")
@@ -150,9 +150,9 @@ def _test_pipeline_root_runs_on_event_received_in_callback_thread(
     callback_called.wait()
 
 
-TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
-    _test_pipeline_root_runs_callback_in_callback_thread
-)
+# TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
+#     _test_pipeline_root_runs_callback_in_callback_thread
+# )
 TestPipelineRootStagePipelineThreading.test_runs_operation_in_pipeline_thread = (
     _test_pipeline_root_runs_operation_in_pipeline_thread
 )
@@ -237,16 +237,19 @@ class TestAutoConnectStageRunOp(StageTestBase):
         assert isinstance(stage.next.run_op.call_args[0][0], pipeline_ops_base.ConnectOperation)
 
     @pytest.mark.it(
-        "Calls the op's callback with the error from the ConnectOperation if that operation fails"
+        "Completes the original operation with the error from the ConnectOperation if that operation fails"
     )
     def test_connect_failure(self, params, op, stage, arbitrary_exception):
         stage.pipeline_root.connected = False
+        assert not op.completed
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
-        stage.next.complete_op(connect_op, error=arbitrary_exception)
+        connect_op.complete(error=arbitrary_exception)
 
-        assert_callback_failed(op=op, error=arbitrary_exception)
+        assert op.completed
+        assert op.error is arbitrary_exception
+        # assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Waits for the ConnectOperation to complete before pasing the operation down")
     def test_connect_success(self, params, op, stage):

@@ -28,7 +28,7 @@ class UseSecurityClientStage(PipelineStage):
                     registration_id=security_client.registration_id,
                     id_scope=security_client.id_scope,
                     sas_token=security_client.get_current_sas_token(),
-                    callback=op.callback,
+                    callback=None,
                 ),
                 op=op,
             )
@@ -41,7 +41,7 @@ class UseSecurityClientStage(PipelineStage):
                     registration_id=security_client.registration_id,
                     id_scope=security_client.id_scope,
                     client_cert=security_client.get_x509_certificate(),
-                    callback=op.callback,
+                    callback=None,
                 ),
                 op=op,
             )

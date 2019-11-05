@@ -160,7 +160,7 @@ class TestInit(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, params_security_clients["set_args_op_class"]):
-                self.complete_op(op, error=arbitrary_exception)
+                op.complete(error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 
