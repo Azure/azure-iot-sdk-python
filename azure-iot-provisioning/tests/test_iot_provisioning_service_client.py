@@ -31,7 +31,7 @@ def mock_service_client_protocol(mocker):
     mock_service_client_protocol_init = mocker.patch(
         "azure.iot.provisioning.iot_provisioning_service_client.protocol_client"
     )
-    return mock_service_client_protocol_init
+    return mock_service_client_protocol_init.return_value
 
 
 @pytest.fixture(scope="function")
@@ -55,9 +55,6 @@ class TestIoTProvisioningServiceClient(object):
         result = iot_provisioning_service_client.get_certificate_authority(fake_name)
         assert mock_service_client_protocol.get_certificate_authority.call_count == 1
         assert mock_service_client_protocol.get_certificate_authority.call_args[0][0] == fake_name
-        assert mock_service_client_protocol.get_certificate_authority.call_args[0][1] is None
-        assert mock_service_client_protocol.get_certificate_authority.call_args[0][2] is False
-        assert mock_service_client_protocol.get_certificate_authority.call_args[0][3] is None
         assert result == mock_service_client_protocol.get_certificate_authority()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .create_certificate_authority")
@@ -75,22 +72,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][1]
             == fake_object
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][2]
-            is None
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][3]
-            is None
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][4]
-            is False
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][5]
-            is None
         )
         assert result == mock_service_client_protocol.create_or_replace_certificate_authority()
 
@@ -113,18 +94,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][2]
             == fake_etag
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][3]
-            is None
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][4]
-            is False
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_certificate_authority.call_args[0][5]
-            is None
         )
         assert result == mock_service_client_protocol.create_or_replace_certificate_authority()
 
@@ -149,9 +118,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.delete_certificate_authority.call_args[0][1] == fake_etag
         )
-        assert mock_service_client_protocol.delete_certificate_authority.call_args[0][2] is None
-        assert mock_service_client_protocol.delete_certificate_authority.call_args[0][3] is False
-        assert mock_service_client_protocol.delete_certificate_authority.call_args[0][4] is None
         assert result is None
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .get_device_group")
@@ -161,9 +127,6 @@ class TestIoTProvisioningServiceClient(object):
         result = iot_provisioning_service_client.get_device_group(fake_name)
         assert mock_service_client_protocol.get_device_group.call_count == 1
         assert mock_service_client_protocol.get_device_group.call_args[0][0] == fake_name
-        assert mock_service_client_protocol.get_device_group.call_args[0][1] is None
-        assert mock_service_client_protocol.get_device_group.call_args[0][2] is False
-        assert mock_service_client_protocol.get_device_group.call_args[0][3] is None
         assert result == mock_service_client_protocol.get_device_group()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .create_device_group")
@@ -179,10 +142,6 @@ class TestIoTProvisioningServiceClient(object):
             mock_service_client_protocol.create_or_replace_device_group.call_args[0][1]
             == fake_object
         )
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][2] is None
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][3] is None
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][4] is False
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][5] is None
         assert result == mock_service_client_protocol.create_or_replace_device_group()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_device_group")
@@ -203,9 +162,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_device_group.call_args[0][2] == fake_etag
         )
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][3] is None
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][4] is False
-        assert mock_service_client_protocol.create_or_replace_device_group.call_args[0][5] is None
         assert result == mock_service_client_protocol.create_or_replace_device_group()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_device_group - etag None")
@@ -223,9 +179,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.delete_device_group.call_count == 1
         assert mock_service_client_protocol.delete_device_group.call_args[0][0] == fake_name
         assert mock_service_client_protocol.delete_device_group.call_args[0][1] == fake_etag
-        assert mock_service_client_protocol.delete_device_group.call_args[0][2] is None
-        assert mock_service_client_protocol.delete_device_group.call_args[0][3] is False
-        assert mock_service_client_protocol.delete_device_group.call_args[0][4] is None
         assert result is None
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .get_device_record")
@@ -237,9 +190,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.get_device_record.call_args[0][0] == fake_name
         assert mock_service_client_protocol.get_device_record.call_args[0][1] == fake_device_id
         assert mock_service_client_protocol.get_device_record.call_args[0][2] == "all"
-        assert mock_service_client_protocol.get_device_record.call_args[0][3] is None
-        assert mock_service_client_protocol.get_device_record.call_args[0][4] is False
-        assert mock_service_client_protocol.get_device_record.call_args[0][5] is None
         assert result == mock_service_client_protocol.get_device_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .create_device_record")
@@ -262,10 +212,6 @@ class TestIoTProvisioningServiceClient(object):
             mock_service_client_protocol.create_or_replace_device_record.call_args[0][2]
             == fake_object
         )
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][3] is None
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][4] is None
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][5] is False
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][6] is None
         assert result == mock_service_client_protocol.create_or_replace_device_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_device_record")
@@ -291,9 +237,6 @@ class TestIoTProvisioningServiceClient(object):
             mock_service_client_protocol.create_or_replace_device_record.call_args[0][3]
             == fake_etag
         )
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][4] is None
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][5] is False
-        assert mock_service_client_protocol.create_or_replace_device_record.call_args[0][6] is None
         assert result == mock_service_client_protocol.create_or_replace_device_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_device_record - etag None")
@@ -316,9 +259,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.delete_device_record.call_args[0][0] == fake_name
         assert mock_service_client_protocol.delete_device_record.call_args[0][1] == fake_group_name
         assert mock_service_client_protocol.delete_device_record.call_args[0][2] == fake_etag
-        assert mock_service_client_protocol.delete_device_record.call_args[0][3] is None
-        assert mock_service_client_protocol.delete_device_record.call_args[0][4] is False
-        assert mock_service_client_protocol.delete_device_record.call_args[0][5] is None
         assert result is None
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .get_group_record")
@@ -330,9 +270,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.get_group_record.call_args[0][0] == fake_name
         assert mock_service_client_protocol.get_group_record.call_args[0][1] == fake_device_id
         assert mock_service_client_protocol.get_group_record.call_args[0][2] == "all"
-        assert mock_service_client_protocol.get_group_record.call_args[0][3] is None
-        assert mock_service_client_protocol.get_group_record.call_args[0][4] is False
-        assert mock_service_client_protocol.get_group_record.call_args[0][5] is None
         assert result == mock_service_client_protocol.get_group_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .create_group_record")
@@ -354,10 +291,6 @@ class TestIoTProvisioningServiceClient(object):
             mock_service_client_protocol.create_or_replace_group_record.call_args[0][2]
             == fake_object
         )
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][3] is None
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][4] is None
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][5] is False
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][6] is None
         assert result == mock_service_client_protocol.create_or_replace_group_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_group_record")
@@ -381,9 +314,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_group_record.call_args[0][3] == fake_etag
         )
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][4] is None
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][5] is False
-        assert mock_service_client_protocol.create_or_replace_group_record.call_args[0][6] is None
         assert result == mock_service_client_protocol.create_or_replace_group_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_group_record - etag None")
@@ -406,9 +336,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.delete_group_record.call_args[0][0] == fake_name
         assert mock_service_client_protocol.delete_group_record.call_args[0][1] == fake_group_name
         assert mock_service_client_protocol.delete_group_record.call_args[0][2] == fake_etag
-        assert mock_service_client_protocol.delete_group_record.call_args[0][3] is None
-        assert mock_service_client_protocol.delete_group_record.call_args[0][4] is False
-        assert mock_service_client_protocol.delete_group_record.call_args[0][5] is None
         assert result is None
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .get_linked_hub")
@@ -418,9 +345,6 @@ class TestIoTProvisioningServiceClient(object):
         result = iot_provisioning_service_client.get_linked_hub(fake_name)
         assert mock_service_client_protocol.get_linked_hub.call_count == 1
         assert mock_service_client_protocol.get_linked_hub.call_args[0][0] == fake_name
-        assert mock_service_client_protocol.get_linked_hub.call_args[0][1] is None
-        assert mock_service_client_protocol.get_linked_hub.call_args[0][2] is False
-        assert mock_service_client_protocol.get_linked_hub.call_args[0][3] is None
         assert result == mock_service_client_protocol.get_linked_hub()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .create_linked_hub")
@@ -435,10 +359,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][1] == fake_object
         )
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][2] is None
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][3] is None
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][4] is False
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][5] is None
         assert result == mock_service_client_protocol.create_or_replace_linked_hub()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_linked_hub")
@@ -457,9 +377,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][2] == fake_etag
         )
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][3] is None
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][4] is False
-        assert mock_service_client_protocol.create_or_replace_linked_hub.call_args[0][5] is None
         assert result == mock_service_client_protocol.create_or_replace_linked_hub()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .replace_linked_hub - etag None")
@@ -477,9 +394,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.delete_linked_hub.call_count == 1
         assert mock_service_client_protocol.delete_linked_hub.call_args[0][0] == fake_name
         assert mock_service_client_protocol.delete_linked_hub.call_args[0][1] == fake_etag
-        assert mock_service_client_protocol.delete_linked_hub.call_args[0][2] is None
-        assert mock_service_client_protocol.delete_linked_hub.call_args[0][3] is False
-        assert mock_service_client_protocol.delete_linked_hub.call_args[0][4] is None
         assert result is None
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .get_provisioning_settings")
@@ -489,9 +403,6 @@ class TestIoTProvisioningServiceClient(object):
         result = iot_provisioning_service_client.get_provisioning_settings(fake_name)
         assert mock_service_client_protocol.get_provisioning_settings.call_count == 1
         assert mock_service_client_protocol.get_provisioning_settings.call_args[0][0] == fake_name
-        assert mock_service_client_protocol.get_provisioning_settings.call_args[0][1] is None
-        assert mock_service_client_protocol.get_provisioning_settings.call_args[0][2] is False
-        assert mock_service_client_protocol.get_provisioning_settings.call_args[0][3] is None
         assert result == mock_service_client_protocol.get_provisioning_settings()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .create_provisioning_settings")
@@ -509,22 +420,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][1]
             == fake_object
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][2]
-            is None
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][3]
-            is None
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][4]
-            is False
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][5]
-            is None
         )
         assert result == mock_service_client_protocol.create_or_replace_provisioning_settings()
 
@@ -546,18 +441,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][2]
             == fake_etag
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][3]
-            is None
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][4]
-            is False
-        )
-        assert (
-            mock_service_client_protocol.create_or_replace_provisioning_settings.call_args[0][5]
-            is None
         )
         assert result == mock_service_client_protocol.create_or_replace_provisioning_settings()
 
@@ -582,9 +465,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.delete_provisioning_settings.call_args[0][1] == fake_etag
         )
-        assert mock_service_client_protocol.delete_provisioning_settings.call_args[0][2] is None
-        assert mock_service_client_protocol.delete_provisioning_settings.call_args[0][3] is False
-        assert mock_service_client_protocol.delete_provisioning_settings.call_args[0][4] is None
         assert result is None
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .get_provisioning_record")
@@ -597,9 +477,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.get_provisioning_record.call_args[0][1] == fake_device_id
         )
-        assert mock_service_client_protocol.get_provisioning_record.call_args[0][2] is None
-        assert mock_service_client_protocol.get_provisioning_record.call_args[0][3] is False
-        assert mock_service_client_protocol.get_provisioning_record.call_args[0][4] is None
         assert result == mock_service_client_protocol.get_provisioning_record()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_certificate_authorities")
@@ -616,9 +493,6 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.query_certificate_authorities.call_args[0][1] == fake_count
         )
-        assert mock_service_client_protocol.query_certificate_authorities.call_args[0][2] is None
-        assert mock_service_client_protocol.query_certificate_authorities.call_args[0][3] is False
-        assert mock_service_client_protocol.query_certificate_authorities.call_args[0][4] is None
         assert result == mock_service_client_protocol.query_certificate_authorities()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_device_groups")
@@ -629,9 +503,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.query_device_groups.call_count == 1
         assert mock_service_client_protocol.query_device_groups.call_args[0][0] == fake_query
         assert mock_service_client_protocol.query_device_groups.call_args[0][1] == fake_count
-        assert mock_service_client_protocol.query_device_groups.call_args[0][2] is None
-        assert mock_service_client_protocol.query_device_groups.call_args[0][3] is False
-        assert mock_service_client_protocol.query_device_groups.call_args[0][4] is None
         assert result == mock_service_client_protocol.query_device_groups()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_device_records")
@@ -643,9 +514,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.query_device_records.call_args[0][0] == fake_query
         assert mock_service_client_protocol.query_device_records.call_args[0][1] == fake_count
         assert mock_service_client_protocol.query_device_records.call_args[0][2] == "all"
-        assert mock_service_client_protocol.query_device_records.call_args[0][3] is None
-        assert mock_service_client_protocol.query_device_records.call_args[0][4] is False
-        assert mock_service_client_protocol.query_device_records.call_args[0][5] is None
         assert result == mock_service_client_protocol.query_device_records()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_group_records")
@@ -657,9 +525,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.query_group_records.call_args[0][0] == fake_query
         assert mock_service_client_protocol.query_group_records.call_args[0][1] == fake_count
         assert mock_service_client_protocol.query_group_records.call_args[0][2] == "all"
-        assert mock_service_client_protocol.query_group_records.call_args[0][3] is None
-        assert mock_service_client_protocol.query_group_records.call_args[0][4] is False
-        assert mock_service_client_protocol.query_group_records.call_args[0][5] is None
         assert result == mock_service_client_protocol.query_group_records()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_linked_hubs")
@@ -670,9 +535,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.query_linked_hubs.call_count == 1
         assert mock_service_client_protocol.query_linked_hubs.call_args[0][0] == fake_query
         assert mock_service_client_protocol.query_linked_hubs.call_args[0][1] == fake_count
-        assert mock_service_client_protocol.query_linked_hubs.call_args[0][2] is None
-        assert mock_service_client_protocol.query_linked_hubs.call_args[0][3] is False
-        assert mock_service_client_protocol.query_linked_hubs.call_args[0][4] is None
         assert result == mock_service_client_protocol.query_linked_hubs()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_provisioning_records")
@@ -683,9 +545,6 @@ class TestIoTProvisioningServiceClient(object):
         assert mock_service_client_protocol.query_provisioning_records.call_count == 1
         assert mock_service_client_protocol.query_provisioning_records.call_args[0][0] == fake_query
         assert mock_service_client_protocol.query_provisioning_records.call_args[0][1] == fake_count
-        assert mock_service_client_protocol.query_provisioning_records.call_args[0][2] is None
-        assert mock_service_client_protocol.query_provisioning_records.call_args[0][3] is False
-        assert mock_service_client_protocol.query_provisioning_records.call_args[0][4] is None
         assert result == mock_service_client_protocol.query_provisioning_records()
 
     @pytest.mark.it("IoTProvisioningServiceClient -- .query_provisioning_settings")
@@ -700,7 +559,4 @@ class TestIoTProvisioningServiceClient(object):
         assert (
             mock_service_client_protocol.query_provisioning_settings.call_args[0][1] == fake_count
         )
-        assert mock_service_client_protocol.query_provisioning_settings.call_args[0][2] is None
-        assert mock_service_client_protocol.query_provisioning_settings.call_args[0][3] is False
-        assert mock_service_client_protocol.query_provisioning_settings.call_args[0][4] is None
         assert result == mock_service_client_protocol.query_provisioning_settings()

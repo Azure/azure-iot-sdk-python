@@ -49,9 +49,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.CertificateAuthority`
         :returns: The CertificateAuthority object.
         """
-        return protocol_client.get_certificate_authority(
-            certificate_authority_name, None, False, None
-        )
+        return self.protocol.get_certificate_authority(certificate_authority_name)
 
     def create_certificate_authority(self, certificate_authority_name, certificate_authority):
         """Creates a certificate authority on IoT Provisioning Service.
@@ -65,8 +63,8 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.CertificateAuthority`
         :returns: CertificateAuthority.
         """
-        return protocol_client.create_or_replace_certificate_authority(
-            certificate_authority_name, certificate_authority, None, None, False, None
+        return self.protocol.create_or_replace_certificate_authority(
+            certificate_authority_name, certificate_authority
         )
 
     def replace_certificate_authority(
@@ -85,8 +83,8 @@ class IoTProvisioningServiceClient(object):
         :returns: CertificateAuthority.
         """
         if etag:
-            return protocol_client.create_or_replace_certificate_authority(
-                certificate_authority_name, certificate_authority, etag, None, False, None
+            return self.protocol.create_or_replace_certificate_authority(
+                certificate_authority_name, certificate_authority, etag
             )
         else:
             raise ValueError("For replace operation the etag argument cannot be None")
@@ -103,7 +101,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: None
         :returns: None.
         """
-        protocol_client.delete_certificate_authority(
+        self.protocol.delete_certificate_authority(
             certificate_authority_name, etag, None, False, None
         )
 
@@ -118,7 +116,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.DeviceGroup`
         :returns: The DeviceGroup object.
         """
-        return protocol_client.get_device_group(device_group_name, None, False, None)
+        return self.protocol.get_device_group(device_group_name, None, False, None)
 
     def create_device_group(self, device_group_name, device_group):
         """Creates a device group on IoT Provisioning Service.
@@ -132,7 +130,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.DeviceGroup`
         :returns: DeviceGroup.
         """
-        return protocol_client.create_or_replace_device_group(
+        return self.protocol.create_or_replace_device_group(
             device_group_name, device_group, None, None, False, None
         )
 
@@ -150,7 +148,7 @@ class IoTProvisioningServiceClient(object):
         :returns: DeviceGroup.
         """
         if etag:
-            return protocol_client.create_or_replace_device_group(
+            return self.protocol.create_or_replace_device_group(
                 device_group_name, device_group, etag, None, False, None
             )
         else:
@@ -168,12 +166,12 @@ class IoTProvisioningServiceClient(object):
         :rtype: None
         :returns: None.
         """
-        protocol_client.delete_device_group(device_group_name, etag, None, False, None)
+        self.protocol.delete_device_group(device_group_name, etag, None, False, None)
 
-    def get_device_record(self, device_group_name, device_id):
+    def get_device_record(self, device_record_name, device_id):
         """Retrieves a device authentication record from IoT Provisioning Service.
 
-        :param str device_group_name: The name of the device group.
+        :param str device_record_name: The name of the device group.
         :param str device_id: The ID of the device.
 
         :raises: `ProvisioningServiceErrorDetailsException`
@@ -182,14 +180,12 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.DeviceRecord`
         :returns: The DeviceRecord object.
         """
-        return protocol_client.get_device_record(
-            device_group_name, device_id, "all", None, False, None
-        )
+        return self.protocol.get_device_record(device_record_name, device_id, "all")
 
-    def create_device_record(self, device_group_name, device_id, device_record):
+    def create_device_record(self, device_record_name, device_id, device_record):
         """Creates a device authentication record on IoT Provisioning Service.
 
-        :param str device_group_name: The name of the device group to create.
+        :param str device_record_name: The name of the device group to create.
         :param str device_id: The ID of the device.
         :param DeviceRecord device_record: The device authentication record to create.
 
@@ -199,14 +195,14 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.DeviceRecord`
         :returns: DeviceRecord.
         """
-        return protocol_client.create_or_replace_device_record(
-            device_group_name, device_id, device_record, None, None, False, None
+        return self.protocol.create_or_replace_device_record(
+            device_record_name, device_id, device_record
         )
 
-    def replace_device_record(self, device_group_name, device_id, device_record, etag):
+    def replace_device_record(self, device_record_name, device_id, device_record, etag):
         """Replaces a device authentication record on IoT Provisioning Service.
 
-        :param str device_group_name: The name of the device group to replace.
+        :param str device_record_name: The name of the device group to replace.
         :param str device_id: The ID of the device.
         :param DeviceRecord device_record: The device authentication record to replace with.
         :param str etag: The etag of the device record to replace.
@@ -218,16 +214,16 @@ class IoTProvisioningServiceClient(object):
         :returns: DeviceRecord.
         """
         if etag:
-            return protocol_client.create_or_replace_device_record(
-                device_group_name, device_id, device_record, etag, None, False, None
+            return self.protocol.create_or_replace_device_record(
+                device_record_name, device_id, device_record, etag
             )
         else:
             raise ValueError("For replace operation the etag argument cannot be None")
 
-    def delete_device_record(self, device_group_name, device_id, etag):
+    def delete_device_record(self, device_record_name, device_id, etag):
         """Deletes a device group on IoT Provisioning Service.
 
-        :param str device_group_name: The device group name to delete.
+        :param str device_record_name: The device group name to delete.
         :param str device_id: The ID of the device.
         :param str etag: The etag of the device group to delete.
 
@@ -237,7 +233,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: None
         :returns: None.
         """
-        protocol_client.delete_device_record(device_group_name, device_id, etag, None, False, None)
+        self.protocol.delete_device_record(device_record_name, device_id, etag)
 
     def get_group_record(self, device_group_name, group_record_name):
         """Retrieves a group authentication record from IoT Provisioning Service.
@@ -251,9 +247,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.GroupRecord`
         :returns: The GroupRecord object.
         """
-        return protocol_client.get_group_record(
-            device_group_name, group_record_name, "all", None, False, None
-        )
+        return self.protocol.get_group_record(device_group_name, group_record_name, "all")
 
     def create_group_record(self, device_group_name, group_record_name, group_record):
         """Creates a group authentication record on IoT Provisioning Service.
@@ -268,8 +262,8 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.GroupRecord`
         :returns: GroupRecord.
         """
-        return protocol_client.create_or_replace_group_record(
-            device_group_name, group_record_name, group_record, None, None, False, None
+        return self.protocol.create_or_replace_group_record(
+            device_group_name, group_record_name, group_record
         )
 
     def replace_group_record(self, device_group_name, group_record_name, group_record, etag):
@@ -287,8 +281,8 @@ class IoTProvisioningServiceClient(object):
         :returns: GroupRecord.
         """
         if etag:
-            return protocol_client.create_or_replace_group_record(
-                device_group_name, group_record_name, group_record, etag, None, False, None
+            return self.protocol.create_or_replace_group_record(
+                device_group_name, group_record_name, group_record, etag
             )
         else:
             raise ValueError("For replace operation the etag argument cannot be None")
@@ -306,9 +300,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: None
         :returns: None.
         """
-        protocol_client.delete_group_record(
-            device_group_name, group_record_name, etag, None, False, None
-        )
+        self.protocol.delete_group_record(device_group_name, group_record_name, etag)
 
     def get_linked_hub(self, linked_hub_name):
         """Retrieves a linked hub from IoT Provisioning Service.
@@ -321,7 +313,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.LinkedHub`
         :returns: The LinkedHub object.
         """
-        return protocol_client.get_linked_hub(linked_hub_name, None, False, None)
+        return self.protocol.get_linked_hub(linked_hub_name)
 
     def create_linked_hub(self, linked_hub_name, linked_hub):
         """Creates a linked hub on IoT Provisioning Service.
@@ -335,9 +327,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.LinkedHub`
         :returns: LinkedHub.
         """
-        return protocol_client.create_or_replace_linked_hub(
-            linked_hub_name, linked_hub, None, None, False, None
-        )
+        return self.protocol.create_or_replace_linked_hub(linked_hub_name, linked_hub)
 
     def replace_linked_hub(self, linked_hub_name, linked_hub, etag):
         """Replaces a linked hub on IoT Provisioning Service.
@@ -353,9 +343,7 @@ class IoTProvisioningServiceClient(object):
         :returns: LinkedHub.
         """
         if etag:
-            return protocol_client.create_or_replace_linked_hub(
-                linked_hub_name, linked_hub, etag, None, False, None
-            )
+            return self.protocol.create_or_replace_linked_hub(linked_hub_name, linked_hub, etag)
         else:
             raise ValueError("For replace operation the etag argument cannot be None")
 
@@ -371,7 +359,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: None
         :returns: None.
         """
-        protocol_client.delete_linked_hub(linked_hub_name, etag, None, False, None)
+        self.protocol.delete_linked_hub(linked_hub_name, etag)
 
     def get_provisioning_settings(self, provisioning_settings_name):
         """Retrieves a provisioning settings from IoT Provisioning Service.
@@ -384,9 +372,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.ProvisioningSettings`
         :returns: The ProvisioningSettings object.
         """
-        return protocol_client.get_provisioning_settings(
-            provisioning_settings_name, None, False, None
-        )
+        return self.protocol.get_provisioning_settings(provisioning_settings_name)
 
     def create_provisioning_settings(self, provisioning_settings_name, provisioning_settings):
         """Creates a provisioning settings on Provisioning Service.
@@ -401,8 +387,8 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.ProvisioningSettings`
         :returns: ProvisioningSettings.
         """
-        return protocol_client.create_or_replace_provisioning_settings(
-            provisioning_settings_name, provisioning_settings, None, None, False, None
+        return self.protocol.create_or_replace_provisioning_settings(
+            provisioning_settings_name, provisioning_settings
         )
 
     def replace_provisioning_settings(
@@ -421,8 +407,8 @@ class IoTProvisioningServiceClient(object):
         :returns: ProvisioningSettings.
         """
         if etag:
-            return protocol_client.create_or_replace_provisioning_settings(
-                provisioning_settings_name, provisioning_settings, etag, None, False, None
+            return self.protocol.create_or_replace_provisioning_settings(
+                provisioning_settings_name, provisioning_settings, etag
             )
         else:
             raise ValueError("For replace operation the etag argument cannot be None")
@@ -439,9 +425,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: None
         :returns: None.
         """
-        protocol_client.delete_provisioning_settings(
-            provisioning_settings_name, etag, None, False, None
-        )
+        self.protocol.delete_provisioning_settings(provisioning_settings_name, etag)
 
     def get_provisioning_record(self, device_group_name, device_id):
         """Retrieves a provisioning record from IoT Provisioning Service.
@@ -455,9 +439,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.ProvisioningRecord`
         :returns: The ProvisioningRecord object.
         """
-        return protocol_client.get_provisioning_record(
-            device_group_name, device_id, None, False, None
-        )
+        return self.protocol.get_provisioning_record(device_group_name, device_id)
 
     def query_certificate_authorities(self, query, max_item_count=None):
         """Retrieves a list of the certificate authorities and a continuation
@@ -474,9 +456,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.CertificateAuthorityQueryResponse`
         :returns: The CertificateAuthorityQueryResponse object.
         """
-        return protocol_client.query_certificate_authorities(
-            query, max_item_count, None, False, None
-        )
+        return self.protocol.query_certificate_authorities(query, max_item_count)
 
     def query_device_groups(self, query, max_item_count=None):
         """Retrieves a list of the device groups and a continuation
@@ -493,7 +473,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.DeviceGroupQueryResponse`
         :returns: The DeviceGroupQueryResponse object.
         """
-        return protocol_client.query_device_groups(query, max_item_count, None, False, None)
+        return self.protocol.query_device_groups(query, max_item_count)
 
     def query_device_records(self, query, max_item_count=None):
         """Retrieves a list of the device records and a continuation
@@ -510,7 +490,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.DeviceRecordQueryResponse`
         :returns: The DeviceRecordQueryResponse object.
         """
-        return protocol_client.query_device_records(query, max_item_count, "all", None, False, None)
+        return self.protocol.query_device_records(query, max_item_count, "all")
 
     def query_group_records(self, query, max_item_count=None):
         """Retrieves a list of the group records and a continuation
@@ -527,7 +507,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.GroupRecordQueryResponse`
         :returns: The GroupRecordQueryResponse object.
         """
-        return protocol_client.query_group_records(query, max_item_count, "all", None, False, None)
+        return self.protocol.query_group_records(query, max_item_count, "all")
 
     def query_linked_hubs(self, query, max_item_count=None):
         """Retrieves a list of the linked hubs and a continuation
@@ -544,7 +524,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.LinkedHubQueryResponse`
         :returns: The LinkedHubQueryResponse object.
         """
-        return protocol_client.query_linked_hubs(query, max_item_count, None, False, None)
+        return self.protocol.query_linked_hubs(query, max_item_count)
 
     def query_provisioning_records(self, query, max_item_count=None):
         """Retrieves a list of the provisioning records and a continuation
@@ -561,7 +541,7 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.ProvisioningRecordQueryResponse`
         :returns: The ProvisioningRecordQueryResponse object.
         """
-        return protocol_client.query_provisioning_records(query, max_item_count, None, False, None)
+        return self.protocol.query_provisioning_records(query, max_item_count)
 
     def query_provisioning_settings(self, query, max_item_count=None):
         """Retrieves a list of the provisioning settings and a continuation
@@ -578,4 +558,4 @@ class IoTProvisioningServiceClient(object):
         :rtype: :class:`azure.iot.provisioning.ProvisioningSettingsQueryResponse`
         :returns: The ProvisioningSettingsQueryResponse object.
         """
-        return protocol_client.query_provisioning_settings(query, max_item_count, None, False, None)
+        return self.protocol.query_provisioning_settings(query, max_item_count)
