@@ -76,8 +76,9 @@ class IoTProvisioningServiceClient(object):
         :param CertificateAuthority certificate_authority: The certificate authority to replace with.
         :param str etag: The etag of the certificate authority to replace.
 
-        :raises: `ProvisioningServiceErrorDetailsException`
-            if the HTTP response status is not in [200].
+        :raises:
+            `ProvisioningServiceErrorDetailsException` if the HTTP response status is not in [200].
+            `ValueError` if etag value is None.
 
         :rtype: :class:`azure.iot.provisioning.CertificateAuthority`
         :returns: CertificateAuthority.
@@ -141,8 +142,9 @@ class IoTProvisioningServiceClient(object):
         :param DeviceGroup device_group: The new device group to replace with.
         :param str etag: The etag of the device group to replace.
 
-        :raises: `ProvisioningServiceErrorDetailsException`
-            if the HTTP response status is not in [200].
+        :raises:
+            `ProvisioningServiceErrorDetailsException` if the HTTP response status is not in [200].
+            `ValueError` if etag value is None.
 
         :rtype: :class:`azure.iot.provisioning.DeviceGroup`
         :returns: DeviceGroup.
@@ -207,8 +209,9 @@ class IoTProvisioningServiceClient(object):
         :param DeviceRecord device_record: The device authentication record to replace with.
         :param str etag: The etag of the device record to replace.
 
-        :raises: `ProvisioningServiceErrorDetailsException`
-            if the HTTP response status is not in [200].
+        :raises:
+            `ProvisioningServiceErrorDetailsException` if the HTTP response status is not in [200].
+            `ValueError` if etag value is None.
 
         :rtype: :class:`azure.iot.provisioning.DeviceRecord`
         :returns: DeviceRecord.
@@ -274,8 +277,9 @@ class IoTProvisioningServiceClient(object):
         :param GroupRecord group_record: The group record to replace with.
         :param str etag: The etag of the group record to replace.
 
-        :raises: `ProvisioningServiceErrorDetailsException`
-            if the HTTP response status is not in [200].
+        :raises:
+            `ProvisioningServiceErrorDetailsException` if the HTTP response status is not in [200].
+            `ValueError` if etag value is None.
 
         :rtype: :class:`azure.iot.provisioning.GroupRecord`
         :returns: GroupRecord.
@@ -336,8 +340,9 @@ class IoTProvisioningServiceClient(object):
         :param LinkedHub linked_hub: The linked hub to replace with.
         :param str etag: The etag of the linked hub to replace.
 
-        :raises: `ProvisioningServiceErrorDetailsException`
-            if the HTTP response status is not in [200].
+        :raises:
+            `ProvisioningServiceErrorDetailsException` if the HTTP response status is not in [200].
+            `ValueError` if etag value is None.
 
         :rtype: :class:`azure.iot.provisioning.LinkedHub`
         :returns: LinkedHub.
@@ -400,8 +405,9 @@ class IoTProvisioningServiceClient(object):
         :param ProvisioningSettings provisioning_settings: The provisioning settings to replace with.
         :param str etag: The etag of the provisioning settings to replace.
 
-        :raises: `ProvisioningServiceErrorDetailsException`
-            if the HTTP response status is not in [200].
+        :raises:
+            `ProvisioningServiceErrorDetailsException` if the HTTP response status is not in [200].
+            `ValueError` if etag value is None.
 
         :rtype: :class:`azure.iot.provisioning.ProvisioningSettings`
         :returns: ProvisioningSettings.
