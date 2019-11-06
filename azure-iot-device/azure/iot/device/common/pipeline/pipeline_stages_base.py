@@ -280,7 +280,6 @@ class PipelineRootStage(PipelineStage):
 
     def run_op(self, op):
         # CT-TODO: make this more elegant
-        # op.callback = pipeline_thread.invoke_on_callback_thread_nowait(op.callback)
         op.callbacks[0] = pipeline_thread.invoke_on_callback_thread_nowait(op.callbacks[0])
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
@@ -463,9 +462,7 @@ class ConnectionLockStage(PipelineStage):
                         self.name, op.name
                     )
                 )
-                # self.send_completed_op_up(op, error)   #CT-TODO: remove
 
-            # self.send_op_down_and_intercept_return(op, intercepted_return=on_operation_complete)   #CT-TODO: remove
             op.add_callback(on_operation_complete)
             self.send_op_down(op)
 
@@ -679,23 +676,19 @@ class OpTimeoutStage(PipelineStage):
 
             # Send the op down, but intercept the return of the op so we can
             # remove the timer when the op is done
-            op.add_callback(self._on_intercepted_return)
+            op.add_callback(self._clear_timer)
             logger.debug("{}({}): Sending down".format(self.name, op.name))
             self.send_op_down(op)
-            # self.send_op_down_and_intercept_return(
-            #     op=op, intercepted_return=self._on_intercepted_return
-            # )
         else:
             self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _on_intercepted_return(self, op, error):
+    def _clear_timer(self, op, error):
         # When an op comes back, delete the timer and pass it right up.
         if op.timeout_timer:
             op.timeout_timer.cancel()
             op.timeout_timer = None
         logger.debug("{}({}): Op completed".format(self.name, op.name))
-        # self.send_completed_op_up(op, error)
 
 
 class RetryStage(PipelineStage):
@@ -724,13 +717,8 @@ class RetryStage(PipelineStage):
         Send all ops down and intercept their return to "watch for retry"
         """
         if self._should_watch_for_retry(op):
-            op.add_callback(self._on_intercepted_return)
-            self.send_op_down(op)
-            # self.send_op_down_and_intercept_return(
-            #     op=op, intercepted_return=self._on_intercepted_return
-            # )     CT-TODO: remove this
-        else:
-            self.send_op_down(op)
+            op.add_callback(self._do_retry_if_necessary)
+        self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _should_watch_for_retry(self, op):
@@ -753,7 +741,7 @@ class RetryStage(PipelineStage):
         return False
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _on_intercepted_return(self, op, error):
+    def _do_retry_if_necessary(self, op, error):
         """
         Handler which gets called when operations are complete.  This function
         is where we check to see if a retry is necessary and set a "retry timer"
@@ -788,4 +776,3 @@ class RetryStage(PipelineStage):
         else:
             if op.retry_timer:
                 op.retry_timer = None
-            # self.send_completed_op_up(op, error) CT-TODO: remove this
