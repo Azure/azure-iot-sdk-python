@@ -667,11 +667,10 @@ class OpTimeoutStage(PipelineStage):
             def on_timeout():
                 this = self_weakref()
                 logger.info("{}({}): returning timeout error".format(this.name, op.name))
-                this.complete_op(
-                    op,
-                    pipeline_exceptions.PipelineTimeoutError(
+                op.complete(
+                    error=pipeline_exceptions.PipelineTimeoutError(
                         "operation timed out before protocol client could respond"
-                    ),
+                    )
                 )
 
             logger.debug("{}({}): Creating timer".format(self.name, op.name))

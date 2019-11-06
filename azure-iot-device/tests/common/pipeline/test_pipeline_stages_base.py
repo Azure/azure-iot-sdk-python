@@ -209,7 +209,7 @@ class TestAutoConnectStageRunOp(StageTestBase):
     @pytest.fixture
     def op(self, mocker, params):
         op = params["op_class"](**params["op_init_kwargs"])
-        op.callback = mocker.MagicMock()
+        mocker.spy(op, "complete")
         return op
 
     @pytest.fixture
@@ -239,51 +239,29 @@ class TestAutoConnectStageRunOp(StageTestBase):
     @pytest.mark.it(
         "Completes the original operation with the error from the ConnectOperation if that operation fails"
     )
-    def test_connect_failure(self, params, op, stage, arbitrary_exception):
+    def test_connect_failure(self, mocker, params, op, stage, arbitrary_exception):
         stage.pipeline_root.connected = False
-        assert not op.completed
 
         stage.run_op(op)
         connect_op = stage.next.run_op.call_args[0][0]
         connect_op.complete(error=arbitrary_exception)
 
-        assert op.completed
-        assert op.error is arbitrary_exception
-        # assert_callback_failed(op=op, error=arbitrary_exception)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
-    @pytest.mark.it("Waits for the ConnectOperation to complete before pasing the operation down")
+    @pytest.mark.it(
+        "Waits for the ConnectOperation to complete successfully before pasing the operation down"
+    )
     def test_connect_success(self, params, op, stage):
         stage.pipeline_root.connected = False
 
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         connect_op = stage.next.run_op.call_args[0][0]
-        stage.next.complete_op(connect_op)
+        connect_op.complete()
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args[0][0] == op
-
-    @pytest.mark.it("calls the op's callback when the operation is complete after connecting")
-    def test_operation_complete(self, params, op, stage):
-        stage.pipeline_root.connected = False
-
-        stage.run_op(op)
-        connect_op = stage.next.run_op.call_args[0][0]
-        stage.next.complete_op(connect_op)
-
-        stage.next.complete_op(op)
-        assert_callback_succeeded(op=op)
-
-    @pytest.mark.it("calls the op's callback when the operation fails after connecting")
-    def test_operation_fails(self, params, op, stage, arbitrary_exception):
-        stage.pipeline_root.connected = False
-
-        stage.run_op(op)
-        connect_op = stage.next.run_op.call_args[0][0]
-        stage.next.complete_op(connect_op)
-        stage.next.complete_op(op, error=arbitrary_exception)
-
-        assert_callback_failed(op=op, error=arbitrary_exception)
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -325,7 +303,9 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
 
     @pytest.fixture
     def fake_op(self, mocker):
-        return FakeOperation(callback=mocker.MagicMock())
+        op = FakeOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
+        return op
 
     @pytest.fixture
     def fake_ops(self, mocker):
@@ -336,22 +316,26 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         ]
 
     @pytest.mark.it(
-        "Immediately completes a ConnectOperation if the transport is already connected"
+        "Immediately completes a ConnectOperation sucessfully if the transport is already connected"
     )
     def test_connect_while_connected(self, stage, mocker):
         op = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.pipeline_root.connected = True
         stage.run_op(op)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
 
     @pytest.mark.it(
         "Immediately completes a DisconnectOperation if the transport is already disconnected"
     )
     def test_disconnect_while_disconnected(self, stage, mocker):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.pipeline_root.connected = False
         stage.run_op(op)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
 
     @pytest.mark.it(
         "Immediately passes the operation down if an operation is not alrady being blocking the stage"
@@ -387,7 +371,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        stage.next.complete_op(connection_op)
+        connection_op.complete()
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args[0][0] == fake_op
@@ -397,13 +381,15 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
     )
     @pytest.mark.it("Fails the operation if the operation that previously blocked the stage fails")
     def test_fails_blocked_op_if_serialized_op_fails(
-        self, params, stage, connection_op, fake_op, arbitrary_exception
+        self, mocker, params, stage, connection_op, fake_op, arbitrary_exception
     ):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         stage.run_op(fake_op)
-        stage.next.complete_op(connection_op, error=arbitrary_exception)
-        assert_callback_failed(op=fake_op, error=arbitrary_exception)
+        connection_op.complete(error=arbitrary_exception)
+
+        assert fake_op.complete.call_count == 1
+        assert fake_op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.parametrize(
         "params", connection_ops, ids=[x["op_class"].__name__ for x in connection_ops]
@@ -430,7 +416,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         for op in fake_ops:
             stage.run_op(op)
 
-        stage.next.complete_op(connection_op)
+        connection_op.complete()
 
         assert stage.next.run_op.call_count == 1 + len(fake_ops)
 
@@ -447,24 +433,30 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
     @pytest.mark.it(
         "Fails all pending operations after the operation that previously blocked the stage fails"
     )
-    def test_fails_multiple_ops(self, params, stage, connection_op, fake_ops, arbitrary_exception):
+    def test_fails_multiple_ops(
+        self, mocker, params, stage, connection_op, fake_ops, arbitrary_exception
+    ):
         stage.pipeline_root.connected = params["connected_flag_required_to_run"]
         stage.run_op(connection_op)
         for op in fake_ops:
+            mocker.spy(op, "complete")
             stage.run_op(op)
 
-        stage.next.complete_op(connection_op, error=arbitrary_exception)
+        connection_op.complete(error=arbitrary_exception)
 
         for op in fake_ops:
-            assert_callback_failed(op=op, error=arbitrary_exception)
+            assert op.complete.call_count == 1
+            assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
         "Does not immediately pass down operations in the queue if an operation in the queue causes the stage to re-block"
     )
     def test_re_blocks_ops_from_queue(self, stage, mocker):
         first_connect = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+        mocker.spy(first_connect, "complete")
         first_fake_op = FakeOperation(callback=mocker.MagicMock())
         second_connect = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(second_connect, "complete")
         second_fake_op = FakeOperation(callback=mocker.MagicMock())
 
         stage.run_op(first_connect)
@@ -475,7 +467,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         # at this point, ops are pended waiting for the first connect to complete.  Verify this and complete the connect.
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == first_connect
-        stage.next.complete_op(first_connect)
+        first_connect.complete()
 
         # The connect is complete.  This passes down first_fake_op and second_connect and second_fake_op gets pended waiting i
         # for second_connect to complete.
@@ -486,7 +478,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         assert stage.next.run_op.call_args_list[2][0][0] == second_connect
 
         # now, complete second_connect to give second_fake_op a chance to get passed down
-        stage.next.complete_op(second_connect)
+        second_connect.complete()
         assert stage.next.run_op.call_count == 4
         assert stage.next.run_op.call_args_list[3][0][0] == second_fake_op
 
@@ -528,6 +520,7 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
     def test_immediately_completes_second_op(self, stage, params, mocker):
         first_connection_op = params["first_connection_op"](mocker.MagicMock())
         second_connection_op = params["second_connection_op"](mocker.MagicMock())
+        mocker.spy(second_connection_op, "complete")
         stage.pipeline_root.connected = params["pre_connected_flag"]
 
         stage.run_op(first_connection_op)
@@ -539,11 +532,12 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
 
         # complete first_connection_op
         stage.pipeline_root.connected = params["mid_connect_flag"]
-        stage.next.complete_op(first_connection_op)
+        first_connection_op.complete()
 
         # second connect_op should be completed without having been passed down.
         assert stage.next.run_op.call_count == 1
-        assert_callback_succeeded(op=second_connection_op)
+        assert second_connection_op.complete.call_count == 1
+        assert second_connection_op.complete.call_args == mocker.call()
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -582,7 +576,9 @@ def make_fake_request_and_response(mocker):
 class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
     @pytest.fixture
     def op(self, mocker):
-        return make_fake_request_and_response(mocker)
+        op = make_fake_request_and_response(mocker)
+        mocker.spy(op, "complete")
+        return op
 
     @pytest.fixture
     def stage(self):
@@ -605,13 +601,7 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
     @pytest.mark.it("Does not complete the SendIotRequestAndwaitForResponse op")
     def test_sends_op_and_verifies_no_response(self, stage, op):
         stage.run_op(op)
-        assert op.callback.call_count == 0
-
-    @pytest.mark.it("Fails RequestAndResponseOperation if there is no next stage")
-    def test_no_next_stage(self, stage, op):
-        stage.next = None
-        stage.run_op(op)
-        assert_callback_failed(op=op)
+        assert op.complete.call_count == 0
 
     @pytest.mark.it("Generates a new request_id for every operation")
     def test_sends_two_ops_and_validates_request_id(self, stage, op, mocker):
@@ -629,15 +619,8 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
     def test_new_op_raises_exception(self, stage, op, mocker, arbitrary_exception):
         stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert_callback_failed(op=op)
-
-    @pytest.mark.it("Allows BaseExceptions rised on the RequestOperation op to propogate")
-    def test_new_op_raises_base_exception(self, stage, op, mocker, arbitrary_base_exception):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        assert op.callback.call_count == 0
-        assert e_info.value is arbitrary_base_exception
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
 
 @pytest.mark.describe(
@@ -646,7 +629,9 @@ class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
 class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
     @pytest.fixture
     def op(self, mocker):
-        return make_fake_request_and_response(mocker)
+        op = make_fake_request_and_response(mocker)
+        mocker.spy(op, "complete")
+        return op
 
     @pytest.fixture
     def stage(self):
@@ -668,9 +653,10 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
     @pytest.mark.it(
         "Completes the RequestAndResponseOperation op with the matching request_id including response_body and status_code"
     )
-    def test_completes_op_with_matching_request_id(self, stage, op, iot_response):
+    def test_completes_op_with_matching_request_id(self, mocker, stage, op, iot_response):
         stage.next.send_event_up(iot_response)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
         assert op.status_code == iot_response.status_code
         assert op.response_body == iot_response.response_body
 
@@ -687,13 +673,16 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
     @pytest.mark.it(
         "Does nothing if an IotResponse with an identical request_id is received a second time"
     )
-    def test_ignores_duplicate_request_id(self, stage, op, iot_response, unhandled_error_handler):
+    def test_ignores_duplicate_request_id(
+        self, mocker, stage, op, iot_response, unhandled_error_handler
+    ):
         stage.next.send_event_up(iot_response)
-        assert_callback_succeeded(op=op)
-        op.callback.reset_mock()
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
+        op.complete.reset_mock()
 
         stage.next.send_event_up(iot_response)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it(
@@ -712,16 +701,16 @@ class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
             response_body=fake_response_body,
         )
 
-        op.callback.reset_mock()
+        op.complete.reset_mock()
         stage.next.send_event_up(resp)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
     @pytest.mark.it("Does nothing if an IotResponse with an unknown request_id is received")
     def test_ignores_unknown_request_id(self, stage, op, iot_response, unhandled_error_handler):
         iot_response.request_id = fake_request_id
         stage.next.send_event_up(iot_response)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert unhandled_error_handler.call_count == 0
 
 
@@ -760,13 +749,12 @@ class TestOpTimeoutStageRunOp(StageTestBase):
     @pytest.fixture(params=yes_timeout_ops)
     def yes_timeout_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
-        op.callback = mocker.MagicMock()
+        mocker.spy(op, "complete")
         return op
 
     @pytest.fixture(params=no_timeout_ops)
     def no_timeout_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
-        op.callback = mocker.MagicMock()
         return op
 
     @pytest.fixture
@@ -803,32 +791,20 @@ class TestOpTimeoutStageRunOp(StageTestBase):
         assert yes_timeout_op.timeout_timer == mock_timer.return_value
 
     @pytest.mark.it("Clears the timer when the op completes successfully")
-    def test_clears_timer_on_success(self, stage, mock_timer, yes_timeout_op, next_stage_succeeds):
+    def test_clears_timer_on_success(self, stage, mock_timer, yes_timeout_op):
         stage.run_op(yes_timeout_op)
+        yes_timeout_op.complete()
         assert mock_timer.return_value.cancel.call_count == 1
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
 
     @pytest.mark.it("Clears the timer when the op fails with an arbitrary exception")
     def test_clears_timer_on_arbitrary_exception(
-        self, stage, mock_timer, yes_timeout_op, next_stage_raises_arbitrary_exception
+        self, stage, mock_timer, yes_timeout_op, arbitrary_exception
     ):
         stage.run_op(yes_timeout_op)
+        yes_timeout_op.complete(error=arbitrary_exception)
         assert mock_timer.return_value.cancel.call_count == 1
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
-
-    @pytest.mark.it("Does not clear the timer when the op fails with an arbitrary base exception")
-    def test_doesnt_clear_timer_on_arbitrary_base_exception(
-        self,
-        stage,
-        mock_timer,
-        yes_timeout_op,
-        next_stage_raises_arbitrary_base_exception,
-        arbitrary_base_exception,
-    ):
-        with pytest.raises(arbitrary_base_exception.__class__):
-            stage.run_op(yes_timeout_op)
-        assert mock_timer.return_value.cancel.call_count == 0
-        assert yes_timeout_op.timeout_timer == mock_timer.return_value
 
     @pytest.mark.it("Clears the timer when the op times out")
     def test_clears_timer_on_timeout(self, stage, mock_timer, yes_timeout_op):
@@ -838,49 +814,16 @@ class TestOpTimeoutStageRunOp(StageTestBase):
         timer_callback()
         assert getattr(yes_timeout_op, "timeout_timer", None) is None
 
-    @pytest.mark.it("Calls the original callback with no error when the op completes with no error")
-    def test_calls_callback_on_success(
-        self, stage, mock_timer, yes_timeout_op, next_stage_succeeds
-    ):
-        stage.run_op(yes_timeout_op)
-        assert_callback_succeeded(op=yes_timeout_op)
-
-    @pytest.mark.it(
-        "Calls the original callback with error when the op fails with an arbitrary exception"
-    )
-    def test_calls_callback_on_arbitrary_exception(
-        self,
-        stage,
-        mock_timer,
-        yes_timeout_op,
-        next_stage_raises_arbitrary_exception,
-        arbitrary_exception,
-    ):
-        stage.run_op(yes_timeout_op)
-        assert_callback_failed(op=yes_timeout_op, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Does not call the original callback when the op fails with an an arbitrary base exception"
-    )
-    def test_calls_callback_on_arbitrary_base_exception(
-        self,
-        stage,
-        mock_timer,
-        yes_timeout_op,
-        next_stage_raises_arbitrary_base_exception,
-        arbitrary_base_exception,
-    ):
-        callback = yes_timeout_op.callback  # capture before run_op because it changes inside run_op
-        with pytest.raises(arbitrary_base_exception.__class__):
-            stage.run_op(yes_timeout_op)
-        assert callback.call_count == 0
-
-    @pytest.mark.it("Calls the original callback with a PipelineTimeoutError when the op times out")
-    def test_calls_callback_on_timeout(self, stage, mock_timer, yes_timeout_op):
+    @pytest.mark.it("Completes the operation with a PipelineTimeoutError when the op times out")
+    def test_calls_callback_on_timeout(self, mocker, stage, mock_timer, yes_timeout_op):
         stage.run_op(yes_timeout_op)
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
-        assert_callback_failed(op=yes_timeout_op, error=pipeline_exceptions.PipelineTimeoutError)
+        assert yes_timeout_op.complete.call_count == 1
+        assert (
+            type(yes_timeout_op.complete.call_args[1]["error"])
+            is pipeline_exceptions.PipelineTimeoutError
+        )
 
 
 """
@@ -918,13 +861,13 @@ class RetryStageTestOpSend(object):
     @pytest.fixture(params=no_retry_ops)
     def no_retry_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
-        op.callback = mocker.MagicMock()
+        mocker.spy(op, "complete")
         return op
 
     @pytest.fixture(params=yes_retry_ops)
     def yes_retry_op(self, request, mocker):
         op = make_mock_op_or_event(request.param)
-        op.callback = mocker.MagicMock()
+        mocker.spy(op, "complete")
         return op
 
     @pytest.mark.it("Sends ops that don't need retry to the next stage")
@@ -952,9 +895,11 @@ class RetryStageTestNoRetryOpCallback(object):
     @pytest.mark.it(
         "Calls the op callback with no error when an op that doesn't need retry succeeds"
     )
-    def test_calls_callback_on_no_retry_op_success(self, stage, no_retry_op, next_stage_succeeds):
+    def test_calls_callback_on_no_retry_op_success(self, mocker, stage, no_retry_op):
         stage.run_op(no_retry_op)
-        assert_callback_succeeded(op=no_retry_op)
+        no_retry_op.complete()
+        assert no_retry_op.complete.call_count == 1
+        assert no_retry_op.complete.call_args == mocker.call()
 
     @pytest.mark.it(
         "Calls the op callback with the correct error when an op that doesn't need retry fail with an arbitrary error"
