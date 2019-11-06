@@ -6,6 +6,7 @@
 
 import logging
 import six
+import traceback
 from . import (
     pipeline_ops_base,
     PipelineStage,
@@ -107,7 +108,8 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.connect(password=self.sas_token)
             except Exception as e:
-                logger.error("transport.connect raised error", exc_info=True)
+                logger.error("transport.connect raised error")
+                logger.error(traceback.format_exc())
                 self._pending_connection_op = None
                 self.complete_op(op, error=e)
 
@@ -120,7 +122,8 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.reconnect(password=self.sas_token)
             except Exception as e:
-                logger.error("transport.reconnect raised error", exc_info=True)
+                logger.error("transport.reconnect raised error")
+                logger.error(traceback.format_exc())
                 self._pending_connection_op = None
                 self.complete_op(op, error=e)
 
@@ -132,7 +135,8 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.disconnect()
             except Exception as e:
-                logger.error("transport.disconnect raised error", exc_info=True)
+                logger.error("transport.disconnect raised error")
+                logger.error(traceback.format_exc())
                 self._pending_connection_op = None
                 self.complete_op(op, error=e)
 
