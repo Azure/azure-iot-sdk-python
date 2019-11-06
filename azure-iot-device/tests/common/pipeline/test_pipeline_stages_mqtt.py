@@ -104,7 +104,7 @@ def transport(mocker):
 
 @pytest.fixture
 def op_set_connection_args(mocker):
-    return pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
+    op = pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
         client_id=fake_client_id,
         hostname=fake_hostname,
         username=fake_username,
@@ -113,38 +113,52 @@ def op_set_connection_args(mocker):
         sas_token=fake_sas_token,
         callback=mocker.MagicMock(),
     )
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
 def op_connect(mocker):
-    return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+    op = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
 def op_reconnect(mocker):
-    return pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+    op = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
 def op_disconnect(mocker):
-    return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+    op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
 def op_publish(mocker):
-    return pipeline_ops_mqtt.MQTTPublishOperation(
+    op = pipeline_ops_mqtt.MQTTPublishOperation(
         topic=fake_topic, payload=fake_payload, callback=mocker.MagicMock()
     )
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
 def op_subscribe(mocker):
-    return pipeline_ops_mqtt.MQTTSubscribeOperation(topic=fake_topic, callback=mocker.MagicMock())
+    op = pipeline_ops_mqtt.MQTTSubscribeOperation(topic=fake_topic, callback=mocker.MagicMock())
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
 def op_unsubscribe(mocker):
-    return pipeline_ops_mqtt.MQTTUnsubscribeOperation(topic=fake_topic, callback=mocker.MagicMock())
+    op = pipeline_ops_mqtt.MQTTUnsubscribeOperation(topic=fake_topic, callback=mocker.MagicMock())
+    mocker.spy(op, "complete")
+    return op
 
 
 @pytest.fixture
@@ -152,7 +166,7 @@ def create_transport(stage, transport, op_set_connection_args):
     stage.run_op(op_set_connection_args)
 
 
-# TODO: This should be a package level class inherited by all .run_op() tests in all stages
+# CT-TODO: replace this with the global testing equivalent
 class RunOpTests(object):
     @pytest.mark.it(
         "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
@@ -161,10 +175,8 @@ class RunOpTests(object):
         stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
 
         stage.run_op(arbitrary_op)
-        assert arbitrary_op.callback.call_count == 1
-        assert arbitrary_op.callback.call_args == mocker.call(
-            arbitrary_op, error=arbitrary_exception
-        )
+        assert arbitrary_op.complete.call_count == 1
+        assert arbitrary_op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propogate"
@@ -263,9 +275,10 @@ class TestMQTTTransportStageRunOpWithSetConnectionArgs(MQTTTransportStageTestBas
         assert stage._pending_connection_op is None
 
     @pytest.mark.it("Completes the operation with success, upon successful execution")
-    def test_succeeds(self, stage, transport, op_set_connection_args):
+    def test_succeeds(self, mocker, stage, transport, op_set_connection_args):
         stage.run_op(op_set_connection_args)
-        assert_callback_succeeded(op=op_set_connection_args)
+        op_set_connection_args.complete.call_count == 1
+        op_set_connection_args.complete.call_args == mocker.call()
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with ConnectOperation")
@@ -289,13 +302,15 @@ class TestMQTTTransportStageExecuteOpWithConnect(MQTTTransportStageTestBase, Run
     def test_pending_operation_cancelled(
         self, mocker, stage, create_transport, op_connect, pending_connection_op
     ):
-        pending_connection_op.callback = mocker.MagicMock()
+        mocker.spy(pending_connection_op, "complete")
         stage._pending_connection_op = pending_connection_op
         stage.run_op(op_connect)
 
-        # Callback has been completed, with an OpeationCancelled exception set indicating early cancellation
-        assert_callback_failed(
-            op=pending_connection_op, error=pipeline_exceptions.OperationCancelled
+        # Operation has been completed, with an OperationCancelled exception set indicating early cancellation
+        assert pending_connection_op.complete.call_count == 1
+        assert (
+            type(pending_connection_op.complete.call_args[1]["error"])
+            is pipeline_exceptions.OperationCancelled
         )
 
         # New operation is now the pending operation
@@ -310,10 +325,13 @@ class TestMQTTTransportStageExecuteOpWithConnect(MQTTTransportStageTestBase, Run
     @pytest.mark.it(
         "Fails the operation and resets the pending connection operation to None, if there is a failure connecting in the MQTTTransport"
     )
-    def test_fails_operation(self, stage, create_transport, op_connect, arbitrary_exception):
+    def test_fails_operation(
+        self, mocker, stage, create_transport, op_connect, arbitrary_exception
+    ):
         stage.transport.connect.side_effect = arbitrary_exception
         stage.run_op(op_connect)
-        assert_callback_failed(op=op_connect, error=arbitrary_exception)
+        assert op_connect.complete.call_count == 1
+        assert op_connect.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
 
@@ -338,13 +356,15 @@ class TestMQTTTransportStageExecuteOpWithReconnect(MQTTTransportStageTestBase, R
     def test_pending_operation_cancelled(
         self, mocker, stage, create_transport, op_reconnect, pending_connection_op
     ):
-        pending_connection_op.callback = mocker.MagicMock()
+        mocker.spy(pending_connection_op, "complete")
         stage._pending_connection_op = pending_connection_op
         stage.run_op(op_reconnect)
 
-        # Callback has been completed, with an OperationCancelled exception set indicating early cancellation
-        assert_callback_failed(
-            op=pending_connection_op, error=pipeline_exceptions.OperationCancelled
+        # Operation has been completed, with an OperationCancelled exception set indicating early cancellation
+        assert pending_connection_op.complete.call_count == 1
+        assert (
+            type(pending_connection_op.complete.call_args[1]["error"])
+            is pipeline_exceptions.OperationCancelled
         )
 
         # New operation is now the pending operation
@@ -364,7 +384,8 @@ class TestMQTTTransportStageExecuteOpWithReconnect(MQTTTransportStageTestBase, R
     ):
         stage.transport.reconnect.side_effect = arbitrary_exception
         stage.run_op(op_reconnect)
-        assert_callback_failed(op=op_reconnect, error=arbitrary_exception)
+        assert op_reconnect.complete.call_count == 1
+        assert op_reconnect.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
 
@@ -389,13 +410,15 @@ class TestMQTTTransportStageExecuteOpWithDisconnect(MQTTTransportStageTestBase, 
     def test_pending_operation_cancelled(
         self, mocker, stage, create_transport, op_disconnect, pending_connection_op
     ):
-        pending_connection_op.callback = mocker.MagicMock()
+        mocker.spy(pending_connection_op, "complete")
         stage._pending_connection_op = pending_connection_op
         stage.run_op(op_disconnect)
 
-        # Callback has been completed, with an OperationCancelled exception set indicating early cancellation
-        assert_callback_failed(
-            op=pending_connection_op, error=pipeline_exceptions.OperationCancelled
+        # Operation has been completed, with an OperationCancelled exception set indicating early cancellation
+        assert pending_connection_op.complete.call_count == 1
+        assert (
+            type(pending_connection_op.complete.call_args[1]["error"])
+            is pipeline_exceptions.OperationCancelled
         )
 
         # New operation is now the pending operation
@@ -415,7 +438,8 @@ class TestMQTTTransportStageExecuteOpWithDisconnect(MQTTTransportStageTestBase, 
     ):
         stage.transport.disconnect.side_effect = arbitrary_exception
         stage.run_op(op_disconnect)
-        assert_callback_failed(op=op_disconnect, error=arbitrary_exception)
+        assert op_disconnect.complete.call_count == 1
+        assert op_disconnect.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
 
@@ -441,7 +465,8 @@ class TestMQTTTransportStageExecuteOpWithMQTTPublishOperation(
         # Trigger publish completion
         stage.transport.publish.call_args[1]["callback"]()
 
-        assert_callback_succeeded(op=op_publish)
+        assert op_publish.complete.call_count == 1
+        assert op_publish.complete.call_args == mocker.call()
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTSubscribeOperation")
@@ -466,7 +491,8 @@ class TestMQTTTransportStageExecuteOpWithMQTTSubscribeOperation(
         # Trigger subscribe completion
         stage.transport.subscribe.call_args[1]["callback"]()
 
-        assert_callback_succeeded(op=op_subscribe)
+        assert op_subscribe.complete.call_count == 1
+        assert op_subscribe.complete.call_args == mocker.call()
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTUnsubscribeOperation")
@@ -491,21 +517,26 @@ class TestMQTTTransportStageExecuteOpWithMQTTUnsubscribeOperation(
         # Trigger unsubscribe completion
         stage.transport.unsubscribe.call_args[1]["callback"]()
 
-        assert_callback_succeeded(op=op_unsubscribe)
+        assert op_unsubscribe.complete.call_count == 1
+        assert op_unsubscribe.complete.call_args == mocker.call()
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with UpdateSasTokenOperation")
 class TestMQTTTransportStageExecuteOpWithUpdateSasTokenoperation(
     MQTTTransportStageTestBase, RunOpTests
 ):
-    @pytest.mark.it("Saves the token and completes immediately")
+    @pytest.mark.it("Saves the token and successfully completes immediately")
     def test_mqtt_publish(self, mocker, stage, create_transport):
         cb = mocker.MagicMock()
         op_update_sas_token = pipeline_ops_base.UpdateSasTokenOperation(
             sas_token=fake_sas_token, callback=cb
         )
+        mocker.spy(op_update_sas_token, "complete")
+
         stage.run_op(op_update_sas_token)
-        assert_callback_succeeded(op_update_sas_token)
+
+        assert op_update_sas_token.complete.call_count == 1
+        assert op_update_sas_token.complete.call_args == mocker.call()
         assert stage.sas_token == fake_sas_token
 
 
@@ -551,11 +582,16 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestBase):
     )
     def test_completes_pending_connect_op(self, mocker, stage, create_transport):
         op = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
+
         stage.transport.on_mqtt_connected_handler()
-        assert_callback_succeeded(op=op)
+
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
         assert stage._pending_connection_op is None
 
     @pytest.mark.it(
@@ -563,11 +599,16 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestBase):
     )
     def test_completes_pending_reconnect_op(self, mocker, stage, create_transport):
         op = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
+
         stage.transport.on_mqtt_connected_handler()
-        assert_callback_succeeded(op=op)
+
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
         assert stage._pending_connection_op is None
 
     @pytest.mark.it(
@@ -575,12 +616,16 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestBase):
     )
     def test_ignores_pending_disconnect_op(self, mocker, stage, create_transport):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
+
         stage.transport.on_mqtt_connected_handler()
-        # handler did NOT trigger a callback
-        assert op.callback.call_count == 0
+
+        # handler did NOT trigger a completion
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
 
 
@@ -612,21 +657,25 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestBase):
     @pytest.mark.it("Fails a pending ConnectOperation if the connection failure event fires")
     def test_fails_pending_connect_op(self, mocker, stage, create_transport, arbitrary_exception):
         op = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
         stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
-        assert_callback_failed(op=op, error=arbitrary_exception)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
     @pytest.mark.it("Fails a pending ReconnectOperation if the connection failure event fires")
     def test_fails_pending_reconnect_op(self, mocker, stage, create_transport, arbitrary_exception):
         op = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
         stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
-        assert_callback_failed(op=op, error=arbitrary_exception)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
     @pytest.mark.it("Ignores a pending DisconnectOperation if the connection failure event fires")
@@ -634,12 +683,13 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestBase):
         self, mocker, stage, create_transport, arbitrary_exception
     ):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
         stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
         # Assert nothing changed about the operation
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
 
     @pytest.mark.it(
@@ -698,11 +748,13 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
     )
     def test_compltetes_pending_disconnect_op_when_no_error(self, mocker, stage, create_transport):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
         stage.transport.on_mqtt_disconnected_handler(None)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
         assert stage._pending_connection_op is None
 
     @pytest.mark.it(
@@ -712,11 +764,13 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
         self, mocker, stage, create_transport, arbitrary_exception
     ):
         op = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert op.callback.call_count == 0
+        assert op.complete.call_count == 0
         assert stage._pending_connection_op is op
         stage.transport.on_mqtt_disconnected_handler(arbitrary_exception)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call()
         assert stage._pending_connection_op is None
 
     @pytest.mark.it(
