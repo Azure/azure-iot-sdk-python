@@ -728,7 +728,7 @@ class RetryStage(PipelineStage):
             self.send_op_down(op)
             # self.send_op_down_and_intercept_return(
             #     op=op, intercepted_return=self._on_intercepted_return
-            # )
+            # )     CT-TODO: remove this
         else:
             self.send_op_down(op)
 
@@ -767,7 +767,6 @@ class RetryStage(PipelineStage):
                 this = self_weakref()
                 logger.info("{}({}): retrying".format(this.name, op.name))
                 op.retry_timer = None
-                op.uncomplete()
                 this.ops_waiting_to_retry.remove(op)
                 # Don't just send it down directly.  Instead, go through _execute_op so we get
                 # retry functionality this time too
@@ -781,6 +780,7 @@ class RetryStage(PipelineStage):
             )
 
             # if we don't keep track of this op, it might get collected.
+            op.uncomplete()
             self.ops_waiting_to_retry.append(op)
             op.retry_timer = Timer(self.retry_intervals[type(op)], do_retry)
             op.retry_timer.start()
@@ -788,4 +788,4 @@ class RetryStage(PipelineStage):
         else:
             if op.retry_timer:
                 op.retry_timer = None
-            self.send_completed_op_up(op, error)
+            # self.send_completed_op_up(op, error) CT-TODO: remove this
