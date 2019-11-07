@@ -16,11 +16,6 @@ from . import transport_exceptions as exceptions
 logger = logging.getLogger(__name__)
 
 
-# Default keepalive.  Paho sends a PINGREQ using this interval
-# to make sure the connection is still open.
-DEFAULT_KEEPALIVE = 60
-
-
 class HTTPTransport(object):
     """
     BLAH BLAH BLAH

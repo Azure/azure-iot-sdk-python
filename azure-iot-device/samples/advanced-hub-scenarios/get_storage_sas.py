@@ -41,7 +41,9 @@ async def get_sas(connection):
     }
 
     get_sas_headers["Authorization"] = sas
-    connection.request("POST", getSasPost, body=json.dumps(uploadjson), headers=get_sas_headers)
+    connection.request(
+        "POST", getSasPost, body=json.dumps(uploadjson).encode("utf-8"), headers=get_sas_headers
+    )
     response = connection.getresponse()
     print("Status {} and reason: {}".format(response.status, response.reason))
     headers = response.getheaders()
@@ -53,19 +55,15 @@ async def get_sas(connection):
     return json_obj
 
 
-async def notify_upload_complete(connection, correlationId):
+async def notify_upload_complete(connection, correlationId, upload_result):
+    print("Azure IoT Notification - Beginning")
+    print(upload_result)
     # `notifyUploadComplete` shall create a `POST` HTTP request to a path formatted as the following:`/devices/URI_ENCODED(<deviceId>)/files/<correlationId>?api-version=<api-version>`]
-    # correlationId = "MjAxOTExMDUyMjA4XzcxZDMwOWU0LTdiMjktNGRlMy04MTc3LWE1MjY1NTZlODM1ZV90ZXN0YmxvYi50eHRfdmVyMi4w"
-    path = "https://{hostName}/devices/{deviceId}/files/notifications?api-version={api}".format(
+    path = "https://{hostName}/devices/{deviceId}/files/notifications/{correlationId}?api-version={api}".format(
         hostName=host_name, deviceId=device_id, correlationId=correlationId, api=api
     )
 
-    body = {
-        "correlationId": correlationId,
-        "isSuccess": True,
-        "statusCode": 201,
-        "statusDescription": "We did it, jim.",
-    }
+    body = {"isSuccess": True, "statusCode": 201, "statusDescription": "We did it, jim."}
 
     headers = {
         "Host": host_name,
@@ -93,25 +91,29 @@ def make_blob_service_url(hostName, containerName, blobName, sasToken):
     return service_url
 
 
-async def storage_blob(blob_info, container_name):
+async def storage_blob(blob_info):
     try:
         print("Azure Blob storage v12 - Python quickstart sample")
-        # blob_service_client = BlobServiceClient(account_url="https://{}".format(hostName),credential=sasToken)
-        sas_url = make_blob_service_url(
+        sas_url = "https://{}/{}/{}{}".format(
             blob_info["hostName"],
             blob_info["containerName"],
             blob_info["blobName"],
             blob_info["sasToken"],
         )
-        BlobClient.from_blob_url(sas_url)
+
+        # sas_url = "https://{}".format(blob_info["hostName"])
+        # sas_token = blob_info["sasToken"]
+        # Example account_url: https://<storageaccountname>.blob.core.windows.net
+        # Example sas credential: ?sv=2015-04-05&st=2015-04-29T22%3A18%3A26Z&se=2015-04-30T02%3A23%3A26Z&sr=b&sp=rw&sip=168.1.5.60-168.1.5.70&spr=https&sig=Z%2FRHIX5Xcg0Mq2rqI3OlWTjEg2tYkboXr1P9ZUXDtkk%3D
+        # blob_service_client = BlobServiceClient(account_url=blob_url,credential=sas_token)
+        blob_client = BlobClient.from_blob_url(sas_url)
         # Create a file in local Documents directory to upload and download
-        local_path = "./data"
-        local_file_name = "quickstart" + str(uuid.uuid4()) + ".txt"
-        upload_file_path = os.path.join(local_path, local_file_name)
+        local_file_name = "data/quickstart" + str(uuid.uuid4()) + ".txt"
+        filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), local_file_name)
         # Write text to the file
-        if not os.path.exists(local_path):
-            os.makedirs(local_path)
-        file = open(upload_file_path, "w")
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
+        file = open(filename, "w")
         file.write("Hello, World!")
         file.close()
 
@@ -120,11 +122,11 @@ async def storage_blob(blob_info, container_name):
         #     container=container_name, blob=local_file_name
         # )
 
-        # print("\nUploading to Azure Storage as blob:\n\t" + local_file_name)
+        print("\nUploading to Azure Storage as blob:\n\t" + local_file_name)
 
         # # Upload the created file
-        # with open(upload_file_path, "rb") as data:
-        #     blob_client.upload_blob(data)
+        with open(filename, "rb") as f:
+            blob_client.upload_blob(f)
     except Exception as ex:
         print("Exception:")
         print(ex)
@@ -136,9 +138,9 @@ async def main():
     connection.connect()
     blob_info = await get_sas(connection)
     # storage_conn_str = make_blob_service_url(blob_info["hostName"], blob_info["sasToken"])
-    # foo = await storage_blob(blob_info, blob_info["containerName"])
+    storage_blob_result = await storage_blob(blob_info)
     # correlationId = 'hi'
-    await notify_upload_complete(connection, blob_info["correlationId"])
+    await notify_upload_complete(connection, blob_info["correlationId"], storage_blob_result)
     connection.close()
 
 
