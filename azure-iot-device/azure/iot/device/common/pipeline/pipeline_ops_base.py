@@ -63,7 +63,6 @@ class PipelineOperation(object):
         # CT-TODO: this check is necessary due to the wonkiness of callbacks being
         # required to be set for worker ops before the proper callback magic is set up
         if callback:
-            # callback = pipeline_thread.invoke_on_callback_thread_nowait(callback)   #CT-TODO: does this work?
             self.callbacks.append(callback)
 
     @pipeline_thread.runs_on_pipeline_thread
