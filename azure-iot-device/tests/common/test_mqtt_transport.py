@@ -29,13 +29,13 @@ fake_mid = 52
 fake_rc = 0
 fake_success_rc = 0
 fake_failed_rc = mqtt.MQTT_ERR_PROTOCOL
-failed_conack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
+failed_connack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
 fake_keepalive = 1234
 fake_thread = "__fake_thread__"
 
 
-# mapping of Paho conack rc codes to Error object classes
-conack_return_codes = [
+# mapping of Paho connack rc codes to Error object classes
+connack_return_codes = [
     {
         "name": "CONNACK_REFUSED_PROTOCOL_VERSION",
         "rc": mqtt.CONNACK_REFUSED_PROTOCOL_VERSION,
@@ -552,8 +552,8 @@ class TestEventConnectComplete(object):
 class TestEventConnectionFailure(object):
     @pytest.mark.parametrize(
         "error_params",
-        conack_return_codes,
-        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in conack_return_codes],
+        connack_return_codes,
+        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in connack_return_codes],
     )
     @pytest.mark.it(
         "Triggers on_mqtt_connection_failure_handler event handler with custom Exception upon failed connect completion"
@@ -585,7 +585,7 @@ class TestEventConnectionFailure(object):
         transport.connect(fake_password)
 
         mock_mqtt_client.on_connect(
-            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_conack_rc
+            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
         )
 
         # No further asserts required - this is a test to show that it skips a callback.
@@ -600,7 +600,7 @@ class TestEventConnectionFailure(object):
 
         transport.connect(fake_password)
         mock_mqtt_client.on_connect(
-            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_conack_rc
+            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
         )
 
         # Callback was called, but exception did not propagate
@@ -618,7 +618,7 @@ class TestEventConnectionFailure(object):
         transport.connect(fake_password)
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             mock_mqtt_client.on_connect(
-                client=mock_mqtt_client, userdata=None, flags=None, rc=failed_conack_rc
+                client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
             )
         assert e_info.value is arbitrary_base_exception
 

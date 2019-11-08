@@ -84,11 +84,11 @@ class MQTTTransportStage(PipelineStage):
             # at a time. The existing one must be completed or canceled before a new one is set.
 
             # Currently, this means that if, say, a connect operation is the pending op and is executed
-            # but another connection op is begins by the time the CONACK is received, the original
-            # operation will be cancelled, but the CONACK for it will still be received, and complete the
+            # but another connection op is begins by the time the CONNACK is received, the original
+            # operation will be cancelled, but the CONNACK for it will still be received, and complete the
             # NEW operation. This is not desirable, but it is how things currently work.
 
-            # We are however, checking the type, so the CONACK from a cancelled Connect, cannot successfully
+            # We are however, checking the type, so the CONNACK from a cancelled Connect, cannot successfully
             # complete a Disconnect operation.
             self._pending_connection_op = None
 

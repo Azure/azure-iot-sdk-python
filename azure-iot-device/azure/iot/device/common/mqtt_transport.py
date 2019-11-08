@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Mapping of Paho CONNACK rc codes to Error object classes
 # Used for connection callbacks
-paho_conack_rc_to_error = {
+paho_connack_rc_to_error = {
     mqtt.CONNACK_REFUSED_PROTOCOL_VERSION: exceptions.ProtocolClientError,
     mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED: exceptions.ProtocolClientError,
     mqtt.CONNACK_REFUSED_SERVER_UNAVAILABLE: exceptions.ConnectionFailedError,
@@ -51,15 +51,15 @@ paho_rc_to_error = {
 DEFAULT_KEEPALIVE = 60
 
 
-def _create_error_from_conack_rc_code(rc):
+def _create_error_from_connack_rc_code(rc):
     """
-    Given a paho CONACK rc code, return an Exception that can be raised
+    Given a paho CONNACK rc code, return an Exception that can be raised
     """
     message = mqtt.connack_string(rc)
-    if rc in paho_conack_rc_to_error:
-        return paho_conack_rc_to_error[rc](message)
+    if rc in paho_connack_rc_to_error:
+        return paho_connack_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown CONACK rc={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown CONNACK rc={}".format(rc))
 
 
 def _create_error_from_rc_code(rc):
@@ -162,7 +162,7 @@ class MQTTTransport(object):
                 if this.on_mqtt_connection_failure_handler:
                     try:
                         this.on_mqtt_connection_failure_handler(
-                            _create_error_from_conack_rc_code(rc)
+                            _create_error_from_connack_rc_code(rc)
                         )
                     except Exception:
                         logger.error("Unexpected error calling on_mqtt_connection_failure_handler")
