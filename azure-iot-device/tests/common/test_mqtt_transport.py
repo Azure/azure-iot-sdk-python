@@ -13,6 +13,7 @@ import ssl
 import copy
 import pytest
 import logging
+import socket
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -62,7 +63,7 @@ conack_return_codes = [
 
 # mapping of Paho rc codes to Error object classes
 operation_return_codes = [
-    {"name": "MQTT_ERR_NOMEM", "rc": mqtt.MQTT_ERR_NOMEM, "error": errors.ProtocolClientError},
+    {"name": "MQTT_ERR_NOMEM", "rc": mqtt.MQTT_ERR_NOMEM, "error": errors.ConnectionDroppedError},
     {
         "name": "MQTT_ERR_PROTOCOL",
         "rc": mqtt.MQTT_ERR_PROTOCOL,
@@ -377,6 +378,18 @@ class TestConnect(object):
         with pytest.raises(errors.ProtocolClientError) as e_info:
             transport.connect(fake_password)
         assert e_info.value.__cause__ is arbitrary_exception
+
+    @pytest.mark.it(
+        "Raises a ConnectionFailedError if Paho connect raises a socket.error Exception"
+    )
+    def test_client_raises_socket_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socket_error = socket.error()
+        mock_mqtt_client.connect.side_effect = socket_error
+        with pytest.raises(errors.ConnectionFailedError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socket_error
 
     @pytest.mark.it("Allows any BaseExceptions raised in Paho connect to propagate")
     def test_client_raises_base_exception(

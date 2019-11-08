@@ -390,6 +390,7 @@ class PollingMachine(object):
                 if "lastUpdatedDateTimeUtc" not in decoded_state
                 else str(decoded_state["lastUpdatedDateTimeUtc"]),
                 None if "etag" not in decoded_state else str(decoded_state["etag"]),
+                None if "payload" not in decoded_state else str(decoded_state["payload"]),
             )
 
         registration_result = RegistrationResult(

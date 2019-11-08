@@ -24,14 +24,14 @@ from azure.iot.device import constant as pkg_constant
 logger = logging.getLogger(__name__)
 
 
-class IoTHubMQTTConverterStage(PipelineStage):
+class IoTHubMQTTTranslationStage(PipelineStage):
     """
     PipelineStage which converts other Iot and IoTHub operations into MQTT operations.  This stage also
     converts mqtt pipeline events into Iot and IoTHub pipeline events.
     """
 
     def __init__(self):
-        super(IoTHubMQTTConverterStage, self).__init__()
+        super(IoTHubMQTTTranslationStage, self).__init__()
         self.feature_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -51,14 +51,21 @@ class IoTHubMQTTConverterStage(PipelineStage):
             else:
                 client_id = op.device_id
 
+            # For MQTT, the entire user agent string should be appended to the username field in the connect packet
+            # For example, the username may look like this without custom parameters:
+            # yosephsandboxhub.azure-devices.net/alpha/?api-version=2018-06-30&DeviceClientType=py-azure-iot-device%2F2.0.0-preview.12
+            # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
             query_param_seq = [
                 ("api-version", pkg_constant.IOTHUB_API_VERSION),
                 ("DeviceClientType", pkg_constant.USER_AGENT),
             ]
-            username = "{hostname}/{client_id}/?{query_params}".format(
+            username = "{hostname}/{client_id}/?{query_params}{optional_product_info}".format(
                 hostname=op.hostname,
                 client_id=client_id,
                 query_params=urllib.parse.urlencode(query_param_seq),
+                optional_product_info=urllib.parse.quote(
+                    str(self.pipeline_root.pipeline_configuration.product_info)
+                ),
             )
 
             if op.gateway_hostname:
@@ -67,7 +74,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 hostname = op.hostname
 
             # TODO: test to make sure client_cert and sas_token travel down correctly
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
                     client_id=client_id,
                     hostname=hostname,
@@ -98,14 +105,14 @@ class IoTHubMQTTConverterStage(PipelineStage):
                             self.name, op.name, error
                         )
                     )
-                    self._send_completed_op_up(op, error=error)
+                    self.send_completed_op_up(op, error=error)
                 else:
                     logger.debug(
                         "{}({}) reconnection succeeded.  returning success.".format(
                             self.name, op.name
                         )
                     )
-                    self._send_completed_op_up(op)
+                    self.send_completed_op_up(op)
 
             # save the old user callback so we can call it later.
             old_callback = op.callback
@@ -120,13 +127,13 @@ class IoTHubMQTTConverterStage(PipelineStage):
                             self.name, op.name, error
                         )
                     )
-                    self._send_completed_op_up(op, error=error)
+                    self.send_completed_op_up(op, error=error)
                 else:
                     logger.debug(
                         "{}({}) token update succeeded.  reconnecting".format(self.name, op.name)
                     )
 
-                    self._send_op_down(
+                    self.send_op_down(
                         pipeline_ops_base.ReconnectOperation(callback=on_reconnect_complete)
                     )
 
@@ -138,14 +145,14 @@ class IoTHubMQTTConverterStage(PipelineStage):
 
             # now, pass the UpdateSasTokenOperation down with our new callback.
             op.callback = on_token_update_complete
-            self._send_op_down(op)
+            self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
             op, pipeline_ops_iothub.SendOutputEventOperation
         ):
             # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
             topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
                     topic=topic, payload=op.message.data, callback=op.callback
                 ),
@@ -158,7 +165,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 op.method_response.request_id, str(op.method_response.status)
             )
             payload = json.dumps(op.method_response.payload)
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
                     topic=topic, payload=payload, callback=op.callback
                 ),
@@ -168,7 +175,7 @@ class IoTHubMQTTConverterStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling a feature gets translated into an MQTT subscribe operation
             topic = self.feature_to_topic[op.feature_name]
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(
                     topic=topic, callback=op.callback
                 ),
@@ -178,21 +185,21 @@ class IoTHubMQTTConverterStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a feature gets turned into an MQTT unsubscribe operation
             topic = self.feature_to_topic[op.feature_name]
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(
                     topic=topic, callback=op.callback
                 ),
                 op=op,
             )
 
-        elif isinstance(op, pipeline_ops_base.SendIotRequestOperation):
+        elif isinstance(op, pipeline_ops_base.RequestOperation):
             if op.request_type == pipeline_constant.TWIN:
                 topic = mqtt_topic_iothub.get_twin_topic_for_publish(
                     method=op.method,
                     resource_location=op.resource_location,
                     request_id=op.request_id,
                 )
-                self._send_worker_op_down(
+                self.send_worker_op_down(
                     worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
                         topic=topic, payload=op.request_body, callback=op.callback
                     ),
@@ -200,12 +207,12 @@ class IoTHubMQTTConverterStage(PipelineStage):
                 )
             else:
                 raise pipeline_exceptions.OperationError(
-                    "SendIotRequestOperation request_type {} not supported".format(op.request_type)
+                    "RequestOperation request_type {} not supported".format(op.request_type)
                 )
 
         else:
             # All other operations get passed down
-            self._send_op_down(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _set_topic_names(self, device_id, module_id):
@@ -241,13 +248,13 @@ class IoTHubMQTTConverterStage(PipelineStage):
             if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_properties_from_topic(topic, message)
-                self._send_event_up(pipeline_events_iothub.C2DMessageEvent(message))
+                self.send_event_up(pipeline_events_iothub.C2DMessageEvent(message))
 
             elif mqtt_topic_iothub.is_input_topic(topic, self.device_id, self.module_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_properties_from_topic(topic, message)
                 input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
-                self._send_event_up(pipeline_events_iothub.InputMessageEvent(input_name, message))
+                self.send_event_up(pipeline_events_iothub.InputMessageEvent(input_name, message))
 
             elif mqtt_topic_iothub.is_method_topic(topic):
                 request_id = mqtt_topic_iothub.get_method_request_id_from_topic(topic)
@@ -257,19 +264,19 @@ class IoTHubMQTTConverterStage(PipelineStage):
                     name=method_name,
                     payload=json.loads(event.payload.decode("utf-8")),
                 )
-                self._send_event_up(pipeline_events_iothub.MethodRequestEvent(method_received))
+                self.send_event_up(pipeline_events_iothub.MethodRequestEvent(method_received))
 
             elif mqtt_topic_iothub.is_twin_response_topic(topic):
                 request_id = mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
                 status_code = int(mqtt_topic_iothub.get_twin_status_code_from_topic(topic))
-                self._send_event_up(
-                    pipeline_events_base.IotResponseEvent(
+                self.send_event_up(
+                    pipeline_events_base.ResponseEvent(
                         request_id=request_id, status_code=status_code, response_body=event.payload
                     )
                 )
 
             elif mqtt_topic_iothub.is_twin_desired_property_patch_topic(topic):
-                self._send_event_up(
+                self.send_event_up(
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(
                         patch=json.loads(event.payload.decode("utf-8"))
                     )
@@ -277,8 +284,8 @@ class IoTHubMQTTConverterStage(PipelineStage):
 
             else:
                 logger.debug("Uunknown topic: {} passing up to next handler".format(topic))
-                self._send_event_up(event)
+                self.send_event_up(event)
 
         else:
             # all other messages get passed up
-            self._send_event_up(event)
+            self.send_event_up(event)

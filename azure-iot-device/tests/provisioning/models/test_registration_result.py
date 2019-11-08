@@ -23,13 +23,14 @@ fake_sub_status = "FlyingOnHippogriff"
 fake_created_dttm = datetime.datetime(2020, 5, 17)
 fake_last_update_dttm = datetime.datetime(2020, 10, 17)
 fake_etag = "HighQualityFlyingBroom"
+fake_payload = "petrificus totalus"
 
 
 @pytest.mark.describe("RegistrationResult")
 class TestRegistrationResult(object):
     @pytest.mark.it("Instantiates correctly")
     def test_registration_result_instantiated_correctly(self):
-        fake_registration_state = create_registraion_state()
+        fake_registration_state = create_registration_state()
         registration_result = create_registration_result(fake_registration_state)
 
         assert registration_result.request_id == fake_request_id
@@ -46,7 +47,7 @@ class TestRegistrationResult(object):
 
     @pytest.mark.it("Has a to string representation composed of registration state and status")
     def test_registration_result_to_string(self):
-        fake_registration_state = create_registraion_state()
+        fake_registration_state = create_registration_state()
         registration_result = create_registration_result(fake_registration_state)
 
         string_repr = "\n".join([str(fake_registration_state), fake_status])
@@ -89,7 +90,7 @@ class TestRegistrationResult(object):
     )
     @pytest.mark.it("Has `RegistrationState` with properties that do not have setter")
     def test_some_properties_of_state_are_not_settable(self, input_setter_code):
-        registration_state = create_registraion_state()  # noqa: F841
+        registration_state = create_registration_state()  # noqa: F841
 
         with pytest.raises(AttributeError, match="can't set attribute"):
             exec(input_setter_code)
@@ -97,14 +98,23 @@ class TestRegistrationResult(object):
     @pytest.mark.it(
         "Has a to string representation composed of device id, assigned hub and sub status"
     )
-    def test_registration_state_to_string(self):
-        registration_state = create_registraion_state()
+    def test_registration_state_to_string_without_payload(self):
+        registration_state = create_registration_state()
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status])
+        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, ""])
+        assert str(registration_state) == string_repr
+
+    @pytest.mark.it(
+        "Has a to string representation composed of device id, assigned hub, sub status and response payload"
+    )
+    def test_registration_state_to_string_with_payload(self):
+        registration_state = create_registration_state(fake_payload)
+
+        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, fake_payload])
         assert str(registration_state) == string_repr
 
 
-def create_registraion_state():
+def create_registration_state(payload=None):
     return RegistrationState(
         fake_device_id,
         fake_assigned_hub,
@@ -112,6 +122,7 @@ def create_registraion_state():
         fake_created_dttm,
         fake_last_update_dttm,
         fake_etag,
+        payload,
     )
 
 

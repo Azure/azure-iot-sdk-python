@@ -7,9 +7,11 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
+import sys
 import threading
 import traceback
 import weakref
+import socket
 from . import transport_exceptions as exceptions
 
 logger = logging.getLogger(__name__)
@@ -64,11 +66,14 @@ def _create_error_from_rc_code(rc):
     """
     Given a paho rc code, return an Exception that can be raised
     """
-    message = mqtt.error_string(rc)
-    if rc in paho_rc_to_error:
+    if rc == 1:
+        # Paho returns rc=1 to mean "something went wrong.  stop".  We manually translate this to a ConnectionDroppedError.
+        return exceptions.ConnectionDroppedError("Paho returned rc==1")
+    elif rc in paho_rc_to_error:
+        message = mqtt.error_string(rc)
         return paho_rc_to_error[rc](message)
     else:
-        return exceptions.ProtocolClientError("Unknown CONACK rc={}".format(rc))
+        return exceptions.ProtocolClientError("Unknown CONNACK rc=={}".format(rc))
 
 
 class MQTTTransport(object):
@@ -122,7 +127,7 @@ class MQTTTransport(object):
 
         # Instaniate the client
         if self._websockets:
-            # MQTT Over Websockets
+            logger.info("Creating client for connecting using MQTT over websockets")
             mqtt_client = mqtt.Client(
                 client_id=self._client_id,
                 clean_session=False,
@@ -131,7 +136,7 @@ class MQTTTransport(object):
             )
             mqtt_client.ws_set_options(path="/$iothub/websocket")
         else:
-            # Standard MQTT
+            logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
                 client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
             )
@@ -178,6 +183,7 @@ class MQTTTransport(object):
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
+            logger.debug("".join(traceback.format_stack()))
 
             cause = None
             if rc:  # i.e. if there is an error
@@ -283,13 +289,19 @@ class MQTTTransport(object):
 
         try:
             if self._websockets:
+                logger.info("Connect using port 443 (websockets)")
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=443, keepalive=DEFAULT_KEEPALIVE
                 )
             else:
+                logger.info("Connect using port 8883 (TCP)")
                 rc = self._mqtt_client.connect(
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
+        except socket.error as e:
+            # If the socket can't open (e.g. using iptables REJECT), we get a
+            # socket.error.  Convert this into ConnectionFailedError so we can retry
+            raise exceptions.ConnectionFailedError(cause=e)
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e

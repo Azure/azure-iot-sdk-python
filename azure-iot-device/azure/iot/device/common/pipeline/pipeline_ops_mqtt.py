@@ -89,6 +89,8 @@ class MQTTSubscribeOperation(PipelineOperation):
         super(MQTTSubscribeOperation, self).__init__(callback=callback)
         self.topic = topic
         self.needs_connection = True
+        self.timeout_timer = None
+        self.retry_timer = None
 
 
 class MQTTUnsubscribeOperation(PipelineOperation):
@@ -110,3 +112,5 @@ class MQTTUnsubscribeOperation(PipelineOperation):
         super(MQTTUnsubscribeOperation, self).__init__(callback=callback)
         self.topic = topic
         self.needs_connection = True
+        self.timeout_timer = None
+        self.retry_timer = None

@@ -35,7 +35,7 @@ class UseAuthProviderStage(PipelineStage):
             self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
                 self, "on_sas_token_updated"
             )
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
                     device_id=self.auth_provider.device_id,
                     module_id=getattr(self.auth_provider, "module_id", None),
@@ -49,7 +49,7 @@ class UseAuthProviderStage(PipelineStage):
             )
         elif isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
             self.auth_provider = op.auth_provider
-            self._send_worker_op_down(
+            self.send_worker_op_down(
                 worker_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
                     device_id=self.auth_provider.device_id,
                     module_id=getattr(self.auth_provider, "module_id", None),
@@ -62,7 +62,7 @@ class UseAuthProviderStage(PipelineStage):
                 op=op,
             )
         else:
-            self._send_op_down(op)
+            self.send_op_down(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def on_sas_token_updated(self):
@@ -84,7 +84,7 @@ class UseAuthProviderStage(PipelineStage):
                     "{}({}): token update operation is complete".format(self.name, op.name)
                 )
 
-        self._send_op_down(
+        self.send_op_down(
             op=pipeline_ops_base.UpdateSasTokenOperation(
                 sas_token=self.auth_provider.get_current_sas_token(),
                 callback=on_token_update_complete,
@@ -92,14 +92,14 @@ class UseAuthProviderStage(PipelineStage):
         )
 
 
-class HandleTwinOperationsStage(PipelineStage):
+class TwinRequestResponseStage(PipelineStage):
     """
     PipelineStage which handles twin operations. In particular, it converts twin GET and PATCH
-    operations into SendIotRequestAndWaitForResponseOperation operations.  This is done at the IoTHub level because
+    operations into RequestAndResponseOperation operations.  This is done at the IoTHub level because
     there is nothing protocol-specific about this code.  The protocol-specific implementation
-    for twin requests and responses is handled inside IoTHubMQTTConverterStage, when it converts
-    the SendIotRequestOperation to a protocol-specific send operation and when it converts the
-    protocol-specific receive event into an IotResponseEvent event.
+    for twin requests and responses is handled inside IoTHubMQTTTranslationStage, when it converts
+    the RequestOperation to a protocol-specific send operation and when it converts the
+    protocol-specific receive event into an ResponseEvent event.
     """
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -122,10 +122,10 @@ class HandleTwinOperationsStage(PipelineStage):
                 error = map_twin_error(error=error, twin_op=twin_op)
                 if not error:
                     op.twin = json.loads(twin_op.response_body.decode("utf-8"))
-                self._complete_op(op, error=error)
+                self.complete_op(op, error=error)
 
-            self._send_op_down(
-                pipeline_ops_base.SendIotRequestAndWaitForResponseOperation(
+            self.send_op_down(
+                pipeline_ops_base.RequestAndResponseOperation(
                     request_type=constant.TWIN,
                     method="GET",
                     resource_location="/",
@@ -143,14 +143,14 @@ class HandleTwinOperationsStage(PipelineStage):
                     )
                 )
                 error = map_twin_error(error=error, twin_op=twin_op)
-                self._complete_op(op, error=error)
+                self.complete_op(op, error=error)
 
             logger.debug(
                 "{}({}): Sending reported properties patch: {}".format(self.name, op.name, op.patch)
             )
 
-            self._send_op_down(
-                pipeline_ops_base.SendIotRequestAndWaitForResponseOperation(
+            self.send_op_down(
+                pipeline_ops_base.RequestAndResponseOperation(
                     request_type=constant.TWIN,
                     method="PATCH",
                     resource_location="/properties/reported/",
@@ -160,4 +160,4 @@ class HandleTwinOperationsStage(PipelineStage):
             )
 
         else:
-            self._send_op_down(op)
+            self.send_op_down(op)

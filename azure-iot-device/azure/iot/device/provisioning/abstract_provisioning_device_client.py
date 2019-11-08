@@ -14,6 +14,7 @@ import logging
 from .security.sk_security_client import SymmetricKeySecurityClient
 from .security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
+from azure.iot.device.common.pipeline.config import BasePipelineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,9 @@ class AbstractProvisioningDeviceClient(object):
         self._provisioning_payload = None
 
     @classmethod
-    def create_from_symmetric_key(cls, provisioning_host, registration_id, id_scope, symmetric_key):
+    def create_from_symmetric_key(
+        cls, provisioning_host, registration_id, id_scope, symmetric_key, **kwargs
+    ):
         """
         Create a client which can be used to run the registration of a device with provisioning service
         using Symmetric Key authentication.
@@ -55,17 +58,20 @@ class AbstractProvisioningDeviceClient(object):
             32 bytes when new enrollments are saved with the Auto-generate keys option enabled.
             Users can provide their own symmetric keys for enrollments by disabling this option
             within 16 bytes and 64 bytes and in valid Base64 format.
-
+        :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
         security_client = SymmetricKeySecurityClient(
             provisioning_host, registration_id, id_scope, symmetric_key
         )
-        mqtt_provisioning_pipeline = ProvisioningPipeline(security_client)
+        pipeline_configuration = BasePipelineConfig(**kwargs)
+        mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)
         return cls(mqtt_provisioning_pipeline)
 
     @classmethod
-    def create_from_x509_certificate(cls, provisioning_host, registration_id, id_scope, x509):
+    def create_from_x509_certificate(
+        cls, provisioning_host, registration_id, id_scope, x509, **kwargs
+    ):
         """
         Create a client which can be used to run the registration of a device with
         provisioning service using X509 certificate authentication.
@@ -83,11 +89,12 @@ class AbstractProvisioningDeviceClient(object):
             contain cert (either the root certificate or one of the intermediate CA certificates).
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
-
+        :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
         security_client = X509SecurityClient(provisioning_host, registration_id, id_scope, x509)
-        mqtt_provisioning_pipeline = ProvisioningPipeline(security_client)
+        pipeline_configuration = BasePipelineConfig(**kwargs)
+        mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)
         return cls(mqtt_provisioning_pipeline)
 
     @abc.abstractmethod

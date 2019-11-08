@@ -22,7 +22,7 @@ class TestPipelineOperation(object):
 
 
 pipeline_data_object_test.add_event_test(
-    cls=pipeline_events_base.IotResponseEvent,
+    cls=pipeline_events_base.ResponseEvent,
     module=this_module,
     positional_arguments=["request_id", "status_code", "response_body"],
     keyword_arguments={},

@@ -21,6 +21,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_events_iothub,
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
+    config,
 )
 from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.iothub.models.message import Message
@@ -31,7 +32,7 @@ from tests.common.pipeline.helpers import (
     all_common_ops,
     all_common_events,
     all_except,
-    make_mock_stage,
+    StageTestBase,
 )
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
@@ -122,9 +123,10 @@ fake_message_user_property_2_encoded = "sorted-house=hufflepuff"
 ops_handled_by_this_stage = [
     pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
     pipeline_ops_iothub.SendD2CMessageOperation,
+    pipeline_ops_base.UpdateSasTokenOperation,
     pipeline_ops_iothub.SendOutputEventOperation,
     pipeline_ops_iothub.SendMethodResponseOperation,
-    pipeline_ops_base.SendIotRequestOperation,
+    pipeline_ops_base.RequestOperation,
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,
 ]
@@ -132,7 +134,7 @@ ops_handled_by_this_stage = [
 events_handled_by_this_stage = [pipeline_events_mqtt.IncomingMQTTMessageEvent]
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
-    cls=pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
+    cls=pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage,
     module=this_module,
     all_ops=all_common_ops + all_iothub_ops,
     handled_ops=ops_handled_by_this_stage,
@@ -207,16 +209,6 @@ def create_message_for_output_with_system_and_user_properties(message_content, i
 
 
 @pytest.fixture
-def stage(mocker, arbitrary_exception, arbitrary_base_exception):
-    return make_mock_stage(
-        mocker=mocker,
-        stage_to_make=pipeline_stages_iothub_mqtt.IoTHubMQTTConverterStage,
-        exc_to_raise=arbitrary_exception,
-        base_exc_to_raise=arbitrary_base_exception,
-    )
-
-
-@pytest.fixture
 def set_connection_args(mocker):
     return pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
         device_id=fake_device_id, hostname=fake_hostname, callback=mocker.MagicMock()
@@ -234,33 +226,63 @@ def set_connection_args_for_module(set_connection_args):
     return set_connection_args
 
 
-@pytest.fixture
-def stage_configured_for_device(stage, set_connection_args_for_device, mocker):
-    set_connection_args_for_device.callback = None
-    stage.run_op(set_connection_args_for_device)
-    mocker.resetall()
+class IoTHubMQTTTranslationStageTestBase(StageTestBase):
+    @pytest.fixture(autouse=True)
+    def stage_base_configuration(self, stage, mocker):
+        class NextStageForTest(pipeline_stages_base.PipelineStage):
+            def _execute_op(self, op):
+                pass
 
+        next = NextStageForTest()
+        root = (
+            pipeline_stages_base.PipelineRootStage(config.IoTHubPipelineConfig())
+            .append_stage(stage)
+            .append_stage(next)
+        )
 
-@pytest.fixture
-def stage_configured_for_module(stage, set_connection_args_for_module, mocker):
-    set_connection_args_for_module.callback = None
-    stage.run_op(set_connection_args_for_module)
-    mocker.resetall()
+        mocker.spy(stage, "_execute_op")
+        mocker.spy(stage, "run_op")
 
+        mocker.spy(next, "_execute_op")
+        mocker.spy(next, "run_op")
 
-@pytest.fixture(params=["device", "module"])
-def stages_configured_for_both(request, stage, set_connection_args, mocker):
-    set_connection_args.callback = None
-    if request.param == "module":
-        set_connection_args.module_id = fake_module_id
-    stage.run_op(set_connection_args)
-    mocker.resetall()
+        return root
+
+    @pytest.fixture
+    def stage(self):
+        return pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage()
+
+    @pytest.fixture
+    def stage_configured_for_device(
+        self, stage, stage_base_configuration, set_connection_args_for_device, mocker
+    ):
+        set_connection_args_for_device.callback = None
+        stage.run_op(set_connection_args_for_device)
+        mocker.resetall()
+
+    @pytest.fixture
+    def stage_configured_for_module(
+        self, stage, stage_base_configuration, set_connection_args_for_module, mocker
+    ):
+        set_connection_args_for_module.callback = None
+        stage.run_op(set_connection_args_for_module)
+        mocker.resetall()
+
+    @pytest.fixture(params=["device", "module"])
+    def stages_configured_for_both(
+        self, request, stage, stage_base_configuration, set_connection_args, mocker
+    ):
+        set_connection_args.callback = None
+        if request.param == "module":
+            set_connection_args.module_id = fake_module_id
+        stage.run_op(set_connection_args)
+        mocker.resetall()
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .run_op() -- called with SetIoTHubConnectionArgsOperation"
+    "IoTHubMQTTTranslationStage - .run_op() -- called with SetIoTHubConnectionArgsOperation"
 )
-class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
+class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.it(
         "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation on the next stage"
     )
@@ -353,6 +375,40 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
             encoded_user_agent,
         )
 
+    @pytest.mark.it(
+        "Appends product_info to connection_args.username to if self.pipeline_root.pipeline_configuration.product_info is not None"
+    )
+    @pytest.mark.parametrize(
+        "fake_product_info, expected_product_info",
+        [
+            ("", ""),
+            ("__fake:product:info__", "__fake%3Aproduct%3Ainfo__"),
+            (4, 4),
+            (
+                ["fee,fi,fo,fum"],
+                "%5B%27fee%2Cfi%2Cfo%2Cfum%27%5D",
+            ),  # URI Encoding for str version of list
+            (
+                {"fake_key": "fake_value"},
+                "%7B%27fake_key%27%3A%20%27fake_value%27%7D",
+            ),  # URI Encoding for str version of dict
+        ],
+    )
+    def test_appends_product_info_to_device_username(
+        self, stage, set_connection_args, fake_product_info, expected_product_info
+    ):
+        set_connection_args.gateway_hostname = fake_gateway_hostname
+        stage.pipeline_root.pipeline_configuration.product_info = fake_product_info
+        stage.run_op(set_connection_args)
+        new_op = stage.next._execute_op.call_args[0][0]
+        assert new_op.username == "{}/{}/?api-version={}&DeviceClientType={}{}".format(
+            fake_hostname,
+            fake_device_id,
+            pkg_constant.IOTHUB_API_VERSION,
+            encoded_user_agent,
+            expected_product_info,
+        )
+
     @pytest.mark.it("Sets connection_args.ca_cert to auth_provider.ca_cert")
     def test_sets_ca_cert(self, stage, set_connection_args):
         set_connection_args.ca_cert = fake_ca_cert
@@ -398,15 +454,19 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(object):
     @pytest.mark.it(
         "Calls the SetIoTHubConnectionArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
     )
-    def test_set_connection_args_succeeds(self, stage, mocker, set_connection_args):
+    def test_set_connection_args_succeeds(
+        self, stage, next_stage_succeeds, mocker, set_connection_args
+    ):
         stage.run_op(set_connection_args)
         assert_callback_succeeded(op=set_connection_args)
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .run_op() -- called with UpdateSasTokenOperation if the transport is disconnected"
+    "IoTHubMQTTTranslationStage - .run_op() -- called with UpdateSasTokenOperation if the transport is disconnected"
 )
-class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(object):
+class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(
+    IoTHubMQTTTranslationStageTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.UpdateSasTokenOperation(
@@ -419,28 +479,29 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(object):
 
     @pytest.mark.it("Immediately passes the operation to the next stage")
     def test_passes_op_immediately(self, stage, op):
-        op.action = "pend"
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == op
 
     @pytest.mark.it("Completes the op with failure if some lower stage returns failure")
-    def test_lower_stage_update_sas_token_fails(self, stage, op, arbitrary_exception):
-        op.action = "exception"
+    def test_lower_stage_update_sas_token_fails(
+        self, stage, op, next_stage_raises_arbitrary_exception, arbitrary_exception
+    ):
         stage.run_op(op)
         assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it("Completes the op with success if some lower stage returns success")
-    def test_lower_stage_update_sas_token_succeeds(self, stage, op):
-        op.action = "pass"
+    def test_lower_stage_update_sas_token_succeeds(self, stage, next_stage_succeeds, op):
         stage.run_op(op)
         assert_callback_succeeded(op=op)
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .run_op() -- called with UpdateSasTokenOperation if the transport is connected"
+    "IoTHubMQTTTranslationStage - .run_op() -- called with UpdateSasTokenOperation if the transport is connected"
 )
-class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
+class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
+    IoTHubMQTTTranslationStageTestBase
+):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.UpdateSasTokenOperation(
@@ -453,7 +514,6 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
 
     @pytest.mark.it("Immediately passes the operation to the next stage")
     def test_passes_op_immediately(self, stage, op):
-        op.action = "pend"
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == op
@@ -461,8 +521,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
     @pytest.mark.it(
         "Completes the op with failure if some lower stage returns failure for the UpdateSasTokenOperation"
     )
-    def test_lower_stage_update_sas_token_fails(self, stage, op, arbitrary_exception):
-        op.action = "fail"
+    def test_lower_stage_update_sas_token_fails(
+        self, stage, op, next_stage_raises_arbitrary_exception, arbitrary_exception
+    ):
         stage.run_op(op)
         assert_callback_failed(op=op, error=arbitrary_exception)
 
@@ -490,7 +551,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
     @pytest.mark.it(
         "Completes the op with success if some lower level stage returns success for the ReconnectOperation"
     )
-    def test_reconnect_succeeds(self, stage, op):
+    def test_reconnect_succeeds(self, stage, next_stage_succeeds, op):
         # default is for stage.next.run_op to return success for all ops
         stage.run_op(op)
 
@@ -508,9 +569,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(object):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                stage.next._complete_op(op, error=None)
+                stage.next.complete_op(op, error=None)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                stage.next._complete_op(op, error=arbitrary_exception)
+                stage.next.complete_op(op, error=arbitrary_exception)
             else:
                 pass
 
@@ -559,8 +620,8 @@ basic_ops = [
     basic_ops,
     ids=["{}->{}".format(x["op_class"].__name__, x["new_op_class"].__name__) for x in basic_ops],
 )
-@pytest.mark.describe("IoTHubMQTTConverterStage - .run_op() -- called with basic MQTT operations")
-class TestIoTHubMQTTConverterBasicOperations(object):
+@pytest.mark.describe("IoTHubMQTTTranslationStage - .run_op() -- called with basic MQTT operations")
+class TestIoTHubMQTTConverterBasicOperations(IoTHubMQTTTranslationStageTestBase):
     @pytest.fixture
     def op(self, params, mocker):
         op = params["op_class"](**params["op_init_kwargs"])
@@ -591,7 +652,9 @@ class TestIoTHubMQTTConverterBasicOperations(object):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
-    def test_operation_succeeds(self, params, stage, stages_configured_for_both, op):
+    def test_operation_succeeds(
+        self, params, stage, stages_configured_for_both, next_stage_succeeds, op
+    ):
         stage.run_op(op)
         assert_callback_succeeded(op)
 
@@ -951,8 +1014,8 @@ publish_ops = [
 
 
 @pytest.mark.parametrize("params", publish_ops, ids=[x["name"] for x in publish_ops])
-@pytest.mark.describe("IoTHubMQTTConverterStage - .run_op() -- called with publish operations")
-class TestIoTHubMQTTConverterForPublishOps(object):
+@pytest.mark.describe("IoTHubMQTTTranslationStage - .run_op() -- called with publish operations")
+class TestIoTHubMQTTConverterForPublishOps(IoTHubMQTTTranslationStageTestBase):
     @pytest.fixture
     def op(self, params, mocker):
         op = params["op_class"](**params["op_init_kwargs"])
@@ -1006,9 +1069,9 @@ sub_unsub_operations = [
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .run_op() -- called with EnableFeature or DisableFeature"
+    "IoTHubMQTTTranslationStage - .run_op() -- called with EnableFeature or DisableFeature"
 )
-class TestIoTHubMQTTConverterWithEnableFeature(object):
+class TestIoTHubMQTTConverterWithEnableFeature(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.parametrize(
         "topic_parameters",
         feature_name_to_subscribe_topic,
@@ -1064,9 +1127,9 @@ def add_pipeline_root(stage, mocker):
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .handle_pipeline_event() -- called with unmatched topic"
+    "IoTHubMQTTTranslationStage - .handle_pipeline_event() -- called with unmatched topic"
 )
-class TestIoTHubMQTTConverterHandlePipelineEvent(object):
+class TestIoTHubMQTTConverterHandlePipelineEvent(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.it("Passes up any mqtt messages with topics that aren't matched by this stage")
     def test_passes_up_mqtt_message_with_unknown_topic(
         self, stage, stages_configured_for_both, add_pipeline_root, mocker
@@ -1087,9 +1150,9 @@ def c2d_event():
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .handle_pipeline_event() -- called with C2D topic"
+    "IoTHubMQTTTranslationStage - .handle_pipeline_event() -- called with C2D topic"
 )
-class TestIoTHubMQTTConverterHandlePipelineEventC2D(object):
+class TestIoTHubMQTTConverterHandlePipelineEventC2D(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.it(
         "Converts mqtt message with topic devices/device_id/message/devicebound/ to c2d event"
     )
@@ -1132,8 +1195,8 @@ class TestIoTHubMQTTConverterHandlePipelineEventC2D(object):
         assert stage.previous.handle_pipeline_event.call_args == mocker.call(event)
 
 
-@pytest.mark.describe("IotHubMQTTConverter - .run_op() -- called with SendIotRequestOperation")
-class TestIotHubMQTTConverterWithSendIotRequest(object):
+@pytest.mark.describe("IotHubMQTTConverter - .run_op() -- called with RequestOperation")
+class TestIotHubMQTTConverterWithSendIotRequest(IoTHubMQTTTranslationStageTestBase):
     @pytest.fixture
     def fake_request_type(self):
         return "twin"
@@ -1168,7 +1231,7 @@ class TestIotHubMQTTConverterWithSendIotRequest(object):
         fake_request_id,
         mocker,
     ):
-        return pipeline_ops_base.SendIotRequestOperation(
+        return pipeline_ops_base.RequestOperation(
             request_type=fake_request_type,
             method=fake_method,
             resource_location=fake_resource_location,
@@ -1256,9 +1319,9 @@ def input_message_event():
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .handle_pipeline_event() -- called with input message topic"
+    "IoTHubMQTTTranslationStage - .handle_pipeline_event() -- called with input message topic"
 )
-class TestIoTHubMQTTConverterHandlePipelineEventInputMessages(object):
+class TestIoTHubMQTTConverterHandlePipelineEventInputMessages(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.it(
         "Converts mqtt message with topic devices/device_id/modules/module_id/inputs/input_name/ to input event"
     )
@@ -1322,9 +1385,9 @@ def method_request_event():
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTConverterStage - .handle_pipeline_event() -- called with method request topic"
+    "IoTHubMQTTTranslationStage - .handle_pipeline_event() -- called with method request topic"
 )
-class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(object):
+class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.it(
         "Converts mqtt messages with topic $iothub/methods/POST/{method name}/?$rid={request id} to method request events"
     )
@@ -1376,7 +1439,7 @@ class TestIoTHubMQTTConverterHandlePipelineEventMethodRequets(object):
 @pytest.mark.describe(
     "IotHubMQTTConverter - .handle_pipeline_event() -- called with twin response topic"
 )
-class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
+class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(IoTHubMQTTTranslationStageTestBase):
     @pytest.fixture
     def fake_request_id(self):
         return "__fake_request_id__"
@@ -1426,7 +1489,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
         stage.device_id = fake_device_id
 
     @pytest.mark.it(
-        "Calls .handle_pipeline_event() on the previous stage with an IotResponseEvent, with request_id and status_code as attributes extracted from the topic and the response_body attirbute set to the payload"
+        "Calls .handle_pipeline_event() on the previous stage with an ResponseEvent, with request_id and status_code as attributes extracted from the topic and the response_body attirbute set to the payload"
     )
     def test_extracts_request_id_status_code_and_payload(
         self,
@@ -1440,7 +1503,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
         stage.handle_pipeline_event(event=fake_event)
         assert stage.previous.handle_pipeline_event.call_count == 1
         new_event = stage.previous.handle_pipeline_event.call_args[0][0]
-        assert isinstance(new_event, pipeline_events_base.IotResponseEvent)
+        assert isinstance(new_event, pipeline_events_base.ResponseEvent)
         assert new_event.status_code == fake_status_code
         assert new_event.request_id == fake_request_id
         assert new_event.response_body == fake_payload
@@ -1508,7 +1571,7 @@ class TestIotHubMQTTConverterHandlePipelineEventTwinResponse(object):
 @pytest.mark.describe(
     "IotHubMQTTConverter - .handle_pipeline_event() -- called with twin patch topic"
 )
-class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(object):
+class TestIotHubMQTTConverterHandlePipelineEventTwinPatch(IoTHubMQTTTranslationStageTestBase):
     @pytest.fixture
     def fake_topic_name(self):
         return "$iothub/twin/PATCH/properties/desired"
