@@ -27,8 +27,11 @@ fake_payload = "Tarantallegra"
 fake_qos = 1
 fake_mid = 52
 fake_rc = 0
+fake_success_rc = 0
+fake_failed_rc = mqtt.MQTT_ERR_PROTOCOL
 failed_conack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
 fake_keepalive = 1234
+fake_thread = "__fake_thread__"
 
 
 # mapping of Paho conack rc codes to Error object classes
@@ -778,6 +781,82 @@ class TestEventDisconnectCompleted(object):
         transport.disconnect()
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
+        assert e_info.value is arbitrary_base_exception
+
+    @pytest.mark.it("Calls Paho's disconnect() method if cause is not None")
+    def test_calls_disconnect_with_cause(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client.disconnect.call_count == 1
+
+    @pytest.mark.it("Does not call Paho's disconnect() method if cause is None")
+    def test_doesnt_call_disconnect_without_cause(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client.disconnect.call_count == 0
+
+    @pytest.mark.it("Calls Paho's loop_stop() if cause is not None")
+    def test_calls_loop_stop(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client.loop_stop.call_count == 1
+
+    @pytest.mark.it("Does not calls Paho's loop_stop() if cause is None")
+    def test_does_not_call_loop_stop(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client.loop_stop.call_count == 0
+
+    @pytest.mark.it("Sets Paho's _thread to None if cause is not None")
+    def test_sets_thread_to_none(self, mock_mqtt_client, transport):
+        mock_mqtt_client._thread = fake_thread
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client._thread is None
+
+    @pytest.mark.it("Does not sets Paho's _thread to None if cause is None")
+    def test_does_not_set_thread_to_none(self, mock_mqtt_client, transport):
+        mock_mqtt_client._thread = fake_thread
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client._thread == fake_thread
+
+    @pytest.mark.it("Allows any Exception raised by Paho's disconnect() to propagate")
+    def test_disconnect_raises_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_exception
+    ):
+        mock_mqtt_client.disconnect = mocker.MagicMock(side_effect=arbitrary_exception)
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
+        assert e_info.value is arbitrary_exception
+
+    @pytest.mark.it("Allows any BaseException raised by Paho's disconnect() to propagate")
+    def test_disconnect_raises_base_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_base_exception
+    ):
+        mock_mqtt_client.disconnect = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(type(arbitrary_base_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
+        assert e_info.value is arbitrary_base_exception
+
+    @pytest.mark.it("Allows any Exception raised by Paho's loop_stop() to propagate")
+    def test_loop_stop_raises_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_exception
+    ):
+        mock_mqtt_client.loop_stop = mocker.MagicMock(side_effect=arbitrary_exception)
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
+        assert e_info.value is arbitrary_exception
+
+    @pytest.mark.it("Allows any BaseException raised by Paho's loop_stop() to propagate")
+    def test_loop_stop_raises_base_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_base_exception
+    ):
+        mock_mqtt_client.loop_stop = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(type(arbitrary_base_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
         assert e_info.value is arbitrary_base_exception
 
 

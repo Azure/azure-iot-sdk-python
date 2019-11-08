@@ -188,6 +188,7 @@ class MQTTTransport(object):
             cause = None
             if rc:  # i.e. if there is an error
                 cause = _create_error_from_rc_code(rc)
+                this._stop_automatic_reconnect()
 
             if this.on_mqtt_disconnected_handler:
                 try:
@@ -243,6 +244,40 @@ class MQTTTransport(object):
 
         logger.debug("Created MQTT protocol client, assigned callbacks")
         return mqtt_client
+
+    def _stop_automatic_reconnect(self):
+        """
+        After disconnecting because of an error, Paho will attempt to reconnect (some of the time --
+        this isn't 100% reliable).  We don't want Paho to reconnect because we want to control the
+        timing of the reconnect, so we force the connection closed.
+
+        We are relying on intimite knowledge of Paho behavior here.  If this becomes a problem,
+        it may be necessary to write our own Paho thread and stop using thread_start()/thread_stop().
+        This is certainly supported by Paho, but the thread that Paho provides works well enough
+        (so far) and making our own would be more complex than is currently justified.
+        """
+
+        logger.info("Forcing paho disconnect to prevent it from automatically reconnecting")
+
+        # Note: We are calling this inside our on_disconnect() handler, so we are inside the
+        # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
+        # loop_forever() function recomment calling disconnect() from a callback to exit the
+        # Paho thread/loop.
+
+        self._mqtt_client.disconnect()
+
+        # Calling disconnect() isn't enough.  We also need to call loop_stop to make sure
+        # Paho is as clean as possible.  Our call to disconnect() above is enough to stop the
+        # loop and exit the tread, but the call to loop_stop() is necessary to complete the cleanup.
+
+        self._mqtt_client.loop_stop()
+
+        # Finally, because of a bug in Paho, we need to null out the _thread pointer.  This
+        # is necessary because the code that sets _thread to None only gets called if you
+        # call loop_stop from an external thread (and we're still inside the Paho thread here).
+
+        self._mqtt_client._thread = None
+        logger.debug("Done forcing paho disconnect")
 
     def _create_ssl_context(self):
         """

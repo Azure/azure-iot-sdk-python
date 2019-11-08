@@ -245,19 +245,33 @@ class MQTTTransportStage(PipelineStage):
         # we do anything else (in case upper stages have any "are we connected" logic.
         self.on_disconnected()
 
-        if isinstance(self._pending_connection_op, pipeline_ops_base.DisconnectOperation):
-            logger.debug("{}: completing disconnect op".format(self.name))
+        if self._pending_connection_op:
+            # on_mqtt_disconnected will cause any pending connect op to complete.  This is how Paho
+            # behaves when there is a connection error, and it also makes sense that on_mqtt_disconnected
+            # would cause a pending connection op to fail.
+            logger.debug(
+                "{}: completing pending {} op".format(self.name, self._pending_connection_op.name)
+            )
             op = self._pending_connection_op
             self._pending_connection_op = None
 
-            # Swallow any errors, because we intended to disconnect - even if something went wrong, we
-            # got to the state we wanted to be in!
-            if cause:
-                handle_exceptions.swallow_unraised_exception(
-                    cause,
-                    log_msg="Unexpected disconnect with error while disconnecting - swallowing error",
-                )
-            self.complete_op(op)
+            if isinstance(op, pipeline_ops_base.DisconnectOperation):
+                # Swallow any errors if we intended to disconnect - even if something went wrong, we
+                # got to the state we wanted to be in!
+                if cause:
+                    handle_exceptions.swallow_unraised_exception(
+                        cause,
+                        log_msg="Unexpected disconnect with error while disconnecting - swallowing error",
+                    )
+                self.complete_op(op)
+            else:
+                if cause:
+                    self.complete_op(op, error=cause)
+                else:
+                    self.complete_op(
+                        op,
+                        error=transport_exceptions.ConnectionDroppedError("transport disconnected"),
+                    )
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError

@@ -720,7 +720,7 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
         assert stage._pending_connection_op is None
 
     @pytest.mark.it(
-        "Ignores an unrelated pending operation when the transport disconnected event fires"
+        "Completes an unrelated pending operation when the transport disconnected event fires"
     )
     @pytest.mark.parametrize(
         "cause",
@@ -732,17 +732,28 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
     @pytest.mark.parametrize(
         "pending_connection_op",
         [
-            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(pipeline_ops_base.ConnectOperation(None), id="Pending ConnectOperation"),
+            pytest.param(
+                pipeline_ops_base.ReconnectOperation(None), id="Pending ReconnectOperation"
+            ),
         ],
     )
-    def test_ignores_unrelated_op(
+    def test_completes_unrelated_op(
         self, mocker, stage, create_transport, pending_connection_op, cause
     ):
+        pending_connection_op.callback = mocker.MagicMock()
+        pending_connection_op.completed = False
         stage._pending_connection_op = pending_connection_op
         stage.transport.on_mqtt_disconnected_handler(cause)
-        # The unrelated pending operation is STILL the pending connection op
-        assert stage._pending_connection_op is pending_connection_op
+        assert stage._pending_connection_op is None
+        assert pending_connection_op.callback.call_count == 1
+        if cause:
+            assert pending_connection_op.callback.call_args[1]["error"] == cause
+        else:
+            assert (
+                type(pending_connection_op.callback.call_args[1]["error"])
+                == transport_exceptions.ConnectionDroppedError
+            )
 
     @pytest.mark.it(
         "Triggers the unhandled exception handler (with ConnectionDroppedError) when the disconnect is unexpected"
@@ -754,20 +765,9 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
             pytest.param(SomeException(), id="With error cause"),
         ],
     )
-    @pytest.mark.parametrize(
-        "pending_connection_op",
-        [
-            pytest.param(None, id="No pending operation"),
-            pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
-        ],
-    )
-    def test_unexpected_disconnect(
-        self, mocker, stage, create_transport, pending_connection_op, cause
-    ):
+    def test_unexpected_disconnect(self, mocker, stage, create_transport, cause):
         # A disconnect is unexpected when there is no pending operation, or a pending, non-Disconnect operation
         mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
-        stage._pending_connection_op = pending_connection_op
         stage.transport.on_mqtt_disconnected_handler(cause)
         assert mock_handler.call_count == 1
         assert isinstance(mock_handler.call_args[0][0], transport_exceptions.ConnectionDroppedError)
