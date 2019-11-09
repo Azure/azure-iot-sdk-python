@@ -35,6 +35,6 @@ class PipelineTimeoutError(PipelineException):
 
 
 class PipelineError(PipelineException):
-    """Error in Pipeline"""
+    """Error caused by incorrect pipeline configuration"""
 
     pass
