@@ -51,11 +51,9 @@ class PipelineOperation(object):
                 "Cannot instantiate PipelineOperation object.  You need to use a derived class"
             )
         self.name = self.__class__.__name__
-        # self.callback = callback
         self.callbacks = []
         self.needs_connection = False
         self.completed = False
-        self.error = None
 
         self.add_callback(callback)
 
@@ -69,7 +67,6 @@ class PipelineOperation(object):
     def complete(self, error=None):
         if error:
             logger.error("{}: completing with error {}".format(self.name, error))
-            self.error = error
         else:
             logger.debug("{}: completing without error".format(self.name))
 
@@ -78,9 +75,9 @@ class PipelineOperation(object):
             e = pipeline_exceptions.OperationError(
                 "Attempting to complete an already-completed operation: {}".format(self.name)
             )
-            handle_exceptions.handle_background_exception(
-                e
-            )  # This is not always valid? This could happen not in a cb
+            # This could happen in a foreground or background thread, so err on the side of caution
+            # and send it to the background handler.
+            handle_exceptions.handle_background_exception(e)
         else:
             self.completed = True
 
@@ -92,20 +89,40 @@ class PipelineOperation(object):
                     break
                 callback = self.callbacks.pop()
                 try:
-                    callback(self, error=error)
+                    callback(self, error)
                 except Exception as e:
                     logger.error(
                         "Unhandled error while triggering callback for {}".format(self.name)
                     )
                     logger.error(traceback.format_exc())
-                    handle_exceptions.handle_background_exception(
-                        e
-                    )  # CT-TODO: what to do with this?
+                    # This could happen in a foreground or background thread, so err on the side of caution
+                    # and send it to the background handler.
+                    handle_exceptions.handle_background_exception(e)
 
     def uncomplete(self):
         logger.debug("{}: Uncompleting".format(self.name))
         self.completed = False
-        self.error = None
+
+    def spawn_worker_op(self, worker_op_type, **kwargs):
+        logger.debug("{}: creating worker op of type {}".format(self.name, worker_op_type.__name__))
+
+        # CT-TODO: does this need to use a weakref?
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_worker_op_complete(op, error):
+            logger.debug("{}: Worker op ({}) has been completed".format(self.name, op.name))
+            self.complete(error=error)
+
+        if "callback" in kwargs:
+            provided_callback = kwargs["callback"]
+            kwargs["callback"] = on_worker_op_complete
+            worker_op = worker_op_type(**kwargs)
+            worker_op.add_callback(provided_callback)
+        else:
+            kwargs["callback"] = on_worker_op_complete
+            worker_op = worker_op_type(**kwargs)
+
+        return worker_op
 
 
 class ConnectOperation(PipelineOperation):
