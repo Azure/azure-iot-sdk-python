@@ -56,10 +56,11 @@ class IoTHubPipeline(object):
             .append_stage(pipeline_stages_iothub.TwinRequestResponseStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
-            .append_stage(pipeline_stages_base.RetryStage())
-            .append_stage(pipeline_stages_base.OpTimeoutStage())
+            .append_stage(pipeline_stages_base.ReconnectStage())
             .append_stage(pipeline_stages_base.AutoConnectStage())
             .append_stage(pipeline_stages_base.ConnectionLockStage())
+            .append_stage(pipeline_stages_base.RetryStage())
+            .append_stage(pipeline_stages_base.OpTimeoutStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 

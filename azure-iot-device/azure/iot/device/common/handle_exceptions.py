@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,8 @@ def handle_background_exception(e):
 
     # @FUTURE: We should add a mechanism which allows applications to receive these
     # exceptions so they can respond accordingly
-    logger.error(msg="Exception caught in background thread.  Unable to handle.", exc_info=e)
+    logger.error(msg="Exception caught in background thread.  Unable to handle.")
+    logger.error(traceback.format_exception_only(type(e), e))
 
 
 def swallow_unraised_exception(e, log_msg=None, log_lvl="warning"):
@@ -41,8 +43,11 @@ def swallow_unraised_exception(e, log_msg=None, log_lvl="warning"):
         raise e
     except Exception:
         if log_lvl == "warning":
-            logger.warning(log_msg, exc_info=True)
+            logger.warning(log_msg)
+            logger.warning(traceback.format_exc())
         elif log_lvl == "error":
-            logger.error(log_msg, exc_info=True)
+            logger.error(log_msg)
+            logger.error(traceback.format_exc())
         else:
-            logger.debug(log_msg, exc_info=True)
+            logger.debug(log_msg)
+            logger.debug(traceback.format_exc())

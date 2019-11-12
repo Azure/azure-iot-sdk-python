@@ -131,7 +131,9 @@ class ConnectOperation(PipelineOperation):
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
-    pass
+    def __init__(self, callback):
+        self.retry_timer = None
+        super(ConnectOperation, self).__init__(callback)
 
 
 class ReconnectOperation(PipelineOperation):
