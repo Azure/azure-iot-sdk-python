@@ -11,6 +11,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_stages_mqtt,
+    pipeline_stages_http,
 )
 from . import (
     constant,
@@ -18,6 +19,7 @@ from . import (
     pipeline_events_iothub,
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
+    pipeline_stages_iothub_http,
 )
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
@@ -50,18 +52,32 @@ class IoTHubPipeline(object):
 
         # Currently a single timeout stage and a single retry stage for MQTT retry only.
         # Later, a higher level timeout and a higher level retry stage.
+        # self._pipeline = (
+        #     pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
+        #     .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
+        #     .append_stage(pipeline_stages_iothub.TwinRequestResponseStage())
+        #     .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
+        #     .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
+        #     .append_stage(pipeline_stages_base.ReconnectStage())
+        #     .append_stage(pipeline_stages_base.AutoConnectStage())
+        #     .append_stage(pipeline_stages_base.ConnectionLockStage())
+        #     .append_stage(pipeline_stages_base.RetryStage())
+        #     .append_stage(pipeline_stages_base.OpTimeoutStage())
+        #     .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
+        # )
+
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_iothub.TwinRequestResponseStage())
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
-            .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
+            .append_stage(pipeline_stages_iothub_http.IoTHubHTTPTranslationStage())
             .append_stage(pipeline_stages_base.ReconnectStage())
             .append_stage(pipeline_stages_base.AutoConnectStage())
             .append_stage(pipeline_stages_base.ConnectionLockStage())
             .append_stage(pipeline_stages_base.RetryStage())
             .append_stage(pipeline_stages_base.OpTimeoutStage())
-            .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
+            .append_stage(pipeline_stages_http.HTTPTransportStage())
         )
 
         def _on_pipeline_event(event):
@@ -325,3 +341,12 @@ class IoTHubPipeline(object):
                 feature_name=feature_name, callback=on_complete
             )
         )
+
+    def get_storage_info(self, callback):
+        def on_complete(op, error):
+            if error:
+                callback(error=error, storage_info=None)
+            else:
+                callback(storage_info=op.twin)
+
+        self._pipeline.run_op(pipeline_ops_iothub.GetStorageInfoOperation(callback=on_complete))
