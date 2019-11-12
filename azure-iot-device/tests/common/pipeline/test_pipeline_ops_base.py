@@ -86,7 +86,7 @@ class EnableFeatureOperationTestConfig(object):
         return kwargs
 
 
-class EnableFeatureInstantiationTests(object):
+class EnableFeatureInstantiationTests(EnableFeatureOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'feature_name' attribute with the provided 'feature_name' parameter"
     )
@@ -114,7 +114,7 @@ class DisableFeatureOperationTestConfig(object):
         return kwargs
 
 
-class DisableFeatureInstantiationTests(object):
+class DisableFeatureInstantiationTests(DisableFeatureOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'feature_name' attribute with the provided 'feature_name' parameter"
     )
@@ -142,7 +142,7 @@ class UpdateSasTokenOperationTestConfig(object):
         return kwargs
 
 
-class UpdateSasTokenOperationInstantiationTests(object):
+class UpdateSasTokenOperationInstantiationTests(UpdateSasTokenOperationTestConfig):
     @pytest.mark.it("Initializes 'sas_token' attribute with the provided 'sas_token' parameter")
     def test_sas_token(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
@@ -174,7 +174,7 @@ class RequestAndResponseOperationTestConfig(object):
         return kwargs
 
 
-class RequestAndResponseOperationInstantiationTests(object):
+class RequestAndResponseOperationInstantiationTests(RequestAndResponseOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'request_type' attribute with the provided 'request_type' parameter"
     )
@@ -206,7 +206,7 @@ class RequestAndResponseOperationInstantiationTests(object):
         op = cls_type(**init_kwargs)
         assert op.status_code is None
 
-    @pytest.mark.it("Initializes 'response_body' attribute to 'None'")
+    @pytest.mark.it("Initializes 'response_body' attribute to None")
     def test_response_body(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.response_body is None
@@ -220,7 +220,7 @@ pipeline_ops_test.add_operation_tests(
 )
 
 
-class RequestAndResponseOperationTestConfig(object):
+class RequestOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
         return pipeline_ops_base.RequestOperation
@@ -238,7 +238,7 @@ class RequestAndResponseOperationTestConfig(object):
         return kwargs
 
 
-class RequestOperationInstantiationTests(object):
+class RequestOperationInstantiationTests(RequestOperationTestConfig):
     @pytest.mark.it("Initializes the 'method' attribute with the provided 'method' parameter")
     def test_method(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
@@ -271,3 +271,11 @@ class RequestOperationInstantiationTests(object):
     def test_request_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.request_id == init_kwargs["request_id"]
+
+
+pipeline_ops_test.add_operation_tests(
+    test_module=this_module,
+    op_class_under_test=pipeline_ops_base.RequestOperation,
+    op_test_config_class=RequestOperationTestConfig,
+    extended_op_instantiation_test_class=RequestOperationInstantiationTests,
+)

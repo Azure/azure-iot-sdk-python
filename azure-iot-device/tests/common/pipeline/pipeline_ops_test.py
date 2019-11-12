@@ -20,6 +20,20 @@ def add_operation_tests(
     extended_op_instantiation_test_class=None,
 ):
     """
+    Add shared tests for an Operation class to a testing module.
+    These tests need to be done for every Operation class.
+
+    :param test_module: A reference to the test module to add tests to
+    :param op_class_under_test: A reference to the specific Operation class under test
+    :param op_test_config_class: A class providing fixtures specific to the Operation class
+        under test. This class must define the following fixtures:
+            - "cls_type" (which returns a reference to the Operation class under test)
+            - "init_kwargs" (which returns a dictionary of kwargs and associated values used to
+                instantiate the class)
+    :param extended_op_instantiation_test_class: A class defining instantiation tests that are
+        specific to the Operation class under test, and not shared with all Operations.
+        Note that you may override shared instantiation tests defined in this function within
+        the provided test class (e.g. test_needs_connection)
     """
 
     # Extend the provided test config class
@@ -30,22 +44,8 @@ def add_operation_tests(
             mocker.spy(op, "complete")
             return op
 
-    # If there are extended instantiation tests, derive the instantiation test class from both the extended
-    # tests and the config
-    if extended_op_instantiation_test_class:
-
-        class OperationInstantionTestParent(
-            OperationTestConfigClass, extended_op_instantiation_test_class
-        ):
-            pass
-
-    else:
-
-        class OperationInstantionTestParent(OperationTestConfigClass):
-            pass
-
     @pytest.mark.describe("{} - Instantiation".format(op_class_under_test.__name__))
-    class OperationInstantiationTests(OperationInstantionTestParent):
+    class OperationBaseInstantiationTests(OperationTestConfigClass):
         @pytest.mark.it("Initializes 'name' attribute as the classname")
         def test_name(self, cls_type, init_kwargs):
             op = cls_type(**init_kwargs)
@@ -67,6 +67,22 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             assert len(op.callbacks) == 1
             assert op.callbacks[0] is init_kwargs["callback"]
+
+    # If an extended operation instantiation test class is provided, use those tests as well.
+    # By using the extended_op_instantation_test_class as the first parent class, this ensures that
+    # tests from OperationBaseInstantiationTests (e.g. test_needs_connection) can be overwritten by
+    # tests provided in extended_op_instantiation_test_class.
+    if extended_op_instantiation_test_class:
+
+        class OperationInstantiationTests(
+            extended_op_instantiation_test_class, OperationBaseInstantiationTests
+        ):
+            pass
+
+    else:
+
+        class OperationInstantiationTests(OperationBaseInstantiationTests):
+            pass
 
     @pytest.mark.describe("{} - .add_callback()".format(op_class_under_test.__name__))
     class OperationAddCallbackTests(OperationTestConfigClass):
