@@ -13,13 +13,6 @@ this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
-# @pytest.mark.describe("PipelineOperation")
-# class TestPipelineOperation(object):
-#     @pytest.mark.it("Can't be instantiated")
-#     def test_instantiate(self, mocker):
-#         with pytest.raises(TypeError):
-#             pipeline_ops_base.PipelineOperation(mocker.MagicMock())
-
 
 class ConnectOperationTestConfig(object):
     @pytest.fixture
