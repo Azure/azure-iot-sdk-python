@@ -408,3 +408,17 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         message = await inbox.get()
         logger.info("Input message received on: " + input_name)
         return message
+
+    async def get_storage_info(self):
+        """Call up to the IoT Hub Endpoint over HTTP to get information on
+        the storage blob for uploads.
+        """
+
+        # TODO: Check that the HTTP Pipeline has been set properly.
+        get_storage_info_async = async_adapter.emulate_async(self._iothub_pipeline.get_storage_info)
+
+        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+        await get_storage_info_async(callback=callback)
+        storage_info = await handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info

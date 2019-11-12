@@ -161,3 +161,56 @@ class TwinRequestResponseStage(PipelineStage):
 
         else:
             self.send_op_down(op)
+
+
+class StorageInfoPipelineStage(PipelineStage):
+    """
+    PipelineStage which handles twin operations. In particular, it converts twin GET and PATCH
+    operations into RequestAndResponseOperation operations.  This is done at the IoTHub level because
+    there is nothing protocol-specific about this code.  The protocol-specific implementation
+    for twin requests and responses is handled inside IoTHubMQTTTranslationStage, when it converts
+    the RequestOperation to a protocol-specific send operation and when it converts the
+    protocol-specific receive event into an ResponseEvent event.
+    """
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _execute_op(self, op):
+        def map_storage_info_error(error, storage_info_op):
+            if error:
+                return error
+            elif storage_info_op.status_code >= 300:
+                # TODO map error codes to correct exceptions
+                logger.error(
+                    "Error {} received from storage_info operation".format(
+                        storage_info_op.status_code
+                    )
+                )
+                logger.error("response body: {}".format(storage_info_op.response_body))
+                return exceptions.ServiceError(
+                    "storage_info operation returned status {}".format(storage_info_op.status_code)
+                )
+
+        if isinstance(op, pipeline_ops_iothub.GetStorageInfoOperation):
+
+            def on_storage_info_response(storage_info_op, error):
+                logger.debug(
+                    "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
+                )
+                error = map_storage_info_error(error=error, storage_info_op=storage_info_op)
+                if not error:
+                    op.storage_info = json.loads(storage_info_op.response_body.decode("utf-8"))
+                self.complete_op(op, error=error)
+
+            self.send_op_down(
+                # TODO: Change this to be a RequestAndResponseOperation that is specific for HTTP?
+                pipeline_ops_base.RequestAndResponseOperation(
+                    request_type="BLAH",
+                    method="GET",
+                    resource_location="/",
+                    request_body=" ",
+                    callback=on_storage_info_response,
+                )
+            )
+
+        else:
+            self.send_op_down(op)
