@@ -249,8 +249,10 @@ class IoTHubMQTTTranslationStageTestBase(StageTestBase):
         return root
 
     @pytest.fixture
-    def stage(self):
-        return pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage()
+    def stage(self, mocker):
+        stage = pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage()
+        mocker.spy(stage, "send_worker_op_down")
+        return stage
 
     @pytest.fixture
     def stage_configured_for_device(
@@ -284,10 +286,16 @@ class IoTHubMQTTTranslationStageTestBase(StageTestBase):
 )
 class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTTranslationStageTestBase):
     @pytest.mark.it(
-        "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation on the next stage"
+        "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation worker operation on the next stage"
     )
     def test_runs_set_connection_args(self, stage, set_connection_args):
         stage.run_op(set_connection_args)
+        assert stage.send_worker_op_down.call_count == 1
+        assert isinstance(
+            stage.send_worker_op_down.call_args[1]["worker_op"],
+            pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
+        )
+        assert stage.send_worker_op_down.call_args[1]["op"] is set_connection_args
         assert stage.next._execute_op.call_count == 1
         new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
@@ -429,36 +437,6 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTTranslationStageT
         stage.run_op(set_connection_args)
         new_op = stage.next._execute_op.call_args[0][0]
         assert new_op.sas_token == fake_sas_token
-
-    @pytest.mark.it(
-        "Calls the SetIoTHubConnectionArgsOperation callback with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation raises an Exception"
-    )
-    def test_set_connection_args_raises_exception(
-        self, stage, mocker, arbitrary_exception, set_connection_args
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
-        stage.run_op(set_connection_args)
-        assert_callback_failed(op=set_connection_args, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised inside the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation to propagate"
-    )
-    def test_set_connection_args_raises_base_exception(
-        self, stage, mocker, arbitrary_base_exception, set_connection_args
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(set_connection_args)
-        assert e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it(
-        "Calls the SetIoTHubConnectionArgsOperation callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
-    )
-    def test_set_connection_args_succeeds(
-        self, stage, next_stage_succeeds, mocker, set_connection_args
-    ):
-        stage.run_op(set_connection_args)
-        assert_callback_succeeded(op=set_connection_args)
 
 
 @pytest.mark.describe(
