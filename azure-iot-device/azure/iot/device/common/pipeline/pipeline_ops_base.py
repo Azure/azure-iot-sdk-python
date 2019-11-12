@@ -58,10 +58,7 @@ class PipelineOperation(object):
         self.add_callback(callback)
 
     def add_callback(self, callback):
-        # CT-TODO: this check is necessary due to the wonkiness of callbacks being
-        # required to be set for worker ops before the proper callback magic is set up
-        if callback:
-            self.callbacks.append(callback)
+        self.callbacks.append(callback)
 
     @pipeline_thread.runs_on_pipeline_thread
     def complete(self, error=None):

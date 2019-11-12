@@ -22,17 +22,26 @@ def add_operation_tests(
     """
     """
 
+    # Extend the provided test config class
+    class OperationTestConfigClass(op_test_config_class):
+        @pytest.fixture
+        def op(self, cls_type, init_kwargs, mocker):
+            op = cls_type(**init_kwargs)
+            mocker.spy(op, "complete")
+            return op
+
     # If there are extended instantiation tests, derive the instantiation test class from both the extended
+    # tests and the config
     if extended_op_instantiation_test_class:
 
         class OperationInstantionTestParent(
-            op_test_config_class, extended_op_instantiation_test_class
+            OperationTestConfigClass, extended_op_instantiation_test_class
         ):
             pass
 
     else:
 
-        class OperationInstantionTestParent(op_test_config_class):
+        class OperationInstantionTestParent(OperationTestConfigClass):
             pass
 
     @pytest.mark.describe("{} - Instantiation".format(op_class_under_test.__name__))
@@ -59,8 +68,19 @@ def add_operation_tests(
             assert len(op.callbacks) == 1
             assert op.callbacks[0] is init_kwargs["callback"]
 
+    @pytest.mark.describe("{} - .add_callback()".format(op_class_under_test.__name__))
+    class OperationAddCallbackTests(OperationTestConfigClass):
+        @pytest.mark.it("Adds a callback to the operation, which will be triggered upon completion")
+        def test_adds_callback(self, mocker, op):
+            cb = mocker.MagicMock()
+            op.add_callback(cb)
+            assert cb.call_count == 0
+            op.complete()
+
+            assert cb.call_count == 1
+
     @pytest.mark.describe("{} - .spawn_worker_op()".format(op_class_under_test.__name__))
-    class OperationSpawnWorkerOpTests(op_test_config_class):
+    class OperationSpawnWorkerOpTests(OperationTestConfigClass):
         @pytest.fixture
         def worker_op_type(self):
             class SomeOperationType(PipelineOperation):
@@ -189,7 +209,7 @@ def add_operation_tests(
             assert op.complete.call_args == mocker.call(error=error)
 
     @pytest.mark.describe("{} - .complete()".format(op_class_under_test.__name__))
-    class OperationCompleteTests(op_test_config_class):
+    class OperationCompleteTests(OperationTestConfigClass):
         @pytest.fixture(params=["Successful completion", "Completion with error"])
         def error(self, request, arbitrary_exception):
             if request.param == "Successful completion":
@@ -392,7 +412,7 @@ def add_operation_tests(
             assert cb_mock.call_args == mocker.call(op, None)
 
     @pytest.mark.describe("{} - .uncomplete()".format(op_class_under_test.__name__))
-    class OperationUncompleteTests(op_test_config_class):
+    class OperationUncompleteTests(OperationTestConfigClass):
         @pytest.mark.it(
             "Marks the operation as incomplete by setting the 'completed' attribute to False"
         )
@@ -409,6 +429,11 @@ def add_operation_tests(
     )
     setattr(
         test_module, "Test{}Complete".format(op_class_under_test.__name__), OperationCompleteTests
+    )
+    setattr(
+        test_module,
+        "Test{}AddCallback".format(op_class_under_test.__name__),
+        OperationAddCallbackTests,
     )
     setattr(
         test_module,
