@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 import pytest
 import logging
+import threading
 
 from azure.iot.device.common.pipeline.pipeline_ops_base import PipelineOperation
 from azure.iot.device.common import handle_exceptions

@@ -67,7 +67,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     positional_arguments=["pipeline_configuration"],
 )
 
-# TODO: move elsewhere
+# CT-TODO: move elsewhere?
 # @pytest.mark.it("Calls operation callback in callback thread")
 # def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
 #     # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
@@ -1056,10 +1056,11 @@ class TestReconnectStageRunOp(StageTestBase):
     )
     def test_connect_op_virtual_connection_failure(self, mocker, stage, arbitrary_exception):
         op = pipeline_ops_base.ConnectOperation(mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert op.callback.call_count == 1
-        assert op.callback.call_args[1]["error"] == arbitrary_exception
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage.virtually_connected
 
     @pytest.mark.it(
@@ -1076,11 +1077,12 @@ class TestReconnectStageRunOp(StageTestBase):
     )
     def test_disconnect_op_virtual_connection_failure(self, mocker, stage, arbitrary_exception):
         op = pipeline_ops_base.DisconnectOperation(mocker.MagicMock())
+        mocker.spy(op, "complete")
         stage.virtually_connected = True
         stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
         stage.run_op(op)
-        assert op.callback.call_count == 1
-        assert op.callback.call_args[1]["error"] == arbitrary_exception
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
         assert not stage.virtually_connected
 
 
@@ -1255,7 +1257,7 @@ class TestReconnectStageReconnectTimerRoutine(StageTestBase):
         assert stage.next.run_op.call_count == 1
         op = stage.next.run_op.call_args[0][0]
         assert type(op) == pipeline_ops_base.ConnectOperation
-        op.callback(op, error=error_class())
+        op.complete(error=error_class())
         assert mock_timer.call_count == 1
 
     @pytest.mark.parametrize(
@@ -1279,5 +1281,5 @@ class TestReconnectStageReconnectTimerRoutine(StageTestBase):
         assert stage.next.run_op.call_count == 1
         op = stage.next.run_op.call_args[0][0]
         assert type(op) == pipeline_ops_base.ConnectOperation
-        op.callback(op, error=error_class())
+        op.complete(error=error_class())
         assert mock_timer.call_count == 2

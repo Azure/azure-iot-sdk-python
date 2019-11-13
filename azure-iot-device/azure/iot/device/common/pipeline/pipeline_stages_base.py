@@ -166,52 +166,6 @@ class PipelineStage(object):
             self.previous.on_disconnected()
 
     @pipeline_thread.runs_on_pipeline_thread
-    def send_worker_op_down(self, worker_op, op):
-        """
-        Continue an operation using a new worker operation.  This means that the new operation
-        will be passed down the pipeline (starting at the next stage). When that new
-        operation completes, the original operation will be completed.  In this way,
-        a stage can accept one type of operation and, effectively, change that operation
-        into a different type of operation before passing it to the next stage.
-
-        This is useful when a generic operation (such as "enable feature") needs to be
-        converted into a more specific operation (such as "subscribe to mqtt topic").
-        In that case, a stage's _execute_op function would call this function passing in
-        the original "enable feature" op and the new "subscribe to mqtt topic"
-        op.  This function will pass the "subscribe" down. When the "subscribe" op
-        is completed, this function will cause the original op to complete.
-
-        This function is only really useful if there is no data returned in the
-        worker_op that that needs to be copied back into the original_op before
-        completing it.  If data needs to be copied this way, some other method needs
-        to be used.  (or a "copy data back" function needs to be added to this function
-        as an optional parameter.)
-
-        :param PipelineOperation op: Operation that is being continued using a
-          different op.  This is most likely the operation that is currently being handled
-          by the stage.  This operation is not actually continued, in that it is not
-          actually passed down the pipeline.  Instead, the original_op operation is
-          effectively paused while we wait for the worker_op operation to complete.  When
-          the worker_op operation completes, the original_op operation will also be completed.
-        :param PipelineOperation worker_op: Operation that is being passed down the pipeline
-          to effectively continue the work represented by the original op.  This is most likely
-          a different type of operation that is able to accomplish the intention of the
-          original op in a way that is more specific than the original op.
-        """
-
-        logger.debug("{}({}): continuing with {} op".format(self.name, op.name, worker_op.name))
-
-        @pipeline_thread.runs_on_pipeline_thread
-        def worker_op_complete(worker_op, error):
-            logger.debug(
-                "{}({}): completing with result from {}".format(self.name, op.name, worker_op.name)
-            )
-            op.complete(error=error)
-
-        worker_op.add_callback(worker_op_complete)
-        self.send_op_down(worker_op)
-
-    @pipeline_thread.runs_on_pipeline_thread
     def send_op_down(self, op):
         """
         Helper function to continue a given operation by passing it to the next stage
