@@ -13,6 +13,7 @@ import ssl
 import copy
 import pytest
 import logging
+import socket
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -26,12 +27,15 @@ fake_payload = "Tarantallegra"
 fake_qos = 1
 fake_mid = 52
 fake_rc = 0
-failed_conack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
+fake_success_rc = 0
+fake_failed_rc = mqtt.MQTT_ERR_PROTOCOL
+failed_connack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
 fake_keepalive = 1234
+fake_thread = "__fake_thread__"
 
 
-# mapping of Paho conack rc codes to Error object classes
-conack_return_codes = [
+# mapping of Paho connack rc codes to Error object classes
+connack_return_codes = [
     {
         "name": "CONNACK_REFUSED_PROTOCOL_VERSION",
         "rc": mqtt.CONNACK_REFUSED_PROTOCOL_VERSION,
@@ -62,7 +66,7 @@ conack_return_codes = [
 
 # mapping of Paho rc codes to Error object classes
 operation_return_codes = [
-    {"name": "MQTT_ERR_NOMEM", "rc": mqtt.MQTT_ERR_NOMEM, "error": errors.ProtocolClientError},
+    {"name": "MQTT_ERR_NOMEM", "rc": mqtt.MQTT_ERR_NOMEM, "error": errors.ConnectionDroppedError},
     {
         "name": "MQTT_ERR_PROTOCOL",
         "rc": mqtt.MQTT_ERR_PROTOCOL,
@@ -378,6 +382,18 @@ class TestConnect(object):
             transport.connect(fake_password)
         assert e_info.value.__cause__ is arbitrary_exception
 
+    @pytest.mark.it(
+        "Raises a ConnectionFailedError if Paho connect raises a socket.error Exception"
+    )
+    def test_client_raises_socket_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socket_error = socket.error()
+        mock_mqtt_client.connect.side_effect = socket_error
+        with pytest.raises(errors.ConnectionFailedError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socket_error
+
     @pytest.mark.it("Allows any BaseExceptions raised in Paho connect to propagate")
     def test_client_raises_base_exception(
         self, mock_mqtt_client, transport, arbitrary_base_exception
@@ -536,8 +552,8 @@ class TestEventConnectComplete(object):
 class TestEventConnectionFailure(object):
     @pytest.mark.parametrize(
         "error_params",
-        conack_return_codes,
-        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in conack_return_codes],
+        connack_return_codes,
+        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in connack_return_codes],
     )
     @pytest.mark.it(
         "Triggers on_mqtt_connection_failure_handler event handler with custom Exception upon failed connect completion"
@@ -569,7 +585,7 @@ class TestEventConnectionFailure(object):
         transport.connect(fake_password)
 
         mock_mqtt_client.on_connect(
-            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_conack_rc
+            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
         )
 
         # No further asserts required - this is a test to show that it skips a callback.
@@ -584,7 +600,7 @@ class TestEventConnectionFailure(object):
 
         transport.connect(fake_password)
         mock_mqtt_client.on_connect(
-            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_conack_rc
+            client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
         )
 
         # Callback was called, but exception did not propagate
@@ -602,7 +618,7 @@ class TestEventConnectionFailure(object):
         transport.connect(fake_password)
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             mock_mqtt_client.on_connect(
-                client=mock_mqtt_client, userdata=None, flags=None, rc=failed_conack_rc
+                client=mock_mqtt_client, userdata=None, flags=None, rc=failed_connack_rc
             )
         assert e_info.value is arbitrary_base_exception
 
@@ -765,6 +781,82 @@ class TestEventDisconnectCompleted(object):
         transport.disconnect()
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_rc)
+        assert e_info.value is arbitrary_base_exception
+
+    @pytest.mark.it("Calls Paho's disconnect() method if cause is not None")
+    def test_calls_disconnect_with_cause(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client.disconnect.call_count == 1
+
+    @pytest.mark.it("Does not call Paho's disconnect() method if cause is None")
+    def test_doesnt_call_disconnect_without_cause(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client.disconnect.call_count == 0
+
+    @pytest.mark.it("Calls Paho's loop_stop() if cause is not None")
+    def test_calls_loop_stop(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client.loop_stop.call_count == 1
+
+    @pytest.mark.it("Does not calls Paho's loop_stop() if cause is None")
+    def test_does_not_call_loop_stop(self, mock_mqtt_client, transport):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client.loop_stop.call_count == 0
+
+    @pytest.mark.it("Sets Paho's _thread to None if cause is not None")
+    def test_sets_thread_to_none(self, mock_mqtt_client, transport):
+        mock_mqtt_client._thread = fake_thread
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client._thread is None
+
+    @pytest.mark.it("Does not sets Paho's _thread to None if cause is None")
+    def test_does_not_set_thread_to_none(self, mock_mqtt_client, transport):
+        mock_mqtt_client._thread = fake_thread
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client._thread == fake_thread
+
+    @pytest.mark.it("Allows any Exception raised by Paho's disconnect() to propagate")
+    def test_disconnect_raises_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_exception
+    ):
+        mock_mqtt_client.disconnect = mocker.MagicMock(side_effect=arbitrary_exception)
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
+        assert e_info.value is arbitrary_exception
+
+    @pytest.mark.it("Allows any BaseException raised by Paho's disconnect() to propagate")
+    def test_disconnect_raises_base_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_base_exception
+    ):
+        mock_mqtt_client.disconnect = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(type(arbitrary_base_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
+        assert e_info.value is arbitrary_base_exception
+
+    @pytest.mark.it("Allows any Exception raised by Paho's loop_stop() to propagate")
+    def test_loop_stop_raises_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_exception
+    ):
+        mock_mqtt_client.loop_stop = mocker.MagicMock(side_effect=arbitrary_exception)
+        with pytest.raises(type(arbitrary_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
+        assert e_info.value is arbitrary_exception
+
+    @pytest.mark.it("Allows any BaseException raised by Paho's loop_stop() to propagate")
+    def test_loop_stop_raises_base_exception(
+        self, mock_mqtt_client, transport, mocker, arbitrary_base_exception
+    ):
+        mock_mqtt_client.loop_stop = mocker.MagicMock(side_effect=arbitrary_base_exception)
+        with pytest.raises(type(arbitrary_base_exception)) as e_info:
+            mock_mqtt_client.on_disconnect(
+                client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
+            )
         assert e_info.value is arbitrary_base_exception
 
 
