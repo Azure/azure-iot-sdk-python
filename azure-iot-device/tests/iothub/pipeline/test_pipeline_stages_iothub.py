@@ -123,7 +123,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
     @pytest.fixture
     def stage(self, mocker):
         stage = pipeline_stages_iothub.UseAuthProviderStage()
-        mocker.spy(stage, "send_worker_op_down")
+        mocker.spy(stage, "send_op_down")
         return stage
 
     @pytest.fixture
@@ -133,6 +133,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
             callback=mocker.MagicMock(),
         )
         mocker.spy(op, "complete")
+        mocker.spy(op, "spawn_worker_op")
         return op
 
     @pytest.fixture
@@ -148,19 +149,23 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
             auth_provider=auth_provider, callback=mocker.MagicMock()
         )
         mocker.spy(op, "complete")
+        mocker.spy(op, "spawn_worker_op")
         return op
 
     @pytest.mark.it("Runs a SetIoTHubConnectionArgsOperation worker op on the next stage")
     def test_runs_set_auth_provider_args(self, mocker, stage, set_auth_provider):
+        set_auth_provider.spawn_worker_op = mocker.MagicMock()
         stage.next._execute_op = mocker.Mock()
         stage.run_op(set_auth_provider)
 
-        assert stage.send_worker_op_down.call_count == 1
-        assert isinstance(
-            stage.send_worker_op_down.call_args[1]["worker_op"],
-            pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
+        assert set_auth_provider.spawn_worker_op.call_count == 1
+        assert (
+            set_auth_provider.spawn_worker_op.call_args[1]["worker_op_type"]
+            is pipeline_ops_iothub.SetIoTHubConnectionArgsOperation
         )
-        assert stage.send_worker_op_down.call_args[1]["op"] is set_auth_provider
+        worker = set_auth_provider.spawn_worker_op.return_value
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(worker)
 
     @pytest.mark.it(
         "Sets the device_id, and hostname attributes on SetIoTHubConnectionArgsOperation based on the same-names auth_provider attributes"

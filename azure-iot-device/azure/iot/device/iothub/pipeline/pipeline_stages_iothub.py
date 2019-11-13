@@ -35,32 +35,29 @@ class UseAuthProviderStage(PipelineStage):
             self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
                 self, "on_sas_token_updated"
             )
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
-                    device_id=self.auth_provider.device_id,
-                    module_id=getattr(self.auth_provider, "module_id", None),
-                    hostname=self.auth_provider.hostname,
-                    gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                    ca_cert=getattr(self.auth_provider, "ca_cert", None),
-                    sas_token=self.auth_provider.get_current_sas_token(),
-                    callback=None,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
+                device_id=self.auth_provider.device_id,
+                module_id=getattr(self.auth_provider, "module_id", None),
+                hostname=self.auth_provider.hostname,
+                gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
+                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                sas_token=self.auth_provider.get_current_sas_token(),
             )
+            self.send_op_down(worker_op)
+
         elif isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
             self.auth_provider = op.auth_provider
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
-                    device_id=self.auth_provider.device_id,
-                    module_id=getattr(self.auth_provider, "module_id", None),
-                    hostname=self.auth_provider.hostname,
-                    gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                    ca_cert=getattr(self.auth_provider, "ca_cert", None),
-                    client_cert=self.auth_provider.get_x509_certificate(),
-                    callback=None,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
+                device_id=self.auth_provider.device_id,
+                module_id=getattr(self.auth_provider, "module_id", None),
+                hostname=self.auth_provider.hostname,
+                gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
+                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                client_cert=self.auth_provider.get_x509_certificate(),
             )
+            self.send_op_down(worker_op)
         else:
             self.send_op_down(op)
 

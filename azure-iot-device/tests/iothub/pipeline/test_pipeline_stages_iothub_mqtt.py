@@ -251,7 +251,7 @@ class IoTHubMQTTTranslationStageTestBase(StageTestBase):
     @pytest.fixture
     def stage(self, mocker):
         stage = pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage()
-        mocker.spy(stage, "send_worker_op_down")
+        mocker.spy(stage, "send_op_down")
         return stage
 
     @pytest.fixture
@@ -288,17 +288,17 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTTranslationStageT
     @pytest.mark.it(
         "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation worker operation on the next stage"
     )
-    def test_runs_set_connection_args(self, stage, set_connection_args):
+    def test_runs_set_connection_args(self, mocker, stage, set_connection_args):
+        set_connection_args.spawn_worker_op = mocker.MagicMock()
         stage.run_op(set_connection_args)
-        assert stage.send_worker_op_down.call_count == 1
-        assert isinstance(
-            stage.send_worker_op_down.call_args[1]["worker_op"],
-            pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
+        assert set_connection_args.spawn_worker_op.call_count == 1
+        assert (
+            set_connection_args.spawn_worker_op.call_args[1]["worker_op_type"]
+            is pipeline_ops_mqtt.SetMQTTConnectionArgsOperation
         )
-        assert stage.send_worker_op_down.call_args[1]["op"] is set_connection_args
-        assert stage.next._execute_op.call_count == 1
-        new_op = stage.next._execute_op.call_args[0][0]
-        assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
+        worker = set_connection_args.spawn_worker_op.return_value
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(worker)
 
     @pytest.mark.it(
         "Sets connection_args.client_id to auth_provider_args.device_id if auth_provider_args.module_id is None"
@@ -461,18 +461,6 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationDisconnected(
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == op
 
-    @pytest.mark.it("Completes the op with failure if some lower stage returns failure")
-    def test_lower_stage_update_sas_token_fails(
-        self, stage, op, next_stage_raises_arbitrary_exception, arbitrary_exception
-    ):
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
-
-    @pytest.mark.it("Completes the op with success if some lower stage returns success")
-    def test_lower_stage_update_sas_token_succeeds(self, stage, next_stage_succeeds, op):
-        stage.run_op(op)
-        assert_callback_succeeded(op=op)
-
 
 @pytest.mark.describe(
     "IoTHubMQTTTranslationStage - .run_op() -- called with UpdateSasTokenOperation if the transport is connected"
@@ -495,15 +483,6 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         stage.run_op(op)
         assert stage.next.run_op.call_count == 1
         assert stage.next.run_op.call_args[0][0] == op
-
-    @pytest.mark.it(
-        "Completes the op with failure if some lower stage returns failure for the UpdateSasTokenOperation"
-    )
-    def test_lower_stage_update_sas_token_fails(
-        self, stage, op, next_stage_raises_arbitrary_exception, arbitrary_exception
-    ):
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
 
     @pytest.mark.it(
         "Passes down a ReconnectOperation instead of completing the op with success after the lower level stage returns success for the UpdateSasTokenOperation"
