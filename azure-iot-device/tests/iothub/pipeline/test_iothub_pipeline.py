@@ -7,6 +7,7 @@
 import pytest
 import logging
 import six.moves.urllib as urllib
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_mqtt,

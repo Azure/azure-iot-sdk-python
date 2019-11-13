@@ -55,7 +55,7 @@ class PipelineOperation(object):
         self.needs_connection = False
         self.completed = False
 
-        self.add_callback(callback)
+        self.callbacks.append(callback)
 
     @pipeline_thread.runs_on_pipeline_thread
     def add_callback(self, callback):

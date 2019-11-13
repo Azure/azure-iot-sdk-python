@@ -107,6 +107,7 @@ def set_security_client(mocker, params_security_ops):
         security_client=params_security_ops["security_client_function_name"](),
         callback=mocker.MagicMock(),
     )
+    mocker.spy(op, "complete")
     return op
 
 
@@ -123,6 +124,21 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(StageTes
     def stage(self):
         return pipeline_stages_provisioning.UseSecurityClientStage()
 
+    # @pytest.mark.it("Spawns a SetProvisioningClientConnectionArgsOperation worker operation, using values from the security client")
+    # def test_worker_op_creation(self, mocker, stage, set_security_client):
+    #     security_client = set_security_client.security_client
+
+    #     stage.run_op(set_security_client)
+
+    #     assert set_security_client.spawn_worker_op.call_count == 1
+    #     assert set_security_client.spawn_worker_op.call_args == mocker.call(
+    #         worker_op_type=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
+    #         provisioning_host=security_client.provisioning_host,
+    #         registration_id=security_client.registration_id,
+    #         id_scope=security_client.id_scope,
+    #         sas_token=security_client.get_current_sas_token()
+    #     )
+
     @pytest.mark.it("runs SetProvisioningClientConnectionArgsOperation op on the next stage")
     def test_runs_set_security_client_args(self, mocker, stage, set_security_client):
         stage.next._execute_op = mocker.Mock()
@@ -134,7 +150,7 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(StageTes
         )
 
     @pytest.mark.it(
-        "Calls the SetSecurityClient callback with the SetProvisioningClientConnectionArgsOperation error"
+        "Completes the SetSecurityClient with the SetProvisioningClientConnectionArgsOperation error"
         "when the SetProvisioningClientConnectionArgsOperation op raises an Exception"
     )
     def test_set_security_client_raises_exception(
@@ -142,18 +158,8 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(StageTes
     ):
         stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
         stage.run_op(set_security_client)
-        assert_callback_failed(op=set_security_client, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised by SetProvisioningClientConnectionArgsOperation operations to propagate"
-    )
-    def test_set_security_client_raises_base_exception(
-        self, mocker, stage, arbitrary_base_exception, set_security_client
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(set_security_client)
-        assert e_info.value is arbitrary_base_exception
+        assert set_security_client.complete.call_count == 1
+        assert set_security_client.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
         "Retrieves sas_token or x509_client_cert on the security_client and passes the result as the attribute of the next operation"
@@ -189,14 +195,15 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(StageTes
             assert set_connection_args_op.client_cert.pass_phrase == fake_pass_phrase
 
     @pytest.mark.it(
-        "Calls the callback of setting security client with no error when the next operation of "
-        "etting token or setting client_cert operation succeeds"
+        "Completes the setting security client with no error when the next operation of "
+        "setting token or setting client_cert operation succeeds"
     )
     def test_returns_success_if_set_sas_token_or_set_client_client_cert_succeeds(
-        self, stage, set_security_client, next_stage_succeeds
+        self, mocker, stage, set_security_client, next_stage_succeeds
     ):
         stage.run_op(set_security_client)
-        assert_callback_succeeded(op=set_security_client)
+        assert set_security_client.complete.call_count == 1
+        assert set_security_client.complete.call_args == mocker.call(error=None)
 
     @pytest.mark.it(
         "Returns error when get_current_sas_token or get_x509_certificate raises an exception"
@@ -216,25 +223,5 @@ class TestUseSymmetricKeyOrX509SecurityClientRunOpWithSetSecurityClient(StageTes
                 side_effect=arbitrary_exception
             )
         stage.run_op(set_security_client)
-        assert_callback_failed(op=set_security_client, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised by get_current_sas_token or get_x509_certificate to propagate"
-    )
-    def test_get_current_sas_token_get_x509_certificate_raises_base_exception(
-        self, mocker, arbitrary_base_exception, stage, set_security_client, params_security_ops
-    ):
-        if (
-            params_security_ops["current_op_class"].__name__
-            == "SetSymmetricKeySecurityClientOperation"
-        ):
-            set_security_client.security_client.get_current_sas_token = mocker.Mock(
-                side_effect=arbitrary_base_exception
-            )
-        elif params_security_ops["current_op_class"].__name__ == "SetX509SecurityClientOperation":
-            set_security_client.security_client.get_x509_certificate = mocker.Mock(
-                side_effect=arbitrary_base_exception
-            )
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(set_security_client)
-        assert e_info.value is arbitrary_base_exception
+        assert set_security_client.complete.call_count == 1
+        assert set_security_client.complete.call_args == mocker.call(error=arbitrary_exception)
