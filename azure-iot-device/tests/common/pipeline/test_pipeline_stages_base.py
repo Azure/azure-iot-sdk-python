@@ -84,6 +84,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 #     callback_called.wait()
 
 
+# CT-TODO: how is this test even passing????
 @pytest.mark.it("Runs operation in pipeline thread")
 def _test_pipeline_root_runs_operation_in_pipeline_thread(
     self, mocker, stage, arbitrary_op, fake_non_pipeline_thread

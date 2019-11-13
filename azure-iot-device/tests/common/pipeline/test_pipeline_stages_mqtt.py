@@ -795,17 +795,17 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
     def test_completes_unrelated_op(
         self, mocker, stage, create_transport, pending_connection_op, cause
     ):
-        pending_connection_op.callback = mocker.MagicMock()
         pending_connection_op.completed = False
+        mocker.spy(pending_connection_op, "complete")
         stage._pending_connection_op = pending_connection_op
         stage.transport.on_mqtt_disconnected_handler(cause)
         assert stage._pending_connection_op is None
-        assert pending_connection_op.callback.call_count == 1
+        assert pending_connection_op.complete.call_count == 1
         if cause:
-            assert pending_connection_op.callback.call_args[1]["error"] == cause
+            assert pending_connection_op.complete.call_args[1]["error"] == cause
         else:
             assert (
-                type(pending_connection_op.callback.call_args[1]["error"])
+                type(pending_connection_op.complete.call_args[1]["error"])
                 == transport_exceptions.ConnectionDroppedError
             )
 
