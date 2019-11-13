@@ -57,6 +57,7 @@ class PipelineOperation(object):
 
         self.add_callback(callback)
 
+    @pipeline_thread.runs_on_pipeline_thread
     def add_callback(self, callback):
         self.callbacks.append(callback)
 
@@ -96,10 +97,12 @@ class PipelineOperation(object):
                     # and send it to the background handler.
                     handle_exceptions.handle_background_exception(e)
 
+    @pipeline_thread.runs_on_pipeline_thread
     def uncomplete(self):
         logger.debug("{}: Uncompleting".format(self.name))
         self.completed = False
 
+    @pipeline_thread.runs_on_pipeline_thread
     def spawn_worker_op(self, worker_op_type, **kwargs):
         logger.debug("{}: creating worker op of type {}".format(self.name, worker_op_type.__name__))
 

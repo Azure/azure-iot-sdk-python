@@ -470,9 +470,11 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_base.UpdateSasTokenOperation(
+        op = pipeline_ops_base.UpdateSasTokenOperation(
             sas_token=fake_sas_token, callback=mocker.MagicMock()
         )
+        mocker.spy(op, "complete")
+        return op
 
     @pytest.fixture(autouse=True)
     def transport_is_connected(self, stage):
@@ -491,7 +493,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                op.callback(op, error=None)
+                op.complete(error=None)
             else:
                 pass
 
@@ -503,12 +505,22 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert isinstance(
             stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
         )
-        assert op.callback.call_count == 0
+        # CT-TODO: Make this test clearer - this below assertion is a bit confusing
+        # What is happening here is that the run_op defined above for the mock only completes
+        # ops of type UpdateSasTokenOperation (i.e. variable 'op'). However, completing the
+        # op causes it to be uncompleted, and then spawn a Reconnect worker op, which must be
+        # completed before full completion of 'op' can occur. However, as the above run_op mock
+        # only completes ops of type UpdateSasTokenOperation, this never happens, thus op is not
+        # completed.
+        assert not op.completed
 
+    # CT-TODO: remove this once able. This test does not have a high degree of accuracy, and its contents
+    # could be tested better once stage tests are restructured. This test is overlapping with tests of
+    # worker op functionality, that should not be being tested at this granularity here.
     @pytest.mark.it(
         "Completes the op with success if some lower level stage returns success for the ReconnectOperation"
     )
-    def test_reconnect_succeeds(self, stage, next_stage_succeeds, op):
+    def test_reconnect_succeeds(self, mocker, stage, next_stage_succeeds, op):
         # default is for stage.next.run_op to return success for all ops
         stage.run_op(op)
 
@@ -517,18 +529,25 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert isinstance(
             stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
         )
-        assert_callback_succeeded(op=op)
+        assert op.completed
+        assert op.complete.call_count == 2  # op was completed twice due to an uncompletion
 
+        # most recent call, i.e. one triggered by the successful Reconnect
+        assert op.complete.call_args == mocker.call(error=None)
+
+    # CT-TODO: As above, remove/restructure ASAP
     @pytest.mark.it(
         "Completes the op with failure if some lower level stage returns failure for the ReconnectOperation"
     )
     def test_reconnect_fails(self, stage, op, mocker, arbitrary_exception):
+        cb = op.callbacks[0]
+
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-                stage.next.complete_op(op, error=None)
+                op.complete(error=None)
             elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-                stage.next.complete_op(op, error=arbitrary_exception)
+                op.complete(error=arbitrary_exception)
             else:
                 pass
 
@@ -540,7 +559,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert isinstance(
             stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
         )
-        assert_callback_failed(op=op, error=arbitrary_exception)
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(op, arbitrary_exception)
+        # assert_callback_failed(op=op, error=arbitrary_exception)
 
 
 basic_ops = [
@@ -572,6 +593,7 @@ basic_ops = [
 ]
 
 
+# CT-TODO: simplify this
 @pytest.mark.parametrize(
     "params",
     basic_ops,
@@ -582,38 +604,17 @@ class TestIoTHubMQTTConverterBasicOperations(IoTHubMQTTTranslationStageTestBase)
     @pytest.fixture
     def op(self, params, mocker):
         op = params["op_class"](**params["op_init_kwargs"])
-        op.callback = mocker.MagicMock()
+        mocker.spy(op, "spawn_worker_op")
         return op
 
-    @pytest.mark.it("Runs an operation on the next stage")
-    def test_runs_publish(self, params, stage, stages_configured_for_both, op):
+    @pytest.mark.it("Runs a worker operation on the next stage")
+    def test_spawn_worker_op(self, params, stage, stages_configured_for_both, op):
         stage.run_op(op)
+
+        assert op.spawn_worker_op.call_count == 1
+        assert op.spawn_worker_op.call_args[1]["worker_op_type"] is params["new_op_class"]
         new_op = stage.next._execute_op.call_args[0][0]
         assert isinstance(new_op, params["new_op_class"])
-
-    @pytest.mark.it("Calls the original op callback with error if the new_op raises an exception")
-    def test_operation_raises_exception(
-        self, params, mocker, stage, stages_configured_for_both, op, arbitrary_exception
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
-
-    @pytest.mark.it("Allows any any BaseExceptions raised in the new_op to propagate")
-    def test_operation_raises_base_exception(
-        self, params, mocker, stage, stages_configured_for_both, op, arbitrary_base_exception
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        assert e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it("Calls the original op callback with no error if the new_op operation succeeds")
-    def test_operation_succeeds(
-        self, params, stage, stages_configured_for_both, next_stage_succeeds, op
-    ):
-        stage.run_op(op)
-        assert_callback_succeeded(op)
 
 
 publish_ops = [
@@ -1071,8 +1072,11 @@ class TestIoTHubMQTTConverterWithEnableFeature(IoTHubMQTTTranslationStageTestBas
         op = op_parameters["op_class"](
             feature_name=invalid_feature_name, callback=mocker.MagicMock()
         )
+        mocker.spy(op, "complete")
         stage.run_op(op)
-        assert_callback_failed(op=op, error=KeyError)
+        assert op.complete.call_count == 1
+        assert isinstance(op.complete.call_args[1]["error"], KeyError)
+        # assert_callback_failed(op=op, error=KeyError)
 
 
 @pytest.fixture
@@ -1188,7 +1192,7 @@ class TestIotHubMQTTConverterWithSendIotRequest(IoTHubMQTTTranslationStageTestBa
         fake_request_id,
         mocker,
     ):
-        return pipeline_ops_base.RequestOperation(
+        op = pipeline_ops_base.RequestOperation(
             request_type=fake_request_type,
             method=fake_method,
             resource_location=fake_resource_location,
@@ -1196,76 +1200,41 @@ class TestIotHubMQTTConverterWithSendIotRequest(IoTHubMQTTTranslationStageTestBa
             request_id=fake_request_id,
             callback=mocker.MagicMock(),
         )
+        mocker.spy(op, "complete")
+        mocker.spy(op, "spawn_worker_op")
+        return op
 
     @pytest.mark.it("calls the op callback with an OperationError if request_type is not 'twin'")
     def test_sends_bad_request_type(self, stage, op):
         op.request_type = "not_twin"
         stage.run_op(op)
-        assert_callback_failed(op=op, error=OperationError)
+        assert op.complete.call_count == 1
+        assert isinstance(op.complete.call_args[1]["error"], OperationError)
 
     @pytest.mark.it(
-        "Runs an MQTTPublishOperation on the next stage with the topic formated as '$iothub/twin/{method}{resource_location}?$rid={request_id}' and the payload as the request_body"
+        "Runs an MQTTPublishOperation as a worker op on the next stage with the topic formated as '$iothub/twin/{method}{resource_location}?$rid={request_id}' and the payload as the request_body"
     )
     def test_sends_new_operation(
         self, stage, op, fake_method, fake_resource_location, fake_request_id, fake_request_body
     ):
         stage.run_op(op)
-        assert stage.next.run_op.call_count == 1
-        new_op = stage.next.run_op.call_args[0][0]
-        assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
-        assert new_op.topic == "$iothub/twin/{method}{resource_location}?$rid={request_id}".format(
-            method=fake_method, resource_location=fake_resource_location, request_id=fake_request_id
+        assert op.spawn_worker_op.call_count == 1
+        assert (
+            op.spawn_worker_op.call_args[1]["worker_op_type"]
+            is pipeline_ops_mqtt.MQTTPublishOperation
         )
-        assert new_op.payload == fake_request_body
-
-    @pytest.mark.it("Returns an OperationError through the op callback if there is no next stage")
-    def test_runs_with_no_next_stage(self, stage, op):
-        stage.next = None
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=PipelineError)
-
-    @pytest.mark.it(
-        "Handles any Exceptions raised by the MQTTPublishOperation and returns them through the op callback"
-    )
-    def test_next_stage_raises_exception(self, mocker, stage, op, arbitrary_exception):
-        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
-        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
-        # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
-
-    @pytest.mark.it("Allows any BaseExceptions raised by the MQTTPublishOperation to propagate")
-    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
-        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
-        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
-        # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        assert e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it(
-        "Returns error as the MQTTPublishOperation error in the op callback if the MQTTPublishOperation returned an error in its operation callback"
-    )
-    def test_publish_op_returns_failure(self, stage, op, arbitrary_exception):
-        def next_stage_run_op(self, op):
-            op.callback(op, error=arbitrary_exception)
-
-        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Returns error=None in the operation callback if the MQTTPublishOperation returned error=None in its operation callback"
-    )
-    def test_publish_op_returns_success(self, stage, op):
-        def next_stage_run_op(self, op):
-            op.callback(op, error=None)
-
-        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-        stage.run_op(op)
-        assert_callback_succeeded(op=op)
+        assert stage.next.run_op.call_count == 1
+        worker_op = stage.next.run_op.call_args[0][0]
+        assert isinstance(worker_op, pipeline_ops_mqtt.MQTTPublishOperation)
+        assert (
+            worker_op.topic
+            == "$iothub/twin/{method}{resource_location}?$rid={request_id}".format(
+                method=fake_method,
+                resource_location=fake_resource_location,
+                request_id=fake_request_id,
+            )
+        )
+        assert worker_op.payload == fake_request_body
 
 
 @pytest.fixture

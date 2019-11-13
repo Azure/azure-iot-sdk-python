@@ -95,7 +95,6 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
             )
 
-            # make a callback that can call the user's callback after the reconnect is complete
             def on_reconnect_complete(reconnect_op, error):
                 if error:
                     logger.error(
@@ -103,37 +102,35 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                             self.name, op.name, error
                         )
                     )
-                    self.send_completed_op_up(op, error=error)
                 else:
                     logger.debug(
                         "{}({}) reconnection succeeded.  returning success.".format(
                             self.name, op.name
                         )
                     )
-                    self.send_completed_op_up(op)
-
-            # save the old user callback so we can call it later.
-            old_callback = op.callback
 
             # make a callback that either fails the UpdateSasTokenOperation (if the lower level failed it),
             # or issues a ReconnectOperation (if the lower level returned success for the UpdateSasTokenOperation)
             def on_token_update_complete(op, error):
-                op.callback = old_callback
                 if error:
                     logger.error(
                         "{}({}) token update failed.  returning failure {}".format(
                             self.name, op.name, error
                         )
                     )
-                    self.send_completed_op_up(op, error=error)
                 else:
                     logger.debug(
                         "{}({}) token update succeeded.  reconnecting".format(self.name, op.name)
                     )
 
-                    self.send_op_down(
-                        pipeline_ops_base.ReconnectOperation(callback=on_reconnect_complete)
+                    # Stop completion of Token Update op, and only continue upon completion of Reconnect op
+                    op.uncomplete()
+                    worker_op = op.spawn_worker_op(
+                        worker_op_type=pipeline_ops_base.ReconnectOperation,
+                        callback=on_reconnect_complete,
                     )
+
+                    self.send_op_down(worker_op)
 
                 logger.debug(
                     "{}({}): passing to next stage with updated callback.".format(
