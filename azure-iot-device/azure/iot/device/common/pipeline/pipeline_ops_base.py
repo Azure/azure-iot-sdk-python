@@ -87,7 +87,7 @@ class PipelineOperation(object):
                     break
                 callback = self.callbacks.pop()
                 try:
-                    callback(self, error)
+                    callback(op=self, error=error)
                 except Exception as e:
                     logger.error(
                         "Unhandled error while triggering callback for {}".format(self.name)
