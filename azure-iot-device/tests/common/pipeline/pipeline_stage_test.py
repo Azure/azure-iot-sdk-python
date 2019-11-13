@@ -19,7 +19,7 @@ from tests.common.pipeline.helpers import (
     StageHandlePipelineEventTestBase,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
-from tests.common.pipeline.pipeline_data_object_test import add_instantiation_test
+from tests.common.pipeline.pipeline_event_test import add_instantiation_test
 from azure.iot.device.common.pipeline import pipeline_thread, pipeline_exceptions
 from azure.iot.device.common import handle_exceptions
 from .fixtures import FakeOperation
