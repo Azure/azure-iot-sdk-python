@@ -413,7 +413,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """Call up to the IoT Hub Endpoint over HTTP to get information on
         the storage blob for uploads.
         """
-
+        # This essentially builds the HTTP Pipeline on demand. If the user isn't doing
+        # upload to blob or module to module communication, they shouldn't need to have
+        # a whole pipeline set up idling.
+        if not self._iothub_pipeline.feature_enabled[constant.HTTP_PIPELINE]:
+            await self._enable_feature(constant.HTTP_PIPELINE)
         # TODO: Check that the HTTP Pipeline has been set properly.
         get_storage_info_async = async_adapter.emulate_async(self._iothub_pipeline.get_storage_info)
 

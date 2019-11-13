@@ -13,7 +13,9 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
     This operation is in the group of HTTP operations because its attributes are very specific to the HTTP protocol.
     """
 
-    def __init__(self, hostname, callback, ca_cert=None, client_cert=None, sas_token=None):
+    def __init__(
+        self, client_id, hostname, callback, ca_cert=None, client_cert=None, sas_token=None
+    ):
         """
         Initializer for SetHTTPConnectionArgsOperation objects.
         TODO: See if I need to delete these. Also look into the HTTP Transport and http.client
@@ -30,6 +32,7 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
           has completed or failed.
         """
         super(SetHTTPConnectionArgsOperation, self).__init__(callback=callback)
+        self.client_id = client_id
         self.hostname = hostname
         self.ca_cert = ca_cert
         self.client_cert = client_cert
@@ -38,23 +41,23 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
 
 class HTTPPublishOperation(PipelineOperation):
     """
-    A PipelineOperation object which contains arguments used to publish a specific payload on a specific topic using the HTTP protocol.
+    A PipelineOperation object which contains arguments used to publish a specific payload on a specific path using the HTTP protocol.
 
     This operation is in the group of HTTP operations because its attributes are very specific to the HTTP protocol.
     """
 
-    def __init__(self, topic, payload, callback):
+    def __init__(self, path, payload, callback):
         """
         Initializer for HTTPPublishOperation objects.
 
-        :param str topic: The name of the topic to publish to
+        :param str path: The name of the path to publish to
         :param str payload: The payload to publish
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
         super(HTTPPublishOperation, self).__init__(callback=callback)
-        self.topic = topic
+        self.path = path
         self.payload = payload
         self.needs_connection = True
         self.retry_timer = None
@@ -62,22 +65,22 @@ class HTTPPublishOperation(PipelineOperation):
 
 class HTTPSubscribeOperation(PipelineOperation):
     """
-    A PipelineOperation object which contains arguments used to subscribe to a specific HTTP topic using the HTTP protocol.
+    A PipelineOperation object which contains arguments used to subscribe to a specific HTTP path using the HTTP protocol.
 
     This operation is in the group of HTTP operations because its attributes are very specific to the HTTP protocol.
     """
 
-    def __init__(self, topic, callback):
+    def __init__(self, path, callback):
         """
         Initializer for HTTPSubscribeOperation objects.
 
-        :param str topic: The name of the topic to subscribe to
+        :param str path: The name of the path to subscribe to
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
         super(HTTPSubscribeOperation, self).__init__(callback=callback)
-        self.topic = topic
+        self.path = path
         self.needs_connection = True
         self.timeout_timer = None
         self.retry_timer = None
@@ -85,22 +88,22 @@ class HTTPSubscribeOperation(PipelineOperation):
 
 class HTTPUnsubscribeOperation(PipelineOperation):
     """
-    A PipelineOperation object which contains arguments used to unsubscribe from a specific HTTP topic using the HTTP protocol.
+    A PipelineOperation object which contains arguments used to unsubscribe from a specific HTTP path using the HTTP protocol.
 
     This operation is in the group of HTTP operations because its attributes are very specific to the HTTP protocol.
     """
 
-    def __init__(self, topic, callback):
+    def __init__(self, path, callback):
         """
         Initializer for HTTPUnsubscribeOperation objects.
 
-        :param str topic: The name of the topic to unsubscribe from
+        :param str path: The name of the path to unsubscribe from
         :param Function callback: The function that gets called when this operation is complete or has failed.
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
         super(HTTPUnsubscribeOperation, self).__init__(callback=callback)
-        self.topic = topic
+        self.path = path
         self.needs_connection = True
         self.timeout_timer = None
         self.retry_timer = None
