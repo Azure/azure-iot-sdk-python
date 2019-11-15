@@ -64,7 +64,13 @@ class PipelineOperation(object):
 
         When an Operation is completed, all callbacks will be resolved in LIFO order.
 
+        Callbacks cannot be added to an already completed operation, or an operation that is
+        currently undergoing a completion process.
+
         :param callback: The callback to add to the operation.
+
+        :raises: OperationError if the operation is already completed, or is in the process of
+            completing.
         """
         if self.completed:
             raise pipeline_exceptions.OperationError(
