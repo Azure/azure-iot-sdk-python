@@ -39,14 +39,12 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
         self.sas_token = sas_token
 
 
-class HTTPPublishOperation(PipelineOperation):
+class HTTPRequestOperation(PipelineOperation):
     """
-    A PipelineOperation object which contains arguments used to publish a specific payload on a specific path using the HTTP protocol.
-
-    This operation is in the group of HTTP operations because its attributes are very specific to the HTTP protocol.
+    A PipelineOperation object
     """
 
-    def __init__(self, path, payload, callback):
+    def __init__(self, path, headers, callback):
         """
         Initializer for HTTPPublishOperation objects.
 
@@ -56,9 +54,9 @@ class HTTPPublishOperation(PipelineOperation):
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
-        super(HTTPPublishOperation, self).__init__(callback=callback)
+        super(HTTPRequestOperation, self).__init__(callback=callback)
         self.path = path
-        self.payload = payload
+        self.headers = headers
         self.needs_connection = True
         self.retry_timer = None
 
