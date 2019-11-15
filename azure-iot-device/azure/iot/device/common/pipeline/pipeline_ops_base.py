@@ -27,14 +27,14 @@ class PipelineOperation(object):
     :ivar name: The name of the operation.  This is used primarily for logging
     :type name: str
     :ivar callback: The callback that is called when the operation is completed, either
-      successfully or with a failure.
+        successfully or with a failure.
     :type callback: Function
     :ivar needs_connection: This is an attribute that indicates whether a particular operation
-      requires a connection to operate.  This is currently used by the AutoConnectStage
-      stage, but this functionality will be revamped shortly.
+        requires a connection to operate.  This is currently used by the AutoConnectStage
+        stage, but this functionality will be revamped shortly.
     :type needs_connection: Boolean
     :ivar error: The presence of a value in the error attribute indicates that the operation failed,
-      absence of this value indicates that the operation either succeeded or hasn't been handled yet.
+        absence of this value indicates that the operation either succeeded or hasn't been handled yet.
     :type error: Error
     """
 
@@ -43,32 +43,66 @@ class PipelineOperation(object):
         Initializer for PipelineOperation objects.
 
         :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
+            failed. The callback function must accept A PipelineOperation object which indicates
+            the specific operation which has completed or failed.
         """
         if self.__class__ == PipelineOperation:
             raise TypeError(
                 "Cannot instantiate PipelineOperation object.  You need to use a derived class"
             )
         self.name = self.__class__.__name__
-        self.callbacks = []
+        self.callback_stack = []
         self.needs_connection = False
-        self.completed = False
+        self.completed = False  # Operation has been fully completed
+        self.completing = False  # Operation is in the process of completing
+        self.error = None  # Error associated with Operation completion
 
-        self.callbacks.append(callback)
+        self.add_callback(callback)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def add_callback(self, callback):
-        self.callbacks.append(callback)
+        """Adds a callback to the Operation that will be triggered upon Operation completion.
+
+        When an Operation is completed, all callbacks will be resolved in LIFO order.
+
+        :param callback: The callback to add to the operation.
+        """
+        if self.completed:
+            raise pipeline_exceptions.OperationError(
+                "{}: Attempting to add a callback to an already-completed operation!".format(
+                    self.name
+                )
+            )
+        if self.completing:
+            raise pipeline_exceptions.OperationError(
+                "{}: Attempting to add a callback to a operation with completion in progress!".format(
+                    self.name
+                )
+            )
+        else:
+            self.callback_stack.append(callback)
 
     @pipeline_thread.runs_on_pipeline_thread
     def complete(self, error=None):
+        """ Complete the operation, and trigger all callbacks in LIFO order.
+
+        The operation is completed successfully be default, or completed unsucessfully if an error
+        is provided.
+
+        An operation that is already fully completed, or in the process of completion cannot be
+        completed again.
+
+        This process can be halted if a callback for the operation invokes the .halt_completion()
+        method on this Operation.
+
+        :param error: Optionally provide an Exception object indicating the error that caused
+            the completion. Providing an error indicates that the operation was unsucessful.
+        """
         if error:
             logger.error("{}: completing with error {}".format(self.name, error))
         else:
             logger.debug("{}: completing without error".format(self.name))
 
-        if self.completed:
+        if self.completed or self.completing:
             logger.error("{}: has already been completed!".format(self.name))
             e = pipeline_exceptions.OperationError(
                 "Attempting to complete an already-completed operation: {}".format(self.name)
@@ -77,15 +111,31 @@ class PipelineOperation(object):
             # and send it to the background handler.
             handle_exceptions.handle_background_exception(e)
         else:
-            self.completed = True
+            # Operation is now in the process of completing
+            self.completing = True
+            self.error = error
 
-            while self.callbacks:
-                if not self.completed:
-                    logger.debug(
-                        "{}: Operation no longer complete! Suspending completion".format(self.name)
-                    )
+            while self.callback_stack:
+                if not self.completing:
+                    logger.debug("{}: Completion halted!".format(self.name))
                     break
-                callback = self.callbacks.pop()
+                if self.completed:
+                    # This block should never be reached - this is an invalid state.
+                    # If this block is reached, there is a bug in the code.
+                    logger.error(
+                        "{}: Invalid State! Operation completed while resolving completion".format(
+                            self.name
+                        )
+                    )
+                    e = pipeline_exceptions.OperationError(
+                        "Operation reached fully completed state while still resolving completion: {}".format(
+                            self.name
+                        )
+                    )
+                    handle_exceptions.handle_background_exception(e)
+                    break
+
+                callback = self.callback_stack.pop()
                 try:
                     callback(op=self, error=error)
                 except Exception as e:
@@ -97,16 +147,52 @@ class PipelineOperation(object):
                     # and send it to the background handler.
                     handle_exceptions.handle_background_exception(e)
 
+            if self.completing:
+                # Operation is now completed, no longer in the process of completing
+                self.completing = False
+                self.completed = True
+
     @pipeline_thread.runs_on_pipeline_thread
-    def uncomplete(self):
-        logger.debug("{}: Uncompleting".format(self.name))
-        self.completed = False
+    def halt_completion(self):
+        """Halt the completion of an operation that is currently undergoing a completion process
+        as a result of a call to .complete().
+
+        Completion cannot be halted if there is no currently ongoing completion process. The only
+        way to successfully invoke this method is from within a callback on the Operation in
+        question.
+
+        This method will leave any yet-untriggered callbacks on the Operation to be triggered upon
+        a later completion.
+
+        This method will clear any error associated with the currently ongoing completion process
+        from the Operation.
+        """
+        if not self.completing:
+            logger.error("{}: is not currently in the process of completion!".format(self.name))
+            e = pipeline_exceptions.OperationError(
+                "Attempting to halt completion of an operation not in the process of completion: {}".format(
+                    self.name
+                )
+            )
+            handle_exceptions.handle_background_exception(e)
+        else:
+            logger.debug("{}: Halting completion...".format(self.name))
+            self.completing = False
+            self.error = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def spawn_worker_op(self, worker_op_type, **kwargs):
-        logger.debug("{}: creating worker op of type {}".format(self.name, worker_op_type.__name__))
+        """Create and return a new operation, which, when completed, will complete the operation
+        it was spawned from.
 
-        # CT-TODO: does this need to use a weakref?
+        :param worker_op_type: The type (class) of the new worker operation.
+        :param **kwargs: The arguments to instantiate the new worker operation with. Note that a
+            callback is not required, but if provided, will be triggered prior to completing the
+            operation that spawned the worker operation.
+
+        :returns: A new worker operation of the type specified in the worker_op_type parameter.
+        """
+        logger.debug("{}: creating worker op of type {}".format(self.name, worker_op_type.__name__))
 
         @pipeline_thread.runs_on_pipeline_thread
         def on_worker_op_complete(op, error):
@@ -185,10 +271,10 @@ class EnableFeatureOperation(PipelineOperation):
         Initializer for EnableFeatureOperation objects.
 
         :param str feature_name: Name of the feature that is being enabled.  The meaning of this
-          string is defined in the stage which handles this operation.
+            string is defined in the stage which handles this operation.
         :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
+            failed.  The callback function must accept A PipelineOperation object which indicates
+            the specific operation which has completed or failed.
         """
         super(EnableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
@@ -213,10 +299,10 @@ class DisableFeatureOperation(PipelineOperation):
         Initializer for DisableFeatureOperation objects.
 
         :param str feature_name: Name of the feature that is being disabled.  The meaning of this
-          string is defined in the stage which handles this operation.
+            string is defined in the stage which handles this operation.
         :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
+            failed.  The callback function must accept A PipelineOperation object which indicates
+            the specific operation which has completed or failed.
         """
         super(DisableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
@@ -238,10 +324,10 @@ class UpdateSasTokenOperation(PipelineOperation):
         Initializer for UpdateSasTokenOperation objects.
 
         :param str sas_token: The token string which will be used to authenticate with whatever
-          service this pipeline connects with.
+            service this pipeline connects with.
         :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
+            failed.  The callback function must accept A PipelineOperation object which indicates
+            the specific operation which has completed or failed.
         """
         super(UpdateSasTokenOperation, self).__init__(callback=callback)
         self.sas_token = sas_token
@@ -271,17 +357,17 @@ class RequestAndResponseOperation(PipelineOperation):
         Initializer for RequestAndResponseOperation objects
 
         :param str request_type: The type of request.  This is a string which is used by protocol-specific stages to
-          generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
-          the request into an MQTT publish with topic that begins with $iothub/twin
+            generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
+            the request into an MQTT publish with topic that begins with $iothub/twin
         :param str method: The method for the request, in the REST sense of the word, such as "POST", "GET", etc.
         :param str resource_location: The resource that the method is acting on, in the REST sense of the word.
-          For twin request with method "GET", this is most likely the string "/" which retrieves the entire twin
+            For twin request with method "GET", this is most likely the string "/" which retrieves the entire twin
         :param request_body: The body of the request.  This is a required field, and a single space can be used to denote
-          an empty body.
+            an empty body.
         :type request_body: Undefined
         :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
+            failed.  The callback function must accept A PipelineOperation object which indicates
+            the specific operation which has completed or failed.
         """
         super(RequestAndResponseOperation, self).__init__(callback=callback)
         self.request_type = request_type
@@ -306,17 +392,17 @@ class RequestOperation(PipelineOperation):
         Initializer for RequestOperation objects
 
         :param str request_type: The type of request.  This is a string which is used by protocol-specific stages to
-          generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
-          the request into an MQTT publish with topic that begins with $iothub/twin
+            generate the actual request.  For example, if request_type is "twin", then the iothub_mqtt stage will convert
+            the request into an MQTT publish with topic that begins with $iothub/twin
         :param str method: The method for the request, in the REST sense of the word, such as "POST", "GET", etc.
         :param str resource_location: The resource that the method is acting on, in the REST sense of the word.
-          For twin request with method "GET", this is most likely the string "/" which retrieves the entire twin
+            For twin request with method "GET", this is most likely the string "/" which retrieves the entire twin
         :param request_body: The body of the request.  This is a required field, and a single space can be used to denote
-          an empty body.
+            an empty body.
         :type request_body: dict, str, int, float, bool, or None (JSON compatible values)
         :param Function callback: The function that gets called when this operation is complete or has
-          failed.  The callback function must accept A PipelineOperation object which indicates
-          the specific operation which has completed or failed.
+            failed.  The callback function must accept A PipelineOperation object which indicates
+            the specific operation which has completed or failed.
         """
         super(RequestOperation, self).__init__(callback=callback)
         self.method = method

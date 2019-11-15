@@ -508,10 +508,10 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         # CT-TODO: Make this test clearer - this below assertion is a bit confusing
         # What is happening here is that the run_op defined above for the mock only completes
         # ops of type UpdateSasTokenOperation (i.e. variable 'op'). However, completing the
-        # op causes it to be uncompleted, and then spawn a Reconnect worker op, which must be
-        # completed before full completion of 'op' can occur. However, as the above run_op mock
-        # only completes ops of type UpdateSasTokenOperation, this never happens, thus op is not
-        # completed.
+        # op triggers a callback which halts the completion, and then spawn a Reconnect worker op,
+        # which must be completed before full completion of 'op' can occur. However, as the above
+        # run_op mock only completes ops of type UpdateSasTokenOperation, this never happens,
+        # thus op is not completed.
         assert not op.completed
 
     # CT-TODO: remove this once able. This test does not have a high degree of accuracy, and its contents

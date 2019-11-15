@@ -124,7 +124,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     )
 
                     # Stop completion of Token Update op, and only continue upon completion of Reconnect op
-                    op.uncomplete()
+                    op.halt_completion()
                     worker_op = op.spawn_worker_op(
                         worker_op_type=pipeline_ops_base.ReconnectOperation,
                         callback=on_reconnect_complete,

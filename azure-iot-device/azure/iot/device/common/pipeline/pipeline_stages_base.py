@@ -728,7 +728,7 @@ class RetryStage(PipelineStage):
             )
 
             # if we don't keep track of this op, it might get collected.
-            op.uncomplete()
+            op.halt_completion()
             self.ops_waiting_to_retry.append(op)
             op.retry_timer = Timer(self.retry_intervals[type(op)], do_retry)
             op.retry_timer.start()

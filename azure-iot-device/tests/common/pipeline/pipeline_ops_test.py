@@ -57,17 +57,27 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             assert op.completed is False
 
+        @pytest.mark.it("Initializes 'completing' attribute as False")
+        def test_completing(self, cls_type, init_kwargs):
+            op = cls_type(**init_kwargs)
+            assert op.completing is False
+
+        @pytest.mark.it("Initializes 'error' attribute as None")
+        def test_error(self, cls_type, init_kwargs):
+            op = cls_type(**init_kwargs)
+            assert op.error is None
+
         # NOTE: this test should be overridden for operations that set this value to True
         @pytest.mark.it("Initializes 'needs_connection' attribute as False")
         def test_needs_connection(self, cls_type, init_kwargs):
             op = cls_type(**init_kwargs)
             assert op.needs_connection is False
 
-        @pytest.mark.it("Initializes 'callbacks' list attribute with the provided callback")
+        @pytest.mark.it("Initializes 'callback_stack' list attribute with the provided callback")
         def test_callback_added_to_list(self, cls_type, init_kwargs):
             op = cls_type(**init_kwargs)
-            assert len(op.callbacks) == 1
-            assert op.callbacks[0] is init_kwargs["callback"]
+            assert len(op.callback_stack) == 1
+            assert op.callback_stack[0] is init_kwargs["callback"]
 
     # If an extended operation instantiation test class is provided, use those tests as well.
     # By using the extended_op_instantation_test_class as the first parent class, this ensures that
@@ -87,14 +97,59 @@ def add_operation_tests(
 
     @pytest.mark.describe("{} - .add_callback()".format(op_class_under_test.__name__))
     class OperationAddCallbackTests(OperationTestConfigClass):
-        @pytest.mark.it("Adds a callback to the operation, which will be triggered upon completion")
-        def test_adds_callback(self, mocker, op):
-            cb = mocker.MagicMock()
-            op.add_callback(cb)
-            assert cb.call_count == 0
-            op.complete()
+        @pytest.fixture(
+            params=["Currently completing with no error", "Currently completing with error"]
+        )
+        def error(self, request, arbitrary_exception):
+            if request.param == "Currently completing with no error":
+                return None
+            else:
+                return arbitrary_exception
 
-            assert cb.call_count == 1
+        @pytest.mark.it("Adds a callback to the operation's callback stack'")
+        def test_adds_callback(self, mocker, op):
+            # Because op was instantiated with a callback, because 'callback' is a
+            # required parameter, there will already be one callback on the stack
+            # before we add additional ones.
+            assert len(op.callback_stack) == 1
+            cb1 = mocker.MagicMock()
+            op.add_callback(cb1)
+            assert len(op.callback_stack) == 2
+            assert op.callback_stack[1] == cb1
+
+            cb2 = mocker.MagicMock()
+            op.add_callback(cb2)
+            assert len(op.callback_stack) == 3
+            assert op.callback_stack[1] == cb1
+            assert op.callback_stack[2] == cb2
+
+        @pytest.mark.it(
+            "Raises an OperationError if attempting to add a callback to an already-completed operation"
+        )
+        def test_already_completed_callback(self, mocker, op):
+            op.complete()
+            assert op.completed
+
+            with pytest.raises(pipeline_exceptions.OperationError):
+                op.add_callback(mocker.MagicMock())
+
+        @pytest.mark.it(
+            "Raises an OperationError if attempting to add a callback to an operation that is currently undergoing the completion process"
+        )
+        def test_currently_completing(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            def cb(op, error):
+                with pytest.raises(pipeline_exceptions.OperationError):
+                    # Add a callback during completion of the callback, i.e. while op completion is in progress
+                    op.add_callback(mocker.MagicMock())
+
+            mock_cb = mocker.MagicMock(side_effect=cb)
+            op.add_callback(mock_cb)
+
+            op.complete(error)
+
+            assert mock_cb.call_count == 1
 
     @pytest.mark.describe("{} - .spawn_worker_op()".format(op_class_under_test.__name__))
     class OperationSpawnWorkerOpTests(OperationTestConfigClass):
@@ -168,7 +223,7 @@ def add_operation_tests(
                 op.spawn_worker_op(worker_op_type, **worker_op_kwargs)
 
         @pytest.mark.it(
-            "Returns a worker operation, which, when completed, completes the operation that spawned it"
+            "Returns a worker operation, which, when completed, completes the operation that spawned it with the same error status"
         )
         @pytest.mark.parametrize(
             "use_error", [pytest.param(False, id="No Error"), pytest.param(True, id="With Error")]
@@ -182,12 +237,12 @@ def add_operation_tests(
                 error = None
 
             worker_op = op.spawn_worker_op(worker_op_type, **worker_op_kwargs)
-            assert op.complete.call_count == 0
+            assert not op.completed
 
             worker_op.complete(error=error)
 
-            assert op.complete.call_count == 1
-            assert op.complete.call_args == mocker.call(error=error)
+            assert op.completed
+            assert op.error is error
 
         @pytest.mark.it(
             "Returns a worker operation, which, when completed, triggers the 'callback' optionally provided in the **kwargs parameter, prior to completing the operation that spawned it"
@@ -235,30 +290,7 @@ def add_operation_tests(
                 return arbitrary_exception
 
         @pytest.mark.it(
-            "Marks the operation as completed by setting the 'completed' attribute to True"
-        )
-        def test_marks_complete(self, op, error):
-            assert not op.completed
-            op.complete(error=error)
-            assert op.completed
-
-        @pytest.mark.it(
-            "Sends an OperationError to the background exception handler if the operation has already been completed"
-        )
-        def test_already_complete(self, mocker, op, error):
-            mocker.spy(handle_exceptions, "handle_background_exception")
-            op.complete(error=error)
-            assert op.completed
-            assert handle_exceptions.handle_background_exception.call_count == 0
-            op.complete(error=error)
-            assert handle_exceptions.handle_background_exception.call_count == 1
-            assert (
-                type(handle_exceptions.handle_background_exception.call_args[0][0])
-                is pipeline_exceptions.OperationError
-            )
-
-        @pytest.mark.it(
-            "Triggers and removes callbacks that have been added to the operation according to LIFO order"
+            "Triggers and removes callbacks from the operation's callback stack according to LIFO order, passing the operation and any error to each callback"
         )
         def test_trigger_callbacks(self, mocker, cls_type, init_kwargs, error):
             mocker.spy(handle_exceptions, "handle_background_exception")
@@ -273,21 +305,21 @@ def add_operation_tests(
                 assert cb1_mock.call_count == 1
                 assert cb2_mock.call_count == 1
                 assert cb3_mock.call_count == 1
-                assert len(op.callbacks) == 0
+                assert len(op.callback_stack) == 0
 
             def cb2(op, error):
                 # Callback 3 has already been triggered, but Callback 1 has not
                 assert cb1_mock.call_count == 0
                 assert cb2_mock.call_count == 1
                 assert cb3_mock.call_count == 1
-                assert len(op.callbacks) == 1
+                assert len(op.callback_stack) == 1
 
             def cb3(op, error):
                 # Callback 3 has been triggered, but no others have been.
                 assert cb1_mock.call_count == 0
                 assert cb2_mock.call_count == 0
                 assert cb3_mock.call_count == 1
-                assert len(op.callbacks) == 2
+                assert len(op.callback_stack) == 2
 
             cb1_mock.side_effect = cb1
             cb2_mock.side_effect = cb2
@@ -298,7 +330,7 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             op.add_callback(cb2_mock)
             op.add_callback(cb3_mock)
-            assert len(op.callbacks) == 3
+            assert len(op.callback_stack) == 3
             assert not op.completed
 
             # Run the completion
@@ -314,6 +346,64 @@ def add_operation_tests(
 
             # Because exceptions raised in callbacks are caught and sent to the background exception handler,
             # the assertions in the above callbacks won't be able to directly raise AssertionErrors that will
+            # allow for testing normally. Instead we should check the background_exception_handler to see if
+            # any of the assertions raised errors and sent them there.
+            assert handle_exceptions.handle_background_exception.call_count == 0
+
+        @pytest.mark.it(
+            "Sets the 'error' attribute to the specified error (if any) at the beginning of the completion process"
+        )
+        def test_sets_error(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+            original_err = error
+
+            def cb(op, error):
+                # During the completion process, the 'error' attribute has been set
+                assert op.error is original_err
+                assert error is original_err
+
+            cb_mock = mocker.MagicMock(side_effect=cb)
+            op.add_callback(cb_mock)
+
+            op.complete(error=error)
+
+            # Callback was triggered during completion
+            assert cb_mock.call_count == 1
+
+            # After the completion process, the 'error' attribute is still set
+            assert op.error is error
+
+            # Because exceptions raised in callbacks are caught and sent to the background exception handler,
+            # the assertion in the above callback won't be able to directly raise AssertionErrors that will
+            # allow for testing normally. Instead we should check the background_exception_handler to see if
+            # any of the assertions raised errors and sent them there.
+            assert handle_exceptions.handle_background_exception.call_count == 0
+
+        @pytest.mark.it(
+            "Sets the 'completing' attribute to True only for the duration of the completion process"
+        )
+        def test_completing_set(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            def cb(op, error):
+                # The operation is completing, but not completed
+                assert op.completing
+                assert not op.completed
+
+            cb_mock = mocker.MagicMock(side_effect=cb)
+            op.add_callback(cb_mock)
+
+            op.complete(error)
+
+            # Callback was called
+            assert cb_mock.call_count == 1
+
+            # Once completed, the op is no longer completing
+            assert not op.completing
+            assert op.completed
+
+            # Because exceptions raised in callbacks are caught and sent to the background exception handler,
+            # the assertion in the above callback won't be able to directly raise AssertionErrors that will
             # allow for testing normally. Instead we should check the background_exception_handler to see if
             # any of the assertions raised errors and sent them there.
             assert handle_exceptions.handle_background_exception.call_count == 0
@@ -336,7 +426,7 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             op.add_callback(cb2_mock)
             op.add_callback(cb3_mock)
-            assert len(op.callbacks) == 3
+            assert len(op.callback_stack) == 3
             assert not op.completed
 
             # Run the completion
@@ -344,7 +434,10 @@ def add_operation_tests(
 
             # Op was completed, and all callbacks triggered despite the callback raising an exception
             assert op.completed
-            assert len(op.callbacks) == 0
+            assert cb3_mock.call_count == 1
+            assert cb2_mock.call_count == 1
+            assert cb1_mock.call_count == 1
+            assert len(op.callback_stack) == 0
 
             # The exception raised by the callback was passed to the background exception handler
             assert handle_exceptions.handle_background_exception.call_count == 1
@@ -368,20 +461,25 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
             op.add_callback(cb2_mock)
             op.add_callback(cb3_mock)
-            assert len(op.callbacks) == 3
+            assert len(op.callback_stack) == 3
 
             # BaseException from callback is raised
             with pytest.raises(arbitrary_base_exception.__class__) as e_info:
                 op.complete(error=error)
             assert e_info.value is arbitrary_base_exception
 
+            # Due to the BaseException raised during CB2 propagating, CB1 is never triggered
+            assert cb3_mock.call_count == 1
+            assert cb2_mock.call_count == 1
+            assert cb1_mock.call_count == 0
+
         @pytest.mark.it(
-            "Halts triggering of callbacks if a callback causes the operation to uncomplete, leaving untriggered callbacks attached to the operation, which is NOT marked as completed"
+            "Halts triggering of callbacks if a callback invokes the .halt_completion() method, leaving untriggered callbacks in the operation's callback stack"
         )
-        def test_uncomplete_during_callback(self, mocker, cls_type, init_kwargs, error):
+        def test_halt_during_callback(self, mocker, cls_type, init_kwargs, error):
             def cb2(op, error):
-                # Uncomplete the operation as part of the callback
-                op.uncomplete()
+                # Halt the operation completion as part of the callback
+                op.halt_completion()
 
             # Set up callback mocks
             cb1_mock = mocker.MagicMock()
@@ -394,20 +492,136 @@ def add_operation_tests(
             op.add_callback(cb2_mock)
             op.add_callback(cb3_mock)
             assert not op.completed
-            assert len(op.callbacks) == 3
+            assert len(op.callback_stack) == 3
 
             op.complete(error=error)
 
             # Callback was NOT completed
             assert not op.completed
 
-            # Callback resolution was halted after CB2 due to the operation being uncompleted
+            # Callback resolution was halted after CB2 due to the operation completion being halted
             assert cb3_mock.call_count == 1
             assert cb2_mock.call_count == 1
             assert cb1_mock.call_count == 0
 
-            assert len(op.callbacks) == 1
-            assert op.callbacks[0] is cb1_mock
+            assert len(op.callback_stack) == 1
+            assert op.callback_stack[0] is cb1_mock
+
+        @pytest.mark.it(
+            "Marks the operation as fully completed by setting the 'completed' attribute to True, only once all callbacks have been triggered"
+        )
+        def test_marks_complete(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            # Set up callback mocks
+            cb1_mock = mocker.MagicMock()
+            cb2_mock = mocker.MagicMock()
+
+            def cb(op, error):
+                assert not op.completed
+
+            cb1_mock.side_effect = cb
+            cb2_mock.side_effect = cb
+
+            op.add_callback(cb1_mock)
+            op.add_callback(cb2_mock)
+
+            op.complete(error=error)
+            assert op.completed
+
+            # Callbacks were called
+            assert cb1_mock.call_count == 1
+            assert cb2_mock.call_count == 1
+
+            # Because exceptions raised in callbacks are caught and sent to the background exception handler,
+            # the assertion in the above callbacks won't be able to directly raise AssertionErrors that will
+            # allow for testing normally. Instead we should check the background_exception_handler to see if
+            # any of the assertions raised errors and sent them there.
+            assert handle_exceptions.handle_background_exception.call_count == 0
+
+        @pytest.mark.it(
+            "Sends an OperationError to the background exception handler, without making any changes to the operation, if the operation has already been completed"
+        )
+        def test_already_complete(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            # Complete the operation
+            op.complete(error=error)
+            assert op.completed
+            assert handle_exceptions.handle_background_exception.call_count == 0
+
+            # Get the operation state
+            original_op_err_state = op.error
+            origianl_op_completion_state = op.completed
+
+            # Attempt to complete the op again
+            op.complete(error=error)
+
+            # Results in failure
+            assert handle_exceptions.handle_background_exception.call_count == 1
+            assert (
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
+                is pipeline_exceptions.OperationError
+            )
+
+            # The operation state is unchanged
+            assert op.error is original_op_err_state
+            assert op.completed is origianl_op_completion_state
+
+        @pytest.mark.it(
+            "Sends an OperationError to the background exception handler, without making any changes to the operation, if the operation is already in the process of completing"
+        )
+        def test_already_completing(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            def cb(op, error):
+                # Get the operation state
+                origianl_op_err_state = op.error
+                original_op_completion_state = op.completed
+
+                # Attempt to complete the operation again while it is already in the process of completing
+                op.complete(error=error)
+
+                # The operation state is unchanged
+                assert op.error is origianl_op_err_state
+                assert op.completed is original_op_completion_state
+
+            cb_mock = mocker.MagicMock(side_effect=cb)
+
+            op.add_callback(cb_mock)
+            op.complete(error=error)
+
+            # Using the above callback resulted in failure
+            assert cb_mock.call_count == 1
+            assert handle_exceptions.handle_background_exception.call_count == 1
+            assert (
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
+                is pipeline_exceptions.OperationError
+            )
+
+        @pytest.mark.it(
+            "Sends an OperationError to the background exception handler if the operation is somehow completed while still undergoing the process of completion"
+        )
+        def test_invalid_complete_during_completion(self, mocker, op, error):
+            # This should never happen, as this is an invalid scenario, and could only happen due
+            # to a bug elsewhere in the code (e.g. manually change the boolean, as in this test)
+
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            def cb(op, error):
+                op.completed = True
+
+            cb_mock = mocker.MagicMock(side_effect=cb)
+
+            op.add_callback(cb_mock)
+            op.complete(error=error)
+
+            assert cb_mock.call_count == 1
+            assert handle_exceptions.handle_background_exception.call_count == 1
+            assert (
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
+                is pipeline_exceptions.OperationError
+            )
 
         @pytest.mark.it(
             "Completes the operation successfully (no error) by default if no error is specified"
@@ -421,20 +635,106 @@ def add_operation_tests(
             op.complete()
 
             assert op.completed
+            assert op.error is None
             assert cb_mock.call_count == 1
             # Callback was called passing 'None' as the error
             assert cb_mock.call_args == mocker.call(op=op, error=None)
 
-    @pytest.mark.describe("{} - .uncomplete()".format(op_class_under_test.__name__))
-    class OperationUncompleteTests(OperationTestConfigClass):
-        @pytest.mark.it(
-            "Marks the operation as incomplete by setting the 'completed' attribute to False"
+    @pytest.mark.describe("{} - .halt_completion()".format(op_class_under_test.__name__))
+    class OperationHaltCompletionTests(OperationTestConfigClass):
+        @pytest.fixture(
+            params=["Currently completing with no error", "Currently completing with error"]
         )
-        def test_marks_uncomplete(self, op):
+        def error(self, request, arbitrary_exception):
+            if request.param == "Currently completing with no error":
+                return None
+            else:
+                return arbitrary_exception
+
+        @pytest.mark.it(
+            "Marks the operation as no longer completing by setting the 'completing' attribute to False, if the operation is currently in the process of completion"
+        )
+        def test_sets_completing_false(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            def cb(op, error):
+                assert op.completing
+                assert not op.completed
+                op.halt_completion()
+                assert not op.completing
+
+            cb_mock = mocker.MagicMock(side_effect=cb)
+            op.add_callback(cb_mock)
+
+            op.complete(error=error)
+
+            assert not op.completing
+            assert not op.completed
+            assert cb_mock.call_count == 1
+
+            # Because exceptions raised in callbacks are caught and sent to the background exception handler,
+            # the assertion in the above callback won't be able to directly raise AssertionErrors that will
+            # allow for testing normally. Instead we should check the background_exception_handler to see if
+            # any of the assertions raised errors and sent them there.
+            assert handle_exceptions.handle_background_exception.call_count == 0
+
+        @pytest.mark.it(
+            "Clears the existing error in the operation's 'error' attribute, if the operation is currently in the process of completion with error"
+        )
+        def test_clears_error(self, mocker, op, error):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+            completion_error = error
+
+            def cb(op, error):
+                assert op.completing
+                assert op.error is completion_error
+                op.halt_completion()
+                assert not op.completing
+                assert op.error is None
+
+            cb_mock = mocker.MagicMock(side_effect=cb)
+            op.add_callback(cb_mock)
+
+            op.complete(error=completion_error)
+
+            assert op.error is None
+            assert cb_mock.call_count == 1
+
+            # Because exceptions raised in callbacks are caught and sent to the background exception handler,
+            # the assertion in the above callback won't be able to directly raise AssertionErrors that will
+            # allow for testing normally. Instead we should check the background_exception_handler to see if
+            # any of the assertions raised errors and sent them there.
+            assert handle_exceptions.handle_background_exception.call_count == 0
+
+        @pytest.mark.it(
+            "Sends an OperationError to the background exception handler if the operation has already been fully completed"
+        )
+        def test_already_completed_op(self, mocker, op):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
             op.complete()
             assert op.completed
-            op.uncomplete()
-            assert not op.completed
+            op.halt_completion()
+
+            assert handle_exceptions.handle_background_exception.call_count == 1
+            assert (
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
+                is pipeline_exceptions.OperationError
+            )
+
+        @pytest.mark.it(
+            "Sends an OperationError to the background exception handler if the operation has never been completed"
+        )
+        def test_never_completed_op(self, mocker, op):
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            op.halt_completion()
+
+            assert handle_exceptions.handle_background_exception.call_count == 1
+            assert (
+                type(handle_exceptions.handle_background_exception.call_args[0][0])
+                is pipeline_exceptions.OperationError
+            )
 
     setattr(
         test_module,
@@ -451,8 +751,8 @@ def add_operation_tests(
     )
     setattr(
         test_module,
-        "Test{}Uncomplete".format(op_class_under_test.__name__),
-        OperationUncompleteTests,
+        "Test{}HaltCompletion".format(op_class_under_test.__name__),
+        OperationHaltCompletionTests,
     )
     setattr(
         test_module,
