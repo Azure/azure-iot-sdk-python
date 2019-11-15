@@ -11,7 +11,7 @@ import six.moves.urllib as urllib
 logger = logging.getLogger(__name__)
 
 
-def _get_url_base(device_id, module_id):
+def _get_path_base(device_id, module_id):
     """
     return the string that is at the beginning of all topics for this
     device/module
@@ -28,14 +28,22 @@ def get_storage_info_path_for_upload(device_id, module_id):
     return the path string used to get the info for uploading via
     Azure Storage Blob api
     """
-    return _get_url_base(device_id, module_id) + "/files"
+    return _get_path_base(device_id, module_id) + "/files"
+
+
+def get_method_invoke_path(device_id, module_id):
+    """
+    return the path string used to get the info for uploading via
+    Method Invoke API
+    """
+    return "twins/" + _get_path_base(device_id, module_id)
 
 
 # def get_telemetry_topic_for_publish(device_id, module_id):
 #     """
 #     return the topic string used to publish telemetry
 #     """
-#     return _get_url_base(device_id, module_id) + "/messages/events/"
+#     return _get_path_base(device_id, module_id) + "/messages/events/"
 
 
 # # TODO: leverage this helper in all property extraction functions
