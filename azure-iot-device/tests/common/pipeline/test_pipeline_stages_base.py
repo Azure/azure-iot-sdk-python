@@ -991,6 +991,7 @@ class RetryStageTestResubmitOp(object):
         assert yes_retry_op.retry_timer
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
+        assert mock_timer.return_value.cancel.call_count == 1
         assert getattr(yes_retry_op, "retry_timer", None) is None
 
     # CT-TODO: reconsider if this test is necessary

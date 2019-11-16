@@ -730,6 +730,7 @@ class RetryStage(PipelineStage):
             def do_retry():
                 this = self_weakref()
                 logger.info("{}({}): retrying".format(this.name, op.name))
+                op.retry_timer.cancel()
                 op.retry_timer = None
                 this.ops_waiting_to_retry.remove(op)
                 # Don't just send it down directly.  Instead, go through _execute_op so we get
@@ -750,7 +751,9 @@ class RetryStage(PipelineStage):
             op.retry_timer.start()
 
         else:
+            # CT-TODO: are these even covered by tests at all?
             if op.retry_timer:
+                op.retry_timer.cancel()
                 op.retry_timer = None
 
 
