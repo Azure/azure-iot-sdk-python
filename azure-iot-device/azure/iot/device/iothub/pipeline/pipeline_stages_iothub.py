@@ -114,12 +114,16 @@ class TwinRequestResponseStage(PipelineStage):
 
         if isinstance(op, pipeline_ops_iothub.GetTwinOperation):
 
-            def on_twin_response(twin_op, error):
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
+            def on_twin_response(op, error):
                 logger.debug("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
-                error = map_twin_error(error=error, twin_op=twin_op)
+                error = map_twin_error(error=error, twin_op=op)
                 if not error:
-                    op.twin = json.loads(twin_op.response_body.decode("utf-8"))
-                op.complete(error=error)
+                    op_waiting_for_response.twin = json.loads(op.response_body.decode("utf-8"))
+                op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
@@ -133,14 +137,18 @@ class TwinRequestResponseStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_iothub.PatchTwinReportedPropertiesOperation):
 
-            def on_twin_response(twin_op, error):
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
+            def on_twin_response(op, error):
                 logger.debug(
                     "{}({}): Got response for PatchTwinReportedPropertiesOperation operation".format(
                         self.name, op.name
                     )
                 )
-                error = map_twin_error(error=error, twin_op=twin_op)
-                op.complete(error=error)
+                error = map_twin_error(error=error, twin_op=op)
+                op_waiting_for_response.complete(error=error)
 
             logger.debug(
                 "{}({}): Sending reported properties patch: {}".format(self.name, op.name, op.patch)

@@ -95,20 +95,6 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
             )
 
-            def on_reconnect_complete(reconnect_op, error):
-                if error:
-                    logger.error(
-                        "{}({}) reconnection failed.  returning error {}".format(
-                            self.name, op.name, error
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}) reconnection succeeded.  returning success.".format(
-                            self.name, op.name
-                        )
-                    )
-
             # make a callback that either fails the UpdateSasTokenOperation (if the lower level failed it),
             # or issues a ReconnectOperation (if the lower level returned success for the UpdateSasTokenOperation)
             def on_token_update_complete(op, error):
@@ -126,8 +112,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     # Stop completion of Token Update op, and only continue upon completion of Reconnect op
                     op.halt_completion()
                     worker_op = op.spawn_worker_op(
-                        worker_op_type=pipeline_ops_base.ReconnectOperation,
-                        callback=on_reconnect_complete,
+                        worker_op_type=pipeline_ops_base.ReconnectOperation
                     )
 
                     self.send_op_down(worker_op)

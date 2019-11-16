@@ -80,8 +80,7 @@ def _add_unknown_ops_tests(cls, module, all_ops, handled_ops):
         @pytest.fixture(params=unknown_ops)
         def op(self, request, mocker):
             op = make_mock_op_or_event(request.param)
-            op.callbacks.append(mocker.MagicMock())  # TODO: make this simpler
-            # add_mock_method_waiter(op, "callback")
+            op.callback_stack.append(mocker.MagicMock())
             return op
 
         @pytest.fixture

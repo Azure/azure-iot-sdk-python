@@ -255,8 +255,6 @@ class MQTTTransportStage(PipelineStage):
             op = self._pending_connection_op
             self._pending_connection_op = None
 
-            # Swallow any errors, because we intended to disconnect - even if something went wrong, we
-            # got to the state we wanted to be in!
             if isinstance(op, pipeline_ops_base.DisconnectOperation):
                 # Swallow any errors if we intended to disconnect - even if something went wrong, we
                 # got to the state we wanted to be in!

@@ -231,18 +231,25 @@ def add_operation_tests(
         def test_worker_op_completes_original_op(
             self, mocker, use_error, arbitrary_exception, op, worker_op_type, worker_op_kwargs
         ):
+            original_op = op
+
             if use_error:
                 error = arbitrary_exception
             else:
                 error = None
 
-            worker_op = op.spawn_worker_op(worker_op_type, **worker_op_kwargs)
-            assert not op.completed
+            worker_op = original_op.spawn_worker_op(worker_op_type, **worker_op_kwargs)
+            assert not original_op.completed
 
             worker_op.complete(error=error)
 
-            assert op.completed
-            assert op.error is error
+            # Worker op has been completed with the given error state
+            assert worker_op.completed
+            assert worker_op.error is error
+
+            # Original op is now completed with the same given error state
+            assert original_op.completed
+            assert original_op.error is error
 
         @pytest.mark.it(
             "Returns a worker operation, which, when completed, triggers the 'callback' optionally provided in the **kwargs parameter, prior to completing the operation that spawned it"
@@ -253,10 +260,14 @@ def add_operation_tests(
         def test_worker_op_triggers_own_callback_and_then_completes_original_op(
             self, mocker, use_error, arbitrary_exception, op, worker_op_type, worker_op_kwargs
         ):
-            def callback(this_op, this_error):
-                # This assertion is only true if this callback is triggered before the op that spawned
-                # the worker is completed
-                assert op.complete.call_count == 0
+            mocker.spy(handle_exceptions, "handle_background_exception")
+
+            original_op = op
+
+            def callback(op, error):
+                # Assert this callback is called before the original op begins the completion process
+                assert not original_op.completed
+                assert original_op.complete.call_count == 0
 
             cb_mock = mocker.MagicMock(side_effect=callback)
 
@@ -267,8 +278,8 @@ def add_operation_tests(
             else:
                 error = None
 
-            worker_op = op.spawn_worker_op(worker_op_type, **worker_op_kwargs)
-            assert op.complete.call_count == 0
+            worker_op = original_op.spawn_worker_op(worker_op_type, **worker_op_kwargs)
+            assert original_op.complete.call_count == 0
 
             worker_op.complete(error=error)
 
@@ -276,9 +287,19 @@ def add_operation_tests(
             assert cb_mock.call_count == 1
             assert cb_mock.call_args == mocker.call(op=worker_op, error=error)
 
+            # Worker op was completed
+            assert worker_op.completed
+
             # The original op that spawned the worker is also completed
-            assert op.complete.call_count == 1
-            assert op.complete.call_args == mocker.call(error=error)
+            assert original_op.completed
+            assert original_op.complete.call_count == 1
+            assert original_op.complete.call_args == mocker.call(error=error)
+
+            # Because exceptions raised in callbacks are caught and sent to the background exception handler,
+            # the assertions in the above callback won't be able to directly raise AssertionErrors that will
+            # allow for testing normally. Instead we should check the background_exception_handler to see if
+            # any of the assertions raised errors and sent them there.
+            assert handle_exceptions.handle_background_exception.call_count == 0
 
     @pytest.mark.describe("{} - .complete()".format(op_class_under_test.__name__))
     class OperationCompleteTests(OperationTestConfigClass):
@@ -301,14 +322,14 @@ def add_operation_tests(
             cb3_mock = mocker.MagicMock()
 
             def cb1(op, error):
-                # Callback 2 and 3 have already been triggered
+                # All callbacks have been triggered
                 assert cb1_mock.call_count == 1
                 assert cb2_mock.call_count == 1
                 assert cb3_mock.call_count == 1
                 assert len(op.callback_stack) == 0
 
             def cb2(op, error):
-                # Callback 3 has already been triggered, but Callback 1 has not
+                # Callback 3 and Callback 2 have been triggered, but Callback 1 has not
                 assert cb1_mock.call_count == 0
                 assert cb2_mock.call_count == 1
                 assert cb3_mock.call_count == 1

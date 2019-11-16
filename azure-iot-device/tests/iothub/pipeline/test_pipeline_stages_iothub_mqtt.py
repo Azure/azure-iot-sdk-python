@@ -540,7 +540,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         "Completes the op with failure if some lower level stage returns failure for the ReconnectOperation"
     )
     def test_reconnect_fails(self, stage, op, mocker, arbitrary_exception):
-        cb = op.callbacks[0]
+        cb = op.callback_stack[0]
 
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
@@ -560,8 +560,7 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
             stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
         )
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(op, arbitrary_exception)
-        # assert_callback_failed(op=op, error=arbitrary_exception)
+        assert cb.call_args == mocker.call(op=op, error=arbitrary_exception)
 
 
 basic_ops = [

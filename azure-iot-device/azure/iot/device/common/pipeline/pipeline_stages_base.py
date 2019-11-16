@@ -234,7 +234,9 @@ class PipelineRootStage(PipelineStage):
 
     def run_op(self, op):
         # CT-TODO: make this more elegant
-        op.callbacks[0] = pipeline_thread.invoke_on_callback_thread_nowait(op.callbacks[0])
+        op.callback_stack[0] = pipeline_thread.invoke_on_callback_thread_nowait(
+            op.callback_stack[0]
+        )
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -330,21 +332,27 @@ class AutoConnectStage(PipelineStage):
         """
         Start connecting the transport in response to some operation
         """
+        # Alias to avoid overload within the callback below
+        # CT-TODO: remove the need for this with better callback semantics
+        op_needs_complete = op
+
         # function that gets called after we're connected.
         @pipeline_thread.runs_on_pipeline_thread
-        def on_connect_op_complete(op_connect, error):
+        def on_connect_op_complete(op, error):
             if error:
                 logger.error(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
-                        self.name, op.name, error
+                        self.name, op_needs_complete.name, error
                     )
                 )
-                op.complete(error=error)
+                op_needs_complete.complete(error=error)
             else:
                 logger.debug(
-                    "{}({}): connection is complete.  Continuing with op".format(self.name, op.name)
+                    "{}({}): connection is complete.  Continuing with op".format(
+                        self.name, op_needs_complete.name
+                    )
                 )
-                self.send_op_down(op)
+                self.send_op_down(op_needs_complete)
 
         # call down to the next stage to connect.
         logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))
@@ -487,21 +495,29 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
             request_id = str(uuid.uuid4())
 
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
             @pipeline_thread.runs_on_pipeline_thread
-            def on_send_request_done(send_request_op, error):
+            def on_send_request_done(op, error):
                 logger.debug(
                     "{}({}): Finished sending {} request to {} resource {}".format(
-                        self.name, op.name, op.request_type, op.method, op.resource_location
+                        self.name,
+                        op_waiting_for_response.name,
+                        op_waiting_for_response.request_type,
+                        op_waiting_for_response.method,
+                        op_waiting_for_response.resource_location,
                     )
                 )
                 if error:
                     logger.debug(
                         "{}({}): removing request {} from pending list".format(
-                            self.name, op.name, request_id
+                            self.name, op_waiting_for_response.name, request_id
                         )
                     )
                     del (self.pending_responses[request_id])
-                    op.complete(error=error)
+                    op_waiting_for_response.complete(error=error)
                 else:
                     # request sent.  Nothing to do except wait for the response
                     pass
@@ -640,9 +656,9 @@ class OpTimeoutStage(PipelineStage):
     def _clear_timer(self, op, error):
         # When an op comes back, delete the timer and pass it right up.
         if op.timeout_timer:
+            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
             op.timeout_timer.cancel()
             op.timeout_timer = None
-        logger.debug("{}({}): Op completed".format(self.name, op.name))
 
 
 class RetryStage(PipelineStage):
