@@ -67,21 +67,21 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     positional_arguments=["pipeline_configuration"],
 )
 
-# CT-TODO: move elsewhere?
-# @pytest.mark.it("Calls operation callback in callback thread")
-# def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
-#     # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
-#     # this test method gets added to, so it's a PipelineRootStage object
-#     stage.pipeline_root = stage
-#     callback_called = threading.Event()
 
-#     def callback(op, error):
-#         assert threading.current_thread().name == "callback"
-#         callback_called.set()
+@pytest.mark.it("Calls operation callback in callback thread")
+def _test_pipeline_root_runs_callback_in_callback_thread(self, stage, mocker):
+    # the stage fixture comes from the TestPipelineRootStagePipelineThreading object that
+    # this test method gets added to, so it's a PipelineRootStage object
+    stage.pipeline_root = stage
+    callback_called = threading.Event()
 
-#     op = pipeline_ops_base.ConnectOperation(callback=callback)
-#     stage.run_op(op)
-#     callback_called.wait()
+    def callback(op, error):
+        assert threading.current_thread().name == "callback"
+        callback_called.set()
+
+    op = pipeline_ops_base.ConnectOperation(callback=callback)
+    stage.run_op(op)
+    callback_called.wait()
 
 
 # CT-TODO: how is this test even passing????
@@ -152,9 +152,9 @@ def _test_pipeline_root_runs_on_event_received_in_callback_thread(
     callback_called.wait()
 
 
-# TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
-#     _test_pipeline_root_runs_callback_in_callback_thread
-# )
+TestPipelineRootStagePipelineThreading.test_runs_callback_in_callback_thread = (
+    _test_pipeline_root_runs_callback_in_callback_thread
+)
 TestPipelineRootStagePipelineThreading.test_runs_operation_in_pipeline_thread = (
     _test_pipeline_root_runs_operation_in_pipeline_thread
 )
