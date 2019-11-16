@@ -232,7 +232,6 @@ def _add_pipeline_flow_tests(cls, module):
     class SendOpDownTests(PipelineFlowTestBase):
         @pytest.mark.it("Completes the op with failure (PipelineError) if there is no next stage")
         def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
-            mocker.spy(arbitrary_op, "complete")
             stage.next = None
 
             stage.send_op_down(arbitrary_op)
