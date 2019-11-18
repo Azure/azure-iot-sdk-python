@@ -21,29 +21,7 @@ def get_next_fake_value():
     return "__fake_value_{}__".format(fake_count)
 
 
-base_operation_defaults = {"needs_connection": False}
 base_event_defaults = {}
-
-
-def add_operation_test(
-    cls, module, extra_defaults={}, positional_arguments=["callback"], keyword_arguments={}
-):
-    """
-    Add a test class to test the given PipelineOperation class.  The class that
-    we're testing is passed in the cls parameter, and the different initialization
-    constants are passed with the named arguments that follow.
-    """
-    all_extra_defaults = extra_defaults.copy()
-    all_extra_defaults.update(name=cls.__name__)
-
-    add_instantiation_test(
-        cls=cls,
-        module=module,
-        defaults=base_operation_defaults,
-        extra_defaults=all_extra_defaults,
-        positional_arguments=positional_arguments,
-        keyword_arguments=keyword_arguments,
-    )
 
 
 def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}):

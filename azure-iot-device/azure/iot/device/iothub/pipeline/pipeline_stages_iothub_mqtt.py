@@ -74,18 +74,16 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 hostname = op.hostname
 
             # TODO: test to make sure client_cert and sas_token travel down correctly
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
-                    client_id=client_id,
-                    hostname=hostname,
-                    username=username,
-                    ca_cert=op.ca_cert,
-                    client_cert=op.client_cert,
-                    sas_token=op.sas_token,
-                    callback=op.callback,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
+                client_id=client_id,
+                hostname=hostname,
+                username=username,
+                ca_cert=op.ca_cert,
+                client_cert=op.client_cert,
+                sas_token=op.sas_token,
             )
+            self.send_op_down(worker_op)
 
         elif (
             isinstance(op, pipeline_ops_base.UpdateSasTokenOperation)
@@ -97,45 +95,27 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
             )
 
-            # make a callback that can call the user's callback after the reconnect is complete
-            def on_reconnect_complete(reconnect_op, error):
-                if error:
-                    logger.error(
-                        "{}({}) reconnection failed.  returning error {}".format(
-                            self.name, op.name, error
-                        )
-                    )
-                    self.send_completed_op_up(op, error=error)
-                else:
-                    logger.debug(
-                        "{}({}) reconnection succeeded.  returning success.".format(
-                            self.name, op.name
-                        )
-                    )
-                    self.send_completed_op_up(op)
-
-            # save the old user callback so we can call it later.
-            old_callback = op.callback
-
             # make a callback that either fails the UpdateSasTokenOperation (if the lower level failed it),
             # or issues a ReconnectOperation (if the lower level returned success for the UpdateSasTokenOperation)
             def on_token_update_complete(op, error):
-                op.callback = old_callback
                 if error:
                     logger.error(
                         "{}({}) token update failed.  returning failure {}".format(
                             self.name, op.name, error
                         )
                     )
-                    self.send_completed_op_up(op, error=error)
                 else:
                     logger.debug(
                         "{}({}) token update succeeded.  reconnecting".format(self.name, op.name)
                     )
 
-                    self.send_op_down(
-                        pipeline_ops_base.ReconnectOperation(callback=on_reconnect_complete)
+                    # Stop completion of Token Update op, and only continue upon completion of Reconnect op
+                    op.halt_completion()
+                    worker_op = op.spawn_worker_op(
+                        worker_op_type=pipeline_ops_base.ReconnectOperation
                     )
+
+                    self.send_op_down(worker_op)
 
                 logger.debug(
                     "{}({}): passing to next stage with updated callback.".format(
@@ -144,7 +124,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
 
             # now, pass the UpdateSasTokenOperation down with our new callback.
-            op.callback = on_token_update_complete
+            op.add_callback(on_token_update_complete)
             self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
@@ -152,12 +132,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         ):
             # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
             topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=op.message.data, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                topic=topic,
+                payload=op.message.data,
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_iothub.SendMethodResponseOperation):
             # Sending a Method Response gets translated into an MQTT Publish operation
@@ -165,32 +145,26 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 op.method_response.request_id, str(op.method_response.status)
             )
             payload = json.dumps(op.method_response.payload)
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                    topic=topic, payload=payload, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation, topic=topic, payload=payload
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling a feature gets translated into an MQTT subscribe operation
             topic = self.feature_to_topic[op.feature_name]
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(
-                    topic=topic, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTSubscribeOperation, topic=topic
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a feature gets turned into an MQTT unsubscribe operation
             topic = self.feature_to_topic[op.feature_name]
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(
-                    topic=topic, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTUnsubscribeOperation, topic=topic
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.RequestOperation):
             if op.request_type == pipeline_constant.TWIN:
@@ -199,12 +173,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     resource_location=op.resource_location,
                     request_id=op.request_id,
                 )
-                self.send_worker_op_down(
-                    worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                        topic=topic, payload=op.request_body, callback=op.callback
-                    ),
-                    op=op,
+                worker_op = op.spawn_worker_op(
+                    worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                    topic=topic,
+                    payload=op.request_body,
                 )
+                self.send_op_down(worker_op)
             else:
                 raise pipeline_exceptions.OperationError(
                     "RequestOperation request_type {} not supported".format(op.request_type)

@@ -33,6 +33,7 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 def arbitrary_op(mocker):
     op = FakeOperation(callback=mocker.MagicMock())
     op.name = "arbitrary_op"
+    mocker.spy(op, "complete")
     return op
 
 
