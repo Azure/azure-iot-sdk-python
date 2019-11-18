@@ -98,11 +98,14 @@ class EdgePipeline(object):
 
         self._pipeline.run_op(
             pipeline_ops_edgehub.MethodInvokeOperation(
-                device_id=device_id, module_id=None, callback=on_complete
+                device_id=device_id,
+                module_id=None,
+                method_params=method_params,
+                callback=on_complete,
             )
         )
 
-    def invoke_method_on_module(self, device_id, module_id, method_params, callback):
+    def invoke_method_module_to_module(self, device_id, module_id, method_params, callback):
         """
         Send a method response to the service.
         """
@@ -113,6 +116,9 @@ class EdgePipeline(object):
 
         self._pipeline.run_op(
             pipeline_ops_edgehub.MethodInvokeOperation(
-                device_id=device_id, module_id=module_id, callback=on_complete
+                device_id=device_id,
+                module_id=module_id,
+                method_params=method_params,
+                callback=on_complete,
             )
         )

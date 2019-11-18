@@ -111,7 +111,7 @@ class MethodInvokeOperation(PipelineOperation):
     This operation is in the group of EdgeHub operations because it is very specific to the EdgeHub client.
     """
 
-    def __init__(self, device_id, method_id, method_params, callback):
+    def __init__(self, device_id, module_id, method_params, callback):
         """
         Initializer for MethodInvokeOperation objects.
 
@@ -124,5 +124,5 @@ class MethodInvokeOperation(PipelineOperation):
         """
         super(MethodInvokeOperation, self).__init__(callback=callback)
         self.device_id = device_id
-        self.method_id = method_id
+        self.module_id = module_id
         self.method_params = method_params

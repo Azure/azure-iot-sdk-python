@@ -295,6 +295,19 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
+    async def get_storage_info(self):
+        """Call up to the IoT Hub Endpoint over HTTP to get information on
+        the storage blob for uploads.
+        """
+        # TODO: Check that the HTTP Pipeline has been set properly.
+        get_storage_info_async = async_adapter.emulate_async(self._iothub_pipeline.get_storage_info)
+
+        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+        await get_storage_info_async(callback=callback)
+        storage_info = await handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info
+
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """An asynchronous device client that connects to an Azure IoT Hub instance.
@@ -409,39 +422,23 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Input message received on: " + input_name)
         return message
 
-    async def invoke_method_on_module(self, device_id, module_id, method_params):
+    async def invoke_method(self, device_id, method_params, module_id=None):
         """
         method_params should contain a method_name, payload, conenct_timeout_in_seconds, response_timeout_in_seconds
         method_result should contain a status, and a payload
         """
         if not self._edge_pipeline:
             raise exceptions.ClientError(message="Method Invoke only avaiable on Edge Modules")
-
-        invoke_method_on_module_async = async_adapter.emulate_async(
-            self._edge_pipeline.invoke_method_on_module
-        )
-        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-        await invoke_method_on_module_async(
-            device_id=device_id, module_id=module_id, method_params=method_params, callback=callback
-        )
+        if module_id:
+            invoke_method_async = async_adapter.emulate_async(
+                self._edge_pipeline.invoke_method_module_to_module
+            )
+            callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
+            await invoke_method_async(device_id, method_params, callback)
+        else:  # no module_id = not module to module
+            invoke_method_async = async_adapter.emulate_async(self._edge_pipeline.invoke_method)
+            callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
+            await invoke_method_async(device_id, module_id, method_params, callback)
         method_response = await handle_result(callback)
-        logger.info("Successfully retrieved storage_info")
+        logger.info("Successfully invoked method")
         return method_response
-
-    # async def get_storage_info(self):
-    #     """Call up to the IoT Hub Endpoint over HTTP to get information on
-    #     the storage blob for uploads.
-    #     """
-    #     # This essentially builds the HTTP Pipeline on demand. If the user isn't doing
-    #     # upload to blob or module to module communication, they shouldn't need to have
-    #     # a whole pipeline set up idling.
-    #     if not self._iothub_pipeline.feature_enabled[constant.HTTP_PIPELINE]:
-    #         await self._enable_feature(constant.HTTP_PIPELINE)
-    #     # TODO: Check that the HTTP Pipeline has been set properly.
-    #     get_storage_info_async = async_adapter.emulate_async(self._iothub_pipeline.get_storage_info)
-
-    #     callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-    #     await get_storage_info_async(callback=callback)
-    #     storage_info = await handle_result(callback)
-    #     logger.info("Successfully retrieved storage_info")
-    #     return storage_info

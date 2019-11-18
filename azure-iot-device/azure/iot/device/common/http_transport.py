@@ -20,7 +20,7 @@ http_client.HTTPSConnection.debuglevel = 1
 
 # defining all the different tyeps of HTTP Methods
 httpMethod = set("GET", "POST", "PUT", "PATCH", "DELETE")
-
+IOTHUB_API = "2019-03-30"
 
 # def translate_error(body, response):
 #     """
@@ -162,7 +162,7 @@ class HTTPTransport(object):
     """
 
     @pipeline_thread.invoke_on_http_thread_nowait
-    def request(self, method, url, body=None, headers={}, *, callback):
+    def request(self, method, hostname, path, body=None, headers={}, *, callback):
         # Sends a complete request to the server
         logger.info("sending https request")
         try:
@@ -172,6 +172,9 @@ class HTTPTransport(object):
             connection.connect()
             logger.debug("connection succeeded")
             formatted_headers = self._format_headers(headers)
+            url = "https://{hostname}/{path}?api-version={api}".format(
+                hostname=hostname, path=path, api=IOTHUB_API
+            )
             connection.request(
                 method, url, body=json.dumps(body).encode("utf-8"), headers=formatted_headers
             )
