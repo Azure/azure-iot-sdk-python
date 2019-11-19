@@ -16,7 +16,6 @@ from azure.iot.device.provisioning.models.registration_result import (
 import logging
 import weakref
 import json
-import abc
 from threading import Timer
 from .constant import REGISTER, QUERY
 from .mqtt_topic import get_optional_element
@@ -132,31 +131,29 @@ class RegistrationStage(CommonProvisioningStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
-        if isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
+    def _execute_op(self, operation):
+        if isinstance(operation, pipeline_ops_provisioning.SendRegistrationRequestOperation):
+            initial_register_op = operation
 
-            def on_registration_response(provisioning_op, error):
-
+            def on_registration_response(op, error):
                 logger.debug(
                     "{stage_name}({op_name}): Received response with status code {status_code} for SendRegistrationRequestOperation".format(
-                        stage_name=self.name,
-                        op_name=op.name,
-                        status_code=provisioning_op.status_code,
+                        stage_name=self.name, op_name=op.name, status_code=op.status_code
                     )
                 )
 
                 # This could be an error that has been reported to this stage Or this
                 # could be an error because the service responded with status code >=300
-                error = self._get_error(provisioning_op, REGISTER, error=error)
+                error = self._get_error(op, REGISTER, error=error)
 
                 if not error:
-                    success_status_code = provisioning_op.status_code
+                    success_status_code = op.status_code
                     retry_interval = (
-                        int(provisioning_op.retry_after, 10)
-                        if provisioning_op.retry_after is not None
+                        int(op.retry_after, 10)
+                        if op.retry_after is not None
                         else constant.DEFAULT_POLLING_INTERVAL
                     )
-                    decoded_response = self._decode_response(provisioning_op)
+                    decoded_response = self._decode_response(op)
                     operation_id = self._get_operation_id(decoded_response)
 
                     # retry after scenario
@@ -172,10 +169,10 @@ class RegistrationStage(CommonProvisioningStage):
                                     stage_name=this.name, op_name=op.name
                                 )
                             )
-                            op.retry_after_timer.cancel()
-                            op.retry_after_timer = None
-                            op.completed = False
-                            this._execute_op(op)
+                            initial_register_op.retry_after_timer.cancel()
+                            initial_register_op.retry_after_timer = None
+                            initial_register_op.completed = False
+                            this._execute_op(initial_register_op)
 
                         logger.warning(
                             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}.  Setting timer.".format(
@@ -186,58 +183,63 @@ class RegistrationStage(CommonProvisioningStage):
                             )
                         )
 
-                        op.retry_after_timer = Timer(retry_interval, do_retry_after)
-                        op.retry_after_timer.start()
+                        initial_register_op.retry_after_timer = Timer(
+                            retry_interval, do_retry_after
+                        )
+                        initial_register_op.retry_after_timer.start()
 
                     # Service success scenario
                     else:
                         registration_status = self._get_registration_status(decoded_response)
                         if registration_status == "assigned" or registration_status == "failed":
                             # process complete response here
+                            # TODO Is there an response when service returns "failed" ?
                             complete_registration_result = self._form_complete_result(
-                                request_id=provisioning_op.request_id,
+                                request_id=op.request_id,
                                 operation_id=operation_id,
                                 decoded_response=decoded_response,
                                 status=registration_status,
                             )
-                            op.registration_result = complete_registration_result
+                            initial_register_op.registration_result = complete_registration_result
                             if registration_status == "failed":
                                 error = exceptions.ServiceError(
                                     "Query Status operation returned a 'failed' registration status  with a status code of {status_code}".format(
                                         status_code=success_status_code
                                     )
                                 )
-                            self.complete_op(op, error=error)
+                            # complete the original op in both cases
+                            initial_register_op.complete(error=error)
                         elif registration_status == "assigning":
-
-                            query_worker_op = pipeline_ops_provisioning.SendQueryRequestOperation(
-                                request_payload=" ", operation_id=operation_id, callback=op.callback
-                            )
-
-                            original_register_callback = op.callback
 
                             def copy_result_to_original_op(op, error):
                                 logger.debug(
                                     "Copying registration result from Query Status Op to Registration Op"
                                 )
-                                op.registration_result = query_worker_op.registration_result
-                                original_register_callback(op, error=error)
+                                initial_register_op.registration_result = op.registration_result
+                                initial_register_op.error = error
 
-                            op.callback = copy_result_to_original_op
-                            self.send_worker_op_down(worker_op=query_worker_op, op=op)
+                            query_worker_op = initial_register_op.spawn_worker_op(
+                                worker_op_type=pipeline_ops_provisioning.SendQueryRequestOperation,
+                                request_payload=" ",
+                                operation_id=operation_id,
+                                callback=copy_result_to_original_op,
+                            )
+
+                            self.send_op_down(query_worker_op)
                         else:
                             error = exceptions.ServiceError(
                                 "Registration Request encountered an invalid registration status {status} with a status code of {status_code}".format(
                                     status=registration_status, status_code=success_status_code
                                 )
                             )
-                            self.complete_op(op, error=error)
+                            initial_register_op.complete(error=error)
 
                 else:
-                    self.complete_op(op, error=error)
+                    initial_register_op.complete(error=error)
 
             registration_payload = DeviceRegistrationPayload(
-                registration_id=op.registration_id, custom_payload=op.request_payload
+                registration_id=initial_register_op.registration_id,
+                custom_payload=initial_register_op.request_payload,
             )
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
@@ -250,7 +252,7 @@ class RegistrationStage(CommonProvisioningStage):
             )
 
         else:
-            self.send_op_down(op)
+            self.send_op_down(operation)
 
 
 class PollingStatusStage(CommonProvisioningStage):
@@ -264,29 +266,31 @@ class PollingStatusStage(CommonProvisioningStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
+            query_status_op = op
 
-            def on_query_response(query_op, error):
+            def on_query_response(op, error):
+                query_request_op = op
                 logger.debug(
                     "{stage_name}({op_name}): Received response with status code {status_code} for SendQueryRequestOperation with operation id {oper_id}".format(
                         stage_name=self.name,
                         op_name=op.name,
-                        status_code=query_op.status_code,
-                        oper_id=query_op.query_params["operation_id"],
+                        status_code=query_request_op.status_code,
+                        oper_id=query_request_op.query_params["operation_id"],
                     )
                 )
 
                 # This could be an error that has been reported to this stage Or this
                 # could be an error because the service responded with status code 300
-                error = self._get_error(query_op, QUERY, error=error)
+                error = self._get_error(query_request_op, QUERY, error=error)
 
                 if not error:
-                    success_status_code = query_op.status_code
+                    success_status_code = query_request_op.status_code
                     polling_interval = (
-                        int(query_op.retry_after, 10)
-                        if query_op.retry_after is not None
+                        int(query_request_op.retry_after, 10)
+                        if query_request_op.retry_after is not None
                         else constant.DEFAULT_POLLING_INTERVAL
                     )
-                    decoded_response = self._decode_response(query_op)
+                    decoded_response = self._decode_response(query_request_op)
                     operation_id = self._get_operation_id(decoded_response)
                     registration_status = self._get_registration_status(decoded_response)
 
@@ -303,10 +307,10 @@ class PollingStatusStage(CommonProvisioningStage):
                                     stage_name=this.name, op_name=op.name
                                 )
                             )
-                            op.polling_timer.cancel()
-                            op.polling_timer = None
-                            op.completed = False
-                            this._execute_op(op)
+                            query_status_op.polling_timer.cancel()
+                            query_status_op.polling_timer = None
+                            query_status_op.completed = False
+                            this._execute_op(query_status_op)
 
                         logger.warning(
                             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
@@ -317,8 +321,8 @@ class PollingStatusStage(CommonProvisioningStage):
                             )
                         )
 
-                        op.polling_timer = Timer(polling_interval, do_polling)
-                        op.polling_timer.start()
+                        query_status_op.polling_timer = Timer(polling_interval, do_polling)
+                        query_status_op.polling_timer.start()
 
                     # Service success scenario
                     else:
@@ -330,7 +334,7 @@ class PollingStatusStage(CommonProvisioningStage):
                                 decoded_response=decoded_response,
                                 status=registration_status,
                             )
-                            op.registration_result = complete_registration_result
+                            query_status_op.registration_result = complete_registration_result
 
                             if registration_status == "failed":
                                 error = exceptions.ServiceError(
@@ -345,10 +349,10 @@ class PollingStatusStage(CommonProvisioningStage):
                                 )
                             )
 
-                        self.complete_op(op, error=error)
+                        query_status_op.complete(error=error)
 
                 else:
-                    self.complete_op(op, error=error)
+                    query_status_op.complete(error=error)
 
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(

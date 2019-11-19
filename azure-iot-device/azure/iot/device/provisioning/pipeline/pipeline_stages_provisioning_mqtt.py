@@ -67,24 +67,24 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                 topic = mqtt_topic.get_topic_for_register(
                     method=op.method, request_id=op.request_id
                 )
-                self.send_worker_op_down(
-                    worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                        topic=topic, payload=op.request_body, callback=op.callback
-                    ),
-                    op=op,
+                worker_op = op.spawn_worker_op(
+                    worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                    topic=topic,
+                    payload=op.request_body,
                 )
+                self.send_op_down(worker_op)
             else:
                 topic = mqtt_topic.get_topic_for_query(
                     method=op.method,
                     request_id=op.request_id,
                     operation_id=op.query_params["operation_id"],
                 )
-                self.send_worker_op_down(
-                    worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                        topic=topic, payload=op.request_body, callback=op.callback
-                    ),
-                    op=op,
+                worker_op = op.spawn_worker_op(
+                    worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
+                    topic=topic,
+                    payload=op.request_body,
                 )
+                self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling for register gets translated into an MQTT subscribe operation
