@@ -52,17 +52,15 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
             hostname = op.provisioning_host
 
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
-                    client_id=client_id,
-                    hostname=hostname,
-                    username=username,
-                    client_cert=op.client_cert,
-                    sas_token=op.sas_token,
-                    callback=op.callback,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
+                client_id=client_id,
+                hostname=hostname,
+                username=username,
+                client_cert=op.client_cert,
+                sas_token=op.sas_token,
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.RequestOperation):
             if op.request_type == pipeline_constant.REGISTER:
@@ -91,22 +89,18 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling for register gets translated into an MQTT subscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTSubscribeOperation(
-                    topic=topic, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTSubscribeOperation, topic=topic
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a register response gets turned into an MQTT unsubscribe operation
             topic = mqtt_topic.get_topic_for_subscribe()
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_mqtt.MQTTUnsubscribeOperation(
-                    topic=topic, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_mqtt.MQTTUnsubscribeOperation, topic=topic
             )
+            self.send_op_down(worker_op)
 
         else:
             # All other operations get passed down

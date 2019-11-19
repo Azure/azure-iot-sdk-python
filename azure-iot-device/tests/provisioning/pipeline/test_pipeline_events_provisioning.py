@@ -5,16 +5,15 @@
 # --------------------------------------------------------------------------
 import sys
 import logging
-from azure.iot.device.common.pipeline import pipeline_events_mqtt
+from azure.iot.device.provisioning.pipeline import pipeline_events_provisioning
 from tests.common.pipeline import pipeline_event_test
 
 logging.basicConfig(level=logging.DEBUG)
-
 this_module = sys.modules[__name__]
 
 pipeline_event_test.add_event_test(
-    cls=pipeline_events_mqtt.IncomingMQTTMessageEvent,
+    cls=pipeline_events_provisioning.RegistrationResponseEvent,
     module=this_module,
-    positional_arguments=["topic", "payload"],
+    positional_arguments=["request_id", "status_code", "key_values", "response_payload"],
     keyword_arguments={},
 )

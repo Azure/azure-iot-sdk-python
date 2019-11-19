@@ -121,8 +121,10 @@ different_auth_provider_ops = [
 @pytest.mark.describe("UseAuthProvider - .run_op() -- called with SetAuthProviderOperation")
 class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
     @pytest.fixture
-    def stage(self):
-        return pipeline_stages_iothub.UseAuthProviderStage()
+    def stage(self, mocker):
+        stage = pipeline_stages_iothub.UseAuthProviderStage()
+        mocker.spy(stage, "send_op_down")
+        return stage
 
     @pytest.fixture
     def set_auth_provider(self, params_auth_provider_ops, mocker):
@@ -130,6 +132,8 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
             auth_provider=params_auth_provider_ops["auth_provider_function_name"](),
             callback=mocker.MagicMock(),
         )
+        mocker.spy(op, "complete")
+        mocker.spy(op, "spawn_worker_op")
         return op
 
     @pytest.fixture
@@ -144,15 +148,24 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
         op = params_auth_provider_ops["current_op_class"](
             auth_provider=auth_provider, callback=mocker.MagicMock()
         )
+        mocker.spy(op, "complete")
+        mocker.spy(op, "spawn_worker_op")
         return op
 
-    @pytest.mark.it("Runs SetIoTHubConnectionArgsOperation op on the next stage")
+    @pytest.mark.it("Runs a SetIoTHubConnectionArgsOperation worker op on the next stage")
     def test_runs_set_auth_provider_args(self, mocker, stage, set_auth_provider):
+        set_auth_provider.spawn_worker_op = mocker.MagicMock()
         stage.next._execute_op = mocker.Mock()
         stage.run_op(set_auth_provider)
-        assert stage.next._execute_op.call_count == 1
-        set_args = stage.next._execute_op.call_args[0][0]
-        assert isinstance(set_args, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation)
+
+        assert set_auth_provider.spawn_worker_op.call_count == 1
+        assert (
+            set_auth_provider.spawn_worker_op.call_args[1]["worker_op_type"]
+            is pipeline_ops_iothub.SetIoTHubConnectionArgsOperation
+        )
+        worker = set_auth_provider.spawn_worker_op.return_value
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(worker)
 
     @pytest.mark.it(
         "Sets the device_id, and hostname attributes on SetIoTHubConnectionArgsOperation based on the same-names auth_provider attributes"
@@ -197,27 +210,6 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
             assert set_args.sas_token == fake_sas_token
 
     @pytest.mark.it(
-        "Handles any Exceptions raised by SetIoTHubConnectionArgsOperation and returns them through the op callback"
-    )
-    def test_set_auth_provider_raises_exception(
-        self, mocker, stage, arbitrary_exception, set_auth_provider
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_exception)
-        stage.run_op(set_auth_provider)
-        assert_callback_failed(op=set_auth_provider, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any  BaseExceptions raised by SetIoTHubConnectionArgsOperation to propagate"
-    )
-    def test_set_auth_provider_raises_base_exception(
-        self, mocker, stage, arbitrary_base_exception, set_auth_provider
-    ):
-        stage.next._execute_op = mocker.Mock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(set_auth_provider)
-        assert e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it(
         "Retrieves sas_token or x509_certificate on the auth provider and passes the result as the attribute of the next operation"
     )
     def test_calls_get_current_sas_token_or_get_x509_certificate(
@@ -239,51 +231,6 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
             assert set_connection_args_op.client_cert.certificate_file == fake_x509_cert_file
             assert set_connection_args_op.client_cert.key_file == fake_x509_cert_key_file
             assert set_connection_args_op.client_cert.pass_phrase == fake_pass_phrase
-
-    @pytest.mark.it(
-        "Calls the callback with no error if the setting sas token or setting certificate operation succeeds"
-    )
-    def test_returns_success_if_set_sas_token_or_set_client_certificate_succeeds(
-        self, stage, set_auth_provider, next_stage_succeeds
-    ):
-        stage.run_op(set_auth_provider)
-        assert_callback_succeeded(op=set_auth_provider)
-
-    @pytest.mark.it(
-        "Handles any Exceptions raised by setting sas token or setting certificate and returns them through the op callback"
-    )
-    def test_set_sas_token_or_set_client_certificate_raises_exception(
-        self, mocker, arbitrary_exception, stage, set_auth_provider, params_auth_provider_ops
-    ):
-        if params_auth_provider_ops["name"] == "sas_token_auth":
-            set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
-                side_effect=arbitrary_exception
-            )
-        elif "x509_auth" in params_auth_provider_ops["name"]:
-            set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
-                side_effect=arbitrary_exception
-            )
-
-        stage.run_op(set_auth_provider)
-        assert_callback_failed(op=set_auth_provider, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised by get_current_sas_token or get_x509_certificate to propagate"
-    )
-    def test_set_sas_token_or_set_client_certificate_raises_base_exception(
-        self, mocker, arbitrary_base_exception, stage, set_auth_provider, params_auth_provider_ops
-    ):
-        if params_auth_provider_ops["name"] == "sas_token_auth":
-            set_auth_provider.auth_provider.get_current_sas_token = mocker.Mock(
-                side_effect=arbitrary_base_exception
-            )
-        elif "x509_auth" in params_auth_provider_ops["name"]:
-            set_auth_provider.auth_provider.get_x509_certificate = mocker.Mock(
-                side_effect=arbitrary_base_exception
-            )
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(set_auth_provider)
-        assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it("Sets the on_sas_token_updated_handler handler")
     def test_sets_sas_token_updated_handler(
@@ -373,7 +320,9 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
 
     @pytest.fixture
     def op(self, stage, mocker):
-        return pipeline_ops_iothub.GetTwinOperation(callback=mocker.MagicMock())
+        op = pipeline_ops_iothub.GetTwinOperation(callback=mocker.MagicMock())
+        mocker.spy(op, "complete")
+        return op
 
     @pytest.fixture
     def twin(self):
@@ -396,72 +345,46 @@ class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
         assert new_op.resource_location == "/"
         assert new_op.request_body == " "
 
-    @pytest.mark.it("Returns a PipelineError through the op callback if there is no next stage")
-    def test_runs_with_no_next_stage(self, stage, op):
-        stage.next = None
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=PipelineError)
-
     @pytest.mark.it(
-        "Handles any Exceptions raised by the RequestAndResponseOperation and returns them through the op callback"
+        "Completes the GetTwinOperation with the failure from RequestAndResponseOperation, if the RequestAndResponseOperation completes with failure"
     )
-    def test_next_stage_raises_exception(self, stage, op, mocker, arbitrary_exception):
-        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
-        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
-        # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised by the RequestAndResponseOperation to propagate"
-    )
-    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
-        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
-        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
-        # (it is unclear as to why at this time)
-        stage.next.run_op.side_effect = mocker.MagicMock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        assert e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it(
-        "Returns any error in the RequestAndResponseOperation callback through the op callback"
-    )
-    def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
-        def next_stage_run_op(self, op):
-            op.callback(op, error=arbitrary_exception)
+    def test_next_stage_returns_error(self, mocker, stage, op, arbitrary_exception):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.complete(error=arbitrary_exception)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns a ServiceError in the op callback if the RequestAndResponseOperation returns a status code >= 300"
+        "Completes the GetTwinOperation with a ServiceError if the RequestAndResponseOperation returns a status code >= 300"
     )
-    def test_next_stage_returns_status_over_300(self, stage, op):
-        def next_stage_run_op(self, op):
-            op.status_code = 400
+    def test_next_stage_returns_status_over_300(self, mocker, stage, op):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.status_code = 400
             # TODO: should this have a body? Should with/without be a separate test?
-            op.response_body = json.dumps("").encode("utf-8")
-            op.callback(op, error=None)
+            next_stage_op.response_body = json.dumps("").encode("utf-8")
+            next_stage_op.complete()
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=ServiceError)
+        assert op.complete.call_count == 1
+        assert type(op.complete.call_args[1]["error"]) is ServiceError
 
     @pytest.mark.it(
         "Decodes, deserializes, and returns the request_body from RequestAndResponseOperation as the twin attribute on the op along with no error if the status code < 300"
     )
-    def test_next_stage_completes_correctly(self, stage, op, twin, twin_as_bytes):
-        def next_stage_run_op(self, op):
-            op.status_code = 200
-            op.response_body = twin_as_bytes
-            op.callback(op, error=None)
+    def test_next_stage_completes_correctly(self, mocker, stage, op, twin, twin_as_bytes):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.status_code = 200
+            next_stage_op.response_body = twin_as_bytes
+            next_stage_op.complete()
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=None)
         assert op.twin == twin
 
 
@@ -483,9 +406,11 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
 
     @pytest.fixture
     def op(self, stage, mocker, patch):
-        return pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
+        op = pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
             patch=patch, callback=mocker.MagicMock()
         )
+        mocker.spy(op, "complete")
+        return op
 
     @pytest.mark.it(
         "Runs a RequestAndResponseOperation operation on the next stage with request_type='twin', method='PATCH', resource_location='/properties/reported/', and the request_body attribute set to a stringification of the patch"
@@ -500,64 +425,40 @@ class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase
         assert new_op.resource_location == "/properties/reported/"
         assert new_op.request_body == patch_as_string
 
-    @pytest.mark.it("Returns an PipelineError through the op callback if there is no next stage")
-    def test_runs_with_no_next_stage(self, stage, op):
-        stage.next = None
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=PipelineError)
-
     @pytest.mark.it(
-        "Handles any Exceptions raised by the RequestAndResponseOperation and returns them through the op callback"
+        "Completes the PatchTwinReportedPropertiesOperation with the failure from RequestAndResponseOperation, if the RequestAndResponse operation completes with failure"
     )
-    def test_next_stage_raises_exception(self, stage, op, arbitrary_exception, mocker):
-        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
-        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
-        # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-        stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseExceptions raised by the RequestAndResponseOperation to propagate"
-    )
-    def test_next_stage_raises_base_exception(self, mocker, stage, op, arbitrary_base_exception):
-        # Although stage.next.run_op is already a mocker.spy (i.e. a MagicMock) as a result of the
-        # fixture config, in Python 3.4 setting the side effect directly results in a TypeError
-        # (it is unclear as to why at this time)
-        stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        assert e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it(
-        "Returns any error in the RequestAndResponseOperation callback through the op callback"
-    )
-    def test_next_stage_returns_error(self, stage, op, arbitrary_exception):
-        def next_stage_run_op(self, op):
-            op.callback(op, error=arbitrary_exception)
+    def test_next_stage_returns_error(self, mocker, stage, op, arbitrary_exception):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.complete(error=arbitrary_exception)
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=arbitrary_exception)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
-        "Returns a ServiceError in the op callback if the RequestAndResponseOperation returns a status code >= 300"
+        "Completes the PatchTwinReportedPropertiesOperation with a ServiceError, if the RequestAndResponseOperation returns a status code >= 300"
     )
     def test_next_stage_returns_status_over_300(self, stage, op):
-        def next_stage_run_op(self, op):
-            op.status_code = 400
-            op.callback(op, error=None)
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.status_code = 400
+            next_stage_op.complete()
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_failed(op=op, error=ServiceError)
+        assert op.complete.call_count == 1
+        assert type(op.complete.call_args[1]["error"]) is ServiceError
 
-    @pytest.mark.it("Returns no error on the op callback if the status code < 300")
-    def test_next_stage_completes_correctly(self, stage, op):
-        def next_stage_run_op(self, op):
-            op.status_code = 200
-            op.callback(op, error=None)
+    @pytest.mark.it(
+        "Completes the PatchTwinReportedPropertiesOperation successfully if the status code < 300"
+    )
+    def test_next_stage_completes_correctly(self, mocker, stage, op):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.status_code = 200
+            next_stage_op.complete()
 
         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
         stage.run_op(op)
-        assert_callback_succeeded(op=op)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=None)
