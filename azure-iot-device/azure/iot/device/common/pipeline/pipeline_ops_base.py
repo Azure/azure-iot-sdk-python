@@ -195,14 +195,7 @@ class RequestAndResponseOperation(PipelineOperation):
     """
 
     def __init__(
-        self,
-        request_type,
-        method,
-        resource_location,
-        request_body,
-        callback,
-        operation_id=None,
-        registration_id=None,
+        self, request_type, method, resource_location, request_body, callback, query_params=None
     ):
         """
         Initializer for RequestAndResponseOperation objects
@@ -227,9 +220,7 @@ class RequestAndResponseOperation(PipelineOperation):
         self.request_body = request_body
         self.status_code = None
         self.response_body = None
-        # TODO Question : If not here we have to define new op DPSRequestAndWaitForResponseOperation
-        self.registration_id = registration_id
-        self.operation_id = operation_id
+        self.query_params = query_params
 
 
 class RequestOperation(PipelineOperation):
@@ -249,8 +240,7 @@ class RequestOperation(PipelineOperation):
         request_body,
         request_id,
         callback,
-        operation_id=None,
-        registration_id=None,
+        query_params=None,
     ):
         """
         Initializer for RequestOperation objects
@@ -276,6 +266,4 @@ class RequestOperation(PipelineOperation):
         self.request_type = request_type
         self.request_body = request_body
         self.request_id = request_id
-        # TODO Question : If not here we have to define new op DPSRequestOperation
-        self.registration_id = registration_id
-        self.operation_id = operation_id
+        self.query_params = query_params

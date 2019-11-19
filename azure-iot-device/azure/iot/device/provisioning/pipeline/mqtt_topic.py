@@ -93,3 +93,22 @@ def extract_status_code_from_topic(topic):
     url_parts = topic_parts[1].split("/")
     status_code = url_parts[POS_STATUS_CODE_IN_TOPIC]
     return status_code
+
+
+def get_optional_element(content, element_name, index=0):
+    """
+    Gets an optional element from json string , or dictionary.
+    :param content: The content from which the element needs to be retrieved.
+    :param element_name: The name of the element
+    :param index: Optional index in case the return is a collection of elements.
+    """
+    element = None if element_name not in content else content[element_name]
+    if element is None:
+        return None
+    else:
+        if type(element) is object or type(element) is dict:
+            return element
+        elif type(element) is list:
+            return element[index]
+        else:
+            return str(element)

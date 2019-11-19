@@ -4,10 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 from azure.iot.device.common.pipeline.pipeline_ops_base import PipelineOperation
-from azure.iot.device.common.pipeline.pipeline_ops_base import (
-    RequestAndResponseOperation,
-    RequestOperation,
-)
 
 
 class SetSymmetricKeySecurityClientOperation(PipelineOperation):

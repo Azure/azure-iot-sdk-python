@@ -17,7 +17,6 @@ from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from azure.iot.device.provisioning.pipeline import mqtt_topic
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device import constant as pkg_constant
-import json
 from . import constant as pipeline_constant
 
 logger = logging.getLogger(__name__)
@@ -70,20 +69,17 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                 topic = mqtt_topic.get_topic_for_register(
                     method=op.method, request_id=op.request_id
                 )
-                registration_payload = DeviceRegistrationPayload(
-                    registration_id=op.registration_id, custom_payload=op.request_body
-                )
                 self.send_worker_op_down(
                     worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
-                        topic=topic,
-                        payload=registration_payload.get_json_string(),
-                        callback=op.callback,
+                        topic=topic, payload=op.request_body, callback=op.callback
                     ),
                     op=op,
                 )
             else:
                 topic = mqtt_topic.get_topic_for_query(
-                    method=op.method, request_id=op.request_id, operation_id=op.operation_id
+                    method=op.method,
+                    request_id=op.request_id,
+                    operation_id=op.query_params["operation_id"],
                 )
                 self.send_worker_op_down(
                     worker_op=pipeline_ops_mqtt.MQTTPublishOperation(
@@ -132,9 +128,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                     )
                 )
                 key_values = mqtt_topic.extract_properties_from_topic(topic)
-                retry_after = (
-                    None if "retry-after" not in key_values else str(key_values["retry-after"][0])
-                )
+                retry_after = mqtt_topic.get_optional_element(key_values, "retry-after", 0)
                 status_code = mqtt_topic.extract_status_code_from_topic(topic)
                 request_id = key_values["rid"][0]
 
@@ -153,18 +147,3 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
         else:
             # all other messages get passed up
             self.send_event_up(event)
-
-
-class DeviceRegistrationPayload(object):
-    """
-    The class representing the payload that needs to be sent to the service.
-    """
-
-    def __init__(self, registration_id, custom_payload=None):
-        # This is not a convention to name variables in python but the
-        # DPS service spec needs the name to be exact for it to work
-        self.registrationId = registration_id
-        self.payload = custom_payload
-
-    def get_json_string(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

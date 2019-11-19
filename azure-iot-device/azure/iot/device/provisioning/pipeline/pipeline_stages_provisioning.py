@@ -19,7 +19,7 @@ import json
 import abc
 from threading import Timer
 from .constant import REGISTER, QUERY
-
+from .mqtt_topic import get_optional_element
 
 logger = logging.getLogger(__name__)
 
@@ -66,22 +66,8 @@ class UseSecurityClientStage(PipelineStage):
 
 
 class CommonProvisioningStage(PipelineStage):
-    # @pipeline_thread.runs_on_pipeline_thread
-    # def _get_retry_value(self, provisioning_op):
-    #     """
-    #     Return None if there is an error or else return the retry-after value obtained from the
-    #     service response. If the service has not given a retry-afer then return a default value.
-    #     The only reason a operation will not be retried is if it has moved to a different operation or else it has completed successfully.
-    #     In this case it means that a SendRegistrationRequestOperation
-    #     """
-    #     key_values_dict = provisioning_op.key_values
-    #     retry_after = (
-    #         None if "retry-after" not in key_values_dict else str(key_values_dict["retry-after"][0])
-    #     )
-    #     return retry_after
-
     @pipeline_thread.runs_on_pipeline_thread
-    def _process_error(self, provisioning_op, prov_op_name, error):
+    def _get_error(self, provisioning_op, prov_op_name, error):
         if error:
             return error
         elif 300 <= provisioning_op.status_code < 429:
@@ -105,72 +91,38 @@ class CommonProvisioningStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _get_registration_status(self, decoded_response):
-
-        status = None if "status" not in decoded_response else str(decoded_response["status"])
-        return status
+        return get_optional_element(decoded_response, "status")
 
     @pipeline_thread.runs_on_pipeline_thread
     def _get_operation_id(self, decoded_response):
-
-        operation_id = (
-            None if "operationId" not in decoded_response else str(decoded_response["operationId"])
-        )
-        return operation_id
+        return get_optional_element(decoded_response, "operationId")
 
     @pipeline_thread.runs_on_pipeline_thread
     def _form_complete_result(self, operation_id, decoded_response, status):
         """
         Create the registration result from the complete decoded json response for details regarding the registration process.
         """
-        decoded_state = (
-            None
-            if "registrationState" not in decoded_response
-            else decoded_response["registrationState"]
-        )
+        decoded_state = (get_optional_element(decoded_response, "registrationState"),)
         registration_state = None
         if decoded_state is not None:
             # Everything needs to be converted to string explicitly for python 2
             # as everything is by default a unicode character
+
             registration_state = RegistrationState(
-                device_id=None
-                if "deviceId" not in decoded_state
-                else str(decoded_state["deviceId"]),
-                assigned_hub=None
-                if "assignedHub" not in decoded_state
-                else str(decoded_state["assignedHub"]),
-                sub_status=None
-                if "substatus" not in decoded_state
-                else str(decoded_state["substatus"]),
-                created_date_time=None
-                if "createdDateTimeUtc" not in decoded_state
-                else str(decoded_state["createdDateTimeUtc"]),
-                last_update_date_time=None
-                if "lastUpdatedDateTimeUtc" not in decoded_state
-                else str(decoded_state["lastUpdatedDateTimeUtc"]),
-                etag=None if "etag" not in decoded_state else str(decoded_state["etag"]),
+                device_id=get_optional_element(decoded_state[0], "deviceId"),
+                assigned_hub=get_optional_element(decoded_state[0], "assignedHub"),
+                sub_status=get_optional_element(decoded_state[0], "substatus"),
+                created_date_time=get_optional_element(decoded_state[0], "createdDateTimeUtc"),
+                last_update_date_time=get_optional_element(
+                    decoded_state[0], "lastUpdatedDateTimeUtc"
+                ),
+                etag=get_optional_element(decoded_state[0], "etag"),
             )
 
         registration_result = RegistrationResult(
-            # request_id=request_id,
-            operation_id=operation_id,
-            status=status,
-            registration_state=registration_state,
+            operation_id=operation_id, status=status, registration_state=registration_state
         )
         return registration_result
-
-    @abc.abstractmethod
-    def _execute_op(self, op):
-        """
-        Abstract method to run the actual operation.  This function is implemented in derived classes
-        and performs the actual work that any operation expects.  The default behavior for this function
-        should be to forward the event to the next stage using _send_op_down for any
-        operations that a particular stage might not operate on.
-
-        See the description of the run_op method for more discussion on what it means to "run" an operation.
-
-        :param PipelineOperation op: The operation to run.
-        """
-        pass
 
 
 class RegistrationStage(CommonProvisioningStage):
@@ -198,8 +150,8 @@ class RegistrationStage(CommonProvisioningStage):
                 )
 
                 # This could be an error that has been reported to this stage Or this
-                # could be an error because the service responded with status code 300
-                error = self._process_error(provisioning_op, REGISTER, error=error)
+                # could be an error because the service responded with status code >=300
+                error = self._get_error(provisioning_op, REGISTER, error=error)
 
                 if not error:
                     success_status_code = provisioning_op.status_code
@@ -225,6 +177,7 @@ class RegistrationStage(CommonProvisioningStage):
                                 )
                             )
                             op.retry_after_timer.cancel()
+                            op.retry_after_timer = None
                             op.completed = False
                             this._execute_op(op)
 
@@ -252,15 +205,30 @@ class RegistrationStage(CommonProvisioningStage):
                                 status=registration_status,
                             )
                             op.registration_result = complete_registration_result
+                            if registration_status == "failed":
+                                error = exceptions.ServiceError(
+                                    "Query Status operation returned a 'failed' registration status  with a status code of {status_code}".format(
+                                        status_code=success_status_code
+                                    )
+                                )
                             self.complete_op(op, error=error)
                         elif registration_status == "assigning":
-                            self.send_op_down(
-                                op=pipeline_ops_provisioning.SendQueryRequestOperation(
-                                    request_payload=" ",
-                                    operation_id=operation_id,
-                                    callback=op.callback,
-                                )
+
+                            query_worker_op = pipeline_ops_provisioning.SendQueryRequestOperation(
+                                request_payload=" ", operation_id=operation_id, callback=op.callback
                             )
+
+                            original_register_callback = op.callback
+
+                            def copy_result_to_original_op(op, error):
+                                logger.debug(
+                                    "Copying registration result from Query Status Op to Registration Op"
+                                )
+                                op.registration_result = query_worker_op.registration_result
+                                original_register_callback(op, error=error)
+
+                            op.callback = copy_result_to_original_op
+                            self.send_worker_op_down(worker_op=query_worker_op, op=op)
                         else:
                             error = exceptions.ServiceError(
                                 "Registration Request encountered an invalid registration status {status} with a status code of {status_code}".format(
@@ -272,13 +240,15 @@ class RegistrationStage(CommonProvisioningStage):
                 else:
                     self.complete_op(op, error=error)
 
+            registration_payload = DeviceRegistrationPayload(
+                registration_id=op.registration_id, custom_payload=op.request_payload
+            )
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
                     request_type=constant.REGISTER,
                     method="PUT",
                     resource_location="/",
-                    request_body=op.request_payload,
-                    registration_id=op.registration_id,
+                    request_body=registration_payload.get_json_string(),
                     callback=on_registration_response,
                 )
             )
@@ -305,18 +275,16 @@ class PollingStatusStage(CommonProvisioningStage):
                         stage_name=self.name,
                         op_name=op.name,
                         status_code=query_op.status_code,
-                        # TODO Populate with operation Id
-                        oper_id=query_op.operation_id,
+                        oper_id=query_op.query_params["operation_id"],
                     )
                 )
 
                 # This could be an error that has been reported to this stage Or this
                 # could be an error because the service responded with status code 300
-                error = self._process_error(query_op, QUERY, error=error)
+                error = self._get_error(query_op, QUERY, error=error)
 
                 if not error:
                     success_status_code = query_op.status_code
-                    # None if "retry-after" not in key_values else str(key_values["retry-after"][0])
                     polling_interval = (
                         int(query_op.retry_after, 10)
                         if query_op.retry_after is not None
@@ -340,6 +308,7 @@ class PollingStatusStage(CommonProvisioningStage):
                                 )
                             )
                             op.polling_timer.cancel()
+                            op.polling_timer = None
                             op.completed = False
                             this._execute_op(op)
 
@@ -366,6 +335,13 @@ class PollingStatusStage(CommonProvisioningStage):
                                 status=registration_status,
                             )
                             op.registration_result = complete_registration_result
+
+                            if registration_status == "failed":
+                                error = exceptions.ServiceError(
+                                    "Query Status operation returned a 'failed' registration status  with a status code of {status_code}".format(
+                                        status_code=success_status_code
+                                    )
+                                )
                         else:
                             error = exceptions.ServiceError(
                                 "Query Status Operation encountered an invalid registration status {status} with a status code of {status_code}".format(
@@ -383,7 +359,7 @@ class PollingStatusStage(CommonProvisioningStage):
                     request_type=constant.QUERY,
                     method="GET",
                     resource_location="/",
-                    operation_id=op.operation_id,
+                    query_params={"operation_id": op.operation_id},
                     request_body=op.request_payload,
                     callback=on_query_response,
                 )
@@ -391,3 +367,18 @@ class PollingStatusStage(CommonProvisioningStage):
 
         else:
             self.send_op_down(op)
+
+
+class DeviceRegistrationPayload(object):
+    """
+    The class representing the payload that needs to be sent to the service.
+    """
+
+    def __init__(self, registration_id, custom_payload=None):
+        # This is not a convention to name variables in python but the
+        # DPS service spec needs the name to be exact for it to work
+        self.registrationId = registration_id
+        self.payload = custom_payload
+
+    def get_json_string(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
