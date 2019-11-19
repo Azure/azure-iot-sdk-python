@@ -35,32 +35,29 @@ class UseAuthProviderStage(PipelineStage):
             self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
                 self, "on_sas_token_updated"
             )
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
-                    device_id=self.auth_provider.device_id,
-                    module_id=getattr(self.auth_provider, "module_id", None),
-                    hostname=self.auth_provider.hostname,
-                    gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                    ca_cert=getattr(self.auth_provider, "ca_cert", None),
-                    sas_token=self.auth_provider.get_current_sas_token(),
-                    callback=op.callback,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
+                device_id=self.auth_provider.device_id,
+                module_id=getattr(self.auth_provider, "module_id", None),
+                hostname=self.auth_provider.hostname,
+                gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
+                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                sas_token=self.auth_provider.get_current_sas_token(),
             )
+            self.send_op_down(worker_op)
+
         elif isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
             self.auth_provider = op.auth_provider
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(
-                    device_id=self.auth_provider.device_id,
-                    module_id=getattr(self.auth_provider, "module_id", None),
-                    hostname=self.auth_provider.hostname,
-                    gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                    ca_cert=getattr(self.auth_provider, "ca_cert", None),
-                    client_cert=self.auth_provider.get_x509_certificate(),
-                    callback=op.callback,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
+                device_id=self.auth_provider.device_id,
+                module_id=getattr(self.auth_provider, "module_id", None),
+                hostname=self.auth_provider.hostname,
+                gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
+                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                client_cert=self.auth_provider.get_x509_certificate(),
             )
+            self.send_op_down(worker_op)
         else:
             self.send_op_down(op)
 
@@ -117,12 +114,16 @@ class TwinRequestResponseStage(PipelineStage):
 
         if isinstance(op, pipeline_ops_iothub.GetTwinOperation):
 
-            def on_twin_response(twin_op, error):
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
+            def on_twin_response(op, error):
                 logger.debug("{}({}): Got response for GetTwinOperation".format(self.name, op.name))
-                error = map_twin_error(error=error, twin_op=twin_op)
+                error = map_twin_error(error=error, twin_op=op)
                 if not error:
-                    op.twin = json.loads(twin_op.response_body.decode("utf-8"))
-                self.complete_op(op, error=error)
+                    op_waiting_for_response.twin = json.loads(op.response_body.decode("utf-8"))
+                op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
@@ -136,14 +137,18 @@ class TwinRequestResponseStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_iothub.PatchTwinReportedPropertiesOperation):
 
-            def on_twin_response(twin_op, error):
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
+            def on_twin_response(op, error):
                 logger.debug(
                     "{}({}): Got response for PatchTwinReportedPropertiesOperation operation".format(
                         self.name, op.name
                     )
                 )
-                error = map_twin_error(error=error, twin_op=twin_op)
-                self.complete_op(op, error=error)
+                error = map_twin_error(error=error, twin_op=op)
+                op_waiting_for_response.complete(error=error)
 
             logger.debug(
                 "{}({}): Sending reported properties patch: {}".format(self.name, op.name, op.patch)
