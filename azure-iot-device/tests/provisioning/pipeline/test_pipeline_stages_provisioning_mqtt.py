@@ -200,7 +200,6 @@ basic_ops = [
         "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "registration_id": fake_registration_id,
             "request_type": pipeline_constant.REGISTER,
             "method": "PUT",
             "resource_location": "/",
@@ -212,10 +211,10 @@ basic_ops = [
         "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "registration_id": fake_registration_id,
             "request_type": pipeline_constant.QUERY,
             "method": "GET",
             "resource_location": "/",
+            "query_params": {"operation_id": fake_operation_id},
             "request_body": "test payload",
         },
         "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
@@ -286,11 +285,12 @@ publish_ops = [
         "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "registration_id": fake_registration_id,
             "request_type": pipeline_constant.REGISTER,
             "method": "PUT",
             "resource_location": "/",
-            "request_body": None,
+            "request_body": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+                reg_id=fake_registration_id, json_payload=json.dumps(None)
+            ),
         },
         "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
             request_id=fake_request_id
@@ -304,11 +304,12 @@ publish_ops = [
         "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "registration_id": fake_registration_id,
             "request_type": pipeline_constant.REGISTER,
             "method": "PUT",
             "resource_location": "/",
-            "request_body": fake_mqtt_payload,
+            "request_body": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
+                reg_id=fake_registration_id, json_payload=json.dumps(fake_mqtt_payload)
+            ),
         },
         "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
             request_id=fake_request_id
@@ -322,7 +323,7 @@ publish_ops = [
         "op_class": pipeline_ops_base.RequestOperation,
         "op_init_kwargs": {
             "request_id": fake_request_id,
-            "operation_id": fake_operation_id,
+            "query_params": {"operation_id": fake_operation_id},
             "request_type": pipeline_constant.QUERY,
             "method": "GET",
             "resource_location": "/",

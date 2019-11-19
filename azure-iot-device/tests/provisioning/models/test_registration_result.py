@@ -11,6 +11,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationResult,
     RegistrationState,
 )
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -98,8 +99,9 @@ class TestRegistrationResult(object):
     )
     def test_registration_state_to_string_without_payload(self):
         registration_state = create_registration_state()
+        json_payload = json.dumps(None, default=lambda o: o.__dict__, sort_keys=True)
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, ""])
+        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])
         assert str(registration_state) == string_repr
 
     @pytest.mark.it(
@@ -107,8 +109,9 @@ class TestRegistrationResult(object):
     )
     def test_registration_state_to_string_with_payload(self):
         registration_state = create_registration_state(fake_payload)
+        json_payload = json.dumps(fake_payload, default=lambda o: o.__dict__, sort_keys=True)
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, fake_payload])
+        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])
         assert str(registration_state) == string_repr
 
 

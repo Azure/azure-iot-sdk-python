@@ -62,5 +62,4 @@ class ResponseEvent(PipelineEvent):
         self.request_id = request_id
         self.status_code = status_code
         self.response_body = response_body
-        # TODO Question : If not here we have to use DPSResponse
         self.retry_after = retry_after
