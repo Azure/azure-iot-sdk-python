@@ -170,6 +170,8 @@ def invoke_on_http_thread_nowait(func):
     """
     Run the decorated function on the callback thread, but don't wait for it to complete
     """
+    # TODO: Refactor this since this is not in the pipeline thread anymore, so we need to pull this into common.
+    # Also, the max workers eventually needs to be a bigger number, so that needs to be fixed to allow for more than one HTTP Request a a time.
     return _invoke_on_executor_thread(func=func, thread_name="azure_iot_http", block=False)
 
 

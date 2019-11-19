@@ -422,12 +422,15 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Input message received on: " + input_name)
         return message
 
-    async def invoke_method(self, device_id, method_params, module_id=None):
+    async def invoke_method(self, method_params, device_id, module_id=None):
+        # TODO: Should the pipeline level be split into to? According to everyone,
+        # it should be only one in the pipeline level, so I should change this.
         """
         method_params should contain a method_name, payload, conenct_timeout_in_seconds, response_timeout_in_seconds
         method_result should contain a status, and a payload
         """
         if not self._edge_pipeline:
+            # TODO: Is this the right type of Error? CC: Carter
             raise exceptions.ClientError(message="Method Invoke only avaiable on Edge Modules")
         if module_id:
             invoke_method_async = async_adapter.emulate_async(

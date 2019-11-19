@@ -14,8 +14,8 @@ from azure.iot.device.common.pipeline import (
 )
 from . import (
     constant,
-    pipeline_stages_edgehub,
-    pipeline_events_edgehub,
+    pipeline_stages_iothub,
+    pipeline_ops_iothub,
     pipeline_ops_edgehub,
     pipeline_stages_edgehub_http,
 )
@@ -41,46 +41,19 @@ class EdgePipeline(object):
 
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
-            .append_stage(pipeline_stages_edgehub.UseAuthProviderStage())
+            .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             .append_stage(pipeline_stages_edgehub_http.EdgeHubHTTPTranslationStage())
-            .append_stage(pipeline_stages_base.ReconnectStage())
-            .append_stage(pipeline_stages_base.AutoConnectStage())
-            .append_stage(pipeline_stages_base.ConnectionLockStage())
-            .append_stage(pipeline_stages_base.RetryStage())
-            .append_stage(pipeline_stages_base.OpTimeoutStage())
             .append_stage(pipeline_stages_http.HTTPTransportStage())
         )
-
-        def _on_pipeline_event(event):
-            if isinstance(event, pipeline_events_edgehub.MethodInvokeEvent):
-                # TODO: Fix this event stuff
-                if self.on_c2d_message_received:
-                    self.on_c2d_message_received(event.message)
-                else:
-                    logger.warning("C2D message event received with no handler.  dropping.")
-            else:
-                logger.warning("Dropping unknown pipeline event {}".format(event.name))
-
-        def _on_connected():
-            if self.on_connected:
-                self.on_connected()
-
-        def _on_disconnected():
-            if self.on_disconnected:
-                self.on_disconnected()
-
-        self._pipeline.on_pipeline_event_handler = _on_pipeline_event
-        self._pipeline.on_connected_handler = _on_connected
-        self._pipeline.on_disconnected_handler = _on_disconnected
 
         callback = EventedCallback()
 
         if isinstance(auth_provider, X509AuthenticationProvider):
-            op = pipeline_ops_edgehub.SetX509AuthProviderOperation(
+            op = pipeline_ops_iothub.SetX509AuthProviderOperation(
                 auth_provider=auth_provider, callback=callback
             )
         else:  # Currently everything else goes via this block.
-            op = pipeline_ops_edgehub.SetAuthProviderOperation(
+            op = pipeline_ops_iothub.SetAuthProviderOperation(
                 auth_provider=auth_provider, callback=callback
             )
 

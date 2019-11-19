@@ -101,45 +101,19 @@ class HTTPTransport(object):
     BLAH BLAH BLAH
     """
 
-    def __init__(self, hostname, sas, ca_cert, x509_cert):
+    def __init__(self, hostname, ca_cert, x509_cert):
         """
         Constructor to instantiate an HTTP protocol wrapper.
         """
         self._hostname = hostname
-        self._sas = sas
         self._ca_cert = ca_cert
         self._x509_cert = x509_cert
 
     def _format_headers(self, headers):
         # TODO: Right now I'm only doing sas token because I'm lazy and limited
-        headers["Authorization"] = self._sas
-        return headers
-
-    @pipeline_thread.invoke_on_http_thread_nowait
-    def connect(self, password):
-        # Connect to the server specified when the object was created.
-        # In the http client level, this connects to a TCP socket
-        logger.info("connecting to http host")
-        try:
-            connection = http_client.HTTPSConnection(self._hostname)
-            connection.connect()
-            logger.debug("connection succeeded")
-        except Exception as e:
-            raise exceptions.ProtocolClientError(
-                message="Unexpected HTTP failure during connect", cause=e
-            )
-
-    @pipeline_thread.invoke_on_http_thread_nowait
-    def close(self):
-        logger.info("closing connection to http host")
-        try:
-            connection = http_client.HTTPSConnection(self._hostname)
-            connection.close()
-            logger.debug("connection closed")
-        except Exception as e:
-            raise exceptions.ProtocolClientError(
-                message="Unexpected HTTP failure during close", cause=e
-            )
+        formatted_headers = {}
+        formatted_headers["Authorization"] = headers["sas"]
+        return formatted_headers
 
     """
     Some backstory on this.
@@ -162,7 +136,8 @@ class HTTPTransport(object):
     """
 
     @pipeline_thread.invoke_on_http_thread_nowait
-    def request(self, method, hostname, path, body=None, headers={}, *, callback):
+    # TODO: This star syntax is incompatible with Python 2, change it so that the callback is in front of the optional params.
+    def request(self, method, hostname, path, callback, body=None, headers={}):
         # Sends a complete request to the server
         logger.info("sending https request")
         try:
@@ -184,8 +159,10 @@ class HTTPTransport(object):
             connection.close()
             logger.debug("connection closed")
             logger.info("https request sent")
-            callback()
+            callback(response)
         except Exception as e:
+            # TODO: This exception needs to be returned in the callback, I cannot raise here because it's in a different thread than the pipeline
+            # and would therefore do nothing. Instead pass an exception to the callback as an error if this is excepted.
             raise exceptions.ProtocolClientError(
                 message="Unexpected HTTPS failure during connect", cause=e
             )
