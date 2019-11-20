@@ -57,6 +57,11 @@ try:
     iothub_module = iothub_registry_manager.get_module(device_id, module_id)
     print_module_info("Get Module", iothub_module)
 
+    # Get all modules on the device
+    all_modules = iothub_registry_manager.get_modules(device_id)
+    for module in all_modules:
+        print_module_info("", module)
+
     # Update Module
     primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     secondary_key = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
