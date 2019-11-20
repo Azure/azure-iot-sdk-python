@@ -48,7 +48,7 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation):
             # pipeline_ops_mqtt.SetMQTTConnectionArgsOperation is where we create our MQTTTransport object and set
             # all of its properties.
@@ -173,7 +173,8 @@ class MQTTTransportStage(PipelineStage):
             self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
 
         else:
-            self.send_op_down(op)
+            # This code block should not be reached in correct program flow.
+            super(MQTTTransportStage, self)._run_op(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_message_received(self, topic, payload):

@@ -86,7 +86,7 @@ class PipelineStage(object):
     def run_op(self, op):
         """
         Run the given operation.  This is the public function that outside callers would call to run an
-        operation.  Derived classes should override the private _execute_op function to implement
+        operation.  Derived classes should override the private _run_op function to implement
         stage-specific behavior.  When run_op returns, that doesn't mean that the operation has executed
         to completion.  Rather, it means that the pipeline has done something that will cause the
         operation to eventually execute to completion.  That might mean that something was sent over
@@ -99,15 +99,15 @@ class PipelineStage(object):
         """
         logger.debug("{}({}): running".format(self.name, op.name))
         try:
-            self._execute_op(op)
+            self._run_op(op)
         except Exception as e:
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
-            # within ._execute_op()
-            logger.error(msg="Unexpected error in {}._execute_op() call".format(self), exc_info=e)
+            # within ._run_op()
+            logger.error(msg="Unexpected error in {}._run_op() call".format(self), exc_info=e)
             op.complete(error=e)
 
-    @abc.abstractmethod
-    def _execute_op(self, op):
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
         """
         Abstract method to run the actual operation.  This function is implemented in derived classes
         and performs the actual work that any operation expects.  The default behavior for this function
@@ -118,7 +118,7 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
-        pass
+        self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def handle_pipeline_event(self, event):
@@ -239,15 +239,15 @@ class PipelineRootStage(PipelineStage):
         )
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
-        """
-        run the operation.  At the root, the only thing to do is to pass the operation
-        to the next stage.
+    # @pipeline_thread.runs_on_pipeline_thread
+    # def _run_op(self, op):
+    #     """
+    #     run the operation.  At the root, the only thing to do is to pass the operation
+    #     to the next stage.
 
-        :param PipelineOperation op: Operation to run.
-        """
-        self.send_op_down(op)
+    #     :param PipelineOperation op: Operation to run.
+    #     """
+    #     self.send_op_down(op)
 
     def append_stage(self, new_next_stage):
         """
@@ -311,7 +311,7 @@ class AutoConnectStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         # Any operation that requires a connection can trigger a connection if
         # we're not connected.
         if op.needs_connection and not self.pipeline_root.connected:
@@ -325,7 +325,7 @@ class AutoConnectStage(PipelineStage):
         # Finally, if this stage doesn't need to do anything else with this operation,
         # it just passes it down.
         else:
-            self.send_op_down(op)
+            super(AutoConnectStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _do_connect(self, op):
@@ -374,7 +374,7 @@ class ConnectionLockStage(PipelineStage):
         self.blocked = False
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         # If this stage is currently blocked (because we're waiting for a connection, etc,
         # to complete), we queue up all operations until after the connect completes.
         if self.blocked:
@@ -429,7 +429,7 @@ class ConnectionLockStage(PipelineStage):
             self.send_op_down(op)
 
         else:
-            self.send_op_down(op)
+            super(ConnectionLockStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):
@@ -486,7 +486,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         self.pending_responses = {}
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.RequestAndResponseOperation):
             # Convert RequestAndResponseOperation operation into a RequestOperation operation
             # and send it down.  A lower level will convert the RequestOperation into an
@@ -544,7 +544,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             self.send_op_down(new_op)
 
         else:
-            self.send_op_down(op)
+            super(CoordinateRequestAndResponseStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -581,7 +581,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
         else:
-            self.send_event_up(event)
+            super(CoordinateRequestAndResponseStage, self)._handle_pipeline_event(event)
 
 
 class OpTimeoutStage(PipelineStage):
@@ -624,7 +624,7 @@ class OpTimeoutStage(PipelineStage):
         }
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if type(op) in self.timeout_intervals:
             # Create a timer to watch for operation timeout on this op and attach it
             # to the op.
@@ -650,7 +650,7 @@ class OpTimeoutStage(PipelineStage):
             logger.debug("{}({}): Sending down".format(self.name, op.name))
             self.send_op_down(op)
         else:
-            self.send_op_down(op)
+            super(OpTimeoutStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _clear_timer(self, op, error):
@@ -684,13 +684,15 @@ class RetryStage(PipelineStage):
         self.ops_waiting_to_retry = []
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         """
         Send all ops down and intercept their return to "watch for retry"
         """
         if self._should_watch_for_retry(op):
             op.add_callback(self._do_retry_if_necessary)
-        self.send_op_down(op)
+            self.send_op_down(op)
+        else:
+            super(RetryStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _should_watch_for_retry(self, op):
@@ -733,9 +735,9 @@ class RetryStage(PipelineStage):
                 op.retry_timer.cancel()
                 op.retry_timer = None
                 this.ops_waiting_to_retry.remove(op)
-                # Don't just send it down directly.  Instead, go through _execute_op so we get
+                # Don't just send it down directly.  Instead, go through _run_op so we get
                 # retry functionality this time too
-                this._execute_op(op)
+                this._run_op(op)
 
             interval = self.retry_intervals[type(op)]
             logger.warning(
@@ -751,7 +753,7 @@ class RetryStage(PipelineStage):
             op.retry_timer.start()
 
         else:
-            # CT-TODO: are these even covered by tests at all?
+            # BK-TODO: Make sure this is covered by tests
             if op.retry_timer:
                 op.retry_timer.cancel()
                 op.retry_timer = None
@@ -775,7 +777,7 @@ class ReconnectStage(PipelineStage):
         self.reconnect_delay = 10
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.ConnectOperation):
             self.virtually_connected = True
             self.send_op_down(op)
@@ -785,7 +787,7 @@ class ReconnectStage(PipelineStage):
             self.send_op_down(op)
 
         else:
-            self.send_op_down(op)
+            super(ReconnectStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _set_reconnect_timer(self):
