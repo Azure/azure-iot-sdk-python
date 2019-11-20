@@ -16,7 +16,7 @@ class IoTHubPipelineConfig(BasePipelineConfig):
     config files.
     """
 
-    def __init__(self, product_info="", **kwargs):
+    def __init__(self, product_info="", blob_upload=False, **kwargs):
         """Initializer for IoTHubPipelineConfig which passes all unrecognized keyword-args down to BasePipelineConfig
         to be evaluated. This stacked options setting is to allow for unique configuration options to exist between the
         IoTHub Client and the Provisioning Client, while maintaining a base configuration class with shared config options.
@@ -25,3 +25,4 @@ class IoTHubPipelineConfig(BasePipelineConfig):
         """
         super(IoTHubPipelineConfig, self).__init__(**kwargs)
         self.product_info = product_info
+        self.blob_upload = blob_upload

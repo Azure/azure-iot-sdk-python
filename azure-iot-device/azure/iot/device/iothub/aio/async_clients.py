@@ -300,6 +300,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         the storage blob for uploads.
         """
         # TODO: Check that the HTTP Pipeline has been set properly.
+        if not self._storage_pipeline:
+            # raise error
+            raise exceptions.ClientError(message="No Storage Pipeline Initialized.")
         get_storage_info_async = async_adapter.emulate_async(self._iothub_pipeline.get_storage_info)
 
         callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
