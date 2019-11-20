@@ -13,13 +13,26 @@ from azure.iot.device.common.evented_callback import EventedCallback
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
 from .abstract_provisioning_device_client import log_on_register_complete
 from azure.iot.device.provisioning.pipeline import constant as dps_constant
+from .pipeline import exceptions as pipeline_exceptions
+from azure.iot.device import exceptions
+
 
 logger = logging.getLogger(__name__)
 
 
 def handle_result(callback):
-    # TODO Define exceptions and handle
-    pass
+    try:
+        return callback.wait_for_completion()
+    except pipeline_exceptions.ConnectionDroppedError as e:
+        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+    except pipeline_exceptions.ConnectionFailedError as e:
+        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+    except pipeline_exceptions.UnauthorizedError as e:
+        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+    except pipeline_exceptions.ProtocolClientError as e:
+        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except Exception as e:
+        raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
 
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
@@ -65,7 +78,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
             payload=self._provisioning_payload, callback=register_complete
         )
 
-        result = register_complete.wait_for_completion()
+        result = handle_result(register_complete)
 
         log_on_register_complete(result)
         return result
