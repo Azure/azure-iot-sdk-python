@@ -657,7 +657,9 @@ class IoTHubRegistryManager(object):
         exclude_keys_in_export,
         failure_reason,
     ):
-        """Creates a new import/export job on an IoT hub.
+        """Creates a new import/export job on an IoT hub. See
+           https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
+           for more information.
 
         :param str job_id: The name of the job.
         :param datetime start_time: The start time in UTC.
