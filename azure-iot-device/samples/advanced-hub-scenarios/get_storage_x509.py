@@ -146,11 +146,11 @@ async def storage_blob(blob_info):
 
 
 async def main():
-    context = ssl.SSLContext("PROTOCOL_TLS")
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS)
     print(context.cert_store_stats())
     context.load_cert_chain(cert_file, key_file, pass_phrase)
 
-    connection = http.client.HTTPSConnection(host_name)
+    connection = http.client.HTTPSConnection(host_name, context=context)
     connection.connect()
     blob_info = await get_sas(connection)
     # storage_conn_str = make_blob_service_url(blob_info["hostName"], blob_info["sasToken"])
