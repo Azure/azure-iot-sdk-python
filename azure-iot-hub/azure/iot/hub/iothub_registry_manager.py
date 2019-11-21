@@ -274,7 +274,7 @@ class IoTHubRegistryManager(object):
         """Creates a module identity for a device on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleID) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str managed_by: The name of the manager device (edge).
         :param str primary_key: Primary authentication key.
         :param str secondary_key: Secondary authentication key.
@@ -302,7 +302,7 @@ class IoTHubRegistryManager(object):
         """Creates a module identity for a device on IoTHub using X509 authentication.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleID) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str managed_by: The name of the manager device (edge).
         :param str primary_thumbprint: Primary X509 thumbprint.
         :param str secondary_thumbprint: Secondary X509 thumbprint.
@@ -332,7 +332,7 @@ class IoTHubRegistryManager(object):
         """Creates a module identity for a device on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleID) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str managed_by: The name of the manager device (edge).
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
@@ -356,7 +356,7 @@ class IoTHubRegistryManager(object):
         """Updates a module identity for a device on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleID) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str managed_by: The name of the manager device (edge).
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_key: Primary authentication key.
@@ -386,7 +386,7 @@ class IoTHubRegistryManager(object):
         """Updates a module identity for a device on IoTHub using X509 authentication.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleID) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str managed_by: The name of the manager device (edge).
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str primary_thumbprint: Primary X509 thumbprint.
@@ -418,7 +418,7 @@ class IoTHubRegistryManager(object):
         """Updates a module identity for a device on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleID) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str managed_by: The name of the manager device (edge).
         :param str etag: The etag (if_match) value to use for the update operation.
 
@@ -442,7 +442,7 @@ class IoTHubRegistryManager(object):
         """Retrieves a module identity for a device from IoTHub.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleId) of the module.
+        :param str module_id: The name (Id) of the module.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -467,7 +467,7 @@ class IoTHubRegistryManager(object):
         """Deletes a module identity for a device from IoTHub.
 
         :param str device_id: The name (Id) of the device.
-        :param str module_id: The name (moduleId) of the module.
+        :param str module_id: The name (Id) of the module.
         :param str etag: The etag (if_match) value to use for the delete operation.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
