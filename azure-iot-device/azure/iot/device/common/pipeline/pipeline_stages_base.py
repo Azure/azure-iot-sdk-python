@@ -150,22 +150,6 @@ class PipelineStage(object):
         self.send_event_up(event)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        """
-        Called by lower layers when the protocol client connects
-        """
-        if self.previous:
-            self.previous.on_connected()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        """
-        Called by lower layers when the protocol client disconnects
-        """
-        if self.previous:
-            self.previous.on_disconnected()
-
-    @pipeline_thread.runs_on_pipeline_thread
     def send_op_down(self, op):
         """
         Helper function to continue a given operation by passing it to the next stage
@@ -239,16 +223,6 @@ class PipelineRootStage(PipelineStage):
         )
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
-    # @pipeline_thread.runs_on_pipeline_thread
-    # def _run_op(self, op):
-    #     """
-    #     run the operation.  At the root, the only thing to do is to pass the operation
-    #     to the next stage.
-
-    #     :param PipelineOperation op: Operation to run.
-    #     """
-    #     self.send_op_down(op)
-
     def append_stage(self, new_next_stage):
         """
         Add the next stage to the end of the pipeline.  This is the function that callers
@@ -276,32 +250,33 @@ class PipelineRootStage(PipelineStage):
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
-        if self.on_pipeline_event_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(event)
+        if isinstance(event, pipeline_events_base.ConnectCompletedEvent):
+            logger.debug(
+                "{}: on_connected.  on_connected_handler={}".format(
+                    self.name, self.on_connected_handler
+                )
+            )
+            self.connected = True
+            if self.on_connected_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
+
+        elif isinstance(event, pipeline_events_base.DisconnectCompletedEvent):
+            logger.debug(
+                "{}: on_disconnected.  on_disconnected_handler={}".format(
+                    self.name, self.on_disconnected_handler
+                )
+            )
+            self.connected = False
+            if self.on_disconnected_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+
         else:
-            logger.warning("incoming pipeline event with no handler.  dropping.")
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        logger.debug(
-            "{}: on_connected.  on_connected_handler={}".format(
-                self.name, self.on_connected_handler
-            )
-        )
-        self.connected = True
-        if self.on_connected_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        logger.debug(
-            "{}: on_disconnected.  on_disconnected_handler={}".format(
-                self.name, self.on_disconnected_handler
-            )
-        )
-        self.connected = False
-        if self.on_disconnected_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+            if self.on_pipeline_event_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(
+                    event
+                )
+            else:
+                logger.warning("incoming pipeline event with no handler.  dropping.")
 
 
 class AutoConnectStage(PipelineStage):
@@ -851,37 +826,27 @@ class ReconnectStage(PipelineStage):
             self.reconnect_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        """
-        Called by lower layers when the protocol client connects
-        """
-        logger.debug("{}: on_connected".format(self.name))
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_base.ConnectCompletedEvent):
+            self._clear_reconnect_timer()
+            self.send_event_up(event)
 
-        self._clear_reconnect_timer()
-
-        if self.previous:
-            self.previous.on_connected()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        """
-        Called by lower layers when the protocol client disconnects
-        """
-        logger.debug("{}: on_disconnected".format(self.name))
-        if self.pipeline_root.connected:
-            if self.virtually_connected:
-                logger.info(
-                    "{}: disconnected but virtually connected.  Triggering reconnect timer.".format(
-                        self.name
+        elif isinstance(event, pipeline_events_base.DisconnectCompletedEvent):
+            if self.pipeline_root.connected:
+                if self.virtually_connected:
+                    logger.info(
+                        "{}: disconnected but virtually connected.  Triggering reconnect timer.".format(
+                            self.name
+                        )
                     )
-                )
-                self._set_reconnect_timer()
-            else:
-                logger.info(
-                    "{}: disconnected, but not virtually connected.  Not triggering reconnect timer.".format(
-                        self.name
+                    self._set_reconnect_timer()
+                else:
+                    logger.info(
+                        "{}: disconnected, but not virtually connected.  Not triggering reconnect timer.".format(
+                            self.name
+                        )
                     )
-                )
+            self.send_event_up(event)
 
-        if self.previous:
-            self.previous.on_disconnected()
+        else:
+            super(ReconnectStage, self)._handle_pipeline_event(event)

@@ -14,6 +14,7 @@ from . import (
     pipeline_events_mqtt,
     pipeline_thread,
     pipeline_exceptions,
+    pipeline_events_base,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
@@ -192,9 +193,9 @@ class MQTTTransportStage(PipelineStage):
         Handler that gets called by the transport when it connects.
         """
         logger.info("_on_mqtt_connected called")
-        # self.on_connected() tells other pipeline stages that we're connected.  Do this before
+        # Send an event to tell other pipeline stages that we're connected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
-        self.on_connected()
+        self.send_event_up(pipeline_events_base.ConnectCompletedEvent())
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
@@ -242,9 +243,9 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
-        # self.on_disconnected() tells other pipeilne stages that we're disconnected.  Do this before
+        # Send an event to tell other pipeilne stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
-        self.on_disconnected()
+        self.send_event_up(pipeline_events_base.DisconnectCompletedEvent())
 
         if self._pending_connection_op:
             # on_mqtt_disconnected will cause any pending connect op to complete.  This is how Paho
