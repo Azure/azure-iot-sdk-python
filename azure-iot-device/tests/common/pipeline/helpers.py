@@ -85,7 +85,10 @@ class StageTestBase(object):
 
     @pytest.fixture
     def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
-        stage.next._execute_op = stage.complete_op
+        def complete_op_success(op):
+            op.complete()
+
+        stage.next._execute_op = complete_op_success
         mocker.spy(stage.next, "_execute_op")
 
     @pytest.fixture
@@ -112,12 +115,12 @@ class StageRunOpTestBase(object):
     )
     def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
         stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
-        mocker.spy(stage, "complete_op")
+        mocker.spy(op, "complete")
 
         stage.run_op(op)
 
-        assert stage.complete_op.call_count == 1
-        assert stage.complete_op.call_args == mocker.call(op, error=arbitrary_exception)
+        assert op.complete.call_count == 1
+        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propogate"
