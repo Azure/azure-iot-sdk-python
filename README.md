@@ -1,5 +1,5 @@
 <div align=center>
-    <img src="./azure-iot-device/doc/Azure IoT Hub.png">
+    <img src="./azure-iot-device/doc/imagesAzure IoT Hub.png">
     <h1> v2 - PREVIEW </h1>
 </div>
 
