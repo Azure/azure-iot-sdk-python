@@ -1,6 +1,11 @@
-# Azure IoT Hub Python SDKs v2 - PREVIEW
+<div align=center>
+    <img src="./azure-iot-device/doc/Azure IoT Hub.png">
+    <h1> v2 - PREVIEW </h1>
+</div>
+
 
 ![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
+
 
 This repository contains code for the Azure IoT SDKs for Python.  This enables python developers to easily create IoT device solutions that semealessly
 connection to the Azure IoTHub ecosystem.
