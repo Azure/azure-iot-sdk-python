@@ -8,6 +8,7 @@ import logging
 import uuid
 import threading
 import json
+import ssl
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 
@@ -101,13 +102,37 @@ class HTTPTransport(object):
     BLAH BLAH BLAH
     """
 
-    def __init__(self, hostname, ca_cert, x509_cert):
+    def __init__(self, hostname, ca_cert=None, x509_cert=None):
         """
         Constructor to instantiate an HTTP protocol wrapper.
         """
         self._hostname = hostname
         self._ca_cert = ca_cert
         self._x509_cert = x509_cert
+
+    def _create_ssl_context(self):
+        """
+        This method creates the SSLContext object used by Paho to authenticate the connection.
+        """
+        logger.debug("creating a SSL context")
+        ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+
+        if self._ca_cert:
+            ssl_context.load_verify_locations(cadata=self._ca_cert)
+        else:
+            ssl_context.load_default_certs()
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
+
+        if self._x509_cert is not None:
+            logger.debug("configuring SSL context with client-side certificate and key")
+            ssl_context.load_cert_chain(
+                self._x509_cert.certificate_file,
+                self._x509_cert.key_file,
+                self._x509_cert.pass_phrase,
+            )
+
+        return ssl_context
 
     def _format_headers(self, headers):
         # TODO: Right now I'm only doing sas token because I'm lazy and limited
@@ -142,7 +167,9 @@ class HTTPTransport(object):
         logger.info("sending https request")
         try:
             logger.debug("creating to https connection")
-            connection = http_client.HTTPSConnection(self._hostname)
+            connection = http_client.HTTPSConnection(
+                self._hostname, context=self._create_ssl_context()
+            )
             logger.debug("connecting to host tcp socket")
             connection.connect()
             logger.debug("connection succeeded")
