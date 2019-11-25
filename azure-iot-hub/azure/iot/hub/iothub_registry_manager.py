@@ -571,23 +571,18 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.get_configurations(max_count)
 
-    def test_configuration_queries(self, target_condition, custom_metric_queries):
+    def test_configuration_queries(self, configuration_queries_test_input):
         """Validates the target condition query and custom metric queries for a
            configuration.
 
-        :param str target_condition: The target condition.
-        :param {str} custom_metric_queries: The queries to validate.
+        :param ConfigurationQueriesTestInput configuration_queries_test_input: The queries test input.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The ConfigurationQueriesTestResponse object.
         """
-        input = {
-            "target_condition": target_condition,
-            "custom_metric_queries": custom_metric_queries,
-        }
-        return self.protocol.service.test_configuration_queries(input)
+        return self.protocol.service.test_configuration_queries(configuration_queries_test_input)
 
     def bulk_create_or_update_devices(self, devices):
         """Create, update, or delete the identities of multiple devices from the
@@ -603,96 +598,46 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.bulk_create_or_update_devices(devices)
 
-    def query_iot_hub(self, query):
+    def query_iot_hub(self, query_specification):
         """Query an IoT hub to retrieve information regarding device twins using a
            SQL-like language.
 
-        :param str query: The list of device objects to operate on.
+        :param QuerySpecification query: The query specification.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The BulkRegistryOperationResult object.
         """
-        query_specification = {"query": query}
         return self.protocol.service.query_iot_hub(query_specification)
 
-    def apply_configuration_on_edge_device(
-        self, device_id, device_configuration, modules_configuration, module_configuration
-    ):
+    def apply_configuration_on_edge_device(self, device_id, configuration_content):
         """Applies the provided configuration content to the specified edge
            device. Modules content is mandantory.
 
-        :param str device_id: The name (Id) of the edge device.
-        :param str device_configuration: The device configuration to apply.
-        :param str modules_configuration: The dictionary of multiple module configurations.
-        :param str module_configuration: The single module configurations.
+        :param ConfigurationContent configuration_content: The name (Id) of the edge device.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: An object.
         """
-        configuration_content = {
-            "device_content": device_configuration,
-            "modules_content": modules_configuration,
-            "module_content": module_configuration,
-        }
         return self.protocol.service.apply_configuration_on_edge_device(
             device_id, configuration_content
         )
 
-    def create_import_export_job(
-        self,
-        job_id,
-        start_time,
-        end_time,
-        job_type,
-        status,
-        progress,
-        input_blob_container_uri,
-        input_blob_name,
-        output_blob_container_uri,
-        output_blob_name,
-        exclude_keys_in_export,
-        failure_reason,
-    ):
+    def create_import_export_job(self, job_properties):
         """Creates a new import/export job on an IoT hub. See
            https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
            for more information.
 
-        :param str job_id: The name of the job.
-        :param datetime start_time: The start time in UTC.
-        :param datetime end_time: The end time in UTC.
-        :param JobType job_type: The type of the job.
-        :param JobStatus status: The status of the job.
-        :param int progress: The percentage of completion.
-        :param str input_blob_container_uri: URI containing SAS token to a blob container that contains registry data to sync..
-        :param str input_blob_name: The blob name to be used when importing from the provided input blob container.
-        :param str output_blob_container_uri: URI containing SAS token to a blob container. This is used to output the status of the job and the results.
-        :param str output_blob_name: The name of the blob that will be created in the provided output blob container. This blob will contain the exported device registry information for the IoT Hub.
-        :param bool exclude_keys_in_export: Optional for export jobs; ignored for other jobs. Default: false. If false, authorization keys are included in export output. Keys are exported as null otherwise.
-        :param str failure_reason: If status == failure, this represents a string containing the reason.
+        :param JobProperties job_properties: The job properties.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The JobProperties object.
         """
-        job_properties = {
-            "job_id": job_id,
-            "start_time": start_time,
-            "end_time": end_time,
-            "job_type": job_type,
-            "status": status,
-            "progress": progress,
-            "input_blob_container_uri": input_blob_container_uri,
-            "input_blob_name": input_blob_name,
-            "output_blob_container_uri": output_blob_container_uri,
-            "output_blob_name": output_blob_name,
-            "exclude_keys_in_export": exclude_keys_in_export,
-            "failure_reason": failure_reason,
-        }
         return self.protocol.service.create_import_export_job(job_properties)
 
     def get_import_export_jobs(self):
@@ -860,7 +805,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.cancel_job(job_id)
 
-    def query_jobs(self, job_type, job_status):
+    def query_jobs(self, job_type, job_status=None):
         """Query an IoT hub to retrieve information regarding jobs using the IoT
            Hub query language.
 

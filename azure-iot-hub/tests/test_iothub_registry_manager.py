@@ -26,30 +26,17 @@ fake_status = "flying"
 fake_configuration_id = "fake_configuration"
 fake_configuration = "fake_config"
 fake_max_count = 42
-fake_target_condition = "fake_target_condition"
-fake_custom_metric_queries = {
-    "fake_query1_key": "fake_query1_value",
-    "fake_query2_key": "fake_query2_value",
-}
+fake_configuration_queries = "fake_configuration_queries"
 fake_devices = "fake_devices"
-fake_query = "fake_query"
-fake_device_configuration = "fake_device_configuration"
-fake_modules_configuration = "fake_modules_configuration"
-fake_module_configuration = "fake_module_configuration"
+fake_query_specification = "fake_query_specification"
+fake_configuration_content = "fake_configuration_content"
 fake_job_id = "fake_job_id"
 fake_start_time = "fake_start_time"
 fake_end_time = "fake_end_time"
 fake_job_type = "fake_job_type"
 fake_job_request = "fake_job_request"
 fake_job_status = "fake_status"
-fake_job_request = "fake_request"
-fake_progress = "fake_progress"
-fake_input_blob_container_uri = "fake_input_blob_container_uri"
-fake_input_blob_name = "fake_input_blob_name"
-fake_output_blob_container_uri = "fake_output_blob_container_uri"
-fake_output_blob_name = "fake_output_blob_name"
-fake_exclude_keys_in_export = "fake_exclude_keys_in_export"
-fake_failure_reason = "fake_failure_reason"
+fake_job_properties = "fake_job_properties"
 fake_device_twin = "fake_device_twin"
 fake_module_twin = "fake_module_twin"
 fake_direct_method_request = "fake_direct_method_request"
@@ -1010,15 +997,11 @@ class TestTestConfigurationQueries(object):
         self, mocker, mock_service_operations, iothub_registry_manager
     ):
         iothub_registry_manager.test_configuration_queries(
-            fake_target_condition, fake_custom_metric_queries
+            fake_configuration_queries
         )
-        fake_input = {
-            "target_condition": fake_target_condition,
-            "custom_metric_queries": fake_custom_metric_queries,
-        }
         assert mock_service_operations.test_configuration_queries.call_count == 1
         assert mock_service_operations.test_configuration_queries.call_args == mocker.call(
-            fake_input
+            fake_configuration_queries
         )
 
 
@@ -1039,8 +1022,7 @@ class TestBulkCreateUpdateDevices(object):
 class TestQueryIoTHub(object):
     @pytest.mark.it("Test query IoTHub")
     def test_query_iot_hub(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.query_iot_hub(fake_query)
-        fake_query_specification = {"query": fake_query}
+        iothub_registry_manager.query_iot_hub(fake_query_specification)
         assert mock_service_operations.query_iot_hub.call_count == 1
         assert mock_service_operations.query_iot_hub.call_args == mocker.call(
             fake_query_specification
@@ -1055,15 +1037,8 @@ class TestApplyConfigurationOnEdgeDevice(object):
     ):
         iothub_registry_manager.apply_configuration_on_edge_device(
             fake_device_id,
-            fake_device_configuration,
-            fake_modules_configuration,
-            fake_module_configuration,
+            fake_configuration_content
         )
-        fake_configuration_content = {
-            "device_content": fake_device_configuration,
-            "modules_content": fake_modules_configuration,
-            "module_content": fake_module_configuration,
-        }
         assert mock_service_operations.apply_configuration_on_edge_device.call_count == 1
         assert mock_service_operations.apply_configuration_on_edge_device.call_args == mocker.call(
             fake_device_id, fake_configuration_content
@@ -1076,34 +1051,7 @@ class TestCreateImportExportJob(object):
     def test_create_import_export_job(
         self, mocker, mock_service_operations, iothub_registry_manager
     ):
-        iothub_registry_manager.create_import_export_job(
-            fake_job_id,
-            fake_start_time,
-            fake_end_time,
-            fake_job_type,
-            fake_job_status,
-            fake_progress,
-            fake_input_blob_container_uri,
-            fake_input_blob_name,
-            fake_output_blob_container_uri,
-            fake_output_blob_name,
-            fake_exclude_keys_in_export,
-            fake_failure_reason,
-        )
-        fake_job_properties = {
-            "job_id": fake_job_id,
-            "start_time": fake_start_time,
-            "end_time": fake_end_time,
-            "job_type": fake_job_type,
-            "status": fake_job_status,
-            "progress": fake_progress,
-            "input_blob_container_uri": fake_input_blob_container_uri,
-            "input_blob_name": fake_input_blob_name,
-            "output_blob_container_uri": fake_output_blob_container_uri,
-            "output_blob_name": fake_output_blob_name,
-            "exclude_keys_in_export": fake_exclude_keys_in_export,
-            "failure_reason": fake_failure_reason,
-        }
+        iothub_registry_manager.create_import_export_job(fake_job_properties)
         assert mock_service_operations.create_import_export_job.call_count == 1
         assert mock_service_operations.create_import_export_job.call_args == mocker.call(
             fake_job_properties
