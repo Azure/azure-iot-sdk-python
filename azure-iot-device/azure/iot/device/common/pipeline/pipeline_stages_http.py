@@ -68,8 +68,25 @@ class HTTPTransportStage(PipelineStage):
             self.complete_op(op)
 
         elif isinstance(op, pipeline_ops_http.HTTPRequestOperation):
-            # TODO: IMPLEMENT THIS!!!
             logger.info("{}({}): Handling HTTP Request Operation".format(self.name, op.name))
+            path = op.path
+            headers = op.headers
+
+            # TODO: IMPLEMENT THIS!!!
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def on_request_complete():
+                logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
+                op.complete()
+
+            HTTPTransport.request(
+                method="POST",
+                hostname=op.hostname,
+                path=path,
+                headers=headers,
+                body=op.body,
+                callback=on_request_complete,
+            )
             self.complete_op(op)
 
         else:

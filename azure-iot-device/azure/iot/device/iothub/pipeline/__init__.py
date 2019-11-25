@@ -7,3 +7,4 @@ INTERNAL USAGE ONLY
 
 from .iothub_pipeline import IoTHubPipeline
 from .edge_pipeline import EdgePipeline
+from .upload_pipeline import UploadPipeline

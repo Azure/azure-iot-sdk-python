@@ -199,20 +199,3 @@ class PatchTwinReportedPropertiesOperation(PipelineOperation):
         """
         super(PatchTwinReportedPropertiesOperation, self).__init__(callback=callback)
         self.patch = patch
-
-
-class GetStorageInfoOperation(PipelineOperation):
-    """
-    A PipelineOperation object which represents a request to get the storage blob information
-    from IoT Hub.
-
-    :ivar storage_info: Upon completion, this contains the twin which was retrieved from the service.
-    :type storage_info: Dictionary
-    """
-
-    def __init__(self, callback):
-        """
-        Initializer for GetTwinOperation objects.
-        """
-        super(GetStorageInfoOperation, self).__init__(callback=callback)
-        self.storage_info = None

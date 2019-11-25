@@ -303,13 +303,16 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._storage_pipeline:
             # raise error
             raise exceptions.ClientError(message="No Storage Pipeline Initialized.")
-        get_storage_info_async = async_adapter.emulate_async(self._iothub_pipeline.get_storage_info)
+        else:
+            get_storage_info_async = async_adapter.emulate_async(
+                self._upload_pipeline.get_storage_info
+            )
 
-        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-        await get_storage_info_async(callback=callback)
-        storage_info = await handle_result(callback)
-        logger.info("Successfully retrieved storage_info")
-        return storage_info
+            callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+            await get_storage_info_async(callback=callback)
+            storage_info = await handle_result(callback)
+            logger.info("Successfully retrieved storage_info")
+            return storage_info
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
