@@ -138,15 +138,32 @@ async def storage_blob(blob_info):
 
 
 async def main():
+    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
-    connection = http.client.HTTPSConnection(host_name)
-    connection.connect()
-    blob_info = await get_sas(connection)
-    # storage_conn_str = make_blob_service_url(blob_info["hostName"], blob_info["sasToken"])
-    storage_blob_result = await storage_blob(blob_info)
-    # correlationId = 'hi'
-    await notify_upload_complete(connection, blob_info["correlationId"], storage_blob_result)
-    connection.close()
+    # get the storage sas
+    storage_info = await device_client.get_storage_info()
+
+    # upload to blob
+    storage_blob_result = await storage_blob(storage_info)
+
+    # notify iot hub of blob upload result
+    await device_client.notify_upload_result(storage_blob_result)
+
+    # Finally, disconnect
+    await device_client.disconnect()
+
+
+# async def main():
+
+#     connection = http.client.HTTPSConnection(host_name)
+#     connection.connect()
+#     blob_info = await get_sas(connection)
+#     # storage_conn_str = make_blob_service_url(blob_info["hostName"], blob_info["sasToken"])
+#     storage_blob_result = await storage_blob(blob_info)
+#     # correlationId = 'hi'
+#     await notify_upload_complete(connection, blob_info["correlationId"], storage_blob_result)
+#     connection.close()
 
 
 if __name__ == "__main__":

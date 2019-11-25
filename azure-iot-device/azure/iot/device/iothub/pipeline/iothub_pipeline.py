@@ -38,6 +38,7 @@ class IoTHubPipeline(object):
             constant.METHODS: False,
             constant.TWIN: False,
             constant.TWIN_PATCHES: False,
+            constant.HTTP_PIPELINE: False,
         }
 
         # Event Handlers - Will be set by Client after instantiation of this object
@@ -325,3 +326,12 @@ class IoTHubPipeline(object):
                 feature_name=feature_name, callback=on_complete
             )
         )
+
+    def get_storage_info(self, callback):
+        def on_complete(op, error):
+            if error:
+                callback(error=error, storage_info=None)
+            else:
+                callback(storage_info=op.storage_info)
+
+        self._pipeline.run_op(pipeline_ops_iothub.GetStorageInfoOperation(callback=on_complete))

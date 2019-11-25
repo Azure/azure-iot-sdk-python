@@ -16,8 +16,8 @@ from . import (
     constant,
     pipeline_stages_iothub,
     pipeline_ops_iothub,
-    pipeline_ops_edgehub,
-    pipeline_stages_edgehub_http,
+    pipeline_ops_upload,
+    pipeline_stages_upload_http,
 )
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
@@ -42,7 +42,7 @@ class EdgePipeline(object):
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
-            .append_stage(pipeline_stages_edgehub_http.EdgeHubHTTPTranslationStage())
+            .append_stage(pipeline_stages_upload_http.UploadHTTPTranslationStage())
             .append_stage(pipeline_stages_http.HTTPTransportStage())
         )
 
@@ -60,38 +60,11 @@ class EdgePipeline(object):
         self._pipeline.run_op(op)
         callback.wait_for_completion()
 
-    def invoke_method(self, device_id, method_params, callback):
-        """
-        Send a method response to the service.
-        """
-        logger.debug("IoTHubPipeline invoke_method called")
-
+    def get_storage_info(self, callback):
         def on_complete(op, error):
-            callback(error=error)
+            if error:
+                callback(error=error, storage_info=None)
+            else:
+                callback(storage_info=op.storage_info)
 
-        self._pipeline.run_op(
-            pipeline_ops_edgehub.MethodInvokeOperation(
-                device_id=device_id,
-                module_id=None,
-                method_params=method_params,
-                callback=on_complete,
-            )
-        )
-
-    def invoke_method_module_to_module(self, device_id, module_id, method_params, callback):
-        """
-        Send a method response to the service.
-        """
-        logger.debug("IoTHubPipeline invoke_method called")
-
-        def on_complete(op, error):
-            callback(error=error)
-
-        self._pipeline.run_op(
-            pipeline_ops_edgehub.MethodInvokeOperation(
-                device_id=device_id,
-                module_id=module_id,
-                method_params=method_params,
-                callback=on_complete,
-            )
-        )
+        self._pipeline.run_op(pipeline_ops_upload.GetStorageInfoOperation(callback=on_complete))

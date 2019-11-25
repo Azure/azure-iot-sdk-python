@@ -8,7 +8,9 @@ import os
 import uuid
 import asyncio
 from azure.iot.device.aio import IoTHubDeviceClient
+from azure.iot.device import X509
 import http.client
+import ssl
 import pprint
 import json
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
@@ -18,6 +20,12 @@ conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 sas = os.getenv("IOTHUB_SAS")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
 iothub_name = os.getenv("IOTHUB_NAME")
+key_file = os.getenv("KEY_FILE")
+cert_file = os.getenv("CERT_FILE")
+pass_phrase = os.getenv("PASS_PHRASE")
+
+# x509 = X509(cert_file, key_file, pass_phrase)
+
 host_name = "{iotHubName}.azure-devices.net".format(iotHubName=iothub_name)
 
 # Host is in format "<iothub name>.azure-devices.net"
@@ -40,7 +48,7 @@ async def get_sas(connection):
         "User-Agent": "azure-iot-device/0xFFFFFFF",
     }
 
-    get_sas_headers["Authorization"] = sas
+    # get_sas_headers["Authorization"] = sas
     connection.request(
         "POST", getSasPost, body=json.dumps(uploadjson).encode("utf-8"), headers=get_sas_headers
     )
@@ -138,8 +146,11 @@ async def storage_blob(blob_info):
 
 
 async def main():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+    print(context.cert_store_stats())
+    context.load_cert_chain(cert_file, key_file, pass_phrase)
 
-    connection = http.client.HTTPSConnection(host_name)
+    connection = http.client.HTTPSConnection(host_name, context=context)
     connection.connect()
     blob_info = await get_sas(connection)
     # storage_conn_str = make_blob_service_url(blob_info["hostName"], blob_info["sasToken"])

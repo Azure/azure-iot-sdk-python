@@ -7,6 +7,7 @@
 import pytest
 import logging
 import six.moves.urllib as urllib
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_mqtt,
@@ -26,6 +27,7 @@ from azure.iot.device.iothub.auth import (
 )
 
 logging.basicConfig(level=logging.DEBUG)
+pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 # Update this list with features as they are added to the SDK
 all_features = [
@@ -146,7 +148,7 @@ class TestIoTHubPipelineInstantiation(object):
         assert op.auth_provider is auth_provider
 
     @pytest.mark.it(
-        "Propagates exceptions that occurred in execution upon unsuccessful completion of the SetAuthProviderOperation"
+        "Raises exceptions that occurred in execution upon unsuccessful completion of the SetAuthProviderOperation"
     )
     def test_sas_auth_op_fail(
         self, mocker, device_connection_string, arbitrary_exception, pipeline_configuration
@@ -155,7 +157,7 @@ class TestIoTHubPipelineInstantiation(object):
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
-                self.complete_op(op, error=arbitrary_exception)
+                op.complete(error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 
@@ -167,8 +169,9 @@ class TestIoTHubPipelineInstantiation(object):
         )
 
         auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
-        with pytest.raises(arbitrary_exception.__class__):
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
             IoTHubPipeline(auth_provider, pipeline_configuration)
+        assert e_info.value is arbitrary_exception
 
     @pytest.mark.it(
         "Runs a SetX509AuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
@@ -185,14 +188,14 @@ class TestIoTHubPipelineInstantiation(object):
         assert op.auth_provider is auth_provider
 
     @pytest.mark.it(
-        "Propagates exceptions that occurred in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
+        "Raises exceptions that occurred in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
     )
     def test_cert_auth_op_fail(self, mocker, x509, arbitrary_exception, pipeline_configuration):
         old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
-                self.complete_op(op, error=arbitrary_exception)
+                op.complete(error=arbitrary_exception)
             else:
                 old_execute_op(self, op)
 
@@ -229,9 +232,9 @@ class TestIoTHubPipelineConnect(object):
         pipeline.connect(callback=cb)
         assert cb.call_count == 0
 
-        # Trigger op completion callback
+        # Trigger op completion
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -245,7 +248,7 @@ class TestIoTHubPipelineConnect(object):
         pipeline.connect(callback=cb)
         op = pipeline._pipeline.run_op.call_args[0][0]
 
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
@@ -270,7 +273,7 @@ class TestIoTHubPipelineDisconnect(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -283,7 +286,7 @@ class TestIoTHubPipelineDisconnect(object):
         pipeline.disconnect(callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
@@ -312,7 +315,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -325,7 +328,7 @@ class TestIoTHubPipelineSendD2CMessage(object):
         pipeline.send_message(message, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
@@ -360,7 +363,7 @@ class TestIoTHubPipelineSendOutputEvent(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -373,7 +376,7 @@ class TestIoTHubPipelineSendOutputEvent(object):
         pipeline.send_output_event(message, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
@@ -404,7 +407,7 @@ class TestIoTHubPipelineSendMethodResponse(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -417,7 +420,7 @@ class TestIoTHubPipelineSendMethodResponse(object):
         pipeline.send_method_response(method_response, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
@@ -446,7 +449,7 @@ class TestIoTHubPipelineGetTwin(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(twin=None)
@@ -459,7 +462,7 @@ class TestIoTHubPipelineGetTwin(object):
         pipeline.get_twin(callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(twin=None, error=arbitrary_exception)
@@ -490,7 +493,7 @@ class TestIoTHubPipelinePatchTwinReportedProperties(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -503,7 +506,7 @@ class TestIoTHubPipelinePatchTwinReportedProperties(object):
         pipeline.patch_twin_reported_properties(twin_patch, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
@@ -551,7 +554,7 @@ class TestIoTHubPipelineEnableFeature(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -565,7 +568,7 @@ class TestIoTHubPipelineEnableFeature(object):
         pipeline.enable_feature(feature, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
@@ -615,7 +618,7 @@ class TestIoTHubPipelineDisableFeature(object):
 
         # Trigger op completion callback
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=None)
+        op.complete(error=None)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=None)
@@ -629,7 +632,7 @@ class TestIoTHubPipelineDisableFeature(object):
         pipeline.disable_feature(feature, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
-        op.callback(op, error=arbitrary_exception)
+        op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=arbitrary_exception)
