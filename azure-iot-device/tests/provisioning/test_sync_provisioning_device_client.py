@@ -13,6 +13,7 @@ from azure.iot.device.provisioning.models.registration_result import (
 )
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 import threading
+from azure.iot.device import exceptions as client_exceptions
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -196,7 +197,7 @@ class TestClientRegister(object):
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(client_exceptions.ClientError):
             error_returned = client.register()
             assert error_returned == error
 

@@ -16,6 +16,7 @@ from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device.common import async_adapter
 import asyncio
+from azure.iot.device import exceptions as client_exceptions
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.asyncio
@@ -211,7 +212,7 @@ class TestClientRegister(object):
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        with pytest.raises(RuntimeError):
+        with pytest.raises(client_exceptions.ClientError):
             error_returned = await client.register()
             assert error_returned == error
 

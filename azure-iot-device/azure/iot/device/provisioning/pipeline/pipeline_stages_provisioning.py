@@ -112,6 +112,7 @@ class CommonProvisioningStage(PipelineStage):
                     decoded_state[0], "lastUpdatedDateTimeUtc"
                 ),
                 etag=get_optional_element(decoded_state[0], "etag"),
+                payload=get_optional_element(decoded_state[0], "payload"),
             )
 
         registration_result = RegistrationResult(
@@ -195,7 +196,6 @@ class RegistrationStage(CommonProvisioningStage):
                             # process complete response here
                             # TODO Is there an response when service returns "failed" ?
                             complete_registration_result = self._form_complete_result(
-                                request_id=op.request_id,
                                 operation_id=operation_id,
                                 decoded_response=decoded_response,
                                 status=registration_status,
@@ -203,7 +203,7 @@ class RegistrationStage(CommonProvisioningStage):
                             initial_register_op.registration_result = complete_registration_result
                             if registration_status == "failed":
                                 error = exceptions.ServiceError(
-                                    "Query Status operation returned a 'failed' registration status  with a status code of {status_code}".format(
+                                    "Registration operation returned a 'failed' registration status  with a status code of {status_code}".format(
                                         status_code=success_status_code
                                     )
                                 )

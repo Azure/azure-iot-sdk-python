@@ -154,6 +154,7 @@ class ProvisioningPipeline(object):
 
     def register(self, payload=None, callback=None):
         def on_complete(op, error):
+            # TODO : Apparently when its failed we can get result as well as error.
             if error:
                 callback(error=error, result=None)
             else:
