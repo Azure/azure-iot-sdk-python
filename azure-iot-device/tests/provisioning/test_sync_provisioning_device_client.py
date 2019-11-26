@@ -11,7 +11,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationResult,
     RegistrationState,
 )
-from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
+from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 import threading
 from azure.iot.device import exceptions as client_exceptions
 
@@ -184,11 +184,40 @@ class TestClientRegister(object):
         result_returned = client.register()
         assert result_returned == result
 
-    @pytest.mark.it("Returns the error that the pipeline returned")
-    def test_verifies_error_returned(self, mocker, provisioning_pipeline):
-        error = create_error()
+    @pytest.mark.it(
+        "Raises a client error if the `register` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self, mocker, pipeline_error, client_error, provisioning_pipeline
+    ):
+        error = pipeline_error()
 
-        # Override callback to pass successful result
         def register_complete_failure_callback(payload, callback):
             callback(result=None, error=error)
 
@@ -197,9 +226,11 @@ class TestClientRegister(object):
         )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
-        with pytest.raises(client_exceptions.ClientError):
-            error_returned = client.register()
-            assert error_returned == error
+        with pytest.raises(client_error) as e_info:
+            client.register()
+
+        assert e_info.value.__cause__ is error
+        assert provisioning_pipeline.register.call_count == 1
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - .cancel()")
