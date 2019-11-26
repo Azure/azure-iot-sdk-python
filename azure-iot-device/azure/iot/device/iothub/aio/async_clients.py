@@ -295,7 +295,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    async def get_storage_info(self, blob_name):
+    async def get_blob_shared_access_signature(self, blob_name):
         """Call up to the IoT Hub Endpoint over HTTP to get information on
         the storage blob for uploads.
         """
@@ -303,15 +303,42 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not self._upload_pipeline:
             # raise error
             raise exceptions.ClientError(
-                "No Upload Pipeline Initialized. get_storage_info cannot be called without an Upload Pipeline set."
+                "No Upload Pipeline Initialized. get_blob_shared_access_signature cannot be called without an Upload Pipeline set."
             )
         else:
-            get_storage_info_async = async_adapter.emulate_async(
-                self._upload_pipeline.get_storage_info
+            get_blob_shared_access_signature_async = async_adapter.emulate_async(
+                self._upload_pipeline.get_blob_shared_access_signature
             )
 
             callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-            await get_storage_info_async(blob_name=blob_name, callback=callback)
+            await get_blob_shared_access_signature_async(blob_name=blob_name, callback=callback)
+            storage_info = await handle_result(callback)
+            logger.info("Successfully retrieved storage_info")
+            return storage_info
+
+    async def notify_blob_upload_status(
+        self, correlation_id, upload_response, status_code, status_description
+    ):
+        """
+        """
+        if not self._upload_pipeline:
+            # raise error
+            raise exceptions.ClientError(
+                "No Upload Pipeline Initialized. notify_blob_upload_status cannot be called without an Upload Pipeline set."
+            )
+        else:
+            notify_blob_upload_status_async = async_adapter.emulate_async(
+                self._upload_pipeline.notify_blob_upload_status
+            )
+
+            callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+            await notify_blob_upload_status_async(
+                correlation_id=correlation_id,
+                upload_response=upload_response,
+                status_code=status_code,
+                status_description=status_description,
+                callback=callback,
+            )
             storage_info = await handle_result(callback)
             logger.info("Successfully retrieved storage_info")
             return storage_info

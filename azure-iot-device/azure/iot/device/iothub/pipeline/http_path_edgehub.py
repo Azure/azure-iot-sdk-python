@@ -23,14 +23,6 @@ def _get_path_base(device_id, module_id):
         return "devices/" + device_id
 
 
-def get_storage_info_path_for_upload(device_id, module_id):
-    """
-    return the path string used to get the info for uploading via
-    Azure Storage Blob api
-    """
-    return _get_path_base(device_id, module_id) + "/files"
-
-
 def get_method_invoke_path(device_id, module_id):
     """
     return the path string used to get the info for uploading via

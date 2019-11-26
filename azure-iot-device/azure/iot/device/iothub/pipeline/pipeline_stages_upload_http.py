@@ -79,11 +79,7 @@ class UploadHTTPTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_upload.GetStorageInfoOperation):
             # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
-            logger.debug(
-                "{}({}): Connected.  Passing op down and reconnecting after token is updated.".format(
-                    self.name, op.name
-                )
-            )
+            logger.debug("{}({}): BLAH BLAH BLAH".format(self.name, op.name))
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
@@ -121,16 +117,50 @@ class UploadHTTPTranslationStage(PipelineStage):
                 )
             )
 
-            # worker_op = op.spawn_worker_op(
-            #     worker_op_type=pipeline_ops_http.HTTPRequestAndResponseOperation,
-            #     hostname=self.hostname,
-            #     path=path,
-            #     headers=headers,
-            #     body=body,
-            #     query_params=query_params,
-            #     callback=on_request_response
-            # )
-            # self.send_op_down(worker_op)
+        elif isinstance(op, pipeline_ops_upload.NotifyBlobUploadStatusOperation):
+            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
+            logger.debug("{}({}): BLAH BLAH BLAH.".format(self.name, op.name))
+            query_params = "api-version={apiVersion}".format(
+                apiVersion=pkg_constant.IOTHUB_API_VERSION
+            )
+            path = "/devices/{deviceId}/files/notifications".format(deviceId=self.device_id)
+            body = {
+                "correlationId": op.correlation_id,
+                "isSuccess": op.upload_response,
+                "statusCode": op.request_status_code,
+                "statusDescription": op.status_description,
+            }
+
+            # Note we do not add the sas Authorization header here. Instead we add it later on in the stage above
+            # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
+            # being used.
+            headers = {
+                "Host": self.hostname,  # TODO: Does this need to be encoded?
+                "Content-Type": "application/json; charset=utf-8",
+                "Content-Length": len(str(body)),
+                "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
+            }
+            op_waiting_for_response = op
+
+            def on_request_response(op, error):
+                logger.debug(
+                    "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
+                )
+                error = map_http_error(error=error, http_op=op)
+                if not error:
+                    op_waiting_for_response.response_status_code = op.status_code
+                op_waiting_for_response.complete(error=error)
+
+            self.send_op_down(
+                pipeline_ops_http.HTTPRequestAndResponseOperation(
+                    hostname=self.hostname,
+                    path=path,
+                    headers=headers,
+                    body=body,
+                    query_params=query_params,
+                    callback=on_request_response,
+                )
+            )
 
         else:
             # All other operations get passed down

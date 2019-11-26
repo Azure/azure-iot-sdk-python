@@ -60,7 +60,7 @@ class UploadPipeline(object):
         self._pipeline.run_op(op)
         callback.wait_for_completion()
 
-    def get_storage_info(self, blob_name, callback):
+    def get_blob_shared_access_signature(self, blob_name, callback):
         def on_complete(op, error):
             if error:
                 callback(error=error, storage_info=None)
@@ -69,4 +69,23 @@ class UploadPipeline(object):
 
         self._pipeline.run_op(
             pipeline_ops_upload.GetStorageInfoOperation(blob_name=blob_name, callback=on_complete)
+        )
+
+    def notify_blob_upload_status(
+        self, correlation_id, upload_response, status_code, status_description, callback
+    ):
+        def on_complete(op, error):
+            if error:
+                callback(error=error)
+            else:
+                callback()
+
+        self._pipeline.run_op(
+            pipeline_ops_upload.NotifyBlobUploadStatusOperation(
+                correlation_id=correlation_id,
+                upload_response=upload_response,
+                status_code=status_code,
+                status_description=status_description,
+                callback=on_complete,
+            )
         )
