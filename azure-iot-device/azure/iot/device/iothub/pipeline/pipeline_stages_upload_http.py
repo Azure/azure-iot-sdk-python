@@ -79,22 +79,20 @@ class UploadHTTPTranslationStage(PipelineStage):
             path = "/devices/{deviceId}/files".format(deviceId=self.device_id)
             body = {"blobName": op.blob_name}
             headers = {
-                "Host": urllib.parse.urlencode(self.hostname),
+                "Host": json.dumps(self.hostname).encode("utf-8"),
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
-                "User-Agent": urllib.parse.urlencode(pkg_constant.USER_AGENT),
+                "User-Agent": json.dumps(pkg_constant.USER_AGENT).encode("utf-8"),
             }
 
             worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_http.HTTPRequestOperation(
-                    path=path,
-                    headers=headers,
-                    body=body,
-                    query_params=query_params,
-                    callback=op.callback,
-                ),
-                op=op,
+                worker_op_type=pipeline_ops_http.HTTPRequestOperation,
+                hostname=self.hostname,
+                path=path,
+                headers=headers,
+                body=body,
+                query_params=query_params,
             )
             self.send_op_down(worker_op)
 
