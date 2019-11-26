@@ -293,7 +293,10 @@ class TestMQTTTransportStageExecuteOpWithConnect(MQTTTransportStageTestBase, Run
         "pending_connection_op",
         [
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReauthorizeConnectionOperation(1), id="Pending ReauthorizeConnectionOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -335,8 +338,12 @@ class TestMQTTTransportStageExecuteOpWithConnect(MQTTTransportStageTestBase, Run
         assert stage._pending_connection_op is None
 
 
-@pytest.mark.describe("MQTTTransportStage - .run_op() -- called with ReauthorizeConnectionOperation")
-class TestMQTTTransportStageExecuteOpWithReauthorizeConnection(MQTTTransportStageTestBase, RunOpTests):
+@pytest.mark.describe(
+    "MQTTTransportStage - .run_op() -- called with ReauthorizeConnectionOperation"
+)
+class TestMQTTTransportStageExecuteOpWithReauthorizeConnection(
+    MQTTTransportStageTestBase, RunOpTests
+):
     @pytest.mark.it("Sets the ReauthorizeConnectionOperation as the pending connection operation")
     def test_sets_pending_operation(self, stage, create_transport, op_reauthorize_connection):
         stage.run_op(op_reauthorize_connection)
@@ -347,7 +354,10 @@ class TestMQTTTransportStageExecuteOpWithReauthorizeConnection(MQTTTransportStag
         "pending_connection_op",
         [
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReauthorizeConnectionOperation(1), id="Pending ReauthorizeConnectionOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -371,10 +381,14 @@ class TestMQTTTransportStageExecuteOpWithReauthorizeConnection(MQTTTransportStag
         assert stage._pending_connection_op is op_reauthorize_connection
 
     @pytest.mark.it("Does an MQTT reauthorize_connection via the MQTTTransport")
-    def test_mqtt_reauthorize_connection(self, mocker, stage, create_transport, op_reauthorize_connection):
+    def test_mqtt_reauthorize_connection(
+        self, mocker, stage, create_transport, op_reauthorize_connection
+    ):
         stage.run_op(op_reauthorize_connection)
         assert stage.transport.reauthorize_connection.call_count == 1
-        assert stage.transport.reauthorize_connection.call_args == mocker.call(password=stage.sas_token)
+        assert stage.transport.reauthorize_connection.call_args == mocker.call(
+            password=stage.sas_token
+        )
 
     @pytest.mark.it(
         "Fails the operation and resets the pending connection operation to None, if there is a failure reauthorizing the connection in the MQTTTransport"
@@ -385,7 +399,9 @@ class TestMQTTTransportStageExecuteOpWithReauthorizeConnection(MQTTTransportStag
         stage.transport.reauthorize_connection.side_effect = arbitrary_exception
         stage.run_op(op_reauthorize_connection)
         assert op_reauthorize_connection.complete.call_count == 1
-        assert op_reauthorize_connection.complete.call_args == mocker.call(error=arbitrary_exception)
+        assert op_reauthorize_connection.complete.call_args == mocker.call(
+            error=arbitrary_exception
+        )
         assert stage._pending_connection_op is None
 
 
@@ -401,7 +417,10 @@ class TestMQTTTransportStageExecuteOpWithDisconnect(MQTTTransportStageTestBase, 
         "pending_connection_op",
         [
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReauthorizeConnectionOperation(1), id="Pending ReauthorizeConnectionOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -565,7 +584,10 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestBase):
         [
             pytest.param(None, id="No pending operation"),
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReauthorizeConnectionOperation(1), id="Pending ReauthorizeConnectionOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -639,7 +661,10 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestBase):
         [
             pytest.param(None, id="No pending operation"),
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReauthorizeConnectionOperation(1), id="Pending ReauthorizeConnectionOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -666,8 +691,12 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestBase):
         assert op.complete.call_args == mocker.call(error=arbitrary_exception)
         assert stage._pending_connection_op is None
 
-    @pytest.mark.it("Fails a pending ReauthorizeConnectionOperation if the connection failure event fires")
-    def test_fails_pending_reauthorize_connection_op(self, mocker, stage, create_transport, arbitrary_exception):
+    @pytest.mark.it(
+        "Fails a pending ReauthorizeConnectionOperation if the connection failure event fires"
+    )
+    def test_fails_pending_reauthorize_connection_op(
+        self, mocker, stage, create_transport, arbitrary_exception
+    ):
         op = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
         mocker.spy(op, "complete")
         stage.run_op(op)
@@ -731,7 +760,10 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
         [
             pytest.param(None, id="No pending operation"),
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReauthorizeConnectionOperation(1), id="Pending ReauthorizeConnectionOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -788,7 +820,8 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestBase):
         [
             pytest.param(pipeline_ops_base.ConnectOperation(None), id="Pending ConnectOperation"),
             pytest.param(
-                pipeline_ops_base.ReauthorizeConnectionOperation(None), id="Pending ReauthorizeConnectionOperation"
+                pipeline_ops_base.ReauthorizeConnectionOperation(None),
+                id="Pending ReauthorizeConnectionOperation",
             ),
         ],
     )

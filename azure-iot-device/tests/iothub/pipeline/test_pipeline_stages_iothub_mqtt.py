@@ -503,7 +503,8 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args_list[0][0][0] == op
         assert isinstance(
-            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReauthorizeConnectionOperation
+            stage.next.run_op.call_args_list[1][0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
         )
         # CT-TODO: Make this test clearer - this below assertion is a bit confusing
         # What is happening here is that the run_op defined above for the mock only completes
@@ -527,7 +528,8 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args_list[0][0][0] == op
         assert isinstance(
-            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReauthorizeConnectionOperation
+            stage.next.run_op.call_args_list[1][0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
         )
         assert op.completed
         assert op.complete.call_count == 2  # op was completed twice due to an uncompletion
@@ -557,7 +559,8 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args_list[0][0][0] == op
         assert isinstance(
-            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReauthorizeConnectionOperation
+            stage.next.run_op.call_args_list[1][0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
         )
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(op=op, error=arbitrary_exception)

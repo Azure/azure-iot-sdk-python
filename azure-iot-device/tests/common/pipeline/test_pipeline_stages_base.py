@@ -283,7 +283,10 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 connection_ops = [
     {"op_class": pipeline_ops_base.ConnectOperation, "connected_flag_required_to_run": False},
     {"op_class": pipeline_ops_base.DisconnectOperation, "connected_flag_required_to_run": True},
-    {"op_class": pipeline_ops_base.ReauthorizeConnectionOperation, "connected_flag_required_to_run": True},
+    {
+        "op_class": pipeline_ops_base.ReauthorizeConnectionOperation,
+        "connected_flag_required_to_run": True,
+    },
 ]
 
 
@@ -457,7 +460,9 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         first_connect = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
         mocker.spy(first_connect, "complete")
         first_fake_op = FakeOperation(callback=mocker.MagicMock())
-        second_connect = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
+        second_connect = pipeline_ops_base.ReauthorizeConnectionOperation(
+            callback=mocker.MagicMock()
+        )
         mocker.spy(second_connect, "complete")
         second_fake_op = FakeOperation(callback=mocker.MagicMock())
 

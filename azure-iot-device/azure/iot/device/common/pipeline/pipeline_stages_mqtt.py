@@ -197,7 +197,9 @@ class MQTTTransportStage(PipelineStage):
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
-        ) or isinstance(self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation):
+        ) or isinstance(
+            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
+        ):
             logger.debug("completing connect op")
             op = self._pending_connection_op
             self._pending_connection_op = None
@@ -220,7 +222,9 @@ class MQTTTransportStage(PipelineStage):
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
-        ) or isinstance(self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation):
+        ) or isinstance(
+            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
+        ):
             logger.debug("{}: failing connect op".format(self.name))
             op = self._pending_connection_op
             self._pending_connection_op = None
