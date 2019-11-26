@@ -19,9 +19,6 @@ logger = logging.getLogger(__name__)
 
 http_client.HTTPSConnection.debuglevel = 1
 
-# defining all the different tyeps of HTTP Methods
-httpMethod = set("GET", "POST", "PUT", "PATCH", "DELETE")
-IOTHUB_API = "2019-03-30"
 
 # def translate_error(body, response):
 #     """
@@ -162,7 +159,7 @@ class HTTPTransport(object):
 
     @pipeline_thread.invoke_on_http_thread_nowait
     # TODO: This star syntax is incompatible with Python 2, change it so that the callback is in front of the optional params.
-    def request(self, method, hostname, path, callback, body=None, headers={}):
+    def request(self, method, hostname, path, callback, body=None, headers={}, query_params=None):
         # Sends a complete request to the server
         logger.info("sending https request")
         try:
@@ -174,8 +171,8 @@ class HTTPTransport(object):
             connection.connect()
             logger.debug("connection succeeded")
             formatted_headers = self._format_headers(headers)
-            url = "https://{hostname}/{path}?api-version={api}".format(
-                hostname=hostname, path=path, api=IOTHUB_API
+            url = "https://{hostname}/{path}?{query_params}".format(
+                hostname=hostname, path=path, query_params=query_params
             )
             connection.request(
                 method, url, body=json.dumps(body).encode("utf-8"), headers=formatted_headers

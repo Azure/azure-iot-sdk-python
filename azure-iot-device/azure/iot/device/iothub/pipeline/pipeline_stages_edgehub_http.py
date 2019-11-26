@@ -11,11 +11,9 @@ from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
     pipeline_ops_http,
-    pipeline_events_http,
     PipelineStage,
     pipeline_thread,
 )
-from azure.iot.device.edgehub.models import Message, MethodRequest
 from . import pipeline_ops_iothub, pipeline_ops_edgehub, http_path_edgehub
 from . import constant as pipeline_constant
 from . import exceptions as pipeline_exceptions
@@ -41,7 +39,7 @@ class EdgeHubHTTPTranslationStage(PipelineStage):
             self.device_id = op.device_id
             self.module_id = op.module_id
 
-            self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
+            # self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
 
             if op.module_id:
                 client_id = "{}/{}".format(op.device_id, op.module_id)
@@ -54,19 +52,16 @@ class EdgeHubHTTPTranslationStage(PipelineStage):
             else:
                 hostname = op.hostname
 
-            # TODO: test to make sure client_cert and sas_token travel down correctly
-            self.send_worker_op_down(
-                # self, hostname, callback, ca_cert=None, client_cert=None, sas_token=None
-                worker_op=pipeline_ops_http.SetHTTPConnectionArgsOperation(
-                    client_id=client_id,
-                    hostname=hostname,
-                    ca_cert=op.ca_cert,
-                    client_cert=op.client_cert,
-                    sas_token=op.sas_token,
-                    callback=op.callback,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_http.SetHTTPConnectionArgsOperation,
+                client_id=client_id,
+                hostname=hostname,
+                ca_cert=op.ca_cert,
+                client_cert=op.client_cert,
+                sas_token=op.sas_token,
             )
+
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_edgehub.MethodInvokeOperation):
             # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
@@ -77,23 +72,24 @@ class EdgeHubHTTPTranslationStage(PipelineStage):
             )
             path = "fakePath"
             headers = "fakeHeaders"
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_http.HTTPRequestOperation(
-                    path=path, headers=headers, callback=op.callback
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_http.HTTPRequestOperation,
+                path=path,
+                headers=headers,
+                body=None,
+                query_params=None,
             )
-            self.send_op_down(op)
+            self.send_op_down(worker_op)
 
         else:
             # All other operations get passed down
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _set_topic_names(self, device_id, module_id):
-        """
-        Build topic names based on the device_id and module_id passed.
-        """
-        self.telemetry_topic = http_path_edgehub.get_telemetry_topic_for_publish(
-            device_id, module_id
-        )
+    # @pipeline_thread.runs_on_pipeline_thread
+    # def _set_topic_names(self, device_id, module_id):
+    #     """
+    #     Build topic names based on the device_id and module_id passed.
+    #     """
+    #     self.telemetry_topic = http_path_edgehub.get_telemetry_topic_for_publish(
+    #         device_id, module_id
+    #     )

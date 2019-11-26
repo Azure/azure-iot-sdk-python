@@ -26,33 +26,34 @@ host_name = "{iotHubName}.azure-devices.net".format(iotHubName=iothub_name)
 # The type of authorization is through a SAS Token, so we add that to the headers here
 
 
-async def get_sas(connection):
-    # `getBlobSharedAccessSignature` shall create a `POST` HTTP request to a path formatted as the following:`/devices/URI_ENCODED(<deviceId>)/files?api-version=<api-version>]
-    getSasPost = "https://{hostName}/devices/{deviceId}/files?api-version={api}".format(
-        hostName=host_name, deviceId=device_id, api=api
-    )
-    uploadjson = {"blobName": "fakeBlobName"}
-    get_sas_headers = {
-        "Host": host_name,
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Content-Length": len(str(uploadjson)),
-        "User-Agent": "azure-iot-device/0xFFFFFFF",
-    }
+# async def get_sas(connection):
 
-    get_sas_headers["Authorization"] = sas
-    connection.request(
-        "POST", getSasPost, body=json.dumps(uploadjson).encode("utf-8"), headers=get_sas_headers
-    )
-    response = connection.getresponse()
-    print("Status {} and reason: {}".format(response.status, response.reason))
-    headers = response.getheaders()
-    pp = pprint.PrettyPrinter(indent=4)
-    pp.pprint(headers)
-    response_string = response.read().decode("utf-8")
-    json_obj = json.loads(response_string)
-    pp.pprint(response_string)
-    return json_obj
+#     # `getBlobSharedAccessSignature` shall create a `POST` HTTP request to a path formatted as the following:`/devices/URI_ENCODED(<deviceId>)/files?api-version=<api-version>]
+#     getSasPost = "https://{hostName}/devices/{deviceId}/files?api-version={api}".format(
+#         hostName=host_name, deviceId=device_id, api=api
+#     )
+#     uploadjson = {"blobName": "fakeBlobName"}
+#     get_sas_headers = {
+#         "Host": host_name,
+#         "Accept": "application/json",
+#         "Content-Type": "application/json",
+#         "Content-Length": len(str(uploadjson)),
+#         "User-Agent": "azure-iot-device/0xFFFFFFF",
+#     }
+
+#     get_sas_headers["Authorization"] = sas
+#     connection.request(
+#         "POST", getSasPost, body=json.dumps(uploadjson).encode("utf-8"), headers=get_sas_headers
+#     )
+#     response = connection.getresponse()
+#     print("Status {} and reason: {}".format(response.status, response.reason))
+#     headers = response.getheaders()
+#     pp = pprint.PrettyPrinter(indent=4)
+#     pp.pprint(headers)
+#     response_string = response.read().decode("utf-8")
+#     json_obj = json.loads(response_string)
+#     pp.pprint(response_string)
+#     return json_obj
 
 
 async def notify_upload_complete(connection, correlationId, upload_result):
@@ -139,16 +140,26 @@ async def storage_blob(blob_info):
 
 async def main():
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
+    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str, blob_upload=True)
+
+    # Connect the client.
+    await device_client.connect()
 
     # get the storage sas
-    storage_info = await device_client.get_storage_info()
+    blob_name = "fakeBlobName"
+    storage_info = await device_client.get_storage_info(blob_name)
 
     # upload to blob
-    storage_blob_result = await storage_blob(storage_info)
+    blob_info = await storage_blob(storage_info)
 
+    connection = http.client.HTTPSConnection(host_name)
+    connection.connect()
     # notify iot hub of blob upload result
-    await device_client.notify_upload_result(storage_blob_result)
+    # await device_client.notify_upload_result(storage_blob_result)
+    storage_blob_result = await storage_blob(blob_info)
+    # correlationId = 'hi'
+    await notify_upload_complete(connection, blob_info["correlationId"], storage_blob_result)
+    connection.close()
 
     # Finally, disconnect
     await device_client.disconnect()

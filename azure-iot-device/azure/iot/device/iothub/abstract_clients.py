@@ -36,14 +36,14 @@ class AbstractIoTHubClient(object):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, iothub_pipeline, upload_pipeline=None):
+    def __init__(self, iothub_pipeline, upload_pipeline):
         """Initializer for a generic client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
         self._iothub_pipeline = iothub_pipeline
-        self._upload_pipeline = None
+        self._upload_pipeline = upload_pipeline
         # self._edge_pipeline = None # Is this necessary?
 
     @classmethod
@@ -70,7 +70,7 @@ class AbstractIoTHubClient(object):
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         upload_pipeline = None
         if pipeline_configuration.blob_upload:
-            upload_pipeline = pipeline.IoTHubPipeline(
+            upload_pipeline = pipeline.UploadPipeline(
                 authentication_provider, pipeline_configuration
             )
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
@@ -95,7 +95,7 @@ class AbstractIoTHubClient(object):
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         upload_pipeline = None
         if pipeline_configuration.blob_upload:
-            upload_pipeline = pipeline.IoTHubPipeline(
+            upload_pipeline = pipeline.UploadPipeline(
                 authentication_provider, pipeline_configuration
             )
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
@@ -161,11 +161,11 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         upload_pipeline = None
         if pipeline_configuration.blob_upload:
-            upload_pipeline = pipeline.IoTHubPipeline(
+            upload_pipeline = pipeline.UploadPipeline(
                 authentication_provider, pipeline_configuration
             )
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline, upload_pipeline)
+        return cls(iothub_pipeline=iothub_pipeline, upload_pipeline=upload_pipeline)
 
     @abc.abstractmethod
     def receive_message(self):
@@ -266,7 +266,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         upload_pipeline = None
         if pipeline_configuration.blob_upload:
-            upload_pipeline = pipeline.IoTHubPipeline(
+            upload_pipeline = pipeline.UploadPipeline(
                 authentication_provider, pipeline_configuration
             )
         edge_pipeline = pipeline.EdgePipeline(authentication_provider, pipeline_configuration)
@@ -303,7 +303,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         upload_pipeline = None
         if pipeline_configuration.blob_upload:
-            upload_pipeline = pipeline.IoTHubPipeline(
+            upload_pipeline = pipeline.UploadPipeline(
                 authentication_provider, pipeline_configuration
             )
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)

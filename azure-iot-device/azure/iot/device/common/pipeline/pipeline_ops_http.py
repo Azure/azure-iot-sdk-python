@@ -44,7 +44,7 @@ class HTTPRequestOperation(PipelineOperation):
     A PipelineOperation object
     """
 
-    def __init__(self, path, headers, body, callback):
+    def __init__(self, path, headers, body, query_params, callback):
         """
         Initializer for HTTPPublishOperation objects.
 
@@ -58,3 +58,4 @@ class HTTPRequestOperation(PipelineOperation):
         self.path = path
         self.headers = headers
         self.body = body
+        self.query_params = query_params

@@ -295,21 +295,23 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    async def get_storage_info(self):
+    async def get_storage_info(self, blob_name):
         """Call up to the IoT Hub Endpoint over HTTP to get information on
         the storage blob for uploads.
         """
         # TODO: Check that the HTTP Pipeline has been set properly.
-        if not self._storage_pipeline:
+        if not self._upload_pipeline:
             # raise error
-            raise exceptions.ClientError(message="No Storage Pipeline Initialized.")
+            raise exceptions.ClientError(
+                "No Upload Pipeline Initialized. get_storage_info cannot be called without an Upload Pipeline set."
+            )
         else:
             get_storage_info_async = async_adapter.emulate_async(
                 self._upload_pipeline.get_storage_info
             )
 
             callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-            await get_storage_info_async(callback=callback)
+            await get_storage_info_async(blob_name=blob_name, callback=callback)
             storage_info = await handle_result(callback)
             logger.info("Successfully retrieved storage_info")
             return storage_info
@@ -321,7 +323,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, iothub_pipeline):
+    def __init__(self, iothub_pipeline, upload_pipeline=None):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -330,7 +332,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
-        super().__init__(iothub_pipeline=iothub_pipeline)
+        super().__init__(iothub_pipeline=iothub_pipeline, upload_pipeline=upload_pipeline)
         self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     async def receive_message(self):
@@ -357,7 +359,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, iothub_pipeline, edge_pipeline=None):
+    def __init__(self, iothub_pipeline, upload_pipeline=None, edge_pipeline=None):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
@@ -368,7 +370,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
         :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
-        super().__init__(iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline)
+        super().__init__(
+            iothub_pipeline=iothub_pipeline,
+            upload_pipeline=upload_pipeline,
+            edge_pipeline=edge_pipeline,
+        )
         self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     async def send_message_to_output(self, message, output_name):

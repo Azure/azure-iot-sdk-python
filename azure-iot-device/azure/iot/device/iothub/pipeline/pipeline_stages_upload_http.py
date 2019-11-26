@@ -11,11 +11,9 @@ from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
     pipeline_ops_http,
-    pipeline_events_http,
     PipelineStage,
     pipeline_thread,
 )
-from azure.iot.device.edgehub.models import Message, MethodRequest
 from . import pipeline_ops_iothub, pipeline_ops_upload, http_path_edgehub
 from . import constant as pipeline_constant
 from . import exceptions as pipeline_exceptions
@@ -33,7 +31,6 @@ class UploadHTTPTranslationStage(PipelineStage):
     def __init__(self):
         super(UploadHTTPTranslationStage, self).__init__()
         self.feature_to_topic = {}
-        self.api_version = "2019-03-30"
         self.device_id = None
         self.module_id = None
         self.client_id = None
@@ -45,7 +42,7 @@ class UploadHTTPTranslationStage(PipelineStage):
             self.device_id = op.device_id
             self.module_id = op.module_id
 
-            self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
+            # self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
 
             if op.module_id:
                 self.client_id = "{}/{}".format(op.device_id, op.module_id)
@@ -58,19 +55,16 @@ class UploadHTTPTranslationStage(PipelineStage):
             else:
                 self.hostname = op.hostname
 
-            # TODO: test to make sure client_cert and sas_token travel down correctly
-            self.send_worker_op_down(
-                # self, hostname, callback, ca_cert=None, client_cert=None, sas_token=None
-                worker_op=pipeline_ops_http.SetHTTPConnectionArgsOperation(
-                    client_id=self.client_id,
-                    hostname=self.hostname,
-                    ca_cert=op.ca_cert,
-                    client_cert=op.client_cert,
-                    sas_token=op.sas_token,
-                    callback=op.callback,
-                ),
-                op=op,
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_http.SetHTTPConnectionArgsOperation,
+                client_id=self.client_id,
+                hostname=self.hostname,
+                ca_cert=op.ca_cert,
+                client_cert=op.client_cert,
+                sas_token=op.sas_token,
             )
+
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_upload.GetStorageInfoOperation):
             # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
@@ -79,9 +73,10 @@ class UploadHTTPTranslationStage(PipelineStage):
                     self.name, op.name
                 )
             )
-            path = "/devices/{deviceId}/files?api-version={apiVersion}".format(
-                deviceId=self.device_id, apiVersion=pkg_constant.IOTHUB_API_VERSION
+            query_params = "api-version={apiVersion}".format(
+                apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
+            path = "/devices/{deviceId}/files".format(deviceId=self.device_id)
             body = {"blobName": op.blob_name}
             headers = {
                 "Host": urllib.parse.urlencode(self.hostname),
@@ -91,24 +86,18 @@ class UploadHTTPTranslationStage(PipelineStage):
                 "User-Agent": urllib.parse.urlencode(pkg_constant.USER_AGENT),
             }
 
-            self.send_worker_op_down(
-                worker_op=pipeline_ops_http.HTTPRequestOperation(
-                    path=path, headers=headers, body=body, callback=op.callback
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_http.HTTPRequestOperation(
+                    path=path,
+                    headers=headers,
+                    body=body,
+                    query_params=query_params,
+                    callback=op.callback,
                 ),
                 op=op,
             )
-            self.send_op_down(op)
+            self.send_op_down(worker_op)
 
         else:
             # All other operations get passed down
             self.send_op_down(op)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _set_topic_names(self, device_id, module_id):
-        """
-        Build topic names based on the device_id and module_id passed.
-        """
-        # TODO: We need to use this somehow. I think this stuff is not working.
-        self.telemetry_topic = http_path_edgehub.get_telemetry_topic_for_publish(
-            device_id, module_id
-        )

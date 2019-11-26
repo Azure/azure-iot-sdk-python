@@ -24,8 +24,8 @@ from azure.iot.device.iothub.auth.x509_authentication_provider import X509Authen
 logger = logging.getLogger(__name__)
 
 
-class EdgePipeline(object):
-    """Pipeline to communicate with Edge.
+class UploadPipeline(object):
+    """Pipeline to communicate with Upload endpoint of IoT Hub.
     Uses HTTP.
     """
 
@@ -60,11 +60,13 @@ class EdgePipeline(object):
         self._pipeline.run_op(op)
         callback.wait_for_completion()
 
-    def get_storage_info(self, callback):
+    def get_storage_info(self, blob_name, callback):
         def on_complete(op, error):
             if error:
                 callback(error=error, storage_info=None)
             else:
                 callback(storage_info=op.storage_info)
 
-        self._pipeline.run_op(pipeline_ops_upload.GetStorageInfoOperation(callback=on_complete))
+        self._pipeline.run_op(
+            pipeline_ops_upload.GetStorageInfoOperation(blob_name=blob_name, callback=on_complete)
+        )

@@ -11,7 +11,7 @@ class GetStorageInfoOperation(PipelineOperation):
     A PipleineOperation object which contains arguments used to get the storage information from IoT Hub.
     """
 
-    def __init__(self, callback):
+    def __init__(self, blob_name, callback):
         """
         Initializer for GetStorageInfo objects.
 
@@ -25,4 +25,5 @@ class GetStorageInfoOperation(PipelineOperation):
         :type storage_info: Storage Info
         """
         super(GetStorageInfoOperation, self).__init__(callback=callback)
+        self.blob_name = blob_name
         self.storage_info = None
