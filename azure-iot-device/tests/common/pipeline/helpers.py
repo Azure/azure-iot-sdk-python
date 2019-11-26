@@ -24,7 +24,7 @@ except ImportError:
 
 all_common_ops = [
     pipeline_ops_base.ConnectOperation,
-    pipeline_ops_base.ReconnectOperation,
+    pipeline_ops_base.ReauthorizeConnectionOperation,
     pipeline_ops_base.DisconnectOperation,
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,

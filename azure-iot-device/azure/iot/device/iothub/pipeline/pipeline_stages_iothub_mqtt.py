@@ -90,13 +90,13 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             and self.pipeline_root.connected
         ):
             logger.debug(
-                "{}({}): Connected.  Passing op down and reconnecting after token is updated.".format(
+                "{}({}): Connected.  Passing op down and reauthorizing after token is updated.".format(
                     self.name, op.name
                 )
             )
 
             # make a callback that either fails the UpdateSasTokenOperation (if the lower level failed it),
-            # or issues a ReconnectOperation (if the lower level returned success for the UpdateSasTokenOperation)
+            # or issues a ReauthorizeConnectionOperation (if the lower level returned success for the UpdateSasTokenOperation)
             def on_token_update_complete(op, error):
                 if error:
                     logger.error(
@@ -106,13 +106,13 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     )
                 else:
                     logger.debug(
-                        "{}({}) token update succeeded.  reconnecting".format(self.name, op.name)
+                        "{}({}) token update succeeded.  reauthorizing".format(self.name, op.name)
                     )
 
-                    # Stop completion of Token Update op, and only continue upon completion of Reconnect op
+                    # Stop completion of Token Update op, and only continue upon completion of ReauthorizeConnectionOperation
                     op.halt_completion()
                     worker_op = op.spawn_worker_op(
-                        worker_op_type=pipeline_ops_base.ReconnectOperation
+                        worker_op_type=pipeline_ops_base.ReauthorizeConnectionOperation
                     )
 
                     self.send_op_down(worker_op)

@@ -346,22 +346,22 @@ class MQTTTransport(object):
             raise _create_error_from_rc_code(rc)
         self._mqtt_client.loop_start()
 
-    def reconnect(self, password=None):
+    def reauthorize_connection(self, password=None):
         """
-        Reconnect to the MQTT broker, using username set at instantiation.
+        Reauthorize with the MQTT broker, using username set at instantiation.
 
         Connect should have previously been called in order to use this function.
 
         The password is not required if the transport was instantiated with an x509 certificate.
 
-        :param str password: The password for reconnecting with the MQTT broker (Optional).
+        :param str password: The password for reauthorizing with the MQTT broker (Optional).
 
         :raises: ConnectionFailedError if connection could not be established.
         :raises: ConnectionDroppedError if connection is dropped during execution.
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: ProtocolClientError if there is some other client error.
         """
-        logger.info("reconnecting MQTT client")
+        logger.info("reauthorizing MQTT client")
         self._mqtt_client.username_pw_set(username=self._username, password=password)
         try:
             rc = self._mqtt_client.reconnect()
