@@ -331,7 +331,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
                 self._upload_pipeline.notify_blob_upload_status
             )
 
-            callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+            callback = async_adapter.AwaitableCallback()
             await notify_blob_upload_status_async(
                 correlation_id=correlation_id,
                 upload_response=upload_response,
@@ -339,9 +339,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
                 status_description=status_description,
                 callback=callback,
             )
-            storage_info = await handle_result(callback)
-            logger.info("Successfully retrieved storage_info")
-            return storage_info
+            await handle_result(callback)
+            logger.info("Successfully notified blob upload status")
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -462,25 +461,22 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         return message
 
     async def invoke_method(self, method_params, device_id, module_id=None):
-        # TODO: Should the pipeline level be split into to? According to everyone,
+        # TODO: Should the pipeline level be split into two? According to everyone,
         # it should be only one in the pipeline level, so I should change this.
         """
         method_params should contain a method_name, payload, conenct_timeout_in_seconds, response_timeout_in_seconds
         method_result should contain a status, and a payload
         """
-        if not self._edge_pipeline:
+        if not self._invoke_method_pipeline:
             # TODO: Is this the right type of Error? CC: Carter
             raise exceptions.ClientError(message="Method Invoke only avaiable on Edge Modules")
-        if module_id:
-            invoke_method_async = async_adapter.emulate_async(
-                self._edge_pipeline.invoke_method_module_to_module
-            )
-            callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
-            await invoke_method_async(device_id, method_params, callback)
-        else:  # no module_id = not module to module
-            invoke_method_async = async_adapter.emulate_async(self._edge_pipeline.invoke_method)
-            callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
-            await invoke_method_async(device_id, module_id, method_params, callback)
+
+        invoke_method_async = async_adapter.emulate_async(
+            self._invoke_method_pipeline.invoke_method
+        )
+        callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
+        await invoke_method_async(device_id, method_params, callback, module_id)
+
         method_response = await handle_result(callback)
         logger.info("Successfully invoked method")
         return method_response

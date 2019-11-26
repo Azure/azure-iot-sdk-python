@@ -21,7 +21,9 @@ async def main():
     # Connect the client.
     await module_client.connect()
 
-    invoke_method_response = await module_client.invoke_method("fakeMethodParams")
+    invoke_method_response = await module_client.invoke_method(
+        method_params="fakeMethodParams", device_id="fakeDeviceId", module_id="fakeModuleId"
+    )
     print("Method Response: {}".format(invoke_method_response))
     # finally, disconnect
     module_client.disconnect()

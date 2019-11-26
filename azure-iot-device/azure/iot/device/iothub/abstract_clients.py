@@ -44,7 +44,7 @@ class AbstractIoTHubClient(object):
         """
         self._iothub_pipeline = iothub_pipeline
         self._upload_pipeline = upload_pipeline
-        # self._edge_pipeline = None # Is this necessary?
+        # self._invoke_method_pipeline = None # Is this necessary?
 
     @classmethod
     def create_from_connection_string(cls, connection_string, ca_cert=None, **kwargs):
@@ -183,7 +183,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
         super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline)
-        self._edge_pipeline = edge_pipeline
+        self._invoke_method_pipeline = edge_pipeline
 
     @classmethod
     def create_from_edge_environment(cls, **kwargs):

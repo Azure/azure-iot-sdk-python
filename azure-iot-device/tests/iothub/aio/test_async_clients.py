@@ -1024,11 +1024,11 @@ class TestIoTHubDeviceClientInstantiation(
             == client._inbox_manager.route_c2d_message
         )
 
-    @pytest.mark.it("Sets the '_edge_pipeline' attribute to None")
-    async def test_edge_pipeline_is_none(self, client_class, iothub_pipeline):
+    @pytest.mark.it("Sets the '_invoke_method_pipeline' attribute to None")
+    async def test_invoke_method_pipeline_is_none(self, client_class, iothub_pipeline):
         client = client_class(iothub_pipeline)
 
-        assert client._edge_pipeline is None
+        assert client._invoke_method_pipeline is None
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_connection_string()")
@@ -1320,20 +1320,22 @@ class TestIoTHubModuleClientInstantiation(
         )
 
     @pytest.mark.it(
-        "Stores the EdgePipeline from the optionally-provided 'edge_pipeline' parameter in the '_edge_pipeline' attribute"
+        "Stores the EdgePipeline from the optionally-provided 'edge_pipeline' parameter in the '_invoke_method_pipeline' attribute"
     )
-    async def test_sets_edge_pipeline_attribute(self, client_class, iothub_pipeline, edge_pipeline):
+    async def test_sets_invoke_method_pipeline_attribute(
+        self, client_class, iothub_pipeline, edge_pipeline
+    ):
         client = client_class(iothub_pipeline, edge_pipeline)
 
-        assert client._edge_pipeline is edge_pipeline
+        assert client._invoke_method_pipeline is edge_pipeline
 
     @pytest.mark.it(
-        "Sets the '_edge_pipeline' attribute to None, if the 'edge_pipeline' parameter is not provided"
+        "Sets the '_invoke_method_pipeline' attribute to None, if the 'edge_pipeline' parameter is not provided"
     )
-    async def test_edge_pipeline_default_none(self, client_class, iothub_pipeline):
+    async def test_invoke_method_pipeline_default_none(self, client_class, iothub_pipeline):
         client = client_class(iothub_pipeline)
 
-        assert client._edge_pipeline is None
+        assert client._invoke_method_pipeline is None
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_connection_string()")
@@ -1424,14 +1426,16 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         ).return_value
 
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
-        mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
+        mock_invoke_method_pipeline_init = mocker.patch(
+            "azure.iot.device.iothub.pipeline.EdgePipeline"
+        )
 
         client_class.create_from_edge_environment()
 
         assert mock_iothub_pipeline_init.call_count == 1
         assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
-        assert mock_edge_pipeline_init.call_count == 1
-        assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_invoke_method_pipeline_init.call_count == 1
+        assert mock_invoke_method_pipeline_init.call_args == mocker.call(mock_auth)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
     async def test_client_instantiation(self, mocker, client_class, edge_container_environment):
@@ -1441,7 +1445,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         mock_iothub_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
-        mock_edge_pipeline = mocker.patch(
+        mock_invoke_method_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.EdgePipeline"
         ).return_value
         spy_init = mocker.spy(client_class, "__init__")
@@ -1450,7 +1454,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
 
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(
-            mocker.ANY, mock_iothub_pipeline, edge_pipeline=mock_edge_pipeline
+            mocker.ANY, mock_iothub_pipeline, edge_pipeline=mock_invoke_method_pipeline
         )
 
     @pytest.mark.it("Returns the instantiated client")
@@ -1676,14 +1680,16 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig"
         ).return_value
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
-        mock_edge_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
+        mock_invoke_method_pipeline_init = mocker.patch(
+            "azure.iot.device.iothub.pipeline.EdgePipeline"
+        )
 
         client_class.create_from_edge_environment()
 
         assert mock_iothub_pipeline_init.call_count == 1
         assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
-        assert mock_edge_pipeline_init.call_count == 1
-        assert mock_edge_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_invoke_method_pipeline_init.call_count == 1
+        assert mock_invoke_method_pipeline_init.call_args == mocker.call(mock_auth)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
     async def test_client_instantiation(
@@ -1693,7 +1699,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         mock_iothub_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
-        mock_edge_pipeline = mocker.patch(
+        mock_invoke_method_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.EdgePipeline"
         ).return_value
         spy_init = mocker.spy(client_class, "__init__")
@@ -1702,7 +1708,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
 
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(
-            mocker.ANY, mock_iothub_pipeline, edge_pipeline=mock_edge_pipeline
+            mocker.ANY, mock_iothub_pipeline, edge_pipeline=mock_invoke_method_pipeline
         )
 
     @pytest.mark.it("Returns the instantiated client")
