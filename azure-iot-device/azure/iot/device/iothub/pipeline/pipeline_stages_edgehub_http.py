@@ -73,7 +73,7 @@ class EdgeHubHTTPTranslationStage(PipelineStage):
             path = "fakePath"
             headers = "fakeHeaders"
             worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_http.HTTPRequestOperation,
+                worker_op_type=pipeline_ops_http.HTTPRequestAndResponseOperation,
                 path=path,
                 headers=headers,
                 body=None,

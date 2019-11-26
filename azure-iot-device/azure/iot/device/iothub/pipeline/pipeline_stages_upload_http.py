@@ -38,6 +38,17 @@ class UploadHTTPTranslationStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _execute_op(self, op):
+        def map_http_error(error, http_op):
+            if error:
+                return error
+            elif http_op.status_code >= 300:
+                # TODO map error codes to correct exceptions
+                logger.error("Error {} received from request operation".format(http_op.status_code))
+                logger.error("response body: {}".format(http_op.response_body))
+                return pipeline_exceptions.PipelineError(
+                    "http operation returned status {}".format(http_op.status_code)
+                )
+
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id
@@ -79,22 +90,47 @@ class UploadHTTPTranslationStage(PipelineStage):
             path = "/devices/{deviceId}/files".format(deviceId=self.device_id)
             body = {"blobName": op.blob_name}
             headers = {
-                "Host": json.dumps(self.hostname).encode("utf-8"),
+                "Host": self.hostname,  # TODO: Does this need to be encoded?
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
-                "User-Agent": json.dumps(pkg_constant.USER_AGENT).encode("utf-8"),
+                "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
             }
 
-            worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_http.HTTPRequestOperation,
-                hostname=self.hostname,
-                path=path,
-                headers=headers,
-                body=body,
-                query_params=query_params,
+            op_waiting_for_response = op
+
+            def on_request_response(op, error):
+                logger.debug(
+                    "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
+                )
+                error = map_http_error(error=error, http_op=op)
+                if not error:
+                    op_waiting_for_response.storage_info = json.loads(
+                        op.response_body.decode("utf-8")
+                    )
+                op_waiting_for_response.complete(error=error)
+
+            self.send_op_down(
+                pipeline_ops_http.HTTPRequestAndResponseOperation(
+                    hostname=self.hostname,
+                    path=path,
+                    headers=headers,
+                    body=body,
+                    query_params=query_params,
+                    callback=on_request_response,
+                )
             )
-            self.send_op_down(worker_op)
+
+            # worker_op = op.spawn_worker_op(
+            #     worker_op_type=pipeline_ops_http.HTTPRequestAndResponseOperation,
+            #     hostname=self.hostname,
+            #     path=path,
+            #     headers=headers,
+            #     body=body,
+            #     query_params=query_params,
+            #     callback=on_request_response
+            # )
+            # self.send_op_down(worker_op)
 
         else:
             # All other operations get passed down

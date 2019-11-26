@@ -50,16 +50,22 @@ class HTTPTransportStage(PipelineStage):
             self.sas_token = op.sas_token
             op.complete()
 
-        elif isinstance(op, pipeline_ops_http.HTTPRequestOperation):
+        elif isinstance(op, pipeline_ops_http.HTTPRequestAndResponseOperation):
 
             http_headers = op.headers
             if self.sas_token:
                 http_headers["Authorization"] = self.sas_token
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_request_complete():
+            def on_request_completed(status_code, response):
                 logger.debug("{}({}): Request completed. Completing op.".format(self.name, op.name))
-                op.complete()
+
+                logger.debug("HTTP Response Status: {}".format(status_code))
+                logger.debug(response)
+
+                op.status_code = status_code
+                op.response_body = response
+                op.complete()  # TODO: Do we need to put an error in here?
 
             self.transport.request(
                 method="POST",
@@ -68,9 +74,8 @@ class HTTPTransportStage(PipelineStage):
                 headers=http_headers,
                 query_params=op.query_params,
                 body=op.body,
-                callback=on_request_complete,
+                callback=on_request_completed,
             )
-            op.complete()
 
         else:
             self.send_op_down(op)

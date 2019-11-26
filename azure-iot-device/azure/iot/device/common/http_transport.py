@@ -131,11 +131,11 @@ class HTTPTransport(object):
 
         return ssl_context
 
-    def _format_headers(self, headers):
-        # TODO: Right now I'm only doing sas token because I'm lazy and limited
-        formatted_headers = {}
-        formatted_headers["Authorization"] = headers["sas"]
-        return formatted_headers
+    # def _format_headers(self, headers):
+    #     # TODO: Right now I'm only doing sas token because I'm lazy and limited
+    #     formatted_headers = {}
+    #     formatted_headers["Authorization"] = headers["sas"]
+    #     return formatted_headers
 
     """
     Some backstory on this.
@@ -170,20 +170,21 @@ class HTTPTransport(object):
             logger.debug("connecting to host tcp socket")
             connection.connect()
             logger.debug("connection succeeded")
-            formatted_headers = self._format_headers(headers)
+            # formatted_headers = self._format_headers(headers)
             url = "https://{hostname}/{path}?{query_params}".format(
                 hostname=hostname, path=path, query_params=query_params
             )
-            connection.request(
-                method, url, body=json.dumps(body).encode("utf-8"), headers=formatted_headers
-            )
+            connection.request(method, url, body=json.dumps(body).encode("utf-8"), headers=headers)
             response = connection.getresponse()
-            logger.debug("response received: {}".format(response))
+            status_code = response.status
+            response_string = response.read()
+
+            logger.debug("response received.")
             logger.debug("closing connection to https host")
             connection.close()
             logger.debug("connection closed")
             logger.info("https request sent")
-            callback(response)
+            callback(status_code, response_string)
         except Exception as e:
             # TODO: This exception needs to be returned in the callback, I cannot raise here because it's in a different thread than the pipeline
             # and would therefore do nothing. Instead pass an exception to the callback as an error if this is excepted.

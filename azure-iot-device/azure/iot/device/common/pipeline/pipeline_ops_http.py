@@ -39,7 +39,7 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
         self.sas_token = sas_token
 
 
-class HTTPRequestOperation(PipelineOperation):
+class HTTPRequestAndResponseOperation(PipelineOperation):
     """
     A PipelineOperation object
     """
@@ -54,9 +54,11 @@ class HTTPRequestOperation(PipelineOperation):
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
-        super(HTTPRequestOperation, self).__init__(callback=callback)
+        super(HTTPRequestAndResponseOperation, self).__init__(callback=callback)
         self.hostname = hostname
         self.path = path
         self.headers = headers
         self.body = body
         self.query_params = query_params
+        self.status_code = None
+        self.response_body = None

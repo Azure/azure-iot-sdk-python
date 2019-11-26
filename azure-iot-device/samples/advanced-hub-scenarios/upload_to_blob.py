@@ -146,19 +146,17 @@ async def main():
     await device_client.connect()
 
     # get the storage sas
-    blob_name = "fakeBlobName"
+    blob_name = "fakeBlobName12"
     storage_info = await device_client.get_storage_info(blob_name)
 
     # upload to blob
-    blob_info = await storage_blob(storage_info)
-
     connection = http.client.HTTPSConnection(host_name)
     connection.connect()
     # notify iot hub of blob upload result
     # await device_client.notify_upload_result(storage_blob_result)
-    storage_blob_result = await storage_blob(blob_info)
+    storage_blob_result = await storage_blob(storage_info)
     # correlationId = 'hi'
-    await notify_upload_complete(connection, blob_info["correlationId"], storage_blob_result)
+    await notify_upload_complete(connection, storage_info["correlationId"], storage_blob_result)
     connection.close()
 
     # Finally, disconnect
