@@ -19,6 +19,14 @@ This repository contains the following libraries:
 
 * Coming Soon: Azure IoT Device Provisioning Service Library
 
+## Installing the libraries
+
+Pip installs are provided for all of the SDK libraries in this repo:
+
+[Device libraries](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device#installation)
+
+[IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md#installation)
+
 ## Features
 
 :heavy_check_mark: feature available  :heavy_multiplication_x: feature planned but not yet supported  :heavy_minus_sign: no support planned*
@@ -40,6 +48,7 @@ This repository contains the following libraries:
 | Retry policies                                                                                                   | :heavy_check_mark:         | Retry policy for unsuccessful device-to-cloud messages.                                                                                                                                                              |
 
 #### IoTHub Module Client
+
 | Features                                                                                                         | Status                     | Description                                                                                                                                                                                                          |
 |------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [Authentication](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-security-deployment)                     | :heavy_check_mark:         | Connect your device to IoT Hub securely with supported authentication, including private key, SASToken, X-509 Self Signed and Certificate Authority (CA) Signed.                                                     |
@@ -84,14 +93,6 @@ Feature is Coming Soon
 | CRUD Operation with X.509 Individual Enrollment     | :heavy_multiplication_x: | Manages device enrollment using X.509 individual enrollment with the service SDK.  Please visit the [samples folder](./provisioning/service/samples/) to learn more about this feature.  |
 | CRUD Operation with X.509 Group Enrollment          | :heavy_multiplication_x: | Manages device enrollment using X.509 group enrollment with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.        |
 | Query enrollments                                   | :heavy_multiplication_x: | Query registration states with the service SDK.  Please visit the [samples folder](./provisioning_service_client/) to learn more about this feature.                                    |
-
-## How to install the libraries
-
-Pip installs are provided for all of the SDK libraries in this repo:
-
-[Device libraries](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device#installation)
-
-[IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md#installation)
 
 ## Contributing
 
