@@ -128,7 +128,7 @@ def mock_mqtt_client(mocker):
     mock_mqtt_client.unsubscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
     mock_mqtt_client.publish = mocker.MagicMock(return_value=(fake_rc, fake_mid))
     mock_mqtt_client.connect.return_value = 0
-    mock_mqtt_client.reauthorize_connection.return_value = 0
+    mock_mqtt_client.reconnect.return_value = 0
     mock_mqtt_client.disconnect.return_value = 0
     return mock_mqtt_client
 
