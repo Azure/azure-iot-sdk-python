@@ -195,7 +195,7 @@ class MQTTTransportStage(PipelineStage):
         logger.info("_on_mqtt_connected called")
         # Send an event to tell other pipeline stages that we're connected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
-        self.send_event_up(pipeline_events_base.ConnectCompletedEvent())
+        self.send_event_up(pipeline_events_base.ConnectedEvent())
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
@@ -245,7 +245,7 @@ class MQTTTransportStage(PipelineStage):
 
         # Send an event to tell other pipeilne stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
-        self.send_event_up(pipeline_events_base.DisconnectCompletedEvent())
+        self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
         if self._pending_connection_op:
             # on_mqtt_disconnected will cause any pending connect op to complete.  This is how Paho

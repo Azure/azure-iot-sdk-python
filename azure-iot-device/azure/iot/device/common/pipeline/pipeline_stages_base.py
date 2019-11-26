@@ -223,21 +223,21 @@ class PipelineRootStage(PipelineStage):
         )
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
-    def append_stage(self, new_next_stage):
+    def append_stage(self, new_stage):
         """
         Add the next stage to the end of the pipeline.  This is the function that callers
         use to build the pipeline by appending stages.  This function returns the root of
         the pipeline so that calls to this function can be chained together.
 
-        :param PipelineStage new_next_stage: Stage to add to the end of the pipeline
+        :param PipelineStage new_stage: Stage to add to the end of the pipeline
         :returns: The root of the pipeline.
         """
         old_tail = self
         while old_tail.next:
             old_tail = old_tail.next
-        old_tail.next = new_next_stage
-        new_next_stage.previous = old_tail
-        new_next_stage.pipeline_root = self
+        old_tail.next = new_stage
+        new_stage.previous = old_tail
+        new_stage.pipeline_root = self
         return self
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -250,7 +250,7 @@ class PipelineRootStage(PipelineStage):
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
-        if isinstance(event, pipeline_events_base.ConnectCompletedEvent):
+        if isinstance(event, pipeline_events_base.ConnectedEvent):
             logger.debug(
                 "{}: on_connected.  on_connected_handler={}".format(
                     self.name, self.on_connected_handler
@@ -260,7 +260,7 @@ class PipelineRootStage(PipelineStage):
             if self.on_connected_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
 
-        elif isinstance(event, pipeline_events_base.DisconnectCompletedEvent):
+        elif isinstance(event, pipeline_events_base.DisconnectedEvent):
             logger.debug(
                 "{}: on_disconnected.  on_disconnected_handler={}".format(
                     self.name, self.on_disconnected_handler
@@ -350,6 +350,7 @@ class ConnectionLockStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+
         # If this stage is currently blocked (because we're waiting for a connection, etc,
         # to complete), we queue up all operations until after the connect completes.
         if self.blocked:
@@ -361,7 +362,9 @@ class ConnectionLockStage(PipelineStage):
             self.queue.put_nowait(op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
-            logger.info("{}({}): Transport is connected.  Completing.".format(self.name, op.name))
+            logger.info(
+                "{}({}): Transport is already connected.  Completing.".format(self.name, op.name)
+            )
             op.complete()
 
         elif (
@@ -369,7 +372,7 @@ class ConnectionLockStage(PipelineStage):
             and not self.pipeline_root.connected
         ):
             logger.info(
-                "{}({}): Transport is disconnected.  Completing.".format(self.name, op.name)
+                "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
             )
             op.complete()
 
@@ -445,7 +448,7 @@ class ConnectionLockStage(PipelineStage):
                 logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
-                # call run_op directly here so operations go through this stage again (especiall connect/disconnect ops)
+                # call run_op directly here so operations go through this stage again (especially connect/disconnect ops)
                 self.run_op(op_to_release)
 
 
@@ -827,11 +830,11 @@ class ReconnectStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
-        if isinstance(event, pipeline_events_base.ConnectCompletedEvent):
+        if isinstance(event, pipeline_events_base.ConnectedEvent):
             self._clear_reconnect_timer()
             self.send_event_up(event)
 
-        elif isinstance(event, pipeline_events_base.DisconnectCompletedEvent):
+        elif isinstance(event, pipeline_events_base.DisconnectedEvent):
             if self.pipeline_root.connected:
                 if self.virtually_connected:
                     logger.info(

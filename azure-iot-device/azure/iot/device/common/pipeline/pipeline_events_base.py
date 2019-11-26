@@ -66,9 +66,17 @@ class ResponseEvent(PipelineEvent):
         self.response_body = response_body
 
 
-class ConnectCompletedEvent(PipelineEvent):
+class ConnectedEvent(PipelineEvent):
+    """
+    A PipelineEvent object indicating a connection has been established.
+    """
+
     pass
 
 
-class DisconnectCompletedEvent(PipelineEvent):
+class DisconnectedEvent(PipelineEvent):
+    """
+    A PipelineEvent object indicating a connection has been dropped.
+    """
+
     pass
