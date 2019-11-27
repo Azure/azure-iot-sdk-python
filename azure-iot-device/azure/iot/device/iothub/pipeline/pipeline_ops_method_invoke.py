@@ -28,3 +28,4 @@ class MethodInvokeOperation(PipelineOperation):
         self.device_id = device_id
         self.module_id = module_id
         self.method_params = method_params
+        self.method_response = None

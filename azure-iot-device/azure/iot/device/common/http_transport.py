@@ -174,7 +174,7 @@ class HTTPTransport(object):
             url = "https://{hostname}/{path}?{query_params}".format(
                 hostname=hostname, path=path, query_params=query_params
             )
-            connection.request(method, url, body=json.dumps(body).encode("utf-8"), headers=headers)
+            connection.request(method, url, body=body.encode("utf-8"), headers=headers)
             response = connection.getresponse()
             status_code = response.status
             response_string = response.read()

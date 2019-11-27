@@ -1521,7 +1521,7 @@ class TestIoTHubModuleClientInstantiation(
         )
 
     @pytest.mark.it(
-        "Stores the EdgePipeline from the optionally-provided 'edge_pipeline' parameter in the '_invoke_method_pipeline' attribute"
+        "Stores the MethodInvokePipeline from the optionally-provided 'edge_pipeline' parameter in the '_invoke_method_pipeline' attribute"
     )
     def test_sets_invoke_method_pipeline_attribute(
         self, client_class, iothub_pipeline, edge_pipeline
@@ -1615,7 +1615,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         )
 
     @pytest.mark.it(
-        "Uses the IoTEdgeAuthenticationProvider to create an IoTHubPipeline and an EdgePipeline"
+        "Uses the IoTEdgeAuthenticationProvider to create an IoTHubPipeline and an MethodInvokePipeline"
     )
     def test_pipeline_creation(self, mocker, client_class, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment)
@@ -1627,7 +1627,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_invoke_method_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.pipeline.EdgePipeline"
+            "azure.iot.device.iothub.pipeline.MethodInvokePipeline"
         )
 
         client_class.create_from_edge_environment()
@@ -1640,7 +1640,9 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         # This asserts without mock_config_init because currently edge isn't implemented. When it is, this should be identical to the line aboe.
         assert mock_invoke_method_pipeline_init.call_args == mocker.call(mock_auth)
 
-    @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
+    @pytest.mark.it(
+        "Uses the IoTHubPipeline and the MethodInvokePipeline to instantiate the client"
+    )
     def test_client_instantiation(self, mocker, client_class, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment)
         # Always patch the IoTEdgeAuthenticationProvider to prevent I/O operations
@@ -1649,7 +1651,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
         mock_invoke_method_pipeline = mocker.patch(
-            "azure.iot.device.iothub.pipeline.EdgePipeline"
+            "azure.iot.device.iothub.pipeline.MethodInvokePipeline"
         ).return_value
         spy_init = mocker.spy(client_class, "__init__")
 
@@ -1727,7 +1729,7 @@ class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
             wraps=config.IoTHubPipelineConfig,
         )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
-        mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
+        mocker.patch("azure.iot.device.iothub.pipeline.MethodInvokePipeline")
 
         client_class.create_from_edge_environment()
 
@@ -1765,7 +1767,7 @@ class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
             wraps=config.IoTHubPipelineConfig,
         )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
-        mocker.patch("azure.iot.device.iothub.pipeline.EdgePipeline")
+        mocker.patch("azure.iot.device.iothub.pipeline.MethodInvokePipeline")
 
         kwargs = {"websockets": websockets[0], "product_info": product_info[0]}
 
@@ -1869,7 +1871,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         )
 
     @pytest.mark.it(
-        "Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline and an EdgePipeline"
+        "Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline and an MethodInvokePipeline"
     )
     def test_pipeline_creation(self, mocker, client_class, edge_local_debug_environment, mock_open):
         mocker.patch.dict(os.environ, edge_local_debug_environment)
@@ -1881,7 +1883,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         )
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
         mock_invoke_method_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.pipeline.EdgePipeline"
+            "azure.iot.device.iothub.pipeline.MethodInvokePipeline"
         )
 
         client_class.create_from_edge_environment()
@@ -1893,7 +1895,9 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         assert mock_invoke_method_pipeline_init.call_count == 1
         assert mock_invoke_method_pipeline_init.call_args == mocker.call(mock_auth)
 
-    @pytest.mark.it("Uses the IoTHubPipeline and the EdgePipeline to instantiate the client")
+    @pytest.mark.it(
+        "Uses the IoTHubPipeline and the MethodInvokePipeline to instantiate the client"
+    )
     def test_client_instantiation(
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
@@ -1902,7 +1906,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
         mock_invoke_method_pipeline = mocker.patch(
-            "azure.iot.device.iothub.pipeline.EdgePipeline"
+            "azure.iot.device.iothub.pipeline.MethodInvokePipeline"
         ).return_value
         spy_init = mocker.spy(client_class, "__init__")
 

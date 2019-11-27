@@ -68,7 +68,7 @@ class HTTPTransportStage(PipelineStage):
                 op.complete()  # TODO: Do we need to put an error in here?
 
             self.transport.request(
-                method="POST",
+                method=op.method,
                 hostname=op.hostname,
                 path=op.path,
                 headers=http_headers,

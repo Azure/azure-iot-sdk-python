@@ -14,7 +14,7 @@ from azure.iot.device.common.pipeline import (
     PipelineStage,
     pipeline_thread,
 )
-from . import pipeline_ops_iothub, pipeline_ops_upload, http_path_edgehub
+from . import pipeline_ops_iothub, pipeline_ops_method_invoke, http_path_edgehub
 from . import constant as pipeline_constant
 from . import exceptions as pipeline_exceptions
 from azure.iot.device import constant as pkg_constant
@@ -22,14 +22,14 @@ from azure.iot.device import constant as pkg_constant
 logger = logging.getLogger(__name__)
 
 
-class UploadHTTPTranslationStage(PipelineStage):
+class MethodInvokeHTTPTranslationStage(PipelineStage):
     """
     PipelineStage which converts other Iot and EdgeHub operations into HTTP operations.  This stage also
     converts http pipeline events into Iot and EdgeHub pipeline events.
     """
 
     def __init__(self):
-        super(UploadHTTPTranslationStage, self).__init__()
+        super(MethodInvokeHTTPTranslationStage, self).__init__()
         self.feature_to_topic = {}
         self.device_id = None
         self.module_id = None
@@ -52,9 +52,6 @@ class UploadHTTPTranslationStage(PipelineStage):
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id
-
-            # self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
-
             if op.module_id:
                 self.client_id = "{}/{}".format(op.device_id, op.module_id)
             else:
@@ -65,7 +62,6 @@ class UploadHTTPTranslationStage(PipelineStage):
                 self.hostname = op.gateway_hostname
             else:
                 self.hostname = op.hostname
-
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_http.SetHTTPConnectionArgsOperation,
                 client_id=self.client_id,
@@ -74,73 +70,43 @@ class UploadHTTPTranslationStage(PipelineStage):
                 client_cert=op.client_cert,
                 sas_token=op.sas_token,
             )
-
             self.send_op_down(worker_op)
 
-        elif isinstance(op, pipeline_ops_upload.GetStorageInfoOperation):
-            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
-            logger.debug("{}({}): BLAH BLAH BLAH".format(self.name, op.name))
-            query_params = "api-version={apiVersion}".format(
-                apiVersion=pkg_constant.IOTHUB_API_VERSION
-            )
-            path = "/devices/{deviceId}/files".format(deviceId=self.device_id)
-            body = json.dumps({"blobName": op.blob_name})
-            headers = {
-                "Host": self.hostname,  # TODO: Does this need to be encoded?
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Content-Length": len(str(body)),
-                "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
-            }
+        elif isinstance(op, pipeline_ops_method_invoke.MethodInvokeOperation):
 
-            op_waiting_for_response = op
+            #   let path = `/twins/${encodeUriComponentStrict(deviceId)}`;
+            #   /*Codes_SRS_NODE_DEVICE_METHOD_CLIENT_16_011: [The ]*/
+            #   if (moduleId) {
+            #     path += `/modules/${encodeUriComponentStrict(moduleId)}`;
+            #   }
+            #   path += '/methods';
 
-            def on_request_response(op, error):
-                logger.debug(
-                    "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
-                )
-                error = map_http_error(error=error, http_op=op)
-                if not error:
-                    op_waiting_for_response.storage_info = json.loads(
-                        op.response_body.decode("utf-8")
-                    )
-                op_waiting_for_response.complete(error=error)
-
-            self.send_op_down(
-                pipeline_ops_http.HTTPRequestAndResponseOperation(
-                    method="POST",
-                    hostname=self.hostname,
-                    path=path,
-                    headers=headers,
-                    body=body,
-                    query_params=query_params,
-                    callback=on_request_response,
-                )
-            )
-
-        elif isinstance(op, pipeline_ops_upload.NotifyBlobUploadStatusOperation):
-            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
             logger.debug("{}({}): BLAH BLAH BLAH.".format(self.name, op.name))
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
-            path = "/devices/{deviceId}/files/notifications".format(deviceId=self.device_id)
-            body = json.dumps(
-                {
-                    "correlationId": op.correlation_id,
-                    "isSuccess": op.upload_response,
-                    "statusCode": op.request_status_code,
-                    "statusDescription": op.status_description,
-                }
-            )
+            # shall construct the HTTP request path as `/twins/encodeUriComponentStrict(<targetDeviceId>)/modules/encodeUriComponentStrict(<targetModuleId>)/methods` if the target is a module.
+            if self.module_id:
+                path = "/twins/{deviceId}/{moduleId}/methods".format(
+                    deviceId=urllib.parse.quote(op.device_id),
+                    moduleId=urllib.parse.quote(op.module_id),
+                )
+            else:
+                path = "/twins/{deviceId}/methods".format(deviceId=urllib.parse.quote(op.device_id))
+
+            body = json.dumps(op.method_params)
 
             # Note we do not add the sas Authorization header here. Instead we add it later on in the stage above
             # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
             # being used.
+            x_ms_edge_string = "{deviceId}/{moduleId}".format(
+                deviceId=self.device_id, moduleId=self.module_id
+            )  # these are the identifiers of the current module
             headers = {
                 "Host": self.hostname,  # TODO: Does this need to be encoded?
-                "Content-Type": "application/json; charset=utf-8",
+                "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
+                "x-ms-edge-moduleId": x_ms_edge_string,
                 "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
             }
             op_waiting_for_response = op
@@ -165,7 +131,3 @@ class UploadHTTPTranslationStage(PipelineStage):
                     callback=on_request_response,
                 )
             )
-
-        else:
-            # All other operations get passed down
-            self.send_op_down(op)

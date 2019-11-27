@@ -6,5 +6,5 @@ INTERNAL USAGE ONLY
 """
 
 from .iothub_pipeline import IoTHubPipeline
-from .edge_pipeline import EdgePipeline
+from .method_invoke_pipeline import MethodInvokePipeline
 from .upload_pipeline import UploadPipeline

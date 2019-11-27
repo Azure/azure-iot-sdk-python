@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # pipeline configuration to be specifically tailored to the method of instantiation.
 # For instance, .create_from_connection_string and .create_from_edge_envrionment both can use
 # SymmetricKeyAuthenticationProviders to instantiate pipeline(s), but only .create_from_edge_environment
-# should use it to instantiate an EdgePipeline. If the initializer accepted an auth provider, and then
+# should use it to instantiate an MethodInvokePipeline. If the initializer accepted an auth provider, and then
 # used it to create pipelines, this detail would be lost, as there would be no way to tell if a
 # SymmetricKeyAuthenticationProvider was intended to be part of an Edge scenario or not.
 
@@ -180,7 +180,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
+        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.MethodInvokePipeline`
         """
         super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline)
         self._invoke_method_pipeline = edge_pipeline
@@ -269,7 +269,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             upload_pipeline = pipeline.UploadPipeline(
                 authentication_provider, pipeline_configuration
             )
-        edge_pipeline = pipeline.EdgePipeline(authentication_provider, pipeline_configuration)
+        edge_pipeline = pipeline.MethodInvokePipeline(
+            authentication_provider, pipeline_configuration
+        )
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(
             iothub_pipeline=iothub_pipeline,

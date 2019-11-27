@@ -53,8 +53,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param iothub_pipeline: The IoTHubPipeline used for the client
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
-        :param edge_pipeline: The EdgePipeline used for the client
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
+        :param edge_pipeline: The MethodInvokePipeline used for the client
+        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.MethodInvokePipeline`
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -382,7 +382,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
+        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.MethodInvokePipeline`
         """
         super(IoTHubModuleClient, self).__init__(
             iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline

@@ -16,33 +16,24 @@ from . import (
     constant,
     pipeline_stages_iothub,
     pipeline_ops_iothub,
-    pipeline_ops_edgehub,
-    pipeline_stages_edgehub_http,
+    pipeline_ops_method_invoke,
+    pipeline_stages_method_invoke_http,
 )
 from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
 logger = logging.getLogger(__name__)
 
 
-class EdgePipeline(object):
+class MethodInvokePipeline(object):
     """Pipeline to communicate with Edge.
     Uses HTTP.
     """
 
     def __init__(self, auth_provider, pipeline_configuration):
-
-        # Event Handlers - Will be set by Client after instantiation of this object
-        self.on_connected = None
-        self.on_disconnected = None
-        self.on_c2d_message_received = None
-        self.on_input_message_received = None
-        self.on_method_request_received = None
-        self.on_twin_patch_received = None
-
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
-            .append_stage(pipeline_stages_edgehub_http.EdgeHubHTTPTranslationStage())
+            .append_stage(pipeline_stages_method_invoke_http.MethodInvokeHTTPTranslationStage())
             .append_stage(pipeline_stages_http.HTTPTransportStage())
         )
 
@@ -60,35 +51,18 @@ class EdgePipeline(object):
         self._pipeline.run_op(op)
         callback.wait_for_completion()
 
-    def invoke_method(self, device_id, method_params, callback):
+    def invoke_method(self, device_id, method_params, callback, module_id=None):
         """
         Send a method response to the service.
         """
         logger.debug("IoTHubPipeline invoke_method called")
 
         def on_complete(op, error):
+            op.method_response
             callback(error=error)
 
         self._pipeline.run_op(
-            pipeline_ops_edgehub.MethodInvokeOperation(
-                device_id=device_id,
-                module_id=None,
-                method_params=method_params,
-                callback=on_complete,
-            )
-        )
-
-    def invoke_method_module_to_module(self, device_id, module_id, method_params, callback):
-        """
-        Send a method response to the service.
-        """
-        logger.debug("IoTHubPipeline invoke_method called")
-
-        def on_complete(op, error):
-            callback(error=error)
-
-        self._pipeline.run_op(
-            pipeline_ops_edgehub.MethodInvokeOperation(
+            pipeline_ops_method_invoke.MethodInvokeOperation(
                 device_id=device_id,
                 module_id=module_id,
                 method_params=method_params,

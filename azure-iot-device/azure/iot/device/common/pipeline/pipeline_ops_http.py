@@ -44,7 +44,7 @@ class HTTPRequestAndResponseOperation(PipelineOperation):
     A PipelineOperation object
     """
 
-    def __init__(self, hostname, path, headers, body, query_params, callback):
+    def __init__(self, method, hostname, path, headers, body, query_params, callback):
         """
         Initializer for HTTPPublishOperation objects.
 
@@ -55,6 +55,7 @@ class HTTPRequestAndResponseOperation(PipelineOperation):
           has completed or failed.
         """
         super(HTTPRequestAndResponseOperation, self).__init__(callback=callback)
+        self.method = method
         self.hostname = hostname
         self.path = path
         self.headers = headers

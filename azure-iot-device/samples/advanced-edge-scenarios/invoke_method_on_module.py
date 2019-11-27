@@ -20,11 +20,16 @@ async def main():
 
     # Connect the client.
     await module_client.connect()
-
-    invoke_method_response = await module_client.invoke_method(
-        method_params="fakeMethodParams", device_id="fakeDeviceId", module_id="fakeModuleId"
+    fake_method_params = {
+        "methodName": "doSomethingInteresting",
+        "payload": "foo",
+        "responseTimeoutInSeconds": 5,
+        "connectTimeoutInSeconds": 2,
+    }
+    response = await module_client.invoke_method(
+        device_id="fakeDeviceId", module_id="fakeModuleId", method_params=fake_method_params
     )
-    print("Method Response: {}".format(invoke_method_response))
+    print("Method Response: {}".format(response))
     # finally, disconnect
     module_client.disconnect()
 
