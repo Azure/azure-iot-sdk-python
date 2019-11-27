@@ -378,7 +378,9 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
     @pytest.mark.it(
         "Decodes, deserializes, and returns the response from RequestAndResponseOperation as the registration_result attribute on the op along with an error if the status code < 300 and if status is 'failed'"
     )
-    def test_stage_completes_with_error_if_next_stage_responds_with_status_failed(self, stage, op):
+    def test_stage_completes_with_error_if_next_stage_responds_with_failed_status_but_successful_status_code(
+        self, stage, op
+    ):
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
             next_stage_op.response_body = get_registration_result_as_bytes("failed")
@@ -392,11 +394,14 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         assert str(op.registration_result) == str(create_registration_result("failed"))
         # We can only assert instance other wise we need to assert the exact text
         assert isinstance(op.complete.call_args[1]["error"], exceptions.ServiceError)
+        assert "failed registration status" in str(op.complete.call_args[1]["error"])
 
     @pytest.mark.it(
         "Decodes, deserializes the response from RequestAndResponseOperation and creates another op if the status code < 300 and if status is 'assigning'"
     )
-    def test_stage_spawns_another_op_if_next_stage_responds_with_status_assigning(self, stage, op):
+    def test_stage_spawns_another_op_if_next_stage_responds_with_assigning_status_but_successful_status_code(
+        self, stage, op
+    ):
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
             next_stage_op.response_body = get_registration_result_as_bytes("assigning")
@@ -447,6 +452,25 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         assert next_op_2.method == "PUT"
         assert next_op_2.resource_location == "/"
         assert next_op_2.request_body == request_body
+
+    @pytest.mark.it(
+        "Decodes, deserializes the response from RequestAndResponseOperation and completes the op with error if the status code < 300 and if status is unknown"
+    )
+    def test_stage_completes_with_error_if_next_stage_responds_with_some_unknown_status_but_successful_status_code(
+        self, stage, op
+    ):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.status_code = 200
+            next_stage_op.response_body = get_registration_result_as_bytes("quidditching")
+            next_stage_op.retry_after = None
+            next_stage_op.complete()
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert op.complete.call_count == 1
+        # We can only assert instance other wise we need to assert the exact text
+        assert isinstance(op.complete.call_args[1]["error"], exceptions.ServiceError)
+        assert "invalid registration status" in str(op.complete.call_args[1]["error"])
 
 
 @pytest.mark.describe("PollingStatusStage - .run_op() -- called with SendQueryRequestOperation")
@@ -537,6 +561,7 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
         assert str(op.registration_result) == str(create_registration_result("failed"))
         # We can only assert instance other wise we need to assert the exact text
         assert isinstance(op.complete.call_args[1]["error"], exceptions.ServiceError)
+        assert "failed registration status" in str(op.complete.call_args[1]["error"])
 
     @pytest.mark.it(
         "Decodes, deserializes the response from RequestAndResponseOperation and retries the op if the status code > 429"
@@ -603,3 +628,22 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
         assert next_op_2.method == "GET"
         assert next_op_2.resource_location == "/"
         assert next_op_2.request_body == " "
+
+    @pytest.mark.it(
+        "Decodes, deserializes the response from RequestAndResponseOperation and completes the op with error if the status code < 300 and if status is unknown"
+    )
+    def test_stage_completes_with_error_if_next_stage_responds_with_some_unknown_status_but_successful_status_code(
+        self, stage, op
+    ):
+        def next_stage_run_op(self, next_stage_op):
+            next_stage_op.status_code = 200
+            next_stage_op.response_body = get_registration_result_as_bytes("quidditching")
+            next_stage_op.retry_after = None
+            next_stage_op.complete()
+
+        stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
+        stage.run_op(op)
+        assert op.complete.call_count == 1
+        # We can only assert instance other wise we need to assert the exact text
+        assert isinstance(op.complete.call_args[1]["error"], exceptions.ServiceError)
+        assert "invalid registration status" in str(op.complete.call_args[1]["error"])

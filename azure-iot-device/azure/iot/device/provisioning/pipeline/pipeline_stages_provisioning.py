@@ -203,7 +203,7 @@ class RegistrationStage(CommonProvisioningStage):
                             initial_register_op.registration_result = complete_registration_result
                             if registration_status == "failed":
                                 error = exceptions.ServiceError(
-                                    "Registration operation returned a 'failed' registration status  with a status code of {status_code}".format(
+                                    "Registration operation returned failed registration status  with a status code of {status_code}".format(
                                         status_code=success_status_code
                                     )
                                 )
@@ -312,7 +312,7 @@ class PollingStatusStage(CommonProvisioningStage):
                             query_status_op.completed = False
                             this._execute_op(query_status_op)
 
-                        logger.warning(
+                        logger.info(
                             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
                                 stage_name=self.name,
                                 op_name=op.name,
@@ -338,7 +338,7 @@ class PollingStatusStage(CommonProvisioningStage):
 
                             if registration_status == "failed":
                                 error = exceptions.ServiceError(
-                                    "Query Status operation returned a 'failed' registration status  with a status code of {status_code}".format(
+                                    "Query Status operation returned a failed registration status  with a status code of {status_code}".format(
                                         status_code=success_status_code
                                     )
                                 )

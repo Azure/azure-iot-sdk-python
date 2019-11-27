@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import json
 
 
 class RegistrationResult(object):
@@ -110,8 +111,7 @@ class RegistrationState(object):
 
     @property
     def response_payload(self):
-        payload = "" if self._response_payload is None else self._response_payload
-        return payload
+        return json.dumps(self._response_payload, default=lambda o: o.__dict__, sort_keys=True)
 
     def __str__(self):
         return "\n".join(
