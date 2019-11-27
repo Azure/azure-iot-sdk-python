@@ -48,7 +48,7 @@ def apply_fake_pipeline_thread(fake_pipeline_thread):
     pass
 
 
-class FakeOperation(pipeline_ops_base.PipelineOperation):
+class ArbitraryOperation(pipeline_ops_base.PipelineOperation):
     pass
 
 

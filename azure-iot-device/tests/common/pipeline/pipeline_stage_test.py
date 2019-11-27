@@ -20,7 +20,7 @@ from tests.common.pipeline.helpers import (
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
 from azure.iot.device.common.pipeline import pipeline_thread, pipeline_exceptions
 from azure.iot.device.common import handle_exceptions
-from .fixtures import FakeOperation
+from .fixtures import ArbitraryOperation
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -198,7 +198,7 @@ def add_base_pipeline_stage_tests(
             def op(self, arbitrary_op):
                 return arbitrary_op
 
-            @pytest.mark.it("Passes the operation down the pipeline")
+            @pytest.mark.it("Sends the operation down the pipeline")
             def test_passes_down(self, mocker, stage, op):
                 stage.run_op(op)
                 assert stage.send_op_down.call_count == 1
@@ -222,7 +222,7 @@ def add_base_pipeline_stage_tests(
             def event(self, arbitrary_event):
                 return arbitrary_event
 
-            @pytest.mark.it("Passes the event up the pipeline")
+            @pytest.mark.it("Sends the event up the pipeline")
             def test_passes_up(self, mocker, stage, event):
                 stage.handle_pipeline_event(event)
                 assert stage.send_event_up.call_count == 1

@@ -397,11 +397,7 @@ class ConnectionLockStage(PipelineStage):
                     )
 
                 self._unblock(op, error)
-                logger.debug(
-                    "{}({}): unblock is complete.  completing op that caused unblock".format(
-                        self.name, op.name
-                    )
-                )
+                logger.debug("{}({}): unblock is complete".format(self.name, op.name))
 
             op.add_callback(on_operation_complete)
             self.send_op_down(op)
