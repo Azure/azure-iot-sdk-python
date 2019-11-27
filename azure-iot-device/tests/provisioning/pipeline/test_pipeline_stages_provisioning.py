@@ -139,16 +139,20 @@ class FakeRegistrationState(object):
         self.substatus = fake_sub_status
 
     def __str__(self):
-        return "\n".join([self.deviceId, self.assignedHub, self.substatus, self.payload])
+        return "\n".join(
+            [self.deviceId, self.assignedHub, self.substatus, self.get_payload_string()]
+        )
+
+    def get_payload_string(self):
+        return json.dumps(self.payload, default=lambda o: o.__dict__, sort_keys=True)
 
 
-def create_registration_result(status):
+def create_registration_result(fake_payload, status):
     state = FakeRegistrationState(payload=fake_payload)
     return FakeRegistrationResult(fake_operation_id, status, state)
 
 
-def get_registration_result_as_bytes(status):
-    registration_result = create_registration_result(status)
+def get_registration_result_as_bytes(registration_result):
     return json.dumps(registration_result, default=lambda o: o.__dict__).encode("utf-8")
 
 
@@ -289,10 +293,7 @@ class TestUseSecurityClientStageWithSetSecurityClientOperation(StageTestBase):
 
 @pytest.mark.parametrize(
     "request_payload",
-    [
-        pytest.param(" ", id="empty payload"),
-        # pytest.param(None, id="some payload")
-    ],
+    [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
 )
 @pytest.mark.describe(
     "RegistrationStage - .run_op() -- called with SendRegistrationRequestOperation"
@@ -360,11 +361,13 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         "Decodes, deserializes, and returns the response from RequestAndResponseOperation as the registration_result attribute on the op along with no error if the status code < 300 and if status is 'assigned'"
     )
     def test_stage_completes_with_result_when_next_stage_responds_with_status_assigned(
-        self, mocker, stage, op
+        self, mocker, stage, op, request_payload
     ):
+        registration_result = create_registration_result(request_payload, "assigned")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("assigned")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
@@ -373,17 +376,19 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         assert op.complete.call_count == 1
         assert op.complete.call_args == mocker.call(error=None)
         # We need to assert string representations as these are inherently different objects
-        assert str(op.registration_result) == str(create_registration_result("assigned"))
+        assert str(op.registration_result) == str(registration_result)
 
     @pytest.mark.it(
         "Decodes, deserializes, and returns the response from RequestAndResponseOperation as the registration_result attribute on the op along with an error if the status code < 300 and if status is 'failed'"
     )
     def test_stage_completes_with_error_if_next_stage_responds_with_failed_status_but_successful_status_code(
-        self, stage, op
+        self, stage, op, request_payload
     ):
+        registration_result = create_registration_result(request_payload, "failed")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("failed")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
@@ -391,7 +396,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         stage.run_op(op)
         assert op.complete.call_count == 1
         # We need to assert string representations as these are different objects
-        assert str(op.registration_result) == str(create_registration_result("failed"))
+        assert str(op.registration_result) == str(registration_result)
         # We can only assert instance other wise we need to assert the exact text
         assert isinstance(op.complete.call_args[1]["error"], exceptions.ServiceError)
         assert "failed registration status" in str(op.complete.call_args[1]["error"])
@@ -400,11 +405,13 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         "Decodes, deserializes the response from RequestAndResponseOperation and creates another op if the status code < 300 and if status is 'assigning'"
     )
     def test_stage_spawns_another_op_if_next_stage_responds_with_assigning_status_but_successful_status_code(
-        self, stage, op
+        self, stage, op, request_payload
     ):
+        registration_result = create_registration_result(request_payload, "assigning")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("assigning")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
@@ -423,7 +430,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         "Decodes, deserializes the response from RequestAndResponseOperation and retries the op if the status code > 429"
     )
     def test_stage_retries_op_if_next_stage_responds_with_status_code_greater_than_429(
-        self, mocker, stage, op, request_body
+        self, mocker, stage, op, request_body, request_payload
     ):
         mock_timer = mocker.patch(
             "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
@@ -437,7 +444,8 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
 
         next_op.status_code = 430
         next_op.retry_after = "1"
-        next_op.response_body = get_registration_result_as_bytes("flying")
+        registration_result = create_registration_result(request_payload, "assigning")
+        next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
         stage.next.run_op.reset_mock()
@@ -457,11 +465,13 @@ class TestRegistrationStageWithSendRegistrationRequestOperation(StageTestBase):
         "Decodes, deserializes the response from RequestAndResponseOperation and completes the op with error if the status code < 300 and if status is unknown"
     )
     def test_stage_completes_with_error_if_next_stage_responds_with_some_unknown_status_but_successful_status_code(
-        self, stage, op
+        self, stage, op, request_payload
     ):
+        registration_result = create_registration_result(request_payload, "quidditching")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("quidditching")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
@@ -531,9 +541,11 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
     def test_stage_completes_with_result_when_next_stage_responds_with_status_assigned(
         self, mocker, stage, op
     ):
+        registration_result = create_registration_result(" ", "assigned")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("assigned")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
@@ -542,15 +554,17 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
         assert op.complete.call_count == 1
         assert op.complete.call_args == mocker.call(error=None)
         # We need to assert string representations as these are inherently different objects
-        assert str(op.registration_result) == str(create_registration_result("assigned"))
+        assert str(op.registration_result) == str(registration_result)
 
     @pytest.mark.it(
         "Decodes, deserializes, and returns the response from RequestAndResponseOperation as the registration_result attribute on the op along with an error if the status code < 300 and if status is 'failed'"
     )
     def test_stage_completes_with_error_if_next_stage_responds_with_status_failed(self, stage, op):
+        registration_result = create_registration_result(" ", "failed")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("failed")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
@@ -558,7 +572,7 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
         stage.run_op(op)
         assert op.complete.call_count == 1
         # We need to assert string representations as these are different objects
-        assert str(op.registration_result) == str(create_registration_result("failed"))
+        assert str(op.registration_result) == str(registration_result)
         # We can only assert instance other wise we need to assert the exact text
         assert isinstance(op.complete.call_args[1]["error"], exceptions.ServiceError)
         assert "failed registration status" in str(op.complete.call_args[1]["error"])
@@ -581,7 +595,8 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
 
         next_op.status_code = 430
         next_op.retry_after = "1"
-        next_op.response_body = get_registration_result_as_bytes("flying")
+        registration_result = create_registration_result(" ", "flying")
+        next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
         stage.next.run_op.reset_mock()
@@ -613,7 +628,8 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
 
         next_op.status_code = 250
         next_op.retry_after = "1"
-        next_op.response_body = get_registration_result_as_bytes("assigning")
+        registration_result = create_registration_result(" ", "assigning")
+        next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
         stage.next.run_op.reset_mock()
@@ -635,9 +651,11 @@ class TestPollingStatusStageWithSendQueryRequestOperation(StageTestBase):
     def test_stage_completes_with_error_if_next_stage_responds_with_some_unknown_status_but_successful_status_code(
         self, stage, op
     ):
+        registration_result = create_registration_result(" ", "quidditching")
+
         def next_stage_run_op(self, next_stage_op):
             next_stage_op.status_code = 200
-            next_stage_op.response_body = get_registration_result_as_bytes("quidditching")
+            next_stage_op.response_body = get_registration_result_as_bytes(registration_result)
             next_stage_op.retry_after = None
             next_stage_op.complete()
 
