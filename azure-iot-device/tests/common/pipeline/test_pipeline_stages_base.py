@@ -842,6 +842,7 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
 class TestConnectionLockStageBlockingOpCompletedWithError(
     ConnectionLockStageBlockingOpCompletedTestConfig
 ):
+    # CT-TODO: Show that completion occurs in FIFO order
     @pytest.mark.it("Completes all pending operations with the error from the blocking operation")
     def test_blocking_op_completes_with_error(
         self, stage, pending_ops, blocking_op, arbitrary_exception
