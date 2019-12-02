@@ -32,7 +32,7 @@ class MQTTTransportStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_pending_connection_op(self):
         """
-        Cancel any running connect, disconnect or reconnect op. Since our ability to "cancel" is fairly limited,
+        Cancel any running connect, disconnect or reauthorize_connection op. Since our ability to "cancel" is fairly limited,
         all this does (for now) is to fail the operation
         """
 
@@ -42,7 +42,7 @@ class MQTTTransportStage(PipelineStage):
             # connection op when another is added, due to the SerializeConnectOps stage.
             # If this block does execute, there is a bug in the codebase.
             error = pipeline_exceptions.OperationCancelled(
-                "Cancelling because new ConnectOperation, DisconnectOperation, or ReconnectOperation was issued"
+                "Cancelling because new ConnectOperation, DisconnectOperation, or ReauthorizeConnectionOperation was issued"
             )  # TODO: should this actually somehow cancel the operation?
             op.complete(error=error)
             self._pending_connection_op = None
@@ -80,7 +80,7 @@ class MQTTTransportStage(PipelineStage):
                 self, "_on_mqtt_message_received"
             )
 
-            # There can only be one pending connection operation (Connect, Reconnect, Disconnect)
+            # There can only be one pending connection operation (Connect, ReauthorizeConnection, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
 
             # Currently, this means that if, say, a connect operation is the pending op and is executed
@@ -113,16 +113,16 @@ class MQTTTransportStage(PipelineStage):
                 self._pending_connection_op = None
                 op.complete(error=e)
 
-        elif isinstance(op, pipeline_ops_base.ReconnectOperation):
-            logger.info("{}({}): reconnecting".format(self.name, op.name))
+        elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
+            logger.info("{}({}): reauthorizing".format(self.name, op.name))
 
-            # We set _active_connect_op here because a reconnect is the same as a connect for "active operation" tracking purposes.
+            # We set _active_connect_op here because reauthorizing the connection is the same as a connect for "active operation" tracking purposes.
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
             try:
-                self.transport.reconnect(password=self.sas_token)
+                self.transport.reauthorize_connection(password=self.sas_token)
             except Exception as e:
-                logger.error("transport.reconnect raised error")
+                logger.error("transport.reauthorize_connection raised error")
                 logger.error(traceback.format_exc())
                 self._pending_connection_op = None
                 op.complete(error=e)
@@ -197,7 +197,9 @@ class MQTTTransportStage(PipelineStage):
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
-        ) or isinstance(self._pending_connection_op, pipeline_ops_base.ReconnectOperation):
+        ) or isinstance(
+            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
+        ):
             logger.debug("completing connect op")
             op = self._pending_connection_op
             self._pending_connection_op = None
@@ -220,7 +222,9 @@ class MQTTTransportStage(PipelineStage):
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
-        ) or isinstance(self._pending_connection_op, pipeline_ops_base.ReconnectOperation):
+        ) or isinstance(
+            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
+        ):
             logger.debug("{}: failing connect op".format(self.name))
             op = self._pending_connection_op
             self._pending_connection_op = None

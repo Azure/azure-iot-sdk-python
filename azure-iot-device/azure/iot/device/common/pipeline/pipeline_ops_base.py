@@ -231,14 +231,14 @@ class ConnectOperation(PipelineOperation):
         super(ConnectOperation, self).__init__(callback)
 
 
-class ReconnectOperation(PipelineOperation):
+class ReauthorizeConnectionOperation(PipelineOperation):
     """
-    A PipelineOperation object which tells the pipeline to reconnect to whatever service it is connected to.
+    A PipelineOperation object which tells the pipeline to reauthorize the connection to whatever service it is connected to.
 
-    Clients will most-likely submit a Reconnect operation when some credential (such as a sas token) has changed and the protocol client
+    Clients will most-likely submit a ReauthorizeConnectionOperation when some credential (such as a sas token) has changed and the protocol client
     needs to re-establish the connection to refresh the credentials
 
-    This operation is in the group of base operations because reconnecting is a common operation that many clients might need to do.
+    This operation is in the group of base operations because reauthorizinging is a common operation that many clients might need to do.
 
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """

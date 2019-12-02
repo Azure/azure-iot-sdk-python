@@ -50,10 +50,10 @@ pipeline_ops_test.add_operation_tests(
 )
 
 
-class ReconnectOperationTestConfig(object):
+class ReauthorizeConnectionOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_base.ReconnectOperation
+        return pipeline_ops_base.ReauthorizeConnectionOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -63,8 +63,8 @@ class ReconnectOperationTestConfig(object):
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_base.ReconnectOperation,
-    op_test_config_class=ReconnectOperationTestConfig,
+    op_class_under_test=pipeline_ops_base.ReauthorizeConnectionOperation,
+    op_test_config_class=ReauthorizeConnectionOperationTestConfig,
 )
 
 

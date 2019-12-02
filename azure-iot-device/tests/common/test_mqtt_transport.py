@@ -419,11 +419,11 @@ class TestConnect(object):
             transport.connect(fake_password)
 
 
-@pytest.mark.describe("MQTTTransport - .reconnect()")
-class TestReconnect(object):
+@pytest.mark.describe("MQTTTransport - .reauthorize_connection()")
+class TestReauthorizeConnection(object):
     @pytest.mark.it("Uses the stored username and provided password for Paho credentials")
     def test_use_provided_password(self, mocker, mock_mqtt_client, transport):
-        transport.reconnect(fake_password)
+        transport.reauthorize_connection(fake_password)
 
         assert mock_mqtt_client.username_pw_set.call_count == 1
         assert mock_mqtt_client.username_pw_set.call_args == mocker.call(
@@ -434,7 +434,7 @@ class TestReconnect(object):
         "Uses the stored username without a password for Paho credentials, if password is not provided"
     )
     def test_use_no_password(self, mocker, mock_mqtt_client, transport):
-        transport.reconnect()
+        transport.reauthorize_connection()
 
         assert mock_mqtt_client.username_pw_set.call_count == 1
         assert mock_mqtt_client.username_pw_set.call_args == mocker.call(
@@ -450,7 +450,7 @@ class TestReconnect(object):
         ],
     )
     def test_calls_paho_reconnect(self, mocker, mock_mqtt_client, transport, password):
-        transport.reconnect(password)
+        transport.reauthorize_connection(password)
 
         assert mock_mqtt_client.reconnect.call_count == 1
         assert mock_mqtt_client.reconnect.call_args == mocker.call()
@@ -461,7 +461,7 @@ class TestReconnect(object):
     ):
         mock_mqtt_client.reconnect.side_effect = arbitrary_exception
         with pytest.raises(errors.ProtocolClientError) as e_info:
-            transport.reconnect(fake_password)
+            transport.reauthorize_connection(fake_password)
         assert e_info.value.__cause__ is arbitrary_exception
 
     @pytest.mark.it("Allows any BaseExceptions raised in Paho reconnect to propagate")
@@ -470,7 +470,7 @@ class TestReconnect(object):
     ):
         mock_mqtt_client.reconnect.side_effect = arbitrary_base_exception
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            transport.reconnect(fake_password)
+            transport.reauthorize_connection(fake_password)
         assert e_info.value is arbitrary_base_exception
 
     # NOTE: this test tests for all possible return codes, even ones that shouldn't be
@@ -486,7 +486,7 @@ class TestReconnect(object):
     ):
         mock_mqtt_client.reconnect.return_value = error_params["rc"]
         with pytest.raises(error_params["error"]):
-            transport.reconnect(fake_password)
+            transport.reauthorize_connection(fake_password)
 
 
 @pytest.mark.describe("MQTTTransport - EVENT: Connect Completed")
