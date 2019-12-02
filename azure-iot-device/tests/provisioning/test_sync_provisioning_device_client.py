@@ -233,18 +233,6 @@ class TestClientRegister(object):
         assert provisioning_pipeline.register.call_count == 1
 
 
-@pytest.mark.describe("ProvisioningDeviceClient - .cancel()")
-class TestClientCancel(object):
-    @pytest.mark.it("Begins a 'disconnect' pipeline operation")
-    def test_client_cancel_calls_pipeline_disconnect(self, mocker, provisioning_pipeline):
-
-        client = ProvisioningDeviceClient(provisioning_pipeline)
-        client.cancel()
-
-        assert provisioning_pipeline.disconnect.call_count == 1
-        assert callable(provisioning_pipeline.disconnect.call_args[1]["callback"])
-
-
 @pytest.mark.describe("ProvisioningDeviceClient - .set_provisioning_payload()")
 class TestClientProvisioningPayload(object):
     @pytest.mark.it("Sets the payload on the provisioning payload attribute")

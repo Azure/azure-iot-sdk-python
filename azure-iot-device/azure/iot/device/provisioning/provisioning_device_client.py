@@ -20,7 +20,7 @@ from azure.iot.device import exceptions
 logger = logging.getLogger(__name__)
 
 
-def handle_result(callback):
+def wait_for_completion(callback):
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
@@ -38,21 +38,8 @@ def handle_result(callback):
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     """
     Client which can be used to run the registration of a device with provisioning service
-    using Symmetric Key authentication.
+    using Symmetric Key orr X509 authentication.
     """
-
-    def __init__(self, provisioning_pipeline):
-        """
-        Initializer for the Provisioning Client.
-
-        NOTE: This initializer should not be called directly.
-        Instead, the class methods that start with `create_from_` should be used to create a
-        client object.
-
-        :param provisioning_pipeline: The protocol pipeline for provisioning.
-        :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
-        """
-        super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
 
     def register(self):
         """
@@ -78,31 +65,10 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
             payload=self._provisioning_payload, callback=register_complete
         )
 
-        result = handle_result(register_complete)
+        result = wait_for_completion(register_complete)
 
         log_on_register_complete(result)
         return result
-
-    def cancel(self):
-        """
-        Cancel a registration that is in progress.
-
-        Before returning the client will also disconnect from the provisioning service.
-
-        This is a synchronous call, meaning that this function will not return until the cancellation
-        process has completed successfully or the attempt has resulted in a failure. Before returning
-        the client will also disconnect from the provisioning service.
-
-        In case there is no registration in process it will throw an error as there is
-        no registration process to cancel.
-        """
-        logger.info("Cancelling the current registration process")
-
-        cancel_complete = EventedCallback()
-        self._provisioning_pipeline.disconnect(callback=cancel_complete)
-        cancel_complete.wait_for_completion()
-
-        logger.info("Successfully cancelled the current registration process")
 
     def _enable_responses(self):
         """Enable to receive responses from Device Provisioning Service.
@@ -113,8 +79,9 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Enabling reception of response from Device Provisioning Service...")
 
-        callback = EventedCallback()
-        self._provisioning_pipeline.enable_responses(callback=callback)
-        callback.wait_for_completion()
+        subscription_complete = EventedCallback()
+        self._provisioning_pipeline.enable_responses(callback=subscription_complete)
+
+        wait_for_completion(subscription_complete)
 
         logger.info("Successfully subscribed to Device Provisioning Service to receive responses")

@@ -24,7 +24,7 @@ from azure.iot.device.provisioning.pipeline import constant as dps_constant
 logger = logging.getLogger(__name__)
 
 
-async def handle_result(callback):
+async def wait_for_completion(callback):
     try:
         return await callback.completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
@@ -42,21 +42,8 @@ async def handle_result(callback):
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     """
     Client which can be used to run the registration of a device with provisioning service
-    using Symmetric Key authentication.
+    using Symmetric Key or X509 authentication.
     """
-
-    def __init__(self, provisioning_pipeline):
-        """
-        Initializer for the Provisioning Client.
-
-        NOTE: This initializer should not be called directly.
-        Instead, the class methods that start with `create_from_` should be used to create a
-        client object.
-
-        :param provisioning_pipeline: The protocol pipeline for provisioning.
-        :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
-        """
-        super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
 
     async def register(self):
         """
@@ -76,30 +63,12 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         register_async = async_adapter.emulate_async(self._provisioning_pipeline.register)
 
-        callback = async_adapter.AwaitableCallback(return_arg_name="result")
-        await register_async(payload=self._provisioning_payload, callback=callback)
-        result = await handle_result(callback)
+        register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
+        await register_async(payload=self._provisioning_payload, callback=register_complete)
+        result = await wait_for_completion(register_complete)
 
         log_on_register_complete(result)
         return result
-
-    async def cancel(self):
-        """
-        Cancel a registration that is in progress.
-
-        Before returning the client will also disconnect from the provisioning service.
-
-        In case there is no registration in process it will throw an error as there is
-        no registration process to cancel.
-        """
-        logger.info("Disconnecting from Provisioning Service...")
-        cancel_async = async_adapter.emulate_async(self._provisioning_pipeline.disconnect)
-
-        callback = async_adapter.AwaitableCallback()
-        await cancel_async(callback=callback)
-        await callback.completion()
-
-        logger.info("Successfully cancelled the current registration process")
 
     async def _enable_responses(self):
         """Enable to receive responses from Device Provisioning Service.
@@ -107,8 +76,8 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Enabling reception of response from Device Provisioning Service...")
         subscribe_async = async_adapter.emulate_async(self._provisioning_pipeline.enable_responses)
 
-        callback = async_adapter.AwaitableCallback()
-        await subscribe_async(callback=callback)
-        await callback.completion()
+        subscription_complete = async_adapter.AwaitableCallback()
+        await subscribe_async(callback=subscription_complete)
+        await wait_for_completion(subscription_complete)
 
         logger.info("Successfully subscribed to Device Provisioning Service to receive responses")
