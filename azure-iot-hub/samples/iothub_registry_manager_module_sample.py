@@ -57,6 +57,10 @@ try:
     iothub_module = iothub_registry_manager.get_module(device_id, module_id)
     print_module_info("Get Module", iothub_module)
 
+    # Get Module Twin
+    module_twin = iothub_registry_manager.get_module_twin(device_id, module_id)
+    print(module_twin)
+
     # Get all modules on the device
     all_modules = iothub_registry_manager.get_modules(device_id)
     for module in all_modules:

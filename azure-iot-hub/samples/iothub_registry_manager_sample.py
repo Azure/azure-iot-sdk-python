@@ -62,6 +62,10 @@ try:
     device = registry_manager.get_device(device_id)
     print_device_info("get_device", device)
 
+    # Get device twin
+    twin = registry_manager.get_twin(device_id)
+    print(twin)
+
     # Update device information
     primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     secondary_key = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
