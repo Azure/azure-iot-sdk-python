@@ -4,12 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 import logging
+import copy
 import time
 import pytest
 import sys
 import six
 import threading
 import random
+import uuid
 from six.moves import queue
 from azure.iot.device.common import transport_exceptions, handle_exceptions
 from azure.iot.device.common.pipeline import (
@@ -634,8 +636,10 @@ class TestConnectionLockStageRunOpWithReconnectOpWhileUnblocked(
         assert not op.completed
 
 
-@pytest.mark.describe("ConnectionLockStage - .run_op() -- Called with an arbitrary other operation")
-class TestConnectionLockStageRunOpWithArbitraryStageWhileUnblocked(
+@pytest.mark.describe(
+    "ConnectionLockStage - .run_op() -- Called with an arbitrary other operation while not in a blocking state"
+)
+class TestConnectionLockStageRunOpWithArbitraryOpWhileUnblocked(
     ConnectionLockStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
@@ -709,6 +713,30 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
         assert not op.completed
 
     @pytest.mark.it(
+        "Adds the operation to the queue, even if the pipeline is in a connection state where the operation is ready for completion"
+    )
+    @pytest.mark.parametrize(
+        "op",
+        [pipeline_ops_base.ConnectOperation, pipeline_ops_base.DisconnectOperation],
+        indirect=True,
+    )
+    def test_blocks_ops_ready_for_completion(self, mocker, stage, op):
+        # Set the pipeline connection state to be the one desired by the operation.
+        # If the stage were unblocked, this would lead to immediate completion of the op.
+        if isinstance(op, pipeline_ops_base.ConnectOperation):
+            stage.pipeline_root.connected = True
+        else:
+            stage.pipeline_root.connected = False
+
+        assert stage.queue.empty()
+
+        stage.run_op(op)
+
+        assert not op.completed
+        assert stage.queue.qsize() == 1
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it(
         "Can support multiple pending operations if called multiple times during the blocking state"
     )
     def test_multiple_ops_added_to_queue(self, mocker, stage):
@@ -753,7 +781,7 @@ class ConnectionLockStageBlockingOpCompletedTestConfig(ConnectionLockStageTestCo
         return pending_ops
 
     @pytest.fixture
-    def stage(self, mocker, init_kwargs, blocking_op, pending_ops):
+    def blocked_stage(self, mocker, init_kwargs, blocking_op, pending_ops):
         stage = pipeline_stages_base.ConnectionLockStage(**init_kwargs)
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
@@ -792,7 +820,10 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
     ConnectionLockStageBlockingOpCompletedTestConfig
 ):
     @pytest.mark.it("Re-runs the pending operations in FIFO order")
-    def test_blocking_op_completes_successfully(self, mocker, stage, pending_ops, blocking_op):
+    def test_blocking_op_completes_successfully(
+        self, mocker, blocked_stage, pending_ops, blocking_op
+    ):
+        stage = blocked_stage
         # .run_op() has not yet been called
         assert stage.run_op.call_count == 0
 
@@ -811,7 +842,8 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
         assert stage.queue.qsize() == 0
 
     @pytest.mark.it("Unblocks the ConnectionLockStage prior to re-running any pending operations")
-    def test_unblocks_before_rerun(self, mocker, stage, blocking_op, pending_ops):
+    def test_unblocks_before_rerun(self, mocker, blocked_stage, blocking_op, pending_ops):
+        stage = blocked_stage
         mocker.spy(handle_exceptions, "handle_background_exception")
         assert stage.blocked
 
@@ -835,6 +867,55 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
         # Verify that no assertions from the mock .run_op() turned up False
         assert handle_exceptions.handle_background_exception.call_count == 0
 
+    @pytest.mark.it(
+        "Requeues subsequent operations, retaining their original order, if one of the re-run operations returns the ConnectionLockStage to a blocking state"
+    )
+    def test_unblocked_op_changes_block_state(self, mocker, stage):
+        op1 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+        op2 = ArbitraryOperation(callback=mocker.MagicMock())
+        op3 = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        op4 = ArbitraryOperation(callback=mocker.MagicMock())
+        op5 = ArbitraryOperation(callback=mocker.MagicMock())
+
+        # Block the stage on op1
+        assert not stage.pipeline_root.connected
+        assert not stage.blocked
+        stage.run_op(op1)
+        assert stage.blocked
+        assert stage.queue.qsize() == 0
+
+        # Run the rest of the ops, which will be added to the queue
+        stage.run_op(op2)
+        stage.run_op(op3)
+        stage.run_op(op4)
+        stage.run_op(op5)
+
+        # op1 is the only op that has been passed down so far
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op1)
+        assert stage.queue.qsize() == 4
+
+        # Complete op1
+        op1.complete()
+
+        # Manually set pipeline to be connected (this doesn't happen naturally due to the scope of this test)
+        stage.pipeline_root.connected = True
+
+        # op2 and op3 have now been passed down, but no others
+        assert stage.send_op_down.call_count == 3
+        assert stage.send_op_down.call_args_list[1] == mocker.call(op2)
+        assert stage.send_op_down.call_args_list[2] == mocker.call(op3)
+        assert stage.queue.qsize() == 2
+
+        # Complete op3
+        op3.complete()
+
+        # op4 and op5 are now also passed down
+        assert stage.send_op_down.call_count == 5
+        assert stage.send_op_down.call_args_list[3] == mocker.call(op4)
+        assert stage.send_op_down.call_args_list[4] == mocker.call(op5)
+        assert stage.queue.qsize() == 0
+
 
 @pytest.mark.describe(
     "ConnectionLockStage - EVENT: Operation blocking ConnectionLockStage is completed with error"
@@ -845,8 +926,10 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
     # CT-TODO: Show that completion occurs in FIFO order
     @pytest.mark.it("Completes all pending operations with the error from the blocking operation")
     def test_blocking_op_completes_with_error(
-        self, stage, pending_ops, blocking_op, arbitrary_exception
+        self, blocked_stage, pending_ops, blocking_op, arbitrary_exception
     ):
+        stage = blocked_stage
+
         # Pending ops are not yet completed
         for op in pending_ops:
             assert not op.completed
@@ -867,8 +950,9 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
 
     @pytest.mark.it("Unblocks the ConnectionLockStage prior to completing any pending operations")
     def test_unblocks_before_complete(
-        self, mocker, stage, pending_ops, blocking_op, arbitrary_exception
+        self, mocker, blocked_stage, pending_ops, blocking_op, arbitrary_exception
     ):
+        stage = blocked_stage
         mocker.spy(handle_exceptions, "handle_background_exception")
         assert stage.blocked
 
@@ -896,330 +980,368 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
         assert handle_exceptions.handle_background_exception.call_count == 0
 
 
-# class TestConnectionLockStageRunOpWithConnectionOp(ConnectionLockStageTestConfig, StageRunOpTestBase):
-
-#     connection_ops = [
-#         pipeline_ops_base.ConnectOperation,
-#         pipeline_ops_base.DisconnectOperation,
-#         pipeline_ops_base.ReconnectOperation
-#     ]
+#########################################
+# COORDINATE REQUEST AND RESPONSE STAGE #
+#########################################
 
 
-# # pipeline_stage_test.add_base_pipeline_stage_tests(
-# #     cls=pipeline_stages_base.ConnectionLockStage,
-# #     module=this_module,
-# #     all_ops=all_common_ops,
-# #     handled_ops=[
-# #         pipeline_ops_base.ConnectOperation,
-# #         pipeline_ops_base.DisconnectOperation,
-# #         pipeline_ops_base.ReconnectOperation,
-# #     ],
-# #     all_events=all_common_events,
-# #     handled_events=[],
-# #     extra_initializer_defaults={"blocked": False, "queue": queue.Queue},
-# # )
-
-# connection_ops = [
-#     {"op_class": pipeline_ops_base.ConnectOperation, "connected_flag_required_to_run": False},
-#     {"op_class": pipeline_ops_base.DisconnectOperation, "connected_flag_required_to_run": True},
-#     {"op_class": pipeline_ops_base.ReconnectOperation, "connected_flag_required_to_run": True},
-# ]
+@pytest.fixture
+def fake_uuid(mocker):
+    my_uuid = "0f4f876b-f445-432e-a8de-43bbd66e4668"
+    uuid4_mock = mocker.patch.object(uuid, "uuid4")
+    uuid4_mock.return_value.__str__.return_value = my_uuid
+    return my_uuid
 
 
-# class ArbitraryOperation(pipeline_ops_base.PipelineOperation):
-#     pass
+class CoordinateRequestAndResponseStageTestConfig(object):
+    @pytest.fixture
+    def cls_type(self):
+        return pipeline_stages_base.CoordinateRequestAndResponseStage
+
+    @pytest.fixture
+    def init_kwargs(self, mocker):
+        return {}
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
 
 
-# @pytest.mark.describe(
-#     "ConnectionLockStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
-# )
-# class TestSerializeConnectOpStageRunOp(StageTestBase):
-#     @pytest.fixture
-#     def stage(self):
-#         return pipeline_stages_base.ConnectionLockStage()
-
-#     @pytest.fixture
-#     def connection_op(self, mocker, params):
-#         return params["op_class"](callback=mocker.MagicMock())
-
-#     @pytest.fixture
-#     def fake_op(self, mocker):
-#         op = ArbitraryOperation(callback=mocker.MagicMock())
-#         mocker.spy(op, "complete")
-#         return op
-
-#     @pytest.fixture
-#     def fake_ops(self, mocker):
-#         return [
-#             ArbitraryOperation(callback=mocker.MagicMock()),
-#             ArbitraryOperation(callback=mocker.MagicMock()),
-#             ArbitraryOperation(callback=mocker.MagicMock()),
-#         ]
-
-#     @pytest.mark.it(
-#         "Does not immediately pass down operations in the queue if an operation in the queue causes the stage to re-block"
-#     )
-#     def test_re_blocks_ops_from_queue(self, stage, mocker):
-#         first_connect = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
-#         mocker.spy(first_connect, "complete")
-#         first_fake_op = ArbitraryOperation(callback=mocker.MagicMock())
-#         second_connect = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
-#         mocker.spy(second_connect, "complete")
-#         second_fake_op = ArbitraryOperation(callback=mocker.MagicMock())
-
-#         stage.run_op(first_connect)
-#         stage.run_op(first_fake_op)
-#         stage.run_op(second_connect)
-#         stage.run_op(second_fake_op)
-
-#         # at this point, ops are pended waiting for the first connect to complete.  Verify this and complete the connect.
-#         assert stage.next.run_op.call_count == 1
-#         assert stage.next.run_op.call_args[0][0] == first_connect
-#         first_connect.complete()
-
-#         # The connect is complete.  This passes down first_fake_op and second_connect and second_fake_op gets pended waiting i
-#         # for second_connect to complete.
-#         # Note: this isn't ideal.  In a perfect world, second_connect wouldn't start until first_fake_op is complete, but we
-#         # dont have this logic in place yet.
-#         assert stage.next.run_op.call_count == 3
-#         assert stage.next.run_op.call_args_list[1][0][0] == first_fake_op
-#         assert stage.next.run_op.call_args_list[2][0][0] == second_connect
-
-#         # now, complete second_connect to give second_fake_op a chance to get passed down
-#         second_connect.complete()
-#         assert stage.next.run_op.call_count == 4
-#         assert stage.next.run_op.call_args_list[3][0][0] == second_fake_op
-
-#     @pytest.mark.parametrize(
-#         "params",
-#         [
-#             pytest.param(
-#                 {
-#                     "pre_connected_flag": True,
-#                     "first_connection_op": pipeline_ops_base.DisconnectOperation,
-#                     "mid_connect_flag": False,
-#                     "second_connection_op": pipeline_ops_base.DisconnectOperation,
-#                 },
-#                 id="Disconnect followed by Disconnect",
-#             ),
-#             pytest.param(
-#                 {
-#                     "pre_connected_flag": False,
-#                     "first_connection_op": pipeline_ops_base.ConnectOperation,
-#                     "mid_connect_flag": True,
-#                     "second_connection_op": pipeline_ops_base.ConnectOperation,
-#                 },
-#                 id="Connect followed by Connect",
-#             ),
-#             pytest.param(
-#                 {
-#                     "pre_connected_flag": True,
-#                     "first_connection_op": pipeline_ops_base.ReconnectOperation,
-#                     "mid_connect_flag": True,
-#                     "second_connection_op": pipeline_ops_base.ConnectOperation,
-#                 },
-#                 id="Reconnect followed by Connect",
-#             ),
-#         ],
-#     )
-#     @pytest.mark.it(
-#         "Immediately completes a second op which was waiting for a first op that succeeded"
-#     )
-#     def test_immediately_completes_second_op(self, stage, params, mocker):
-#         first_connection_op = params["first_connection_op"](mocker.MagicMock())
-#         second_connection_op = params["second_connection_op"](mocker.MagicMock())
-#         mocker.spy(second_connection_op, "complete")
-#         stage.pipeline_root.connected = params["pre_connected_flag"]
-
-#         stage.run_op(first_connection_op)
-#         stage.run_op(second_connection_op)
-
-#         # first_connection_op has been passed down.  second_connection_op is waiting for first disconnect to complete.
-#         assert stage.next.run_op.call_count == 1
-#         assert stage.next.run_op.call_args[0][0] == first_connection_op
-
-#         # complete first_connection_op
-#         stage.pipeline_root.connected = params["mid_connect_flag"]
-#         first_connection_op.complete()
-
-#         # second connect_op should be completed without having been passed down.
-#         assert stage.next.run_op.call_count == 1
-#         assert second_connection_op.complete.call_count == 1
-#         assert second_connection_op.complete.call_args == mocker.call()
+class CoordinateRequestAndResponseStageInstantiationTests(
+    CoordinateRequestAndResponseStageTestConfig
+):
+    @pytest.mark.it("Initializes 'pending_responses' as an empty dict")
+    def test_pending_responses(self, init_kwargs):
+        stage = pipeline_stages_base.CoordinateRequestAndResponseStage(**init_kwargs)
+        assert stage.pending_responses == {}
 
 
-# # pipeline_stage_test.add_base_pipeline_stage_tests(
-# #     cls=pipeline_stages_base.CoordinateRequestAndResponseStage,
-# #     module=this_module,
-# #     all_ops=all_common_ops,
-# #     handled_ops=[pipeline_ops_base.RequestAndResponseOperation],
-# #     all_events=all_common_events,
-# #     handled_events=[pipeline_events_base.ResponseEvent],
-# #     extra_initializer_defaults={"pending_responses": dict},
-# # )
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    test_module=this_module,
+    stage_class_under_test=pipeline_stages_base.CoordinateRequestAndResponseStage,
+    stage_test_config_class=CoordinateRequestAndResponseStageTestConfig,
+    extended_stage_instantiation_test_class=CoordinateRequestAndResponseStageInstantiationTests,
+)
 
 
-# fake_request_type = "__fake_request_type__"
-# fake_method = "__fake_method__"
-# fake_resource_location = "__fake_resource_location__"
-# fake_request_body = "__fake_request_body__"
-# fake_status_code = "__fake_status_code__"
-# fake_response_body = "__fake_response_body__"
-# fake_request_id = "__fake_request_id__"
+@pytest.mark.describe(
+    "CoordinateRequestAndResponseStage - .run_op() -- Called with a RequestAndResponseOperation"
+)
+class TestCoordinateRequestAndResponseStageRunOpWithRequestAndResponseOperation(
+    CoordinateRequestAndResponseStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.RequestAndResponseOperation(
+            request_type="some_request_type",
+            method="SOME_METHOD",
+            resource_location="some/resource/location",
+            request_body="some_request_body",
+            callback=mocker.MagicMock(),
+        )
+
+    @pytest.mark.it(
+        "Stores the operation in the 'pending_responses' dictionary, mapped with a generated UUID"
+    )
+    def test_stores_op(self, mocker, stage, op, fake_uuid):
+        stage.run_op(op)
+
+        assert stage.pending_responses[fake_uuid] is op
+        assert not op.completed
+
+    @pytest.mark.it(
+        "Creates and a new RequestOperation using the generated UUID and sends it down the pipeline"
+    )
+    def test_sends_down_new_request_op(self, mocker, stage, op, fake_uuid):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        request_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(request_op, pipeline_ops_base.RequestOperation)
+        assert request_op.method == op.method
+        assert request_op.resource_location == op.resource_location
+        assert request_op.request_body == op.request_body
+        assert request_op.request_type == op.request_type
+        assert request_op.request_id == fake_uuid
+
+    @pytest.mark.it(
+        "Generates a unique UUID for each RequestAndResponseOperation/RequestOperation pair"
+    )
+    def test_unique_uuid(self, mocker, stage, op):
+        op1 = op
+        op2 = copy.deepcopy(op)
+        op3 = copy.deepcopy(op)
+
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        uuid1 = stage.send_op_down.call_args[0][0].request_id
+        stage.run_op(op2)
+        assert stage.send_op_down.call_count == 2
+        uuid2 = stage.send_op_down.call_args[0][0].request_id
+        stage.run_op(op3)
+        assert stage.send_op_down.call_count == 3
+        uuid3 = stage.send_op_down.call_args[0][0].request_id
+
+        assert uuid1 != uuid2 != uuid3
+        assert stage.pending_responses[uuid1] is op1
+        assert stage.pending_responses[uuid2] is op2
+        assert stage.pending_responses[uuid3] is op3
 
 
-# def make_fake_request_and_response(mocker):
-#     return pipeline_ops_base.RequestAndResponseOperation(
-#         request_type=fake_request_type,
-#         method=fake_method,
-#         resource_location=fake_resource_location,
-#         request_body=fake_request_body,
-#         callback=mocker.MagicMock(),
-#     )
+@pytest.mark.describe(
+    "CoordinateRequestAndResponseStage - .run_op() -- Called with an arbitrary other operation"
+)
+class TestCoordinateRequestAndResponseStageRunOpWithArbitraryOp(
+    CoordinateRequestAndResponseStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, arbitrary_op):
+        return arbitrary_op
+
+    @pytest.mark.it("Sends the operation down the pipeline")
+    def test_sends_down(self, stage, mocker, op):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
 
 
-# @pytest.mark.describe(
-#     "CoordinateRequestAndResponse - .run_op() -- called with RequestAndResponseOperation"
-# )
-# class TestCoordinateRequestAndResponseSendIotRequestRunOp(StageTestBase):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = make_fake_request_and_response(mocker)
-#         mocker.spy(op, "complete")
-#         return op
+@pytest.mark.describe(
+    "CoordinateRequestAndResponseStage - EVENT: RequestOperation tied to a stored RequestAndResponseOperation is completed"
+)
+class TestCoordinateRequestAndResponseStageRequestOperationCompleted(
+    CoordinateRequestAndResponseStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.RequestAndResponseOperation(
+            request_type="some_request_type",
+            method="SOME_METHOD",
+            resource_location="some/resource/location",
+            request_body="some_request_body",
+            callback=mocker.MagicMock(),
+        )
 
-#     @pytest.fixture
-#     def stage(self):
-#         return pipeline_stages_base.CoordinateRequestAndResponseStage()
+    @pytest.mark.it(
+        "Completes the associated RequestAndResponseOperation with the error from the RequestOperation and removes it from the 'pending_responses' dict, if the RequestOperation is completed unsuccessfully"
+    )
+    def test_request_completed_with_error(self, mocker, stage, op, arbitrary_exception):
+        stage.run_op(op)
+        request_op = stage.send_op_down.call_args[0][0]
 
-#     @pytest.mark.it(
-#         "Sends an RequestOperation op to the next stage with the same parameters and a newly allocated request_id"
-#     )
-#     def test_sends_op_and_validates_new_op(self, stage, op):
-#         stage.run_op(op)
-#         assert stage.next.run_op.call_count == 1
-#         new_op = stage.next.run_op.call_args[0][0]
-#         assert isinstance(new_op, pipeline_ops_base.RequestOperation)
-#         assert new_op.request_type == op.request_type
-#         assert new_op.method == op.method
-#         assert new_op.resource_location == op.resource_location
-#         assert new_op.request_body == op.request_body
-#         assert new_op.request_id
+        assert not op.completed
+        assert not request_op.completed
+        assert stage.pending_responses[request_op.request_id] is op
 
-#     @pytest.mark.it("Does not complete the SendIotRequestAndwaitForResponse op")
-#     def test_sends_op_and_verifies_no_response(self, stage, op):
-#         stage.run_op(op)
-#         assert op.complete.call_count == 0
+        request_op.complete(error=arbitrary_exception)
 
-#     @pytest.mark.it("Generates a new request_id for every operation")
-#     def test_sends_two_ops_and_validates_request_id(self, stage, op, mocker):
-#         op2 = make_fake_request_and_response(mocker)
-#         stage.run_op(op)
-#         stage.run_op(op2)
-#         assert stage.next.run_op.call_count == 2
-#         new_op = stage.next.run_op.call_args_list[0][0][0]
-#         new_op2 = stage.next.run_op.call_args_list[1][0][0]
-#         assert new_op.request_id != new_op2.request_id
+        # RequestAndResponseOperation has been completed with the error from the RequestOperation
+        assert request_op.completed
+        assert op.completed
+        assert op.error is request_op.error is arbitrary_exception
 
-#     @pytest.mark.it(
-#         "Fails RequestAndResponseOperation if an Exception is raised in the RequestOperation op"
-#     )
-#     def test_new_op_raises_exception(self, stage, op, mocker, arbitrary_exception):
-#         stage.next._run_op = mocker.Mock(side_effect=arbitrary_exception)
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call(error=arbitrary_exception)
+        # RequestAndResponseOperation has been removed from the 'pending_responses' dict
+        with pytest.raises(KeyError):
+            stage.pending_responses[request_op.request_id]
+
+    @pytest.mark.it(
+        "Does not complete or remove the RequestAndResponseOperation from the 'pending_responses' dict if the RequestOperation is completed successfully"
+    )
+    def test_request_completed_successfully(self, mocker, stage, op, arbitrary_exception):
+        stage.run_op(op)
+        request_op = stage.send_op_down.call_args[0][0]
+
+        request_op.complete()
+
+        assert request_op.completed
+        assert not op.completed
+        assert stage.pending_responses[request_op.request_id] is op
 
 
-# @pytest.mark.describe(
-#     "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- called with ResponseEvent"
-# )
-# class TestCoordinateRequestAndResponseSendIotRequestHandleEvent(StageTestBase):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = make_fake_request_and_response(mocker)
-#         mocker.spy(op, "complete")
-#         return op
+@pytest.mark.describe(
+    "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- Called with ResponseEvent"
+)
+class TestCoordinateRequestAndResponseStageHandlePipelineEventWithResponseEvent(
+    CoordinateRequestAndResponseStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def event(self, fake_uuid):
+        return pipeline_events_base.ResponseEvent(
+            request_id=fake_uuid, status_code=200, response_body="response body"
+        )
 
-#     @pytest.fixture
-#     def stage(self):
-#         return pipeline_stages_base.CoordinateRequestAndResponseStage()
+    @pytest.fixture
+    def pending_op(self, mocker):
+        return pipeline_ops_base.RequestAndResponseOperation(
+            request_type="some_request_type",
+            method="SOME_METHOD",
+            resource_location="some/resource/location",
+            request_body="some_request_body",
+            callback=mocker.MagicMock(),
+        )
 
-#     @pytest.fixture
-#     def iot_request(self, stage, op):
-#         stage.run_op(op)
-#         return stage.next.run_op.call_args[0][0]
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, fake_uuid, pending_op):
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
+        stage.send_event_up = mocker.MagicMock()
+        stage.send_op_down = mocker.MagicMock()
 
-#     @pytest.fixture
-#     def iot_response(self, stage, iot_request):
-#         return pipeline_events_base.ResponseEvent(
-#             request_id=iot_request.request_id,
-#             status_code=fake_status_code,
-#             response_body=fake_response_body,
-#         )
+        # Run the pending op
+        stage.run_op(pending_op)
+        return stage
 
-#     @pytest.mark.it(
-#         "Completes the RequestAndResponseOperation op with the matching request_id including response_body and status_code"
-#     )
-#     def test_completes_op_with_matching_request_id(self, mocker, stage, op, iot_response):
-#         stage.next.send_event_up(iot_response)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call()
-#         assert op.status_code == iot_response.status_code
-#         assert op.response_body == iot_response.response_body
+    @pytest.mark.it(
+        "Successfully completes a pending RequestAndResponseOperation that matches the 'request_id' of the ResponseEvent, and removes it from the 'pending_responses' dictionary"
+    )
+    def test_completes_matching_request_and_response_operation(
+        self, mocker, stage, pending_op, event, fake_uuid
+    ):
+        assert stage.pending_responses[fake_uuid] is pending_op
+        assert not pending_op.completed
 
-#     @pytest.mark.it(
-#         "Calls the unhandled error handler if there is no previous stage when request_id matches"
-#     )
-#     def test_matching_request_id_with_no_previous_stage(
-#         self, stage, op, iot_response, unhandled_error_handler
-#     ):
-#         stage.next.previous = None
-#         stage.next.send_event_up(iot_response)
-#         assert unhandled_error_handler.call_count == 1
+        # Handle the ResponseEvent
+        assert event.request_id == fake_uuid
+        stage.handle_pipeline_event(event)
 
-#     @pytest.mark.it(
-#         "Does nothing if an IotResponse with an identical request_id is received a second time"
-#     )
-#     def test_ignores_duplicate_request_id(
-#         self, mocker, stage, op, iot_response, unhandled_error_handler
-#     ):
-#         stage.next.send_event_up(iot_response)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call()
-#         op.complete.reset_mock()
+        # The pending RequestAndResponseOperation is complete
+        assert pending_op.completed
 
-#         stage.next.send_event_up(iot_response)
-#         assert op.complete.call_count == 0
-#         assert unhandled_error_handler.call_count == 0
+        # The RequestAndResponseOperation has been removed from the dictionary
+        with pytest.raises(KeyError):
+            stage.pending_responses[fake_uuid]
 
-#     @pytest.mark.it(
-#         "Does nothing if an IotResponse with a request_id is received for an operation that returned failure"
-#     )
-#     def test_ignores_request_id_from_failure(
-#         self, stage, op, mocker, unhandled_error_handler, arbitrary_exception
-#     ):
-#         stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-#         stage.run_op(op)
+    @pytest.mark.it(
+        "Sets the 'status_code' and 'response_body' attributes on the completed RequestAndResponseOperation with values from the ResponseEvent"
+    )
+    def test_returns_values_in_attributes(self, mocker, stage, pending_op, event):
+        assert not pending_op.completed
+        assert pending_op.status_code is None
+        assert pending_op.response_body is None
 
-#         req = stage.next.run_op.call_args[0][0]
-#         resp = pipeline_events_base.ResponseEvent(
-#             request_id=req.request_id,
-#             status_code=fake_status_code,
-#             response_body=fake_response_body,
-#         )
+        stage.handle_pipeline_event(event)
 
-#         op.complete.reset_mock()
-#         stage.next.send_event_up(resp)
-#         assert op.complete.call_count == 0
-#         assert unhandled_error_handler.call_count == 0
+        assert pending_op.completed
+        assert pending_op.status_code == event.status_code
+        assert pending_op.response_body == event.response_body
 
-#     @pytest.mark.it("Does nothing if an IotResponse with an unknown request_id is received")
-#     def test_ignores_unknown_request_id(self, stage, op, iot_response, unhandled_error_handler):
-#         iot_response.request_id = fake_request_id
-#         stage.next.send_event_up(iot_response)
-#         assert op.complete.call_count == 0
-#         assert unhandled_error_handler.call_count == 0
+    @pytest.mark.it(
+        "Does nothing if there is no pending RequestAndResponseOperation that matches the 'request_id' of the ResponseEvent"
+    )
+    def test_no_matching_request_id(self, mocker, stage, pending_op, event, fake_uuid):
+        assert stage.pending_responses[fake_uuid] is pending_op
+        assert not pending_op.completed
+
+        # Use a nonmatching UUID
+        event.request_id = "non-matching-uuid"
+        assert event.request_id != fake_uuid
+        stage.handle_pipeline_event(event)
+
+        # Nothing has changed
+        assert stage.pending_responses[fake_uuid] is pending_op
+        assert not pending_op.completed
+
+
+@pytest.mark.describe(
+    "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- Called with arbitrary other event"
+)
+class TestCoordinateRequestAndResponseStageHandlePipelineEventWithArbitraryEvent(
+    CoordinateRequestAndResponseStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def event(self, arbitrary_event):
+        return arbitrary_event
+
+    @pytest.mark.it("Sends the event up the pipeline")
+    def test_sends_up(self, mocker, stage, event):
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
+
+
+####################
+# OP TIMEOUT STAGE #
+####################
+
+
+class OpTimeoutStageTestConfig(object):
+    @pytest.fixture
+    def cls_type(self):
+        return pipeline_stages_base.OpTimeoutStage
+
+    @pytest.fixture
+    def init_kwargs(self, mocker):
+        return {}
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+
+class OpTimeoutStageInstantiationTests(OpTimeoutStageTestConfig):
+    # TODO: this will no longer be necessary once these are implemented as part of a more robust retry policy
+    @pytest.mark.it(
+        "Sets default timout intervals to 10 seconds for MQTTSubscribeOperation and MQTTUnsubscribeOperation"
+    )
+    def test_pending_responses(self, init_kwargs):
+        stage = pipeline_stages_base.OpTimeoutStage(**init_kwargs)
+        assert stage.timeout_intervals[pipeline_ops_mqtt.MQTTSubscribeOperation] == 10
+        assert stage.timeout_intervals[pipeline_ops_mqtt.MQTTUnsubscribeOperation] == 10
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    test_module=this_module,
+    stage_class_under_test=pipeline_stages_base.OpTimeoutStage,
+    stage_test_config_class=OpTimeoutStageTestConfig,
+    extended_stage_instantiation_test_class=OpTimeoutStageInstantiationTests,
+)
+
+
+@pytest.mark.describe("OpTimeoutStage - .run_op() -- Called with operation that can time out")
+class TestOpTimeoutStageRunOpCalledWithOpThatCanTimeout(
+    OpTimeoutStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture(
+        params=[
+            pipeline_ops_mqtt.MQTTSubscribeOperation,
+            pipeline_ops_mqtt.MQTTUnsubscribeOperation,
+        ]
+    )
+    def op(self, mocker, request):
+        op_cls = request.param
+        op = op_cls(topic="some/topic", callback=mocker.MagicMock())
+        return op
+
+    @pytest.mark.it(
+        "Adds a timer with the interval specified in the configuration to the operation, and starts it"
+    )
+    def test_adds_timer(self, mocker, stage, op):
+        mock_timer_init = mocker.patch.object(threading, "Timer")
+
+        stage.run_op(op)
+
+        assert mock_timer_init.call_count == 1
+        assert mock_timer_init.call_args == mocker.call(
+            stage.timeout_intervals[type(op)], mocker.ANY
+        )
+        assert op.timeout_timer is mock_timer_init.return_value
+        assert op.timeout_timer.start.call_count == 1
+        assert op.timeout_timer.start.call_count == mocker.call()
 
 
 # """
