@@ -273,7 +273,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     handled_ops=[
         pipeline_ops_base.ConnectOperation,
         pipeline_ops_base.DisconnectOperation,
-        pipeline_ops_base.ReconnectOperation,
+        pipeline_ops_base.ReauthorizeConnectionOperation,
     ],
     all_events=all_common_events,
     handled_events=[],
@@ -283,7 +283,10 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 connection_ops = [
     {"op_class": pipeline_ops_base.ConnectOperation, "connected_flag_required_to_run": False},
     {"op_class": pipeline_ops_base.DisconnectOperation, "connected_flag_required_to_run": True},
-    {"op_class": pipeline_ops_base.ReconnectOperation, "connected_flag_required_to_run": True},
+    {
+        "op_class": pipeline_ops_base.ReauthorizeConnectionOperation,
+        "connected_flag_required_to_run": True,
+    },
 ]
 
 
@@ -292,7 +295,7 @@ class FakeOperation(pipeline_ops_base.PipelineOperation):
 
 
 @pytest.mark.describe(
-    "ConnectionLockStage - .run_op() -- called with an operation that connects, disconnects, or reconnects"
+    "ConnectionLockStage - .run_op() -- called with an operation that connects, disconnects, or reauthorizes"
 )
 class TestSerializeConnectOpStageRunOp(StageTestBase):
     @pytest.fixture
@@ -457,7 +460,9 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
         first_connect = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
         mocker.spy(first_connect, "complete")
         first_fake_op = FakeOperation(callback=mocker.MagicMock())
-        second_connect = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        second_connect = pipeline_ops_base.ReauthorizeConnectionOperation(
+            callback=mocker.MagicMock()
+        )
         mocker.spy(second_connect, "complete")
         second_fake_op = FakeOperation(callback=mocker.MagicMock())
 
@@ -508,11 +513,11 @@ class TestSerializeConnectOpStageRunOp(StageTestBase):
             pytest.param(
                 {
                     "pre_connected_flag": True,
-                    "first_connection_op": pipeline_ops_base.ReconnectOperation,
+                    "first_connection_op": pipeline_ops_base.ReauthorizeConnectionOperation,
                     "mid_connect_flag": True,
                     "second_connection_op": pipeline_ops_base.ConnectOperation,
                 },
-                id="Reconnect followed by Connect",
+                id="ReauthorizeConnection followed by Connect",
             ),
         ],
     )
