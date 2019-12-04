@@ -7,17 +7,29 @@
 import pytest
 import logging
 from azure.iot.device.common.models import X509
-from azure.iot.device.common.pipeline import pipeline_stages_base
 from azure.iot.device.provisioning.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.device.provisioning.security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
-from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from tests.common.pipeline import helpers
 import json
+from azure.iot.device.provisioning.pipeline import constant as dps_constants
+from azure.iot.device.provisioning.pipeline import (
+    pipeline_stages_provisioning,
+    pipeline_stages_provisioning_mqtt,
+    pipeline_ops_provisioning,
+)
+from azure.iot.device.common.pipeline import (
+    pipeline_stages_base,
+    pipeline_stages_mqtt,
+    pipeline_ops_base,
+)
 
 logging.basicConfig(level=logging.DEBUG)
+pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
-send_msg_qos = 1
+
+feature = dps_constants.REGISTER
+
 
 fake_symmetric_key = "Zm9vYmFy"
 fake_registration_id = "MyPensieve"
@@ -101,6 +113,13 @@ def pipeline_configuration(mocker):
     return mocker.MagicMock()
 
 
+@pytest.fixture
+def pipeline(mocker, input_security_client, pipeline_configuration):
+    pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+    mocker.patch.object(pipeline._pipeline, "run_op")
+    return pipeline
+
+
 # automatically mock the transport for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_mqtt_transport(mocker):
@@ -125,30 +144,87 @@ def mock_provisioning_pipeline(
     provisioning_pipeline.disconnect()
 
 
+@pytest.mark.describe("ProvisioningPipeline - Instantiation")
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Initializer")
-class TestInit(object):
-    @pytest.mark.it("Happens correctly with the specific security client")
-    def test_instantiates_correctly(
-        self, params_security_clients, input_security_client, pipeline_configuration
-    ):
-        provisioning_pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
-        assert provisioning_pipeline._pipeline is not None
+class TestProvisioningPipelineInstantiation(object):
+    @pytest.mark.it("Begins tracking the enabled/disabled status of responses")
+    def test_features(self, input_security_client, pipeline_configuration):
+        pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+        pipeline.responses_enabled[feature]
+        # No assertion required - if this doesn't raise a KeyError, it is a success
 
-    @pytest.mark.it("Calls the correct op to pass the security client args into the pipeline")
-    def test_passes_security_client_args(
+    @pytest.mark.it("Marks responses as disabled")
+    def test_features_disabled(self, input_security_client, pipeline_configuration):
+        pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+        assert not pipeline.responses_enabled[feature]
+
+    @pytest.mark.it("Sets all handlers to an initial value of None")
+    def test_handlers_set_to_none(self, input_security_client, pipeline_configuration):
+        pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+        assert pipeline.on_connected is None
+        assert pipeline.on_disconnected is None
+        assert pipeline.on_message_received is None
+
+    @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
+    def test_handlers_configured(self, input_security_client, pipeline_configuration):
+        pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+        assert pipeline._pipeline.on_pipeline_event_handler is not None
+        assert pipeline._pipeline.on_connected_handler is not None
+        assert pipeline._pipeline.on_disconnected_handler is not None
+
+    @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
+    def test_pipeline_configuration(self, input_security_client, pipeline_configuration):
+        pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+        curr_stage = pipeline._pipeline
+
+        expected_stage_order = [
+            pipeline_stages_base.PipelineRootStage,
+            pipeline_stages_provisioning.UseSecurityClientStage,
+            pipeline_stages_provisioning.RegistrationStage,
+            pipeline_stages_provisioning.PollingStatusStage,
+            pipeline_stages_base.CoordinateRequestAndResponseStage,
+            pipeline_stages_provisioning.ProvisioningTimeoutStage,
+            pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
+            # pipeline_stages_base.ReconnectStage,
+            pipeline_stages_base.AutoConnectStage,
+            pipeline_stages_base.ConnectionLockStage,
+            # pipeline_stages_base.RetryStage,
+            # pipeline_stages_base.OpTimeoutStage,
+            pipeline_stages_mqtt.MQTTTransportStage,
+        ]
+
+        # Assert that all PipelineStages are there, and they are in the right order
+        for i in range(len(expected_stage_order)):
+            expected_stage = expected_stage_order[i]
+            assert isinstance(curr_stage, expected_stage)
+            curr_stage = curr_stage.next
+
+        # Assert there are no more additional stages
+        assert curr_stage is None
+
+    # TODO: revist these tests after auth revision
+    # They are too tied to auth types (and there's too much variance in auths to effectively test)
+    # Ideally ProvisioningPipeline is entirely insulated from any auth differential logic (and module/device distinctions)
+    # In the meantime, we are using a device auth with connection string to stand in for generic SAS auth
+    # and device auth with X509 certs to stand in for generic X509 auth
+    @pytest.mark.it(
+        "Runs a Set SecurityClient Operation with the provided SecurityClient on the pipeline"
+    )
+    def test_security_client_success(
         self, mocker, params_security_clients, input_security_client, pipeline_configuration
     ):
         mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
-        provisioning_pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
+        pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
 
-        op = provisioning_pipeline._pipeline.run_op.call_args[0][1]
-        assert provisioning_pipeline._pipeline.run_op.call_count == 1
+        op = pipeline._pipeline.run_op.call_args[0][1]
+        assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, params_security_clients["set_args_op_class"])
         assert op.security_client is input_security_client
 
-    @pytest.mark.it("Raises an exception if the pipeline op to set security client args fails")
-    def test_passes_security_client_args_failure(
+    @pytest.mark.it(
+        "Raises exceptions that occurred in execution upon unsuccessful completion of the Set SecurityClient Operation"
+    )
+    def test_security_client_failure(
         self,
         mocker,
         params_security_clients,
@@ -156,21 +232,22 @@ class TestInit(object):
         arbitrary_exception,
         pipeline_configuration,
     ):
-        old_execute_op = pipeline_stages_base.PipelineRootStage._run_op
+        old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
-        def fail_set_auth_provider(self, op):
+        def fail_set_security_client(self, op):
             if isinstance(op, params_security_clients["set_args_op_class"]):
                 op.complete(error=arbitrary_exception)
             else:
-                old_execute_op(self, op)
+                old_run_op(self, op)
 
         mocker.patch.object(
             pipeline_stages_base.PipelineRootStage,
             "_run_op",
-            side_effect=fail_set_auth_provider,
+            side_effect=fail_set_security_client,
             autospec=True,
         )
 
+        # auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
             ProvisioningPipeline(input_security_client, pipeline_configuration)
         assert e_info.value is arbitrary_exception
@@ -178,76 +255,83 @@ class TestInit(object):
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("Provisioning pipeline - Connect")
-class TestConnect(object):
-    @pytest.mark.it("Calls connect on transport")
-    def test_connect_calls_connect_on_provider(
-        self, params_security_clients, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
+class TestProvisioningPipelineConnect(object):
+    @pytest.mark.it("Runs a ConnectOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.connect(callback=cb)
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ConnectOperation
+        )
 
-        assert mock_mqtt_transport.connect.call_count == 1
+    @pytest.mark.it("Triggers the callback upon successful completion of the ConnectOperation")
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
 
-        if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-        elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
+        # Begin operation
+        pipeline.connect(callback=cb)
+        assert cb.call_count == 0
 
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
+        # Trigger op completion
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
 
-    @pytest.mark.it("After complete calls handler with new state")
-    def test_connected_state_handler_called_wth_new_state_once_provider_gets_connected(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None)
 
-        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the ConnectOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
 
-    @pytest.mark.it("Is ignored if waiting for completion of previous one")
-    def test_connect_ignored_if_waiting_for_connect_complete(
-        self, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
+        pipeline.connect(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
 
-        assert mock_mqtt_transport.connect.call_count == 1
+        op.complete(error=arbitrary_exception)
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception)
 
-        if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-        elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
 
-        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
+@pytest.mark.parametrize("params_security_clients", different_security_clients)
+@pytest.mark.describe("IoTHubPipeline - .disconnect()")
+class TestProvisioningPipelineDisconnect(object):
+    @pytest.mark.it("Runs a DisconnectOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        pipeline.disconnect(callback=mocker.MagicMock())
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
+        )
 
-    @pytest.mark.it("Is ignored if waiting for completion of send")
-    def test_connect_ignored_if_waiting_for_send_complete(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
+    @pytest.mark.it("Triggers the callback upon successful completion of the DisconnectOperation")
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
 
-        mock_mqtt_transport.reset_mock()
-        mock_provisioning_pipeline.on_connected.reset_mock()
+        # Begin operation
+        pipeline.disconnect(callback=cb)
+        assert cb.call_count == 0
 
-        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
-        mock_provisioning_pipeline.connect()
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
 
-        mock_mqtt_transport.connect.assert_not_called()
-        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
-        mock_provisioning_pipeline.on_connected.assert_not_called()
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None)
 
-        mock_mqtt_transport.on_mqtt_published(0)
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the DisconnectOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
+        pipeline.disconnect(callback=cb)
 
-        mock_mqtt_transport.connect.assert_not_called()
-        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
-        mock_provisioning_pipeline.on_connected.assert_not_called()
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=arbitrary_exception)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)

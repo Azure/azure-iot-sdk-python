@@ -18,7 +18,6 @@ from azure.iot.device.provisioning.pipeline import mqtt_topic
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device import constant as pkg_constant
 from . import constant as pipeline_constant
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -142,18 +141,3 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
         else:
             # all other messages get passed up
             super(ProvisioningMQTTTranslationStage, self)._handle_pipeline_event(event)
-
-
-class DeviceRegistrationPayload(object):
-    """
-    The class representing the payload that needs to be sent to the service.
-    """
-
-    def __init__(self, registration_id, custom_payload=None):
-        # This is not a convention to name variables in python but the
-        # DPS service spec needs the name to be exact for it to work
-        self.registrationId = registration_id
-        self.payload = custom_payload
-
-    def get_json_string(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

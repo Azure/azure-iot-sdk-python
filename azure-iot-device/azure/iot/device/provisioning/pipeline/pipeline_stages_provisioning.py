@@ -369,6 +369,67 @@ class RegistrationStage(CommonProvisioningStage):
             super(RegistrationStage, self)._run_op(operation)
 
 
+class ProvisioningTimeoutStage(PipelineStage):
+    """
+    The purpose of the timeout stage is to add timeout errors to select operations
+
+    The timeout_intervals attribute contains a list of operations to track along with
+    their timeout values.
+
+    For each operation that needs a timeout check, this stage will add a timer to
+    the operation.  If the timer elapses, this stage will fail the operation with
+    a PipelineTimeoutError.
+    """
+
+    def __init__(self):
+        super(ProvisioningTimeoutStage, self).__init__()
+        self.timeout_intervals = {
+            pipeline_ops_base.RequestOperation: constant.DEFAULT_TIMEOUT_INTERVAL
+        }
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if type(op) in self.timeout_intervals:
+            # Create a timer to watch for operation timeout on this op and attach it
+            # to the op.
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def on_timeout():
+                this = self_weakref()
+                logger.info("{}({}): returning timeout error".format(this.name, op.name))
+                # For DPS it is an Service Timeout Error as opposed to pipeline timing out
+                op.complete(
+                    error=(
+                        exceptions.ServiceError(
+                            "Operation timed out before provisioning service could respond for {type_of} operation".format(
+                                type_of=op.request_type
+                            )
+                        )
+                    )
+                )
+
+            logger.debug("{}({}): Creating timer".format(self.name, op.name))
+            op.timeout_timer = Timer(constant.DEFAULT_TIMEOUT_INTERVAL, on_timeout)
+            op.timeout_timer.start()
+
+            # Send the op down, but intercept the return of the op so we can
+            # remove the timer when the op is done
+            op.add_callback(self._clear_timer)
+            logger.debug("{}({}): Sending down".format(self.name, op.name))
+            self.send_op_down(op)
+        else:
+            self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _clear_timer(self, op, error):
+        # When an op comes back, delete the timer and pass it right up.
+        if op.timeout_timer:
+            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
+            op.timeout_timer.cancel()
+            op.timeout_timer = None
+
+
 class DeviceRegistrationPayload(object):
     """
     The class representing the payload that needs to be sent to the service.
