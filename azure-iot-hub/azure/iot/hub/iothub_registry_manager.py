@@ -512,7 +512,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.get_configuration(configuration_id)
 
-    def create_configuration(self, configuration_id, configuration):
+    def create_configuration(self, configuration):
         """Creates a configuration for devices or modules of an IoTHub.
 
         :param str configuration_id: The id of the configuration.
@@ -523,13 +523,14 @@ class IoTHubRegistryManager(object):
 
         :returns: Configuration object containing the created configuration.
         """
-        return self.protocol.service.create_or_update_configuration(configuration_id, configuration)
+        return self.protocol.service.create_or_update_configuration(configuration.id, configuration)
 
-    def update_configuration(self, configuration_id, configuration, etag):
+    def update_configuration(self, configuration, etag):
         """Updates a configuration for devices or modules of an IoTHub.
+           Note: that configuration Id and Content cannot be updated by the user.
 
         :param str configuration_id: The id of the configuration.
-        :param Configuration configuration: The configuration to create.
+        :param Configuration configuration: The configuration contains the updated configuration.
         :param str etag: The etag (if_match) value to use for the update operation.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
@@ -538,7 +539,7 @@ class IoTHubRegistryManager(object):
         :returns: Configuration object containing the updated configuration.
         """
         return self.protocol.service.create_or_update_configuration(
-            configuration_id, configuration, etag
+            configuration.id, configuration, etag
         )
 
     def delete_configuration(self, configuration_id, etag=None):
@@ -805,7 +806,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.cancel_job(job_id)
 
-    def query_jobs(self, job_type, job_status=None):
+    def query_jobs(self, job_type=None, job_status=None):
         """Query an IoT hub to retrieve information regarding jobs using the IoT
            Hub query language.
 

@@ -8,7 +8,7 @@ import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
 
-connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
+iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
 module_id = os.getenv("IOTHUB_MODULE_ID")
 
@@ -42,7 +42,7 @@ def print_module_info(title, iothub_module):
 
 try:
     # RegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(connection_str)
+    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
 
     # Create Module
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"

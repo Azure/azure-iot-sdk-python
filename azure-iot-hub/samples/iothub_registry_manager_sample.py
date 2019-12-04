@@ -8,7 +8,7 @@ import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
 
-connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
+iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = "test_device"
 
 
@@ -47,7 +47,7 @@ def print_device_info(title, iothub_device):
 #       device_updated = registry_manager.update_device_with_certificate_authority(self, device_id, etag, status):
 try:
     # Create IoTHubRegistryManager
-    registry_manager = IoTHubRegistryManager(connection_str)
+    registry_manager = IoTHubRegistryManager(iothub_connection_str)
 
     # Create a device
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
@@ -65,6 +65,7 @@ try:
     # Get device twin
     twin = registry_manager.get_twin(device_id)
     print(twin)
+    print("")
 
     # Update device information
     primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
