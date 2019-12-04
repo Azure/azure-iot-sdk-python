@@ -22,87 +22,6 @@ try:
 except ImportError:
     from inspect import getargspec
 
-all_common_ops = [
-    pipeline_ops_base.ConnectOperation,
-    pipeline_ops_base.ReconnectOperation,
-    pipeline_ops_base.DisconnectOperation,
-    pipeline_ops_base.EnableFeatureOperation,
-    pipeline_ops_base.DisableFeatureOperation,
-    pipeline_ops_base.UpdateSasTokenOperation,
-    pipeline_ops_base.RequestAndResponseOperation,
-    pipeline_ops_base.RequestOperation,
-    pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
-    pipeline_ops_mqtt.MQTTPublishOperation,
-    pipeline_ops_mqtt.MQTTSubscribeOperation,
-    pipeline_ops_mqtt.MQTTUnsubscribeOperation,
-]
-
-all_common_events = [pipeline_events_mqtt.IncomingMQTTMessageEvent]
-
-
-def all_except(all_items, items_to_exclude):
-    """
-    helper function to return a new list with all ops that are in the first list
-    and not in the second list.
-
-    :param list all_items: list of all operations or events
-    :param list items_to_exclude: ops or events to exclude
-    """
-    return [x for x in all_items if x not in items_to_exclude]
-
-
-# # TODO: Remove this definition
-class StageTestBase(object):
-    @pytest.fixture(autouse=True)
-    def stage_base_configuration(self, stage, mocker):
-        """
-        This fixture configures the stage for testing.  This is automatically
-        applied, so it will be called before your test runs, but it's not
-        guaranteed to be called before any other fixtures run.  If you have
-        a fixture that needs to rely on the stage being configured, then
-        you have to add a manual dependency inside that fixture (like we do in
-        next_stage_succeeds_all_ops below)
-        """
-
-        class NextStageForTest(pipeline_stages_base.PipelineStage):
-            def _run_op(self, op):
-                pass
-
-        next = NextStageForTest()
-        root = (
-            pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
-            .append_stage(stage)
-            .append_stage(next)
-        )
-
-        mocker.spy(stage, "_run_op")
-        mocker.spy(stage, "run_op")
-
-        mocker.spy(next, "_run_op")
-        mocker.spy(next, "run_op")
-
-        return root
-
-    @pytest.fixture
-    def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
-        def complete_op_success(op):
-            op.complete()
-
-        stage.next._run_op = complete_op_success
-        mocker.spy(stage.next, "_run_op")
-
-    @pytest.fixture
-    def next_stage_raises_arbitrary_exception(
-        self, stage, stage_base_configuration, mocker, arbitrary_exception
-    ):
-        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-
-    @pytest.fixture
-    def next_stage_raises_arbitrary_base_exception(
-        self, stage, stage_base_configuration, mocker, arbitrary_base_exception
-    ):
-        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
-
 
 class StageRunOpTestBase(object):
     """All PipelineStage .run_op() tests should inherit from this base class.
@@ -158,6 +77,92 @@ class StageHandlePipelineEventTestBase(object):
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
             stage.handle_pipeline_event(event)
         assert e_info.value is arbitrary_base_exception
+
+
+############################################
+# EVERYTHING BELOW THIS POINT IS DEPRECATED#
+############################################
+# CT-TODO: remove
+
+all_common_ops = [
+    pipeline_ops_base.ConnectOperation,
+    pipeline_ops_base.ReconnectOperation,
+    pipeline_ops_base.DisconnectOperation,
+    pipeline_ops_base.EnableFeatureOperation,
+    pipeline_ops_base.DisableFeatureOperation,
+    pipeline_ops_base.UpdateSasTokenOperation,
+    pipeline_ops_base.RequestAndResponseOperation,
+    pipeline_ops_base.RequestOperation,
+    pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
+    pipeline_ops_mqtt.MQTTPublishOperation,
+    pipeline_ops_mqtt.MQTTSubscribeOperation,
+    pipeline_ops_mqtt.MQTTUnsubscribeOperation,
+]
+
+all_common_events = [pipeline_events_mqtt.IncomingMQTTMessageEvent]
+
+
+def all_except(all_items, items_to_exclude):
+    """
+    helper function to return a new list with all ops that are in the first list
+    and not in the second list.
+
+    :param list all_items: list of all operations or events
+    :param list items_to_exclude: ops or events to exclude
+    """
+    return [x for x in all_items if x not in items_to_exclude]
+
+
+class StageTestBase(object):
+    @pytest.fixture(autouse=True)
+    def stage_base_configuration(self, stage, mocker):
+        """
+        This fixture configures the stage for testing.  This is automatically
+        applied, so it will be called before your test runs, but it's not
+        guaranteed to be called before any other fixtures run.  If you have
+        a fixture that needs to rely on the stage being configured, then
+        you have to add a manual dependency inside that fixture (like we do in
+        next_stage_succeeds_all_ops below)
+        """
+
+        class NextStageForTest(pipeline_stages_base.PipelineStage):
+            def _run_op(self, op):
+                pass
+
+        next = NextStageForTest()
+        root = (
+            pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
+            .append_stage(stage)
+            .append_stage(next)
+        )
+
+        mocker.spy(stage, "_run_op")
+        mocker.spy(stage, "run_op")
+
+        mocker.spy(next, "_run_op")
+        mocker.spy(next, "run_op")
+
+        return root
+
+    @pytest.fixture
+    def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
+        def complete_op_success(op):
+            op.complete()
+
+        stage.next._run_op = complete_op_success
+        mocker.spy(stage.next, "_run_op")
+
+    @pytest.fixture
+    def next_stage_raises_arbitrary_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_exception
+    ):
+        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+
+    @pytest.fixture
+    def next_stage_raises_arbitrary_base_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_base_exception
+    ):
+        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
 
 def assert_callback_succeeded(op, callback=None):

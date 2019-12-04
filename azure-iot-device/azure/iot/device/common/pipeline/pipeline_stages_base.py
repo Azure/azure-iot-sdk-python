@@ -12,7 +12,7 @@ import time
 import uuid
 import weakref
 from six.moves import queue
-from threading import Timer
+import threading
 from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
@@ -615,7 +615,7 @@ class OpTimeoutStage(PipelineStage):
                 )
 
             logger.debug("{}({}): Creating timer".format(self.name, op.name))
-            op.timeout_timer = Timer(self.timeout_intervals[type(op)], on_timeout)
+            op.timeout_timer = threading.Timer(self.timeout_intervals[type(op)], on_timeout)
             op.timeout_timer.start()
 
             # Send the op down, but intercept the return of the op so we can
@@ -709,9 +709,9 @@ class RetryStage(PipelineStage):
                 op.retry_timer.cancel()
                 op.retry_timer = None
                 this.ops_waiting_to_retry.remove(op)
-                # Don't just send it down directly.  Instead, go through _run_op so we get
+                # Don't just send it down directly.  Instead, go through run_op so we get
                 # retry functionality this time too
-                this._run_op(op)
+                this.run_op(op)
 
             interval = self.retry_intervals[type(op)]
             logger.warning(
@@ -723,11 +723,10 @@ class RetryStage(PipelineStage):
             # if we don't keep track of this op, it might get collected.
             op.halt_completion()
             self.ops_waiting_to_retry.append(op)
-            op.retry_timer = Timer(self.retry_intervals[type(op)], do_retry)
+            op.retry_timer = threading.Timer(self.retry_intervals[type(op)], do_retry)
             op.retry_timer.start()
 
         else:
-            # BK-TODO: Make sure this is covered by tests
             if op.retry_timer:
                 op.retry_timer.cancel()
                 op.retry_timer = None
@@ -811,7 +810,7 @@ class ReconnectStage(PipelineStage):
                 )
 
         logger.info("{}: Setting reconnect timer".format(self.name))
-        self.reconnect_timer = Timer(self.reconnect_delay, on_reconnect_timer_expired)
+        self.reconnect_timer = threading.Timer(self.reconnect_delay, on_reconnect_timer_expired)
         self.reconnect_timer.start()
 
     @pipeline_thread.runs_on_pipeline_thread
