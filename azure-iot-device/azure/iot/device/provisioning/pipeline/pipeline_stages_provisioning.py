@@ -7,6 +7,20 @@
 from azure.iot.device.common.pipeline import pipeline_ops_base, pipeline_thread
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from . import pipeline_ops_provisioning
+from azure.iot.device import exceptions
+from azure.iot.device.provisioning.pipeline import constant
+from azure.iot.device.provisioning.models.registration_result import (
+    RegistrationResult,
+    RegistrationState,
+)
+import logging
+import weakref
+import json
+from threading import Timer
+from .constant import REGISTER, QUERY
+from .mqtt_topic import get_optional_element
+
+logger = logging.getLogger(__name__)
 
 
 class UseSecurityClientStage(PipelineStage):
@@ -44,3 +58,327 @@ class UseSecurityClientStage(PipelineStage):
 
         else:
             super(UseSecurityClientStage, self)._run_op(op)
+
+
+class CommonProvisioningStage(PipelineStage):
+    @pipeline_thread.runs_on_pipeline_thread
+    def _get_error(self, provisioning_op, prov_op_name, error):
+        if error:
+            return error
+        elif 300 <= provisioning_op.status_code < 429:
+            logger.error(
+                "Received error with status code {status_code} for {prov_op_name} request operation".format(
+                    prov_op_name=prov_op_name, status_code=provisioning_op.status_code
+                )
+            )
+            logger.error("response body: {}".format(provisioning_op.response_body))
+            return exceptions.ServiceError(
+                "{prov_op_name} request returned a service error status code {status_code}".format(
+                    prov_op_name=prov_op_name, status_code=provisioning_op.status_code
+                )
+            )
+        else:
+            return None
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _decode_response(self, provisioning_op):
+        return json.loads(provisioning_op.response_body.decode("utf-8"))
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _get_registration_status(self, decoded_response):
+        return get_optional_element(decoded_response, "status")
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _get_operation_id(self, decoded_response):
+        return get_optional_element(decoded_response, "operationId")
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _form_complete_result(self, operation_id, decoded_response, status):
+        """
+        Create the registration result from the complete decoded json response for details regarding the registration process.
+        """
+        decoded_state = (get_optional_element(decoded_response, "registrationState"),)
+        registration_state = None
+        if decoded_state is not None:
+            # Everything needs to be converted to string explicitly for python 2
+            # as everything is by default a unicode character
+
+            registration_state = RegistrationState(
+                device_id=get_optional_element(decoded_state[0], "deviceId"),
+                assigned_hub=get_optional_element(decoded_state[0], "assignedHub"),
+                sub_status=get_optional_element(decoded_state[0], "substatus"),
+                created_date_time=get_optional_element(decoded_state[0], "createdDateTimeUtc"),
+                last_update_date_time=get_optional_element(
+                    decoded_state[0], "lastUpdatedDateTimeUtc"
+                ),
+                etag=get_optional_element(decoded_state[0], "etag"),
+                payload=get_optional_element(decoded_state[0], "payload"),
+            )
+
+        registration_result = RegistrationResult(
+            operation_id=operation_id, status=status, registration_state=registration_state
+        )
+        return registration_result
+
+
+class PollingStatusStage(CommonProvisioningStage):
+    """
+    This stage is responsible for sending the query request once initial response
+    is received from the registration response.
+    Upon the receipt of the response this stage decides whether
+    to send another query request or complete the procedure.
+    """
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
+            query_status_op = op
+
+            def on_query_response(op, error):
+                query_request_op = op
+                logger.debug(
+                    "{stage_name}({op_name}): Received response with status code {status_code} for SendQueryRequestOperation with operation id {oper_id}".format(
+                        stage_name=self.name,
+                        op_name=op.name,
+                        status_code=query_request_op.status_code,
+                        oper_id=query_request_op.query_params["operation_id"],
+                    )
+                )
+
+                # This could be an error that has been reported to this stage Or this
+                # could be an error because the service responded with status code 300
+                error = self._get_error(query_request_op, QUERY, error=error)
+
+                if not error:
+                    success_status_code = query_request_op.status_code
+                    polling_interval = (
+                        int(query_request_op.retry_after, 10)
+                        if query_request_op.retry_after is not None
+                        else constant.DEFAULT_POLLING_INTERVAL
+                    )
+                    decoded_response = self._decode_response(query_request_op)
+                    operation_id = self._get_operation_id(decoded_response)
+                    registration_status = self._get_registration_status(decoded_response)
+
+                    # retry after or assigning scenario
+                    if success_status_code >= 429 or registration_status == "assigning":
+
+                        self_weakref = weakref.ref(self)
+
+                        @pipeline_thread.invoke_on_pipeline_thread_nowait
+                        def do_polling():
+                            this = self_weakref()
+                            logger.info(
+                                "{stage_name}({op_name}): retrying".format(
+                                    stage_name=this.name, op_name=op.name
+                                )
+                            )
+                            query_status_op.polling_timer.cancel()
+                            query_status_op.polling_timer = None
+                            query_status_op.completed = False
+                            this._execute_op(query_status_op)
+
+                        logger.info(
+                            "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
+                                stage_name=self.name,
+                                op_name=op.name,
+                                interval=polling_interval,
+                                error=error,
+                            )
+                        )
+
+                        query_status_op.polling_timer = Timer(polling_interval, do_polling)
+                        query_status_op.polling_timer.start()
+
+                    # Service success scenario
+                    else:
+                        registration_status = self._get_registration_status(decoded_response)
+                        if registration_status == "assigned" or registration_status == "failed":
+                            # process complete response here
+                            complete_registration_result = self._form_complete_result(
+                                operation_id=operation_id,
+                                decoded_response=decoded_response,
+                                status=registration_status,
+                            )
+                            query_status_op.registration_result = complete_registration_result
+
+                            if registration_status == "failed":
+                                error = exceptions.ServiceError(
+                                    "Query Status operation returned a failed registration status  with a status code of {status_code}".format(
+                                        status_code=success_status_code
+                                    )
+                                )
+                        else:
+                            error = exceptions.ServiceError(
+                                "Query Status Operation encountered an invalid registration status {status} with a status code of {status_code}".format(
+                                    status=registration_status, status_code=success_status_code
+                                )
+                            )
+
+                        query_status_op.complete(error=error)
+
+                else:
+                    query_status_op.complete(error=error)
+
+            self.send_op_down(
+                pipeline_ops_base.RequestAndResponseOperation(
+                    request_type=constant.QUERY,
+                    method="GET",
+                    resource_location="/",
+                    query_params={"operation_id": op.operation_id},
+                    request_body=op.request_payload,
+                    callback=on_query_response,
+                )
+            )
+
+        else:
+            super(PollingStatusStage, self)._run_op(op)
+
+
+class RegistrationStage(CommonProvisioningStage):
+    """
+    This is the first stage that decides converts a registration request
+    into a normal request and response operation.
+    Upon the receipt of the response this stage decides whether
+    to send another registration request or send a query request.
+    Depending on the status and result of the response
+    this stage may also complete the registration process.
+    """
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, operation):
+        if isinstance(operation, pipeline_ops_provisioning.SendRegistrationRequestOperation):
+            initial_register_op = operation
+
+            def on_registration_response(op, error):
+                logger.debug(
+                    "{stage_name}({op_name}): Received response with status code {status_code} for SendRegistrationRequestOperation".format(
+                        stage_name=self.name, op_name=op.name, status_code=op.status_code
+                    )
+                )
+
+                # This could be an error that has been reported to this stage Or this
+                # could be an error because the service responded with status code >=300
+                error = self._get_error(op, REGISTER, error=error)
+
+                if not error:
+                    success_status_code = op.status_code
+                    retry_interval = (
+                        int(op.retry_after, 10)
+                        if op.retry_after is not None
+                        else constant.DEFAULT_POLLING_INTERVAL
+                    )
+                    decoded_response = self._decode_response(op)
+                    operation_id = self._get_operation_id(decoded_response)
+
+                    # retry after scenario
+                    if success_status_code >= 429:
+
+                        self_weakref = weakref.ref(self)
+
+                        @pipeline_thread.invoke_on_pipeline_thread_nowait
+                        def do_retry_after():
+                            this = self_weakref()
+                            logger.info(
+                                "{stage_name}({op_name}): retrying".format(
+                                    stage_name=this.name, op_name=op.name
+                                )
+                            )
+                            initial_register_op.retry_after_timer.cancel()
+                            initial_register_op.retry_after_timer = None
+                            initial_register_op.completed = False
+                            this._execute_op(initial_register_op)
+
+                        logger.warning(
+                            "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}.  Setting timer.".format(
+                                stage_name=self.name,
+                                op_name=op.name,
+                                interval=retry_interval,
+                                error=error,
+                            )
+                        )
+
+                        initial_register_op.retry_after_timer = Timer(
+                            retry_interval, do_retry_after
+                        )
+                        initial_register_op.retry_after_timer.start()
+
+                    # Service success scenario
+                    else:
+                        registration_status = self._get_registration_status(decoded_response)
+                        if registration_status == "assigned" or registration_status == "failed":
+                            # process complete response here
+                            # TODO Is there an response when service returns "failed" ?
+                            complete_registration_result = self._form_complete_result(
+                                operation_id=operation_id,
+                                decoded_response=decoded_response,
+                                status=registration_status,
+                            )
+                            initial_register_op.registration_result = complete_registration_result
+                            if registration_status == "failed":
+                                error = exceptions.ServiceError(
+                                    "Registration operation returned failed registration status  with a status code of {status_code}".format(
+                                        status_code=success_status_code
+                                    )
+                                )
+                            # complete the original op in both cases
+                            initial_register_op.complete(error=error)
+                        elif registration_status == "assigning":
+
+                            def copy_result_to_original_op(op, error):
+                                logger.debug(
+                                    "Copying registration result from Query Status Op to Registration Op"
+                                )
+                                initial_register_op.registration_result = op.registration_result
+                                initial_register_op.error = error
+
+                            query_worker_op = initial_register_op.spawn_worker_op(
+                                worker_op_type=pipeline_ops_provisioning.SendQueryRequestOperation,
+                                request_payload=" ",
+                                operation_id=operation_id,
+                                callback=copy_result_to_original_op,
+                            )
+
+                            self.send_op_down(query_worker_op)
+                        else:
+                            error = exceptions.ServiceError(
+                                "Registration Request encountered an invalid registration status {status} with a status code of {status_code}".format(
+                                    status=registration_status, status_code=success_status_code
+                                )
+                            )
+                            initial_register_op.complete(error=error)
+
+                else:
+                    initial_register_op.complete(error=error)
+
+            registration_payload = DeviceRegistrationPayload(
+                registration_id=initial_register_op.registration_id,
+                custom_payload=initial_register_op.request_payload,
+            )
+            self.send_op_down(
+                pipeline_ops_base.RequestAndResponseOperation(
+                    request_type=constant.REGISTER,
+                    method="PUT",
+                    resource_location="/",
+                    request_body=registration_payload.get_json_string(),
+                    callback=on_registration_response,
+                )
+            )
+
+        else:
+            super(RegistrationStage, self)._run_op(operation)
+
+
+class DeviceRegistrationPayload(object):
+    """
+    The class representing the payload that needs to be sent to the service.
+    """
+
+    def __init__(self, registration_id, custom_payload=None):
+        # This is not a convention to name variables in python but the
+        # DPS service spec needs the name to be exact for it to work
+        self.registrationId = registration_id
+        self.payload = custom_payload
+
+    def get_json_string(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

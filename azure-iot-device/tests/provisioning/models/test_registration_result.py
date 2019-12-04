@@ -11,6 +11,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationResult,
     RegistrationState,
 )
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -33,7 +34,6 @@ class TestRegistrationResult(object):
         fake_registration_state = create_registration_state()
         registration_result = create_registration_result(fake_registration_state)
 
-        assert registration_result.request_id == fake_request_id
         assert registration_result.operation_id == fake_operation_id
         assert registration_result.status == fake_status
         assert registration_result.registration_state == fake_registration_state
@@ -56,7 +56,6 @@ class TestRegistrationResult(object):
     @pytest.mark.parametrize(
         "input_setter_code",
         [
-            pytest.param('registration_result.request_id = "RequestId123"', id="Request Id"),
             pytest.param('registration_result.operation_id = "WhompingWillow"', id="Operation Id"),
             pytest.param('registration_result.status = "Apparating"', id="Status"),
             pytest.param(
@@ -100,8 +99,9 @@ class TestRegistrationResult(object):
     )
     def test_registration_state_to_string_without_payload(self):
         registration_state = create_registration_state()
+        json_payload = json.dumps(None, default=lambda o: o.__dict__, sort_keys=True)
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, ""])
+        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])
         assert str(registration_state) == string_repr
 
     @pytest.mark.it(
@@ -109,8 +109,9 @@ class TestRegistrationResult(object):
     )
     def test_registration_state_to_string_with_payload(self):
         registration_state = create_registration_state(fake_payload)
+        json_payload = json.dumps(fake_payload, default=lambda o: o.__dict__, sort_keys=True)
 
-        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, fake_payload])
+        string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])
         assert str(registration_state) == string_repr
 
 
@@ -127,4 +128,4 @@ def create_registration_state(payload=None):
 
 
 def create_registration_result(registration_state=None):
-    return RegistrationResult(fake_request_id, fake_operation_id, fake_status, registration_state)
+    return RegistrationResult(fake_operation_id, fake_status, registration_state)
