@@ -14,7 +14,7 @@ this_module = sys.modules[__name__]
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 
-class SetSymmetricKeySecurityClientOperationTestConifg(object):
+class SetSymmetricKeySecurityClientOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
         return pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation
@@ -26,7 +26,7 @@ class SetSymmetricKeySecurityClientOperationTestConifg(object):
 
 
 class SetSymmetricKeySecurityClientOperationInstantiationTests(
-    SetSymmetricKeySecurityClientOperationTestConifg
+    SetSymmetricKeySecurityClientOperationTestConfig
 ):
     @pytest.mark.it(
         "Initializes 'security_client' attribute with the provided 'security_client' parameter"
@@ -39,12 +39,12 @@ class SetSymmetricKeySecurityClientOperationInstantiationTests(
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
     op_class_under_test=pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
-    op_test_config_class=SetSymmetricKeySecurityClientOperationTestConifg,
+    op_test_config_class=SetSymmetricKeySecurityClientOperationTestConfig,
     extended_op_instantiation_test_class=SetSymmetricKeySecurityClientOperationInstantiationTests,
 )
 
 
-class SetX509SecurityClientOperationTestConifg(object):
+class SetX509SecurityClientOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
         return pipeline_ops_provisioning.SetX509SecurityClientOperation
@@ -55,7 +55,7 @@ class SetX509SecurityClientOperationTestConifg(object):
         return kwargs
 
 
-class SetX509SecurityClientOperationInstantiationTests(SetX509SecurityClientOperationTestConifg):
+class SetX509SecurityClientOperationInstantiationTests(SetX509SecurityClientOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'security_client' attribute with the provided 'security_client' parameter"
     )
@@ -67,12 +67,12 @@ class SetX509SecurityClientOperationInstantiationTests(SetX509SecurityClientOper
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
     op_class_under_test=pipeline_ops_provisioning.SetX509SecurityClientOperation,
-    op_test_config_class=SetX509SecurityClientOperationTestConifg,
+    op_test_config_class=SetX509SecurityClientOperationTestConfig,
     extended_op_instantiation_test_class=SetX509SecurityClientOperationInstantiationTests,
 )
 
 
-class SetProvisioningClientConnectionArgsOperationTestConifg(object):
+class SetProvisioningClientConnectionArgsOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
         return pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation
@@ -91,7 +91,7 @@ class SetProvisioningClientConnectionArgsOperationTestConifg(object):
 
 
 class SetProvisioningClientConnectionArgsOperationInstantiationTests(
-    SetProvisioningClientConnectionArgsOperationTestConifg
+    SetProvisioningClientConnectionArgsOperationTestConfig
 ):
     @pytest.mark.it(
         "Initializes 'provisioning_host' attribute with the provided 'provisioning_host' parameter"
@@ -142,12 +142,12 @@ class SetProvisioningClientConnectionArgsOperationInstantiationTests(
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
     op_class_under_test=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
-    op_test_config_class=SetProvisioningClientConnectionArgsOperationTestConifg,
+    op_test_config_class=SetProvisioningClientConnectionArgsOperationTestConfig,
     extended_op_instantiation_test_class=SetProvisioningClientConnectionArgsOperationInstantiationTests,
 )
 
 
-class SendRegistrationRequestOperationTestConifg(object):
+class SendRegistrationRequestOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
         return pipeline_ops_provisioning.SendRegistrationRequestOperation
@@ -155,7 +155,6 @@ class SendRegistrationRequestOperationTestConifg(object):
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "request_id": "some_request_id",
             "request_payload": "some_request_payload",
             "registration_id": "some_registration_id",
             "callback": mocker.MagicMock(),
@@ -164,13 +163,8 @@ class SendRegistrationRequestOperationTestConifg(object):
 
 
 class SendRegistrationRequestOperationInstantiationTests(
-    SendRegistrationRequestOperationTestConifg
+    SendRegistrationRequestOperationTestConfig
 ):
-    @pytest.mark.it("Initializes 'request_id' attribute with the provided 'request_id' parameter")
-    def test_request_id(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.request_id == init_kwargs["request_id"]
-
     @pytest.mark.it(
         "Initializes 'request_payload' attribute with the provided 'request_payload' parameter"
     )
@@ -189,12 +183,12 @@ class SendRegistrationRequestOperationInstantiationTests(
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
     op_class_under_test=pipeline_ops_provisioning.SendRegistrationRequestOperation,
-    op_test_config_class=SendRegistrationRequestOperationTestConifg,
+    op_test_config_class=SendRegistrationRequestOperationTestConfig,
     extended_op_instantiation_test_class=SendRegistrationRequestOperationInstantiationTests,
 )
 
 
-class SendQueryRequestOperationTestConifg(object):
+class SendQueryRequestOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
         return pipeline_ops_provisioning.SendQueryRequestOperation
@@ -202,7 +196,6 @@ class SendQueryRequestOperationTestConifg(object):
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "request_id": "some_request_id",
             "operation_id": "some_operation_id",
             "request_payload": "some_request_payload",
             "callback": mocker.MagicMock(),
@@ -210,12 +203,7 @@ class SendQueryRequestOperationTestConifg(object):
         return kwargs
 
 
-class SendQueryRequestOperationInstantiationTests(SendQueryRequestOperationTestConifg):
-    @pytest.mark.it("Initializes 'request_id' attribute with the provided 'request_id' parameter")
-    def test_request_id(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.request_id == init_kwargs["request_id"]
-
+class SendQueryRequestOperationInstantiationTests(SendQueryRequestOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'operation_id' attribute with the provided 'operation_id' parameter"
     )
@@ -234,6 +222,6 @@ class SendQueryRequestOperationInstantiationTests(SendQueryRequestOperationTestC
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
     op_class_under_test=pipeline_ops_provisioning.SendQueryRequestOperation,
-    op_test_config_class=SendQueryRequestOperationTestConifg,
+    op_test_config_class=SendQueryRequestOperationTestConfig,
     extended_op_instantiation_test_class=SendQueryRequestOperationInstantiationTests,
 )
