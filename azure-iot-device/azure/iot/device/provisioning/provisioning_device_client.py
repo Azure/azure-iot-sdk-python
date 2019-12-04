@@ -12,30 +12,34 @@ import logging
 from azure.iot.device.common.evented_callback import EventedCallback
 from .abstract_provisioning_device_client import AbstractProvisioningDeviceClient
 from .abstract_provisioning_device_client import log_on_register_complete
-from .internal.polling_machine import PollingMachine
+from azure.iot.device.provisioning.pipeline import constant as dps_constant
+from .pipeline import exceptions as pipeline_exceptions
+from azure.iot.device import exceptions
+
 
 logger = logging.getLogger(__name__)
+
+
+def wait_for_completion(callback):
+    try:
+        return callback.wait_for_completion()
+    except pipeline_exceptions.ConnectionDroppedError as e:
+        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+    except pipeline_exceptions.ConnectionFailedError as e:
+        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+    except pipeline_exceptions.UnauthorizedError as e:
+        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+    except pipeline_exceptions.ProtocolClientError as e:
+        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except Exception as e:
+        raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
 
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     """
     Client which can be used to run the registration of a device with provisioning service
-    using Symmetric Key authentication.
+    using Symmetric Key orr X509 authentication.
     """
-
-    def __init__(self, provisioning_pipeline):
-        """
-        Initializer for the Provisioning Client.
-
-        NOTE: This initializer should not be called directly.
-        Instead, the class methods that start with `create_from_` should be used to create a
-        client object.
-
-        :param provisioning_pipeline: The protocol pipeline for provisioning.
-        :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
-        """
-        super(ProvisioningDeviceClient, self).__init__(provisioning_pipeline)
-        self._polling_machine = PollingMachine(provisioning_pipeline)
 
     def register(self):
         """
@@ -52,11 +56,32 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Registering with Provisioning Service...")
 
+        if not self._provisioning_pipeline.responses_enabled[dps_constant.REGISTER]:
+            self._enable_responses()
+
         register_complete = EventedCallback(return_arg_name="result")
-        self._polling_machine.register(
+
+        self._provisioning_pipeline.register(
             payload=self._provisioning_payload, callback=register_complete
         )
-        result = register_complete.wait_for_completion()
+
+        result = wait_for_completion(register_complete)
 
         log_on_register_complete(result)
         return result
+
+    def _enable_responses(self):
+        """Enable to receive responses from Device Provisioning Service.
+
+        This is a synchronous call, meaning that this function will not return until the feature
+        has been enabled.
+
+        """
+        logger.info("Enabling reception of response from Device Provisioning Service...")
+
+        subscription_complete = EventedCallback()
+        self._provisioning_pipeline.enable_responses(callback=subscription_complete)
+
+        wait_for_completion(subscription_complete)
+
+        logger.info("Successfully subscribed to Device Provisioning Service to receive responses")

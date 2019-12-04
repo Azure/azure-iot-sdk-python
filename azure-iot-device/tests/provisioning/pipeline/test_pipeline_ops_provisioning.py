@@ -13,6 +13,8 @@ logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
+# TODO Add tests for registration and query operations
+
 
 class SetSymmetricKeySecurityClientOperationTestConifg(object):
     @pytest.fixture
@@ -155,7 +157,6 @@ class SendRegistrationRequestOperationTestConifg(object):
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "request_id": "some_request_id",
             "request_payload": "some_request_payload",
             "registration_id": "some_registration_id",
             "callback": mocker.MagicMock(),
@@ -166,11 +167,6 @@ class SendRegistrationRequestOperationTestConifg(object):
 class SendRegistrationRequestOperationInstantiationTests(
     SendRegistrationRequestOperationTestConifg
 ):
-    @pytest.mark.it("Initializes 'request_id' attribute with the provided 'request_id' parameter")
-    def test_request_id(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.request_id == init_kwargs["request_id"]
-
     @pytest.mark.it(
         "Initializes 'request_payload' attribute with the provided 'request_payload' parameter"
     )
@@ -202,7 +198,6 @@ class SendQueryRequestOperationTestConifg(object):
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "request_id": "some_request_id",
             "operation_id": "some_operation_id",
             "request_payload": "some_request_payload",
             "callback": mocker.MagicMock(),
@@ -211,11 +206,6 @@ class SendQueryRequestOperationTestConifg(object):
 
 
 class SendQueryRequestOperationInstantiationTests(SendQueryRequestOperationTestConifg):
-    @pytest.mark.it("Initializes 'request_id' attribute with the provided 'request_id' parameter")
-    def test_request_id(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.request_id == init_kwargs["request_id"]
-
     @pytest.mark.it(
         "Initializes 'operation_id' attribute with the provided 'operation_id' parameter"
     )

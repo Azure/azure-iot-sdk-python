@@ -356,9 +356,13 @@ class RequestAndResponseOperation(PipelineOperation):
     :type status_code: int
     :ivar response_body: The body of the response.
     :type response_body: Undefined
+    :ivar query_params: Any query parameters that need to be sent with the request.
+    Example is the id of the operation as returned by the initial provisioning request.
     """
 
-    def __init__(self, request_type, method, resource_location, request_body, callback):
+    def __init__(
+        self, request_type, method, resource_location, request_body, callback, query_params=None
+    ):
         """
         Initializer for RequestAndResponseOperation objects
 
@@ -382,6 +386,7 @@ class RequestAndResponseOperation(PipelineOperation):
         self.request_body = request_body
         self.status_code = None
         self.response_body = None
+        self.query_params = query_params
 
 
 class RequestOperation(PipelineOperation):
@@ -393,7 +398,16 @@ class RequestOperation(PipelineOperation):
     (such as IoTHub or MQTT stages).
     """
 
-    def __init__(self, request_type, method, resource_location, request_body, request_id, callback):
+    def __init__(
+        self,
+        request_type,
+        method,
+        resource_location,
+        request_body,
+        request_id,
+        callback,
+        query_params=None,
+    ):
         """
         Initializer for RequestOperation objects
 
@@ -409,6 +423,8 @@ class RequestOperation(PipelineOperation):
         :param Function callback: The function that gets called when this operation is complete or has
             failed.  The callback function must accept A PipelineOperation object which indicates
             the specific operation which has completed or failed.
+        :type query_params: Any query parameters that need to be sent with the request.
+        Example is the id of the operation as returned by the initial provisioning request.
         """
         super(RequestOperation, self).__init__(callback=callback)
         self.method = method
@@ -416,3 +432,4 @@ class RequestOperation(PipelineOperation):
         self.request_type = request_type
         self.request_body = request_body
         self.request_id = request_id
+        self.query_params = query_params
