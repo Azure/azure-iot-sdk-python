@@ -7,6 +7,7 @@
 import pytest
 from azure.iot.hub.protocol.models import AuthenticationMechanism
 from azure.iot.hub.iothub_registry_manager import IoTHubRegistryManager
+from azure.iot.hub.iothub_configuration_manager import IoTHubConfigurationManager
 
 """---Constants---"""
 
@@ -62,6 +63,19 @@ def iothub_registry_manager():
     )
     iothub_registry_manager = IoTHubRegistryManager(connection_string)
     return iothub_registry_manager
+
+
+
+@pytest.fixture(scope="function")
+def iothub_configuration_manager():
+    connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+        hostname=fake_hostname,
+        device_id=fake_device_id,
+        skn=fake_shared_access_key_name,
+        sk=fake_shared_access_key,
+    )
+    iothub_configuration_manager = IoTHubConfigurationManager(connection_string)
+    return iothub_configuration_manager
 
 
 @pytest.fixture(scope="function")
@@ -917,94 +931,6 @@ class TestGetDeviceRegistryStats(object):
         assert mock_service_operations.get_device_registry_statistics.call_args == mocker.call()
 
 
-@pytest.mark.describe("IoTHubRegistryManager - .get_configuration()")
-class TestGetConfiguration(object):
-    @pytest.mark.it("Gets configuration")
-    def test_get_configuration(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.get_configuration(fake_configuration_id)
-
-        assert mock_service_operations.get_configuration.call_count == 1
-        assert mock_service_operations.get_configuration.call_args == mocker.call(
-            fake_configuration_id
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .create_configuration()")
-class TestCreateConfiguration(object):
-    @pytest.mark.it("Creates configuration")
-    def test_create_configuration(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.create_configuration(fake_configuration_id, fake_configuration)
-
-        assert mock_service_operations.create_or_update_configuration.call_count == 1
-        assert mock_service_operations.create_or_update_configuration.call_args == mocker.call(
-            fake_configuration_id, fake_configuration
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .update_configuration()")
-class TestUpdateConfiguration(object):
-    @pytest.mark.it("Updates configuration")
-    def test_update_configuration(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.update_configuration(
-            fake_configuration_id, fake_configuration, fake_etag
-        )
-
-        assert mock_service_operations.create_or_update_configuration.call_count == 1
-        assert mock_service_operations.create_or_update_configuration.call_args == mocker.call(
-            fake_configuration_id, fake_configuration, fake_etag
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .delete_configuration()")
-class TestDeleteConfiguration(object):
-    @pytest.mark.it("Deletes configuration")
-    def test_delete_configuration(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.delete_configuration(fake_configuration_id)
-
-        assert mock_service_operations.delete_configuration.call_count == 1
-        assert mock_service_operations.delete_configuration.call_args == mocker.call(
-            fake_configuration_id, "*"
-        )
-
-    @pytest.mark.it("Deletes configuration with an etag")
-    def test_delete_configuration_with_etag(
-        self, mocker, mock_service_operations, iothub_registry_manager
-    ):
-        iothub_registry_manager.delete_configuration(
-            configuration_id=fake_configuration_id, etag=fake_etag
-        )
-
-        assert mock_service_operations.delete_configuration.call_count == 1
-        assert mock_service_operations.delete_configuration.call_args == mocker.call(
-            fake_configuration_id, fake_etag
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .get_configurations()")
-class TestGetConfigurations(object):
-    @pytest.mark.it("Gets configuration")
-    def test_get_configurations(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.get_configurations(fake_max_count)
-
-        assert mock_service_operations.get_configurations.call_count == 1
-        assert mock_service_operations.get_configurations.call_args == mocker.call(fake_max_count)
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .test_configuration_queries()")
-class TestTestConfigurationQueries(object):
-    @pytest.mark.it("Test test_configuration_queries")
-    def test_test_configuration_queries(
-        self, mocker, mock_service_operations, iothub_registry_manager
-    ):
-        iothub_registry_manager.test_configuration_queries(
-            fake_configuration_queries
-        )
-        assert mock_service_operations.test_configuration_queries.call_count == 1
-        assert mock_service_operations.test_configuration_queries.call_args == mocker.call(
-            fake_configuration_queries
-        )
-
-
 @pytest.mark.describe("IoTHubRegistryManager - .bulk_create_or_update_devices()")
 class TestBulkCreateUpdateDevices(object):
     @pytest.mark.it("Test bulk_create_or_update_devices")
@@ -1027,75 +953,6 @@ class TestQueryIoTHub(object):
         assert mock_service_operations.query_iot_hub.call_args == mocker.call(
             fake_query_specification
         )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .apply_configuration_on_edge_device()")
-class TestApplyConfigurationOnEdgeDevice(object):
-    @pytest.mark.it("Test apply configuration on edge device")
-    def test_apply_configuration_on_edge_device(
-        self, mocker, mock_service_operations, iothub_registry_manager
-    ):
-        iothub_registry_manager.apply_configuration_on_edge_device(
-            fake_device_id,
-            fake_configuration_content
-        )
-        assert mock_service_operations.apply_configuration_on_edge_device.call_count == 1
-        assert mock_service_operations.apply_configuration_on_edge_device.call_args == mocker.call(
-            fake_device_id, fake_configuration_content
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .create_import_export_job()")
-class TestCreateImportExportJob(object):
-    @pytest.mark.it("Test create import export job")
-    def test_create_import_export_job(
-        self, mocker, mock_service_operations, iothub_registry_manager
-    ):
-        iothub_registry_manager.create_import_export_job(fake_job_properties)
-        assert mock_service_operations.create_import_export_job.call_count == 1
-        assert mock_service_operations.create_import_export_job.call_args == mocker.call(
-            fake_job_properties
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .get_import_export_jobs()")
-class TestGetImportExportJobs(object):
-    @pytest.mark.it("Test get import export jobs")
-    def test_get_import_export_jobs(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.get_import_export_jobs()
-        assert mock_service_operations.get_import_export_jobs.call_count == 1
-        assert mock_service_operations.get_import_export_jobs.call_args == mocker.call()
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .get_import_export_job()")
-class TestGetImportExportJob(object):
-    @pytest.mark.it("Test get import export job")
-    def test_get_import_export_job(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.get_import_export_job(fake_job_id)
-        assert mock_service_operations.get_import_export_job.call_count == 1
-        assert mock_service_operations.get_import_export_job.call_args == mocker.call(fake_job_id)
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .cancel_import_export_job()")
-class TestCancelImportExportJob(object):
-    @pytest.mark.it("Test cancel import export job")
-    def test_cancel_import_export_job(
-        self, mocker, mock_service_operations, iothub_registry_manager
-    ):
-        iothub_registry_manager.cancel_import_export_job(fake_job_id)
-        assert mock_service_operations.cancel_import_export_job.call_count == 1
-        assert mock_service_operations.cancel_import_export_job.call_args == mocker.call(
-            fake_job_id
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .purge_command_queue()")
-class TestPurgeCommandQueue(object):
-    @pytest.mark.it("Test purge command queue")
-    def test_purge_command_queue(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.purge_command_queue(fake_device_id)
-        assert mock_service_operations.purge_command_queue.call_count == 1
-        assert mock_service_operations.purge_command_queue.call_args == mocker.call(fake_device_id)
 
 
 @pytest.mark.describe("IoTHubRegistryManager - .get_twin()")
@@ -1163,46 +1020,6 @@ class TestUpdateModuleTwin(object):
         assert mock_service_operations.update_module_twin.call_count == 1
         assert mock_service_operations.update_module_twin.call_args == mocker.call(
             fake_device_id, fake_module_id, fake_module_twin, fake_etag
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .get_job()")
-class TestGetJob(object):
-    @pytest.mark.it("Test get job")
-    def test_get_job(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.get_job(fake_job_id)
-        assert mock_service_operations.get_job.call_count == 1
-        assert mock_service_operations.get_job.call_args == mocker.call(fake_job_id)
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .create_job()")
-class TestCreateJob(object):
-    @pytest.mark.it("Test create job")
-    def test_create_job(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.create_job(fake_job_id, fake_job_request)
-        assert mock_service_operations.create_job.call_count == 1
-        assert mock_service_operations.create_job.call_args == mocker.call(
-            fake_job_id, fake_job_request
-        )
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .cancel_job()")
-class TestCancelJob(object):
-    @pytest.mark.it("Test cancel job")
-    def test_cancel_job(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.cancel_job(fake_job_id)
-        assert mock_service_operations.cancel_job.call_count == 1
-        assert mock_service_operations.cancel_job.call_args == mocker.call(fake_job_id)
-
-
-@pytest.mark.describe("IoTHubRegistryManager - .query_jobs()")
-class TestQueryJobs(object):
-    @pytest.mark.it("Test query jobs")
-    def test_query_jobs(self, mocker, mock_service_operations, iothub_registry_manager):
-        iothub_registry_manager.query_jobs(fake_job_type, fake_job_status)
-        assert mock_service_operations.query_jobs.call_count == 1
-        assert mock_service_operations.query_jobs.call_args == mocker.call(
-            fake_job_type, fake_job_status
         )
 
 
