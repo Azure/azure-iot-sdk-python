@@ -47,17 +47,17 @@ fake_ca_cert = "fake_ca_cert"
 fake_sas_token = "horcrux_token"
 
 
-# pipeline_stage_test.add_base_pipeline_stage_tests(
-#     cls=pipeline_stages_provisioning.UseSecurityClientStage,
-#     module=this_module,
-#     all_ops=all_common_ops + all_provisioning_ops,
-#     handled_ops=[
-#         pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
-#         pipeline_ops_provisioning.SetX509SecurityClientOperation,
-#     ],
-#     all_events=all_common_events + all_provisioning_events,
-#     handled_events=[],
-# )
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
+    cls=pipeline_stages_provisioning.UseSecurityClientStage,
+    module=this_module,
+    all_ops=all_common_ops + all_provisioning_ops,
+    handled_ops=[
+        pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
+        pipeline_ops_provisioning.SetX509SecurityClientOperation,
+    ],
+    all_events=all_common_events + all_provisioning_events,
+    handled_events=[],
+)
 
 
 fake_symmetric_key = "Zm9vYmFy"

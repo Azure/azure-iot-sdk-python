@@ -72,15 +72,15 @@ ops_handled_by_this_stage = [
 
 events_handled_by_this_stage = [pipeline_events_mqtt.IncomingMQTTMessageEvent]
 
-# pipeline_stage_test.add_base_pipeline_stage_tests(
-#     cls=pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
-#     module=this_module,
-#     all_ops=all_common_ops + all_provisioning_ops,
-#     handled_ops=ops_handled_by_this_stage,
-#     all_events=all_common_events + all_provisioning_events,
-#     handled_events=events_handled_by_this_stage,
-#     extra_initializer_defaults={"action_to_topic": dict},
-# )
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
+    cls=pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
+    module=this_module,
+    all_ops=all_common_ops + all_provisioning_ops,
+    handled_ops=ops_handled_by_this_stage,
+    all_events=all_common_events + all_provisioning_events,
+    handled_events=events_handled_by_this_stage,
+    extra_initializer_defaults={"action_to_topic": dict},
+)
 
 
 @pytest.fixture

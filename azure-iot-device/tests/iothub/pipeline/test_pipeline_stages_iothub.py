@@ -55,18 +55,17 @@ fake_x509_cert_key_file = "where_to_find_them"
 fake_pass_phrase = "alohomora"
 
 
-# pipeline_stage_test.add_base_pipeline_stage_tests(
-#     cls=pipeline_stages_iothub.UseAuthProviderStage,
-#     module=this_module,
-#     all_ops=all_common_ops + all_iothub_ops,
-#     handled_ops=[
-#         pipeline_ops_iothub.SetAuthProviderOperation,
-#         pipeline_ops_iothub.SetX509AuthProviderOperation,
-#     ],
-#     all_events=all_common_events + all_iothub_events,
-#     handled_events=[],
-#     methods_that_enter_pipeline_thread=["on_sas_token_updated"],
-# )
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
+    cls=pipeline_stages_iothub.UseAuthProviderStage,
+    module=this_module,
+    all_ops=all_common_ops + all_iothub_ops,
+    handled_ops=[
+        pipeline_ops_iothub.SetAuthProviderOperation,
+        pipeline_ops_iothub.SetX509AuthProviderOperation,
+    ],
+    all_events=all_common_events + all_iothub_events,
+    handled_events=[],
+)
 
 
 def make_mock_sas_token_auth_provider():
@@ -299,17 +298,17 @@ class TestUseAuthProviderOnSasTokenUpdated(StageTestBase):
         assert e_info.value is arbitrary_base_exception
 
 
-# pipeline_stage_test.add_base_pipeline_stage_tests(
-#     cls=pipeline_stages_iothub.TwinRequestResponseStage,
-#     module=this_module,
-#     all_ops=all_common_ops + all_iothub_ops,
-#     handled_ops=[
-#         pipeline_ops_iothub.GetTwinOperation,
-#         pipeline_ops_iothub.PatchTwinReportedPropertiesOperation,
-#     ],
-#     all_events=all_common_events + all_iothub_events,
-#     handled_events=[],
-# )
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
+    cls=pipeline_stages_iothub.TwinRequestResponseStage,
+    module=this_module,
+    all_ops=all_common_ops + all_iothub_ops,
+    handled_ops=[
+        pipeline_ops_iothub.GetTwinOperation,
+        pipeline_ops_iothub.PatchTwinReportedPropertiesOperation,
+    ],
+    all_events=all_common_events + all_iothub_events,
+    handled_events=[],
+)
 
 
 @pytest.mark.describe("TwinRequestResponseStage - .run_op() -- called with GetTwinOperation")

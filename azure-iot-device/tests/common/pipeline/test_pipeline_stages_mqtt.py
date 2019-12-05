@@ -77,20 +77,14 @@ ops_handled_by_this_stage = [
 
 events_handled_by_this_stage = []
 
-# pipeline_stage_test.add_base_pipeline_stage_tests(
-#     cls=pipeline_stages_mqtt.MQTTTransportStage,
-#     module=this_module,
-#     all_ops=all_common_ops,
-#     handled_ops=ops_handled_by_this_stage,
-#     all_events=all_common_events,
-#     handled_events=events_handled_by_this_stage,
-#     methods_that_enter_pipeline_thread=[
-#         "_on_mqtt_message_received",
-#         "_on_mqtt_connected",
-#         "_on_mqtt_connection_failure",
-#         "_on_mqtt_disconnected",
-#     ],
-# )
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
+    cls=pipeline_stages_mqtt.MQTTTransportStage,
+    module=this_module,
+    all_ops=all_common_ops,
+    handled_ops=ops_handled_by_this_stage,
+    all_events=all_common_events,
+    handled_events=events_handled_by_this_stage,
+)
 
 
 @pytest.fixture
