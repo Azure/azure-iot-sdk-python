@@ -104,13 +104,6 @@ class AbstractProvisioningDeviceClient(object):
         """
         pass
 
-    @abc.abstractmethod
-    def cancel(self):
-        """
-        Cancel an in progress registration of the device with the Device Provisioning Service.
-        """
-        pass
-
     @property
     def provisioning_payload(self):
         return self._provisioning_payload

@@ -60,24 +60,3 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         log_on_register_complete(result)
         return result
-
-    def cancel(self):
-        """
-        Cancel a registration that is in progress.
-
-        Before returning the client will also disconnect from the provisioning service.
-
-        This is a synchronous call, meaning that this function will not return until the cancellation
-        process has completed successfully or the attempt has resulted in a failure. Before returning
-        the client will also disconnect from the provisioning service.
-
-        In case there is no registration in process it will throw an error as there is
-        no registration process to cancel.
-        """
-        logger.info("Cancelling the current registration process")
-
-        cancel_complete = EventedCallback()
-        self._polling_machine.cancel(callback=cancel_complete)
-        cancel_complete.wait_for_completion()
-
-        logger.info("Successfully cancelled the current registration process")
