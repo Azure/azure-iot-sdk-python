@@ -6,7 +6,7 @@
 
 import sys
 import os
-from azure.iot.hub import IoTHubRegistryManager
+from azure.iot.hub import IoTHubConfigurationManager
 from azure.iot.hub.protocol.models import Configuration, ConfigurationContent, ConfigurationMetrics
 
 
@@ -42,24 +42,24 @@ def create_configuration(config_id):
 
 
 try:
-    # Create IoTHubRegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    # Create IoTHubConfigurationManager
+    iothub_configuration = IoTHubConfigurationManager(iothub_connection_str)
 
     # Create configuration
     config_id = "sample_config"
     sample_configuration = create_configuration(config_id)
     print_configuration("Sample configuration", sample_configuration)
 
-    created_config = iothub_registry_manager.create_configuration(sample_configuration)
+    created_config = iothub_configuration.create_configuration(sample_configuration)
     print_configuration("Created configuration", created_config)
 
-    get_config = iothub_registry_manager.get_configuration(config_id)
+    get_config = iothub_configuration.get_configuration(config_id)
     print_configuration("Get configuration", get_config)
 
-    iothub_registry_manager.delete_configuration(config_id)
+    iothub_configuration.delete_configuration(config_id)
 
     # Get all configurations
-    configurations = iothub_registry_manager.get_configurations()
+    configurations = iothub_configuration.get_configurations()
     if (configurations):
         print_configuration("Get all configurations", configurations[0])
     else:

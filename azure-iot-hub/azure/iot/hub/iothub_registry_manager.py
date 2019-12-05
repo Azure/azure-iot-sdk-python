@@ -30,34 +30,6 @@ from .protocol.models import (
     CloudToDeviceMethodResult,
 )
 
-JobType = (
-    "unknown",
-    "export",
-    "import",
-    "backup",
-    "readDeviceProperties",
-    "writeDeviceProperties",
-    "updateDeviceConfiguration",
-    "rebootDevice",
-    "factoryResetDevice",
-    "firmwareUpdate",
-    "scheduleDeviceMethod",
-    "scheduleUpdateTwin",
-    "restoreFromBackup",
-    "failoverDataCopy",
-)
-
-JobStatus = (
-    "unknown",
-    "enqueued",
-    "running",
-    "completed",
-    "failed",
-    "cancelled",
-    "scheduled",
-    "queued",
-)
-
 
 class IoTHubRegistryManager(object):
     """A class to provide convenience APIs for IoTHub Registry Manager operations,
@@ -78,7 +50,8 @@ class IoTHubRegistryManager(object):
         """
 
         self.auth = ConnectionStringAuthentication(connection_string)
-        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"]
+        )
 
     def create_device_with_sas(self, device_id, primary_key, secondary_key, status):
         """Creates a device identity on IoTHub using SAS authentication.
@@ -249,10 +222,6 @@ class IoTHubRegistryManager(object):
         :returns: The Device object containing the requested device.
         """
         return self.protocol.service.get_device(device_id)
-
-    # Not recommended
-    # def get_devices(self):
-    #     return
 
     def delete_device(self, device_id, etag=None):
         """Deletes a device identity from IoTHub.
@@ -500,91 +469,6 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.service.get_device_registry_statistics()
 
-    def get_configuration(self, configuration_id):
-        """Retrieves the IoTHub configuration for a particular device.
-
-        :param str configuration_id: The id of the configuration.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The Configuration object.
-        """
-        return self.protocol.service.get_configuration(configuration_id)
-
-    def create_configuration(self, configuration):
-        """Creates a configuration for devices or modules of an IoTHub.
-
-        :param str configuration_id: The id of the configuration.
-        :param Configuration configuration: The configuration to create.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: Configuration object containing the created configuration.
-        """
-        return self.protocol.service.create_or_update_configuration(configuration.id, configuration)
-
-    def update_configuration(self, configuration, etag):
-        """Updates a configuration for devices or modules of an IoTHub.
-           Note: that configuration Id and Content cannot be updated by the user.
-
-        :param str configuration_id: The id of the configuration.
-        :param Configuration configuration: The configuration contains the updated configuration.
-        :param str etag: The etag (if_match) value to use for the update operation.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: Configuration object containing the updated configuration.
-        """
-        return self.protocol.service.create_or_update_configuration(
-            configuration.id, configuration, etag
-        )
-
-    def delete_configuration(self, configuration_id, etag=None):
-        """Deletes a configuration from an IoTHub.
-
-        :param str configuration_id: The id of the configuration.
-        :param Configuration configuration: The configuration to create.
-        :param str etag: The etag (if_match) value to use for the delete operation.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: Configuration object containing the updated configuration.
-        """
-        if etag is None:
-            etag = "*"
-
-        return self.protocol.service.delete_configuration(configuration_id, etag)
-
-    def get_configurations(self, max_count=None):
-        """Retrieves multiple configurations for device and modules of an IoTHub.
-           Returns the specified number of configurations. Pagination is not supported.
-
-        :param int max_count: The maximum number of configurations requested.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The list[Configuration] object.
-        """
-        return self.protocol.service.get_configurations(max_count)
-
-    def test_configuration_queries(self, configuration_queries_test_input):
-        """Validates the target condition query and custom metric queries for a
-           configuration.
-
-        :param ConfigurationQueriesTestInput configuration_queries_test_input: The queries test input.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The ConfigurationQueriesTestResponse object.
-        """
-        return self.protocol.service.test_configuration_queries(configuration_queries_test_input)
-
     def bulk_create_or_update_devices(self, devices):
         """Create, update, or delete the identities of multiple devices from the
            IoT hub identity registry. Different operations (create, update, delete) on different
@@ -611,81 +495,6 @@ class IoTHubRegistryManager(object):
         :returns: The BulkRegistryOperationResult object.
         """
         return self.protocol.service.query_iot_hub(query_specification)
-
-    def apply_configuration_on_edge_device(self, device_id, configuration_content):
-        """Applies the provided configuration content to the specified edge
-           device. Modules content is mandantory.
-
-        :param ConfigurationContent configuration_content: The name (Id) of the edge device.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: An object.
-        """
-        return self.protocol.service.apply_configuration_on_edge_device(
-            device_id, configuration_content
-        )
-
-    def create_import_export_job(self, job_properties):
-        """Creates a new import/export job on an IoT hub. See
-           https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
-           for more information.
-
-        :param JobProperties job_properties: The job properties.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The JobProperties object.
-        """
-        return self.protocol.service.create_import_export_job(job_properties)
-
-    def get_import_export_jobs(self):
-        """Gets the status of all import/export jobs in an iot hub.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The list[JobProperties] object.
-        """
-        return self.protocol.service.get_import_export_jobs()
-
-    def get_import_export_job(self, job_id):
-        """Gets the status of an import or export job in an iot hub.
-
-        :param str job_id: The name of the job.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The JobProperties object.
-        """
-        return self.protocol.service.get_import_export_job(job_id)
-
-    def cancel_import_export_job(self, job_id):
-        """Cancels an import or export job in an IoT hub.
-
-        :param str job_id: The name of the job.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: An object.
-        """
-        return self.protocol.service.cancel_import_export_job(job_id)
-
-    def purge_command_queue(self, device_id):
-        """Deletes all the pending commands for a device from the IoT hub.
-
-        :param str device_id: The name (Id) of the device.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The PurgeMessageQueueResult object.
-        """
-        return self.protocol.service.purge_command_queue(device_id)
 
     def get_twin(self, device_id):
         """Gets a device twin.
@@ -767,58 +576,6 @@ class IoTHubRegistryManager(object):
         :returns: The Twin object.
         """
         return self.protocol.service.update_module_twin(device_id, module_id, module_twin, etag)
-
-    def get_job(self, job_id):
-        """Retrieves details of a scheduled job from an IoT hub.
-
-        :param str job_id: The name (Id) of the job.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The JobResponse object.
-        """
-        return self.protocol.service.get_job(job_id)
-
-    def create_job(self, job_id, job_request):
-        """Creates a new job to schedule update twins or device direct methods on
-           an IoT hub at a scheduled time.
-
-        :param str job_id: The name (Id) of the job.
-        :param JobRequest job_request: The job request to create.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The JobResponse object.
-        """
-        return self.protocol.service.create_job(job_id, job_request)
-
-    def cancel_job(self, job_id):
-        """Cancels a scheduled job on an IoT hub.
-
-        :param str job_id: The name (Id) of the job.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The JobResponse object.
-        """
-        return self.protocol.service.cancel_job(job_id)
-
-    def query_jobs(self, job_type=None, job_status=None):
-        """Query an IoT hub to retrieve information regarding jobs using the IoT
-           Hub query language.
-
-        :param JobType job_type: The type of the jobs to query.
-        :param JobStatus job_status: The status of the jobs to query.
-
-        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
-            if the HTTP response status is not in [200].
-
-        :returns: The JobResponse object.
-        """
-        return self.protocol.service.query_jobs(job_type, job_status)
 
     def invoke_device_method(self, device_id, direct_method_request):
         """Invoke a direct method on a device.
