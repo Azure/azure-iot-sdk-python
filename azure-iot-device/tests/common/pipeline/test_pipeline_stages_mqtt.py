@@ -249,8 +249,8 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectOperation",
             ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(callback=fake_callback),
@@ -297,13 +297,15 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
         assert stage._pending_connection_op is None
 
 
-@pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with ReconnectOperation")
-class TestMQTTTransportStageRunOpCalledWithReconnectOperation(
+@pytest.mark.describe(
+    "MQTTTransportStage - .run_op() -- Called with ReauthorizeConnectionOperation"
+)
+class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
     MQTTTransportStageTestConfigComplex, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        return pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it("Sets the operation as the stage's pending connection operation")
     def test_sets_pending_operation(self, stage, op):
@@ -319,8 +321,8 @@ class TestMQTTTransportStageRunOpCalledWithReconnectOperation(
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectionOperation",
             ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(callback=fake_callback),
@@ -389,8 +391,8 @@ class TestMQTTTransportStageRunOpCalledWithDisconnectOperation(
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectionOperation",
             ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(callback=fake_callback),
@@ -588,7 +590,10 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
         [
             pytest.param(None, id="No pending operation"),
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -619,10 +624,10 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
         assert op.error is None
         assert stage._pending_connection_op is None
 
-    @pytest.mark.it("Completes a pending ReconnectOperation successfully")
+    @pytest.mark.it("Completes a pending ReauthorizeConnectionOperation successfully")
     def test_completes_pending_reconnect_op(self, mocker, stage):
         # Set a pending reconnect operation
-        op = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        op = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
         stage.run_op(op)
         assert not op.completed
         assert stage._pending_connection_op is op
@@ -661,7 +666,10 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
         [
             pytest.param(None, id="No pending operation"),
             pytest.param(pipeline_ops_base.ConnectOperation(1), id="Pending ConnectOperation"),
-            pytest.param(pipeline_ops_base.ReconnectOperation(1), id="Pending ReconnectOperation"),
+            pytest.param(
+                pipeline_ops_base.ReauthorizeConnectionOperation(1),
+                id="Pending ReauthorizeConnectionOperation",
+            ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(1), id="Pending DisconnectOperation"
             ),
@@ -693,11 +701,11 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
         assert stage._pending_connection_op is None
 
     @pytest.mark.it(
-        "Completes a pending ReconnectOperation unsuccessfully with the cause of connection failure as the error"
+        "Completes a pending ReauthorizeConnectionOperation unsuccessfully with the cause of connection failure as the error"
     )
     def test_fails_pending_reconnect_op(self, mocker, stage, arbitrary_exception):
-        # Create a pending ReconnectOperation
-        op = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        # Create a pending ReauthorizeConnectionOperation
+        op = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
         stage.run_op(op)
         assert not op.completed
         assert stage._pending_connection_op is op
@@ -740,7 +748,7 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
     def test_unexpected_connection_failure(
         self, mocker, stage, arbitrary_exception, pending_connection_op
     ):
-        # A connection failure is unexpected if there is not a pending Connect/Reconnect operation
+        # A connection failure is unexpected if there is not a pending Connect/ReauthorizeConnection operation
         # i.e. "Why did we get a connection failure? We weren't even trying to connect!"
         mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
         stage._pending_connection_operation = pending_connection_op
@@ -772,8 +780,8 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectionOperation",
             ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(callback=fake_callback),
@@ -836,8 +844,8 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectionOperation",
             ),
         ],
     )
@@ -864,8 +872,8 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectionOperation",
             ),
         ],
     )
@@ -906,8 +914,8 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
                 id="Pending ConnectOperation",
             ),
             pytest.param(
-                pipeline_ops_base.ReconnectOperation(callback=fake_callback),
-                id="Pending ReconnectOperation",
+                pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback),
+                id="Pending ReauthorizeConnectionOperation",
             ),
             pytest.param(
                 pipeline_ops_base.DisconnectOperation(callback=fake_callback),

@@ -487,9 +487,9 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert stage.next.run_op.call_args[0][0] == op
 
     @pytest.mark.it(
-        "Passes down a ReconnectOperation instead of completing the op with success after the lower level stage returns success for the UpdateSasTokenOperation"
+        "Passes down a ReauthorizeConnectionOperation instead of completing the op with success after the lower level stage returns success for the UpdateSasTokenOperation"
     )
-    def test_passes_down_reconnect(self, stage, op, mocker):
+    def test_passes_down_reauthorize_connection(self, stage, op, mocker):
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
@@ -503,12 +503,13 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args_list[0][0][0] == op
         assert isinstance(
-            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
+            stage.next.run_op.call_args_list[1][0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
         )
         # CT-TODO: Make this test clearer - this below assertion is a bit confusing
         # What is happening here is that the run_op defined above for the mock only completes
         # ops of type UpdateSasTokenOperation (i.e. variable 'op'). However, completing the
-        # op triggers a callback which halts the completion, and then spawn a Reconnect worker op,
+        # op triggers a callback which halts the completion, and then spawn a reauthorize_connection worker op,
         # which must be completed before full completion of 'op' can occur. However, as the above
         # run_op mock only completes ops of type UpdateSasTokenOperation, this never happens,
         # thus op is not completed.
@@ -518,35 +519,36 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
     # could be tested better once stage tests are restructured. This test is overlapping with tests of
     # worker op functionality, that should not be being tested at this granularity here.
     @pytest.mark.it(
-        "Completes the op with success if some lower level stage returns success for the ReconnectOperation"
+        "Completes the op with success if some lower level stage returns success for the ReauthorizeConnectionOperation"
     )
-    def test_reconnect_succeeds(self, mocker, stage, next_stage_succeeds, op):
+    def test_reauthorize_connection_succeeds(self, mocker, stage, next_stage_succeeds, op):
         # default is for stage.next.run_op to return success for all ops
         stage.run_op(op)
 
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args_list[0][0][0] == op
         assert isinstance(
-            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
+            stage.next.run_op.call_args_list[1][0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
         )
         assert op.completed
         assert op.complete.call_count == 2  # op was completed twice due to an uncompletion
 
-        # most recent call, i.e. one triggered by the successful Reconnect
+        # most recent call, i.e. one triggered by the successful reauthorize_connection
         assert op.complete.call_args == mocker.call(error=None)
 
     # CT-TODO: As above, remove/restructure ASAP
     @pytest.mark.it(
-        "Completes the op with failure if some lower level stage returns failure for the ReconnectOperation"
+        "Completes the op with failure if some lower level stage returns failure for the ReauthorizeConnectionOperation"
     )
-    def test_reconnect_fails(self, stage, op, mocker, arbitrary_exception):
+    def test_reauthorize_connection_fails(self, stage, op, mocker, arbitrary_exception):
         cb = op.callback_stack[0]
 
         def run_op(op):
             print("in run_op {}".format(op.__class__.__name__))
             if isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
                 op.complete(error=None)
-            elif isinstance(op, pipeline_ops_base.ReconnectOperation):
+            elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
                 op.complete(error=arbitrary_exception)
             else:
                 pass
@@ -557,7 +559,8 @@ class TestIoTHubMQTTConverterWithUpdateSasTokenOperationConnected(
         assert stage.next.run_op.call_count == 2
         assert stage.next.run_op.call_args_list[0][0][0] == op
         assert isinstance(
-            stage.next.run_op.call_args_list[1][0][0], pipeline_ops_base.ReconnectOperation
+            stage.next.run_op.call_args_list[1][0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
         )
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(op=op, error=arbitrary_exception)
