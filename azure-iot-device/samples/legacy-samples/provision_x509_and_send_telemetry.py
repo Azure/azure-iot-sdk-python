@@ -32,27 +32,30 @@ registration_result = provisioning_device_client.register()
 # The result can be directly printed to view the important details.
 print(registration_result)
 
-print("Will send telemetry from the provisioned device")
-# Create device client from the above result
-device_client = IoTHubDeviceClient.create_from_registration_result_and_x509(
-    registration_result, x509=x509
-)
+if registration_result.status == "assigned":
+    print("Will send telemetry from the provisioned device")
+    # Create device client from the above result
+    device_client = IoTHubDeviceClient.create_from_registration_result_and_x509(
+        registration_result, x509=x509
+    )
 
-# Connect the client.
-device_client.connect()
+    # Connect the client.
+    device_client.connect()
 
-for i in range(1, 6):
-    print("sending message #" + str(i))
-    device_client.send_message("test payload message " + str(i))
-    time.sleep(1)
+    for i in range(1, 6):
+        print("sending message #" + str(i))
+        device_client.send_message("test payload message " + str(i))
+        time.sleep(1)
 
-for i in range(6, 11):
-    print("sending message #" + str(i))
-    msg = Message("test wind speed " + str(i))
-    msg.message_id = uuid.uuid4()
-    msg.custom_properties["tornado-warning"] = "yes"
-    device_client.send_message(msg)
-    time.sleep(1)
+    for i in range(6, 11):
+        print("sending message #" + str(i))
+        msg = Message("test wind speed " + str(i))
+        msg.message_id = uuid.uuid4()
+        msg.custom_properties["tornado-warning"] = "yes"
+        device_client.send_message(msg)
+        time.sleep(1)
 
-# finally, disconnect
-device_client.disconnect()
+    # finally, disconnect
+
+else:
+    print("Can not send telemetry from the provisioned device")
