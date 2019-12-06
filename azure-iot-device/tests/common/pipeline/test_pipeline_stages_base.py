@@ -315,6 +315,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         # Complete the newly created ConnectOperation that was sent down the pipeline
         assert stage.send_op_down.call_count == 1
         connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
         assert not connect_op.completed
         connect_op.complete()  # no error
 
@@ -335,6 +336,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         # Complete the newly created ConnectOperation that was sent down the pipeline
         assert stage.send_op_down.call_count == 1
         connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
         assert not connect_op.completed
         connect_op.complete(error=arbitrary_exception)  # completes with error
 
@@ -636,7 +638,7 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
         assert not op.completed
 
     @pytest.mark.it(
-        "Adds the operation to the queue, even if the pipeline is in a connection state where the operation is ready for completion"
+        "Adds the operation to the queue, even if the operation's desired pipeline connection state already has been reached"
     )
     @pytest.mark.parametrize(
         "op",

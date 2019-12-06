@@ -348,14 +348,16 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
     @pytest.mark.it("Performs an MQTT reconnect via the MQTTTransport")
     def test_mqtt_connect(self, mocker, stage, op):
         stage.run_op(op)
-        assert stage.transport.reconnect.call_count == 1
-        assert stage.transport.reconnect.call_args == mocker.call(password=stage.sas_token)
+        assert stage.transport.reauthorize_connection.call_count == 1
+        assert stage.transport.reauthorize_connection.call_args == mocker.call(
+            password=stage.sas_token
+        )
 
     @pytest.mark.it(
         "Completes the operation unsucessfully if there is a failure reconnecting via the MQTTTransport, using the error raised by the MQTTTransport"
     )
     def test_fails_operation(self, mocker, stage, op, arbitrary_exception):
-        stage.transport.reconnect.side_effect = arbitrary_exception
+        stage.transport.reauthorize_connection.side_effect = arbitrary_exception
         stage.run_op(op)
         assert op.completed
         assert op.error is arbitrary_exception
@@ -364,7 +366,7 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
         "Resets the stage's pending connection operation to None, if there is a failure reconnecting via the MQTTTransport"
     )
     def test_clears_pending_op_on_failure(self, mocker, stage, op, arbitrary_exception):
-        stage.transport.reconnect.side_effect = arbitrary_exception
+        stage.transport.reauthorize_connection.side_effect = arbitrary_exception
         stage.run_op(op)
         assert stage._pending_connection_op is None
 

@@ -180,7 +180,8 @@ class MQTTTransportStage(PipelineStage):
 
         else:
             # This code block should not be reached in correct program flow.
-            super(MQTTTransportStage, self)._run_op(op)
+            # This will raise an error when executed.
+            self.send_op_down(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_message_received(self, topic, payload):

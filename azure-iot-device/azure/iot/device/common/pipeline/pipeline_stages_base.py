@@ -109,12 +109,11 @@ class PipelineStage(object):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         """
-        Abstract method to run the actual operation.  This function is implemented in derived classes
-        and performs the actual work that any operation expects.  The default behavior for this function
-        should be to forward the event to the next stage using send_op_down for any
-        operations that a particular stage might not operate on.
+        Implementation of the stage-specific function of .run_op(). Override this method instead of
+        .run_op() in child classes in order to change how a stage behaves when running an operation.
 
-        See the description of the run_op method for more discussion on what it means to "run" an operation.
+        See the description of the .run_op() method for more discussion on what it means to "run"
+        an operation.
 
         :param PipelineOperation op: The operation to run.
         """
@@ -300,7 +299,7 @@ class AutoConnectStage(PipelineStage):
         # Finally, if this stage doesn't need to do anything else with this operation,
         # it just passes it down.
         else:
-            super(AutoConnectStage, self)._run_op(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _do_connect(self, op):
@@ -403,7 +402,7 @@ class ConnectionLockStage(PipelineStage):
             self.send_op_down(op)
 
         else:
-            super(ConnectionLockStage, self)._run_op(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):
@@ -518,7 +517,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             self.send_op_down(new_op)
 
         else:
-            super(CoordinateRequestAndResponseStage, self)._run_op(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -555,7 +554,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
         else:
-            super(CoordinateRequestAndResponseStage, self)._handle_pipeline_event(event)
+            self.send_event_up(event)
 
 
 class OpTimeoutStage(PipelineStage):
@@ -624,7 +623,7 @@ class OpTimeoutStage(PipelineStage):
             logger.debug("{}({}): Sending down".format(self.name, op.name))
             self.send_op_down(op)
         else:
-            super(OpTimeoutStage, self)._run_op(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _clear_timer(self, op, error):
@@ -666,7 +665,7 @@ class RetryStage(PipelineStage):
             op.add_callback(self._do_retry_if_necessary)
             self.send_op_down(op)
         else:
-            super(RetryStage, self)._run_op(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _should_watch_for_retry(self, op):
@@ -760,7 +759,7 @@ class ReconnectStage(PipelineStage):
             self.send_op_down(op)
 
         else:
-            super(ReconnectStage, self)._run_op(op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _set_reconnect_timer(self):
@@ -847,4 +846,4 @@ class ReconnectStage(PipelineStage):
             self.send_event_up(event)
 
         else:
-            super(ReconnectStage, self)._handle_pipeline_event(event)
+            self.send_event_up(event)

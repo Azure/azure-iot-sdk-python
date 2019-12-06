@@ -5,22 +5,15 @@
 # --------------------------------------------------------------------------
 import logging
 import pytest
-import inspect
-import threading
-import concurrent.futures
 from tests.common.pipeline.helpers import (
     all_except,
     make_mock_op_or_event,
-    assert_callback_failed,
-    get_arg_count,
-    add_mock_method_waiter,
     StageRunOpTestBase,
     StageHandlePipelineEventTestBase,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
-from azure.iot.device.common.pipeline import pipeline_thread, pipeline_exceptions
+from azure.iot.device.common.pipeline import pipeline_exceptions
 from azure.iot.device.common import handle_exceptions
-from .fixtures import ArbitraryOperation
 
 logging.basicConfig(level=logging.DEBUG)
 
