@@ -65,7 +65,6 @@ def iothub_registry_manager():
     return iothub_registry_manager
 
 
-
 @pytest.fixture(scope="function")
 def iothub_configuration_manager():
     connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
