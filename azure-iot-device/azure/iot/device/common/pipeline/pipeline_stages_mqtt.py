@@ -30,6 +30,22 @@ class MQTTTransportStage(PipelineStage):
     is not in the MQTT group of operations, but can only be run at the protocol level.
     """
 
+    def __init__(self):
+        super(MQTTTransportStage, self).__init__()
+
+        # These attributes will be set when Connetion Args are received
+        self.hostname = None
+        self.username = None
+        self.client_id = None
+        self.ca_cert = None
+        self.sas_token = None
+        self.client_cert = None
+
+        # The transport will be instantiated when Connection Args are received
+        self.transport = None
+
+        self._pending_connection_op = None
+
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_pending_connection_op(self):
         """
@@ -93,7 +109,6 @@ class MQTTTransportStage(PipelineStage):
             # complete a Disconnect operation.
             self._pending_connection_op = None
 
-            self.pipeline_root.transport = self.transport
             op.complete()
 
         elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
