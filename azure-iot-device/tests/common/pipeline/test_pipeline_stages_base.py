@@ -58,8 +58,10 @@ class PipelineRootStageTestConfig(object):
         return {"pipeline_configuration": mocker.MagicMock()}
 
     @pytest.fixture
-    def stage(self, cls_type, init_kwargs):
+    def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
         return stage
 
 
@@ -130,7 +132,21 @@ class TestPipelineRootStageAppendStage(PipelineRootStageTestConfig):
             prev_tail = new_stage
 
 
-# CT-TODO: Address the unique .run_op() implementation
+# NOTE 1: Because the Root stage overrides the parent implementation, we must test it here
+# (even though it's the same test).
+# NOTE 2: Currently this implementation does some other things with threads, but we do not
+# currently have a thread testing strategy, so it is untested for now.
+@pytest.mark.describe("PipelineRootStage - .run_op()")
+class TestPipelineRootStageRunOp(PipelineRootStageTestConfig):
+    @pytest.fixture
+    def op(self, arbitrary_op):
+        return arbitrary_op
+
+    @pytest.mark.it("Sends the operation down")
+    def test_sends_op_down(self, mocker, stage, op):
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
 
 
 @pytest.mark.describe("PipelineRootStage - .handle_pipeline_event() -- Called with ConnectedEvent")

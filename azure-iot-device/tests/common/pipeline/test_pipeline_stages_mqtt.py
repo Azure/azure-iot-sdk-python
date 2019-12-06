@@ -539,6 +539,23 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
         assert op.error is None
 
 
+# NOTE: This is not something that should ever happen in correct program flow
+# There should be no operations that make it to the MQTTTransportStage that are not handled by it
+@pytest.mark.describe("MQTTTransportStage - .run_op() -- called with arbitrary other operation")
+class TestMQTTTransportStageRunOpCalledWithArbitraryOperation(
+    MQTTTransportStageTestConfigComplex, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, arbitrary_op):
+        return arbitrary_op
+
+    @pytest.mark.it("Sends the operation down")
+    def test_sends_op_down(self, mocker, stage, op):
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT message received")
 class TestMQTTTransportStageProtocolClientEvents(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Sends an IncomingMQTTMessageEvent event up the pipeline")
