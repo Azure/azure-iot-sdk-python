@@ -213,7 +213,7 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
         mock_handler = mocker.MagicMock()
         stage.on_pipeline_event_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # CT-TODO: get rid of this
+        time.sleep(0.1)  # CT-TODO/BK-TODO: get rid of this
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event)
 
