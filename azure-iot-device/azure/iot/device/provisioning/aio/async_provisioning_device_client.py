@@ -62,21 +62,3 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         log_on_register_complete(result)
         return result
-
-    async def cancel(self):
-        """
-        Cancel a registration that is in progress.
-
-        Before returning the client will also disconnect from the provisioning service.
-
-        In case there is no registration in process it will throw an error as there is
-        no registration process to cancel.
-        """
-        logger.info("Disconnecting from Provisioning Service...")
-        cancel_async = async_adapter.emulate_async(self._polling_machine.cancel)
-
-        callback = async_adapter.AwaitableCallback()
-        await cancel_async(callback=callback)
-        await callback.completion()
-
-        logger.info("Successfully cancelled the current registration process")

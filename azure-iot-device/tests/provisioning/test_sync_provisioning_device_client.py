@@ -172,25 +172,6 @@ class TestClientRegister(object):
         assert result.registration_state.assigned_hub == fake_assigned_hub
 
 
-@pytest.mark.describe("ProvisioningDeviceClient - .cancel()")
-class TestClientCancel(object):
-    @pytest.mark.it("Cancel calls cancel on polling machine with passed in callback")
-    def test_client_cancel_calls_polling_machine_cancel_with_callback(
-        self, mocker, mock_polling_machine
-    ):
-        mqtt_provisioning_pipeline = mocker.MagicMock()
-        mock_polling_machine_init = mocker.patch(
-            "azure.iot.device.provisioning.provisioning_device_client.PollingMachine"
-        )
-        mock_polling_machine_init.return_value = mock_polling_machine
-
-        client = ProvisioningDeviceClient(mqtt_provisioning_pipeline)
-        client.cancel()
-
-        assert mock_polling_machine.cancel.call_count == 1
-        assert callable(mock_polling_machine.cancel.call_args[1]["callback"])
-
-
 @pytest.mark.describe("ProvisioningDeviceClient - .set_provisioning_payload()")
 class TestClientProvisioningPayload(object):
     @pytest.mark.it("Sets the payload on the provisioning payload attribute")
