@@ -24,7 +24,7 @@ try:
     secondary_key = "111222333444555666777888999000aaabbbcccdddee"
     managed_by = ""
     new_module = iothub_registry_manager.create_module_with_sas(
-        device_id, module_id, managed_by, primary_key, secondary_key, "enabled"
+        device_id, module_id, managed_by, primary_key, secondary_key
     )
 
     deviceMethod = CloudToDeviceMethod(
