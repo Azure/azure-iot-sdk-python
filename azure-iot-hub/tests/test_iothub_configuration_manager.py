@@ -16,12 +16,17 @@ fake_hostname = "beauxbatons.academy-net"
 fake_device_id = "MyPensieve"
 fake_etag = "taggedbymisnitryofmagic"
 fake_configuration_id = "fake_configuration_id"
+
+
 class fake_configuration_object:
     id = fake_configuration_id
+
+
 fake_configuration = fake_configuration_object()
 fake_max_count = 42
 fake_configuration_queries = "fake_configuration_queries"
 fake_configuration_content = "fake_configuration_content"
+
 
 """----Shared fixtures----"""
 
@@ -61,7 +66,9 @@ class TestGetConfiguration(object):
 @pytest.mark.describe("IoTHubConfigurationManager - .create_configuration()")
 class TestCreateConfiguration(object):
     @pytest.mark.it("Creates configuration")
-    def test_create_configuration(self, mocker, mock_service_operations, iothub_configuration_manager):
+    def test_create_configuration(
+        self, mocker, mock_service_operations, iothub_configuration_manager
+    ):
         iothub_configuration_manager.create_configuration(fake_configuration)
 
         assert mock_service_operations.create_or_update_configuration.call_count == 1
@@ -73,10 +80,10 @@ class TestCreateConfiguration(object):
 @pytest.mark.describe("IoTHubConfigurationManager - .update_configuration()")
 class TestUpdateConfiguration(object):
     @pytest.mark.it("Updates configuration")
-    def test_update_configuration(self, mocker, mock_service_operations, iothub_configuration_manager):
-        iothub_configuration_manager.update_configuration(
-            fake_configuration, fake_etag
-        )
+    def test_update_configuration(
+        self, mocker, mock_service_operations, iothub_configuration_manager
+    ):
+        iothub_configuration_manager.update_configuration(fake_configuration, fake_etag)
 
         assert mock_service_operations.create_or_update_configuration.call_count == 1
         assert mock_service_operations.create_or_update_configuration.call_args == mocker.call(
@@ -87,7 +94,9 @@ class TestUpdateConfiguration(object):
 @pytest.mark.describe("IoTHubConfigurationManager - .delete_configuration()")
 class TestDeleteConfiguration(object):
     @pytest.mark.it("Deletes configuration")
-    def test_delete_configuration(self, mocker, mock_service_operations, iothub_configuration_manager):
+    def test_delete_configuration(
+        self, mocker, mock_service_operations, iothub_configuration_manager
+    ):
         iothub_configuration_manager.delete_configuration(fake_configuration_id)
 
         assert mock_service_operations.delete_configuration.call_count == 1
@@ -112,7 +121,9 @@ class TestDeleteConfiguration(object):
 @pytest.mark.describe("IoTHubConfigurationManager - .get_configurations()")
 class TestGetConfigurations(object):
     @pytest.mark.it("Gets configuration")
-    def test_get_configurations(self, mocker, mock_service_operations, iothub_configuration_manager):
+    def test_get_configurations(
+        self, mocker, mock_service_operations, iothub_configuration_manager
+    ):
         iothub_configuration_manager.get_configurations(fake_max_count)
 
         assert mock_service_operations.get_configurations.call_count == 1
@@ -125,9 +136,7 @@ class TestTestConfigurationQueries(object):
     def test_test_configuration_queries(
         self, mocker, mock_service_operations, iothub_configuration_manager
     ):
-        iothub_configuration_manager.test_configuration_queries(
-            fake_configuration_queries
-        )
+        iothub_configuration_manager.test_configuration_queries(fake_configuration_queries)
         assert mock_service_operations.test_configuration_queries.call_count == 1
         assert mock_service_operations.test_configuration_queries.call_args == mocker.call(
             fake_configuration_queries
@@ -141,8 +150,7 @@ class TestApplyConfigurationOnEdgeDevice(object):
         self, mocker, mock_service_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.apply_configuration_on_edge_device(
-            fake_device_id,
-            fake_configuration_content
+            fake_device_id, fake_configuration_content
         )
         assert mock_service_operations.apply_configuration_on_edge_device.call_count == 1
         assert mock_service_operations.apply_configuration_on_edge_device.call_args == mocker.call(

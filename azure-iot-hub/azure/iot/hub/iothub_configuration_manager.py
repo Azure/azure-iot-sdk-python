@@ -8,11 +8,7 @@ from .auth import ConnectionStringAuthentication
 from .protocol.iot_hub_gateway_service_ap_is20190630 import (
     IotHubGatewayServiceAPIs20190630 as protocol_client,
 )
-from .protocol.models import (
-    Configuration,
-    ConfigurationContent,
-    ConfigurationQueriesTestInput
-)
+from .protocol.models import Configuration, ConfigurationContent, ConfigurationQueriesTestInput
 
 
 class IoTHubConfigurationManager(object):
@@ -34,8 +30,7 @@ class IoTHubConfigurationManager(object):
         """
 
         self.auth = ConnectionStringAuthentication(connection_string)
-        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"]
-        )
+        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
 
     def get_configuration(self, configuration_id):
         """Retrieves the IoTHub configuration for a particular device.

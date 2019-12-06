@@ -42,8 +42,7 @@ class IoTHubRegistryManager(object):
         """
 
         self.auth = ConnectionStringAuthentication(connection_string)
-        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"]
-        )
+        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
 
     def create_device_with_sas(self, device_id, primary_key, secondary_key, status):
         """Creates a device identity on IoTHub using SAS authentication.
