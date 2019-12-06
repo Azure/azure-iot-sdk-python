@@ -251,9 +251,7 @@ class PipelineRootStage(PipelineStage):
         """
         if isinstance(event, pipeline_events_base.ConnectedEvent):
             logger.debug(
-                "{}: on_connected.  on_connected_handler={}".format(
-                    self.name, self.on_connected_handler
-                )
+                "{}: ConnectedEvent received. Calling on_connected_handler".format(self.name)
             )
             self.connected = True
             if self.on_connected_handler:
@@ -261,9 +259,7 @@ class PipelineRootStage(PipelineStage):
 
         elif isinstance(event, pipeline_events_base.DisconnectedEvent):
             logger.debug(
-                "{}: on_disconnected.  on_disconnected_handler={}".format(
-                    self.name, self.on_disconnected_handler
-                )
+                "{}: DisconnectedEvent received. Calling on_disconnected_handler".format(self.name)
             )
             self.connected = False
             if self.on_disconnected_handler:

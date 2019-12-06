@@ -33,12 +33,14 @@ class StageRunOpTestBase(object):
     )
     def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
         stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-        mocker.spy(op, "complete")
+        # mocker.spy(op, "complete")
 
         stage.run_op(op)
 
-        assert op.complete.call_count == 1
-        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
+        assert op.completed
+        assert op.error is arbitrary_exception
+        # assert op.complete.call_count == 1
+        # assert op.complete.call_args == mocker.call(error=arbitrary_exception)
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propogate"
