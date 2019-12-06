@@ -16,11 +16,11 @@ iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 def print_configuration(title, config):
     print()
     print(title)
-    print(  "Configuration:")
+    print("Configuration:")
     print("    {}".format(config))
-    print(  "Configuration - content:")
+    print("Configuration - content:")
     print("    {}".format(config.content))
-    print(  "Configuration - metrics:")
+    print("Configuration - metrics:")
     print("    {}".format(config.metrics))
 
 
@@ -29,12 +29,14 @@ def create_configuration(config_id):
     config.id = config_id
 
     content = ConfigurationContent(
-        device_content={"properties.desired.chiller-water": {"temperature: 68, pressure:28"}},
+        device_content={"properties.desired.chiller-water": {"temperature: 68, pressure:28"}}
     )
     config.content = content
 
     metrics = ConfigurationMetrics(
-        queries={"waterSettingPending": "SELECT deviceId FROM devices WHERE properties.reported.chillerWaterSettings.status=\'pending\'"}
+        queries={
+            "waterSettingPending": "SELECT deviceId FROM devices WHERE properties.reported.chillerWaterSettings.status='pending'"
+        }
     )
     config.metrics = metrics
 
@@ -53,18 +55,19 @@ try:
     created_config = iothub_configuration.create_configuration(sample_configuration)
     print_configuration("Created configuration", created_config)
 
+    # Get configuration
     get_config = iothub_configuration.get_configuration(config_id)
     print_configuration("Get configuration", get_config)
 
+    # Delete configuration
     iothub_configuration.delete_configuration(config_id)
 
     # Get all configurations
     configurations = iothub_configuration.get_configurations()
-    if (configurations):
+    if configurations:
         print_configuration("Get all configurations", configurations[0])
     else:
         print("No configuration found")
-
 
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
