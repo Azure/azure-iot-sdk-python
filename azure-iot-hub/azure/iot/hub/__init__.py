@@ -4,5 +4,6 @@ This library provides service clients and associated models for communicating wi
 """
 
 from .iothub_registry_manager import IoTHubRegistryManager
+from .iothub_configuration_manager import IoTHubConfigurationManager
 
-__all__ = ["IoTHubRegistryManager"]
+__all__ = ["IoTHubRegistryManager", "IoTHubConfigurationManager"]
