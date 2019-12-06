@@ -383,7 +383,7 @@ class TestAutoConnectStageRunOpWithOpThatDoesNotRequireConnection(
 connection_ops = [
     pipeline_ops_base.ConnectOperation,
     pipeline_ops_base.DisconnectOperation,
-    pipeline_ops_base.ReconnectOperation,
+    pipeline_ops_base.ReauthorizeConnectionOperation,
 ]
 
 
@@ -522,14 +522,14 @@ class TestConnectionLockStageRunOpWithDisconnectOpWhileUnblocked(
 
 
 @pytest.mark.describe(
-    "ConnectionLockStage - .run_op() -- Called with a ReconnectOperation while not in a blocking state"
+    "ConnectionLockStage - .run_op() -- Called with a ReauthorizeConnectionOperation while not in a blocking state"
 )
 class TestConnectionLockStageRunOpWithReconnectOpWhileUnblocked(
     ConnectionLockStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        return pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it("Puts the stage in a blocking state and sends the operation down the pipeline")
     @pytest.mark.parametrize(
@@ -667,7 +667,7 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
 
         op1 = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
         op2 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
-        op3 = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        op3 = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
         op4 = ArbitraryOperation(callback=mocker.MagicMock())
 
         stage.run_op(op1)
@@ -796,7 +796,7 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
     def test_unblocked_op_changes_block_state(self, mocker, stage):
         op1 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
         op2 = ArbitraryOperation(callback=mocker.MagicMock())
-        op3 = pipeline_ops_base.ReconnectOperation(callback=mocker.MagicMock())
+        op3 = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
         op4 = ArbitraryOperation(callback=mocker.MagicMock())
         op5 = ArbitraryOperation(callback=mocker.MagicMock())
 
