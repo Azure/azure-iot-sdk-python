@@ -33,13 +33,8 @@ class MQTTTransportStage(PipelineStage):
     def __init__(self):
         super(MQTTTransportStage, self).__init__()
 
-        # These attributes will be set when Connetion Args are received
-        self.hostname = None
-        self.username = None
-        self.client_id = None
-        self.ca_cert = None
+        # The sas_token will be set when Connetion Args are received
         self.sas_token = None
-        self.client_cert = None
 
         # The transport will be instantiated when Connection Args are received
         self.transport = None
@@ -70,18 +65,13 @@ class MQTTTransportStage(PipelineStage):
             # pipeline_ops_mqtt.SetMQTTConnectionArgsOperation is where we create our MQTTTransport object and set
             # all of its properties.
             logger.debug("{}({}): got connection args".format(self.name, op.name))
-            self.hostname = op.hostname
-            self.username = op.username
-            self.client_id = op.client_id
-            self.ca_cert = op.ca_cert
             self.sas_token = op.sas_token
-            self.client_cert = op.client_cert
             self.transport = MQTTTransport(
-                client_id=self.client_id,
-                hostname=self.hostname,
-                username=self.username,
-                ca_cert=self.ca_cert,
-                x509_cert=self.client_cert,
+                client_id=op.client_id,
+                hostname=op.hostname,
+                username=op.username,
+                ca_cert=op.ca_cert,
+                x509_cert=op.client_cert,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
             )
             self.transport.on_mqtt_connected_handler = CallableWeakMethod(
