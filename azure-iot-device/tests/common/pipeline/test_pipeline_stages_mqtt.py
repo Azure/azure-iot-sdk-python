@@ -115,7 +115,10 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         stage.run_op(op)
         assert stage.sas_token == op.sas_token
 
-    @pytest.mark.it("Creates an MQTTTransport object and sets it as the 'transport' attribute")
+    # TODO: Should probably remove the requirement to set it on the root. This seems only needed by Horton
+    @pytest.mark.it(
+        "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
+    )
     @pytest.mark.parametrize(
         "websockets",
         [
@@ -128,6 +131,7 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         stage.pipeline_root.pipeline_configuration.websockets = websockets
 
         assert stage.transport is None
+        assert not hasattr(stage.pipeline_root, "transport")
 
         stage.run_op(op)
 
@@ -141,6 +145,7 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             websockets=websockets,
         )
         assert stage.transport is mock_transport.return_value
+        assert stage.pipeline_root.transport is mock_transport.return_value
 
     @pytest.mark.it("Sets event handlers on the newly created MQTTTransport")
     def test_sets_transport_handlers(self, mocker, stage, op, mock_transport):

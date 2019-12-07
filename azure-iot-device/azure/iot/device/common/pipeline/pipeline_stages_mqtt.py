@@ -99,6 +99,9 @@ class MQTTTransportStage(PipelineStage):
             # complete a Disconnect operation.
             self._pending_connection_op = None
 
+            # TODO: This is necessary for Horton tests, but seemingly nothing else. Can this be removed?
+            self.pipeline_root.transport = self.transport
+
             op.complete()
 
         elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
