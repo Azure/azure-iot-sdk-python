@@ -2279,8 +2279,3 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         connect_op = stage.send_op_down.call_args[0][0]
         assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
         return connect_op
-
-    # @pytest.mark.it("Adds and starts a reconnect timer (with an interval of the default reconnect delay) to the stage, if the operation is completed unsuccessfully due to a transient connect error")
-    # @pytest.mark.parametrize("error", transient_connect_errors)
-    # def test_completed_transient_connect_error(self, stage, error):
-    #     pass
