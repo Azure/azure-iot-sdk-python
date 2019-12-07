@@ -8,6 +8,8 @@ import inspect
 
 fake_count = 0
 
+# CT-TODO: refactor this module
+
 
 def get_next_fake_value():
     """
