@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # pipeline configuration to be specifically tailored to the method of instantiation.
 # For instance, .create_from_connection_string and .create_from_edge_envrionment both can use
 # SymmetricKeyAuthenticationProviders to instantiate pipeline(s), but only .create_from_edge_environment
-# should use it to instantiate an EdgePipeline. If the initializer accepted an auth provider, and then
+# should use it to instantiate an HTTPPipeline. If the initializer accepted an auth provider, and then
 # used it to create pipelines, this detail would be lost, as there would be no way to tell if a
 # SymmetricKeyAuthenticationProvider was intended to be part of an Edge scenario or not.
 
@@ -36,14 +36,14 @@ class AbstractIoTHubClient(object):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, iothub_pipeline):
+    def __init__(self, iothub_pipeline, http_pipeline=None):
         """Initializer for a generic client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
         self._iothub_pipeline = iothub_pipeline
-        self._edge_pipeline = None
+        self._http_pipeline = http_pipeline
 
     @classmethod
     def create_from_connection_string(cls, connection_string, ca_cert=None, **kwargs):
@@ -64,11 +64,14 @@ class AbstractIoTHubClient(object):
         # TODO: Make this device/module specific and reject non-matching connection strings.
         # This will require refactoring of the auth package to use common objects (e.g. ConnectionString)
         # in order to differentiate types of connection strings.
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        if cls.__name__ == "IoTHubDeviceClient":
+            pipeline_configuration.blob_upload = True
         authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
         authentication_provider.ca_cert = ca_cert  # TODO: make this part of the instantiation
-        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
+        return cls(iothub_pipeline, http_pipeline)
 
     @classmethod
     def create_from_shared_access_signature(cls, sas_token, **kwargs):
@@ -85,10 +88,13 @@ class AbstractIoTHubClient(object):
 
         :returns: An instance of an IoTHub client that uses a SAS token for authentication.
         """
-        authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        if cls.__name__ == "IoTHubDeviceClient":
+            pipeline_configuration.blob_upload = True
+        authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
+        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
+        return cls(iothub_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def connect(self):
@@ -148,8 +154,11 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             x509=x509, hostname=hostname, device_id=device_id
         )
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
+
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
+        return cls(iothub_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def receive_message(self):
@@ -158,16 +167,15 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
-    def __init__(self, iothub_pipeline, edge_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline=None):
         """Initializer for a module client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
-        :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
-        super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline)
-        self._edge_pipeline = edge_pipeline
+        super(AbstractIoTHubModuleClient, self).__init__(
+            iothub_pipeline, http_pipeline=http_pipeline
+        )
 
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
@@ -248,9 +256,12 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 raise new_err
 
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        pipeline_configuration.method_invoke = (
+            True
+        )  # Method Invoke is allowed on modules created from edge environment
+        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        edge_pipeline = pipeline.EdgePipeline(authentication_provider)
-        return cls(iothub_pipeline, edge_pipeline=edge_pipeline)
+        return cls(iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline)
 
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
@@ -276,8 +287,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             x509=x509, hostname=hostname, device_id=device_id, module_id=module_id
         )
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
+        return cls(iothub_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def send_message_to_output(self, message, output_name):

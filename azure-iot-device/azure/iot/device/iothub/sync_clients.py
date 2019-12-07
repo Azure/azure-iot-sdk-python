@@ -53,8 +53,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param iothub_pipeline: The IoTHubPipeline used for the client
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
-        :param edge_pipeline: The EdgePipeline used for the client
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
+        :param http_pipeline: The HTTPPipeline used for the client
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -323,6 +323,45 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
+    def get_storage_info(self, blob_name):
+        """Call up to the IoT Hub Endpoint over HTTP to get information on
+        the storage blob for uploads.
+        """
+        # TODO: Check that the HTTP Pipeline has been set properly.
+        # if not self._http_pipeline:
+        #     # raise error
+        #     raise exceptions.ClientError(
+        #         "No Upload Pipeline Initialized. get_storage_info cannot be called without an HTTP Pipeline set."
+        #     )
+        # else:
+        callback = EventedCallback(return_arg_name="storage_info")
+        self._http_pipeline.get_storage_info(blob_name=blob_name, callback=callback)
+        storage_info = handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info
+
+    def notify_blob_upload_status(
+        self, correlation_id, upload_response, status_code, status_description
+    ):
+        """
+        """
+        # if not self._http_pipeline:
+        #     # raise error
+        #     raise exceptions.ClientError(
+        #         "No Upload Pipeline Initialized. notify_blob_upload_status cannot be called without an HTTP Pipeline set."
+        #     )
+        # else:
+        callback = EventedCallback()
+        self._http_pipeline.notify_blob_upload_status(
+            correlation_id=correlation_id,
+            upload_response=upload_response,
+            status_code=status_code,
+            status_description=status_description,
+            callback=callback,
+        )
+        handle_result(callback)
+        logger.info("Successfully notified blob upload status")
+
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance.
@@ -330,7 +369,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline):
+    def __init__(self, iothub_pipeline, http_pipeline=None):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -339,7 +378,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
-        super(IoTHubDeviceClient, self).__init__(iothub_pipeline=iothub_pipeline)
+        super(IoTHubDeviceClient, self).__init__(
+            iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline
+        )
         self._iothub_pipeline.on_c2d_message_received = CallableWeakMethod(
             self._inbox_manager, "route_c2d_message"
         )
@@ -373,7 +414,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline, edge_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline=None):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
@@ -381,11 +422,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
-        :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
+        :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         super(IoTHubModuleClient, self).__init__(
-            iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline
+            iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline
         )
         self._iothub_pipeline.on_input_message_received = CallableWeakMethod(
             self._inbox_manager, "route_input_message"
@@ -449,3 +490,20 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             message = None
         logger.info("Input message received on: " + input_name)
         return message
+
+    def invoke_method(self, method_params, device_id, module_id=None):
+        # TODO: Should the pipeline level be split into two? According to everyone,
+        # it should be only one in the pipeline level, so I should change this.
+        """
+        method_params should contain a method_name, payload, conenct_timeout_in_seconds, response_timeout_in_seconds
+        method_result should contain a status, and a payload
+        """
+        # if not self._http_pipeline:
+        #     # TODO: Is this the right type of Error? CC: Carter
+        #     raise exceptions.ClientError(message="Method Invoke only avaiable on Edge Modules")
+
+        callback = EventedCallback(return_arg_name="invoke_method_response")
+        self._http_pipeline.invoke_method(device_id, method_params, callback, module_id=module_id)
+        invoke_method_response = handle_result(callback)
+        logger.info("Successfully invoked method")
+        return invoke_method_response
