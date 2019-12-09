@@ -35,7 +35,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
         self.action_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
 
         if isinstance(op, pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation):
             # get security client args from above, save some, use some to build topic names,
@@ -109,7 +109,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            self.send_op_down(op)
+            super(ProvisioningMQTTTranslationStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -144,7 +144,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         else:
             # all other messages get passed up
-            self.send_event_up(event)
+            super(ProvisioningMQTTTranslationStage, self)._handle_pipeline_event(event)
 
 
 class DeviceRegistrationPayload(object):

@@ -14,6 +14,7 @@ from . import (
     pipeline_events_mqtt,
     pipeline_thread,
     pipeline_exceptions,
+    pipeline_events_base,
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
@@ -28,6 +29,17 @@ class MQTTTransportStage(PipelineStage):
     This stage handles all MQTT operations and any other operations (such as ConnectOperation) which
     is not in the MQTT group of operations, but can only be run at the protocol level.
     """
+
+    def __init__(self):
+        super(MQTTTransportStage, self).__init__()
+
+        # The sas_token will be set when Connetion Args are received
+        self.sas_token = None
+
+        # The transport will be instantiated when Connection Args are received
+        self.transport = None
+
+        self._pending_connection_op = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_pending_connection_op(self):
@@ -48,23 +60,18 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation):
             # pipeline_ops_mqtt.SetMQTTConnectionArgsOperation is where we create our MQTTTransport object and set
             # all of its properties.
             logger.debug("{}({}): got connection args".format(self.name, op.name))
-            self.hostname = op.hostname
-            self.username = op.username
-            self.client_id = op.client_id
-            self.ca_cert = op.ca_cert
             self.sas_token = op.sas_token
-            self.client_cert = op.client_cert
             self.transport = MQTTTransport(
-                client_id=self.client_id,
-                hostname=self.hostname,
-                username=self.username,
-                ca_cert=self.ca_cert,
-                x509_cert=self.client_cert,
+                client_id=op.client_id,
+                hostname=op.hostname,
+                username=op.username,
+                ca_cert=op.ca_cert,
+                x509_cert=op.client_cert,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
             )
             self.transport.on_mqtt_connected_handler = CallableWeakMethod(
@@ -92,7 +99,9 @@ class MQTTTransportStage(PipelineStage):
             # complete a Disconnect operation.
             self._pending_connection_op = None
 
+            # TODO: This is necessary for Horton tests, but seemingly nothing else. Can this be removed?
             self.pipeline_root.transport = self.transport
+
             op.complete()
 
         elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
@@ -173,6 +182,8 @@ class MQTTTransportStage(PipelineStage):
             self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
 
         else:
+            # This code block should not be reached in correct program flow.
+            # This will raise an error when executed.
             self.send_op_down(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
@@ -191,9 +202,9 @@ class MQTTTransportStage(PipelineStage):
         Handler that gets called by the transport when it connects.
         """
         logger.info("_on_mqtt_connected called")
-        # self.on_connected() tells other pipeline stages that we're connected.  Do this before
+        # Send an event to tell other pipeline stages that we're connected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
-        self.on_connected()
+        self.send_event_up(pipeline_events_base.ConnectedEvent())
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
@@ -245,9 +256,9 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
-        # self.on_disconnected() tells other pipeilne stages that we're disconnected.  Do this before
+        # Send an event to tell other pipeilne stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.
-        self.on_disconnected()
+        self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
         if self._pending_connection_op:
             # on_mqtt_disconnected will cause any pending connect op to complete.  This is how Paho
