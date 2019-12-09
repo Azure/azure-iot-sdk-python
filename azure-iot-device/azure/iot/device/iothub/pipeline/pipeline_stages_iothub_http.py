@@ -46,7 +46,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
         self.hostname = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id

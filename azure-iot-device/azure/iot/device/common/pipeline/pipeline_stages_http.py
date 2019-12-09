@@ -28,7 +28,7 @@ class HTTPTransportStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_http.SetHTTPConnectionArgsOperation):
             # pipeline_ops_http.SetHTTPConenctionArgsOperation is used to create the HTTPTransport object and set all of it's properties.
             logger.debug("{}({}): got connection args".format(self.name, op.name))
