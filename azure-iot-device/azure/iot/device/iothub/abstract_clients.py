@@ -36,7 +36,7 @@ class AbstractIoTHubClient(object):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Initializer for a generic client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
@@ -167,15 +167,13 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
-    def __init__(self, iothub_pipeline, http_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Initializer for a module client.
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
-        super(AbstractIoTHubModuleClient, self).__init__(
-            iothub_pipeline, http_pipeline=http_pipeline
-        )
+        super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline, http_pipeline)
 
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
@@ -261,7 +259,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         )  # Method Invoke is allowed on modules created from edge environment
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline)
+        return cls(iothub_pipeline, http_pipeline)
 
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):

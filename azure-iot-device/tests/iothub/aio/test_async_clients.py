@@ -204,6 +204,9 @@ class SharedClientCreateFromConnectionStringTests(object):
     )
     async def test_client_instantiation(self, mocker, client_class, connection_string, ca_cert):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline_http = mocker.patch(
+            "azure.iot.device.iothub.pipeline.HTTPPipeline"
+        ).return_value
         spy_init = mocker.spy(client_class, "__init__")
         args = (connection_string,)
         kwargs = {}
@@ -212,7 +215,7 @@ class SharedClientCreateFromConnectionStringTests(object):
         client_class.create_from_connection_string(*args, **kwargs)
 
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline, mock_pipeline_http)
 
     @pytest.mark.it("Returns the instantiated client")
     @pytest.mark.parametrize(
@@ -348,12 +351,15 @@ class SharedClientCreateFromSharedAccessSignature(object):
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     async def test_client_instantiation(self, mocker, client_class, sas_token_string):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline_http = mocker.patch(
+            "azure.iot.device.iothub.pipeline.HTTPPipeline"
+        ).return_value
         spy_init = mocker.spy(client_class, "__init__")
 
         client_class.create_from_shared_access_signature(sas_token_string)
 
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline, mock_pipeline_http)
 
     @pytest.mark.it("Returns the instantiated client")
     async def test_returns_client(self, mocker, client_class, sas_token_string):
@@ -1024,12 +1030,6 @@ class TestIoTHubDeviceClientInstantiation(
             == client._inbox_manager.route_c2d_message
         )
 
-    @pytest.mark.it("Sets the '_invoke_method_pipeline' attribute to None")
-    async def test_invoke_method_pipeline_is_none(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
-
-        assert client._invoke_method_pipeline is None
-
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_connection_string()")
 class TestIoTHubDeviceClientCreateFromConnectionString(
@@ -1161,6 +1161,9 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     async def test_client_instantiation(self, mocker, client_class, x509):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline_http = mocker.patch(
+            "azure.iot.device.iothub.pipeline.HTTPPipeline"
+        ).return_value
         spy_init = mocker.spy(client_class, "__init__")
 
         client_class.create_from_x509_certificate(
@@ -1168,7 +1171,7 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsCon
         )
 
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline, mock_pipeline_http)
 
     @pytest.mark.it("Returns the instantiated client")
     async def test_returns_client(self, mocker, client_class, x509):
@@ -1320,22 +1323,20 @@ class TestIoTHubModuleClientInstantiation(
         )
 
     @pytest.mark.it(
-        "Stores the HTTPPipeline from the optionally-provided 'http_pipeline' parameter in the '_invoke_method_pipeline' attribute"
+        "Stores the HTTPPipeline from the optionally-provided 'http_pipeline' parameter in the '_http_pipeline' attribute"
     )
-    async def test_sets_invoke_method_pipeline_attribute(
-        self, client_class, iothub_pipeline, http_pipeline
-    ):
+    async def test_sets_http_pipeline_attribute(self, client_class, iothub_pipeline, http_pipeline):
         client = client_class(iothub_pipeline, http_pipeline)
 
-        assert client._invoke_method_pipeline is http_pipeline
+        assert client._http_pipeline is http_pipeline
 
     @pytest.mark.it(
-        "Sets the '_invoke_method_pipeline' attribute to None, if the 'http_pipeline' parameter is not provided"
+        "Sets the '_http_pipeline' attribute to None, if the 'http_pipeline' parameter is not provided"
     )
-    async def test_invoke_method_pipeline_default_none(self, client_class, iothub_pipeline):
+    async def test_http_pipeline_default_none(self, client_class, iothub_pipeline):
         client = client_class(iothub_pipeline)
 
-        assert client._invoke_method_pipeline is None
+        assert client._http_pipeline is None
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_connection_string()")
@@ -1426,16 +1427,14 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         ).return_value
 
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
-        mock_invoke_method_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.pipeline.HTTPPipeline"
-        )
+        mock_http_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
         client_class.create_from_edge_environment()
 
         assert mock_iothub_pipeline_init.call_count == 1
         assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
-        assert mock_invoke_method_pipeline_init.call_count == 1
-        assert mock_invoke_method_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_http_pipeline_init.call_count == 1
+        assert mock_http_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the HTTPPipeline to instantiate the client")
     async def test_client_instantiation(self, mocker, client_class, edge_container_environment):
@@ -1445,7 +1444,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         mock_iothub_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
-        mock_invoke_method_pipeline = mocker.patch(
+        mock_http_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
         ).return_value
         spy_init = mocker.spy(client_class, "__init__")
@@ -1454,7 +1453,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
 
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(
-            mocker.ANY, mock_iothub_pipeline, http_pipeline=mock_invoke_method_pipeline
+            mocker.ANY, mock_iothub_pipeline, mock_http_pipeline
         )
 
     @pytest.mark.it("Returns the instantiated client")
@@ -1680,16 +1679,14 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig"
         ).return_value
         mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
-        mock_invoke_method_pipeline_init = mocker.patch(
-            "azure.iot.device.iothub.pipeline.HTTPPipeline"
-        )
+        mock_http_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
         client_class.create_from_edge_environment()
 
         assert mock_iothub_pipeline_init.call_count == 1
         assert mock_iothub_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
-        assert mock_invoke_method_pipeline_init.call_count == 1
-        assert mock_invoke_method_pipeline_init.call_args == mocker.call(mock_auth)
+        assert mock_http_pipeline_init.call_count == 1
+        assert mock_http_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
 
     @pytest.mark.it("Uses the IoTHubPipeline and the HTTPPipeline to instantiate the client")
     async def test_client_instantiation(
@@ -1699,7 +1696,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         mock_iothub_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
-        mock_invoke_method_pipeline = mocker.patch(
+        mock_http_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
         ).return_value
         spy_init = mocker.spy(client_class, "__init__")
@@ -1708,7 +1705,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
 
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(
-            mocker.ANY, mock_iothub_pipeline, http_pipeline=mock_invoke_method_pipeline
+            mocker.ANY, mock_iothub_pipeline, mock_http_pipeline
         )
 
     @pytest.mark.it("Returns the instantiated client")
@@ -1911,6 +1908,9 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
     async def test_client_instantiation(self, mocker, client_class, x509):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline_http = mocker.patch(
+            "azure.iot.device.iothub.pipeline.HTTPPipeline"
+        ).return_value
         spy_init = mocker.spy(client_class, "__init__")
 
         client_class.create_from_x509_certificate(
@@ -1918,7 +1918,7 @@ class TestIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsCon
         )
 
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline, mock_pipeline_http)
 
     @pytest.mark.it("Returns the instantiated client")
     async def test_returns_client(self, mocker, client_class, x509):
