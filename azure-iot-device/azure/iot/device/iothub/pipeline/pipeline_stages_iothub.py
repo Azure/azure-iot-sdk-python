@@ -38,7 +38,7 @@ class UseAuthProviderStage(PipelineStage):
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
                 device_id=self.auth_provider.device_id,
-                module_id=getattr(self.auth_provider, "module_id", None),
+                module_id=self.auth_provider.module_id,
                 hostname=self.auth_provider.hostname,
                 gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
                 ca_cert=getattr(self.auth_provider, "ca_cert", None),
@@ -51,7 +51,7 @@ class UseAuthProviderStage(PipelineStage):
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
                 device_id=self.auth_provider.device_id,
-                module_id=getattr(self.auth_provider, "module_id", None),
+                module_id=self.auth_provider.module_id,
                 hostname=self.auth_provider.hostname,
                 gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
                 ca_cert=getattr(self.auth_provider, "ca_cert", None),
