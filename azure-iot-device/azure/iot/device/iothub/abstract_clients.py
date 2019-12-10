@@ -152,32 +152,31 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(iothub_pipeline)
 
     @classmethod
-    def create_from_registration_result_and_symmetric_key(
-        cls, registration_result, symmetric_key, ca_cert=None, **kwargs
+    def create_from_registration_result(
+        cls, registration_result, symmetric_key=None, x509=None, ca_cert=None, **kwargs
     ):
+        if x509 and symmetric_key:
+            raise ValueError(
+                "X509 and Symmetric Key are mutually exclusive. Only one parameter should be provided."
+            )
+        if not x509 and not symmetric_key:
+            raise ValueError("One parameter out of X509 and Symmetric Key must be provided.")
         registration_state = registration_result.registration_state
-        # Decided not to call create_from_connection_string
-        # method and parse the connection_string again
-        # when we have all the individual elements
-        authentication_provider = auth.SymmetricKeyAuthenticationProvider(
-            hostname=registration_state.assigned_hub,
-            device_id=registration_state.device_id,
-            module_id=None,
-            shared_access_key=symmetric_key,
-        )
-        authentication_provider.ca_cert = ca_cert  # TODO: make this part of the instantiation
-        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
+        if x509:
+            authentication_provider = auth.X509AuthenticationProvider(
+                hostname=registration_state.assigned_hub,
+                device_id=registration_state.device_id,
+                x509=x509,
+            )
+        else:
+            authentication_provider = auth.SymmetricKeyAuthenticationProvider(
+                hostname=registration_state.assigned_hub,
+                device_id=registration_state.device_id,
+                module_id=None,
+                shared_access_key=symmetric_key,
+            )
+            authentication_provider.ca_cert = ca_cert  # TODO: make this part of the instantiation
 
-    @classmethod
-    def create_from_registration_result_and_x509(cls, registration_result, x509, **kwargs):
-        registration_state = registration_result.registration_state
-        authentication_provider = auth.X509AuthenticationProvider(
-            hostname=registration_state.assigned_hub,
-            device_id=registration_state.device_id,
-            x509=x509,
-        )
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)

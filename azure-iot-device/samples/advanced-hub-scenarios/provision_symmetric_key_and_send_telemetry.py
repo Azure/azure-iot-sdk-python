@@ -20,24 +20,21 @@ symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
 
 
 async def main():
-    async def register_device():
-        provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-            provisioning_host=provisioning_host,
-            registration_id=registration_id,
-            id_scope=id_scope,
-            symmetric_key=symmetric_key,
-        )
+    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host=provisioning_host,
+        registration_id=registration_id,
+        id_scope=id_scope,
+        symmetric_key=symmetric_key,
+    )
 
-        return await provisioning_device_client.register()
+    registration_result = await provisioning_device_client.register()
 
-    results = await asyncio.gather(register_device())
-    registration_result = results[0]
     print("The complete registration result is")
     print(registration_result.registration_state)
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
-        device_client = IoTHubDeviceClient.create_from_registration_result_and_symmetric_key(
+        device_client = IoTHubDeviceClient.create_from_registration_result(
             registration_result, symmetric_key
         )
         # Connect the client.

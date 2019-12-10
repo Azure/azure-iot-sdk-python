@@ -25,24 +25,21 @@ async def main():
         pass_phrase=os.getenv("PASS_PHRASE"),
     )
 
-    async def register_device():
-        provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
-            provisioning_host=provisioning_host,
-            registration_id=registration_id,
-            id_scope=id_scope,
-            x509=x509,
-        )
+    provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
+        provisioning_host=provisioning_host,
+        registration_id=registration_id,
+        id_scope=id_scope,
+        x509=x509,
+    )
 
-        return await provisioning_device_client.register()
+    registration_result = await provisioning_device_client.register()
 
-    results = await asyncio.gather(register_device())
-    registration_result = results[0]
     print("The complete registration result is")
     print(registration_result.registration_state)
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
-        device_client = IoTHubDeviceClient.create_from_registration_result_and_x509(
+        device_client = IoTHubDeviceClient.create_from_registration_result(
             registration_result, x509
         )
 

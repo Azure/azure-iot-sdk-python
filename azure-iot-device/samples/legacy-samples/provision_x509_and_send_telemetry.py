@@ -35,7 +35,7 @@ print(registration_result)
 if registration_result.status == "assigned":
     print("Will send telemetry from the provisioned device")
     # Create device client from the above result
-    device_client = IoTHubDeviceClient.create_from_registration_result_and_x509(
+    device_client = IoTHubDeviceClient.create_from_registration_result(
         registration_result, x509=x509
     )
 

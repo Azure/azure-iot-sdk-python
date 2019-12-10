@@ -226,3 +226,8 @@ def edge_pipeline(mocker):
 @pytest.fixture
 def fake_twin():
     return {"fake_twin": True}
+
+
+@pytest.fixture
+def symmetric_key():
+    return "Zm9vYmFy"
