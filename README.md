@@ -1,8 +1,8 @@
 #
-
-![Azure IoT Hub Img][1]
-
-V2 - PREVIEW
+<div align=center>
+    ![Azure IoT Hub Img][1]
+    <h1> V2 - PREVIEW </h1>
+</div>
 
 ![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
 
