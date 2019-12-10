@@ -17,15 +17,16 @@ device_id_1 = os.getenv("PROVISIONING_DEVICE_ID_1")
 device_id_2 = os.getenv("PROVISIONING_DEVICE_ID_2")
 device_id_3 = os.getenv("PROVISIONING_DEVICE_ID_3")
 
-device_ids = [device_id_1, device_id_2, device_id_3]
+# For computation of device keys
+device_ids_to_keys = {}
 
 # Keep a dictionary for results
 results = {}
 
-# NOTE :
+# NOTE : Only for illustration purposes.
 # This is how a device key can be derived from the group symmetric key.
 # This is just a helper function to show how it is done.
-# Please don't directly store thee group key on the device.
+# Please don't directly store the group key on the device.
 # Follow the following method to compute the device key somewhere else.
 
 
@@ -43,23 +44,36 @@ def derive_device_key(device_id, group_symmetric_key):
     return device_key_encoded.decode("utf-8")
 
 
-def register_device(device_id, master_symmetric_key):
+# derived_device_key has been computed already using the helper function somewhere else
+# AND NOT on this sample. Do not use the direct master key on this sample to compute device key.
+derived_device_key_1 = "some_value_already_computed"
+derived_device_key_2 = "some_value_already_computed"
+derived_device_key_3 = "some_value_already_computed"
+
+
+device_ids_to_keys[device_id_1] = derived_device_key_1
+device_ids_to_keys[device_id_1] = derived_device_key_2
+device_ids_to_keys[device_id_1] = derived_device_key_3
+
+
+def register_device(registration_id):
+
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=provisioning_host,
-        registration_id=device_id,
+        registration_id=registration_id,
         id_scope=id_scope,
-        symmetric_key=derive_device_key(device_id, master_symmetric_key),
+        symmetric_key=device_ids_to_keys[registration_id],
     )
 
     return provisioning_device_client.register()
 
 
-for device_id in device_ids:
-    registration_result = register_device(device_id=device_id)
+for device_id in device_ids_to_keys:
+    registration_result = register_device(registration_id=device_id)
     results[device_id] = registration_result
 
 
-for device_id in device_ids:
+for device_id in device_ids_to_keys:
     # The result can be directly printed to view the important details.
     registration_result = results[device_id]
     print(registration_result)
