@@ -1,6 +1,6 @@
 #
 <div align=center>
-    ![Azure IoT Hub Img][1]
+    <img src="./azure-iot-device/doc/images/azure_iot_sdk_python_banner.png"></img>
     <h1> V2 - PREVIEW </h1>
 </div>
 
@@ -112,4 +112,3 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-[1]: ./azure-iot-device/doc/images/azure_iot_sdk_python_banner.png
