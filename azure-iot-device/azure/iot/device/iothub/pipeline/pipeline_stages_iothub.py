@@ -29,7 +29,7 @@ class UseAuthProviderStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
             self.auth_provider = op.auth_provider
             self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
@@ -59,7 +59,7 @@ class UseAuthProviderStage(PipelineStage):
             )
             self.send_op_down(worker_op)
         else:
-            self.send_op_down(op)
+            super(UseAuthProviderStage, self)._run_op(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def on_sas_token_updated(self):
@@ -100,7 +100,7 @@ class TwinRequestResponseStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         def map_twin_error(error, twin_op):
             if error:
                 return error
@@ -165,4 +165,4 @@ class TwinRequestResponseStage(PipelineStage):
             )
 
         else:
-            self.send_op_down(op)
+            super(TwinRequestResponseStage, self)._run_op(op)

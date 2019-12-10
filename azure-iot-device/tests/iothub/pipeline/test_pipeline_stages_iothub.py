@@ -55,7 +55,7 @@ fake_x509_cert_key_file = "where_to_find_them"
 fake_pass_phrase = "alohomora"
 
 
-pipeline_stage_test.add_base_pipeline_stage_tests(
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
     cls=pipeline_stages_iothub.UseAuthProviderStage,
     module=this_module,
     all_ops=all_common_ops + all_iothub_ops,
@@ -65,7 +65,6 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     ],
     all_events=all_common_events + all_iothub_events,
     handled_events=[],
-    methods_that_enter_pipeline_thread=["on_sas_token_updated"],
 )
 
 
@@ -155,7 +154,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
     @pytest.mark.it("Runs a SetIoTHubConnectionArgsOperation worker op on the next stage")
     def test_runs_set_auth_provider_args(self, mocker, stage, set_auth_provider):
         set_auth_provider.spawn_worker_op = mocker.MagicMock()
-        stage.next._execute_op = mocker.Mock()
+        stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider)
 
         assert set_auth_provider.spawn_worker_op.call_count == 1
@@ -171,9 +170,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
         "Sets the device_id, and hostname attributes on SetIoTHubConnectionArgsOperation based on the same-names auth_provider attributes"
     )
     def test_sets_required_attributes(self, mocker, stage, set_auth_provider):
-        stage.next._execute_op = mocker.Mock()
+        stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider)
-        set_args = stage.next._execute_op.call_args[0][0]
+        set_args = stage.next._run_op.call_args[0][0]
         assert set_args.device_id == fake_device_id
         assert set_args.hostname == fake_hostname
 
@@ -183,9 +182,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
     def test_defaults_optional_attributes_to_none(
         self, mocker, stage, set_auth_provider, params_auth_provider_ops
     ):
-        stage.next._execute_op = mocker.Mock()
+        stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider)
-        set_args = stage.next._execute_op.call_args[0][0]
+        set_args = stage.next._run_op.call_args[0][0]
         assert set_args.gateway_hostname is None
         assert set_args.ca_cert is None
         if params_auth_provider_ops["name"] == "x509_auth_module":
@@ -199,9 +198,9 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
     def test_sets_optional_attributes(
         self, mocker, stage, set_auth_provider_all_args, params_auth_provider_ops
     ):
-        stage.next._execute_op = mocker.Mock()
+        stage.next._run_op = mocker.Mock()
         stage.run_op(set_auth_provider_all_args)
-        set_args = stage.next._execute_op.call_args[0][0]
+        set_args = stage.next._run_op.call_args[0][0]
         assert set_args.module_id == fake_module_id
 
         if params_auth_provider_ops["name"] == "sas_token_auth":
@@ -223,7 +222,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
 
         stage.run_op(set_auth_provider)
         assert spy_method.call_count == 1
-        set_connection_args_op = stage.next._execute_op.call_args_list[0][0][0]
+        set_connection_args_op = stage.next._run_op.call_args_list[0][0][0]
 
         if params_auth_provider_ops["name"] == "sas_token_auth":
             assert set_connection_args_op.sas_token == fake_sas_token
@@ -239,7 +238,7 @@ class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
         if params_auth_provider_ops["name"] != "sas_token_auth":
             pytest.mark.skip()
         else:
-            stage.next._execute_op = mocker.Mock()
+            stage.next._run_op = mocker.Mock()
             stage.run_op(set_auth_provider_all_args)
             assert (
                 set_auth_provider_all_args.auth_provider.on_sas_token_updated_handler
@@ -299,7 +298,7 @@ class TestUseAuthProviderOnSasTokenUpdated(StageTestBase):
         assert e_info.value is arbitrary_base_exception
 
 
-pipeline_stage_test.add_base_pipeline_stage_tests(
+pipeline_stage_test.add_base_pipeline_stage_tests_old(
     cls=pipeline_stages_iothub.TwinRequestResponseStage,
     module=this_module,
     all_ops=all_common_ops + all_iothub_ops,
