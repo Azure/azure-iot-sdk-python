@@ -131,7 +131,6 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         stage.pipeline_root.pipeline_configuration.websockets = websockets
 
         assert stage.transport is None
-        assert not hasattr(stage.pipeline_root, "transport")
 
         stage.run_op(op)
 
@@ -145,7 +144,6 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             websockets=websockets,
         )
         assert stage.transport is mock_transport.return_value
-        assert stage.pipeline_root.transport is mock_transport.return_value
 
     @pytest.mark.it("Sets event handlers on the newly created MQTTTransport")
     def test_sets_transport_handlers(self, mocker, stage, op, mock_transport):
