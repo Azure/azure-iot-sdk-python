@@ -19,11 +19,6 @@ from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.auth import IoTEdgeError
-from azure.iot.device.common.models.x509 import X509
-from azure.iot.device.provisioning.models.registration_result import (
-    RegistrationResult,
-    RegistrationState,
-)
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
@@ -253,132 +248,6 @@ class SharedClientCreateFromConnectionStringTests(object):
     async def test_raises_value_error_on_bad_connection_string(self, client_class, bad_cs):
         with pytest.raises(ValueError):
             client_class.create_from_connection_string(bad_cs)
-
-
-class ConfigurationSharedClientCreateFromSharedAccessSignature(object):
-    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
-    async def test_pipeline_configuration_defaults(
-        self, mocker, mock_pipeline_init, client_class, sas_token_string
-    ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
-
-        mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
-            wraps=config.IoTHubPipelineConfig,
-        )
-
-        client_class.create_from_shared_access_signature(sas_token_string)
-
-        assert mock_config_init.call_count == 1
-        assert mock_config_init.call_args == mocker.call()
-        assert mock_pipeline_init.call_args[0][1].websockets is False
-        assert mock_pipeline_init.call_args[0][1].product_info == ""
-
-    @pytest.mark.it("Sets all valid configuration options to the user supplied values")
-    @pytest.mark.parametrize(
-        "websockets, product_info",
-        [
-            pytest.param((None, None), (None, None), id=" Setting to None"),
-            pytest.param(
-                (True, True),
-                ("__fake_product_info__", "__fake_product_info__"),
-                id=" Expected Values",
-            ),
-        ],
-    )
-    async def test_pipeline_configuration(
-        self, mocker, mock_pipeline_init, client_class, sas_token_string, websockets, product_info
-    ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
-
-        mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
-            wraps=config.IoTHubPipelineConfig,
-        )
-
-        kwargs = {"websockets": websockets[0], "product_info": product_info[0]}
-
-        client_class.create_from_shared_access_signature(sas_token_string, **kwargs)
-        assert mock_config_init.call_count == 1
-        assert mock_config_init.call_args == mocker.call(
-            websockets=websockets[0], product_info=product_info[0]
-        )
-        assert mock_pipeline_init.call_args[0][1].websockets == websockets[1]
-        assert mock_pipeline_init.call_args[0][1].product_info == product_info[1]
-
-    @pytest.mark.it("Throws if invalid configuration option is provided")
-    async def test_pipeline_configuration_fails_with_bad_option(
-        self, mocker, mock_pipeline_init, client_class, sas_token_string
-    ):
-        mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
-
-        kwargs = {"bad_option": "__fake_parameter__"}
-
-        with pytest.raises(TypeError):
-            client_class.create_from_shared_access_signature(sas_token_string, **kwargs)
-
-
-class SharedClientCreateFromSharedAccessSignature(object):
-    @pytest.mark.it("Uses the SAS token to create a SharedAccessSignatureAuthenticationProvider")
-    async def test_auth_provider_creation(self, mocker, client_class, sas_token_string):
-        mock_auth_parse = mocker.patch(
-            "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
-        ).parse
-
-        client_class.create_from_shared_access_signature(sas_token_string)
-
-        assert mock_auth_parse.call_count == 1
-        assert mock_auth_parse.call_args == mocker.call(sas_token_string)
-
-    @pytest.mark.it(
-        "Uses the SharedAccessSignatureAuthenticationProvider to create an IoTHubPipeline"
-    )
-    async def test_pipeline_creation(
-        self, mocker, client_class, sas_token_string, mock_pipeline_init
-    ):
-        mock_auth = mocker.patch(
-            "azure.iot.device.iothub.auth.SharedAccessSignatureAuthenticationProvider"
-        ).parse.return_value
-
-        mock_config = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig"
-        ).return_value
-
-        client_class.create_from_shared_access_signature(sas_token_string)
-
-        assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config)
-
-    @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
-    async def test_client_instantiation(self, mocker, client_class, sas_token_string):
-        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
-        spy_init = mocker.spy(client_class, "__init__")
-
-        client_class.create_from_shared_access_signature(sas_token_string)
-
-        assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
-
-    @pytest.mark.it("Returns the instantiated client")
-    async def test_returns_client(self, mocker, client_class, sas_token_string):
-        client = client_class.create_from_shared_access_signature(sas_token_string)
-        assert isinstance(client, client_class)
-
-    # TODO: If auth package was refactored to use SasToken class, tests from that
-    # class would increase the coverage here.
-    @pytest.mark.it("Raises ValueError when given an invalid SAS token")
-    @pytest.mark.parametrize(
-        "bad_sas",
-        [
-            pytest.param(object(), id="Non-string input"),
-            pytest.param(
-                "SharedAccessSignature sr=Invalid&sig=Invalid&se=Invalid", id="Malformed SAS token"
-            ),
-        ],
-    )
-    async def test_raises_value_error_on_bad_sas_token(self, client_class, bad_sas):
-        with pytest.raises(ValueError):
-            client_class.create_from_shared_access_signature(bad_sas)
 
 
 class SharedClientConnectTests(object):
@@ -1011,18 +880,6 @@ class IoTHubDeviceClientTestsConfig(object):
     def sas_token_string(self, device_sas_token_string):
         return device_sas_token_string
 
-    @pytest.fixture
-    def registration_result(self):
-        state = RegistrationState(
-            device_id="elder_wand", assigned_hub="DumbledoreArmy.azure-devices.net"
-        )
-        return RegistrationResult(
-            request_id="1414134",
-            operation_id="operation_34534",
-            status="assigning",
-            registration_state=state,
-        )
-
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - Instantiation")
 class TestIoTHubDeviceClientInstantiation(
@@ -1056,67 +913,17 @@ class TestIoTHubDeviceClientCreateFromConnectionString(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_shared_access_signature()")
-class TestIoTHubDeviceClientCreateFromSharedAccessSignature(
-    IoTHubDeviceClientTestsConfig,
-    SharedClientCreateFromSharedAccessSignature,
-    ConfigurationSharedClientCreateFromSharedAccessSignature,
-):
-    pass
-
-
-@pytest.mark.describe(
-    "IoTHubDeviceClient (Synchronous) - .create_from_registration_result() -- Error"
-)
-class TestIoTHubDeviceClientCreateFromRegistrationResultError(IoTHubDeviceClientTestsConfig):
-    @pytest.mark.it("Errors out if both x509 and symmetric key are passed as parameters")
-    async def test_error_for_both_x509_and_symmetric_key(
-        self, mocker, client_class, registration_result, symmetric_key, x509
-    ):
-        mock_sym_key_auth_init = mocker.patch(
-            "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
-        )
-        mock_x509_key_auth_init = mocker.patch(
-            "azure.iot.device.iothub.auth.X509AuthenticationProvider"
-        )
-        with pytest.raises(ValueError) as exc_info:
-            client_class.create_from_registration_result(
-                registration_result, symmetric_key=symmetric_key, x509=x509
-            )
-
-        assert "mutually exclusive" in str(exc_info.value)
-        assert mock_sym_key_auth_init.call_count == 0
-        assert mock_x509_key_auth_init.call_count == 0
-
-    @pytest.mark.it("Errors out if none of x509 and symmetric key are passed as parameters")
-    async def test_error_for_when_none_of_x509_and_symmetric_key(
-        self, mocker, client_class, registration_result
-    ):
-        mock_sym_key_auth_init = mocker.patch(
-            "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
-        )
-        mock_x509_key_auth_init = mocker.patch(
-            "azure.iot.device.iothub.auth.X509AuthenticationProvider"
-        )
-        with pytest.raises(ValueError) as exc_info:
-            client_class.create_from_registration_result(
-                registration_result, symmetric_key=None, x509=None
-            )
-
-        assert "One parameter out of X509 and Symmetric Key" in str(exc_info.value)
-        assert mock_sym_key_auth_init.call_count == 0
-        assert mock_x509_key_auth_init.call_count == 0
-
-
-@pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - .create_from_registration_result() -- Symmetric Key"
-)
-class TestConfigurationCreateIoTHubDeviceClientFromRegistrationResultAndSymmetricKey(
-    IoTHubDeviceClientTestsConfig
-):
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_symmetric_key()")
+class TestConfigurationCreateIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
     async def test_pipeline_configuration_defaults(
-        self, mocker, mock_pipeline_init, client_class, registration_result, symmetric_key
+        self,
+        mocker,
+        mock_pipeline_init,
+        client_class,
+        symmetric_key,
+        hostname_fixture,
+        device_id_fixture,
     ):
         mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
@@ -1125,8 +932,8 @@ class TestConfigurationCreateIoTHubDeviceClientFromRegistrationResultAndSymmetri
             wraps=config.IoTHubPipelineConfig,
         )
 
-        client_class.create_from_registration_result(
-            registration_result, symmetric_key=symmetric_key
+        client_class.create_from_symmetric_key(
+            symmetric_key=symmetric_key, hostname=hostname_fixture, device_id=device_id_fixture
         )
 
         assert mock_config_init.call_count == 1
@@ -1151,7 +958,8 @@ class TestConfigurationCreateIoTHubDeviceClientFromRegistrationResultAndSymmetri
         mocker,
         mock_pipeline_init,
         client_class,
-        registration_result,
+        hostname_fixture,
+        device_id_fixture,
         symmetric_key,
         x509,
         websockets,
@@ -1166,8 +974,11 @@ class TestConfigurationCreateIoTHubDeviceClientFromRegistrationResultAndSymmetri
 
         kwargs = {"websockets": websockets[0], "product_info": product_info[0]}
 
-        client_class.create_from_registration_result(
-            registration_result, symmetric_key=symmetric_key, **kwargs
+        client_class.create_from_symmetric_key(
+            symmetric_key=symmetric_key,
+            hostname=hostname_fixture,
+            device_id=device_id_fixture,
+            **kwargs
         )
         assert mock_config_init.call_count == 1
         assert mock_config_init.call_args == mocker.call(
@@ -1178,65 +989,66 @@ class TestConfigurationCreateIoTHubDeviceClientFromRegistrationResultAndSymmetri
 
     @pytest.mark.it("Throws if invalid configuration option is provided")
     async def test_pipeline_configuration_fails_with_bad_option(
-        self, mocker, mock_pipeline_init, client_class, registration_result, symmetric_key
+        self,
+        mocker,
+        mock_pipeline_init,
+        client_class,
+        symmetric_key,
+        hostname_fixture,
+        device_id_fixture,
     ):
         mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         kwargs = {"bad_option": "__fake_parameter__"}
 
         with pytest.raises(TypeError):
-            client_class.create_from_registration_result(
-                registration_result, symmetric_key=symmetric_key, **kwargs
+            client_class.create_from_symmetric_key(
+                symmetric_key=symmetric_key,
+                hostname=hostname_fixture,
+                device_id=device_id_fixture,
+                **kwargs
             )
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - .create_from_registration_result() -- Configuration -- Symmetric Key "
+    "IoTHubDeviceClient (Asynchronous) - .create_from_symmetric_key() -- Configuration"
 )
-class TestIoTHubDeviceClientFromRegistrationResultAndSymmetricKey(IoTHubDeviceClientTestsConfig):
+class TestIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it(
-        "Uses the registration result and CA certificate combination to create a SymmetricKeyAuthenticationProvider"
-    )
-    @pytest.mark.parametrize(
-        "ca_cert",
-        [
-            pytest.param(None, id=" No CA certificate"),
-            pytest.param("some-certificate", id=" With CA certificate"),
-        ],
+        "Uses the symmetrci key and CA certificate combination to create a SymmetricKeyAuthenticationProvider"
     )
     async def test_auth_provider_creation(
-        self, mocker, client_class, registration_result, symmetric_key, ca_cert
+        self, mocker, client_class, symmetric_key, hostname_fixture, device_id_fixture
     ):
         mock_auth_init = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         )
 
         kwargs = {}
-        if ca_cert:
-            kwargs["ca_cert"] = ca_cert
-        client_class.create_from_registration_result(
-            registration_result, symmetric_key=symmetric_key, **kwargs
+        client_class.create_from_symmetric_key(
+            symmetric_key=symmetric_key,
+            hostname=hostname_fixture,
+            device_id=device_id_fixture,
+            **kwargs
         )
 
         assert mock_auth_init.call_count == 1
         assert mock_auth_init.call_args == mocker.call(
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
+            hostname=hostname_fixture,
+            device_id=device_id_fixture,
             module_id=None,
             shared_access_key=symmetric_key,
         )
-        assert mock_auth_init.return_value.ca_cert is ca_cert
 
     @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline")
-    @pytest.mark.parametrize(
-        "ca_cert",
-        [
-            pytest.param(None, id=" No CA certificate"),
-            pytest.param("some-certificate", id=" With CA certificate"),
-        ],
-    )
     async def test_pipeline_creation(
-        self, mocker, client_class, registration_result, symmetric_key, ca_cert, mock_pipeline_init
+        self,
+        mocker,
+        client_class,
+        symmetric_key,
+        hostname_fixture,
+        device_id_fixture,
+        mock_pipeline_init,
     ):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
@@ -1246,184 +1058,31 @@ class TestIoTHubDeviceClientFromRegistrationResultAndSymmetricKey(IoTHubDeviceCl
             "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig"
         )
 
-        kwargs = {}
-        if ca_cert:
-            kwargs["ca_cert"] = ca_cert
-        client_class.create_from_registration_result(
-            registration_result, symmetric_key=symmetric_key, **kwargs
+        client_class.create_from_symmetric_key(
+            symmetric_key=symmetric_key, hostname=hostname_fixture, device_id=device_id_fixture
         )
 
         assert mock_pipeline_init.call_count == 1
         assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
 
     @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
-    @pytest.mark.parametrize(
-        "ca_cert",
-        [
-            pytest.param(None, id=" No CA certificate"),
-            pytest.param("some-certificate", id=" With CA certificate"),
-        ],
-    )
     async def test_client_instantiation(
-        self, mocker, client_class, registration_result, symmetric_key, ca_cert
+        self, mocker, client_class, symmetric_key, hostname_fixture, device_id_fixture
     ):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
         spy_init = mocker.spy(client_class, "__init__")
-        kwargs = {}
-        if ca_cert:
-            kwargs["ca_cert"] = ca_cert
-        client_class.create_from_registration_result(
-            registration_result, symmetric_key=symmetric_key, **kwargs
+        client_class.create_from_symmetric_key(
+            symmetric_key=symmetric_key, hostname=hostname_fixture, device_id=device_id_fixture
         )
         assert spy_init.call_count == 1
         assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
 
     @pytest.mark.it("Returns the instantiated client")
-    @pytest.mark.parametrize(
-        "ca_cert",
-        [
-            pytest.param(None, id=" No CA certificate"),
-            pytest.param("some-certificate", id=" With CA certificate"),
-        ],
-    )
-    async def test_returns_client(self, client_class, registration_result, symmetric_key, ca_cert):
-        kwargs = {}
-        if ca_cert:
-            kwargs["ca_cert"] = ca_cert
-        client = client_class.create_from_registration_result(
-            registration_result, symmetric_key=symmetric_key, **kwargs
-        )
-
-        assert isinstance(client, client_class)
-
-
-@pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - .create_from_registration_result() -- x509 Certificate"
-)
-class TestConfigurationCreateIoTHubDeviceClientFromRegistrationResultAndX509(
-    IoTHubDeviceClientTestsConfig
-):
-    @pytest.mark.it("Sets all configuration options to default when no user configuration provided")
-    async def test_pipeline_configuration_defaults(
-        self, mocker, mock_pipeline_init, client_class, registration_result, x509
+    async def test_returns_client(
+        self, client_class, symmetric_key, hostname_fixture, device_id_fixture
     ):
-        mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
-
-        mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
-            wraps=config.IoTHubPipelineConfig,
-        )
-
-        client_class.create_from_registration_result(registration_result, x509=x509)
-
-        assert mock_config_init.call_count == 1
-        assert mock_config_init.call_args == mocker.call()
-        assert mock_pipeline_init.call_args[0][1].websockets is False
-        assert mock_pipeline_init.call_args[0][1].product_info == ""
-
-    @pytest.mark.it("Sets all valid configuration options to the user supplied values")
-    @pytest.mark.parametrize(
-        "websockets, product_info",
-        [
-            pytest.param((None, None), (None, None), id=" Setting to None"),
-            pytest.param(
-                (True, True),
-                ("__fake_product_info__", "__fake_product_info__"),
-                id=" Expected Values",
-            ),
-        ],
-    )
-    async def test_pipeline_configuration(
-        self,
-        mocker,
-        mock_pipeline_init,
-        client_class,
-        registration_result,
-        x509,
-        websockets,
-        product_info,
-    ):
-        mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
-
-        mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig",
-            wraps=config.IoTHubPipelineConfig,
-        )
-
-        kwargs = {"websockets": websockets[0], "product_info": product_info[0]}
-
-        client_class.create_from_registration_result(registration_result, x509=x509, **kwargs)
-        assert mock_config_init.call_count == 1
-        assert mock_config_init.call_args == mocker.call(
-            websockets=websockets[0], product_info=product_info[0]
-        )
-        assert mock_pipeline_init.call_args[0][1].websockets == websockets[1]
-        assert mock_pipeline_init.call_args[0][1].product_info == product_info[1]
-
-    @pytest.mark.it("Throws if invalid configuration option is provided")
-    async def test_pipeline_configuration_fails_with_bad_option(
-        self, mocker, mock_pipeline_init, client_class, registration_result, x509
-    ):
-        mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
-
-        kwargs = {"bad_option": "__fake_parameter__"}
-
-        with pytest.raises(TypeError):
-            client_class.create_from_registration_result(registration_result, x509=x509, **kwargs)
-
-
-@pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - .create_from_registration_result() -- Configuration -- x509 Certificate"
-)
-class TestIoTHubDeviceClientFromRegistrationResultAndX509(IoTHubDeviceClientTestsConfig):
-    @pytest.mark.it(
-        "Uses the registration result and CA certificate combination to create a X509AuthenticationProvider"
-    )
-    async def test_auth_provider_creation(self, mocker, client_class, registration_result, x509):
-        mock_auth_init = mocker.patch("azure.iot.device.iothub.auth.X509AuthenticationProvider")
-
-        kwargs = {}
-        client_class.create_from_registration_result(registration_result, x509=x509, **kwargs)
-
-        assert mock_auth_init.call_count == 1
-        assert mock_auth_init.call_args == mocker.call(
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
-            x509=x509,
-        )
-
-    @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
-    async def test_pipeline_creation(
-        self, mocker, client_class, registration_result, x509, mock_pipeline_init
-    ):
-        mock_auth = mocker.patch(
-            "azure.iot.device.iothub.auth.X509AuthenticationProvider"
-        ).return_value
-
-        mock_config_init = mocker.patch(
-            "azure.iot.device.iothub.abstract_clients.IoTHubPipelineConfig"
-        )
-
-        kwargs = {}
-        client_class.create_from_registration_result(registration_result, x509=x509, **kwargs)
-
-        assert mock_pipeline_init.call_count == 1
-        assert mock_pipeline_init.call_args == mocker.call(mock_auth, mock_config_init.return_value)
-
-    @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
-    async def test_client_instantiation(self, mocker, client_class, registration_result, x509):
-        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
-        spy_init = mocker.spy(client_class, "__init__")
-        kwargs = {}
-        client_class.create_from_registration_result(registration_result, x509=x509, **kwargs)
-        assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
-
-    @pytest.mark.it("Returns the instantiated client")
-    async def test_returns_client(self, client_class, registration_result, x509):
-        kwargs = {}
-        client = client_class.create_from_registration_result(
-            registration_result, x509=x509, **kwargs
+        client = client_class.create_from_symmetric_key(
+            symmetric_key=symmetric_key, hostname=hostname_fixture, device_id=device_id_fixture
         )
 
         assert isinstance(client, client_class)
@@ -1720,15 +1379,6 @@ class TestIoTHubModuleClientInstantiation(
 class TestIoTHubModuleClientCreateFromConnectionString(
     IoTHubModuleClientTestsConfig,
     SharedClientCreateFromConnectionStringTests,
-    ConfigurationSharedClientCreateFromConnectionStringTests,
-):
-    pass
-
-
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_shared_access_signature()")
-class TestIoTHubModuleClientCreateFromSharedAccessSignature(
-    IoTHubModuleClientTestsConfig,
-    SharedClientCreateFromSharedAccessSignature,
     ConfigurationSharedClientCreateFromConnectionStringTests,
 ):
     pass

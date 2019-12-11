@@ -34,8 +34,10 @@ async def main():
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
-        device_client = IoTHubDeviceClient.create_from_registration_result(
-            registration_result, symmetric_key
+        device_client = IoTHubDeviceClient.create_from_symmetric_key(
+            symmetric_key=symmetric_key,
+            hostname=registration_result.registration_state.assigned_hub,
+            device_id=registration_result.registration_state.device_id,
         )
         # Connect the client.
         await device_client.connect()

@@ -228,6 +228,19 @@ def fake_twin():
     return {"fake_twin": True}
 
 
+"""----Shared symmetric key fixtures----"""
+
+
 @pytest.fixture
 def symmetric_key():
-    return "Zm9vYmFy"
+    return shared_access_key
+
+
+@pytest.fixture
+def hostname_fixture():
+    return hostname
+
+
+@pytest.fixture
+def device_id_fixture():
+    return device_id
