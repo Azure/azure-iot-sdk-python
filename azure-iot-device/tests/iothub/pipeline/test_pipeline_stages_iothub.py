@@ -38,6 +38,25 @@ fake_x509_cert_key_file = "where_to_find_them"
 fake_pass_phrase = "alohomora"
 
 
+###################
+# COMMON FIXTURES #
+###################
+
+
+@pytest.fixture(params=[True, False], ids=["With error", "No error"])
+def op_error(request, arbitrary_exception):
+    if request.param:
+        return arbitrary_exception
+    else:
+        return None
+
+
+@pytest.fixture
+def mock_handle_background_exception(mocker):
+    mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
+    return mock_handler
+
+
 ###########################
 # USE AUTH PROVIDER STAGE #
 ###########################
@@ -117,10 +136,10 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
 
     # NOTE: Because currently auth providers don't have a consistent attribute surface, only some
     # have the 'ca_cert' and 'gateway_hostname' attributes, so parametrize to show they default to
-    # None when non-existent. If authentication providers ever receive a uniform surface, this will
-    # no longer be required.
+    # None when non-existent. If authentication providers ever receive a uniform surface, this
+    # parametrization will no longer be required.
     @pytest.mark.it(
-        "Sends a new SetIoTHubConnectionArgsOperation worker op down the pipeline, containing connection info from the authentication provider"
+        "Sends a new SetIoTHubConnectionArgsOperation op down the pipeline, containing connection info from the authentication provider"
     )
     @pytest.mark.parametrize(
         "all_auth_args", [True, False], ids=["All authentication args", "Only guaranteed args"]
@@ -142,6 +161,7 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
         assert new_op.module_id == op.auth_provider.module_id
         assert new_op.hostname == op.auth_provider.hostname
         assert new_op.sas_token is op.auth_provider.get_current_sas_token.return_value
+        assert new_op.client_cert is None
         if all_auth_args:
             assert new_op.ca_cert == op.auth_provider.ca_cert
             assert new_op.gateway_hostname == op.auth_provider.gateway_hostname
@@ -149,262 +169,351 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
             assert new_op.ca_cert is None
             assert new_op.gateway_hostname is None
 
-        # The operation is a worker op (i.e. it completes the original operation when completed)
+    @pytest.mark.it(
+        "Completes the original operation upon completion of the SetIoTHubConnectionArgsOperation"
+    )
+    def test_complete_worker(self, op, stage, op_error):
+        # Run original op
+        stage.run_op(op)
         assert not op.completed
-        new_op.complete()  # TODO: error vs no error
+
+        # A SetIoTHubConnectionArgsOperation op has been sent down the pipeline
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation)
+        assert not new_op.completed
+
+        # Complete the new op
+        new_op.complete(error=op_error)
+
+        # Both ops are now completed
+        assert new_op.completed
+        assert new_op.error is op_error
         assert op.completed
+        assert op.error is op_error
 
 
-# @pytest.mark.describe("UseAuthProviderStage - .run_op() -- Called with SetX509AuthProviderOperation")
-# class TestUseAuthProviderStageRunOpWithSetX509AuthProviderOperation(StageRunOpTestBase):
-#     pass
+@pytest.mark.describe(
+    "UseAuthProviderStage - .run_op() -- Called with SetX509AuthProviderOperation"
+)
+class TestUseAuthProviderStageRunOpWithSetX509AuthProviderOperation(
+    StageRunOpTestBase, UseAuthProviderStageTestConfig
+):
+    # Auth Providers are configured with different values depending on if the higher level client
+    # is a Device or Module. Parametrize with both possibilities.
+    # TODO: Eventually would be ideal to test using real auth provider instead of the fake one
+    # This probably should just wait until auth provider refactor for ease though.
+    @pytest.fixture(params=["Device", "Module"])
+    def fake_auth_provider(self, request, mocker):
+        class FakeAuthProvider(AuthenticationProvider):
+            pass
 
-# @pytest.mark.describe("UseAuthProviderStage - .run_op() -- Called with arbitrary other operation")
-# class TestUseAuthProviderStageRunOpWithAribitraryOperation(StageRunOpTestBase):
-#     pass
+        if request.param == "Device":
+            fake_auth_provider = FakeAuthProvider(hostname=fake_hostname, device_id=fake_device_id)
+        else:
+            fake_auth_provider = FakeAuthProvider(
+                hostname=fake_hostname, device_id=fake_device_id, module_id=fake_module_id
+            )
+        fake_auth_provider.get_x509_certificate = mocker.MagicMock()
+        return fake_auth_provider
 
+    @pytest.fixture
+    def op(self, mocker, fake_auth_provider):
+        return pipeline_ops_iothub.SetX509AuthProviderOperation(
+            auth_provider=fake_auth_provider, callback=mocker.MagicMock()
+        )
 
-# pipeline_stage_test.add_base_pipeline_stage_tests_old(
-#     cls=pipeline_stages_iothub.UseAuthProviderStage,
-#     module=this_module,
-#     all_ops=all_common_ops + all_iothub_ops,
-#     handled_ops=[
-#         pipeline_ops_iothub.SetAuthProviderOperation,
-#         pipeline_ops_iothub.SetX509AuthProviderOperation,
-#     ],
-#     all_events=all_common_events + all_iothub_events,
-#     handled_events=[],
-# )
+    @pytest.mark.it(
+        "Sets the operation's authentication provider on the stage as the 'auth_provider' attribute"
+    )
+    def test_set_auth_provider(self, op, stage):
+        assert stage.auth_provider is None
 
+        stage.run_op(op)
 
-# def make_mock_sas_token_auth_provider():
-#     class MockAuthProvider(object):
-#         def get_current_sas_token(self):
-#             return fake_sas_token
+        assert stage.auth_provider is op.auth_provider
 
-#     auth_provider = MockAuthProvider()
-#     auth_provider.device_id = fake_device_id
-#     auth_provider.hostname = fake_hostname
-#     return auth_provider
+    # NOTE: Because currently auth providers don't have a consistent attribute surface, only some
+    # have the 'ca_cert' and 'gateway_hostname' attributes, so parametrize to show they default to
+    # None when non-existent. If authentication providers ever receive a uniform surface, this
+    # parametrization will no longer be required.
+    @pytest.mark.it(
+        "Sends a new SetIoTHubConnectionArgsOperation op down the pipeline, containing connection info from the authentication provider"
+    )
+    @pytest.mark.parametrize(
+        "all_auth_args", [True, False], ids=["All authentication args", "Only guaranteed args"]
+    )
+    def test_send_new_op_down(self, mocker, op, stage, all_auth_args):
+        if all_auth_args:
+            op.auth_provider.ca_cert = fake_ca_cert
+            op.auth_provider.gateway_hostname = fake_gateway_hostname
 
+        stage.run_op(op)
 
-# def make_x509_auth_provider_device():
-#     mock_x509 = X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
-#     return X509AuthenticationProvider(
-#         hostname=fake_hostname, device_id=fake_device_id, x509=mock_x509
-#     )
+        # A SetIoTHubConnectionArgsOperation op has been sent down the pipeline
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation)
 
+        # The IoTHubConnectionArgsOperation has details from the auth provider
+        assert new_op.device_id == op.auth_provider.device_id
+        assert new_op.module_id == op.auth_provider.module_id
+        assert new_op.hostname == op.auth_provider.hostname
+        assert new_op.client_cert is op.auth_provider.get_x509_certificate.return_value
+        assert new_op.sas_token is None
+        if all_auth_args:
+            assert new_op.ca_cert == op.auth_provider.ca_cert
+            assert new_op.gateway_hostname == op.auth_provider.gateway_hostname
+        else:
+            assert new_op.ca_cert is None
+            assert new_op.gateway_hostname is None
 
-# def make_x509_auth_provider_module():
-#     mock_x509 = X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
-#     return X509AuthenticationProvider(
-#         x509=mock_x509, hostname=fake_hostname, device_id=fake_device_id, module_id=fake_module_id
-#     )
+    @pytest.mark.it(
+        "Completes the original operation upon completion of the SetIoTHubConnectionArgsOperation"
+    )
+    def test_complete_worker(self, op, stage, op_error):
+        # Run original op
+        stage.run_op(op)
+        assert not op.completed
 
+        # A SetIoTHubConnectionArgsOperation op has been sent down the pipeline
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation)
+        assert not new_op.completed
 
-# different_auth_provider_ops = [
-#     {
-#         "name": "sas_token_auth",
-#         "current_op_class": pipeline_ops_iothub.SetAuthProviderOperation,
-#         "auth_provider_function_name": make_mock_sas_token_auth_provider,
-#     },
-#     {
-#         "name": "x509_auth_device",
-#         "current_op_class": pipeline_ops_iothub.SetX509AuthProviderOperation,
-#         "auth_provider_function_name": make_x509_auth_provider_device,
-#     },
-#     {
-#         "name": "x509_auth_module",
-#         "current_op_class": pipeline_ops_iothub.SetX509AuthProviderOperation,
-#         "auth_provider_function_name": make_x509_auth_provider_module,
-#     },
-# ]
+        # Complete the new op
+        new_op.complete(error=op_error)
 
-
-# @pytest.mark.parametrize(
-#     "params_auth_provider_ops",
-#     different_auth_provider_ops,
-#     ids=[x["current_op_class"].__name__ for x in different_auth_provider_ops],
-# )
-# @pytest.mark.describe("UseAuthProvider - .run_op() -- called with SetAuthProviderOperation")
-# class TestUseAuthProviderRunOpWithSetAuthProviderOperation(StageTestBase):
-#     @pytest.fixture
-#     def stage(self, mocker):
-#         stage = pipeline_stages_iothub.UseAuthProviderStage()
-#         mocker.spy(stage, "send_op_down")
-#         return stage
-
-#     @pytest.fixture
-#     def set_auth_provider(self, params_auth_provider_ops, mocker):
-#         op = params_auth_provider_ops["current_op_class"](
-#             auth_provider=params_auth_provider_ops["auth_provider_function_name"](),
-#             callback=mocker.MagicMock(),
-#         )
-#         mocker.spy(op, "complete")
-#         mocker.spy(op, "spawn_worker_op")
-#         return op
-
-#     @pytest.fixture
-#     def set_auth_provider_all_args(self, params_auth_provider_ops, mocker):
-#         auth_provider = params_auth_provider_ops["auth_provider_function_name"]()
-#         auth_provider.module_id = fake_module_id
-
-#         if not isinstance(auth_provider, X509AuthenticationProvider):
-#             auth_provider.ca_cert = fake_ca_cert
-#             auth_provider.gateway_hostname = fake_gateway_hostname
-#             auth_provider.sas_token = fake_sas_token
-#         op = params_auth_provider_ops["current_op_class"](
-#             auth_provider=auth_provider, callback=mocker.MagicMock()
-#         )
-#         mocker.spy(op, "complete")
-#         mocker.spy(op, "spawn_worker_op")
-#         return op
-
-#     @pytest.mark.it("Runs a SetIoTHubConnectionArgsOperation worker op on the next stage")
-#     def test_runs_set_auth_provider_args(self, mocker, stage, set_auth_provider):
-#         set_auth_provider.spawn_worker_op = mocker.MagicMock()
-#         stage.next._run_op = mocker.Mock()
-#         stage.run_op(set_auth_provider)
-
-#         assert set_auth_provider.spawn_worker_op.call_count == 1
-#         assert (
-#             set_auth_provider.spawn_worker_op.call_args[1]["worker_op_type"]
-#             is pipeline_ops_iothub.SetIoTHubConnectionArgsOperation
-#         )
-#         worker = set_auth_provider.spawn_worker_op.return_value
-#         assert stage.send_op_down.call_count == 1
-#         assert stage.send_op_down.call_args == mocker.call(worker)
-
-#     @pytest.mark.it(
-#         "Sets the device_id, and hostname attributes on SetIoTHubConnectionArgsOperation based on the same-names auth_provider attributes"
-#     )
-#     def test_sets_required_attributes(self, mocker, stage, set_auth_provider):
-#         stage.next._run_op = mocker.Mock()
-#         stage.run_op(set_auth_provider)
-#         set_args = stage.next._run_op.call_args[0][0]
-#         assert set_args.device_id == fake_device_id
-#         assert set_args.hostname == fake_hostname
-
-#     @pytest.mark.it(
-#         "Sets the gateway_hostname, ca_cert, and module_id attributes to None if they don't exist on the auth_provider object"
-#     )
-#     def test_defaults_optional_attributes_to_none(
-#         self, mocker, stage, set_auth_provider, params_auth_provider_ops
-#     ):
-#         stage.next._run_op = mocker.Mock()
-#         stage.run_op(set_auth_provider)
-#         set_args = stage.next._run_op.call_args[0][0]
-#         assert set_args.gateway_hostname is None
-#         assert set_args.ca_cert is None
-#         if params_auth_provider_ops["name"] == "x509_auth_module":
-#             assert set_args.module_id is not None
-#         else:
-#             assert set_args.module_id is None
-
-#     @pytest.mark.it(
-#         "Sets the module_id, gateway_hostname, sas_token, and ca_cert attributes on SetIoTHubConnectionArgsOperation if they exist on the auth_provider object"
-#     )
-#     def test_sets_optional_attributes(
-#         self, mocker, stage, set_auth_provider_all_args, params_auth_provider_ops
-#     ):
-#         stage.next._run_op = mocker.Mock()
-#         stage.run_op(set_auth_provider_all_args)
-#         set_args = stage.next._run_op.call_args[0][0]
-#         assert set_args.module_id == fake_module_id
-
-#         if params_auth_provider_ops["name"] == "sas_token_auth":
-#             assert set_args.gateway_hostname == fake_gateway_hostname
-#             assert set_args.ca_cert == fake_ca_cert
-#             assert set_args.sas_token == fake_sas_token
-
-#     @pytest.mark.it(
-#         "Retrieves sas_token or x509_certificate on the auth provider and passes the result as the attribute of the next operation"
-#     )
-#     def test_calls_get_current_sas_token_or_get_x509_certificate(
-#         self, mocker, stage, set_auth_provider, params_auth_provider_ops
-#     ):
-
-#         if params_auth_provider_ops["name"] == "sas_token_auth":
-#             spy_method = mocker.spy(set_auth_provider.auth_provider, "get_current_sas_token")
-#         elif "x509_auth" in params_auth_provider_ops["name"]:
-#             spy_method = mocker.spy(set_auth_provider.auth_provider, "get_x509_certificate")
-
-#         stage.run_op(set_auth_provider)
-#         assert spy_method.call_count == 1
-#         set_connection_args_op = stage.next._run_op.call_args_list[0][0][0]
-
-#         if params_auth_provider_ops["name"] == "sas_token_auth":
-#             assert set_connection_args_op.sas_token == fake_sas_token
-#         elif "x509_auth" in params_auth_provider_ops["name"]:
-#             assert set_connection_args_op.client_cert.certificate_file == fake_x509_cert_file
-#             assert set_connection_args_op.client_cert.key_file == fake_x509_cert_key_file
-#             assert set_connection_args_op.client_cert.pass_phrase == fake_pass_phrase
-
-#     @pytest.mark.it("Sets the on_sas_token_updated_handler handler")
-#     def test_sets_sas_token_updated_handler(
-#         self, mocker, stage, set_auth_provider_all_args, params_auth_provider_ops
-#     ):
-#         if params_auth_provider_ops["name"] != "sas_token_auth":
-#             pytest.mark.skip()
-#         else:
-#             stage.next._run_op = mocker.Mock()
-#             stage.run_op(set_auth_provider_all_args)
-#             assert (
-#                 set_auth_provider_all_args.auth_provider.on_sas_token_updated_handler
-#                 == stage.on_sas_token_updated
-#             )
+        # Both ops are now completed
+        assert new_op.completed
+        assert new_op.error is op_error
+        assert op.completed
+        assert op.error is op_error
 
 
-# @pytest.mark.describe("UseAuthProvider - .on_sas_token_updated()")
-# class TestUseAuthProviderOnSasTokenUpdated(StageTestBase):
-#     @pytest.fixture
-#     def stage(self, mocker):
-#         stage = pipeline_stages_iothub.UseAuthProviderStage()
+@pytest.mark.describe("UseAuthProviderStage - .run_op() -- Called with arbitrary other operation")
+class TestUseAuthProviderStageRunOpWithAribitraryOperation(
+    StageRunOpTestBase, UseAuthProviderStageTestConfig
+):
+    @pytest.fixture
+    def op(self, arbitrary_op):
+        return arbitrary_op
 
-#         auth_provider = mocker.MagicMock()
-#         auth_provider.get_current_sas_token = mocker.MagicMock(return_value=fake_sas_token)
-#         stage.auth_provider = auth_provider
-#         return stage
+    @pytest.mark.it("Sends the operation down the pipeline")
+    def test_sends_down(self, mocker, stage, op):
+        stage.run_op(op)
 
-#     @pytest.mark.it("Runs as a non-blocking function on the pipeline thread")
-#     def test_runs_non_blocking(self, stage):
-#         threading.current_thread().name = "not_pipeline"
-#         return_value = stage.on_sas_token_updated()
-#         assert isinstance(return_value, Future)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+        assert not op.completed
 
-#     @pytest.mark.it(
-#         "Runs a UpdateSasTokenOperation on the next stage with the sas token from self.auth_provider"
-#     )
-#     def test_update_sas_token_operation(self, stage):
-#         stage.on_sas_token_updated()
-#         assert stage.next.run_op.call_count == 1
-#         assert isinstance(
-#             stage.next.run_op.call_args[0][0], pipeline_ops_base.UpdateSasTokenOperation
-#         )
 
-#     @pytest.mark.it(
-#         "Handles any Exceptions raised by the UpdateSasTokenOperation and passes them into the unhandled exception handler"
-#     )
-#     def test_raises_exception(self, stage, mocker, unhandled_error_handler, arbitrary_exception):
-#         threading.current_thread().name = "not_pipeline"
+@pytest.mark.describe("UseAuthProviderStage - EVENT: SAS Authentication Provider updates SAS token")
+class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProviderStageTestConfig):
+    # Auth Providers are configured with different values depending on if the higher level client
+    # is a Device or Module. Parametrize with both possibilities.
+    # TODO: Eventually would be ideal to test using real auth provider instead of the fake one
+    # This probably should just wait until auth provider refactor for ease though.
+    @pytest.fixture(params=["Device", "Module"])
+    def fake_auth_provider(self, request, mocker):
+        class FakeAuthProvider(AuthenticationProvider):
+            pass
 
-#         stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_exception)
-#         future = stage.on_sas_token_updated()
-#         future.result()
+        if request.param == "Device":
+            fake_auth_provider = FakeAuthProvider(hostname=fake_hostname, device_id=fake_device_id)
+        else:
+            fake_auth_provider = FakeAuthProvider(
+                hostname=fake_hostname, device_id=fake_device_id, module_id=fake_module_id
+            )
+        fake_auth_provider.get_current_sas_token = mocker.MagicMock()
+        return fake_auth_provider
 
-#         assert unhandled_error_handler.call_count == 1
-#         assert unhandled_error_handler.call_args[0][0] is arbitrary_exception
+    @pytest.fixture
+    def stage(self, mocker, init_kwargs, fake_auth_provider):
+        stage = pipeline_stages_iothub.UseAuthProviderStage(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
 
-#     @pytest.mark.it("Allows any BaseExceptions raised by the UpdateSasTokenOperation to propagate")
-#     def test_raises_base_exception(self, mocker, stage, arbitrary_base_exception):
-#         threading.current_thread().name = "not_pipeline"
+        # Attach an auth provider
+        set_auth_op = pipeline_ops_iothub.SetAuthProviderOperation(
+            auth_provider=fake_auth_provider, callback=mocker.MagicMock()
+        )
+        stage.run_op(set_auth_op)
+        assert stage.auth_provider is fake_auth_provider
+        stage.send_op_down.reset_mock()
+        stage.send_event_up.reset_mock()
+        return stage
 
-#         stage.next.run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
-#         future = stage.on_sas_token_updated()
+    @pytest.mark.it("Sends an UpdateSasTokenOperation with the new SAS token down the pipeline")
+    def test_generates_new_token(self, mocker, stage):
+        stage.auth_provider.on_sas_token_updated_handler()
 
-#         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-#             future.result()
-#         assert e_info.value is arbitrary_base_exception
+        assert stage.send_op_down.call_count == 1
+        op = stage.send_op_down.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.UpdateSasTokenOperation)
+        assert op.sas_token is stage.auth_provider.get_current_sas_token.return_value
+
+    @pytest.mark.it(
+        "Sends the error to the background exception handler, if the UpdateSasTokenOperation is completed with error"
+    )
+    def test_update_fails(
+        self, mocker, stage, arbitrary_exception, mock_handle_background_exception
+    ):
+        stage.auth_provider.on_sas_token_updated_handler()
+
+        assert stage.send_op_down.call_count == 1
+        op = stage.send_op_down.call_args[0][0]
+
+        assert mock_handle_background_exception.call_count == 0
+
+        op.complete(error=arbitrary_exception)
+        assert mock_handle_background_exception.call_count == 1
+        assert mock_handle_background_exception.call_args == mocker.call(arbitrary_exception)
+
+
+###############################
+# TWIN REQUEST RESPONSE STAGE #
+###############################
+
+
+class TwinRequestResponseStageTestConfig(object):
+    @pytest.fixture
+    def cls_type(self):
+        return pipeline_stages_iothub.TwinRequestResponseStage
+
+    @pytest.fixture
+    def init_kwargs(self):
+        return {}
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    test_module=this_module,
+    stage_class_under_test=pipeline_stages_iothub.TwinRequestResponseStage,
+    stage_test_config_class=TwinRequestResponseStageTestConfig,
+)
+
+
+@pytest.mark.describe("TwinRequestResponseStage - .run_op() -- Called with GetTwinOperation")
+class TestTwinRequestResponseStageRunOpWithGetTwinOperation(
+    StageRunOpTestBase, TwinRequestResponseStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_iothub.GetTwinOperation(callback=mocker.MagicMock())
+
+    @pytest.mark.it(
+        "Sends a new RequestAndResponseOperation down the pipeline, configured to request a twin"
+    )
+    def test_request_and_response_op(self, mocker, stage, op):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
+        assert new_op.request_type == "twin"
+        assert new_op.method == "GET"
+        assert new_op.resource_location == "/"
+        assert new_op.request_body == " "
+
+
+@pytest.mark.describe(
+    "TwinRequestResponseStage - .run_op() -- Called with PatchTwinReportedPropertiesOperation"
+)
+class TestTwinRequestResponseStageRunOpWithPatchTwinReportedPropertiesOperation(
+    StageRunOpTestBase, TwinRequestResponseStageTestConfig
+):
+    # CT-TODO: parametrize this with realistic json objects
+    @pytest.fixture
+    def json_patch(self):
+        return {"json_key": "json_val"}
+
+    @pytest.fixture
+    def op(self, mocker, json_patch):
+        return pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
+            patch=json_patch, callback=mocker.MagicMock()
+        )
+
+    @pytest.mark.it(
+        "Sends a new RequestAndResponseOperation down the pipeline, configured to send a twin reported properties patch, with the patch serialized as a JSON string"
+    )
+    def test_request_and_response_op(self, mocker, stage, op):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
+        assert new_op.request_type == "twin"
+        assert new_op.method == "PATCH"
+        assert new_op.resource_location == "/properties/reported/"
+        assert new_op.request_body == json.dumps(op.patch)
+
+
+@pytest.mark.describe(
+    "TwinRequestResponseStage - .run_op() -- Called with other arbitrary operation"
+)
+class TestTwinRequestResponseStageRunOpWithArbitraryOperation(
+    StageRunOpTestBase, TwinRequestResponseStageTestConfig
+):
+    @pytest.fixture
+    def op(self, arbitrary_op):
+        return arbitrary_op
+
+    @pytest.mark.it("Sends the operation down the pipeline")
+    def test_sends_op_down(self, mocker, stage, op):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+
+@pytest.mark.describe(
+    "TwinRequestResponseStage - EVENT: RequestAndResponseOperation created from GetTwinOperation is completed"
+)
+class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperationCompleted(
+    TwinRequestResponseStageTestConfig
+):
+    # 200s - Successful, 300s - Redirect, 400s - Service error, 500s - Server error
+    status_codes = [200, 300, 400, 500]
+
+    @pytest.fixture
+    def get_twin_op(self, mocker):
+        return pipeline_ops_iothub.GetTwinOperation(callback=mocker.MagicMock())
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, get_twin_op):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+
+        # Run the GetTwinOperation
+        stage.run_op(get_twin_op)
+
+        return stage
+
+    @pytest.fixture
+    def request_and_response_op(self, stage):
+        assert stage.send_op_down.call_count == 1
+        op = stage.send_op_down.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.RequestAndResponseOperation)
+
+        # reset the stage mock for convenience
+        stage.send_op_down.reset_mock()
+
+        return op
+
+    @pytest.mark.it(
+        "Completes the GetTwinOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
+    )
+    def test_request_and_response_op_completed_with_err(self, stage, request_and_response_op):
+        pass
 
 
 # pipeline_stage_test.add_base_pipeline_stage_tests_old(
