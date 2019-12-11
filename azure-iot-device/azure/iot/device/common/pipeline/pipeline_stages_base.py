@@ -12,7 +12,7 @@ import time
 import uuid
 import weakref
 from six.moves import queue
-from threading import Timer
+import threading
 from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
@@ -86,7 +86,7 @@ class PipelineStage(object):
     def run_op(self, op):
         """
         Run the given operation.  This is the public function that outside callers would call to run an
-        operation.  Derived classes should override the private _execute_op function to implement
+        operation.  Derived classes should override the private _run_op function to implement
         stage-specific behavior.  When run_op returns, that doesn't mean that the operation has executed
         to completion.  Rather, it means that the pipeline has done something that will cause the
         operation to eventually execute to completion.  That might mean that something was sent over
@@ -99,26 +99,25 @@ class PipelineStage(object):
         """
         logger.debug("{}({}): running".format(self.name, op.name))
         try:
-            self._execute_op(op)
+            self._run_op(op)
         except Exception as e:
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
-            # within ._execute_op()
-            logger.error(msg="Unexpected error in {}._execute_op() call".format(self), exc_info=e)
+            # within ._run_op()
+            logger.error(msg="Unexpected error in {}._run_op() call".format(self), exc_info=e)
             op.complete(error=e)
 
-    @abc.abstractmethod
-    def _execute_op(self, op):
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
         """
-        Abstract method to run the actual operation.  This function is implemented in derived classes
-        and performs the actual work that any operation expects.  The default behavior for this function
-        should be to forward the event to the next stage using send_op_down for any
-        operations that a particular stage might not operate on.
+        Implementation of the stage-specific function of .run_op(). Override this method instead of
+        .run_op() in child classes in order to change how a stage behaves when running an operation.
 
-        See the description of the run_op method for more discussion on what it means to "run" an operation.
+        See the description of the .run_op() method for more discussion on what it means to "run"
+        an operation.
 
         :param PipelineOperation op: The operation to run.
         """
-        pass
+        self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def handle_pipeline_event(self, event):
@@ -148,22 +147,6 @@ class PipelineStage(object):
         :param PipelineEvent event: The event that is being passed back up the pipeline
         """
         self.send_event_up(event)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        """
-        Called by lower layers when the protocol client connects
-        """
-        if self.previous:
-            self.previous.on_connected()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        """
-        Called by lower layers when the protocol client disconnects
-        """
-        if self.previous:
-            self.previous.on_disconnected()
 
     @pipeline_thread.runs_on_pipeline_thread
     def send_op_down(self, op):
@@ -239,31 +222,21 @@ class PipelineRootStage(PipelineStage):
         )
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
-        """
-        run the operation.  At the root, the only thing to do is to pass the operation
-        to the next stage.
-
-        :param PipelineOperation op: Operation to run.
-        """
-        self.send_op_down(op)
-
-    def append_stage(self, new_next_stage):
+    def append_stage(self, new_stage):
         """
         Add the next stage to the end of the pipeline.  This is the function that callers
         use to build the pipeline by appending stages.  This function returns the root of
         the pipeline so that calls to this function can be chained together.
 
-        :param PipelineStage new_next_stage: Stage to add to the end of the pipeline
+        :param PipelineStage new_stage: Stage to add to the end of the pipeline
         :returns: The root of the pipeline.
         """
         old_tail = self
         while old_tail.next:
             old_tail = old_tail.next
-        old_tail.next = new_next_stage
-        new_next_stage.previous = old_tail
-        new_next_stage.pipeline_root = self
+        old_tail.next = new_stage
+        new_stage.previous = old_tail
+        new_stage.pipeline_root = self
         return self
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -276,32 +249,29 @@ class PipelineRootStage(PipelineStage):
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
-        if self.on_pipeline_event_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(event)
+        if isinstance(event, pipeline_events_base.ConnectedEvent):
+            logger.debug(
+                "{}: ConnectedEvent received. Calling on_connected_handler".format(self.name)
+            )
+            self.connected = True
+            if self.on_connected_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
+
+        elif isinstance(event, pipeline_events_base.DisconnectedEvent):
+            logger.debug(
+                "{}: DisconnectedEvent received. Calling on_disconnected_handler".format(self.name)
+            )
+            self.connected = False
+            if self.on_disconnected_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+
         else:
-            logger.warning("incoming pipeline event with no handler.  dropping.")
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        logger.debug(
-            "{}: on_connected.  on_connected_handler={}".format(
-                self.name, self.on_connected_handler
-            )
-        )
-        self.connected = True
-        if self.on_connected_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        logger.debug(
-            "{}: on_disconnected.  on_disconnected_handler={}".format(
-                self.name, self.on_disconnected_handler
-            )
-        )
-        self.connected = False
-        if self.on_disconnected_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+            if self.on_pipeline_event_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(
+                    event
+                )
+            else:
+                logger.warning("incoming pipeline event with no handler.  dropping.")
 
 
 class AutoConnectStage(PipelineStage):
@@ -311,7 +281,7 @@ class AutoConnectStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         # Any operation that requires a connection can trigger a connection if
         # we're not connected.
         if op.needs_connection and not self.pipeline_root.connected:
@@ -374,7 +344,8 @@ class ConnectionLockStage(PipelineStage):
         self.blocked = False
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
+
         # If this stage is currently blocked (because we're waiting for a connection, etc,
         # to complete), we queue up all operations until after the connect completes.
         if self.blocked:
@@ -386,7 +357,9 @@ class ConnectionLockStage(PipelineStage):
             self.queue.put_nowait(op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
-            logger.info("{}({}): Transport is connected.  Completing.".format(self.name, op.name))
+            logger.info(
+                "{}({}): Transport is already connected.  Completing.".format(self.name, op.name)
+            )
             op.complete()
 
         elif (
@@ -394,7 +367,7 @@ class ConnectionLockStage(PipelineStage):
             and not self.pipeline_root.connected
         ):
             logger.info(
-                "{}({}): Transport is disconnected.  Completing.".format(self.name, op.name)
+                "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
             )
             op.complete()
 
@@ -419,11 +392,7 @@ class ConnectionLockStage(PipelineStage):
                     )
 
                 self._unblock(op, error)
-                logger.debug(
-                    "{}({}): unblock is complete.  completing op that caused unblock".format(
-                        self.name, op.name
-                    )
-                )
+                logger.debug("{}({}): unblock is complete".format(self.name, op.name))
 
             op.add_callback(on_operation_complete)
             self.send_op_down(op)
@@ -470,7 +439,7 @@ class ConnectionLockStage(PipelineStage):
                 logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
-                # call run_op directly here so operations go through this stage again (especiall connect/disconnect ops)
+                # call run_op directly here so operations go through this stage again (especially connect/disconnect ops)
                 self.run_op(op_to_release)
 
 
@@ -486,7 +455,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         self.pending_responses = {}
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.RequestAndResponseOperation):
             # Convert RequestAndResponseOperation operation into a RequestOperation operation
             # and send it down.  A lower level will convert the RequestOperation into an
@@ -624,7 +593,7 @@ class OpTimeoutStage(PipelineStage):
         }
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if type(op) in self.timeout_intervals:
             # Create a timer to watch for operation timeout on this op and attach it
             # to the op.
@@ -641,7 +610,7 @@ class OpTimeoutStage(PipelineStage):
                 )
 
             logger.debug("{}({}): Creating timer".format(self.name, op.name))
-            op.timeout_timer = Timer(self.timeout_intervals[type(op)], on_timeout)
+            op.timeout_timer = threading.Timer(self.timeout_intervals[type(op)], on_timeout)
             op.timeout_timer.start()
 
             # Send the op down, but intercept the return of the op so we can
@@ -684,13 +653,15 @@ class RetryStage(PipelineStage):
         self.ops_waiting_to_retry = []
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         """
         Send all ops down and intercept their return to "watch for retry"
         """
         if self._should_watch_for_retry(op):
             op.add_callback(self._do_retry_if_necessary)
-        self.send_op_down(op)
+            self.send_op_down(op)
+        else:
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _should_watch_for_retry(self, op):
@@ -733,9 +704,9 @@ class RetryStage(PipelineStage):
                 op.retry_timer.cancel()
                 op.retry_timer = None
                 this.ops_waiting_to_retry.remove(op)
-                # Don't just send it down directly.  Instead, go through _execute_op so we get
+                # Don't just send it down directly.  Instead, go through run_op so we get
                 # retry functionality this time too
-                this._execute_op(op)
+                this.run_op(op)
 
             interval = self.retry_intervals[type(op)]
             logger.warning(
@@ -747,11 +718,10 @@ class RetryStage(PipelineStage):
             # if we don't keep track of this op, it might get collected.
             op.halt_completion()
             self.ops_waiting_to_retry.append(op)
-            op.retry_timer = Timer(self.retry_intervals[type(op)], do_retry)
+            op.retry_timer = threading.Timer(self.retry_intervals[type(op)], do_retry)
             op.retry_timer.start()
 
         else:
-            # CT-TODO: are these even covered by tests at all?
             if op.retry_timer:
                 op.retry_timer.cancel()
                 op.retry_timer = None
@@ -775,7 +745,7 @@ class ReconnectStage(PipelineStage):
         self.reconnect_delay = 10
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.ConnectOperation):
             self.virtually_connected = True
             self.send_op_down(op)
@@ -835,7 +805,7 @@ class ReconnectStage(PipelineStage):
                 )
 
         logger.info("{}: Setting reconnect timer".format(self.name))
-        self.reconnect_timer = Timer(self.reconnect_delay, on_reconnect_timer_expired)
+        self.reconnect_timer = threading.Timer(self.reconnect_delay, on_reconnect_timer_expired)
         self.reconnect_timer.start()
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -849,37 +819,27 @@ class ReconnectStage(PipelineStage):
             self.reconnect_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        """
-        Called by lower layers when the protocol client connects
-        """
-        logger.debug("{}: on_connected".format(self.name))
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_base.ConnectedEvent):
+            self._clear_reconnect_timer()
+            self.send_event_up(event)
 
-        self._clear_reconnect_timer()
-
-        if self.previous:
-            self.previous.on_connected()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        """
-        Called by lower layers when the protocol client disconnects
-        """
-        logger.debug("{}: on_disconnected".format(self.name))
-        if self.pipeline_root.connected:
-            if self.virtually_connected:
-                logger.info(
-                    "{}: disconnected but virtually connected.  Triggering reconnect timer.".format(
-                        self.name
+        elif isinstance(event, pipeline_events_base.DisconnectedEvent):
+            if self.pipeline_root.connected:
+                if self.virtually_connected:
+                    logger.info(
+                        "{}: disconnected but virtually connected.  Triggering reconnect timer.".format(
+                            self.name
+                        )
                     )
-                )
-                self._set_reconnect_timer()
-            else:
-                logger.info(
-                    "{}: disconnected, but not virtually connected.  Not triggering reconnect timer.".format(
-                        self.name
+                    self._set_reconnect_timer()
+                else:
+                    logger.info(
+                        "{}: disconnected, but not virtually connected.  Not triggering reconnect timer.".format(
+                            self.name
+                        )
                     )
-                )
+            self.send_event_up(event)
 
-        if self.previous:
-            self.previous.on_disconnected()
+        else:
+            self.send_event_up(event)

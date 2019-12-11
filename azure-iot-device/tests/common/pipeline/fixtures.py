@@ -14,25 +14,24 @@ from azure.iot.device.common.pipeline import (
 )
 
 
-class FakeEvent(pipeline_events_base.PipelineEvent):
+class ArbitraryEvent(pipeline_events_base.PipelineEvent):
     def __init__(self):
-        super(FakeEvent, self).__init__()
+        super(ArbitraryEvent, self).__init__()
 
 
 @pytest.fixture
 def arbitrary_event():
-    return FakeEvent()
+    return ArbitraryEvent()
 
 
-class FakeOperation(pipeline_ops_base.PipelineOperation):
+class ArbitraryOperation(pipeline_ops_base.PipelineOperation):
     def __init__(self, callback=None):
-        super(FakeOperation, self).__init__(callback=callback)
+        super(ArbitraryOperation, self).__init__(callback=callback)
 
 
 @pytest.fixture
 def arbitrary_op(mocker):
-    op = FakeOperation(callback=mocker.MagicMock())
-    op.name = "arbitrary_op"
+    op = ArbitraryOperation(callback=mocker.MagicMock())
     mocker.spy(op, "complete")
     return op
 
