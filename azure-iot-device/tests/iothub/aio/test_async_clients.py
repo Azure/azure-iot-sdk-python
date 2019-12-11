@@ -1015,7 +1015,7 @@ class TestConfigurationCreateIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClie
 )
 class TestIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it(
-        "Uses the symmetrci key and CA certificate combination to create a SymmetricKeyAuthenticationProvider"
+        "Uses the symmetric key and CA certificate combination to create a SymmetricKeyAuthenticationProvider"
     )
     async def test_auth_provider_creation(
         self, mocker, client_class, symmetric_key, hostname_fixture, device_id_fixture
