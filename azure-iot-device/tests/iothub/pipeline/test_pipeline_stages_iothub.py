@@ -474,15 +474,13 @@ class TestTwinRequestResponseStageRunOpWithArbitraryOperation(
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
+# TODO: Provide a more accurate set of status codes for tests
 @pytest.mark.describe(
     "TwinRequestResponseStage - EVENT: RequestAndResponseOperation created from GetTwinOperation is completed"
 )
 class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperationCompleted(
     TwinRequestResponseStageTestConfig
 ):
-    # 200s - Successful, 300s - Redirect, 400s - Service error, 500s - Server error
-    status_codes = [200, 300, 400, 500]
-
     @pytest.fixture
     def get_twin_op(self, mocker):
         return pipeline_ops_iothub.GetTwinOperation(callback=mocker.MagicMock())
@@ -512,170 +510,219 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
     @pytest.mark.it(
         "Completes the GetTwinOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
     )
-    def test_request_and_response_op_completed_with_err(self, stage, request_and_response_op):
-        pass
+    @pytest.mark.parametrize(
+        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(None, id="Status Code: None"),
+            pytest.param(200, id="Status Code: 200"),
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_request_and_response_op_completed_with_err(
+        self,
+        stage,
+        get_twin_op,
+        request_and_response_op,
+        arbitrary_exception,
+        status_code,
+        has_response_body,
+    ):
+        assert not get_twin_op.completed
+        assert not request_and_response_op.completed
+
+        # NOTE: It shouldn't happen that an operation completed with error has a status code or a
+        # response body, but it IS possible.
+        request_and_response_op.status_code = status_code
+        if has_response_body:
+            request_and_response_op.response_body = b'{"key": "value"}'
+        request_and_response_op.complete(error=arbitrary_exception)
+
+        assert request_and_response_op.completed
+        assert request_and_response_op.error is arbitrary_exception
+        assert get_twin_op.completed
+        assert get_twin_op.error is arbitrary_exception
+        # Twin is NOT returned
+        assert get_twin_op.twin is None
+
+    @pytest.mark.it(
+        "Completes the GetTwinOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed successfully with a status code indicating an unsuccessful result from the service"
+    )
+    @pytest.mark.parametrize(
+        "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_request_and_response_op_completed_success_with_bad_code(
+        self, stage, get_twin_op, request_and_response_op, status_code, has_response_body
+    ):
+        assert not get_twin_op.completed
+        assert not request_and_response_op.completed
+
+        request_and_response_op.status_code = status_code
+        if has_response_body:
+            request_and_response_op.response_body = b'{"key": "value"}'
+        request_and_response_op.complete()
+
+        assert request_and_response_op.completed
+        assert request_and_response_op.error is None
+        assert get_twin_op.completed
+        assert isinstance(get_twin_op.error, ServiceError)
+        # Twin is NOT returned
+        assert get_twin_op.twin is None
+
+    @pytest.mark.it(
+        "Completes the GetTwinOperation successfully (with the JSON deserialized response body from the RequestAndResponseOperation as the twin) if the RequestAndResponseOperation is completed successfully with a status code indicating a successful result from the service"
+    )
+    @pytest.mark.parametrize(
+        "response_body, expected_twin",
+        [
+            pytest.param(b'{"key": "value"}', {"key": "value"}, id="Twin 1"),
+            pytest.param(b'{"key1": {"key2": "value"}}', {"key1": {"key2": "value"}}, id="Twin 2"),
+            pytest.param(
+                b'{"key1": {"key2": {"key3": "value1", "key4": "value2"}, "key5": "value3"}, "key6": {"key7": "value4"}, "key8": "value5"}',
+                {
+                    "key1": {"key2": {"key3": "value1", "key4": "value2"}, "key5": "value3"},
+                    "key6": {"key7": "value4"},
+                    "key8": "value5",
+                },
+                id="Twin 3",
+            ),
+        ],
+    )
+    def test_request_and_response_op_completed_success_with_good_code(
+        self, stage, get_twin_op, request_and_response_op, response_body, expected_twin
+    ):
+        assert not get_twin_op.completed
+        assert not request_and_response_op.completed
+
+        request_and_response_op.status_code = 200
+        request_and_response_op.response_body = response_body
+        request_and_response_op.complete()
+
+        assert request_and_response_op.completed
+        assert request_and_response_op.error is None
+        assert get_twin_op.completed
+        assert get_twin_op.error is None
+        assert get_twin_op.twin == expected_twin
 
 
-# pipeline_stage_test.add_base_pipeline_stage_tests_old(
-#     cls=pipeline_stages_iothub.TwinRequestResponseStage,
-#     module=this_module,
-#     all_ops=all_common_ops + all_iothub_ops,
-#     handled_ops=[
-#         pipeline_ops_iothub.GetTwinOperation,
-#         pipeline_ops_iothub.PatchTwinReportedPropertiesOperation,
-#     ],
-#     all_events=all_common_events + all_iothub_events,
-#     handled_events=[],
-# )
+@pytest.mark.describe(
+    "TwinRequestResponseStage - EVENT: RequestAndResponseOperation created from PatchTwinReportedPropertiesOperation is completed"
+)
+class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromPatchTwinReportedPropertiesOperation(
+    TwinRequestResponseStageTestConfig
+):
+    @pytest.fixture
+    def patch_twin_reported_properties_op(self, mocker):
+        return pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
+            patch={"json_key": "json_val"}, callback=mocker.MagicMock()
+        )
 
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, patch_twin_reported_properties_op):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
 
-# @pytest.mark.describe("TwinRequestResponseStage - .run_op() -- called with GetTwinOperation")
-# class TestHandleTwinOperationsRunOpWithGetTwin(StageTestBase):
-#     @pytest.fixture
-#     def stage(self):
-#         return pipeline_stages_iothub.TwinRequestResponseStage()
+        # Run the GetTwinOperation
+        stage.run_op(patch_twin_reported_properties_op)
 
-#     @pytest.fixture
-#     def op(self, stage, mocker):
-#         op = pipeline_ops_iothub.GetTwinOperation(callback=mocker.MagicMock())
-#         mocker.spy(op, "complete")
-#         return op
+        return stage
 
-#     @pytest.fixture
-#     def twin(self):
-#         return {"Am I a twin": "You bet I am"}
+    @pytest.fixture
+    def request_and_response_op(self, stage):
+        assert stage.send_op_down.call_count == 1
+        op = stage.send_op_down.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.RequestAndResponseOperation)
 
-#     @pytest.fixture
-#     def twin_as_bytes(self, twin):
-#         return json.dumps(twin).encode("utf-8")
+        # reset the stage mock for convenience
+        stage.send_op_down.reset_mock()
 
-#     @pytest.mark.it(
-#         "Runs a RequestAndResponseOperation operation on the next stage with request_type='twin', method='GET', resource_location='/', and request_body=' '"
-#     )
-#     def test_sends_new_operation(self, stage, op):
-#         stage.run_op(op)
-#         assert stage.next.run_op.call_count == 1
-#         new_op = stage.next.run_op.call_args[0][0]
-#         assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
-#         assert new_op.request_type == "twin"
-#         assert new_op.method == "GET"
-#         assert new_op.resource_location == "/"
-#         assert new_op.request_body == " "
+        return op
 
-#     @pytest.mark.it(
-#         "Completes the GetTwinOperation with the failure from RequestAndResponseOperation, if the RequestAndResponseOperation completes with failure"
-#     )
-#     def test_next_stage_returns_error(self, mocker, stage, op, arbitrary_exception):
-#         def next_stage_run_op(self, next_stage_op):
-#             next_stage_op.complete(error=arbitrary_exception)
+    @pytest.mark.it(
+        "Completes the PatchTwinReportedPropertiesOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(None, id="Status Code: None"),
+            pytest.param(200, id="Status Code: 200"),
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_request_and_response_op_completed_with_err(
+        self,
+        stage,
+        patch_twin_reported_properties_op,
+        request_and_response_op,
+        arbitrary_exception,
+        status_code,
+    ):
+        assert not patch_twin_reported_properties_op.completed
+        assert not request_and_response_op.completed
 
-#         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call(error=arbitrary_exception)
+        # NOTE: It shouldn't happen that an operation completed with error has a status code
+        # but it IS possible
+        request_and_response_op.status_code = status_code
+        request_and_response_op.complete(error=arbitrary_exception)
 
-#     @pytest.mark.it(
-#         "Completes the GetTwinOperation with a ServiceError if the RequestAndResponseOperation returns a status code >= 300"
-#     )
-#     def test_next_stage_returns_status_over_300(self, mocker, stage, op):
-#         def next_stage_run_op(self, next_stage_op):
-#             next_stage_op.status_code = 400
-#             # TODO: should this have a body? Should with/without be a separate test?
-#             next_stage_op.response_body = json.dumps("").encode("utf-8")
-#             next_stage_op.complete()
+        assert request_and_response_op.completed
+        assert request_and_response_op.error is arbitrary_exception
+        assert patch_twin_reported_properties_op.completed
+        assert patch_twin_reported_properties_op.error is arbitrary_exception
 
-#         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert type(op.complete.call_args[1]["error"]) is ServiceError
+    @pytest.mark.it(
+        "Completes the PatchTwinReportedPropertiesOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed successfully with a status code indicating an unsuccessful result from the service"
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_request_and_response_op_completed_success_with_bad_code(
+        self, stage, patch_twin_reported_properties_op, request_and_response_op, status_code
+    ):
+        assert not patch_twin_reported_properties_op.completed
+        assert not request_and_response_op.completed
 
-#     @pytest.mark.it(
-#         "Decodes, deserializes, and returns the request_body from RequestAndResponseOperation as the twin attribute on the op along with no error if the status code < 300"
-#     )
-#     def test_next_stage_completes_correctly(self, mocker, stage, op, twin, twin_as_bytes):
-#         def next_stage_run_op(self, next_stage_op):
-#             next_stage_op.status_code = 200
-#             next_stage_op.response_body = twin_as_bytes
-#             next_stage_op.complete()
+        request_and_response_op.status_code = status_code
+        request_and_response_op.complete()
 
-#         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call(error=None)
-#         assert op.twin == twin
+        assert request_and_response_op.completed
+        assert request_and_response_op.error is None
+        assert patch_twin_reported_properties_op.completed
+        assert isinstance(patch_twin_reported_properties_op.error, ServiceError)
 
+    @pytest.mark.it(
+        "Completes the PatchTwinReportedPropertiesOperation successfully if the RequestAndResponseOperation is completed successfully with a status code indicating a successful result from the service"
+    )
+    def test_request_and_response_op_completed_success_with_good_code(
+        self, stage, patch_twin_reported_properties_op, request_and_response_op
+    ):
+        assert not patch_twin_reported_properties_op.completed
+        assert not request_and_response_op.completed
 
-# @pytest.mark.describe(
-#     "TwinRequestResponseStage - .run_op() -- called with PatchTwinReportedPropertiesOperation"
-# )
-# class TestHandleTwinOperationsRunOpWithPatchTwinReportedProperties(StageTestBase):
-#     @pytest.fixture
-#     def stage(self):
-#         return pipeline_stages_iothub.TwinRequestResponseStage()
+        request_and_response_op.status_code = 200
+        request_and_response_op.complete()
 
-#     @pytest.fixture
-#     def patch(self):
-#         return {"__fake_patch__": "yes"}
-
-#     @pytest.fixture
-#     def patch_as_string(self, patch):
-#         return json.dumps(patch)
-
-#     @pytest.fixture
-#     def op(self, stage, mocker, patch):
-#         op = pipeline_ops_iothub.PatchTwinReportedPropertiesOperation(
-#             patch=patch, callback=mocker.MagicMock()
-#         )
-#         mocker.spy(op, "complete")
-#         return op
-
-#     @pytest.mark.it(
-#         "Runs a RequestAndResponseOperation operation on the next stage with request_type='twin', method='PATCH', resource_location='/properties/reported/', and the request_body attribute set to a stringification of the patch"
-#     )
-#     def test_sends_new_operation(self, stage, op, patch_as_string):
-#         stage.run_op(op)
-#         assert stage.next.run_op.call_count == 1
-#         new_op = stage.next.run_op.call_args[0][0]
-#         assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
-#         assert new_op.request_type == "twin"
-#         assert new_op.method == "PATCH"
-#         assert new_op.resource_location == "/properties/reported/"
-#         assert new_op.request_body == patch_as_string
-
-#     @pytest.mark.it(
-#         "Completes the PatchTwinReportedPropertiesOperation with the failure from RequestAndResponseOperation, if the RequestAndResponse operation completes with failure"
-#     )
-#     def test_next_stage_returns_error(self, mocker, stage, op, arbitrary_exception):
-#         def next_stage_run_op(self, next_stage_op):
-#             next_stage_op.complete(error=arbitrary_exception)
-
-#         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call(error=arbitrary_exception)
-
-#     @pytest.mark.it(
-#         "Completes the PatchTwinReportedPropertiesOperation with a ServiceError, if the RequestAndResponseOperation returns a status code >= 300"
-#     )
-#     def test_next_stage_returns_status_over_300(self, stage, op):
-#         def next_stage_run_op(self, next_stage_op):
-#             next_stage_op.status_code = 400
-#             next_stage_op.complete()
-
-#         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert type(op.complete.call_args[1]["error"]) is ServiceError
-
-#     @pytest.mark.it(
-#         "Completes the PatchTwinReportedPropertiesOperation successfully if the status code < 300"
-#     )
-#     def test_next_stage_completes_correctly(self, mocker, stage, op):
-#         def next_stage_run_op(self, next_stage_op):
-#             next_stage_op.status_code = 200
-#             next_stage_op.complete()
-
-#         stage.next.run_op = functools.partial(next_stage_run_op, (stage.next,))
-#         stage.run_op(op)
-#         assert op.complete.call_count == 1
-#         assert op.complete.call_args == mocker.call(error=None)
+        assert request_and_response_op.completed
+        assert request_and_response_op.error is None
+        assert patch_twin_reported_properties_op.completed
+        assert patch_twin_reported_properties_op.error is None
