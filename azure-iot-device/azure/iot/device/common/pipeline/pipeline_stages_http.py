@@ -27,17 +27,22 @@ class HTTPTransportStage(PipelineStage):
     This stage handles all HTTP operations that are not specific to IoT Hub.
     """
 
+    def __init__(self):
+        super(HTTPTransportStage, self).__init__()
+        # The sas_token will be set when Connetion Args are received
+        self.sas_token = None
+
+        # The transport will be instantiated when Connection Args are received
+        self.transport = None
+
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_http.SetHTTPConnectionArgsOperation):
             # pipeline_ops_http.SetHTTPConenctionArgsOperation is used to create the HTTPTransport object and set all of it's properties.
             logger.debug("{}({}): got connection args".format(self.name, op.name))
-            self.hostname = op.hostname
-            self.ca_cert = op.ca_cert
             self.sas_token = op.sas_token
-            self.client_cert = op.client_cert
             self.transport = HTTPTransport(
-                hostname=self.hostname, ca_cert=self.ca_cert, x509_cert=self.client_cert
+                hostname=op.hostname, ca_cert=op.ca_cert, x509_cert=op.client_cert
             )
 
             self.pipeline_root.transport = self.transport

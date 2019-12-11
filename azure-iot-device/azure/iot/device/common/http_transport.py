@@ -32,6 +32,7 @@ class HTTPTransport(object):
         self._hostname = hostname
         self._ca_cert = ca_cert
         self._x509_cert = x509_cert
+        self._ssl_context = self._create_ssl_context()
 
     def _create_ssl_context(self):
         """
@@ -74,9 +75,7 @@ class HTTPTransport(object):
         logger.info("sending https request.")
         try:
             logger.debug("creating an https connection")
-            connection = http_client.HTTPSConnection(
-                self._hostname, context=self._create_ssl_context()
-            )
+            connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
             logger.debug("connecting to host tcp socket")
             connection.connect()
             logger.debug("connection succeeded")
