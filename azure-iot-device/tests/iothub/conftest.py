@@ -25,6 +25,9 @@ from .client_fixtures import (
     edge_local_debug_environment,
     x509,
     fake_twin,
+    symmetric_key,
+    device_id_fixture,
+    hostname_fixture,
 )
 
 collect_ignore = []

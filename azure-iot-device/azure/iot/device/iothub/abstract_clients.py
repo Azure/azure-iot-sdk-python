@@ -70,26 +70,6 @@ class AbstractIoTHubClient(object):
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline)
 
-    @classmethod
-    def create_from_shared_access_signature(cls, sas_token, **kwargs):
-        """
-        Instantiate the client from a Shared Access Signature (SAS) token.
-        This method of instantiation is not recommended for general usage.
-
-        :param str sas_token: The string representation of a SAS token.
-
-        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
-
-        :raises: ValueError if given an invalid sas_token
-
-        :returns: An instance of an IoTHub client that uses a SAS token for authentication.
-        """
-        authentication_provider = auth.SharedAccessSignatureAuthenticationProvider.parse(sas_token)
-        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
-
     @abc.abstractmethod
     def connect(self):
         pass
@@ -146,6 +126,28 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         """
         authentication_provider = auth.X509AuthenticationProvider(
             x509=x509, hostname=hostname, device_id=device_id
+        )
+        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        return cls(iothub_pipeline)
+
+    @classmethod
+    def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
+        """
+        Instantiate a client using symmetric key authentication.
+
+        :param symmetric_key: The symmetric key.
+        :param str hostname: Host running the IotHub.
+            Can be found in the Azure portal in the Overview tab as the string hostname.
+        :param device_id: The device ID
+
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
+        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
+        :return: An instance of an IoTHub client that uses a symmetric key for authentication.
+        """
+
+        authentication_provider = auth.SymmetricKeyAuthenticationProvider(
+            hostname=hostname, device_id=device_id, module_id=None, shared_access_key=symmetric_key
         )
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
