@@ -22,21 +22,18 @@ class Wizard(object):
 
 
 async def main():
-    async def register_device():
-        provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-            provisioning_host=provisioning_host,
-            registration_id=registration_id,
-            id_scope=id_scope,
-            symmetric_key=symmetric_key,
-        )
+    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host=provisioning_host,
+        registration_id=registration_id,
+        id_scope=id_scope,
+        symmetric_key=symmetric_key,
+    )
 
-        properties = {"House": "Gryffindor", "Muggle-Born": "False"}
-        wizard_a = Wizard("Harry", "Potter", properties)
-        provisioning_device_client.provisioning_payload = wizard_a
-        return await provisioning_device_client.register()
+    properties = {"House": "Gryffindor", "Muggle-Born": "False"}
+    wizard_a = Wizard("Harry", "Potter", properties)
+    provisioning_device_client.provisioning_payload = wizard_a
+    registration_result = await provisioning_device_client.register()
 
-    results = await asyncio.gather(register_device())
-    registration_result = results[0]
     print("The complete registration result is")
     print(registration_result.registration_state)
 
