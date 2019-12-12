@@ -94,7 +94,7 @@ class HTTPPipeline(object):
 
         def on_complete(op, error):
             if error:
-                callback(error=error, storage_info=None)
+                callback(error=error)
             else:
                 callback(storage_info=op.storage_info)
 

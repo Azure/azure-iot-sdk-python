@@ -60,7 +60,7 @@ class HTTPTransport(object):
 
     @pipeline_thread.invoke_on_http_thread_nowait
     # TODO: This star syntax is incompatible with Python 2, change it so that the callback is in front of the optional params.
-    def request(self, method, path, callback, body=None, headers={}, query_params=None):
+    def request(self, method, path, callback, body="", headers={}, query_params=""):
         """
         This method creates a connection to a remote host, sends a request to that host, and then waits for and reads the response from that request.
 
@@ -100,6 +100,7 @@ class HTTPTransport(object):
             response_obj = {"status_code": status_code, "reason": reason, "resp": response_string}
             callback(response=response_obj)
         except Exception as e:
+            logger.error("Error in HTTP Transport: {}".format(e))
             callback(
                 error=exceptions.ProtocolClientError(
                     message="Unexpected HTTPS failure during connect", cause=e

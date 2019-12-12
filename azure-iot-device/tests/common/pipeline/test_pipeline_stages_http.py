@@ -185,7 +185,7 @@ class TestHTTPTransportStageRunOpCalledWithUpdateSasTokenOperation(
         assert stage.sas_token == op.sas_token
 
     @pytest.mark.it("Completes the operation with success, upon successful execution")
-    def test_complets_op(self, stage, op):
+    def test_completes_op(self, stage, op):
         assert not op.completed
         stage.run_op(op)
         assert op.completed
@@ -196,6 +196,7 @@ fake_path = "__fake_path__"
 fake_headers = {"__fake_key__": "__fake_value__"}
 fake_body = "__fake_body__"
 fake_query_params = "__fake_query_params__"
+fake_sas_token = "fake_sas_token"
 
 
 @pytest.mark.describe(
@@ -215,8 +216,27 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
             callback=mocker.MagicMock(),
         )
 
-    @pytest.mark.it("Performs an HTTP connect via the HTTPTransport")
+    @pytest.mark.it("Provides the correct parameters to the HTTPTransport")
     def test_http_request(self, mocker, stage, op):
+        stage.run_op(op)
+        # We add this because the default stage here contains a SAS Token.
+        fake_headers["Authorization"] = fake_sas_token
+        assert stage.transport.request.call_count == 1
+        assert stage.transport.request.call_args == mocker.call(
+            method=fake_method,
+            path=fake_path,
+            headers=fake_headers,
+            body=fake_body,
+            query_params=fake_query_params,
+            callback=mocker.ANY,
+        )
+
+    @pytest.mark.it(
+        "Does not provide an Authorization header if the SAS Token is not set in the stage"
+    )
+    def test_header_with_no_sas(self, mocker, stage, op):
+        # Manually overwriting stage with no SAS Token.
+        stage.sas_token = None
         stage.run_op(op)
         assert stage.transport.request.call_count == 1
         assert stage.transport.request.call_args == mocker.call(
@@ -237,22 +257,41 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
         assert op.completed
         assert op.error is arbitrary_exception
 
-    # YMTODO: Ask Carter how I make this work with the callback in the stage.
     @pytest.mark.it(
         "Completes the operation successfully if the request invokes the provided callback without an error"
     )
     def test_completes_callback(self, mocker, stage, op):
-        def mock_on_response_complete(method, path, headers, query_params, body, callback):
+        def mock_request_callback(method, path, headers, query_params, body, callback):
             fake_response = {
-                "resp": "__fake_response__",
+                "resp": "__fake_response__".encode("utf-8"),
                 "status_code": "__fake_status_code__",
                 "reason": "__fake_reason__",
             }
             return callback(response=fake_response)
 
-        stage.transport.request.side_effect = mock_on_response_complete
+        # This is a way for us to mock the transport invoking the callback
+        stage.transport.request.side_effect = mock_request_callback
         stage.run_op(op)
         assert op.completed
+
+    @pytest.mark.it(
+        "Adds a reason, status code, and response body to the op if request invokes the provided callback without an error"
+    )
+    def test_formats_op_on_complete(self, mocker, stage, op):
+        def mock_request_callback(method, path, headers, query_params, body, callback):
+            fake_response = {
+                "resp": "__fake_response__".encode("utf-8"),
+                "status_code": "__fake_status_code__",
+                "reason": "__fake_reason__",
+            }
+            return callback(response=fake_response)
+
+        # This is a way for us to mock the transport invoking the callback
+        stage.transport.request.side_effect = mock_request_callback
+        stage.run_op(op)
+        assert op.reason == "__fake_reason__"
+        assert op.response_body == "__fake_response__".encode("utf-8")
+        assert op.status_code == "__fake_status_code__"
 
     @pytest.mark.it(
         "Completes the operation with an error if the request invokes the provided callback with an error"

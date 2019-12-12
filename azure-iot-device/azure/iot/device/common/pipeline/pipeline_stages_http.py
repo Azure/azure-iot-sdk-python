@@ -7,6 +7,7 @@
 import logging
 import six
 import traceback
+import copy
 from . import (
     pipeline_ops_base,
     PipelineStage,
@@ -80,7 +81,7 @@ class HTTPTransportStage(PipelineStage):
                     op.reason = response["reason"]
                     op.complete()
 
-            http_headers = op.headers
+            http_headers = copy.deepcopy(op.headers)
             if self.sas_token:
                 http_headers["Authorization"] = self.sas_token
 

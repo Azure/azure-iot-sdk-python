@@ -6,306 +6,151 @@
 import pytest
 import sys
 import logging
-from azure.iot.device.iothub.pipeline import pipeline_ops_iothub
+from azure.iot.device.iothub.pipeline import pipeline_ops_iothub_http
 from tests.common.pipeline import pipeline_ops_test
 
 logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
+fake_device_id = "__fake_device_id__"
+fake_module_id = "__fake_module_id__"
 
-class SetAuthProviderOperationTestConfig(object):
+
+class MethodInvokeOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_iothub.SetAuthProviderOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {"auth_provider": mocker.MagicMock(), "callback": mocker.MagicMock()}
-        return kwargs
-
-
-class SetAuthProviderOperationInstantiationTests(SetAuthProviderOperationTestConfig):
-    @pytest.mark.it(
-        "Initializes 'auth_provider' attribute with the provided 'auth_provider' parameter"
-    )
-    def test_auth_provider(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.auth_provider is init_kwargs["auth_provider"]
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SetAuthProviderOperation,
-    op_test_config_class=SetAuthProviderOperationTestConfig,
-    extended_op_instantiation_test_class=SetAuthProviderOperationInstantiationTests,
-)
-
-
-class SetX509AuthProviderOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_iothub.SetX509AuthProviderOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {"auth_provider": mocker.MagicMock(), "callback": mocker.MagicMock()}
-        return kwargs
-
-
-class SetX509AuthProviderOperationInstantiationTests(SetX509AuthProviderOperationTestConfig):
-    @pytest.mark.it(
-        "Initializes 'auth_provider' attribute with the provided 'auth_provider' parameter"
-    )
-    def test_auth_provider(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.auth_provider is init_kwargs["auth_provider"]
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SetX509AuthProviderOperation,
-    op_test_config_class=SetX509AuthProviderOperationTestConfig,
-    extended_op_instantiation_test_class=SetX509AuthProviderOperationInstantiationTests,
-)
-
-
-class SetIoTHubConnectionArgsOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_iothub.SetIoTHubConnectionArgsOperation
+        return pipeline_ops_iothub_http.MethodInvokeOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "device_id": "some_device_id",
-            "hostname": "some_hostname",
+            "device_id": fake_module_id,
+            "module_id": fake_module_id,
+            "method_params": mocker.MagicMock(),
             "callback": mocker.MagicMock(),
-            "module_id": "some_module_id",
-            "gateway_hostname": "some_gateway_hostname",
-            "ca_cert": "some_ca_cert",
-            "client_cert": "some_client_cert",
-            "sas_token": "some_sas_token",
         }
         return kwargs
 
 
-class SetIoTHubConnectionArgsOperationInstantiationTests(
-    SetIoTHubConnectionArgsOperationTestConfig
-):
+class MethodInvokeOperationInstantiationTests(MethodInvokeOperationTestConfig):
     @pytest.mark.it("Initializes 'device_id' attribute with the provided 'device_id' parameter")
     def test_device_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.device_id == init_kwargs["device_id"]
-
-    @pytest.mark.it("Initializes 'hostname' attribute with the provided 'hostname' parameter")
-    def test_hostname(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.hostname == init_kwargs["hostname"]
+        assert op.device_id is init_kwargs["device_id"]
 
     @pytest.mark.it("Initializes 'module_id' attribute with the provided 'module_id' parameter")
     def test_module_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.module_id == init_kwargs["module_id"]
+        assert op.module_id is init_kwargs["module_id"]
 
     @pytest.mark.it(
-        "Initializes 'module_id' attribute to None if no 'module_id' parameter is provided"
+        "Initializes 'method_params' attribute with the provided 'method_params' parameter"
     )
-    def test_module_id_default(self, cls_type, init_kwargs):
-        del init_kwargs["module_id"]
+    def test_method_params(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.module_id is None
+        assert op.method_params is init_kwargs["method_params"]
 
-    @pytest.mark.it(
-        "Initializes 'gateway_hostname' attribute with the provided 'gateway_hostname' parameter"
-    )
-    def test_gateway_hostname(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.gateway_hostname == init_kwargs["gateway_hostname"]
-
-    @pytest.mark.it(
-        "Initializes 'gateway_hostname' attribute to None if no 'gateway_hostname' parameter is provided"
-    )
-    def test_gateway_hostname_default(self, cls_type, init_kwargs):
-        del init_kwargs["gateway_hostname"]
-        op = cls_type(**init_kwargs)
-        assert op.gateway_hostname is None
-
-    @pytest.mark.it("Initializes 'ca_cert' attribute with the provided 'ca_cert' parameter")
-    def test_ca_cert(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.ca_cert == init_kwargs["ca_cert"]
-
-    @pytest.mark.it("Initializes 'ca_cert' attribute to None if no 'ca_cert' parameter is provided")
-    def test_ca_cert_default(self, cls_type, init_kwargs):
-        del init_kwargs["ca_cert"]
-        op = cls_type(**init_kwargs)
-        assert op.ca_cert is None
-
-    @pytest.mark.it("Initializes 'client_cert' attribute with the provided 'client_cert' parameter")
-    def test_client_cert(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.client_cert == init_kwargs["client_cert"]
-
-    @pytest.mark.it(
-        "Initializes 'client_cert' attribute to None if no 'client_cert' parameter is provided"
-    )
-    def test_client_cert_default(self, cls_type, init_kwargs):
-        del init_kwargs["client_cert"]
-        op = cls_type(**init_kwargs)
-        assert op.client_cert is None
-
-    @pytest.mark.it("Initializes 'sas_token' attribute with the provided 'sas_token' parameter")
-    def test_sas_token(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.sas_token == init_kwargs["sas_token"]
-
-    @pytest.mark.it(
-        "Initializes 'sas_token' attribute to None if no 'sas_token' parameter is provided"
-    )
-    def test_sas_token_default(self, cls_type, init_kwargs):
-        del init_kwargs["sas_token"]
-        op = cls_type(**init_kwargs)
-        assert op.sas_token is None
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
-    op_test_config_class=SetIoTHubConnectionArgsOperationTestConfig,
-    extended_op_instantiation_test_class=SetIoTHubConnectionArgsOperationInstantiationTests,
-)
-
-
-class SendD2CMessageOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_iothub.SendD2CMessageOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {"message": mocker.MagicMock(), "callback": mocker.MagicMock()}
-        return kwargs
-
-
-class SendD2CMessageOperationInstantiationTests(SendD2CMessageOperationTestConfig):
-    @pytest.mark.it("Initializes 'message' attribute with the provided 'message' parameter")
-    def test_message(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.message is init_kwargs["message"]
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SendD2CMessageOperation,
-    op_test_config_class=SendD2CMessageOperationTestConfig,
-    extended_op_instantiation_test_class=SendD2CMessageOperationInstantiationTests,
-)
-
-
-class SendOutputEventOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_iothub.SendOutputEventOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {"message": mocker.MagicMock(), "callback": mocker.MagicMock()}
-        return kwargs
-
-
-class SendOutputEventOperationInstantiationTests(SendOutputEventOperationTestConfig):
-    @pytest.mark.it("Initializes 'message' attribute with the provided 'message' parameter")
-    def test_message(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.message is init_kwargs["message"]
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SendOutputEventOperation,
-    op_test_config_class=SendOutputEventOperationTestConfig,
-    extended_op_instantiation_test_class=SendOutputEventOperationInstantiationTests,
-)
-
-
-class SendMethodResponseOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_iothub.SendMethodResponseOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {"method_response": mocker.MagicMock(), "callback": mocker.MagicMock()}
-        return kwargs
-
-
-class SendMethodResponseOperationInstantiationTests(SendMethodResponseOperationTestConfig):
-    @pytest.mark.it(
-        "Initializes 'method_response' attribute with the provided 'method_response' parameter"
-    )
+    @pytest.mark.it("Initializes 'method_response' attribute as None")
     def test_method_response(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.method_response is init_kwargs["method_response"]
+        assert op.method_response is None
 
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SendMethodResponseOperation,
-    op_test_config_class=SendMethodResponseOperationTestConfig,
-    extended_op_instantiation_test_class=SendMethodResponseOperationInstantiationTests,
+    op_class_under_test=pipeline_ops_iothub_http.MethodInvokeOperation,
+    op_test_config_class=MethodInvokeOperationTestConfig,
+    extended_op_instantiation_test_class=MethodInvokeOperationInstantiationTests,
 )
 
 
-class GetTwinOperationTestConfig(object):
+class GetStorageInfoOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_iothub.GetTwinOperation
+        return pipeline_ops_iothub_http.GetStorageInfoOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
-        kwargs = {"callback": mocker.MagicMock()}
+        kwargs = {"blob_name": "__fake_blob_name__", "callback": mocker.MagicMock()}
         return kwargs
 
 
-class GetTwinOperationInstantiationTests(GetTwinOperationTestConfig):
-    @pytest.mark.it("Initializes 'twin' attribute as None")
-    def test_twin(self, cls_type, init_kwargs):
+class GetStorageInfoOperationInstantiationTests(GetStorageInfoOperationTestConfig):
+    @pytest.mark.it("Initializes 'blob_name' attribute with the provided 'blob_name' parameter")
+    def test_blob_name(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.twin is None
+        assert op.blob_name is init_kwargs["blob_name"]
+
+    @pytest.mark.it("Initializes 'storage_info' attribute as None")
+    def test_storage_info(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.storage_info is None
 
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.GetTwinOperation,
-    op_test_config_class=GetTwinOperationTestConfig,
-    extended_op_instantiation_test_class=GetTwinOperationInstantiationTests,
+    op_class_under_test=pipeline_ops_iothub_http.GetStorageInfoOperation,
+    op_test_config_class=GetStorageInfoOperationTestConfig,
+    extended_op_instantiation_test_class=GetStorageInfoOperationInstantiationTests,
 )
 
 
-class PatchTwinReportedPropertiesOperationTestConfig(object):
+class NotifyBlobUploadStatusOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_iothub.PatchTwinReportedPropertiesOperation
+        return pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
-        kwargs = {"patch": {"some": "patch"}, "callback": mocker.MagicMock()}
+        kwargs = {
+            "correlation_id": "some_correlation_id",
+            "upload_response": "some_upload_response",
+            "status_code": "some_status_code",
+            "status_description": "some_status_description",
+            "callback": mocker.MagicMock(),
+        }
         return kwargs
 
 
-class PatchTwinReportedPropertiesOperationInstantiationTests(
-    PatchTwinReportedPropertiesOperationTestConfig
-):
-    @pytest.mark.it("Initializes 'patch' attribute with the provided 'patch' parameter")
-    def test_patch(self, cls_type, init_kwargs):
+class NotifyBlobUploadStatusOperationInstantiationTests(NotifyBlobUploadStatusOperationTestConfig):
+    @pytest.mark.it(
+        "Initializes 'correlation_id' attribute with the provided 'correlation_id' parameter"
+    )
+    def test_correlation_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.patch is init_kwargs["patch"]
+        assert op.correlation_id is init_kwargs["correlation_id"]
+
+    @pytest.mark.it(
+        "Initializes 'upload_response' attribute with the provided 'upload_response' parameter"
+    )
+    def test_upload_response(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.upload_response is init_kwargs["upload_response"]
+
+    @pytest.mark.it(
+        "Initializes 'request_status_code' attribute with the provided 'status_code' parameter"
+    )
+    def test_request_status_code(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.request_status_code is init_kwargs["status_code"]
+
+    @pytest.mark.it(
+        "Initializes 'status_description' attribute with the provided 'status_description' parameter"
+    )
+    def test_status_description(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.status_description is init_kwargs["status_description"]
+
+    @pytest.mark.it("Initializes 'response_status_code' attribute as None")
+    def test_ca_cert(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.response_status_code is None
 
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.PatchTwinReportedPropertiesOperation,
-    op_test_config_class=PatchTwinReportedPropertiesOperationTestConfig,
-    extended_op_instantiation_test_class=PatchTwinReportedPropertiesOperationInstantiationTests,
+    op_class_under_test=pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation,
+    op_test_config_class=NotifyBlobUploadStatusOperationTestConfig,
+    extended_op_instantiation_test_class=NotifyBlobUploadStatusOperationInstantiationTests,
 )
