@@ -33,6 +33,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
     def __init__(self):
         super(IoTHubMQTTTranslationStage, self).__init__()
         self.feature_to_topic = {}
+        self.device_id = None
+        self.module_id = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
