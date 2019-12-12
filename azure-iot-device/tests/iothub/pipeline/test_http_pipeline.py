@@ -191,9 +191,9 @@ class TestHTTPPipelineInvokeMethod(object):
         )
 
     @pytest.mark.it(
-        "Calls the callback with the error if the pipeline is not configured to run invoke_method"
+        "Calls the callback with the error if the pipeline_configuration.method_invoke is not True"
     )
-    def test_op_fail_from_configuration(self, mocker, pipeline, arbitrary_exception):
+    def test_op_configuration_fail(self, mocker, pipeline, arbitrary_exception):
         pipeline._pipeline.pipeline_configuration.method_invoke = False
         cb = mocker.MagicMock()
 
@@ -259,6 +259,17 @@ class TestHTTPPipelineGetStorageInfo(object):
         )
 
     @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the GetStorageInfoOperation"
+    )
+    def test_op_configuration_fail(self, mocker, pipeline):
+        pipeline._pipeline.pipeline_configuration.blob_upload = False
+        cb = mocker.MagicMock()
+        pipeline.get_storage_info(blob_name="__fake_blob_name__", callback=cb)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=mocker.ANY)
+
+    @pytest.mark.it(
         "Triggers the callback upon successful completion of the GetStorageInfoOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline):
@@ -274,7 +285,7 @@ class TestHTTPPipelineGetStorageInfo(object):
         op.complete(error=None)
 
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(storage_info="__fake_storage_info__")
+        assert cb.call_args == mocker.call(error=None, storage_info="__fake_storage_info__")
 
     @pytest.mark.it(
         "Calls the callback with the error upon unsuccessful completion of the GetStorageInfoOperation"
@@ -287,7 +298,7 @@ class TestHTTPPipelineGetStorageInfo(object):
         op.complete(error=arbitrary_exception)
 
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=arbitrary_exception)
+        assert cb.call_args == mocker.call(error=arbitrary_exception, storage_info=None)
 
 
 @pytest.mark.describe("HTTPPipeline - .notify_blob_upload_status()")
@@ -307,6 +318,23 @@ class TestHTTPPipelineNotifyBlobUploadStatus(object):
 
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation)
+
+    @pytest.mark.it(
+        "Calls the callback with the error if pipeline_configuration.blob_upload is not True"
+    )
+    def test_op_configuration_fail(self, mocker, pipeline):
+        pipeline._pipeline.pipeline_configuration.blob_upload = False
+        cb = mocker.MagicMock()
+        pipeline.notify_blob_upload_status(
+            correlation_id="__fake_correlation_id__",
+            upload_response="__fake_upload_response__",
+            status_code="__fake_status_code__",
+            status_description="__fake_status_description__",
+            callback=cb,
+        )
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=mocker.ANY)
 
     @pytest.mark.it(
         "Triggers the callback upon successful completion of the NotifyBlobUploadStatusOperation"

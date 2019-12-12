@@ -93,10 +93,7 @@ class HTTPPipeline(object):
             return callback(error=error)
 
         def on_complete(op, error):
-            if error:
-                callback(error=error)
-            else:
-                callback(storage_info=op.storage_info)
+            callback(error=error, storage_info=op.storage_info)
 
         self._pipeline.run_op(
             pipeline_ops_iothub_http.GetStorageInfoOperation(
@@ -116,10 +113,7 @@ class HTTPPipeline(object):
             return callback(error=error)
 
         def on_complete(op, error):
-            if error:
-                callback(error=error)
-            else:
-                callback()
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation(
