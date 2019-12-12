@@ -194,7 +194,7 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
 
 
 @pytest.mark.describe(
-    "UseAuthProviderStage - .run_op() -- Called with SetX509AuthProviderOperation"
+    "UseAuthProviderStage - .run_op() -- Called with SetX509AuthProviderOperation (X509 Authentication)"
 )
 class TestUseAuthProviderStageRunOpWithSetX509AuthProviderOperation(
     StageRunOpTestBase, UseAuthProviderStageTestConfig
