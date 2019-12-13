@@ -8,6 +8,7 @@ import os
 import uuid
 import asyncio
 from azure.iot.device.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device import X509
 import http.client
 import pprint
 import json
@@ -40,14 +41,6 @@ You can learn more about File Upload with IoT Hub here:
 https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-file-upload
 
 """
-
-
-api = "2019-03-30"
-conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-sas = os.getenv("IOTHUB_SAS")
-device_id = os.getenv("IOTHUB_DEVICE_ID")
-iothub_name = os.getenv("IOTHUB_NAME")
-host_name = "{iotHubName}.azure-devices.net".format(iotHubName=iothub_name)
 
 # Host is in format "<iothub name>.azure-devices.net"
 
@@ -87,20 +80,30 @@ async def storage_blob(blob_info):
 
 
 async def main():
-    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-    device_client = IoTHubModuleClient.create_from_connection_string(conn_str)
+    hostname = os.getenv("IOTHUB_HOSTNAME")
+    device_id = os.getenv("IOTHUB_DEVICE_ID")
+    x509 = X509(
+        cert_file=os.getenv("X509_CERT_FILE"),
+        key_file=os.getenv("X509_KEY_FILE"),
+        pass_phrase=os.getenv("PASS_PHRASE"),
+    )
+
+    device_client = IoTHubDeviceClient.create_from_x509_certificate(
+        hostname=hostname, device_id=device_id, x509=x509
+    )
+    # device_client = IoTHubModuleClient.create_from_connection_string(conn_str)
 
     # Connect the client.
     await device_client.connect()
 
-    await device_client.invoke_method("fake_device", "fake_method_params")
+    # await device_client.get_storage_info("fake_device", "fake_method_params")
 
     # get the storage sas
     blob_name = "fakeBlobName12"
     storage_info = await device_client.get_storage_info(blob_name)
 
     # upload to blob
-    connection = http.client.HTTPSConnection(host_name)
+    connection = http.client.HTTPSConnection(hostname)
     connection.connect()
     # notify iot hub of blob upload result
     # await device_client.notify_upload_result(storage_blob_result)

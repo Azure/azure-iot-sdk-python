@@ -31,7 +31,7 @@ def get_storage_info_path(device_id):
     :return: The path for getting the storage sdk credential information from IoT Hub. It is of the format
     devices/uri_encode($device_id)/files
     """
-    return "{}/files".format(urllib.parse.quote_plus(device_id))
+    return "devices/{}/files".format(urllib.parse.quote_plus(device_id))
 
 
 def get_notify_blob_upload_status_path(device_id):
@@ -41,4 +41,4 @@ def get_notify_blob_upload_status_path(device_id):
     :return: The path for getting the storage sdk credential information from IoT Hub. It is of the format
     devices/uri_encode($device_id)/files/notifications
     """
-    return "{}/files/notifications".format(urllib.parse.quote_plus(device_id))
+    return "devices/{}/files/notifications".format(urllib.parse.quote_plus(device_id))
