@@ -50,8 +50,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id
-            # When you are connecting through Edge Hub to another Hub, Gateway Hostname is the gateway you are connecting to, hostname is the IoT Hub you are connecting to.
-            # TODO: Read the node code to figure out how to format the HTTP url with the gateway hostname and the hostname
+
             if op.gateway_hostname:
                 logger.debug(
                     "Gateway Hostname Present. Setting Hostname to: {}".format(op.gateway_hostname)
@@ -120,7 +119,6 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             )
 
         elif isinstance(op, pipeline_ops_iothub_http.GetStorageInfoOperation):
-            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
             logger.debug(
                 "{}({}): Translating Get Storage Info Operation to HTTP.".format(self.name, op.name)
             )
@@ -128,7 +126,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
             path = http_path_iothub.get_storage_info_path(self.device_id)
-            body = json.dumps({"blobName": op.blob_name})
+            body = json.dumps({"blobName": op.blob_name})  # TODO: Does this need to be encoded?
             headers = {
                 "Host": self.hostname,  # TODO: Does this need to be encoded?
                 "Accept": "application/json",
@@ -162,7 +160,6 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             )
 
         elif isinstance(op, pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation):
-            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
             logger.debug(
                 "{}({}): Translating Get Storage Info Operation to HTTP.".format(self.name, op.name)
             )
