@@ -17,8 +17,9 @@ class MethodInvokeOperation(PipelineOperation):
         """
         Initializer for MethodInvokeOperation objects.
 
-        :param method_response: The method response to be sent to IoTHub/EdgeHub
-        :type method_response: MethodResponse
+        :param str target_module_id: The device id of the target device/module
+        :param str target_module_id: The module id of the target module
+        :param method_params: The parameters used to invoke the method, as defined by the IoT Hub specification.
         :param callback: The function that gets called when this operation is complete or has failed.
          The callback function must accept a PipelineOperation object which indicates the specific operation has which
          has completed or failed.
@@ -40,6 +41,7 @@ class GetStorageInfoOperation(PipelineOperation):
         """
         Initializer for GetStorageInfo objects.
 
+        :param str blob_name: The name of the blob that will be created in Azure Storage
         :param callback: The function that gets called when this operation is complete or has failed.
          The callback function must accept a PipelineOperation object which indicates the specific operation has which
          has completed or failed.
