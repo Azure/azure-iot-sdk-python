@@ -13,7 +13,7 @@ class MethodInvokeOperation(PipelineOperation):
     This operation is in the group of EdgeHub operations because it is very specific to the EdgeHub client.
     """
 
-    def __init__(self, device_id, module_id, method_params, callback):
+    def __init__(self, target_device_id, target_module_id, method_params, callback):
         """
         Initializer for MethodInvokeOperation objects.
 
@@ -25,8 +25,8 @@ class MethodInvokeOperation(PipelineOperation):
         :type callback: Function/callable
         """
         super(MethodInvokeOperation, self).__init__(callback=callback)
-        self.device_id = device_id
-        self.module_id = module_id
+        self.target_device_id = target_device_id
+        self.target_module_id = target_module_id
         self.method_params = method_params
         self.method_response = None
 
@@ -77,4 +77,3 @@ class NotifyBlobUploadStatusOperation(PipelineOperation):
         self.is_success = is_success
         self.request_status_code = status_code
         self.status_description = status_description
-        self.response_status_code = None

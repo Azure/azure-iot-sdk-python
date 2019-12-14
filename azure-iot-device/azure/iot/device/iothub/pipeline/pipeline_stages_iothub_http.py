@@ -50,8 +50,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
             self.module_id = op.module_id
-            # When you are connecting through Edge Hub to another Hub, Gateway Hostname is the gateway you are connecting to, hostname is the IoT Hub you are connecting to.
-            # TODO: Read the node code to figure out how to format the HTTP url with the gateway hostname and the hostname
+
             if op.gateway_hostname:
                 logger.debug(
                     "Gateway Hostname Present. Setting Hostname to: {}".format(op.gateway_hostname)
@@ -88,14 +87,18 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
             # being used.
             x_ms_edge_string = "{deviceId}/{moduleId}".format(
-                deviceId=self.device_id, moduleId=self.module_id
+                deviceId=op.target_device_id, moduleId=op.target_module_id
             )  # these are the identifiers of the current module
+            user_agent = urllib.parse.quote_plus(
+                pkg_constant.USER_AGENT
+                + str(self.pipeline_root.pipeline_configuration.product_info)
+            )
             headers = {
-                "Host": self.hostname,  # TODO: Does this need to be encoded?
+                "Host": self.hostname,
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
                 "x-ms-edge-moduleId": x_ms_edge_string,
-                "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
+                "User-Agent": user_agent,
             }
             op_waiting_for_response = op
 
@@ -105,7 +108,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.method_response = op.response.decode("utf-8")
+                    op_waiting_for_response.method_response = op.response_body.decode("utf-8")
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -120,7 +123,6 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             )
 
         elif isinstance(op, pipeline_ops_iothub_http.GetStorageInfoOperation):
-            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
             logger.debug(
                 "{}({}): Translating Get Storage Info Operation to HTTP.".format(self.name, op.name)
             )
@@ -129,12 +131,16 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             )
             path = http_path_iothub.get_storage_info_path(self.device_id)
             body = json.dumps({"blobName": op.blob_name})
+            user_agent = urllib.parse.quote_plus(
+                pkg_constant.USER_AGENT
+                + str(self.pipeline_root.pipeline_configuration.product_info)
+            )
             headers = {
-                "Host": self.hostname,  # TODO: Does this need to be encoded?
+                "Host": self.hostname,
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
-                "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
+                "User-Agent": user_agent,
             }
 
             op_waiting_for_response = op
@@ -162,7 +168,6 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             )
 
         elif isinstance(op, pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation):
-            # TODO: translate the method params into the HTTP specific operations. It sets the path, the header values, picks the verb (METHOD INVOKE is a POST)
             logger.debug(
                 "{}({}): Translating Get Storage Info Operation to HTTP.".format(self.name, op.name)
             )
@@ -178,15 +183,19 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                     "statusDescription": op.status_description,
                 }
             )
+            user_agent = urllib.parse.quote_plus(
+                pkg_constant.USER_AGENT
+                + str(self.pipeline_root.pipeline_configuration.product_info)
+            )
 
             # Note we do not add the sas Authorization header here. Instead we add it later on in the stage above
             # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
             # being used.
             headers = {
-                "Host": self.hostname,  # TODO: Does this need to be encoded?
+                "Host": self.hostname,
                 "Content-Type": "application/json; charset=utf-8",
                 "Content-Length": len(str(body)),
-                "User-Agent": pkg_constant.USER_AGENT,  # TODO: Does this need to be encoded?
+                "User-Agent": user_agent,
             }
             op_waiting_for_response = op
 
@@ -195,8 +204,6 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                     "{}({}): Got response for GetStorageInfoOperation".format(self.name, op.name)
                 )
                 error = map_http_error(error=error, http_op=op)
-                if not error:
-                    op_waiting_for_response.response_status_code = op.status_code
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(

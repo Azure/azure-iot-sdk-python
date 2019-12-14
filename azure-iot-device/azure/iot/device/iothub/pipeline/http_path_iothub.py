@@ -10,7 +10,7 @@ import six.moves.urllib as urllib
 logger = logging.getLogger(__name__)
 
 
-def get_method_invoke_path(device_id, module_id):
+def get_method_invoke_path(device_id, module_id=None):
     """
     :return: The path for invoking methods from one module to a device or module. It is of the format
     twins/uri_encode($device_id)/modules/uri_encode($module_id)/methods
