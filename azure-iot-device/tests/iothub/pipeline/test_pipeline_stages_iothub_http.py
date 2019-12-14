@@ -228,15 +228,23 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         stage.hostname = "fake_hostname"
         return stage
 
-    @pytest.fixture
-    def op(self, mocker):
+    @pytest.fixture(params=["Targeting Device Method", "Targeting Module Method"])
+    def op(self, mocker, request):
         method_params = {"arg1": "val", "arg2": 2, "arg3": True}
-        return pipeline_ops_iothub_http.MethodInvokeOperation(
-            target_device_id="fake_target_device_id",
-            target_module_id="fake_target_module_id",
-            method_params=method_params,
-            callback=mocker.MagicMock(),
-        )
+        if request.param == "Targeting Device Method":
+            return pipeline_ops_iothub_http.MethodInvokeOperation(
+                target_device_id="fake_target_device_id",
+                target_module_id=None,
+                method_params=method_params,
+                callback=mocker.MagicMock(),
+            )
+        else:
+            return pipeline_ops_iothub_http.MethodInvokeOperation(
+                target_device_id="fake_target_device_id",
+                target_module_id="fake_target_module_id",
+                method_params=method_params,
+                callback=mocker.MagicMock(),
+            )
 
     @pytest.mark.it("Sends a new HTTPRequestAndResponseOperation op down the pipeline")
     def test_sends_op_down(self, mocker, stage, op):
@@ -261,7 +269,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         # Validate request
         assert mock_http_path_iothub.get_method_invoke_path.call_count == 1
         assert mock_http_path_iothub.get_method_invoke_path.call_args == mocker.call(
-            stage.device_id, stage.module_id
+            op.target_device_id, op.target_module_id
         )
         expected_path = mock_http_path_iothub.get_method_invoke_path.return_value
 
@@ -296,7 +304,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         expected_user_agent = urllib.parse.quote_plus(
             pkg_constant.USER_AGENT + str(custom_user_agent)
         )
-        expected_edge_string = "{}/{}".format(op.target_device_id, op.target_module_id)
+        expected_edge_string = "{}/{}".format(stage.device_id, stage.module_id)
 
         assert new_op.headers["Host"] == stage.hostname
         assert new_op.headers["Content-Type"] == "application/json"
@@ -701,7 +709,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
     def op(self, mocker):
         return pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation(
             correlation_id="fake_correlation_id",
-            upload_response=True,
+            is_success=True,
             status_code=203,
             status_description="fake_description",
             callback=mocker.MagicMock(),
@@ -785,7 +793,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
         # Validate body
         header_dict = {
             "correlationId": op.correlation_id,
-            "isSuccess": op.upload_response,
+            "isSuccess": op.is_success,
             "statusCode": op.request_status_code,
             "statusDescription": op.status_description,
         }

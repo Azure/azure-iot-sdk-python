@@ -82,12 +82,12 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             #  if the target is a module.
 
             body = json.dumps(op.method_params)
-            path = http_path_iothub.get_method_invoke_path(self.device_id, self.module_id)
+            path = http_path_iothub.get_method_invoke_path(op.target_device_id, op.target_module_id)
             # Note we do not add the sas Authorization header here. Instead we add it later on in the stage above
             # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
             # being used.
             x_ms_edge_string = "{deviceId}/{moduleId}".format(
-                deviceId=op.target_device_id, moduleId=op.target_module_id
+                deviceId=self.device_id, moduleId=self.module_id
             )  # these are the identifiers of the current module
             user_agent = urllib.parse.quote_plus(
                 pkg_constant.USER_AGENT
