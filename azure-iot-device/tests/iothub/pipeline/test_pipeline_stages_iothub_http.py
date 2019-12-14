@@ -24,6 +24,7 @@ from azure.iot.device.iothub.pipeline import (
     config,
 )
 from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
+from azure.iot.device.exceptions import ServiceError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import StageRunOpTestBase
@@ -50,7 +51,9 @@ def op_error(request, arbitrary_exception):
 
 @pytest.fixture
 def mock_http_path_iothub(mocker):
-    mock = mocker.patch("azure.iot.device.iothub.pipeline.http_path_iothub")
+    mock = mocker.patch(
+        "azure.iot.device.iothub.pipeline.pipeline_stages_iothub_http.http_path_iothub"
+    )
     return mock
 
 
@@ -204,13 +207,243 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithConnectionArgsOperation(
         assert op.error is op_error
 
 
-# CT-TODO: Revisit this
+@pytest.mark.describe(
+    "IoTHubHTTPTranslationStage - .run_op() -- Called with MethodInvokeOperation op"
+)
+class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
+    IoTHubHTTPTranslationStageTestConfig, StageRunOpTestBase
+):
+    # Because Storage/Blob related functionality is limited to Module, configure the stage for a module
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        pl_config = config.IoTHubPipelineConfig()
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=pl_config
+        )
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        stage.device_id = "fake_device_id"
+        stage.module_id = "fake_module_id"
+        stage.hostname = "fake_hostname"
+        return stage
 
-# @pytest.mark.describe("IoTHubHTTPTranslationStage - .run_op() -- Called with MethodInvokeOperation op")
-# class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(IoTHubHTTPTranslationStageTestConfig, StageRunOpTestBase):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         return pipeline_ops_iothub_http.MethodInvokeOperation(device_id="fake_device_id")
+    @pytest.fixture
+    def op(self, mocker):
+        method_params = {"arg1": "val", "arg2": 2, "arg3": True}
+        return pipeline_ops_iothub_http.MethodInvokeOperation(
+            target_device_id="fake_target_device_id",
+            target_module_id="fake_target_module_id",
+            method_params=method_params,
+            callback=mocker.MagicMock(),
+        )
+
+    @pytest.mark.it("Sends a new HTTPRequestAndResponseOperation op down the pipeline")
+    def test_sends_op_down(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with request details for sending a Method Invoke request"
+    )
+    def test_sends_get_storage_request(self, mocker, stage, op, mock_http_path_iothub):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate request
+        assert mock_http_path_iothub.get_method_invoke_path.call_count == 1
+        assert mock_http_path_iothub.get_method_invoke_path.call_args == mocker.call(
+            stage.device_id, stage.module_id
+        )
+        expected_path = mock_http_path_iothub.get_method_invoke_path.return_value
+
+        assert new_op.method == "POST"
+        assert new_op.path == expected_path
+        assert new_op.query_params == "api-version={}".format(pkg_constant.IOTHUB_API_VERSION)
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with the headers for a Method Invoke request"
+    )
+    @pytest.mark.parametrize(
+        "custom_user_agent",
+        [
+            pytest.param("", id="No custom user agent"),
+            pytest.param("MyCustomUserAgent", id="With custom user agent"),
+            pytest.param(
+                "My/Custom?User+Agent", id="With custom user agent containing reserved characters"
+            ),
+            pytest.param(12345, id="Non-string custom user agent"),
+        ],
+    )
+    def test_new_op_headers(self, mocker, stage, op, custom_user_agent):
+        stage.pipeline_root.pipeline_configuration.product_info = custom_user_agent
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate headers
+        expected_user_agent = urllib.parse.quote_plus(
+            pkg_constant.USER_AGENT + str(custom_user_agent)
+        )
+        expected_edge_string = "{}/{}".format(op.target_device_id, op.target_module_id)
+
+        assert new_op.headers["Host"] == stage.hostname
+        assert new_op.headers["Content-Type"] == "application/json"
+        assert new_op.headers["Content-Length"] == len(new_op.body)
+        assert new_op.headers["x-ms-edge-moduleId"] == expected_edge_string
+        assert new_op.headers["User-Agent"] == expected_user_agent
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with a body for a Method Invoke request"
+    )
+    def test_new_op_body(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate body
+        assert new_op.body == json.dumps(op.method_params)
+
+    @pytest.mark.it(
+        "Completes the original MethodInvokeOperation op (no error) if the new HTTPRequestAndResponseOperation op is completed later on (no error) with a status code indicating success"
+    )
+    def test_new_op_completes_with_good_code(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op
+        new_op.response_body = b"some_response"
+        new_op.status_code = 200
+        new_op.complete()
+
+        # Both ops are now completed successfully
+        assert new_op.completed
+        assert new_op.error is None
+        assert op.completed
+        assert op.error is None
+
+    @pytest.mark.it(
+        "Deserializes the completed HTTPRequestAndResponseOperation op's 'response_body' (the received storage info) and set it on the MethodInvokeOperation op as the 'method_response', if the HTTPRequestAndResponseOperation is completed later (no error) with a status code indicating success"
+    )
+    @pytest.mark.parametrize(
+        "response_body, expected_method_response",
+        [
+            pytest.param(
+                b"this_is_a_string",
+                "this_is_a_string",
+                id="Response Body: string value as bytestring",
+            ),
+            pytest.param(b"123", "123", id="Response Body: int value as bytestring"),
+            pytest.param(
+                b'{"key": "val"}', '{"key": "val"}', id="Response Body: dict value as bytestring"
+            ),
+        ],
+    )
+    def test_deserializes_response(
+        self, mocker, stage, op, response_body, expected_method_response
+    ):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Original op has no 'method_response'
+        assert op.method_response is None
+
+        # Complete new op
+        new_op.response_body = response_body
+        new_op.status_code = 200
+        new_op.complete()
+
+        # Method Response is set
+        assert op.method_response == expected_method_response
+
+    @pytest.mark.it(
+        "Completes the original MethodInvokeOperation op with a ServiceError if the new HTTPRequestAndResponseOperation is completed later on (no error) with a status code indicating non-success"
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_new_op_completes_with_bad_code(self, mocker, stage, op, status_code):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op successfully (but with a bad status code)
+        new_op.status_code = status_code
+        new_op.complete()
+
+        # The original op is now completed with a ServiceError
+        assert new_op.completed
+        assert new_op.error is None
+        assert op.completed
+        assert isinstance(op.error, ServiceError)
+
+    @pytest.mark.it(
+        "Completes the original MethodInvokeOperation op with the error from the new HTTPRequestAndResponseOperation, if the HTTPRequestAndResponseOperation is completed later on with error"
+    )
+    def test_new_op_completes_with_error(self, mocker, stage, op, arbitrary_exception):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op with error
+        new_op.complete(error=arbitrary_exception)
+
+        # The original op is now completed with a ServiceError
+        assert new_op.completed
+        assert new_op.error is arbitrary_exception
+        assert op.completed
+        assert op.error is arbitrary_exception
 
 
 @pytest.mark.describe(
@@ -224,6 +457,10 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
+        pl_config = config.IoTHubPipelineConfig()
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=pl_config
+        )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         stage.device_id = "fake_device_id"
@@ -237,10 +474,8 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
             blob_name="fake_blob_name", callback=mocker.MagicMock()
         )
 
-    @pytest.mark.it(
-        "Sends a new HTTPRequestAndResponseOperation op down the pipeline, configured to request storage info based on the stage details and the GetStorageInfoOperation op"
-    )
-    def test_sends_op_down(self, mocker, stage, op, mock_http_path_iothub):
+    @pytest.mark.it("Sends a new HTTPRequestAndResponseOperation op down the pipeline")
+    def test_sends_op_down(self, mocker, stage, op):
         stage.run_op(op)
 
         # Op was sent down
@@ -248,18 +483,398 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
         new_op = stage.send_op_down.call_args[0][0]
         assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
 
-        mock_http_path_iothub.call_count == 1
-        mock_http_path_iothub.call_args == mocker.call(stage.device_id)
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with request details for sending a Get Storage Info request"
+    )
+    def test_sends_get_storage_request(self, mocker, stage, op, mock_http_path_iothub):
+        stage.run_op(op)
 
-        # Validate op
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate request
+        assert mock_http_path_iothub.get_storage_info_path.call_count == 1
+        assert mock_http_path_iothub.get_storage_info_path.call_args == mocker.call(stage.device_id)
+        expected_path = mock_http_path_iothub.get_storage_info_path.return_value
+
         assert new_op.method == "POST"
-        assert new_op.path == mock_http_path_iothub.get_storage_info_path.return_value
+        assert new_op.path == expected_path
+        assert new_op.query_params == "api-version={}".format(pkg_constant.IOTHUB_API_VERSION)
 
-        # Validate body
-        assert new_op.body == '{"blobName": "{}"}'.format(op.blob_name)
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with the headers for a Get Storage Info request"
+    )
+    @pytest.mark.parametrize(
+        "custom_user_agent",
+        [
+            pytest.param("", id="No custom user agent"),
+            pytest.param("MyCustomUserAgent", id="With custom user agent"),
+            pytest.param(
+                "My/Custom?User+Agent", id="With custom user agent containing reserved characters"
+            ),
+            pytest.param(12345, id="Non-string custom user agent"),
+        ],
+    )
+    def test_new_op_headers(self, mocker, stage, op, custom_user_agent):
+        stage.pipeline_root.pipeline_configuration.product_info = custom_user_agent
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
 
         # Validate headers
+        expected_user_agent = urllib.parse.quote_plus(
+            pkg_constant.USER_AGENT + str(custom_user_agent)
+        )
+
         assert new_op.headers["Host"] == stage.hostname
         assert new_op.headers["Accept"] == "application/json"
         assert new_op.headers["Content-Type"] == "application/json"
         assert new_op.headers["Content-Length"] == len(new_op.body)
+        assert new_op.headers["User-Agent"] == expected_user_agent
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with a body for a Get Storage Info request"
+    )
+    def test_new_op_body(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate body
+        assert new_op.body == '{{"blobName": "{}"}}'.format(op.blob_name)
+
+    @pytest.mark.it(
+        "Completes the original GetStorageInfoOperation op (no error) if the new HTTPRequestAndResponseOperation is completed later on (no error) with a status code indicating success"
+    )
+    def test_new_op_completes_with_good_code(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op
+        new_op.response_body = b'{"json": "response"}'
+        new_op.status_code = 200
+        new_op.complete()
+
+        # Both ops are now completed successfully
+        assert new_op.completed
+        assert new_op.error is None
+        assert op.completed
+        assert op.error is None
+
+    @pytest.mark.it(
+        "Deserializes the completed HTTPRequestAndResponseOperation op's 'response_body' (the received storage info) and set it on the GetStorageInfoOperation as the 'storage_info', if the HTTPRequestAndResponseOperation is completed later (no error) with a status code indicating success"
+    )
+    def test_deserializes_response(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Original op has no 'storage_info'
+        assert op.storage_info is None
+
+        # Complete new op
+        new_op.response_body = b'{\
+            "hostName": "fake_hostname",\
+            "containerName": "fake_container_name",\
+            "blobName": "fake_blob_name",\
+            "sasToken": "fake_sas_token",\
+            "correlationId": "fake_correlation_id"\
+        }'
+        new_op.status_code = 200
+        new_op.complete()
+
+        # Storage Info is set
+        assert op.storage_info == {
+            "hostName": "fake_hostname",
+            "containerName": "fake_container_name",
+            "blobName": "fake_blob_name",
+            "sasToken": "fake_sas_token",
+            "correlationId": "fake_correlation_id",
+        }
+
+    @pytest.mark.it(
+        "Completes the original GetStorageInfoOperation op with a ServiceError if the new HTTPRequestAndResponseOperation is completed later on (no error) with a status code indicating non-success"
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_new_op_completes_with_bad_code(self, mocker, stage, op, status_code):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op successfully (but with a bad status code)
+        new_op.status_code = status_code
+        new_op.complete()
+
+        # The original op is now completed with a ServiceError
+        assert new_op.completed
+        assert new_op.error is None
+        assert op.completed
+        assert isinstance(op.error, ServiceError)
+
+    @pytest.mark.it(
+        "Completes the original GetStorageInfoOperation op with the error from the new HTTPRequestAndResponseOperation, if the HTTPRequestAndResponseOperation is completed later on with error"
+    )
+    def test_new_op_completes_with_error(self, mocker, stage, op, arbitrary_exception):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op with error
+        new_op.complete(error=arbitrary_exception)
+
+        # The original op is now completed with a ServiceError
+        assert new_op.completed
+        assert new_op.error is arbitrary_exception
+        assert op.completed
+        assert op.error is arbitrary_exception
+
+
+@pytest.mark.describe(
+    "IoTHubHTTPTranslationStage - .run_op() -- Called with NotifyBlobUploadStatusOperation op"
+)
+class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperation(
+    IoTHubHTTPTranslationStageTestConfig, StageRunOpTestBase
+):
+
+    # Because Storage/Blob related functionality is limited to Devices, configure the stage for a device
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        pl_config = config.IoTHubPipelineConfig()
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=pl_config
+        )
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        stage.device_id = "fake_device_id"
+        stage.module_id = None
+        stage.hostname = "fake_hostname"
+        return stage
+
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation(
+            correlation_id="fake_correlation_id",
+            upload_response=True,
+            status_code=203,
+            status_description="fake_description",
+            callback=mocker.MagicMock(),
+        )
+
+    @pytest.mark.it("Sends a new HTTPRequestAndResponseOperation op down the pipeline")
+    def test_sends_op_down(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with request details for sending a Notify Blob Upload Status request"
+    )
+    def test_sends_get_storage_request(self, mocker, stage, op, mock_http_path_iothub):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate request
+        assert mock_http_path_iothub.get_notify_blob_upload_status_path.call_count == 1
+        assert mock_http_path_iothub.get_notify_blob_upload_status_path.call_args == mocker.call(
+            stage.device_id
+        )
+        expected_path = mock_http_path_iothub.get_notify_blob_upload_status_path.return_value
+
+        assert new_op.method == "POST"
+        assert new_op.path == expected_path
+        assert new_op.query_params == "api-version={}".format(pkg_constant.IOTHUB_API_VERSION)
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with the headers for a Notify Blob Upload Status request"
+    )
+    @pytest.mark.parametrize(
+        "custom_user_agent",
+        [
+            pytest.param("", id="No custom user agent"),
+            pytest.param("MyCustomUserAgent", id="With custom user agent"),
+            pytest.param(
+                "My/Custom?User+Agent", id="With custom user agent containing reserved characters"
+            ),
+            pytest.param(12345, id="Non-string custom user agent"),
+        ],
+    )
+    def test_new_op_headers(self, mocker, stage, op, custom_user_agent):
+        stage.pipeline_root.pipeline_configuration.product_info = custom_user_agent
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate headers
+        expected_user_agent = urllib.parse.quote_plus(
+            pkg_constant.USER_AGENT + str(custom_user_agent)
+        )
+
+        assert new_op.headers["Host"] == stage.hostname
+        assert new_op.headers["Content-Type"] == "application/json; charset=utf-8"
+        assert new_op.headers["Content-Length"] == len(new_op.body)
+        assert new_op.headers["User-Agent"] == expected_user_agent
+
+    @pytest.mark.it(
+        "Configures the HTTPRequestAndResponseOperation with a body for a Notify Blob Upload Status request"
+    )
+    def test_new_op_body(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Validate body
+        header_dict = {
+            "correlationId": op.correlation_id,
+            "isSuccess": op.upload_response,
+            "statusCode": op.request_status_code,
+            "statusDescription": op.status_description,
+        }
+        assert new_op.body == json.dumps(header_dict)
+
+    @pytest.mark.it(
+        "Completes the original NotifyBlobUploadStatusOperation op (no error) if the new HTTPRequestAndResponseOperation is completed later on (no error) with a status code indicating success"
+    )
+    def test_new_op_completes_with_good_code(self, mocker, stage, op):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op
+        new_op.status_code = 200
+        new_op.complete()
+
+        # Both ops are now completed successfully
+        assert new_op.completed
+        assert new_op.error is None
+        assert op.completed
+        assert op.error is None
+
+    @pytest.mark.it(
+        "Completes the original NotifyBlobUploadStatusOperation op with a ServiceError if the new HTTPRequestAndResponseOperation is completed later on (no error) with a status code indicating non-success"
+    )
+    @pytest.mark.parametrize(
+        "status_code",
+        [
+            pytest.param(300, id="Status Code: 300"),
+            pytest.param(400, id="Status Code: 400"),
+            pytest.param(500, id="Status Code: 500"),
+        ],
+    )
+    def test_new_op_completes_with_bad_code(self, mocker, stage, op, status_code):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op successfully (but with a bad status code)
+        new_op.status_code = status_code
+        new_op.complete()
+
+        # The original op is now completed with a ServiceError
+        assert new_op.completed
+        assert new_op.error is None
+        assert op.completed
+        assert isinstance(op.error, ServiceError)
+
+    @pytest.mark.it(
+        "Completes the original NotifyBlobUploadStatusOperation op with the error from the new HTTPRequestAndResponseOperation, if the HTTPRequestAndResponseOperation is completed later on with error"
+    )
+    def test_new_op_completes_with_error(self, mocker, stage, op, arbitrary_exception):
+        stage.run_op(op)
+
+        # Op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
+
+        # Neither op is completed
+        assert not op.completed
+        assert op.error is None
+        assert not new_op.completed
+        assert new_op.error is None
+
+        # Complete new op with error
+        new_op.complete(error=arbitrary_exception)
+
+        # The original op is now completed with a ServiceError
+        assert new_op.completed
+        assert new_op.error is arbitrary_exception
+        assert op.completed
+        assert op.error is arbitrary_exception
