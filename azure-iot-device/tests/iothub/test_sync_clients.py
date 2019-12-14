@@ -22,10 +22,16 @@ from azure.iot.device.iothub.auth import IoTEdgeError
 logging.basicConfig(level=logging.DEBUG)
 
 
-# automatically mock the pipeline for all tests in this file.
+# automatically mock the iothub pipeline for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_pipeline_init(mocker):
     return mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+
+
+# automatically mock the http pipeline for all tests in this file.
+@pytest.fixture(autouse=True)
+def mock_pipeline_http_init(mocker):
+    return mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
 
 ################
@@ -35,30 +41,42 @@ class SharedClientInstantiationTests(object):
     @pytest.mark.it(
         "Stores the IoTHubPipeline from the 'iothub_pipeline' parameter in the '_iothub_pipeline' attribute"
     )
-    def test_iothub_pipeline_attribute(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
+    def test_iothub_pipeline_attribute(self, client_class, iothub_pipeline, http_pipeline):
+        client = client_class(iothub_pipeline, http_pipeline)
 
         assert client._iothub_pipeline is iothub_pipeline
 
+    @pytest.mark.it(
+        "Stores the HTTPPipeline from the 'http_pipeline' parameter in the '_http_pipeline' attribute"
+    )
+    def test_sets_http_pipeline_attribute(self, client_class, iothub_pipeline, http_pipeline):
+        client = client_class(iothub_pipeline, http_pipeline)
+
+        assert client._http_pipeline is http_pipeline
+
     @pytest.mark.it("Sets on_connected handler in the IoTHubPipeline")
-    def test_sets_on_connected_handler_in_pipeline(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
+    def test_sets_on_connected_handler_in_pipeline(
+        self, client_class, iothub_pipeline, http_pipeline
+    ):
+        client = client_class(iothub_pipeline, http_pipeline)
 
         assert client._iothub_pipeline.on_connected is not None
         assert client._iothub_pipeline.on_connected == client._on_connected
 
     @pytest.mark.it("Sets on_disconnected handler in the IoTHubPipeline")
-    def test_sets_on_disconnected_handler_in_pipeline(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
+    def test_sets_on_disconnected_handler_in_pipeline(
+        self, client_class, iothub_pipeline, http_pipeline
+    ):
+        client = client_class(iothub_pipeline, http_pipeline)
 
         assert client._iothub_pipeline.on_disconnected is not None
         assert client._iothub_pipeline.on_disconnected == client._on_disconnected
 
     @pytest.mark.it("Sets on_method_request_received handler in the IoTHubPipeline")
     def test_sets_on_method_request_received_handler_in_pipleline(
-        self, client_class, iothub_pipeline
+        self, client_class, iothub_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline)
+        client = client_class(iothub_pipeline, http_pipeline)
 
         assert client._iothub_pipeline.on_method_request_received is not None
         assert (
@@ -1006,18 +1024,18 @@ class IoTHubDeviceClientTestsConfig(object):
         return IoTHubDeviceClient
 
     @pytest.fixture
-    def client(self, iothub_pipeline):
+    def client(self, iothub_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubDeviceClient(iothub_pipeline)
+        return IoTHubDeviceClient(iothub_pipeline, http_pipeline)
 
     @pytest.fixture
-    def client_manual_cb(self, iothub_pipeline_manual_cb):
+    def client_manual_cb(self, iothub_pipeline_manual_cb, http_pipeline_manual_cb):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
-        return IoTHubDeviceClient(iothub_pipeline_manual_cb)
+        return IoTHubDeviceClient(iothub_pipeline_manual_cb, http_pipeline_manual_cb)
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
@@ -1036,20 +1054,16 @@ class TestIoTHubDeviceClientInstantiation(
     IoTHubDeviceClientTestsConfig, SharedClientInstantiationTests
 ):
     @pytest.mark.it("Sets on_c2d_message_received handler in the IoTHubPipeline")
-    def test_sets_on_c2d_message_received_handler_in_pipeline(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
+    def test_sets_on_c2d_message_received_handler_in_pipeline(
+        self, client_class, iothub_pipeline, http_pipeline
+    ):
+        client = client_class(iothub_pipeline, http_pipeline)
 
         assert client._iothub_pipeline.on_c2d_message_received is not None
         assert (
             client._iothub_pipeline.on_c2d_message_received
             == client._inbox_manager.route_c2d_message
         )
-
-    @pytest.mark.it("Sets the '_http_pipeline' attribute to None")
-    def test_http_pipeline_is_none(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
-
-        assert client._http_pipeline is None
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .create_from_connection_string()")
@@ -1213,12 +1227,15 @@ class TestIoTHubDeviceClientCreateFromSymmetricKey(IoTHubDeviceClientTestsConfig
         self, mocker, client_class, symmetric_key, hostname_fixture, device_id_fixture
     ):
         mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline_http = mocker.patch(
+            "azure.iot.device.iothub.pipeline.HTTPPipeline"
+        ).return_value
         spy_init = mocker.spy(client_class, "__init__")
         client_class.create_from_symmetric_key(
             symmetric_key=symmetric_key, hostname=hostname_fixture, device_id=device_id_fixture
         )
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline)
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_pipeline, mock_pipeline_http)
 
     @pytest.mark.it("Returns the instantiated client")
     def test_returns_client(self, client_class, symmetric_key, hostname_fixture, device_id_fixture):
@@ -1509,6 +1526,149 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) -.get_storage_info()")
+class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDeviceClientTestsConfig):
+    @pytest.mark.it("Begins a 'get_storage_info' HTTPPipeline operation")
+    def test_calls_pipeline_get_storage_info(self, client, http_pipeline):
+        fake_blob_name = "__fake_blob_name__"
+        client.get_storage_info(fake_blob_name)
+        assert http_pipeline.get_storage_info.call_count == 1
+        assert http_pipeline.get_storage_info.call_args[0][0] is fake_blob_name
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'get_storage_info' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, http_pipeline_manual_cb
+    ):
+        fake_blob_name = "__fake_blob_name__"
+
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=http_pipeline_manual_cb.get_storage_info,
+            kwargs={"storage_info": "__fake_storage_info__"},
+        )
+
+        client_manual_cb.get_storage_info(fake_blob_name)
+
+    @pytest.mark.it(
+        "Raises a client error if the `get_storage_info` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self,
+        mocker,
+        client_manual_cb,
+        http_pipeline_manual_cb,
+        message,
+        pipeline_error,
+        client_error,
+    ):
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=http_pipeline_manual_cb.get_storage_info,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.get_storage_info(message)
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it("Returns a storage_info object upon successful completion")
+    def test_returns_storage_info(self, mocker, client, http_pipeline):
+        fake_blob_name = "__fake_blob_name__"
+        fake_storage_info = "__fake_storage_info__"
+        received_storage_info = client.get_storage_info(fake_blob_name)
+        assert http_pipeline.get_storage_info.call_count == 1
+        assert http_pipeline.get_storage_info.call_args[0][0] is fake_blob_name
+
+        assert (
+            received_storage_info is fake_storage_info
+        )  # Note: the return value this is checkign for is defined in client_fixtures.py
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) -.notify_blob_upload_status()")
+class TestIoTHubDeviceClientNotifyBlobUploadStatus(
+    WaitsForEventCompletion, IoTHubDeviceClientTestsConfig
+):
+    @pytest.mark.it("Begins a 'notify_blob_upload_status' HTTPPipeline operation")
+    def test_calls_pipeline_notify_blob_upload_status(self, client, http_pipeline):
+        correlation_id = "__fake_correlation_id__"
+        is_success = "__fake_is_success__"
+        status_code = "__fake_status_code__"
+        status_description = "__fake_status_description__"
+        client.notify_blob_upload_status(
+            correlation_id, is_success, status_code, status_description
+        )
+        kwargs = http_pipeline.notify_blob_upload_status.call_args[1]
+        assert http_pipeline.notify_blob_upload_status.call_count == 1
+        assert kwargs["correlation_id"] is correlation_id
+        assert kwargs["is_success"] is is_success
+        assert kwargs["status_code"] is status_code
+        assert kwargs["status_description"] is status_description
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'notify_blob_upload_status' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, http_pipeline_manual_cb
+    ):
+        correlation_id = "__fake_correlation_id__"
+        is_success = "__fake_is_success__"
+        status_code = "__fake_status_code__"
+        status_description = "__fake_status_description__"
+        self.add_event_completion_checks(
+            mocker=mocker, pipeline_function=http_pipeline_manual_cb.notify_blob_upload_status
+        )
+
+        client_manual_cb.notify_blob_upload_status(
+            correlation_id, is_success, status_code, status_description
+        )
+
+    @pytest.mark.it(
+        "Raises a client error if the `notify_blob_upload_status` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self, mocker, client_manual_cb, http_pipeline_manual_cb, pipeline_error, client_error
+    ):
+        correlation_id = "__fake_correlation_id__"
+        is_success = "__fake_is_success__"
+        status_code = "__fake_status_code__"
+        status_description = "__fake_status_description__"
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=http_pipeline_manual_cb.notify_blob_upload_status,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.notify_blob_upload_status(
+                correlation_id, is_success, status_code, status_description
+            )
+            assert e_info.value.__cause__ is my_pipeline_error
+
+
 ################
 # MODULE TESTS #
 ################
@@ -1518,18 +1678,18 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, iothub_pipeline):
+    def client(self, iothub_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubModuleClient(iothub_pipeline)
+        return IoTHubModuleClient(iothub_pipeline, http_pipeline)
 
     @pytest.fixture
-    def client_manual_cb(self, iothub_pipeline_manual_cb):
+    def client_manual_cb(self, iothub_pipeline_manual_cb, http_pipeline_manual_cb):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
-        return IoTHubModuleClient(iothub_pipeline_manual_cb)
+        return IoTHubModuleClient(iothub_pipeline_manual_cb, http_pipeline_manual_cb)
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
@@ -1549,31 +1709,15 @@ class TestIoTHubModuleClientInstantiation(
 ):
     @pytest.mark.it("Sets on_input_message_received handler in the IoTHubPipeline")
     def test_sets_on_input_message_received_handler_in_pipeline(
-        self, client_class, iothub_pipeline
+        self, client_class, iothub_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline)
+        client = client_class(iothub_pipeline, http_pipeline)
 
         assert client._iothub_pipeline.on_input_message_received is not None
         assert (
             client._iothub_pipeline.on_input_message_received
             == client._inbox_manager.route_input_message
         )
-
-    @pytest.mark.it(
-        "Stores the HTTPPipeline from the optionally-provided 'http_pipeline' parameter in the '_http_pipeline' attribute"
-    )
-    def test_sets_http_pipeline_attribute(self, client_class, iothub_pipeline, http_pipeline):
-        client = client_class(iothub_pipeline, http_pipeline)
-
-        assert client._http_pipeline is http_pipeline
-
-    @pytest.mark.it(
-        "Sets the '_http_pipeline' attribute to None, if  the 'http_pipeline' parameter is not provided"
-    )
-    def test_http_pipeline_default_none(self, client_class, iothub_pipeline):
-        client = client_class(iothub_pipeline)
-
-        assert client._http_pipeline is None
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .create_from_connection_string()")
@@ -2429,6 +2573,76 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     IoTHubModuleClientTestsConfig, SharedClientReceiveTwinDesiredPropertiesPatchTests
 ):
     pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
+class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleClientTestsConfig):
+    @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
+    def test_calls_pipeline_invoke_method_for_device(self, client, http_pipeline):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        client.invoke_method(method_params, device_id)
+        assert http_pipeline.invoke_method.call_count == 1
+        assert http_pipeline.invoke_method.call_args[0][0] is device_id
+        assert http_pipeline.invoke_method.call_args[0][1] is method_params
+
+    @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a module")
+    def test_calls_pipeline_invoke_method_for_module(self, client, http_pipeline):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        module_id = "__fake_module_id__"
+        client.invoke_method(method_params, device_id, module_id=module_id)
+        assert http_pipeline.invoke_method.call_count == 1
+        assert http_pipeline.invoke_method.call_args[0][0] is device_id
+        assert http_pipeline.invoke_method.call_args[0][1] is method_params
+        assert http_pipeline.invoke_method.call_args[1]["module_id"] is module_id
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'invoke_method' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, http_pipeline_manual_cb
+    ):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        module_id = "__fake_module_id__"
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=http_pipeline_manual_cb.invoke_method,
+            kwargs={"invoke_method_response": "__fake_invoke_method_response__"},
+        )
+
+        client_manual_cb.invoke_method(method_params, device_id, module_id=module_id)
+
+    @pytest.mark.it(
+        "Raises a client error if the `invoke_method` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self, mocker, client_manual_cb, http_pipeline_manual_cb, pipeline_error, client_error
+    ):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        module_id = "__fake_module_id__"
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=http_pipeline_manual_cb.invoke_method,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.invoke_method(method_params, device_id, module_id=module_id)
+            assert e_info.value.__cause__ is my_pipeline_error
 
 
 ####################

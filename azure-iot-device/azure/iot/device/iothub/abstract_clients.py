@@ -131,6 +131,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             x509=x509, hostname=hostname, device_id=device_id
         )
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
 
@@ -156,8 +157,13 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             hostname=hostname, device_id=device_id, module_id=None, shared_access_key=symmetric_key
         )
         pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+
+        pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
+        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
+
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline)
+
+        return cls(iothub_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def receive_message(self):

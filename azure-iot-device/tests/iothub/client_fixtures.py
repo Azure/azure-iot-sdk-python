@@ -202,6 +202,22 @@ class FakeIoTHubPipeline:
         callback()
 
 
+class FakeHTTPPipeline:
+    def __init__(self):
+        pass
+
+    def invoke_method(self, device_id, method_params, callback, module_id=None):
+        callback(invoke_method_response="__fake_method_response__")
+
+    def get_storage_info(self, blob_name, callback):
+        callback(storage_info="__fake_storage_info__")
+
+    def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description, callback
+    ):
+        callback()
+
+
 @pytest.fixture
 def iothub_pipeline(mocker):
     """This fixture will automatically handle callbacks and should be
@@ -220,7 +236,18 @@ def iothub_pipeline_manual_cb(mocker):
 
 @pytest.fixture
 def http_pipeline(mocker):
-    return mocker.MagicMock()  # TODO: change this to wrap a pipeline object
+    """This fixture will automatically handle callbacks and should be
+    used in the majority of tests
+    """
+    return mocker.MagicMock(wraps=FakeHTTPPipeline())
+
+
+@pytest.fixture
+def http_pipeline_manual_cb(mocker):
+    """This fixture is for use in tests where manual triggering of a
+    callback is required
+    """
+    return mocker.MagicMock()
 
 
 @pytest.fixture

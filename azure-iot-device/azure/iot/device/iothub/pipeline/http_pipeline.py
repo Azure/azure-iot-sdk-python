@@ -102,7 +102,7 @@ class HTTPPipeline(object):
         )
 
     def notify_blob_upload_status(
-        self, correlation_id, upload_response, status_code, status_description, callback
+        self, correlation_id, is_success, status_code, status_description, callback
     ):
         logger.debug("IoTHubPipeline notify_blob_upload_status called")
         if not self._pipeline.pipeline_configuration.blob_upload:
@@ -118,7 +118,7 @@ class HTTPPipeline(object):
         self._pipeline.run_op(
             pipeline_ops_iothub_http.NotifyBlobUploadStatusOperation(
                 correlation_id=correlation_id,
-                upload_response=upload_response,
+                is_success=is_success,
                 status_code=status_code,
                 status_description=status_description,
                 callback=on_complete,

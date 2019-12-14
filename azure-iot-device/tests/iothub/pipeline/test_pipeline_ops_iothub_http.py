@@ -104,10 +104,10 @@ class NotifyBlobUploadStatusOperationTestConfig(object):
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "correlation_id": "some_correlation_id",
-            "upload_response": "some_upload_response",
-            "status_code": "some_status_code",
-            "status_description": "some_status_description",
+            "correlation_id": "__fake_correlation_id__",
+            "is_success": "__fake_is_success__",
+            "status_code": "__fake_status_code__",
+            "status_description": "__fake_status_description__",
             "callback": mocker.MagicMock(),
         }
         return kwargs
@@ -121,12 +121,10 @@ class NotifyBlobUploadStatusOperationInstantiationTests(NotifyBlobUploadStatusOp
         op = cls_type(**init_kwargs)
         assert op.correlation_id is init_kwargs["correlation_id"]
 
-    @pytest.mark.it(
-        "Initializes 'upload_response' attribute with the provided 'upload_response' parameter"
-    )
-    def test_upload_response(self, cls_type, init_kwargs):
+    @pytest.mark.it("Initializes 'is_success' attribute with the provided 'is_success' parameter")
+    def test_is_success(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.upload_response is init_kwargs["upload_response"]
+        assert op.is_success is init_kwargs["is_success"]
 
     @pytest.mark.it(
         "Initializes 'request_status_code' attribute with the provided 'status_code' parameter"

@@ -17,6 +17,7 @@ from .client_fixtures import (
     iothub_pipeline,
     iothub_pipeline_manual_cb,
     http_pipeline,
+    http_pipeline_manual_cb,
     device_connection_string,
     module_connection_string,
     device_sas_token_string,

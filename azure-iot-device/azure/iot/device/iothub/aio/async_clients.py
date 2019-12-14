@@ -313,7 +313,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         return storage_info
 
     async def notify_blob_upload_status(
-        self, correlation_id, upload_response, status_code, status_description
+        self, correlation_id, is_success, status_code, status_description
     ):
         """
         """
@@ -329,7 +329,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         callback = async_adapter.AwaitableCallback()
         await notify_blob_upload_status_async(
             correlation_id=correlation_id,
-            upload_response=upload_response,
+            is_success=is_success,
             status_code=status_code,
             status_description=status_description,
             callback=callback,
@@ -344,7 +344,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -380,7 +380,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.

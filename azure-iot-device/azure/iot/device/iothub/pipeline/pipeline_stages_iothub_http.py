@@ -173,7 +173,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             body = json.dumps(
                 {
                     "correlationId": op.correlation_id,
-                    "isSuccess": op.upload_response,
+                    "isSuccess": op.is_success,
                     "statusCode": op.request_status_code,
                     "statusDescription": op.status_description,
                 }

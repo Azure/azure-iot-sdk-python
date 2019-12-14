@@ -309,7 +309,7 @@ class TestHTTPPipelineNotifyBlobUploadStatus(object):
     def test_runs_op(self, pipeline, mocker):
         pipeline.notify_blob_upload_status(
             correlation_id="__fake_correlation_id__",
-            upload_response="__fake_upload_response__",
+            is_success="__fake_is_success__",
             status_code="__fake_status_code__",
             status_description="__fake_status_description__",
             callback=mocker.MagicMock(),
@@ -327,7 +327,7 @@ class TestHTTPPipelineNotifyBlobUploadStatus(object):
         cb = mocker.MagicMock()
         pipeline.notify_blob_upload_status(
             correlation_id="__fake_correlation_id__",
-            upload_response="__fake_upload_response__",
+            is_success="__fake_is_success__",
             status_code="__fake_status_code__",
             status_description="__fake_status_description__",
             callback=cb,
@@ -345,7 +345,7 @@ class TestHTTPPipelineNotifyBlobUploadStatus(object):
         # Begin operation
         pipeline.notify_blob_upload_status(
             correlation_id="__fake_correlation_id__",
-            upload_response="__fake_upload_response__",
+            is_success="__fake_is_success__",
             status_code="__fake_status_code__",
             status_description="__fake_status_description__",
             callback=cb,
@@ -366,7 +366,7 @@ class TestHTTPPipelineNotifyBlobUploadStatus(object):
         cb = mocker.MagicMock()
         pipeline.notify_blob_upload_status(
             correlation_id="__fake_correlation_id__",
-            upload_response="__fake_upload_response__",
+            is_success="__fake_is_success__",
             status_code="__fake_status_code__",
             status_description="__fake_status_description__",
             callback=cb,

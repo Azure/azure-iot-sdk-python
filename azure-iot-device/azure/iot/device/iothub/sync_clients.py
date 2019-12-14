@@ -323,45 +323,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    def get_storage_info(self, blob_name):
-        """Call up to the IoT Hub Endpoint over HTTP to get information on
-        the storage blob for uploads.
-        """
-        # TODO: Check that the HTTP Pipeline has been set properly.
-        # if not self._http_pipeline:
-        #     # raise error
-        #     raise exceptions.ClientError(
-        #         "No Upload Pipeline Initialized. get_storage_info cannot be called without an HTTP Pipeline set."
-        #     )
-        # else:
-        callback = EventedCallback(return_arg_name="storage_info")
-        self._http_pipeline.get_storage_info(blob_name=blob_name, callback=callback)
-        storage_info = handle_result(callback)
-        logger.info("Successfully retrieved storage_info")
-        return storage_info
-
-    def notify_blob_upload_status(
-        self, correlation_id, upload_response, status_code, status_description
-    ):
-        """
-        """
-        # if not self._http_pipeline:
-        #     # raise error
-        #     raise exceptions.ClientError(
-        #         "No Upload Pipeline Initialized. notify_blob_upload_status cannot be called without an HTTP Pipeline set."
-        #     )
-        # else:
-        callback = EventedCallback()
-        self._http_pipeline.notify_blob_upload_status(
-            correlation_id=correlation_id,
-            upload_response=upload_response,
-            status_code=status_code,
-            status_description=status_description,
-            callback=callback,
-        )
-        handle_result(callback)
-        logger.info("Successfully notified blob upload status")
-
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance.
@@ -369,7 +330,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -407,6 +368,36 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         logger.info("Message received")
         return message
 
+    def get_storage_info(self, blob_name):
+        """Call up to the IoT Hub over HTTP to get information on
+        the storage blob for uploads.
+        """
+        callback = EventedCallback(return_arg_name="storage_info")
+        self._http_pipeline.get_storage_info(blob_name, callback=callback)
+        storage_info = handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info
+
+    def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description
+    ):
+        """Provide the IoT Hub with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients
+
+        :param string correlation_id: Provided by IoT Hub on get_storage_info request.
+        :param string is_success:
+
+        """
+        callback = EventedCallback()
+        self._http_pipeline.notify_blob_upload_status(
+            correlation_id=correlation_id,
+            is_success=is_success,
+            status_code=status_code,
+            status_description=status_description,
+            callback=callback,
+        )
+        handle_result(callback)
+        logger.info("Successfully notified blob upload status")
+
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
@@ -414,7 +405,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
@@ -492,18 +483,14 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         return message
 
     def invoke_method(self, method_params, device_id, module_id=None):
-        # TODO: Should the pipeline level be split into two? According to everyone,
-        # it should be only one in the pipeline level, so I should change this.
         """
         method_params should contain a method_name, payload, conenct_timeout_in_seconds, response_timeout_in_seconds
         method_result should contain a status, and a payload
         """
-        # if not self._http_pipeline:
-        #     # TODO: Is this the right type of Error? CC: Carter
-        #     raise exceptions.ClientError(message="Method Invoke only avaiable on Edge Modules")
-
         callback = EventedCallback(return_arg_name="invoke_method_response")
-        self._http_pipeline.invoke_method(device_id, method_params, callback, module_id=module_id)
+        self._http_pipeline.invoke_method(
+            device_id, method_params, callback=callback, module_id=module_id
+        )
         invoke_method_response = handle_result(callback)
         logger.info("Successfully invoked method")
         return invoke_method_response
