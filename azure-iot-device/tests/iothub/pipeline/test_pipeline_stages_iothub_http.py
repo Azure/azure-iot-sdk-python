@@ -344,7 +344,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         assert new_op.error is None
 
         # Complete new op
-        new_op.response_body = b"some_response"
+        new_op.response_body = b'{"some_response_key": "some_response_value"}'
         new_op.status_code = 200
         new_op.complete()
 
@@ -361,13 +361,12 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
         "response_body, expected_method_response",
         [
             pytest.param(
-                b"this_is_a_string",
-                "this_is_a_string",
-                id="Response Body: string value as bytestring",
+                b'{"key": "val"}', {"key": "val"}, id="Response Body: dict value as bytestring"
             ),
-            pytest.param(b"123", "123", id="Response Body: int value as bytestring"),
             pytest.param(
-                b'{"key": "val"}', '{"key": "val"}', id="Response Body: dict value as bytestring"
+                b'{"key": "val", "key2": {"key3": "val2"}}',
+                {"key": "val", "key2": {"key3": "val2"}},
+                id="Response Body: dict value as bytestring",
             ),
         ],
     )

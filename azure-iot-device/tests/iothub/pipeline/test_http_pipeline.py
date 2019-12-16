@@ -207,6 +207,25 @@ class TestHTTPPipelineInvokeMethod(object):
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=mocker.ANY)
 
+    @pytest.mark.it("Passes the correct parameters to the MethodInvokeOperation")
+    def test_passes_params_to_op(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        mocked_op = mocker.patch.object(pipeline_ops_iothub_http, "MethodInvokeOperation")
+        fake_method_params = mocker.MagicMock()
+        pipeline.invoke_method(
+            device_id=fake_device_id,
+            module_id=fake_module_id,
+            method_params=fake_method_params,
+            callback=cb,
+        )
+
+        assert mocked_op.call_args == mocker.call(
+            callback=mocker.ANY,
+            method_params=fake_method_params,
+            target_device_id=fake_device_id,
+            target_module_id=fake_module_id,
+        )
+
     @pytest.mark.it("Triggers the callback upon successful completion of the MethodInvokeOperation")
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
@@ -226,7 +245,9 @@ class TestHTTPPipelineInvokeMethod(object):
         op.complete(error=None)
 
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=None, method_response="__fake_method_response__")
+        assert cb.call_args == mocker.call(
+            error=None, invoke_method_response="__fake_method_response__"
+        )
 
     @pytest.mark.it(
         "Calls the callback with the error upon unsuccessful completion of the MethodInvokeOperation"
@@ -244,7 +265,7 @@ class TestHTTPPipelineInvokeMethod(object):
 
         op.complete(error=arbitrary_exception)
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=arbitrary_exception, method_response=None)
+        assert cb.call_args == mocker.call(error=arbitrary_exception, invoke_method_response=None)
 
 
 @pytest.mark.describe("HTTPPipeline - .get_storage_info()")
