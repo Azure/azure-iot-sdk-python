@@ -47,7 +47,6 @@ class GetStorageInfoOperation(PipelineOperation):
          has completed or failed.
         :type callback: Function/callable
 
-
         :ivar storage_info: Upon completion, this contains the storage information which was retrieved from the service.
         :type storage_info: Storage Info
         """
