@@ -81,7 +81,9 @@ class HTTPTransport(object):
             logger.debug("connection succeeded")
             # formatted_headers = self._format_headers(headers)
             url = "https://{hostname}/{path}{query_params}".format(
-                hostname=self._hostname, path=path, query_params="?" + query_params
+                hostname=self._hostname,
+                path=path,
+                query_params="?" + query_params if query_params else "",
             )
             logger.debug("Sending Request to HTTP URL: {}".format(url))
             logger.debug("HTTP Headers: {}".format(headers))
