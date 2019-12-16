@@ -36,7 +36,7 @@ class HTTPTransport(object):
 
     def _create_ssl_context(self):
         """
-        This method creates the SSLContext object used to authenticate the connection.
+        This method creates the SSLContext object used to authenticate the connection. The generated context is used by the http_client and is necessary when authenticating using a self-signed X509 cert or trusted X509 cert
         """
         logger.debug("creating a SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
@@ -59,7 +59,6 @@ class HTTPTransport(object):
         return ssl_context
 
     @pipeline_thread.invoke_on_http_thread_nowait
-    # TODO: This star syntax is incompatible with Python 2, change it so that the callback is in front of the optional params.
     def request(self, method, path, callback, body="", headers={}, query_params=""):
         """
         This method creates a connection to a remote host, sends a request to that host, and then waits for and reads the response from that request.
@@ -79,7 +78,6 @@ class HTTPTransport(object):
             logger.debug("connecting to host tcp socket")
             connection.connect()
             logger.debug("connection succeeded")
-            # formatted_headers = self._format_headers(headers)
             url = "https://{hostname}/{path}{query_params}".format(
                 hostname=self._hostname,
                 path=path,

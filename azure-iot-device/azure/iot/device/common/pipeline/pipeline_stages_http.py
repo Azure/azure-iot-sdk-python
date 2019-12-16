@@ -55,6 +55,7 @@ class HTTPTransportStage(PipelineStage):
             op.complete()
 
         elif isinstance(op, pipeline_ops_http.HTTPRequestAndResponseOperation):
+            # This will call down to the HTTP Transport with a request and also created a request callback. Because the HTTP Transport will run on the http transport thread, this call should be non-blocking to the pipline thread.
             logger.debug(
                 "{}({}): Generating HTTP request and setting callback before completing.".format(
                     self.name, op.name
@@ -81,6 +82,7 @@ class HTTPTransportStage(PipelineStage):
                     op.reason = response["reason"]
                     op.complete()
 
+            # A deepcopy is necessary here since otherwise the manipulation happening to http_headers will affect the op.headers, which would be an unintended side effect and not a good practice.
             http_headers = copy.deepcopy(op.headers)
             if self.sas_token:
                 http_headers["Authorization"] = self.sas_token
