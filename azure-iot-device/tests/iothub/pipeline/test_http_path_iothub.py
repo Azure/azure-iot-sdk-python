@@ -69,12 +69,20 @@ class TestGetStorageInfoPath(object):
     @pytest.mark.parametrize(
         "device_id, expected_path",
         [
-            pytest.param("my_device", "my_device/files", id="'my_device' ==> 'my_device/files'"),
             pytest.param(
-                "my/device", "my%2Fdevice/files", id="'my/device' ==> 'my%2Fdevice/files'"
+                "my_device",
+                "devices/my_device/files",
+                id="'my_device' ==> 'devices/my_device/files'",
             ),
             pytest.param(
-                "my+device", "my%2Bdevice/files", id="'my+device' ==> 'my%2Bdevice/files'"
+                "my/device",
+                "devices/my%2Fdevice/files",
+                id="'my/device' ==> 'devices/my%2Fdevice/files'",
+            ),
+            pytest.param(
+                "my+device",
+                "devices/my%2Bdevice/files",
+                id="'my+device' ==> 'devices/my%2Bdevice/files'",
             ),
         ],
     )
@@ -91,18 +99,18 @@ class TestGetNotifyBlobUploadStatusPath(object):
         [
             pytest.param(
                 "my_device",
-                "my_device/files/notifications",
-                id="'my_device' ==> 'my_device/files/notifications'",
+                "devices/my_device/files/notifications",
+                id="'my_device' ==> 'devices/my_device/files/notifications'",
             ),
             pytest.param(
                 "my/device",
-                "my%2Fdevice/files/notifications",
-                id="'my/device' ==> 'my%2Fdevice/files/notifications'",
+                "devices/my%2Fdevice/files/notifications",
+                id="'my/device' ==> 'devices/my%2Fdevice/files/notifications'",
             ),
             pytest.param(
                 "my+device",
-                "my%2Bdevice/files/notifications",
-                id="'my+device' ==> 'my%2Bdevice/files/notifications'",
+                "devices/my%2Bdevice/files/notifications",
+                id="'my+device' ==> 'devices/my%2Bdevice/files/notifications'",
             ),
         ],
     )

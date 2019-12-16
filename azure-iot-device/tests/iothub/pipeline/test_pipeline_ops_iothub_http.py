@@ -25,8 +25,8 @@ class MethodInvokeOperationTestConfig(object):
     @pytest.fixture
     def init_kwargs(self, mocker):
         kwargs = {
-            "device_id": fake_module_id,
-            "module_id": fake_module_id,
+            "target_device_id": fake_device_id,
+            "target_module_id": fake_module_id,
             "method_params": mocker.MagicMock(),
             "callback": mocker.MagicMock(),
         }
@@ -37,12 +37,12 @@ class MethodInvokeOperationInstantiationTests(MethodInvokeOperationTestConfig):
     @pytest.mark.it("Initializes 'device_id' attribute with the provided 'device_id' parameter")
     def test_device_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.device_id is init_kwargs["device_id"]
+        assert op.target_device_id is init_kwargs["target_device_id"]
 
     @pytest.mark.it("Initializes 'module_id' attribute with the provided 'module_id' parameter")
     def test_module_id(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.module_id is init_kwargs["module_id"]
+        assert op.target_module_id is init_kwargs["target_module_id"]
 
     @pytest.mark.it(
         "Initializes 'method_params' attribute with the provided 'method_params' parameter"
@@ -139,11 +139,6 @@ class NotifyBlobUploadStatusOperationInstantiationTests(NotifyBlobUploadStatusOp
     def test_status_description(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.status_description is init_kwargs["status_description"]
-
-    @pytest.mark.it("Initializes 'response_status_code' attribute as None")
-    def test_ca_cert(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.response_status_code is None
 
 
 pipeline_ops_test.add_operation_tests(
