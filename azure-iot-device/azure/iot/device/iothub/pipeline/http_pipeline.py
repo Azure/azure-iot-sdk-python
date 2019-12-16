@@ -72,12 +72,12 @@ class HTTPPipeline(object):
             return callback(error=error)
 
         def on_complete(op, error):
-            callback(error=error, method_response=op.method_response)
+            callback(error=error, invoke_method_response=op.method_response)
 
         self._pipeline.run_op(
             pipeline_ops_iothub_http.MethodInvokeOperation(
-                device_id=device_id,
-                module_id=module_id,
+                target_device_id=device_id,
+                target_module_id=module_id,
                 method_params=method_params,
                 callback=on_complete,
             )
