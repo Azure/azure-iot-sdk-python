@@ -12,7 +12,6 @@ from azure.iot.device.common import transport_exceptions as errors
 import pytest
 import logging
 import ssl
-import asyncio
 import threading
 
 
