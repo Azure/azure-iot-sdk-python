@@ -52,8 +52,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         :param iothub_pipeline: The IoTHubPipeline used for the client
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
-        :param edge_pipeline: The EdgePipeline used for the client
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
+        :param http_pipeline: The HTTPPipeline used for the client
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -295,6 +295,48 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
+    async def get_storage_info_for_blob(self, blob_name):
+        """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
+
+        :param str blob_name: The name in string format of the blob that will be uploaded using the storage API. This name will be used to generate the proper credentials for Storage, and needs to match what will be used with the Azure Storage SDK to perform the blob upload.
+
+        :returns: A JSON-like (dictionary) object from IoT Hub that will contain relevant information including: correlationId, hostName, containerName, blobName, sasToken.
+        """
+        get_storage_info_for_blob_async = async_adapter.emulate_async(
+            self._http_pipeline.get_storage_info_for_blob
+        )
+
+        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+        await get_storage_info_for_blob_async(blob_name=blob_name, callback=callback)
+        storage_info = await handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info
+
+    async def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description
+    ):
+        """When the upload is complete, the device sends a POST request to the IoT Hub endpoint with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients.
+
+        :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
+        :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
+        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param str status_description: A description that corresponds to the status_code.
+        """
+        notify_blob_upload_status_async = async_adapter.emulate_async(
+            self._http_pipeline.notify_blob_upload_status
+        )
+
+        callback = async_adapter.AwaitableCallback()
+        await notify_blob_upload_status_async(
+            correlation_id=correlation_id,
+            is_success=is_success,
+            status_code=status_code,
+            status_description=status_description,
+            callback=callback,
+        )
+        await handle_result(callback)
+        logger.info("Successfully notified blob upload status")
+
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """An asynchronous device client that connects to an Azure IoT Hub instance.
@@ -302,7 +344,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, iothub_pipeline):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -311,7 +353,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
-        super().__init__(iothub_pipeline=iothub_pipeline)
+        super().__init__(iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline)
         self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     async def receive_message(self):
@@ -338,7 +380,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, iothub_pipeline, edge_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
@@ -346,10 +388,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
-        :param edge_pipeline: The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: :class:`azure.iot.device.iothub.pipeline.EdgePipeline`
         """
-        super().__init__(iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline)
+        super().__init__(iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline)
         self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     async def send_message_to_output(self, message, output_name):
@@ -408,3 +448,21 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         message = await inbox.get()
         logger.info("Input message received on: " + input_name)
         return message
+
+    async def invoke_method(self, method_params, device_id, module_id=None):
+        """Invoke a method from your client onto a device or module client, and receive the response to the method call.
+
+        :param dict method_params: Should contain a method_name, payload, connect_timeout_in_seconds, response_timeout_in_seconds.
+        :param str device_id: Device ID of the target device where the method will be invoked.
+        :param str module_id: Module ID of the target module where the method will be invoked. (Optional)
+
+        :returns: method_result should contain a status, and a payload
+        :rtype: dict
+        """
+        invoke_method_async = async_adapter.emulate_async(self._http_pipeline.invoke_method)
+        callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
+        await invoke_method_async(device_id, method_params, callback=callback, module_id=module_id)
+
+        method_response = await handle_result(callback)
+        logger.info("Successfully invoked method")
+        return method_response

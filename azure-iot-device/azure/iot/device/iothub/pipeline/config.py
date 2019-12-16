@@ -25,3 +25,8 @@ class IoTHubPipelineConfig(BasePipelineConfig):
         """
         super(IoTHubPipelineConfig, self).__init__(**kwargs)
         self.product_info = product_info
+
+        # Now, the parameters below are not exposed to the user via kwargs. They need to be set by manipulating the IoTHubPipelineConfig object.
+        # They are not in the BasePipelineConfig because these do not apply to the provisioning client.
+        self.blob_upload = False
+        self.method_invoke = False
