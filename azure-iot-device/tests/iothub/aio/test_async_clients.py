@@ -1346,32 +1346,32 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.get_storage_info()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.get_storage_info_for_blob()")
 class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
-    @pytest.mark.it("Begins a 'get_storage_info' HTTPPipeline operation")
-    async def test_calls_pipeline_get_storage_info(self, client, http_pipeline):
+    @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
+    async def test_calls_pipeline_get_storage_info_for_blob(self, client, http_pipeline):
         fake_blob_name = "__fake_blob_name__"
-        await client.get_storage_info(fake_blob_name)
-        assert http_pipeline.get_storage_info.call_count == 1
-        assert http_pipeline.get_storage_info.call_args[1]["blob_name"] is fake_blob_name
+        await client.get_storage_info_for_blob(fake_blob_name)
+        assert http_pipeline.get_storage_info_for_blob.call_count == 1
+        assert http_pipeline.get_storage_info_for_blob.call_args[1]["blob_name"] is fake_blob_name
 
     @pytest.mark.it(
-        "Waits for the completion of the 'get_storage_info' pipeline operation before returning"
+        "Waits for the completion of the 'get_storage_info_for_blob' pipeline operation before returning"
     )
     async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
         fake_blob_name = "__fake_blob_name__"
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
         cb_mock.completion.return_value = await create_completed_future(None)
 
-        await client.get_storage_info(fake_blob_name)
+        await client.get_storage_info_for_blob(fake_blob_name)
 
         # Assert callback is sent to pipeline
-        assert http_pipeline.get_storage_info.call_args[1]["callback"] is cb_mock
+        assert http_pipeline.get_storage_info_for_blob.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
     @pytest.mark.it(
-        "Raises a client error if the `get_storage_info` pipeline operation calls back with a pipeline error"
+        "Raises a client error if the `get_storage_info_for_blob` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
@@ -1391,22 +1391,24 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
 
         my_pipeline_error = pipeline_error()
 
-        def fail_get_storage_info(blob_name, callback):
+        def fail_get_storage_info_for_blob(blob_name, callback):
             callback(error=my_pipeline_error)
 
-        http_pipeline.get_storage_info = mocker.MagicMock(side_effect=fail_get_storage_info)
+        http_pipeline.get_storage_info_for_blob = mocker.MagicMock(
+            side_effect=fail_get_storage_info_for_blob
+        )
 
         with pytest.raises(client_error) as e_info:
-            await client.get_storage_info(fake_blob_name)
+            await client.get_storage_info_for_blob(fake_blob_name)
         assert e_info.value.__cause__ is my_pipeline_error
 
     @pytest.mark.it("Returns a storage_info object upon successful completion")
     async def test_returns_storage_info(self, mocker, client, http_pipeline):
         fake_blob_name = "__fake_blob_name__"
         fake_storage_info = "__fake_storage_info__"
-        received_storage_info = await client.get_storage_info(fake_blob_name)
-        assert http_pipeline.get_storage_info.call_count == 1
-        assert http_pipeline.get_storage_info.call_args[1]["blob_name"] is fake_blob_name
+        received_storage_info = await client.get_storage_info_for_blob(fake_blob_name)
+        assert http_pipeline.get_storage_info_for_blob.call_count == 1
+        assert http_pipeline.get_storage_info_for_blob.call_args[1]["blob_name"] is fake_blob_name
 
         assert (
             received_storage_info is fake_storage_info

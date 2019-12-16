@@ -24,9 +24,9 @@ def get_method_invoke_path(device_id, module_id=None):
         return "twins/{device_id}/methods".format(device_id=urllib.parse.quote_plus(device_id))
 
 
-def get_storage_info_path(device_id):
+def get_storage_info_for_blob_path(device_id):
     """
-    This does not take a module_id since get_storage_info_path should only ever be invoked on device clients.
+    This does not take a module_id since get_storage_info_for_blob_path should only ever be invoked on device clients.
 
     :return: The path for getting the storage sdk credential information from IoT Hub. It is of the format
     devices/uri_encode($device_id)/files

@@ -26,14 +26,14 @@ To do this, you can run:
 
 This sample covers using the following Device Client APIs:
 
-    get_storage_info
+    get_storage_info_for_blob
         - used to get relevant information from IoT Hub about a linked Storage Account, including
         a hostname, a container name, a blob name, and a sas token. Additionally it returns a correlation_id
         which is used in the notify_blob_upload_status, since the correlation_id is IoT Hub's way of marking
         which blob you are working on.
     notify_blob_upload_status
         - used to notify IoT Hub of the status of your blob storage operation. This uses the correlation_id obtained
-        by the get_storage_info task, and will tell IoT Hub to notify any service that might be listening for a notification on the
+        by the get_storage_info_for_blob task, and will tell IoT Hub to notify any service that might be listening for a notification on the
         status of the file upload task.
 
 You can learn more about File Upload with IoT Hub here:
@@ -94,11 +94,11 @@ async def main():
     # Connect the client.
     await device_client.connect()
 
-    # await device_client.get_storage_info("fake_device", "fake_method_params")
+    # await device_client.get_storage_info_for_blob("fake_device", "fake_method_params")
 
     # get the storage sas
     blob_name = "fakeBlobName12"
-    storage_info = await device_client.get_storage_info(blob_name)
+    storage_info = await device_client.get_storage_info_for_blob(blob_name)
 
     # upload to blob
     connection = http.client.HTTPSConnection(hostname)

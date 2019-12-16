@@ -108,7 +108,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.method_response = json.loads(op.response_body.decode("utf-8"))
+                    op_waiting_for_response.method_response = json.loads(
+                        op.response_body.decode("utf-8")
+                    )
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -129,7 +131,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
-            path = http_path_iothub.get_storage_info_path(self.device_id)
+            path = http_path_iothub.get_storage_info_for_blob_path(self.device_id)
             body = json.dumps({"blobName": op.blob_name})
             user_agent = urllib.parse.quote_plus(
                 pkg_constant.USER_AGENT

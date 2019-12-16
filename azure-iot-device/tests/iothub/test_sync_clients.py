@@ -1102,6 +1102,8 @@ class TestConfigurationIoTHubDeviceClientCreateFromSymmetricKey(IoTHubDeviceClie
 
         assert mock_config_init.call_count == 1
         assert mock_config_init.call_args == mocker.call()
+        assert mock_pipeline_init.call_args[0][1].blob_upload is True
+        assert mock_pipeline_init.call_args[0][1].method_invoke is False
         assert mock_pipeline_init.call_args[0][1].websockets is False
         assert mock_pipeline_init.call_args[0][1].product_info == ""
 
@@ -1267,6 +1269,8 @@ class TestConfigurationIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceC
         )
         assert mock_config_init.call_count == 1
         assert mock_config_init.call_args == mocker.call()
+        assert mock_pipeline_init.call_args[0][1].blob_upload is True
+        assert mock_pipeline_init.call_args[0][1].method_invoke is False
         assert mock_pipeline_init.call_args[0][1].websockets is False
         assert mock_pipeline_init.call_args[0][1].product_info == ""
 
@@ -1526,17 +1530,19 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) -.get_storage_info()")
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .get_storage_info_for_blob()")
 class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDeviceClientTestsConfig):
-    @pytest.mark.it("Begins a 'get_storage_info' HTTPPipeline operation")
-    def test_calls_pipeline_get_storage_info(self, client, http_pipeline):
+    @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
+    def test_calls_pipeline_get_storage_info_for_blob(self, mocker, client, http_pipeline):
         fake_blob_name = "__fake_blob_name__"
-        client.get_storage_info(fake_blob_name)
-        assert http_pipeline.get_storage_info.call_count == 1
-        assert http_pipeline.get_storage_info.call_args[0][0] is fake_blob_name
+        client.get_storage_info_for_blob(fake_blob_name)
+        assert http_pipeline.get_storage_info_for_blob.call_count == 1
+        assert http_pipeline.get_storage_info_for_blob.call_args == mocker.call(
+            fake_blob_name, callback=mocker.ANY
+        )
 
     @pytest.mark.it(
-        "Waits for the completion of the 'get_storage_info' pipeline operation before returning"
+        "Waits for the completion of the 'get_storage_info_for_blob' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
         self, mocker, client_manual_cb, http_pipeline_manual_cb
@@ -1545,14 +1551,14 @@ class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDevice
 
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=http_pipeline_manual_cb.get_storage_info,
+            pipeline_function=http_pipeline_manual_cb.get_storage_info_for_blob,
             kwargs={"storage_info": "__fake_storage_info__"},
         )
 
-        client_manual_cb.get_storage_info(fake_blob_name)
+        client_manual_cb.get_storage_info_for_blob(fake_blob_name)
 
     @pytest.mark.it(
-        "Raises a client error if the `get_storage_info` pipeline operation calls back with a pipeline error"
+        "Raises a client error if the `get_storage_info_for_blob` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
@@ -1572,27 +1578,29 @@ class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDevice
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=http_pipeline_manual_cb.get_storage_info,
+            pipeline_function=http_pipeline_manual_cb.get_storage_info_for_blob,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
-            client_manual_cb.get_storage_info(fake_blob_name)
+            client_manual_cb.get_storage_info_for_blob(fake_blob_name)
         assert e_info.value.__cause__ is my_pipeline_error
 
     @pytest.mark.it("Returns a storage_info object upon successful completion")
     def test_returns_storage_info(self, mocker, client, http_pipeline):
         fake_blob_name = "__fake_blob_name__"
         fake_storage_info = "__fake_storage_info__"
-        received_storage_info = client.get_storage_info(fake_blob_name)
-        assert http_pipeline.get_storage_info.call_count == 1
-        assert http_pipeline.get_storage_info.call_args[0][0] is fake_blob_name
+        received_storage_info = client.get_storage_info_for_blob(fake_blob_name)
+        assert http_pipeline.get_storage_info_for_blob.call_count == 1
+        assert http_pipeline.get_storage_info_for_blob.call_args == mocker.call(
+            fake_blob_name, callback=mocker.ANY
+        )
 
         assert (
             received_storage_info is fake_storage_info
         )  # Note: the return value this is checkign for is defined in client_fixtures.py
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) -.notify_blob_upload_status()")
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .notify_blob_upload_status()")
 class TestIoTHubDeviceClientNotifyBlobUploadStatus(
     WaitsForEventCompletion, IoTHubDeviceClientTestsConfig
 ):
@@ -1900,6 +1908,8 @@ class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
 
         assert mock_config_init.call_count == 1
         assert mock_config_init.call_args == mocker.call()
+        assert mock_iothub_pipeline_init.call_args[0][1].blob_upload is False
+        assert mock_iothub_pipeline_init.call_args[0][1].method_invoke is True
         assert mock_iothub_pipeline_init.call_args[0][1].websockets is False
         assert mock_iothub_pipeline_init.call_args[0][1].product_info == ""
 
@@ -2184,6 +2194,8 @@ class TestConfigurationIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleC
 
         assert mock_config_init.call_count == 1
         assert mock_config_init.call_args == mocker.call()
+        assert mock_pipeline_init.call_args[0][1].blob_upload is False
+        assert mock_pipeline_init.call_args[0][1].method_invoke is False
         assert mock_pipeline_init.call_args[0][1].websockets is False
         assert mock_pipeline_init.call_args[0][1].product_info == ""
 
@@ -2570,7 +2582,7 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
     def test_calls_pipeline_invoke_method_for_device(self, client, http_pipeline):

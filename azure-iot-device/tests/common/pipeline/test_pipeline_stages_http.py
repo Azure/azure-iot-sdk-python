@@ -58,9 +58,6 @@ class HTTPTransportStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_configuration=mocker.MagicMock()
-        )
         stage.send_op_down = mocker.MagicMock()
         return stage
 
@@ -112,7 +109,6 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
     )
     def test_creates_transport(self, mocker, stage, op, mock_transport):
         assert stage.transport is None
-        assert not hasattr(stage.pipeline_root, "transport")
 
         stage.run_op(op)
 
@@ -121,7 +117,6 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
             hostname=op.hostname, ca_cert=op.ca_cert, x509_cert=op.client_cert
         )
         assert stage.transport is mock_transport.return_value
-        assert stage.pipeline_root.transport is mock_transport.return_value
 
     @pytest.mark.it("Completes the operation with success, upon successful execution")
     def test_succeeds(self, mocker, stage, op, mock_transport):
@@ -141,25 +136,29 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
 # Thus, for the following tests, we will assume that the HTTPTransport has already been created,
 # and as such, the stage fixture used will have already have one.
 class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
-    @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
+    # We add a pytest fixture parametrization between SAS an X509 since depending on the version of authentication, the op will be formatted differently.
+    @pytest.fixture(params=["SAS", "X509"])
+    def stage(self, mocker, request, cls_type, init_kwargs):
         mock_transport = mocker.patch(
             "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport", autospec=True
         )
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_configuration=mocker.MagicMock()
-        )
         stage.send_op_down = mocker.MagicMock()
-
         # Set up the Transport on the stage
-        op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
-            hostname="fake_hostname",
-            ca_cert="fake_ca_cert",
-            client_cert="fake_client_cert",
-            sas_token="fake_sas_token",
-            callback=mocker.MagicMock(),
-        )
+        if request.param == "SAS":
+            op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
+                hostname="fake_hostname",
+                ca_cert="fake_ca_cert",
+                sas_token="fake_sas_token",
+                callback=mocker.MagicMock(),
+            )
+        else:
+            op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
+                hostname="fake_hostname",
+                ca_cert="fake_ca_cert",
+                client_cert="fake_client_cert",
+                callback=mocker.MagicMock(),
+            )
         stage.run_op(op)
         assert stage.transport is mock_transport.return_value
 
@@ -216,7 +215,7 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
             callback=mocker.MagicMock(),
         )
 
-    @pytest.mark.it("Provides the correct parameters to the HTTPTransport")
+    @pytest.mark.it("Sends an HTTP request via the HTTPTransport")
     def test_http_request(self, mocker, stage, op):
         stage.run_op(op)
         # We add this because the default stage here contains a SAS Token.
@@ -294,7 +293,7 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
         assert op.status_code == "__fake_status_code__"
 
     @pytest.mark.it(
-        "Completes the operation with an error if the request invokes the provided callback with an error"
+        "Completes the operation with an error if the request invokes the provided callback with the same error"
     )
     def test_completes_callback_with_error(self, mocker, stage, op, arbitrary_exception):
         def mock_on_response_complete(method, path, headers, query_params, body, callback):

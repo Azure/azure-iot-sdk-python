@@ -28,25 +28,6 @@ fake_x509_cert = "__fake_x509_certificate__"
 
 @pytest.mark.describe("HTTPTransport - Instantiation")
 class TestInstantiation(object):
-    @pytest.mark.it("Calls the HTTPTransport constructor with the required parameters")
-    def test_calls_constructor(self, mocker):
-
-        http_transport_constructor = mocker.patch.object(http_transport, "HTTPTransport")
-        mocker.patch.object(ssl, "SSLContext").return_value
-        mocker.patch.object(HTTPTransport, "_create_ssl_context").return_value
-
-        http_transport.HTTPTransport(
-            hostname=fake_hostname, ca_cert=fake_ca_cert, x509_cert=fake_x509_cert
-        )
-
-        assert http_transport_constructor.call_count == 1
-
-        actual_constructor_args = http_transport_constructor.call_args[1]
-        expected_constructor_args = mocker.call(
-            hostname=fake_hostname, ca_cert=fake_ca_cert, x509_cert=fake_x509_cert
-        )[2]
-        assert actual_constructor_args == expected_constructor_args
-
     @pytest.mark.it("Sets the proper required instance parameters")
     def test_sets_required_parameters(self, mocker):
 
@@ -127,15 +108,12 @@ class HTTPTransportTestConfig(object):
         response_value.read.return_value = "__fake_response_read_value__"
         return mock_client_constructor
 
-    @pytest.fixture
-    def transport(self, mock_http_client_constructor):
-        return HTTPTransport(hostname=fake_hostname)
-
 
 @pytest.mark.describe("HTTPTransport - .request()")
 class TestRequest(HTTPTransportTestConfig):
     @pytest.mark.it("Generates a unique HTTP Client connection for each request")
-    def test_creates_http_connection_object(self, mocker, transport, mock_http_client_constructor):
+    def test_creates_http_connection_object(self, mocker, mock_http_client_constructor):
+        transport = HTTPTransport(hostname=fake_hostname)
         # We call .result because we need to block for the Future to complete before moving on.
         transport.request(fake_method, fake_path, mocker.MagicMock()).result()
         assert mock_http_client_constructor.call_count == 1
@@ -144,18 +122,19 @@ class TestRequest(HTTPTransportTestConfig):
         assert mock_http_client_constructor.call_count == 2
 
     @pytest.mark.it("Uses the HTTP Transport SSL Context.")
-    def test_uses_ssl_context(self, mocker, transport, mock_http_client_constructor):
-        ssl_context_mocker = transport._ssl_context
+    def test_uses_ssl_context(self, mocker, mock_http_client_constructor):
+        transport = HTTPTransport(hostname=fake_hostname)
         done = transport.request(fake_method, fake_path, mocker.MagicMock())
         done.result()
 
         assert mock_http_client_constructor.call_count == 1
-        assert mock_http_client_constructor.call_args[1]["context"] == ssl_context_mocker
+        assert mock_http_client_constructor.call_args[1]["context"] == transport._ssl_context
 
-    @pytest.mark.it("Formats the request URL correctly given a path and no query parameters.")
+    @pytest.mark.it("Formats the request URL from the stage's hostname, given a path.")
     def test_formats_http_client_request_with_only_method_and_path(
-        self, mocker, transport, mock_http_client_constructor
+        self, mocker, mock_http_client_constructor
     ):
+        transport = HTTPTransport(hostname=fake_hostname)
         mock_http_client_request = mock_http_client_constructor.return_value.request
         fake_method = "__fake_method__"
         fake_path = "__fake_path__"
@@ -165,23 +144,22 @@ class TestRequest(HTTPTransportTestConfig):
 
         assert mock_http_client_constructor.call_count == 1
         assert mock_http_client_request.call_count == 1
-        assert mock_http_client_request.call_args[0][0] == fake_method
-        assert mock_http_client_request.call_args[0][1] == expected_url
-        assert mock_http_client_request.call_args[1]["body"] == ""
-        assert bool(mock_http_client_request.call_args[1]["headers"]) is False
+        assert mock_http_client_request.call_args == mocker.call(
+            fake_method, expected_url, body="", headers={}
+        )
 
-    @pytest.mark.it("Formats the request URL correctly given a path and query parameters.")
+    @pytest.mark.it(
+        "Formats the request URL from the stage's hostname, given a path and query parameters."
+    )
     def test_formats_http_client_request_with_method_path_and_query_params(
-        self, mocker, transport, mock_http_client_constructor
+        self, mocker, mock_http_client_constructor
     ):
+        transport = HTTPTransport(hostname=fake_hostname)
         mock_http_client_request = mock_http_client_constructor.return_value.request
         fake_method = "__fake_method__"
         fake_path = "__fake_path__"
         fake_query_params = "__fake_query_params__"
         expected_url = "https://{}/{}?{}".format(fake_hostname, fake_path, fake_query_params)
-        # output = {"response": None, "error": None}
-
-        # def request_callback(response=None, error=None):
 
         done = transport.request(
             fake_method, fake_path, mocker.MagicMock(), query_params=fake_query_params
@@ -189,22 +167,45 @@ class TestRequest(HTTPTransportTestConfig):
         done.result()
         assert mock_http_client_constructor.call_count == 1
         assert mock_http_client_request.call_count == 1
-        assert mock_http_client_request.call_args[0][0] == fake_method
-        assert mock_http_client_request.call_args[0][1] == expected_url
-        assert mock_http_client_request.call_args[1]["body"] == ""
-        assert bool(mock_http_client_request.call_args[1]["headers"]) is False
+        assert mock_http_client_request.call_args == mocker.call(
+            fake_method, expected_url, body="", headers={}
+        )
 
-    @pytest.mark.it(
-        "Calls HTTP Client Connection request method with correct method, url, body, and headers."
-    )
+    @pytest.mark.it("Sends HTTP request via HTTP Client.")
     @pytest.mark.parametrize(
         "method, path, query_params, body, headers",
         [
-            pytest.param("__fake_method__", "__fake_path__", None, None, None),
-            pytest.param("__fake_method__", "__fake_path__", "", "", ""),
-            pytest.param("__fake_method__", "__fake_path__", "__fake_query_params__", None, None),
             pytest.param(
-                "__fake_method__", "__fake_path__", "__fake_query_params__", "__fake_body__", None
+                "__fake_method__",
+                "__fake_path__",
+                None,
+                None,
+                None,
+                id="Method and path (optional params set to None)",
+            ),
+            pytest.param(
+                "__fake_method__",
+                "__fake_path__",
+                "",
+                "",
+                "",
+                id="Method and path (optional params set to empty string)",
+            ),
+            pytest.param(
+                "__fake_method__",
+                "__fake_path__",
+                "__fake_query_params__",
+                None,
+                None,
+                id="Method, path, and query params (body and headers set to None)",
+            ),
+            pytest.param(
+                "__fake_method__",
+                "__fake_path__",
+                "__fake_query_params__",
+                "__fake_body__",
+                None,
+                id="Method, path, query_params, and body (headers set to None)",
             ),
             pytest.param(
                 "__fake_method__",
@@ -212,20 +213,14 @@ class TestRequest(HTTPTransportTestConfig):
                 "__fake_query_params__",
                 "__fake_body__",
                 "__fake_headers__",
+                id="All parameters provided",
             ),
         ],
     )
     def test_calls_http_client_request_with_given_parameters(
-        self,
-        mocker,
-        transport,
-        mock_http_client_constructor,
-        method,
-        path,
-        query_params,
-        body,
-        headers,
+        self, mocker, mock_http_client_constructor, method, path, query_params, body, headers
     ):
+        transport = HTTPTransport(hostname=fake_hostname)
         mock_http_client_request = mock_http_client_constructor.return_value.request
         if query_params:
             expected_url = "https://{}/{}?{}".format(fake_hostname, path, query_params)
@@ -244,6 +239,7 @@ class TestRequest(HTTPTransportTestConfig):
 
         actual_body = mock_http_client_request.call_args[1]["body"]
         actual_headers = mock_http_client_request.call_args[1]["headers"]
+
         if body:
             assert actual_body == body
         else:
@@ -256,7 +252,8 @@ class TestRequest(HTTPTransportTestConfig):
     @pytest.mark.it(
         "Creates a response object with a status code, reason, and unformatted HTTP response and returns it via the callback."
     )
-    def test_returns_response_on_success(self, mocker, transport, mock_http_client_constructor):
+    def test_returns_response_on_success(self, mocker, mock_http_client_constructor):
+        transport = HTTPTransport(hostname=fake_hostname)
         cb = mocker.MagicMock()
         done = transport.request(fake_method, fake_path, cb)
         done.result()
@@ -269,10 +266,13 @@ class TestRequest(HTTPTransportTestConfig):
 
     @pytest.mark.it("Raises a ProtocolClientError if request raises an unexpected Exception")
     def test_client_raises_unexpected_error(
-        self, mocker, transport, mock_http_client_constructor, arbitrary_exception
+        self, mocker, mock_http_client_constructor, arbitrary_exception
     ):
+        transport = HTTPTransport(hostname=fake_hostname)
         mock_http_client_constructor.return_value.connect.side_effect = arbitrary_exception
         cb = mocker.MagicMock()
         done = transport.request(fake_method, fake_path, cb)
         done.result()
-        assert cb.call_args[1]["error"].__cause__ is arbitrary_exception
+        error = cb.call_args[1]["error"]
+        assert isinstance(error, errors.ProtocolClientError)
+        assert error.__cause__ is arbitrary_exception

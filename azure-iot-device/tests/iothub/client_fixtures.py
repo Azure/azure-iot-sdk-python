@@ -209,7 +209,7 @@ class FakeHTTPPipeline:
     def invoke_method(self, device_id, method_params, callback, module_id=None):
         callback(invoke_method_response="__fake_method_response__")
 
-    def get_storage_info(self, blob_name, callback):
+    def get_storage_info_for_blob(self, blob_name, callback):
         callback(storage_info="__fake_storage_info__")
 
     def notify_blob_upload_status(

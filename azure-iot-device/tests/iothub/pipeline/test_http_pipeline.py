@@ -268,11 +268,13 @@ class TestHTTPPipelineInvokeMethod(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception, invoke_method_response=None)
 
 
-@pytest.mark.describe("HTTPPipeline - .get_storage_info()")
+@pytest.mark.describe("HTTPPipeline - .get_storage_info_for_blob()")
 class TestHTTPPipelineGetStorageInfo(object):
     @pytest.mark.it("Runs a GetStorageInfoOperation on the pipeline")
     def test_runs_op(self, pipeline, mocker):
-        pipeline.get_storage_info(blob_name="__fake_blob_name__", callback=mocker.MagicMock())
+        pipeline.get_storage_info_for_blob(
+            blob_name="__fake_blob_name__", callback=mocker.MagicMock()
+        )
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(
             pipeline._pipeline.run_op.call_args[0][0],
@@ -285,7 +287,7 @@ class TestHTTPPipelineGetStorageInfo(object):
     def test_op_configuration_fail(self, mocker, pipeline):
         pipeline._pipeline.pipeline_configuration.blob_upload = False
         cb = mocker.MagicMock()
-        pipeline.get_storage_info(blob_name="__fake_blob_name__", callback=cb)
+        pipeline.get_storage_info_for_blob(blob_name="__fake_blob_name__", callback=cb)
 
         assert cb.call_count == 1
         assert cb.call_args == mocker.call(error=mocker.ANY)
@@ -297,7 +299,7 @@ class TestHTTPPipelineGetStorageInfo(object):
         cb = mocker.MagicMock()
 
         # Begin operation
-        pipeline.get_storage_info(blob_name="__fake_blob_name__", callback=cb)
+        pipeline.get_storage_info_for_blob(blob_name="__fake_blob_name__", callback=cb)
         assert cb.call_count == 0
 
         # Trigger op completion callback
@@ -313,7 +315,7 @@ class TestHTTPPipelineGetStorageInfo(object):
     )
     def test_op_fail(self, mocker, pipeline, arbitrary_exception):
         cb = mocker.MagicMock()
-        pipeline.get_storage_info(blob_name="__fake_blob_name__", callback=cb)
+        pipeline.get_storage_info_for_blob(blob_name="__fake_blob_name__", callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.complete(error=arbitrary_exception)

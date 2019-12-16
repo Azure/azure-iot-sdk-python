@@ -34,7 +34,8 @@ class HTTPPipeline(object):
 
     def __init__(self, auth_provider, pipeline_configuration):
         """
-        Constructor for instantiating a pipeline adapter object
+        Constructor for instantiating a pipeline adapter object.
+
         :param auth_provider: The authentication provider
         :param pipeline_configuration: The configuration generated based on user inputs
         """
@@ -61,7 +62,19 @@ class HTTPPipeline(object):
 
     def invoke_method(self, device_id, method_params, callback, module_id=None):
         """
-        Send a method response to the service.
+        Send a request to the service to invoke a method on a target device or module.
+
+        :param device_id: The target device id
+        :param method_params: The method parameters to be invoked on the target client
+        :param callback: callback which is called when request has been fulfilled.
+            On success, this callback is called with the error=None.
+            On failure, this callback is called with error set to the cause of the failure.
+        :param module_id: The target module id
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+            when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
         logger.debug("IoTHubPipeline invoke_method called")
         if not self._pipeline.pipeline_configuration.method_invoke:
@@ -83,12 +96,25 @@ class HTTPPipeline(object):
             )
         )
 
-    def get_storage_info(self, blob_name, callback):
-        logger.debug("IoTHubPipeline get_storage_info called")
+    def get_storage_info_for_blob(self, blob_name, callback):
+        """
+        Sends a POST request to the IoT Hub service endpoint to retrieve an object that contains information for uploading via the Storage SDK.
+
+        :param blob_name: The name of the blob that will be uploaded via the Azure Storage SDK.
+        :param callback: callback which is called when request has been fulfilled.
+            On success, this callback is called with the error=None, and the storage_info set to the information JSON received from the service.
+            On failure, this callback is called with error set to the cause of the failure, and the storage_info=None.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+            when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        """
+        logger.debug("IoTHubPipeline get_storage_info_for_blob called")
         if not self._pipeline.pipeline_configuration.blob_upload:
             # If this parameter is not set, that means this is not a device client. Upload to blob is not supported on module clients.
             error = pipeline_exceptions.PipelineError(
-                "get_storage_info called, but it is only supported for use with device clients. Ensure you are using a device client."
+                "get_storage_info_for_blob called, but it is only supported for use with device clients. Ensure you are using a device client."
             )
             return callback(error=error)
 
@@ -104,6 +130,24 @@ class HTTPPipeline(object):
     def notify_blob_upload_status(
         self, correlation_id, is_success, status_code, status_description, callback
     ):
+        """
+        Sends a POST request to a IoT Hub service endpoint to notify the status of the Storage SDK call for a blob upload.
+
+        :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
+        :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
+        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param str status_description: A description that corresponds to the status_code.
+
+        :param callback: callback which is called when request has been fulfilled.
+            On success, this callback is called with the error=None.
+            On failure, this callback is called with error set to the cause of the failure.
+
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+            when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        """
         logger.debug("IoTHubPipeline notify_blob_upload_status called")
         if not self._pipeline.pipeline_configuration.blob_upload:
             # If this parameter is not set, that means this is not a device client. Upload to blob is not supported on module clients.

@@ -295,19 +295,19 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    async def get_storage_info(self, blob_name):
-        """Call up to the IoT Hub Endpoint over HTTP to get information on
-        the storage blob for uploads.
+    async def get_storage_info_for_blob(self, blob_name):
+        """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
+
+        :param str blob_name: The name in string format of the blob that will be uploaded using the storage API. This name will be used to generate the proper credentials for Storage, and needs to match what will be used with the Azure Storage SDK to perform the blob upload.
+
+        :returns: A JSON-like (dictionary) object from IoT Hub that will contain relevant information including: correlationId, hostName, containerName, blobName, sasToken.
         """
-        # if not self._http_pipeline:
-        #     raise exceptions.ClientError(
-        #         "No Upload Pipeline Initialized. get_storage_info cannot be called without an Upload Pipeline set."
-        #     )
-        # else:
-        get_storage_info_async = async_adapter.emulate_async(self._http_pipeline.get_storage_info)
+        get_storage_info_for_blob_async = async_adapter.emulate_async(
+            self._http_pipeline.get_storage_info_for_blob
+        )
 
         callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-        await get_storage_info_async(blob_name=blob_name, callback=callback)
+        await get_storage_info_for_blob_async(blob_name=blob_name, callback=callback)
         storage_info = await handle_result(callback)
         logger.info("Successfully retrieved storage_info")
         return storage_info
@@ -315,13 +315,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def notify_blob_upload_status(
         self, correlation_id, is_success, status_code, status_description
     ):
+        """When the upload is complete, the device sends a POST request to the IoT Hub endpoint with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients.
+
+        :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
+        :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
+        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param str status_description: A description that corresponds to the status_code.
         """
-        """
-        # if not self._http_pipeline:
-        #     raise exceptions.ClientError(
-        #         "No Upload Pipeline Initialized. notify_blob_upload_status cannot be called without an Upload Pipeline set."
-        #     )
-        # else:
         notify_blob_upload_status_async = async_adapter.emulate_async(
             self._http_pipeline.notify_blob_upload_status
         )
@@ -450,16 +450,15 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         return message
 
     async def invoke_method(self, method_params, device_id, module_id=None):
-        # TODO: Should the pipeline level be split into two? According to everyone,
-        # it should be only one in the pipeline level, so I should change this.
-        """
-        method_params should contain a method_name, payload, conenct_timeout_in_seconds, response_timeout_in_seconds
-        method_result should contain a status, and a payload
-        """
-        # if not self._http_pipeline:
-        #     # TODO: Is this the right type of Error? CC: Carter
-        #     raise exceptions.ClientError(message="Method Invoke only avaiable on Edge Modules")
+        """Invoke a method from your client onto a device or module client, and receive the response to the method call.
 
+        :param dict method_params: Should contain a method_name, payload, connect_timeout_in_seconds, response_timeout_in_seconds.
+        :param str device_id: Device ID of the target device where the method will be invoked.
+        :param str module_id: Module ID of the target module where the method will be invoked. (Optional)
+
+        :returns: method_result should contain a status, and a payload
+        :rtype: dict
+        """
         invoke_method_async = async_adapter.emulate_async(self._http_pipeline.invoke_method)
         callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
         await invoke_method_async(device_id, method_params, callback=callback, module_id=module_id)

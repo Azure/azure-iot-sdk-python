@@ -502,9 +502,11 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
         assert isinstance(new_op, pipeline_ops_http.HTTPRequestAndResponseOperation)
 
         # Validate request
-        assert mock_http_path_iothub.get_storage_info_path.call_count == 1
-        assert mock_http_path_iothub.get_storage_info_path.call_args == mocker.call(stage.device_id)
-        expected_path = mock_http_path_iothub.get_storage_info_path.return_value
+        assert mock_http_path_iothub.get_storage_info_for_blob_path.call_count == 1
+        assert mock_http_path_iothub.get_storage_info_for_blob_path.call_args == mocker.call(
+            stage.device_id
+        )
+        expected_path = mock_http_path_iothub.get_storage_info_for_blob_path.return_value
 
         assert new_op.method == "POST"
         assert new_op.path == expected_path

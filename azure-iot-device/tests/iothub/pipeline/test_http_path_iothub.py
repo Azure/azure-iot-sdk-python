@@ -63,7 +63,7 @@ class TestGetMethodInvokePath(object):
         assert path == expected_path
 
 
-@pytest.mark.describe(".get_storage_info_path()")
+@pytest.mark.describe(".get_storage_info_for_blob_path()")
 class TestGetStorageInfoPath(object):
     @pytest.mark.it("Returns the storage info HTTP path")
     @pytest.mark.parametrize(
@@ -87,7 +87,7 @@ class TestGetStorageInfoPath(object):
         ],
     )
     def test_path(self, device_id, expected_path):
-        path = http_path_iothub.get_storage_info_path(device_id)
+        path = http_path_iothub.get_storage_info_for_blob_path(device_id)
         assert path == expected_path
 
 
