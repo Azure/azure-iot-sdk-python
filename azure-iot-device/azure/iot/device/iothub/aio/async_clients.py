@@ -462,7 +462,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         invoke_method_async = async_adapter.emulate_async(self._http_pipeline.invoke_method)
         callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
-        await invoke_method_async(device_id, method_params, callback, module_id)
+        await invoke_method_async(device_id, method_params, callback=callback, module_id=module_id)
 
         method_response = await handle_result(callback)
         logger.info("Successfully invoked method")

@@ -1117,7 +1117,7 @@ class TestIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClientTestsConfig):
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Synchronous) - .create_from_x509_certificate() -- Configuration"
+    "IoTHubDeviceClient (Asynchronous) - .create_from_x509_certificate() -- Configuration"
 )
 class TestConfigurationIoTHubDeviceClientCreateFromX509Certificate(IoTHubDeviceClientTestsConfig):
     hostname = "durmstranginstitute.farend"
@@ -1346,6 +1346,149 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.get_storage_info()")
+class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
+    @pytest.mark.it("Begins a 'get_storage_info' HTTPPipeline operation")
+    async def test_calls_pipeline_get_storage_info(self, client, http_pipeline):
+        fake_blob_name = "__fake_blob_name__"
+        await client.get_storage_info(fake_blob_name)
+        assert http_pipeline.get_storage_info.call_count == 1
+        assert http_pipeline.get_storage_info.call_args[1]["blob_name"] is fake_blob_name
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'get_storage_info' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
+        fake_blob_name = "__fake_blob_name__"
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.get_storage_info(fake_blob_name)
+
+        # Assert callback is sent to pipeline
+        assert http_pipeline.get_storage_info.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `get_storage_info` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, http_pipeline, pipeline_error, client_error
+    ):
+        fake_blob_name = "__fake_blob_name__"
+
+        my_pipeline_error = pipeline_error()
+
+        def fail_get_storage_info(blob_name, callback):
+            callback(error=my_pipeline_error)
+
+        http_pipeline.get_storage_info = mocker.MagicMock(side_effect=fail_get_storage_info)
+
+        with pytest.raises(client_error) as e_info:
+            await client.get_storage_info(fake_blob_name)
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it("Returns a storage_info object upon successful completion")
+    async def test_returns_storage_info(self, mocker, client, http_pipeline):
+        fake_blob_name = "__fake_blob_name__"
+        fake_storage_info = "__fake_storage_info__"
+        received_storage_info = await client.get_storage_info(fake_blob_name)
+        assert http_pipeline.get_storage_info.call_count == 1
+        assert http_pipeline.get_storage_info.call_args[1]["blob_name"] is fake_blob_name
+
+        assert (
+            received_storage_info is fake_storage_info
+        )  # Note: the return value this is checkign for is defined in client_fixtures.py
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.notify_blob_upload_status()")
+class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig):
+    @pytest.mark.it("Begins a 'notify_blob_upload_status' HTTPPipeline operation")
+    async def test_calls_pipeline_notify_blob_upload_status(self, client, http_pipeline):
+        correlation_id = "__fake_correlation_id__"
+        is_success = "__fake_is_success__"
+        status_code = "__fake_status_code__"
+        status_description = "__fake_status_description__"
+        await client.notify_blob_upload_status(
+            correlation_id, is_success, status_code, status_description
+        )
+        kwargs = http_pipeline.notify_blob_upload_status.call_args[1]
+        assert http_pipeline.notify_blob_upload_status.call_count == 1
+        assert kwargs["correlation_id"] is correlation_id
+        assert kwargs["is_success"] is is_success
+        assert kwargs["status_code"] is status_code
+        assert kwargs["status_description"] is status_description
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'notify_blob_upload_status' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
+        correlation_id = "__fake_correlation_id__"
+        is_success = "__fake_is_success__"
+        status_code = "__fake_status_code__"
+        status_description = "__fake_status_description__"
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+        await client.notify_blob_upload_status(
+            correlation_id, is_success, status_code, status_description
+        )
+
+        # Assert callback is sent to pipeline
+        assert http_pipeline.notify_blob_upload_status.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `notify_blob_upload_status` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, http_pipeline, pipeline_error, client_error
+    ):
+        correlation_id = "__fake_correlation_id__"
+        is_success = "__fake_is_success__"
+        status_code = "__fake_status_code__"
+        status_description = "__fake_status_description__"
+        my_pipeline_error = pipeline_error()
+
+        def fail_notify_blob_upload_status(
+            correlation_id, is_success, status_code, status_description, callback
+        ):
+            callback(error=my_pipeline_error)
+
+        http_pipeline.notify_blob_upload_status = mocker.MagicMock(
+            side_effect=fail_notify_blob_upload_status
+        )
+
+        with pytest.raises(client_error) as e_info:
+            await client.notify_blob_upload_status(
+                correlation_id, is_success, status_code, status_description
+            )
+            assert e_info.value.__cause__ is my_pipeline_error
+
+
 ################
 # MODULE TESTS #
 ################
@@ -1543,7 +1686,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Synchronous) - .create_from_edge_environment() -- Edge Local Debug Environment -- Configuration"
+    "IoTHubModuleClient (Asynchronous) - .create_from_edge_environment() -- Edge Local Debug Environment -- Configuration"
 )
 class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
     IoTHubModuleClientTestsConfig
@@ -1831,7 +1974,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Synchronous) - .create_from_x509_certificate() -- Configuration"
+    "IoTHubModuleClient (Asynchronous) - .create_from_x509_certificate() -- Configuration"
 )
 class TestConfigurationIoTHubModuleClientCreateFromX509Certificate(IoTHubModuleClientTestsConfig):
     hostname = "durmstranginstitute.farend"
@@ -2172,3 +2315,78 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     IoTHubModuleClientTestsConfig, SharedClientReceiveTwinDesiredPropertiesPatchTests
 ):
     pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
+class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
+    @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
+    async def test_calls_pipeline_invoke_method_for_device(self, mocker, client, http_pipeline):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        await client.invoke_method(method_params, device_id)
+        assert http_pipeline.invoke_method.call_count == 1
+        assert http_pipeline.invoke_method.call_args == mocker.call(
+            device_id, method_params, callback=mocker.ANY, module_id=None
+        )
+
+    @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a module")
+    async def test_calls_pipeline_invoke_method_for_module(self, mocker, client, http_pipeline):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        module_id = "__fake_module_id__"
+        await client.invoke_method(method_params, device_id, module_id=module_id)
+        assert http_pipeline.invoke_method.call_count == 1
+        # assert http_pipeline.invoke_method.call_args[0][0] is device_id
+        # assert http_pipeline.invoke_method.call_args[0][1] is method_params
+        assert http_pipeline.invoke_method.call_args == mocker.call(
+            device_id, method_params, callback=mocker.ANY, module_id=module_id
+        )
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'invoke_method' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        module_id = "__fake_module_id__"
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.invoke_method(method_params, device_id, module_id=module_id)
+
+        # Assert callback is sent to pipeline
+        assert http_pipeline.invoke_method.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `invoke_method` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, http_pipeline, pipeline_error, client_error
+    ):
+        method_params = "__fake_method_params__"
+        device_id = "__fake_device_id__"
+        module_id = "__fake_module_id__"
+        my_pipeline_error = pipeline_error()
+
+        def fail_invoke_method(method_params, device_id, callback, module_id=None):
+            return callback(error=my_pipeline_error)
+
+        http_pipeline.invoke_method = mocker.MagicMock(side_effect=fail_invoke_method)
+
+        with pytest.raises(client_error) as e_info:
+            await client.invoke_method(method_params, device_id, module_id=module_id)
+
+        assert e_info.value.__cause__ is my_pipeline_error

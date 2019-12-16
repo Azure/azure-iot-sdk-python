@@ -1566,14 +1566,9 @@ class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDevice
         ],
     )
     def test_raises_error_on_pipeline_op_error(
-        self,
-        mocker,
-        client_manual_cb,
-        http_pipeline_manual_cb,
-        message,
-        pipeline_error,
-        client_error,
+        self, mocker, client_manual_cb, http_pipeline_manual_cb, pipeline_error, client_error
     ):
+        fake_blob_name = "__fake_blob_name__"
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
@@ -1581,7 +1576,7 @@ class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDevice
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
-            client_manual_cb.get_storage_info(message)
+            client_manual_cb.get_storage_info(fake_blob_name)
         assert e_info.value.__cause__ is my_pipeline_error
 
     @pytest.mark.it("Returns a storage_info object upon successful completion")
