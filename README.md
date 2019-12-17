@@ -1,7 +1,7 @@
 #
 <div align=center>
     <img src="./azure-iot-device/doc/images/azure_iot_sdk_python_banner.png"></img>
-    <h1> V2 - PREVIEW </h1>
+    <h1> V2 - We are now GA! </h1>
 </div>
 
 ![Build Status](https://azure-iot-sdks.visualstudio.com/azure-iot-sdks/_apis/build/status/Azure.azure-iot-sdk-python)
@@ -11,7 +11,6 @@ connection to the Azure IoTHub ecosystem.
 
 *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
 
-**Note that these SDKs are currently in preview, and are subject to change.**
 
 ## Azure IoT SDK for Python
 
