@@ -2,8 +2,6 @@
 
 The Azure IoTHub Service SDK for Python provides functionality for communicating with the Azure IoT Hub.
 
-**Note that this SDK is currently in preview, and is subject to change.**
-
 ## Features
 
 The SDK provides the following clients:
