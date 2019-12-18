@@ -183,10 +183,10 @@ class MQTTTransport(object):
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
-            logger.debug("".join(traceback.format_stack()))
 
             cause = None
             if rc:  # i.e. if there is an error
+                logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
                 this._stop_automatic_reconnect()
 
