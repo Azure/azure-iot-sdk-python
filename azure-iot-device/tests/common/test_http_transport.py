@@ -22,7 +22,7 @@ fake_method = "__fake_method__"
 fake_path = "__fake_path__"
 
 
-fake_ca_cert = "__fake_ca_cert__"
+fake_server_verification_cert = "__fake_server_verification_cert__"
 fake_x509_cert = "__fake_x509_certificate__"
 
 
@@ -35,11 +35,13 @@ class TestInstantiation(object):
         mocker.patch.object(HTTPTransport, "_create_ssl_context").return_value
 
         http_transport_object = HTTPTransport(
-            hostname=fake_hostname, ca_cert=fake_ca_cert, x509_cert=fake_x509_cert
+            hostname=fake_hostname,
+            server_verification_cert=fake_server_verification_cert,
+            x509_cert=fake_x509_cert,
         )
 
         assert http_transport_object._hostname == fake_hostname
-        assert http_transport_object._ca_cert == fake_ca_cert
+        assert http_transport_object._server_verification_cert == fake_server_verification_cert
         assert http_transport_object._x509_cert == fake_x509_cert
 
     @pytest.mark.it(
@@ -57,7 +59,7 @@ class TestInstantiation(object):
         assert mock_ssl_context.verify_mode == ssl.CERT_REQUIRED
 
     @pytest.mark.it(
-        "Configures TLS/SSL context using default certificates if protocol wrapper not instantiated with a CA certificate"
+        "Configures TLS/SSL context using default certificates if protocol wrapper not instantiated with a server verification certificate"
     )
     def test_configures_tls_context_with_default_certs(self, mocker):
         mock_ssl_context = mocker.patch.object(ssl, "SSLContext").return_value
@@ -68,15 +70,19 @@ class TestInstantiation(object):
         assert mock_ssl_context.load_default_certs.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Configures TLS/SSL context with provided CA certificates if protocol wrapper instantiated with a CA certificate"
+        "Configures TLS/SSL context with provided server verification certificate if protocol wrapper instantiated with a server verification certificate"
     )
-    def test_configures_tls_context_with_ca_certs(self, mocker):
+    def test_configures_tls_context_with_server_verification_certs(self, mocker):
         mock_ssl_context = mocker.patch.object(ssl, "SSLContext").return_value
 
-        HTTPTransport(hostname=fake_hostname, ca_cert=fake_ca_cert)
+        HTTPTransport(
+            hostname=fake_hostname, server_verification_cert=fake_server_verification_cert
+        )
 
         assert mock_ssl_context.load_verify_locations.call_count == 1
-        assert mock_ssl_context.load_verify_locations.call_args == mocker.call(cadata=fake_ca_cert)
+        assert mock_ssl_context.load_verify_locations.call_args == mocker.call(
+            cadata=fake_server_verification_cert
+        )
 
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(self, mocker):

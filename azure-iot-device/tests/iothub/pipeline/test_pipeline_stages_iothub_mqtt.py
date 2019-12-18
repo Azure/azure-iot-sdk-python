@@ -58,7 +58,7 @@ fake_device_id = "__fake_device_id__"
 fake_module_id = "__fake_module_id__"
 fake_hostname = "__fake_hostname__"
 fake_gateway_hostname = "__fake_gateway_hostname__"
-fake_ca_cert = "__fake_ca_cert__"
+fake_server_verification_cert = "__fake_server_verification_cert__"
 fake_client_cert = "__fake_client_cert__"
 fake_sas_token = "__fake_sas_token__"
 
@@ -417,12 +417,14 @@ class TestIoTHubMQTTConverterWithSetAuthProviderArgs(IoTHubMQTTTranslationStageT
             expected_product_info,
         )
 
-    @pytest.mark.it("Sets connection_args.ca_cert to auth_provider.ca_cert")
-    def test_sets_ca_cert(self, stage, set_connection_args):
-        set_connection_args.ca_cert = fake_ca_cert
+    @pytest.mark.it(
+        "Sets connection_args.server_verification_cert to auth_provider.server_verification_cert"
+    )
+    def test_sets_server_verification_cert(self, stage, set_connection_args):
+        set_connection_args.server_verification_cert = fake_server_verification_cert
         stage.run_op(set_connection_args)
         new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.ca_cert == fake_ca_cert
+        assert new_op.server_verification_cert == fake_server_verification_cert
 
     @pytest.mark.it("Sets connection_args.client_cert to auth_provider.client_cert")
     def test_sets_client_cert(self, stage, set_connection_args):

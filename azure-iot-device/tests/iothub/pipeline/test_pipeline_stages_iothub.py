@@ -30,7 +30,7 @@ fake_device_id = "__fake_device_id__"
 fake_module_id = "__fake_module_id__"
 fake_hostname = "__fake_hostname__"
 fake_gateway_hostname = "__fake_gateway_hostname__"
-fake_ca_cert = "__fake_ca_cert__"
+fake_server_verification_cert = "__fake_server_verification_cert__"
 fake_sas_token = "__fake_sas_token__"
 fake_symmetric_key = "Zm9vYmFy"
 fake_x509_cert_file = "fantastic_beasts"
@@ -135,7 +135,7 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
         assert stage.auth_provider is op.auth_provider
 
     # NOTE: Because currently auth providers don't have a consistent attribute surface, only some
-    # have the 'ca_cert' and 'gateway_hostname' attributes, so parametrize to show they default to
+    # have the 'server_verification_cert' and 'gateway_hostname' attributes, so parametrize to show they default to
     # None when non-existent. If authentication providers ever receive a uniform surface, this
     # parametrization will no longer be required.
     @pytest.mark.it(
@@ -146,7 +146,7 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
     )
     def test_send_new_op_down(self, mocker, op, stage, all_auth_args):
         if all_auth_args:
-            op.auth_provider.ca_cert = fake_ca_cert
+            op.auth_provider.server_verification_cert = fake_server_verification_cert
             op.auth_provider.gateway_hostname = fake_gateway_hostname
 
         stage.run_op(op)
@@ -163,10 +163,10 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
         assert new_op.sas_token is op.auth_provider.get_current_sas_token.return_value
         assert new_op.client_cert is None
         if all_auth_args:
-            assert new_op.ca_cert == op.auth_provider.ca_cert
+            assert new_op.server_verification_cert == op.auth_provider.server_verification_cert
             assert new_op.gateway_hostname == op.auth_provider.gateway_hostname
         else:
-            assert new_op.ca_cert is None
+            assert new_op.server_verification_cert is None
             assert new_op.gateway_hostname is None
 
     @pytest.mark.it(
@@ -234,7 +234,7 @@ class TestUseAuthProviderStageRunOpWithSetX509AuthProviderOperation(
         assert stage.auth_provider is op.auth_provider
 
     # NOTE: Because currently auth providers don't have a consistent attribute surface, only some
-    # have the 'ca_cert' and 'gateway_hostname' attributes, so parametrize to show they default to
+    # have the 'server_verification_cert' and 'gateway_hostname' attributes, so parametrize to show they default to
     # None when non-existent. If authentication providers ever receive a uniform surface, this
     # parametrization will no longer be required.
     @pytest.mark.it(
@@ -245,7 +245,7 @@ class TestUseAuthProviderStageRunOpWithSetX509AuthProviderOperation(
     )
     def test_send_new_op_down(self, mocker, op, stage, all_auth_args):
         if all_auth_args:
-            op.auth_provider.ca_cert = fake_ca_cert
+            op.auth_provider.server_verification_cert = fake_server_verification_cert
             op.auth_provider.gateway_hostname = fake_gateway_hostname
 
         stage.run_op(op)
@@ -262,10 +262,10 @@ class TestUseAuthProviderStageRunOpWithSetX509AuthProviderOperation(
         assert new_op.client_cert is op.auth_provider.get_x509_certificate.return_value
         assert new_op.sas_token is None
         if all_auth_args:
-            assert new_op.ca_cert == op.auth_provider.ca_cert
+            assert new_op.server_verification_cert == op.auth_provider.server_verification_cert
             assert new_op.gateway_hostname == op.auth_provider.gateway_hostname
         else:
-            assert new_op.ca_cert is None
+            assert new_op.server_verification_cert is None
             assert new_op.gateway_hostname is None
 
     @pytest.mark.it(

@@ -13,12 +13,14 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
     This operation is in the group of HTTP operations because its attributes are very specific to the HTTP protocol.
     """
 
-    def __init__(self, hostname, callback, ca_cert=None, client_cert=None, sas_token=None):
+    def __init__(
+        self, hostname, callback, server_verification_cert=None, client_cert=None, sas_token=None
+    ):
         """
         Initializer for SetHTTPConnectionArgsOperation objects.
         :param str hostname: The hostname of the HTTP server we will eventually connect to
-        :param str ca_cert: (Optional) The CA certificate to use if the HTTP server that we're going to
-            connect to uses server-side TLS
+        :param str server_verification_cert: (Optional) The server verification certificate to use
+            if the HTTP server that we're going to connect to uses server-side TLS
         :param X509 client_cert: (Optional) The x509 object containing a client certificate and key used to connect
             to the HTTP service
         :param str sas_token: The token string which will be used to authenticate with the service
@@ -28,7 +30,7 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
         """
         super(SetHTTPConnectionArgsOperation, self).__init__(callback=callback)
         self.hostname = hostname
-        self.ca_cert = ca_cert
+        self.server_verification_cert = server_verification_cert
         self.client_cert = client_cert
         self.sas_token = sas_token
 

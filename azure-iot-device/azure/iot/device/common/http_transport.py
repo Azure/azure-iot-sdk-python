@@ -21,16 +21,16 @@ class HTTPTransport(object):
     A wrapper class that provides an implementation-agnostic HTTP interface.
     """
 
-    def __init__(self, hostname, ca_cert=None, x509_cert=None):
+    def __init__(self, hostname, server_verification_cert=None, x509_cert=None):
         """
         Constructor to instantiate an HTTP protocol wrapper.
 
         :param str hostname: Hostname or IP address of the remote host.
-        :param str ca_cert: Certificate which can be used to validate a server-side TLS connection (optional).
+        :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         """
         self._hostname = hostname
-        self._ca_cert = ca_cert
+        self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._ssl_context = self._create_ssl_context()
 
@@ -41,8 +41,8 @@ class HTTPTransport(object):
         logger.debug("creating a SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
-        if self._ca_cert:
-            ssl_context.load_verify_locations(cadata=self._ca_cert)
+        if self._server_verification_cert:
+            ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
             ssl_context.load_default_certs()
         ssl_context.verify_mode = ssl.CERT_REQUIRED

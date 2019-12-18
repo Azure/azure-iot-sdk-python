@@ -70,7 +70,7 @@ class AbstractIoTHubClient(object):
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
         authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
-        authentication_provider.ca_cert = server_verification_cert
+        authentication_provider.server_verification_cert = server_verification_cert
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline, http_pipeline)
@@ -219,11 +219,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err = OSError("IoT Edge environment not configured correctly")
                 new_err.__cause__ = e
                 raise new_err
-            # TODO: variant ca_cert file vs data object that would remove the need for this fopen
+            # TODO: variant server_verification_cert file vs data object that would remove the need for this fopen
             # Read the certificate file to pass it on as a string
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
-                    ca_cert = ca_cert_file.read()
+                    server_verification_cert = ca_cert_file.read()
             except (OSError, IOError) as e:
                 # In Python 2, a non-existent file raises IOError, and an invalid file raises an IOError.
                 # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
@@ -242,7 +242,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 )
             except ValueError:
                 raise
-            authentication_provider.ca_cert = ca_cert
+            authentication_provider.server_verification_cert = server_verification_cert
         else:
             # Use an HSM for authentication in the general case
             try:

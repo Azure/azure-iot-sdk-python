@@ -108,10 +108,10 @@ class TestIoTEdgeAuthenticationProviderInstantiation(
         assert auth_provider.hsm is mock_hsm
 
     @pytest.mark.it(
-        "Sets a certificate acquired from the IoTEdgeHsm as the ca_cert instance attribute"
+        "Sets a certificate acquired from the IoTEdgeHsm as the server_verification_cert instance attribute"
     )
-    def test_ca_cert_from_edge_hsm(self, auth_provider, mock_hsm):
-        assert auth_provider.ca_cert is mock_hsm.get_trust_bundle.return_value
+    def test_server_verification_cert_from_edge_hsm(self, auth_provider, mock_hsm):
+        assert auth_provider.server_verification_cert is mock_hsm.get_trust_bundle.return_value
         assert mock_hsm.get_trust_bundle.call_count == 1
 
 
