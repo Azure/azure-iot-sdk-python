@@ -763,7 +763,9 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
 
         # swallow exception handler has been called
         assert mock_handler.call_count == 1
-        assert mock_handler.call_args == mocker.call(arbitrary_exception, log_msg=mocker.ANY)
+        assert mock_handler.call_args == mocker.call(
+            arbitrary_exception, log_msg=mocker.ANY, log_lvl="info"
+        )
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT disconnected")

@@ -48,6 +48,9 @@ def swallow_unraised_exception(e, log_msg=None, log_lvl="warning"):
         elif log_lvl == "error":
             logger.error(log_msg)
             logger.error(traceback.format_exc())
+        elif log_lvl == "info":
+            logger.info(log_msg)
+            logger.info(traceback.format_exc())
         else:
             logger.debug(log_msg)
             logger.debug(traceback.format_exc())

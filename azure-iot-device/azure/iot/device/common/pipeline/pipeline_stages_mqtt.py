@@ -240,7 +240,7 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.warning("{}: Connection failure was unexpected".format(self.name))
             handle_exceptions.swallow_unraised_exception(
-                cause, log_msg="Unexpected connection failure.  Safe to ignore."
+                cause, log_msg="Unexpected connection failure.  Safe to ignore.", log_lvl="info"
             )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
@@ -293,4 +293,5 @@ class MQTTTransportStage(PipelineStage):
             handle_exceptions.swallow_unraised_exception(
                 e,
                 log_msg="Unexpected disconnection.  Safe to ignore since other stages will reconnect.",
+                log_lvl="info",
             )
