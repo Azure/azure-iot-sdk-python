@@ -53,9 +53,9 @@ class AbstractIoTHubClient(object):
         Instantiate the client from a IoTHub device or module connection string.
 
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
-        :param str server_verification_cert: The trusted certificate chain. Only necessary when
-            using a connection string with a GatewayHostName parameter.
-
+        :param str server_verification_cert: The trusted certificate chain. Necessary when
+            using connecting to an endpoint which has a non-standard root of trust, such as a
+            protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
         :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
