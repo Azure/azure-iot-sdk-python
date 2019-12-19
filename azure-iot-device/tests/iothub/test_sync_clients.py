@@ -1019,6 +1019,20 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert result is None
 
 
+class SharedClientPROPERTYConnectedTests(object):
+    @pytest.mark.it("Cannot be changed")
+    def test_read_only(self, client):
+        with pytest.raises(AttributeError):
+            client.connected = not client.connected
+
+    @pytest.mark.it("Reflects the value of the root stage property of the same name")
+    def test_reflects_pipeline_property(self, client, iothub_pipeline):
+        iothub_pipeline.connected = True
+        assert client.connected
+        iothub_pipeline.connected = False
+        assert not client.connected
+
+
 ################
 # DEVICE TESTS #
 ################
@@ -1674,6 +1688,13 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(
                 correlation_id, is_success, status_code, status_description
             )
             assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .connected")
+class TestIoTHubDeviceClientPROPERTYConnected(
+    IoTHubDeviceClientTestsConfig, SharedClientPROPERTYConnectedTests
+):
+    pass
 
 
 ################
@@ -2654,6 +2675,13 @@ class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleCl
         with pytest.raises(client_error) as e_info:
             client_manual_cb.invoke_method(method_params, device_id, module_id=module_id)
             assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubModule (Synchronous) - PROPERTY .connected")
+class TestIoTHubModuleClientPROPERTYConnected(
+    IoTHubModuleClientTestsConfig, SharedClientPROPERTYConnectedTests
+):
+    pass
 
 
 ####################

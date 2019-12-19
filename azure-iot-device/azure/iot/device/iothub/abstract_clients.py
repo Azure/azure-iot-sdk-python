@@ -107,6 +107,13 @@ class AbstractIoTHubClient(object):
     def receive_twin_desired_properties_patch(self):
         pass
 
+    @property
+    def connected(self):
+        """
+        Read-only property to indicate if the transport is connected or not.
+        """
+        return self._iothub_pipeline.connected
+
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
