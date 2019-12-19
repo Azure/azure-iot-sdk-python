@@ -81,7 +81,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 client_id=client_id,
                 hostname=hostname,
                 username=username,
-                ca_cert=op.ca_cert,
+                server_verification_cert=op.server_verification_cert,
                 client_cert=op.client_cert,
                 sas_token=op.sas_token,
             )

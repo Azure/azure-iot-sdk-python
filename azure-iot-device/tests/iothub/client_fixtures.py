@@ -164,7 +164,10 @@ def edge_local_debug_environment():
         shared_access_key=shared_access_key,
         gateway_hostname=gateway_hostname,
     )
-    return {"EdgeHubConnectionString": cs, "EdgeModuleCACertificateFile": "__FAKE_CA_CERTIFICATE__"}
+    return {
+        "EdgeHubConnectionString": cs,
+        "EdgeModuleCACertificateFile": "__FAKE_SERVER_VERIFICATION_CERTIFICATE__",
+    }
 
 
 """----Shared mock pipeline fixture----"""

@@ -41,7 +41,9 @@ class UseAuthProviderStage(PipelineStage):
                 module_id=self.auth_provider.module_id,
                 hostname=self.auth_provider.hostname,
                 gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                server_verification_cert=getattr(
+                    self.auth_provider, "server_verification_cert", None
+                ),
                 sas_token=self.auth_provider.get_current_sas_token(),
             )
             self.send_op_down(worker_op)
@@ -54,7 +56,9 @@ class UseAuthProviderStage(PipelineStage):
                 module_id=self.auth_provider.module_id,
                 hostname=self.auth_provider.hostname,
                 gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                server_verification_cert=getattr(
+                    self.auth_provider, "server_verification_cert", None
+                ),
                 client_cert=self.auth_provider.get_x509_certificate(),
             )
             self.send_op_down(worker_op)
