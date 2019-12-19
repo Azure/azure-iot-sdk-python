@@ -7,7 +7,7 @@
 import sys
 import os
 from azure.iot.hub import IoTHubConfigurationManager
-from azure.iot.hub.protocol.models import Configuration, ConfigurationContent, ConfigurationMetrics
+from azure.iot.hub.models import Configuration, ConfigurationContent, ConfigurationMetrics
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
