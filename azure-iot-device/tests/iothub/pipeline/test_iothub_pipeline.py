@@ -796,3 +796,18 @@ class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
         pipeline._pipeline.on_pipeline_event_handler(twin_patch_event)
 
         # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - PROPERTY .connected")
+class TestIotHubPipelinePROPERTYConnected(object):
+    @pytest.mark.it("Cannot be changed")
+    def test_read_only(self, pipeline):
+        with pytest.raises(AttributeError):
+            pipeline.connected = not pipeline.connected
+
+    @pytest.mark.it("Reflects the value of the root stage property of the same name")
+    def test_reflects_pipeline_property(self, pipeline):
+        pipeline._pipeline.connected = True
+        assert pipeline.connected
+        pipeline._pipeline.connected = False
+        assert not pipeline.connected

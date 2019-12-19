@@ -598,7 +598,7 @@ class SharedClientSendMethodResponseTests(object):
         assert cb_mock.completion.call_count == 1
 
     @pytest.mark.it(
-        "Raises a client error if the `send_method-response` pipeline operation calls back with a pipeline error"
+        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
@@ -890,6 +890,20 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert manager_get_inbox_mock.call_count == 1
         assert inbox_mock.get.call_count == 1
         assert received_patch is twin_patch_desired
+
+
+class SharedClientPROPERTYConnectedTests(object):
+    @pytest.mark.it("Cannot be changed")
+    async def test_read_only(self, client):
+        with pytest.raises(AttributeError):
+            client.connected = not client.connected
+
+    @pytest.mark.it("Reflects the value of the root stage property of the same name")
+    async def test_reflects_pipeline_property(self, client, iothub_pipeline):
+        iothub_pipeline.connected = True
+        assert client.connected
+        iothub_pipeline.connected = False
+        assert not client.connected
 
 
 ################
@@ -1496,6 +1510,13 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
                 correlation_id, is_success, status_code, status_description
             )
             assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .connected")
+class TestIoTHubDeviceClientPROPERTYConnected(
+    IoTHubDeviceClientTestsConfig, SharedClientPROPERTYConnectedTests
+):
+    pass
 
 
 ################
@@ -2399,3 +2420,10 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
             await client.invoke_method(method_params, device_id, module_id=module_id)
 
         assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubModule (Asynchronous) - PROPERTY .connected")
+class TestIoTHubModuleClientPROPERTYConnected(
+    IoTHubModuleClientTestsConfig, SharedClientPROPERTYConnectedTests
+):
+    pass
