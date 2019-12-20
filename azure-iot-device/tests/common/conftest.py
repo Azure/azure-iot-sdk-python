@@ -16,10 +16,5 @@ if sys.version_info < (3, 5, 3):
 
 
 @pytest.fixture
-def fake_error():
-    return RuntimeError("__fake_error__")
-
-
-@pytest.fixture
 def fake_return_arg_value():
     return "__fake_return_arg_value__"

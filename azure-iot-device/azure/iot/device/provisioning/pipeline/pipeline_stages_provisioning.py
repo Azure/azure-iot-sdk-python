@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline import pipeline_ops_base, operation_flow, pipeline_thread
+from azure.iot.device.common.pipeline import pipeline_ops_base, pipeline_thread
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from . import pipeline_ops_provisioning
 
@@ -18,33 +18,29 @@ class UseSecurityClientStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation):
 
             security_client = op.security_client
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
-                    provisioning_host=security_client.provisioning_host,
-                    registration_id=security_client.registration_id,
-                    id_scope=security_client.id_scope,
-                    sas_token=security_client.get_current_sas_token(),
-                ),
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
+                provisioning_host=security_client.provisioning_host,
+                registration_id=security_client.registration_id,
+                id_scope=security_client.id_scope,
+                sas_token=security_client.get_current_sas_token(),
             )
+            self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_provisioning.SetX509SecurityClientOperation):
             security_client = op.security_client
-            operation_flow.delegate_to_different_op(
-                stage=self,
-                original_op=op,
-                new_op=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
-                    provisioning_host=security_client.provisioning_host,
-                    registration_id=security_client.registration_id,
-                    id_scope=security_client.id_scope,
-                    client_cert=security_client.get_x509_certificate(),
-                ),
+            worker_op = op.spawn_worker_op(
+                worker_op_type=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
+                provisioning_host=security_client.provisioning_host,
+                registration_id=security_client.registration_id,
+                id_scope=security_client.id_scope,
+                client_cert=security_client.get_x509_certificate(),
             )
+            self.send_op_down(worker_op)
 
         else:
-            operation_flow.pass_op_to_next_stage(self, op)
+            super(UseSecurityClientStage, self)._run_op(op)

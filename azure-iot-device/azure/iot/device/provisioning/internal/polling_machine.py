@@ -47,6 +47,7 @@ class PollingMachine(object):
         self._operations = {}
 
         self._request_response_provider = RequestResponseProvider(provisioning_pipeline)
+        self._payload = None
 
         states = [
             "disconnected",
@@ -157,13 +158,14 @@ class PollingMachine(object):
             queued=True,
         )
 
-    def register(self, callback=None):
+    def register(self, payload=None, callback=None):
         """
         Register the device with the provisioning service.
         :param:Callback to be called upon finishing the registration process
         """
         logger.info("register called from polling machine")
         self._register_callback = callback
+        self._payload = payload
         self._trig_register()
 
     def cancel(self, callback=None):
@@ -191,7 +193,7 @@ class PollingMachine(object):
         self._operations[request_id] = constant.PUBLISH_TOPIC_REGISTRATION.format(request_id)
         self._request_response_provider.send_request(
             request_id=request_id,
-            request_payload=" ",
+            request_payload=self._payload,
             operation_id=None,
             callback_on_response=self._on_register_response_received,
         )
@@ -388,6 +390,7 @@ class PollingMachine(object):
                 if "lastUpdatedDateTimeUtc" not in decoded_state
                 else str(decoded_state["lastUpdatedDateTimeUtc"]),
                 None if "etag" not in decoded_state else str(decoded_state["etag"]),
+                None if "payload" not in decoded_state else str(decoded_state["payload"]),
             )
 
         registration_result = RegistrationResult(

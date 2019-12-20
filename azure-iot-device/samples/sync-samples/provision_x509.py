@@ -3,10 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
-
-# This is for illustration purposes only. The sample will not work currently.
-
 import os
 from azure.iot.device import ProvisioningDeviceClient, X509
 

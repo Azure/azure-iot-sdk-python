@@ -8,9 +8,33 @@
 from azure.iot.device.common.chainable_exception import ChainableException
 
 
-class OperationCancelled(ChainableException):
+class PipelineException(ChainableException):
+    """Generic pipeline exception"""
+
+    pass
+
+
+class OperationCancelled(PipelineException):
+    """Operation was cancelled"""
+
+    pass
+
+
+class OperationError(PipelineException):
+    """Error while executing an Operation"""
+
+    pass
+
+
+class PipelineTimeoutError(PipelineException):
     """
-    Operation was cancelled.
+    Pipeline operation timed out
     """
+
+    pass
+
+
+class PipelineError(PipelineException):
+    """Error caused by incorrect pipeline configuration"""
 
     pass

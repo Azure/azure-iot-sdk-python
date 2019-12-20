@@ -1,22 +1,11 @@
-# Advanced IoT Hub Scenario Samples for the Azure IoT Hub Device SDK
+# Legacy Scenario Samples for the Azure IoT Hub Device SDK
 
-This directory contains samples showing how to use the various features of Azure IoT Hub Device SDK with the Azure IoT Hub.
+This directory contains samples showing how to use the various features of Azure IoT Hub Device SDK with the Azure IoT Hub and Azure IoT Edge.
 
-**These samples are written to run in Python 3.7+**, but can be made to work with Python 3.5 and 3.6 with a slight modification as noted in each sample:
+**These samples are legacy samples**, they use the sycnhronous API intended for use with Python 2.7 and 3.4, or in compatibility scenarios with later versions. We recommend you use the [asynchronous API instead](../advanced-hub-scenarios).
 
-```python
-if __name__ == "__main__":
-    asyncio.run(main())
 
-    # If using Python 3.6 or below, use the following code instead of asyncio.run(main()):
-    # loop = asyncio.get_event_loop()
-    # loop.run_until_complete(main())
-    # loop.close()
-```
-
-## Included Samples
-
-### IoTHub Samples
+## IoTHub Device Samples
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
 * [send_message.py](send_message.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
@@ -45,8 +34,16 @@ In order to use these samples, you **must** set your Device Connection String in
         az iot hub device-twin show --device-id <your device id> --hub-name <yoru IoT Hub name>
         ```
 
+## IoT Edge Module Samples
+In order to use these samples, they **must** be run from inside an Edge container.
 
-### DPS Samples     
+* [receive_message_on_input.py](receive_message_on_input.py) - Receive messages sent to an Edge module on a specific module input.
+* [send_message_to_output.py](send_message_to_output.py) - Send multiple messages in parallel from an Edge module to a specific output
+
+## DPS Samples
+
+#### Individual
+
 In order to use these samples, you **must** have the following environment variables :-
 
 * PROVISIONING_HOST
@@ -55,5 +52,15 @@ In order to use these samples, you **must** have the following environment varia
 
 There are 2 ways that your device can get registered to the provisioning service differing in authentication mechanisms and another additional environment variable is needed to for the samples:-
 
-* [register_symmetric_key.py](register_symmetric_key.py) - Register to provisioning service using a symmetric key. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
-* [register_x509.py](register_x509.py) - Register to provisioning service using a symmetric key. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
+* [provision_symmetric_key.py](provision_symmetric_key.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [provision_symmetric_key_with_payload.py](provision_symmetric_key_with_payload.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key while supplying a custom payload. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [provision_x509.py](provision_x509.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
+
+#### Group
+
+In order to use these samples, you **must** have the following environment variables :-
+
+* PROVISIONING_HOST
+* PROVISIONING_IDSCOPE
+
+* [provision_symmetric_key_group.py](provision_symmetric_key_group.py) - Provision multiple devices to IoTHub by registering them to the Device Provisioning Service using derived symmetric keys. For this you must have the environment variables PROVISIONING_MASTER_SYMMETRIC_KEY, PROVISIONING_DEVICE_ID_1, PROVISIONING_DEVICE_ID_2, PROVISIONING_DEVICE_ID_3.

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProvisioningPipeline(object):
-    def __init__(self, security_client):
+    def __init__(self, security_client, pipeline_configuration):
         """
         Constructor for instantiating a pipeline
         :param security_client: The security client which stores credentials
@@ -30,13 +30,14 @@ class ProvisioningPipeline(object):
         self.on_connected = None
         self.on_disconnected = None
         self.on_message_received = None
+        self._registration_id = security_client.registration_id
 
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage()
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
-            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTConverterStage())
-            .append_stage(pipeline_stages_base.EnsureConnectionStage())
-            .append_stage(pipeline_stages_base.SerializeConnectOpsStage())
+            .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
+            .append_stage(pipeline_stages_base.AutoConnectStage())
+            .append_stage(pipeline_stages_base.ConnectionLockStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
@@ -82,9 +83,6 @@ class ProvisioningPipeline(object):
 
         self._pipeline.run_op(op)
         callback.wait_for_completion()
-        if op.error:
-            logger.error("{} failed: {}".format(op.name, op.error))
-            raise op.error
 
     def connect(self, callback=None):
         """
@@ -94,8 +92,8 @@ class ProvisioningPipeline(object):
         """
         logger.info("connect called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -111,8 +109,8 @@ class ProvisioningPipeline(object):
         """
         logger.info("disconnect called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -129,8 +127,8 @@ class ProvisioningPipeline(object):
         :param callback: callback which is called when the message publish has been acknowledged by the service.
         """
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -146,7 +144,10 @@ class ProvisioningPipeline(object):
             )
         else:
             op = pipeline_ops_provisioning.SendRegistrationRequestOperation(
-                request_id=request_id, request_payload=request_payload, callback=pipeline_callback
+                request_id=request_id,
+                request_payload=request_payload,
+                registration_id=self._registration_id,
+                callback=pipeline_callback,
             )
 
         self._pipeline.run_op(op)
@@ -159,8 +160,8 @@ class ProvisioningPipeline(object):
         """
         logger.debug("enable_responses called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:
@@ -178,8 +179,8 @@ class ProvisioningPipeline(object):
         """
         logger.debug("disable_responses called")
 
-        def pipeline_callback(call):
-            if call.error:
+        def pipeline_callback(op, error):
+            if error:
                 # TODO we need error semantics on the client
                 exit(1)
             if callback:

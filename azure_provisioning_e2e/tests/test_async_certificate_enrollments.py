@@ -20,8 +20,9 @@ import os
 import uuid
 
 from scripts.create_x509_chain_pipeline import (
+    before_cert_creation_from_pipeline,
     call_intermediate_cert_creation_from_pipeline,
-    call_device_cert_creation_from_pipeline,
+    create_device_certs,
     delete_directories_certs_created_from_pipeline,
 )
 
@@ -56,12 +57,13 @@ type_to_device_indices = {
 @pytest.fixture(scope="module", autouse=True)
 def before_all_tests(request):
     logging.info("set up certificates before cert related tests")
+    before_cert_creation_from_pipeline()
     call_intermediate_cert_creation_from_pipeline(
         common_name=intermediate_common_name,
         ca_password=os.getenv("PROVISIONING_ROOT_PASSWORD"),
         intermediate_password=intermediate_password,
     )
-    call_device_cert_creation_from_pipeline(
+    create_device_certs(
         common_name=device_common_name,
         intermediate_password=intermediate_password,
         device_password=device_password,
@@ -78,7 +80,8 @@ def before_all_tests(request):
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
-async def test_device_register_with_device_id_for_a_x509_individual_enrollment():
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_device_register_with_device_id_for_a_x509_individual_enrollment(protocol):
     device_id = "e2edpsthunderbolt"
     device_index = type_to_device_indices.get("individual_with_device_id")[0]
 
@@ -91,7 +94,7 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment()
         device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
         device_key_file = "demoCA/private/device_key" + str(device_index) + ".pem"
         registration_result = await result_from_register(
-            registration_id, device_cert_file, device_key_file
+            registration_id, device_cert_file, device_key_file, protocol
         )
 
         assert device_id != registration_id
@@ -104,7 +107,8 @@ async def test_device_register_with_device_id_for_a_x509_individual_enrollment()
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with device_id equal to the registration_id of the individual enrollment that has been created with a selfsigned X509 authentication"
 )
-async def test_device_register_with_no_device_id_for_a_x509_individual_enrollment():
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_device_register_with_no_device_id_for_a_x509_individual_enrollment(protocol):
     device_index = type_to_device_indices.get("individual_no_device_id")[0]
 
     try:
@@ -116,7 +120,7 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         device_cert_file = "demoCA/newcerts/device_cert" + str(device_index) + ".pem"
         device_key_file = "demoCA/private/device_key" + str(device_index) + ".pem"
         registration_result = await result_from_register(
-            registration_id, device_cert_file, device_key_file
+            registration_id, device_cert_file, device_key_file, protocol
         )
 
         assert_device_provisioned(
@@ -130,7 +134,10 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
-async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment():
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_authentication_group_enrollment(
+    protocol
+):
     group_id = "e2e-intermediate-durmstrang" + str(uuid.uuid4())
     common_device_id = device_common_name
     devices_indices = type_to_device_indices.get("group_intermediate")
@@ -171,6 +178,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
                 device_key_file=device_key_input_file,
+                protocol=protocol,
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
@@ -189,7 +197,10 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with an already uploaded ca cert X509 authentication"
 )
-async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment():
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authentication_group_enrollment(
+    protocol
+):
     group_id = "e2e-ca-ilvermorny" + str(uuid.uuid4())
     common_device_id = device_common_name
     devices_indices = type_to_device_indices.get("group_ca")
@@ -231,6 +242,7 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_ca_authent
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
                 device_key_file=device_key_input_file,
+                protocol=protocol,
             )
 
             assert_device_provisioned(device_id=device_id, registration_result=registration_result)
@@ -278,14 +290,15 @@ def create_individual_enrollment_with_x509_client_certs(device_index, device_id=
     return service_client.create_or_update(individual_provisioning_model)
 
 
-async def result_from_register(registration_id, device_cert_file, device_key_file):
+async def result_from_register(registration_id, device_cert_file, device_key_file, protocol):
     x509 = X509(cert_file=device_cert_file, key_file=device_key_file, pass_phrase=device_password)
-
+    protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
         provisioning_host=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
         x509=x509,
+        websockets=protocol_boolean_mapping[protocol],
     )
 
     return await provisioning_device_client.register()

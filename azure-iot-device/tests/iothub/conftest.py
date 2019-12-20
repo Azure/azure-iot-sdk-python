@@ -16,7 +16,8 @@ from .client_fixtures import (
     twin_patch_reported,
     iothub_pipeline,
     iothub_pipeline_manual_cb,
-    edge_pipeline,
+    http_pipeline,
+    http_pipeline_manual_cb,
     device_connection_string,
     module_connection_string,
     device_sas_token_string,
@@ -25,7 +26,9 @@ from .client_fixtures import (
     edge_local_debug_environment,
     x509,
     fake_twin,
-    fake_error,
+    symmetric_key,
+    device_id_fixture,
+    hostname_fixture,
 )
 
 collect_ignore = []

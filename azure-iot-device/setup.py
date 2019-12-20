@@ -36,7 +36,7 @@ setup(
     version=constant["VERSION"],
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
-    url="https://github.com/Azure/azure-iot-sdk-python-preview",
+    url="https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
     long_description=_long_description,
@@ -54,6 +54,7 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
     install_requires=[
         # Define sub-dependencies due to pip dependency resolution bug

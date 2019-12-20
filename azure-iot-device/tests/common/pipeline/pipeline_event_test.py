@@ -8,6 +8,8 @@ import inspect
 
 fake_count = 0
 
+# CT-TODO: refactor this module
+
 
 def get_next_fake_value():
     """
@@ -21,29 +23,7 @@ def get_next_fake_value():
     return "__fake_value_{}__".format(fake_count)
 
 
-base_operation_defaults = {"needs_connection": False, "error": None}
 base_event_defaults = {}
-
-
-def add_operation_test(
-    cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}
-):
-    """
-    Add a test class to test the given PipelineOperation class.  The class that
-    we're testing is passed in the cls parameter, and the different initialization
-    constants are passed with the named arguments that follow.
-    """
-    all_extra_defaults = extra_defaults.copy()
-    all_extra_defaults.update(name=cls.__name__)
-
-    add_instantiation_test(
-        cls=cls,
-        module=module,
-        defaults=base_operation_defaults,
-        extra_defaults=all_extra_defaults,
-        positional_arguments=positional_arguments,
-        keyword_arguments=keyword_arguments,
-    )
 
 
 def add_event_test(cls, module, extra_defaults={}, positional_arguments=[], keyword_arguments={}):
@@ -74,7 +54,7 @@ def add_instantiation_test(
     """
 
     # `defaults` contains an array of object attributes that should be set when
-    # we call the initializer will all of the required positional arguments
+    # we call the initializer with all of the required positional arguments
     # and none of the optional keyword arguments.
 
     all_defaults = defaults.copy()

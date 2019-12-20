@@ -7,13 +7,14 @@ import inspect
 import pytest
 import functools
 from threading import Event
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
     pipeline_stages_base,
     pipeline_events_mqtt,
     pipeline_ops_mqtt,
-    operation_flow,
+    config,
 )
 
 try:
@@ -21,15 +22,79 @@ try:
 except ImportError:
     from inspect import getargspec
 
+
+class StageRunOpTestBase(object):
+    """All PipelineStage .run_op() tests should inherit from this base class.
+    It provides basic tests for dealing with exceptions.
+    """
+
+    @pytest.mark.it(
+        "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
+    )
+    def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
+        stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+        # mocker.spy(op, "complete")
+
+        stage.run_op(op)
+
+        assert op.completed
+        assert op.error is arbitrary_exception
+        # assert op.complete.call_count == 1
+        # assert op.complete.call_args == mocker.call(error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Allows any BaseException that was raised during execution of the operation to propogate"
+    )
+    def test_base_exception_propogates(self, mocker, stage, op, arbitrary_base_exception):
+        stage._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
+
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            stage.run_op(op)
+        assert e_info.value is arbitrary_base_exception
+
+
+class StageHandlePipelineEventTestBase(object):
+    """All PipelineStage .handle_pipeline_event() tests should inherit from this base class.
+    It provides basic tests for dealing with exceptions.
+    """
+
+    @pytest.mark.it(
+        "Sends any unexpected Exceptions raised during handling of the event to the background exception handler"
+    )
+    def test_uses_background_exception_handler(self, mocker, stage, event, arbitrary_exception):
+        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
+        mocker.spy(handle_exceptions, "handle_background_exception")
+
+        stage.handle_pipeline_event(event)
+
+        assert handle_exceptions.handle_background_exception.call_count == 1
+        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
+            arbitrary_exception
+        )
+
+    @pytest.mark.it("Allows any BaseException raised during handling of the event to propogate")
+    def test_base_exception_propogates(self, mocker, stage, event, arbitrary_base_exception):
+        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
+
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            stage.handle_pipeline_event(event)
+        assert e_info.value is arbitrary_base_exception
+
+
+############################################
+# EVERYTHING BELOW THIS POINT IS DEPRECATED#
+############################################
+# CT-TODO: remove
+
 all_common_ops = [
     pipeline_ops_base.ConnectOperation,
-    pipeline_ops_base.ReconnectOperation,
+    pipeline_ops_base.ReauthorizeConnectionOperation,
     pipeline_ops_base.DisconnectOperation,
     pipeline_ops_base.EnableFeatureOperation,
     pipeline_ops_base.DisableFeatureOperation,
     pipeline_ops_base.UpdateSasTokenOperation,
-    pipeline_ops_base.SendIotRequestAndWaitForResponseOperation,
-    pipeline_ops_base.SendIotRequestOperation,
+    pipeline_ops_base.RequestAndResponseOperation,
+    pipeline_ops_base.RequestOperation,
     pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
     pipeline_ops_mqtt.MQTTPublishOperation,
     pipeline_ops_mqtt.MQTTSubscribeOperation,
@@ -50,50 +115,56 @@ def all_except(all_items, items_to_exclude):
     return [x for x in all_items if x not in items_to_exclude]
 
 
-def make_mock_stage(mocker, stage_to_make):
-    """
-    make a stage object that we can use in testing.  This stage object is popsulated
-    by mocker spies, and it has a next stage that can receive events.  It does not,
-    by detfault, have a previous stage or a pipeline root that can receive events
-    coming back up.  The previous stage is added by the tests which which require it.
-    """
-    # because PipelineStage is abstract, we need something concrete
-    class NextStageForTest(pipeline_stages_base.PipelineStage):
-        def _execute_op(self, op):
-            operation_flow.pass_op_to_next_stage(self, op)
+class StageTestBase(object):
+    @pytest.fixture(autouse=True)
+    def stage_base_configuration(self, stage, mocker):
+        """
+        This fixture configures the stage for testing.  This is automatically
+        applied, so it will be called before your test runs, but it's not
+        guaranteed to be called before any other fixtures run.  If you have
+        a fixture that needs to rely on the stage being configured, then
+        you have to add a manual dependency inside that fixture (like we do in
+        next_stage_succeeds_all_ops below)
+        """
 
-    def stage_execute_op(self, op):
-        if getattr(op, "action", None) is None or op.action == "pass":
-            operation_flow.complete_op(self, op)
-        elif op.action == "fail" or op.action == "exception":
-            raise Exception()
-        elif op.action == "base_exception":
-            raise UnhandledException()
-        elif op.action == "pend":
-            pass
-        else:
-            assert False
+        class NextStageForTest(pipeline_stages_base.PipelineStage):
+            def _run_op(self, op):
+                pass
 
-    first_stage = stage_to_make()
-    first_stage.unhandled_error_handler = mocker.Mock()
-    mocker.spy(first_stage, "_execute_op")
-    mocker.spy(first_stage, "run_op")
+        next = NextStageForTest()
+        root = (
+            pipeline_stages_base.PipelineRootStage(config.BasePipelineConfig())
+            .append_stage(stage)
+            .append_stage(next)
+        )
 
-    next_stage = NextStageForTest()
-    next_stage._execute_op = functools.partial(stage_execute_op, next_stage)
-    mocker.spy(next_stage, "_execute_op")
-    mocker.spy(next_stage, "run_op")
+        mocker.spy(stage, "_run_op")
+        mocker.spy(stage, "run_op")
 
-    first_stage.next = next_stage
-    # TODO: this is sloppy.  we should have a real root here for testing.
-    first_stage.pipeline_root = first_stage
+        mocker.spy(next, "_run_op")
+        mocker.spy(next, "run_op")
 
-    next_stage.previous = first_stage
-    next_stage.pipeline_root = first_stage
+        return root
 
-    first_stage.pipeline_root.connected = False
+    @pytest.fixture
+    def next_stage_succeeds(self, stage, stage_base_configuration, mocker):
+        def complete_op_success(op):
+            op.complete()
 
-    return first_stage
+        stage.next._run_op = complete_op_success
+        mocker.spy(stage.next, "_run_op")
+
+    @pytest.fixture
+    def next_stage_raises_arbitrary_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_exception
+    ):
+        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+
+    @pytest.fixture
+    def next_stage_raises_arbitrary_base_exception(
+        self, stage, stage_base_configuration, mocker, arbitrary_base_exception
+    ):
+        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
 
 def assert_callback_succeeded(op, callback=None):
@@ -107,9 +178,10 @@ def assert_callback_succeeded(op, callback=None):
     except AttributeError:
         pass
     assert callback.call_count == 1
-    callback_arg = callback.call_args[0][0]
-    assert callback_arg == op
-    assert op.error is None
+    callback_op_arg = callback.call_args[0][0]
+    assert callback_op_arg == op
+    callback_error_arg = callback.call_args[1]["error"]
+    assert callback_error_arg is None
 
 
 def assert_callback_failed(op, callback=None, error=None):
@@ -123,20 +195,17 @@ def assert_callback_failed(op, callback=None, error=None):
     except AttributeError:
         pass
     assert callback.call_count == 1
-    callback_arg = callback.call_args[0][0]
-    assert callback_arg == op
+    callback_op_arg = callback.call_args[0][0]
+    assert callback_op_arg == op
 
+    callback_error_arg = callback.call_args[1]["error"]
     if error:
         if isinstance(error, type):
-            assert isinstance(op.error, error)
+            assert callback_error_arg.__class__ == error
         else:
-            assert op.error is error
+            assert callback_error_arg is error
     else:
-        assert op.error is not None
-
-
-class UnhandledException(BaseException):
-    pass
+        assert callback_error_arg is not None
 
 
 def get_arg_count(fn):

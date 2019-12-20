@@ -20,6 +20,7 @@ from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.common.evented_callback import EventedCallback
+from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
-        TODO: How to document kwargs?
-        Possible values: iothub_pipeline, edge_pipeline
+        :param iothub_pipeline: The IoTHubPipeline used for the client
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param http_pipeline: The HTTPPipeline used for the client
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -59,10 +62,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super(GenericIoTHubClient, self).__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
-        self._iothub_pipeline.on_connected = self._on_connected
-        self._iothub_pipeline.on_disconnected = self._on_disconnected
-        self._iothub_pipeline.on_method_request_received = self._inbox_manager.route_method_request
-        self._iothub_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
+        self._iothub_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
+        self._iothub_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
+        self._iothub_pipeline.on_method_request_received = CallableWeakMethod(
+            self._inbox_manager, "route_method_request"
+        )
+        self._iothub_pipeline.on_twin_patch_received = CallableWeakMethod(
+            self._inbox_manager, "route_twin_patch"
+        )
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -127,7 +134,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         function will open the connection before sending the event.
 
         :param message: The actual message to send. Anything passed that is not an instance of the
-        Message class will be converted to Message object.
+            Message class will be converted to Message object.
+        :type message: :class:`azure.iot.device.Message` or str
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -153,10 +161,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
-        If this parameter is not given, all methods not already being specifically targeted by
-        a different request to receive_method will be received.
+            If this parameter is not given, all methods not already being specifically targeted by
+            a different request to receive_method will be received.
         :param bool block: Indicates if the operation should block until a request is received.
-        Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :returns: MethodRequest object representing the received method request, or None if
@@ -185,7 +192,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         function will open the connection before sending the event.
 
         :param method_response: The MethodResponse to send.
-        :type method_response: MethodResponse
+        :type method_response: :class:`azure.iot.device.MethodResponse`
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -211,7 +218,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         has been enabled.
 
         :param feature_name: The name of the feature to enable.
-        See azure.iot.device.common.pipeline.constant for possible values
+            See azure.iot.device.common.pipeline.constant for possible values
         """
         logger.info("Enabling feature:" + feature_name + "...")
 
@@ -228,6 +235,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         This is a synchronous call, meaning that this function will not return until the twin
         has been retrieved from the service.
 
+        :returns: Complete Twin as a JSON dict
+        :rtype: dict
+
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
         :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
@@ -236,8 +246,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
-
-        :returns: Twin object which was retrieved from the hub
         """
         if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN]:
             self._enable_feature(pipeline_constant.TWIN)
@@ -259,8 +267,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the service returns an error on the patch operation, this function will raise the
         appropriate error.
 
-        :param reported_properties_patch:
-        :type reported_properties_patch: dict, str, int, float, bool, or None (JSON compatible values)
+        :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
+        :type reported_properties_patch: dict
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -297,11 +305,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
            an InboxEmpty exception
 
         :param bool block: Indicates if the operation should block until a request is received.
-           Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
-        :returns: desired property patch.  This can be dict, str, int, float, bool, or None (JSON compatible values).
-            Also returns None if no patch has been received by the end of the blocking period.
+        :returns: Twin Desired Properties patch as a JSON dict, or None if no patch has been
+            received by the end of the blocking period
+        :rtype: dict or None
         """
         if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
@@ -322,27 +330,31 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
         """
-        super(IoTHubDeviceClient, self).__init__(iothub_pipeline=iothub_pipeline)
-        self._iothub_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
+        super(IoTHubDeviceClient, self).__init__(
+            iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline
+        )
+        self._iothub_pipeline.on_c2d_message_received = CallableWeakMethod(
+            self._inbox_manager, "route_c2d_message"
+        )
 
     def receive_message(self, block=True, timeout=None):
         """Receive a message that has been sent from the Azure IoT Hub.
 
         :param bool block: Indicates if the operation should block until a message is received.
-        Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :returns: Message that was sent from the Azure IoT Hub, or None if
             no method request has been received by the end of the blocking period.
+        :rtype: :class:`azure.iot.device.Message` or None
         """
         if not self._iothub_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
@@ -356,6 +368,40 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         logger.info("Message received")
         return message
 
+    def get_storage_info_for_blob(self, blob_name):
+        """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
+
+        :param str blob_name: The name in string format of the blob that will be uploaded using the storage API. This name will be used to generate the proper credentials for Storage, and needs to match what will be used with the Azure Storage SDK to perform the blob upload.
+
+        :returns: A JSON-like (dictionary) object from IoT Hub that will contain relevant information including: correlationId, hostName, containerName, blobName, sasToken.
+        """
+        callback = EventedCallback(return_arg_name="storage_info")
+        self._http_pipeline.get_storage_info_for_blob(blob_name, callback=callback)
+        storage_info = handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info
+
+    def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description
+    ):
+        """When the upload is complete, the device sends a POST request to the IoT Hub endpoint with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients.
+
+        :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
+        :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
+        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param str status_description: A description that corresponds to the status_code.
+        """
+        callback = EventedCallback()
+        self._http_pipeline.notify_blob_upload_status(
+            correlation_id=correlation_id,
+            is_success=is_success,
+            status_code=status_code,
+            status_description=status_description,
+            callback=callback,
+        )
+        handle_result(callback)
+        logger.info("Successfully notified blob upload status")
+
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
@@ -363,21 +409,23 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline, edge_pipeline=None):
+    def __init__(self, iothub_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
         :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: IoTHubPipeline
-        :param edge_pipeline: (OPTIONAL) The pipeline used to connect to the Edge endpoint.
-        :type edge_pipeline: EdgePipeline
+        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         super(IoTHubModuleClient, self).__init__(
-            iothub_pipeline=iothub_pipeline, edge_pipeline=edge_pipeline
+            iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline
         )
-        self._iothub_pipeline.on_input_message_received = self._inbox_manager.route_input_message
+        self._iothub_pipeline.on_input_message_received = CallableWeakMethod(
+            self._inbox_manager, "route_input_message"
+        )
 
     def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.
@@ -390,9 +438,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        :param message: message to send to the given output. Anything passed that is not an instance of the
-        Message class will be converted to Message object.
-        :param output_name: Name of the output to send the event to.
+        :param message: Message to send to the given output. Anything passed that is not an instance of the
+            Message class will be converted to Message object.
+        :type message: :class:`azure.iot.device.Message` or str
+        :param str output_name: Name of the output to send the event to.
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
@@ -420,7 +469,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         :param str input_name: The input name to receive a message on.
         :param bool block: Indicates if the operation should block until a message is received.
-        Default True.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
         :returns: Message that was sent to the specified input, or None if
@@ -437,3 +485,21 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             message = None
         logger.info("Input message received on: " + input_name)
         return message
+
+    def invoke_method(self, method_params, device_id, module_id=None):
+        """Invoke a method from your client onto a device or module client, and receive the response to the method call.
+
+        :param dict method_params: Should contain a method_name, payload, connect_timeout_in_seconds, response_timeout_in_seconds.
+        :param str device_id: Device ID of the target device where the method will be invoked.
+        :param str module_id: Module ID of the target module where the method will be invoked. (Optional)
+
+        :returns: method_result should contain a status, and a payload
+        :rtype: dict
+        """
+        callback = EventedCallback(return_arg_name="invoke_method_response")
+        self._http_pipeline.invoke_method(
+            device_id, method_params, callback=callback, module_id=module_id
+        )
+        invoke_method_response = handle_result(callback)
+        logger.info("Successfully invoked method")
+        return invoke_method_response

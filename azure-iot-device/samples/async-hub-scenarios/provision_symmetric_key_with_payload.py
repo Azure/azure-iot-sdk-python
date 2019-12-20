@@ -4,37 +4,36 @@
 # license information.
 # --------------------------------------------------------------------------
 
-
-# This is for illustration purposes only. The sample will not work currently.
-
 import os
 import asyncio
-from azure.iot.device import X509
 from azure.iot.device.aio import ProvisioningDeviceClient
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
-registration_id = os.getenv("DPS_X509_REGISTRATION_ID")
+registration_id = os.getenv("PROVISIONING_REGISTRATION_ID_PAYLOAD")
+symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY_PAYLOAD")
+
+
+class Wizard(object):
+    def __init__(self, first_name, last_name, dict_of_stuff):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.props = dict_of_stuff
 
 
 async def main():
-    async def register_device():
-        x509 = X509(
-            cert_file=os.getenv("X509_CERT_FILE"),
-            key_file=os.getenv("X509_KEY_FILE"),
-            pass_phrase=os.getenv("PASS_PHRASE"),
-        )
-        provisioning_device_client = ProvisioningDeviceClient.create_from_x509_certificate(
-            provisioning_host=provisioning_host,
-            registration_id=registration_id,
-            id_scope=id_scope,
-            x509=x509,
-        )
+    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host=provisioning_host,
+        registration_id=registration_id,
+        id_scope=id_scope,
+        symmetric_key=symmetric_key,
+    )
 
-        return await provisioning_device_client.register()
+    properties = {"House": "Gryffindor", "Muggle-Born": "False"}
+    wizard_a = Wizard("Harry", "Potter", properties)
+    provisioning_device_client.provisioning_payload = wizard_a
+    registration_result = await provisioning_device_client.register()
 
-    results = await asyncio.gather(register_device())
-    registration_result = results[0]
     print("The complete registration result is")
     print(registration_result.registration_state)
 

@@ -48,14 +48,16 @@ class CredentialError(ClientError):
 
 
 # ~~~ SERVICE ERRORS ~~~
+
+
+class ServiceError(ChainableException):
+    """Error received from an Azure IoT service"""
+
+    pass
+
+
 # NOTE: These are not (yet) in use.
 # Because of this they have been commented out to prevent confusion.
-
-# class ServiceError(ChainableException):
-#     """Error received from an Azure IoT service"""
-
-#     pass
-
 
 # class ArgumentError(ServiceError):
 #     """Service returned 400"""
