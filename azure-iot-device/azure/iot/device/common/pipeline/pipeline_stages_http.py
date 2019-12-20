@@ -43,7 +43,9 @@ class HTTPTransportStage(PipelineStage):
             logger.debug("{}({}): got connection args".format(self.name, op.name))
             self.sas_token = op.sas_token
             self.transport = HTTPTransport(
-                hostname=op.hostname, ca_cert=op.ca_cert, x509_cert=op.client_cert
+                hostname=op.hostname,
+                server_verification_cert=op.server_verification_cert,
+                x509_cert=op.client_cert,
             )
 
             self.pipeline_root.transport = self.transport

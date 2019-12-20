@@ -53,9 +53,9 @@ class AbstractIoTHubClient(object):
         Instantiate the client from a IoTHub device or module connection string.
 
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
-        :param str server_verification_cert: The trusted certificate chain. Only necessary when
-            using a connection string with a GatewayHostName parameter.
-
+        :param str server_verification_cert: The trusted certificate chain. Necessary when
+            using connecting to an endpoint which has a non-standard root of trust, such as a
+            protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
         :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
 
@@ -70,7 +70,7 @@ class AbstractIoTHubClient(object):
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
         authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
-        authentication_provider.ca_cert = server_verification_cert
+        authentication_provider.server_verification_cert = server_verification_cert
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
         return cls(iothub_pipeline, http_pipeline)
@@ -106,6 +106,13 @@ class AbstractIoTHubClient(object):
     @abc.abstractmethod
     def receive_twin_desired_properties_patch(self):
         pass
+
+    @property
+    def connected(self):
+        """
+        Read-only property to indicate if the transport is connected or not.
+        """
+        return self._iothub_pipeline.connected
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -219,11 +226,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err = OSError("IoT Edge environment not configured correctly")
                 new_err.__cause__ = e
                 raise new_err
-            # TODO: variant ca_cert file vs data object that would remove the need for this fopen
+            # TODO: variant server_verification_cert file vs data object that would remove the need for this fopen
             # Read the certificate file to pass it on as a string
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
-                    ca_cert = ca_cert_file.read()
+                    server_verification_cert = ca_cert_file.read()
             except (OSError, IOError) as e:
                 # In Python 2, a non-existent file raises IOError, and an invalid file raises an IOError.
                 # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
@@ -242,7 +249,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 )
             except ValueError:
                 raise
-            authentication_provider.ca_cert = ca_cert
+            authentication_provider.server_verification_cert = server_verification_cert
         else:
             # Use an HSM for authentication in the general case
             try:

@@ -57,7 +57,7 @@ class IoTEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
             workload_uri=workload_uri,
         )
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = self.hsm.get_trust_bundle()
+        self.server_verification_cert = self.hsm.get_trust_bundle()
 
     # TODO: reconsider this design when refactoring the BaseRenewableToken auth parent
     # TODO: Consider handling the quoting within this function, and renaming quoted_resource_uri to resource_uri
@@ -108,7 +108,7 @@ class IoTEdgeHsm(object):
         Return the trust bundle that can be used to validate the server-side SSL
         TLS connection that we use to talk to edgeHub.
 
-        :return: The CA certificate to use for connections to the Azure IoT Edge
+        :return: The server verification certificate to use for connections to the Azure IoT Edge
         instance, as a PEM certificate in string form.
 
         :raises: IoTEdgeError if unable to retrieve the certificate.

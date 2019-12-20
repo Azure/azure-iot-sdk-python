@@ -70,7 +70,7 @@ class MQTTTransportStage(PipelineStage):
                 client_id=op.client_id,
                 hostname=op.hostname,
                 username=op.username,
-                ca_cert=op.ca_cert,
+                server_verification_cert=op.server_verification_cert,
                 x509_cert=op.client_cert,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
             )

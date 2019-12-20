@@ -92,7 +92,7 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
     def op(self, mocker):
         return pipeline_ops_http.SetHTTPConnectionArgsOperation(
             hostname="fake_hostname",
-            ca_cert="fake_ca_cert",
+            server_verification_cert="fake_server_verification_cert",
             client_cert="fake_client_cert",
             sas_token="fake_sas_token",
             callback=mocker.MagicMock(),
@@ -114,7 +114,9 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
 
         assert mock_transport.call_count == 1
         assert mock_transport.call_args == mocker.call(
-            hostname=op.hostname, ca_cert=op.ca_cert, x509_cert=op.client_cert
+            hostname=op.hostname,
+            server_verification_cert=op.server_verification_cert,
+            x509_cert=op.client_cert,
         )
         assert stage.transport is mock_transport.return_value
 
@@ -148,14 +150,14 @@ class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
         if request.param == "SAS":
             op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
                 hostname="fake_hostname",
-                ca_cert="fake_ca_cert",
+                server_verification_cert="fake_server_verification_cert",
                 sas_token="fake_sas_token",
                 callback=mocker.MagicMock(),
             )
         else:
             op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
                 hostname="fake_hostname",
-                ca_cert="fake_ca_cert",
+                server_verification_cert="fake_server_verification_cert",
                 client_cert="fake_client_cert",
                 callback=mocker.MagicMock(),
             )

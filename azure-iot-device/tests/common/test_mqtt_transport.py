@@ -199,7 +199,7 @@ class TestInstantiation(object):
         assert mock_mqtt_client.tls_set_context.call_args == mocker.call(context=mock_ssl_context)
 
     @pytest.mark.it(
-        "Configures TLS/SSL context using default certificates if protocol wrapper not instantiated with a CA certificate"
+        "Configures TLS/SSL context using default certificates if protocol wrapper not instantiated with a server verification certificate"
     )
     def test_configures_tls_context_with_default_certs(self, mocker, mock_mqtt_client):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
@@ -211,22 +211,24 @@ class TestInstantiation(object):
         assert mock_ssl_context.load_default_certs.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Configures TLS/SSL context with provided CA certificates if protocol wrapper instantiated with a CA certificate"
+        "Configures TLS/SSL context with provided server verification certificate if protocol wrapper instantiated with a server verification certificate"
     )
-    def test_configures_tls_context_with_ca_certs(self, mocker, mock_mqtt_client):
+    def test_configures_tls_context_with_server_verification_certs(self, mocker, mock_mqtt_client):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
-        ca_cert = "dummy_certificate"
+        server_verification_cert = "dummy_certificate"
 
         MQTTTransport(
             client_id=fake_device_id,
             hostname=fake_hostname,
             username=fake_username,
-            ca_cert=ca_cert,
+            server_verification_cert=server_verification_cert,
         )
 
         assert mock_ssl_context.load_verify_locations.call_count == 1
-        assert mock_ssl_context.load_verify_locations.call_args == mocker.call(cadata=ca_cert)
+        assert mock_ssl_context.load_verify_locations.call_args == mocker.call(
+            cadata=server_verification_cert
+        )
 
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(

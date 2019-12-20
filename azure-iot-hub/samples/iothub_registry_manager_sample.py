@@ -7,7 +7,7 @@
 import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
-from azure.iot.hub.protocol.models import Twin, TwinProperties
+from azure.iot.hub.models import Twin, TwinProperties
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = "test_device"
@@ -80,7 +80,7 @@ try:
     # # Replace twin
     new_twin = Twin()
     new_twin = twin
-    new_twin.properties = TwinProperties(desired={'telemetryInterval': 9000})
+    new_twin.properties = TwinProperties(desired={"telemetryInterval": 9000})
     print(new_twin)
     print("")
 
@@ -90,7 +90,7 @@ try:
 
     # Update twin
     twin_patch = Twin()
-    twin_patch.properties = TwinProperties(desired={'telemetryInterval': 3000})
+    twin_patch.properties = TwinProperties(desired={"telemetryInterval": 3000})
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
     print(updated_twin)
     print("")

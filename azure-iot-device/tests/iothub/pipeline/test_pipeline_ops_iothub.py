@@ -83,7 +83,7 @@ class SetIoTHubConnectionArgsOperationTestConfig(object):
             "callback": mocker.MagicMock(),
             "module_id": "some_module_id",
             "gateway_hostname": "some_gateway_hostname",
-            "ca_cert": "some_ca_cert",
+            "server_verification_cert": "some_server_verification_cert",
             "client_cert": "some_client_cert",
             "sas_token": "some_sas_token",
         }
@@ -131,16 +131,20 @@ class SetIoTHubConnectionArgsOperationInstantiationTests(
         op = cls_type(**init_kwargs)
         assert op.gateway_hostname is None
 
-    @pytest.mark.it("Initializes 'ca_cert' attribute with the provided 'ca_cert' parameter")
-    def test_ca_cert(self, cls_type, init_kwargs):
+    @pytest.mark.it(
+        "Initializes 'server_verification_cert' attribute with the provided 'server_verification_cert' parameter"
+    )
+    def test_server_verification_cert(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.ca_cert == init_kwargs["ca_cert"]
+        assert op.server_verification_cert == init_kwargs["server_verification_cert"]
 
-    @pytest.mark.it("Initializes 'ca_cert' attribute to None if no 'ca_cert' parameter is provided")
-    def test_ca_cert_default(self, cls_type, init_kwargs):
-        del init_kwargs["ca_cert"]
+    @pytest.mark.it(
+        "Initializes 'server_verification_cert' attribute to None if no 'server_verification_cert' parameter is provided"
+    )
+    def test_server_verification_cert_default(self, cls_type, init_kwargs):
+        del init_kwargs["server_verification_cert"]
         op = cls_type(**init_kwargs)
-        assert op.ca_cert is None
+        assert op.server_verification_cert is None
 
     @pytest.mark.it("Initializes 'client_cert' attribute with the provided 'client_cert' parameter")
     def test_client_cert(self, cls_type, init_kwargs):

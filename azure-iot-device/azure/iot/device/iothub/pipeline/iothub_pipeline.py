@@ -325,3 +325,10 @@ class IoTHubPipeline(object):
                 feature_name=feature_name, callback=on_complete
             )
         )
+
+    @property
+    def connected(self):
+        """
+        Read-only property to indicate if the transport is connected or not.
+        """
+        return self._pipeline.connected

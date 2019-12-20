@@ -66,7 +66,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_http.SetHTTPConnectionArgsOperation,
                 hostname=self.hostname,
-                ca_cert=op.ca_cert,
+                server_verification_cert=op.server_verification_cert,
                 client_cert=op.client_cert,
                 sas_token=op.sas_token,
             )

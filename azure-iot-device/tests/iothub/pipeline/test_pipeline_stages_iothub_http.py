@@ -118,12 +118,14 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithConnectionArgsOperation(
     def use_gateway_hostname(self, request):
         return request.param
 
-    @pytest.fixture(params=[True, False], ids=["w/ CA cert", "No CA cert"])
-    def use_ca_cert(self, request):
+    @pytest.fixture(
+        params=[True, False], ids=["w/ server verification cert", "No server verification cert"]
+    )
+    def use_server_verification_cert(self, request):
         return request.param
 
     @pytest.fixture(params=["Device", "Module"])
-    def op(self, mocker, request, auth_type, use_gateway_hostname, use_ca_cert):
+    def op(self, mocker, request, auth_type, use_gateway_hostname, use_server_verification_cert):
         kwargs = {
             "device_id": "fake_device_id",
             "hostname": "fake_hostname",
@@ -140,8 +142,8 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithConnectionArgsOperation(
         if use_gateway_hostname:
             kwargs["gateway_hostname"] = "fake_gateway_hostname"
 
-        if use_ca_cert:
-            kwargs["ca_cert"] = "fake_ca_cert"
+        if use_server_verification_cert:
+            kwargs["server_verification_cert"] = "fake_server_verification_cert"
 
         return pipeline_ops_iothub.SetIoTHubConnectionArgsOperation(**kwargs)
 
@@ -184,7 +186,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithConnectionArgsOperation(
 
         # Validate contents of the op
         assert new_op.hostname == stage.hostname
-        assert new_op.ca_cert == op.ca_cert
+        assert new_op.server_verification_cert == op.server_verification_cert
         assert new_op.client_cert == op.client_cert
         assert new_op.sas_token == op.sas_token
 

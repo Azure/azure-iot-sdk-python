@@ -189,7 +189,7 @@ class SharedClientCreateFromConnectionStringTests(object):
 
         assert mock_auth_parse.call_count == 1
         assert mock_auth_parse.call_args == mocker.call(connection_string)
-        assert mock_auth_parse.return_value.ca_cert is server_verification_cert
+        assert mock_auth_parse.return_value.server_verification_cert is server_verification_cert
 
     @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline")
     @pytest.mark.parametrize(
@@ -598,7 +598,7 @@ class SharedClientSendMethodResponseTests(object):
         assert cb_mock.completion.call_count == 1
 
     @pytest.mark.it(
-        "Raises a client error if the `send_method-response` pipeline operation calls back with a pipeline error"
+        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
@@ -892,6 +892,20 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert received_patch is twin_patch_desired
 
 
+class SharedClientPROPERTYConnectedTests(object):
+    @pytest.mark.it("Cannot be changed")
+    async def test_read_only(self, client):
+        with pytest.raises(AttributeError):
+            client.connected = not client.connected
+
+    @pytest.mark.it("Reflects the value of the root stage property of the same name")
+    async def test_reflects_pipeline_property(self, client, iothub_pipeline):
+        iothub_pipeline.connected = True
+        assert client.connected
+        iothub_pipeline.connected = False
+        assert not client.connected
+
+
 ################
 # DEVICE TESTS #
 ################
@@ -1046,9 +1060,7 @@ class TestConfigurationCreateIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClie
     "IoTHubDeviceClient (Asynchronous) - .create_from_symmetric_key() -- Configuration"
 )
 class TestIoTHubDeviceClientFromSymmetricKey(IoTHubDeviceClientTestsConfig):
-    @pytest.mark.it(
-        "Uses the symmetric key and CA certificate combination to create a SymmetricKeyAuthenticationProvider"
-    )
+    @pytest.mark.it("Uses the symmetric key to create a SymmetricKeyAuthenticationProvider")
     async def test_auth_provider_creation(
         self, mocker, client_class, symmetric_key, hostname_fixture, device_id_fixture
     ):
@@ -1500,6 +1512,13 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
             assert e_info.value.__cause__ is my_pipeline_error
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .connected")
+class TestIoTHubDeviceClientPROPERTYConnected(
+    IoTHubDeviceClientTestsConfig, SharedClientPROPERTYConnectedTests
+):
+    pass
+
+
 ################
 # MODULE TESTS #
 ################
@@ -1796,9 +1815,9 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         return mocker.patch.object(io, "open")
 
     @pytest.mark.it(
-        "Extracts the CA certificate from the file indicated by the EdgeModuleCACertificateFile environment variable"
+        "Extracts the server verification certificate from the file indicated by the EdgeModuleCACertificateFile environment variable"
     )
-    async def test_read_ca_cert(
+    async def test_read_server_verification_cert(
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
         mock_file_handle = mock_open.return_value.__enter__.return_value
@@ -1811,7 +1830,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         assert mock_file_handle.read.call_count == 1
 
     @pytest.mark.it(
-        "Uses Edge local debug environment variables to create a SymmetricKeyAuthenticationProvider (with CA cert)"
+        "Uses Edge local debug environment variables to create a SymmetricKeyAuthenticationProvider (with server verification cert)"
     )
     async def test_auth_provider_creation(
         self, mocker, client_class, edge_local_debug_environment, mock_open
@@ -1828,7 +1847,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         assert mock_auth_parse.call_args == mocker.call(
             edge_local_debug_environment["EdgeHubConnectionString"]
         )
-        assert mock_auth_parse.return_value.ca_cert == expected_cert
+        assert mock_auth_parse.return_value.server_verification_cert == expected_cert
 
     @pytest.mark.it(
         "Only uses Edge local debug variables if no Edge container variables are present in the environment"
@@ -2401,3 +2420,10 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
             await client.invoke_method(method_params, device_id, module_id=module_id)
 
         assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubModule (Asynchronous) - PROPERTY .connected")
+class TestIoTHubModuleClientPROPERTYConnected(
+    IoTHubModuleClientTestsConfig, SharedClientPROPERTYConnectedTests
+):
+    pass
