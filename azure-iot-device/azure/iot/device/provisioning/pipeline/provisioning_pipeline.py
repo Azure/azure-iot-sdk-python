@@ -87,11 +87,7 @@ class ProvisioningPipeline(object):
         logger.info("connect called")
 
         def pipeline_callback(op, error):
-            if error:
-                # TODO we need error semantics on the client
-                exit(1)
-            if callback:
-                callback()
+            callback(error=error)
 
         self._pipeline.run_op(pipeline_ops_base.ConnectOperation(callback=pipeline_callback))
 
@@ -104,11 +100,7 @@ class ProvisioningPipeline(object):
         logger.info("disconnect called")
 
         def pipeline_callback(op, error):
-            if error:
-                # TODO we need error semantics on the client
-                exit(1)
-            if callback:
-                callback()
+            callback(error=error)
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=pipeline_callback))
 
@@ -123,11 +115,7 @@ class ProvisioningPipeline(object):
         self.responses_enabled[dps_constants.REGISTER] = True
 
         def pipeline_callback(op, error):
-            if error:
-                # TODO we need error semantics on the client
-                exit(1)
-            if callback:
-                callback()
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_base.EnableFeatureOperation(feature_name=None, callback=pipeline_callback)
@@ -142,11 +130,7 @@ class ProvisioningPipeline(object):
         logger.debug("disable_responses called")
 
         def pipeline_callback(op, error):
-            if error:
-                # TODO we need error semantics on the client
-                exit(1)
-            if callback:
-                callback()
+            callback(error=error)
 
         self._pipeline.run_op(
             pipeline_ops_base.DisableFeatureOperation(feature_name=None, callback=pipeline_callback)
