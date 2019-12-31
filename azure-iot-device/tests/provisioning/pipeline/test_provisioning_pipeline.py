@@ -156,7 +156,7 @@ class TestInit(object):
         arbitrary_exception,
         pipeline_configuration,
     ):
-        old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
+        old_execute_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, params_security_clients["set_args_op_class"]):
@@ -166,7 +166,7 @@ class TestInit(object):
 
         mocker.patch.object(
             pipeline_stages_base.PipelineRootStage,
-            "_execute_op",
+            "_run_op",
             side_effect=fail_set_auth_provider,
             autospec=True,
         )

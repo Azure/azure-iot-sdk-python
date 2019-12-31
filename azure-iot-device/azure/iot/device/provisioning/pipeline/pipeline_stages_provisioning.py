@@ -176,7 +176,7 @@ class PollingStatusStage(CommonProvisioningStage):
                             query_status_op.polling_timer.cancel()
                             query_status_op.polling_timer = None
                             query_status_op.completed = False
-                            this._execute_op(query_status_op)
+                            this.run_op(query_status_op)
 
                         logger.info(
                             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
@@ -287,7 +287,7 @@ class RegistrationStage(CommonProvisioningStage):
                             initial_register_op.retry_after_timer.cancel()
                             initial_register_op.retry_after_timer = None
                             initial_register_op.completed = False
-                            this._execute_op(initial_register_op)
+                            this.run_op(initial_register_op)
 
                         logger.warning(
                             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}.  Setting timer.".format(
