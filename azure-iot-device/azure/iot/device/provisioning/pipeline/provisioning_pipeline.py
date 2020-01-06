@@ -42,8 +42,11 @@ class ProvisioningPipeline(object):
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
             .append_stage(pipeline_stages_provisioning.ProvisioningTimeoutStage())
             .append_stage(pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage())
+            .append_stage(pipeline_stages_base.ReconnectStage())
             .append_stage(pipeline_stages_base.AutoConnectStage())
             .append_stage(pipeline_stages_base.ConnectionLockStage())
+            .append_stage(pipeline_stages_base.RetryStage())
+            .append_stage(pipeline_stages_base.OpTimeoutStage())
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
