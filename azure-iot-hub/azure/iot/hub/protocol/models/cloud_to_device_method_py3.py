@@ -22,21 +22,13 @@ class CloudToDeviceMethod(Model):
     """
 
     _attribute_map = {
-        "method_name": {"key": "methodName", "type": "str"},
-        "payload": {"key": "payload", "type": "object"},
-        "response_timeout_in_seconds": {"key": "responseTimeoutInSeconds", "type": "int"},
-        "connect_timeout_in_seconds": {"key": "connectTimeoutInSeconds", "type": "int"},
+        'method_name': {'key': 'methodName', 'type': 'str'},
+        'payload': {'key': 'payload', 'type': 'object'},
+        'response_timeout_in_seconds': {'key': 'responseTimeoutInSeconds', 'type': 'int'},
+        'connect_timeout_in_seconds': {'key': 'connectTimeoutInSeconds', 'type': 'int'},
     }
 
-    def __init__(
-        self,
-        *,
-        method_name: str = None,
-        payload=None,
-        response_timeout_in_seconds: int = None,
-        connect_timeout_in_seconds: int = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, method_name: str=None, payload=None, response_timeout_in_seconds: int=None, connect_timeout_in_seconds: int=None, **kwargs) -> None:
         super(CloudToDeviceMethod, self).__init__(**kwargs)
         self.method_name = method_name
         self.payload = payload

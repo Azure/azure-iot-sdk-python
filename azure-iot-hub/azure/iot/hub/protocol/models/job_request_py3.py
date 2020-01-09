@@ -37,27 +37,16 @@ class JobRequest(Model):
     """
 
     _attribute_map = {
-        "job_id": {"key": "jobId", "type": "str"},
-        "type": {"key": "type", "type": "str"},
-        "cloud_to_device_method": {"key": "cloudToDeviceMethod", "type": "CloudToDeviceMethod"},
-        "update_twin": {"key": "updateTwin", "type": "Twin"},
-        "query_condition": {"key": "queryCondition", "type": "str"},
-        "start_time": {"key": "startTime", "type": "iso-8601"},
-        "max_execution_time_in_seconds": {"key": "maxExecutionTimeInSeconds", "type": "long"},
+        'job_id': {'key': 'jobId', 'type': 'str'},
+        'type': {'key': 'type', 'type': 'str'},
+        'cloud_to_device_method': {'key': 'cloudToDeviceMethod', 'type': 'CloudToDeviceMethod'},
+        'update_twin': {'key': 'updateTwin', 'type': 'Twin'},
+        'query_condition': {'key': 'queryCondition', 'type': 'str'},
+        'start_time': {'key': 'startTime', 'type': 'iso-8601'},
+        'max_execution_time_in_seconds': {'key': 'maxExecutionTimeInSeconds', 'type': 'long'},
     }
 
-    def __init__(
-        self,
-        *,
-        job_id: str = None,
-        type=None,
-        cloud_to_device_method=None,
-        update_twin=None,
-        query_condition: str = None,
-        start_time=None,
-        max_execution_time_in_seconds: int = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, job_id: str=None, type=None, cloud_to_device_method=None, update_twin=None, query_condition: str=None, start_time=None, max_execution_time_in_seconds: int=None, **kwargs) -> None:
         super(JobRequest, self).__init__(**kwargs)
         self.job_id = job_id
         self.type = type

@@ -18,13 +18,11 @@ class ConfigurationQueriesTestInput(Model):
     """
 
     _attribute_map = {
-        "target_condition": {"key": "targetCondition", "type": "str"},
-        "custom_metric_queries": {"key": "customMetricQueries", "type": "{str}"},
+        'target_condition': {'key': 'targetCondition', 'type': 'str'},
+        'custom_metric_queries': {'key': 'customMetricQueries', 'type': '{str}'},
     }
 
-    def __init__(
-        self, *, target_condition: str = None, custom_metric_queries=None, **kwargs
-    ) -> None:
+    def __init__(self, *, target_condition: str=None, custom_metric_queries=None, **kwargs) -> None:
         super(ConfigurationQueriesTestInput, self).__init__(**kwargs)
         self.target_condition = target_condition
         self.custom_metric_queries = custom_metric_queries

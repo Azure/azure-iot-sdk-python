@@ -46,31 +46,31 @@ class ExportImportDevice(Model):
     """
 
     _attribute_map = {
-        "id": {"key": "id", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
-        "e_tag": {"key": "eTag", "type": "str"},
-        "import_mode": {"key": "importMode", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "status_reason": {"key": "statusReason", "type": "str"},
-        "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
-        "twin_etag": {"key": "twinETag", "type": "str"},
-        "tags": {"key": "tags", "type": "{object}"},
-        "properties": {"key": "properties", "type": "PropertyContainer"},
-        "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
-        "device_scope": {"key": "deviceScope", "type": "str"},
+        'id': {'key': 'id', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'e_tag': {'key': 'eTag', 'type': 'str'},
+        'import_mode': {'key': 'importMode', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'status_reason': {'key': 'statusReason', 'type': 'str'},
+        'authentication': {'key': 'authentication', 'type': 'AuthenticationMechanism'},
+        'twin_etag': {'key': 'twinETag', 'type': 'str'},
+        'tags': {'key': 'tags', 'type': '{object}'},
+        'properties': {'key': 'properties', 'type': 'PropertyContainer'},
+        'capabilities': {'key': 'capabilities', 'type': 'DeviceCapabilities'},
+        'device_scope': {'key': 'deviceScope', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(ExportImportDevice, self).__init__(**kwargs)
-        self.id = kwargs.get("id", None)
-        self.module_id = kwargs.get("module_id", None)
-        self.e_tag = kwargs.get("e_tag", None)
-        self.import_mode = kwargs.get("import_mode", None)
-        self.status = kwargs.get("status", None)
-        self.status_reason = kwargs.get("status_reason", None)
-        self.authentication = kwargs.get("authentication", None)
-        self.twin_etag = kwargs.get("twin_etag", None)
-        self.tags = kwargs.get("tags", None)
-        self.properties = kwargs.get("properties", None)
-        self.capabilities = kwargs.get("capabilities", None)
-        self.device_scope = kwargs.get("device_scope", None)
+        self.id = kwargs.get('id', None)
+        self.module_id = kwargs.get('module_id', None)
+        self.e_tag = kwargs.get('e_tag', None)
+        self.import_mode = kwargs.get('import_mode', None)
+        self.status = kwargs.get('status', None)
+        self.status_reason = kwargs.get('status_reason', None)
+        self.authentication = kwargs.get('authentication', None)
+        self.twin_etag = kwargs.get('twin_etag', None)
+        self.tags = kwargs.get('tags', None)
+        self.properties = kwargs.get('properties', None)
+        self.capabilities = kwargs.get('capabilities', None)
+        self.device_scope = kwargs.get('device_scope', None)

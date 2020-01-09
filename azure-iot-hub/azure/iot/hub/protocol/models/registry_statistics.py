@@ -20,13 +20,13 @@ class RegistryStatistics(Model):
     """
 
     _attribute_map = {
-        "total_device_count": {"key": "totalDeviceCount", "type": "long"},
-        "enabled_device_count": {"key": "enabledDeviceCount", "type": "long"},
-        "disabled_device_count": {"key": "disabledDeviceCount", "type": "long"},
+        'total_device_count': {'key': 'totalDeviceCount', 'type': 'long'},
+        'enabled_device_count': {'key': 'enabledDeviceCount', 'type': 'long'},
+        'disabled_device_count': {'key': 'disabledDeviceCount', 'type': 'long'},
     }
 
     def __init__(self, **kwargs):
         super(RegistryStatistics, self).__init__(**kwargs)
-        self.total_device_count = kwargs.get("total_device_count", None)
-        self.enabled_device_count = kwargs.get("enabled_device_count", None)
-        self.disabled_device_count = kwargs.get("disabled_device_count", None)
+        self.total_device_count = kwargs.get('total_device_count', None)
+        self.enabled_device_count = kwargs.get('enabled_device_count', None)
+        self.disabled_device_count = kwargs.get('disabled_device_count', None)

@@ -35,33 +35,19 @@ class Module(Model):
     """
 
     _attribute_map = {
-        "module_id": {"key": "moduleId", "type": "str"},
-        "managed_by": {"key": "managedBy", "type": "str"},
-        "device_id": {"key": "deviceId", "type": "str"},
-        "generation_id": {"key": "generationId", "type": "str"},
-        "etag": {"key": "etag", "type": "str"},
-        "connection_state": {"key": "connectionState", "type": "str"},
-        "connection_state_updated_time": {"key": "connectionStateUpdatedTime", "type": "iso-8601"},
-        "last_activity_time": {"key": "lastActivityTime", "type": "iso-8601"},
-        "cloud_to_device_message_count": {"key": "cloudToDeviceMessageCount", "type": "int"},
-        "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'managed_by': {'key': 'managedBy', 'type': 'str'},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'generation_id': {'key': 'generationId', 'type': 'str'},
+        'etag': {'key': 'etag', 'type': 'str'},
+        'connection_state': {'key': 'connectionState', 'type': 'str'},
+        'connection_state_updated_time': {'key': 'connectionStateUpdatedTime', 'type': 'iso-8601'},
+        'last_activity_time': {'key': 'lastActivityTime', 'type': 'iso-8601'},
+        'cloud_to_device_message_count': {'key': 'cloudToDeviceMessageCount', 'type': 'int'},
+        'authentication': {'key': 'authentication', 'type': 'AuthenticationMechanism'},
     }
 
-    def __init__(
-        self,
-        *,
-        module_id: str = None,
-        managed_by: str = None,
-        device_id: str = None,
-        generation_id: str = None,
-        etag: str = None,
-        connection_state=None,
-        connection_state_updated_time=None,
-        last_activity_time=None,
-        cloud_to_device_message_count: int = None,
-        authentication=None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, module_id: str=None, managed_by: str=None, device_id: str=None, generation_id: str=None, etag: str=None, connection_state=None, connection_state_updated_time=None, last_activity_time=None, cloud_to_device_message_count: int=None, authentication=None, **kwargs) -> None:
         super(Module, self).__init__(**kwargs)
         self.module_id = module_id
         self.managed_by = managed_by

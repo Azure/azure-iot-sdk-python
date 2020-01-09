@@ -24,17 +24,17 @@ class DeviceJobStatistics(Model):
     """
 
     _attribute_map = {
-        "device_count": {"key": "deviceCount", "type": "int"},
-        "failed_count": {"key": "failedCount", "type": "int"},
-        "succeeded_count": {"key": "succeededCount", "type": "int"},
-        "running_count": {"key": "runningCount", "type": "int"},
-        "pending_count": {"key": "pendingCount", "type": "int"},
+        'device_count': {'key': 'deviceCount', 'type': 'int'},
+        'failed_count': {'key': 'failedCount', 'type': 'int'},
+        'succeeded_count': {'key': 'succeededCount', 'type': 'int'},
+        'running_count': {'key': 'runningCount', 'type': 'int'},
+        'pending_count': {'key': 'pendingCount', 'type': 'int'},
     }
 
     def __init__(self, **kwargs):
         super(DeviceJobStatistics, self).__init__(**kwargs)
-        self.device_count = kwargs.get("device_count", None)
-        self.failed_count = kwargs.get("failed_count", None)
-        self.succeeded_count = kwargs.get("succeeded_count", None)
-        self.running_count = kwargs.get("running_count", None)
-        self.pending_count = kwargs.get("pending_count", None)
+        self.device_count = kwargs.get('device_count', None)
+        self.failed_count = kwargs.get('failed_count', None)
+        self.succeeded_count = kwargs.get('succeeded_count', None)
+        self.running_count = kwargs.get('running_count', None)
+        self.pending_count = kwargs.get('pending_count', None)

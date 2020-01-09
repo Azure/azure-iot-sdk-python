@@ -18,11 +18,11 @@ class SymmetricKey(Model):
     """
 
     _attribute_map = {
-        "primary_key": {"key": "primaryKey", "type": "str"},
-        "secondary_key": {"key": "secondaryKey", "type": "str"},
+        'primary_key': {'key': 'primaryKey', 'type': 'str'},
+        'secondary_key': {'key': 'secondaryKey', 'type': 'str'},
     }
 
-    def __init__(self, *, primary_key: str = None, secondary_key: str = None, **kwargs) -> None:
+    def __init__(self, *, primary_key: str=None, secondary_key: str=None, **kwargs) -> None:
         super(SymmetricKey, self).__init__(**kwargs)
         self.primary_key = primary_key
         self.secondary_key = secondary_key

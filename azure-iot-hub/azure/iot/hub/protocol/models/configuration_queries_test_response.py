@@ -18,11 +18,11 @@ class ConfigurationQueriesTestResponse(Model):
     """
 
     _attribute_map = {
-        "target_condition_error": {"key": "targetConditionError", "type": "str"},
-        "custom_metric_query_errors": {"key": "customMetricQueryErrors", "type": "{str}"},
+        'target_condition_error': {'key': 'targetConditionError', 'type': 'str'},
+        'custom_metric_query_errors': {'key': 'customMetricQueryErrors', 'type': '{str}'},
     }
 
     def __init__(self, **kwargs):
         super(ConfigurationQueriesTestResponse, self).__init__(**kwargs)
-        self.target_condition_error = kwargs.get("target_condition_error", None)
-        self.custom_metric_query_errors = kwargs.get("custom_metric_query_errors", None)
+        self.target_condition_error = kwargs.get('target_condition_error', None)
+        self.custom_metric_query_errors = kwargs.get('custom_metric_query_errors', None)

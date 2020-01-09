@@ -98,12 +98,14 @@ class DeviceRegistryOperationError(Model):
      'InvalidContainerReceiveLink', 'InvalidPartitionEpoch', 'RestoreTimedOut',
      'StreamReservationFailure', 'UnexpectedPropertyValue',
      'OrchestrationOperationFailed', 'ModelRepoEndpointError',
-     'ResolutionError', 'GenericBadGateway', 'InvalidResponseWhileProxying',
-     'GenericServiceUnavailable', 'ServiceUnavailable', 'PartitionNotFound',
-     'IotHubActivationFailed', 'ServerBusy', 'IotHubRestoring',
-     'ReceiveLinkOpensThrottled', 'ConnectionUnavailable', 'DeviceUnavailable',
-     'ConfigurationNotAvailable', 'GroupNotAvailable', 'GenericGatewayTimeout',
-     'GatewayTimeout'
+     'ResolutionError', 'UnableToFetchCredentials', 'UnableToFetchTenantInfo',
+     'UnableToShareIdentity', 'GenericBadGateway',
+     'InvalidResponseWhileProxying', 'GenericServiceUnavailable',
+     'ServiceUnavailable', 'PartitionNotFound', 'IotHubActivationFailed',
+     'ServerBusy', 'IotHubRestoring', 'ReceiveLinkOpensThrottled',
+     'ConnectionUnavailable', 'DeviceUnavailable', 'ConfigurationNotAvailable',
+     'GroupNotAvailable', 'HostingServiceNotAvailable',
+     'GenericGatewayTimeout', 'GatewayTimeout'
     :type error_code: str or ~protocol.models.enum
     :param error_status: Additional details associated with the error.
     :type error_status: str
@@ -114,23 +116,14 @@ class DeviceRegistryOperationError(Model):
     """
 
     _attribute_map = {
-        "device_id": {"key": "deviceId", "type": "str"},
-        "error_code": {"key": "errorCode", "type": "str"},
-        "error_status": {"key": "errorStatus", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
-        "operation": {"key": "operation", "type": "str"},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'error_code': {'key': 'errorCode', 'type': 'str'},
+        'error_status': {'key': 'errorStatus', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'operation': {'key': 'operation', 'type': 'str'},
     }
 
-    def __init__(
-        self,
-        *,
-        device_id: str = None,
-        error_code=None,
-        error_status: str = None,
-        module_id: str = None,
-        operation: str = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, device_id: str=None, error_code=None, error_status: str=None, module_id: str=None, operation: str=None, **kwargs) -> None:
         super(DeviceRegistryOperationError, self).__init__(**kwargs)
         self.device_id = device_id
         self.error_code = error_code

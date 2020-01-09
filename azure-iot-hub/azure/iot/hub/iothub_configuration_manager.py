@@ -5,8 +5,8 @@
 # --------------------------------------------------------------------------
 
 from .auth import ConnectionStringAuthentication
-from .protocol.iot_hub_gateway_service_ap_is20190630 import (
-    IotHubGatewayServiceAPIs20190630 as protocol_client,
+from .protocol.iot_hub_gateway_service_ap_is import (
+    IotHubGatewayServiceAPIs as protocol_client,
 )
 from .protocol.models import Configuration, ConfigurationContent, ConfigurationQueriesTestInput
 
@@ -42,7 +42,7 @@ class IoTHubConfigurationManager(object):
 
         :returns: The Configuration object.
         """
-        return self.protocol.service.get_configuration(configuration_id)
+        return self.protocol.configuration.get(configuration_id)
 
     def create_configuration(self, configuration):
         """Creates a configuration for devices or modules of an IoTHub.
@@ -55,7 +55,7 @@ class IoTHubConfigurationManager(object):
 
         :returns: Configuration object containing the created configuration.
         """
-        return self.protocol.service.create_or_update_configuration(configuration.id, configuration)
+        return self.protocol.configuration.create_or_update(configuration.id, configuration)
 
     def update_configuration(self, configuration, etag):
         """Updates a configuration for devices or modules of an IoTHub.
@@ -70,7 +70,7 @@ class IoTHubConfigurationManager(object):
 
         :returns: Configuration object containing the updated configuration.
         """
-        return self.protocol.service.create_or_update_configuration(
+        return self.protocol.configuration.create_or_update(
             configuration.id, configuration, etag
         )
 
@@ -89,7 +89,7 @@ class IoTHubConfigurationManager(object):
         if etag is None:
             etag = "*"
 
-        return self.protocol.service.delete_configuration(configuration_id, etag)
+        return self.protocol.configuration.delete(configuration_id, etag)
 
     def get_configurations(self, max_count=None):
         """Retrieves multiple configurations for device and modules of an IoTHub.
@@ -102,7 +102,7 @@ class IoTHubConfigurationManager(object):
 
         :returns: The list[Configuration] object.
         """
-        return self.protocol.service.get_configurations(max_count)
+        return self.protocol.configuration.get_configurations(max_count)
 
     def test_configuration_queries(self, configuration_queries_test_input):
         """Validates the target condition query and custom metric queries for a
@@ -115,7 +115,7 @@ class IoTHubConfigurationManager(object):
 
         :returns: The ConfigurationQueriesTestResponse object.
         """
-        return self.protocol.service.test_configuration_queries(configuration_queries_test_input)
+        return self.protocol.configuration.test_queries(configuration_queries_test_input)
 
     def apply_configuration_on_edge_device(self, device_id, configuration_content):
         """Applies the provided configuration content to the specified edge
@@ -128,6 +128,6 @@ class IoTHubConfigurationManager(object):
 
         :returns: An object.
         """
-        return self.protocol.service.apply_configuration_on_edge_device(
+        return self.protocol.configuration.apply_on_edge_device(
             device_id, configuration_content
         )

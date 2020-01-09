@@ -46,37 +46,21 @@ class ExportImportDevice(Model):
     """
 
     _attribute_map = {
-        "id": {"key": "id", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
-        "e_tag": {"key": "eTag", "type": "str"},
-        "import_mode": {"key": "importMode", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "status_reason": {"key": "statusReason", "type": "str"},
-        "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
-        "twin_etag": {"key": "twinETag", "type": "str"},
-        "tags": {"key": "tags", "type": "{object}"},
-        "properties": {"key": "properties", "type": "PropertyContainer"},
-        "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
-        "device_scope": {"key": "deviceScope", "type": "str"},
+        'id': {'key': 'id', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'e_tag': {'key': 'eTag', 'type': 'str'},
+        'import_mode': {'key': 'importMode', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'status_reason': {'key': 'statusReason', 'type': 'str'},
+        'authentication': {'key': 'authentication', 'type': 'AuthenticationMechanism'},
+        'twin_etag': {'key': 'twinETag', 'type': 'str'},
+        'tags': {'key': 'tags', 'type': '{object}'},
+        'properties': {'key': 'properties', 'type': 'PropertyContainer'},
+        'capabilities': {'key': 'capabilities', 'type': 'DeviceCapabilities'},
+        'device_scope': {'key': 'deviceScope', 'type': 'str'},
     }
 
-    def __init__(
-        self,
-        *,
-        id: str = None,
-        module_id: str = None,
-        e_tag: str = None,
-        import_mode=None,
-        status=None,
-        status_reason: str = None,
-        authentication=None,
-        twin_etag: str = None,
-        tags=None,
-        properties=None,
-        capabilities=None,
-        device_scope: str = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, id: str=None, module_id: str=None, e_tag: str=None, import_mode=None, status=None, status_reason: str=None, authentication=None, twin_etag: str=None, tags=None, properties=None, capabilities=None, device_scope: str=None, **kwargs) -> None:
         super(ExportImportDevice, self).__init__(**kwargs)
         self.id = id
         self.module_id = module_id

@@ -37,29 +37,29 @@ class Configuration(Model):
     """
 
     _attribute_map = {
-        "id": {"key": "id", "type": "str"},
-        "schema_version": {"key": "schemaVersion", "type": "str"},
-        "labels": {"key": "labels", "type": "{str}"},
-        "content": {"key": "content", "type": "ConfigurationContent"},
-        "target_condition": {"key": "targetCondition", "type": "str"},
-        "created_time_utc": {"key": "createdTimeUtc", "type": "iso-8601"},
-        "last_updated_time_utc": {"key": "lastUpdatedTimeUtc", "type": "iso-8601"},
-        "priority": {"key": "priority", "type": "int"},
-        "system_metrics": {"key": "systemMetrics", "type": "ConfigurationMetrics"},
-        "metrics": {"key": "metrics", "type": "ConfigurationMetrics"},
-        "etag": {"key": "etag", "type": "str"},
+        'id': {'key': 'id', 'type': 'str'},
+        'schema_version': {'key': 'schemaVersion', 'type': 'str'},
+        'labels': {'key': 'labels', 'type': '{str}'},
+        'content': {'key': 'content', 'type': 'ConfigurationContent'},
+        'target_condition': {'key': 'targetCondition', 'type': 'str'},
+        'created_time_utc': {'key': 'createdTimeUtc', 'type': 'iso-8601'},
+        'last_updated_time_utc': {'key': 'lastUpdatedTimeUtc', 'type': 'iso-8601'},
+        'priority': {'key': 'priority', 'type': 'int'},
+        'system_metrics': {'key': 'systemMetrics', 'type': 'ConfigurationMetrics'},
+        'metrics': {'key': 'metrics', 'type': 'ConfigurationMetrics'},
+        'etag': {'key': 'etag', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(Configuration, self).__init__(**kwargs)
-        self.id = kwargs.get("id", None)
-        self.schema_version = kwargs.get("schema_version", None)
-        self.labels = kwargs.get("labels", None)
-        self.content = kwargs.get("content", None)
-        self.target_condition = kwargs.get("target_condition", None)
-        self.created_time_utc = kwargs.get("created_time_utc", None)
-        self.last_updated_time_utc = kwargs.get("last_updated_time_utc", None)
-        self.priority = kwargs.get("priority", None)
-        self.system_metrics = kwargs.get("system_metrics", None)
-        self.metrics = kwargs.get("metrics", None)
-        self.etag = kwargs.get("etag", None)
+        self.id = kwargs.get('id', None)
+        self.schema_version = kwargs.get('schema_version', None)
+        self.labels = kwargs.get('labels', None)
+        self.content = kwargs.get('content', None)
+        self.target_condition = kwargs.get('target_condition', None)
+        self.created_time_utc = kwargs.get('created_time_utc', None)
+        self.last_updated_time_utc = kwargs.get('last_updated_time_utc', None)
+        self.priority = kwargs.get('priority', None)
+        self.system_metrics = kwargs.get('system_metrics', None)
+        self.metrics = kwargs.get('metrics', None)
+        self.etag = kwargs.get('etag', None)

@@ -15,8 +15,10 @@ class ServiceStatistics(Model):
     :type connected_device_count: long
     """
 
-    _attribute_map = {"connected_device_count": {"key": "connectedDeviceCount", "type": "long"}}
+    _attribute_map = {
+        'connected_device_count': {'key': 'connectedDeviceCount', 'type': 'long'},
+    }
 
     def __init__(self, **kwargs):
         super(ServiceStatistics, self).__init__(**kwargs)
-        self.connected_device_count = kwargs.get("connected_device_count", None)
+        self.connected_device_count = kwargs.get('connected_device_count', None)
