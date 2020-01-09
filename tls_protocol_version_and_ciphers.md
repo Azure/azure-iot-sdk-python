@@ -2,7 +2,7 @@
 
 ## TLS Version
 
-The Python SDK fully supports TLS 1.2 in all it's API and connetions.
+The Python SDK fully supports TLS 1.2 in all of its APIs and connetions.
 
 Due to security concerns the Python SDK does not allow TLS 1.1 connections.
 
