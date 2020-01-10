@@ -115,20 +115,31 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         stage.run_op(op)
         assert stage.sas_token == op.sas_token
 
-    # TODO: Should probably remove the requirement to set it on the root. This seems only needed by Horton
     @pytest.mark.it(
         "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
     )
     @pytest.mark.parametrize(
         "websockets",
         [
-            pytest.param(True, id="Pipeline Configured for Websockets"),
-            pytest.param(False, id="Pipeline NOT Configured for Websockets"),
+            pytest.param(True, id="Pipeline configured for websockets"),
+            pytest.param(False, id="Pipeline NOT configured for websockets"),
         ],
     )
-    def test_creates_transport(self, mocker, stage, op, websockets, mock_transport):
-        # Configure websockets
+    @pytest.mark.parametrize(
+        "cipher",
+        [
+            pytest.param("DHE-RSA-AES128-SHA", id="Pipeline configured for custom cipher"),
+            pytest.param(
+                "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
+                id="Pipeline configured for multiple custom ciphers",
+            ),
+            pytest.param(None, id="Pipeline NOT configured for custom cipher(s)"),
+        ],
+    )
+    def test_creates_transport(self, mocker, stage, op, mock_transport, websockets, cipher):
+        # Configure websockets & cipher
         stage.pipeline_root.pipeline_configuration.websockets = websockets
+        stage.pipeline_root.pipeline_configuration.cipher = cipher
 
         assert stage.transport is None
 
@@ -142,6 +153,7 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             server_verification_cert=op.server_verification_cert,
             x509_cert=op.client_cert,
             websockets=websockets,
+            cipher=cipher,
         )
         assert stage.transport is mock_transport.return_value
 

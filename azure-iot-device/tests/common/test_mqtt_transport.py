@@ -235,7 +235,14 @@ class TestInstantiation(object):
         "Configures TLS/SSL context with provided cipher(s) if present during instantiation"
     )
     @pytest.mark.parametrize(
-        "cipher", [pytest.param("", id="Single cipher"), pytest.param("", id="Cipher list")]
+        "cipher",
+        [
+            pytest.param("DHE-RSA-AES128-SHA", id="Single cipher"),
+            pytest.param(
+                "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
+                id="Cipher list",
+            ),
+        ],
     )
     def test_confgures_tls_context_with_cipher(self, mocker, mock_mqtt_client, cipher):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")

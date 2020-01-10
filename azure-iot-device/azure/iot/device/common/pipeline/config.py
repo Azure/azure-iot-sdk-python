@@ -15,9 +15,11 @@ class BasePipelineConfig(object):
     config files.
     """
 
-    def __init__(self, websockets=False):
+    def __init__(self, websockets=False, cipher=None):
         """Initializer for BasePipelineConfig
 
         :param bool websockets: Enabling/disabling websockets in MQTT. This feature is relevant if a firewall blocks port 8883 from use.
+        :param str cipher: Optional cipher suite(s) for TLS/SSL. In "OpenSSL cipher list format"
         """
         self.websockets = websockets
+        self.cipher = cipher
