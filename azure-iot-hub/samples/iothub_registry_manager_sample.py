@@ -95,6 +95,17 @@ try:
     print(updated_twin)
     print("")
 
+    # Get devices
+    max_number_of_devices = 10
+    devices = iothub_registry_manager.get_devices(max_number_of_devices)
+    if devices:
+        x = 0
+        for d in devices:
+            print_device_info("Get devices {0}".format(x), d)
+            x += 1
+    else:
+        print("No device found")
+
     # Delete the device
     iothub_registry_manager.delete_device(device_id)
 

@@ -460,10 +460,37 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.registry_manager.get_device_statistics()
 
+    def get_devices(self, max_number_of_devices=None):
+        """"Get the identities of multiple devices from the IoT hub identity
+        registry. Not recommended. Use the IoT Hub query language to retrieve
+        device twin and device identity information. See
+        https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub
+        and
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language
+        for more information.
+
+        :param int max_number_of_devices: This parameter when specified, defines the maximum number
+        of device identities that are returned. Any value outside the range of
+        1-1000 is considered to be 1000
+
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
+
+        :returns: List of device info.
+        """
+        return self.protocol.registry_manager.get_devices(max_number_of_devices)
+
     def bulk_create_or_update_devices(self, devices):
         """Create, update, or delete the identities of multiple devices from the
-           IoT hub identity registry. Different operations (create, update, delete) on different
-           devices are allowed.
+           IoT hub identity registry.
+
+           Create, update, or delete the identities of multiple devices from the
+           IoT hub identity registry. A device identity can be specified only once
+           in the list. Different operations (create, update, delete) on different
+           devices are allowed. A maximum of 100 devices can be specified per
+           invocation. For large scale operations, consider using the import
+           feature using blob
+           storage(https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities).
 
         :param list[ExportImportDevice] devices: The list of device objects to operate on.
 
@@ -472,7 +499,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The BulkRegistryOperationResult object.
         """
-        return self.protocol.registry_manager.bulk_create_or_update_devices(devices)
+        return self.protocol.registry_manager.bulk_device_crud(devices)
 
     def query_iot_hub(self, query_specification):
         """Query an IoT hub to retrieve information regarding device twins using a
