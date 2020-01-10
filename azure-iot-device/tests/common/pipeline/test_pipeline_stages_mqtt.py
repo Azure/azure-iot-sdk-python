@@ -133,7 +133,7 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
                 "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
                 id="Pipeline configured for multiple custom ciphers",
             ),
-            pytest.param(None, id="Pipeline NOT configured for custom cipher(s)"),
+            pytest.param("", id="Pipeline NOT configured for custom cipher(s)"),
         ],
     )
     def test_creates_transport(self, mocker, stage, op, mock_transport, websockets, cipher):

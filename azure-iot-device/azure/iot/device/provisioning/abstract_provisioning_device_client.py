@@ -59,6 +59,7 @@ class AbstractProvisioningDeviceClient(object):
             Users can provide their own symmetric keys for enrollments by disabling this option
             within 16 bytes and 64 bytes and in valid Base64 format.
         :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
+        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
         security_client = SymmetricKeySecurityClient(
@@ -90,6 +91,7 @@ class AbstractProvisioningDeviceClient(object):
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
         :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
+        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
         security_client = X509SecurityClient(provisioning_host, registration_id, id_scope, x509)
