@@ -11,7 +11,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationResult,
     RegistrationState,
 )
-from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
+from azure.iot.device.provisioning.pipeline import exceptions as pipeline_exceptions
 import threading
 from azure.iot.device import exceptions as client_exceptions
 

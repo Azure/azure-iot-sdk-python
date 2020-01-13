@@ -1079,7 +1079,7 @@ class TestTimeoutStageRunOpCalledWithRegisterRequestOp(
         return op
 
     @pytest.mark.it(
-        "Adds a timeout timer with the interval specified in the configuration to the operation, and starts it"
+        "Adds a provisioning timeout timer with the interval specified in the configuration to the operation, and starts it"
     )
     def test_adds_timer(self, mocker, stage, op, mock_timer):
 
@@ -1087,9 +1087,9 @@ class TestTimeoutStageRunOpCalledWithRegisterRequestOp(
 
         assert mock_timer.call_count == 1
         assert mock_timer.call_args == mocker.call(stage.timeout_intervals[type(op)], mocker.ANY)
-        assert op.timeout_timer is mock_timer.return_value
-        assert op.timeout_timer.start.call_count == 1
-        assert op.timeout_timer.start.call_args == mocker.call()
+        assert op.provisioning_timeout_timer is mock_timer.return_value
+        assert op.provisioning_timeout_timer.start.call_count == 1
+        assert op.provisioning_timeout_timer.start.call_args == mocker.call()
 
     @pytest.mark.it("Sends the operation down the pipeline")
     def test_sends_down(self, mocker, stage, op, mock_timer):
@@ -1097,7 +1097,7 @@ class TestTimeoutStageRunOpCalledWithRegisterRequestOp(
 
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
-        assert op.timeout_timer is mock_timer.return_value
+        assert op.provisioning_timeout_timer is mock_timer.return_value
 
 
 @pytest.mark.describe(
@@ -1120,7 +1120,7 @@ class TestTimeoutStageRunOpCalledWithQueryRequestOp(
         return op
 
     @pytest.mark.it(
-        "Adds a timeout timer with the interval specified in the configuration to the operation, and starts it"
+        "Adds a provisioning timeout timer with the interval specified in the configuration to the operation, and starts it"
     )
     def test_adds_timer(self, mocker, stage, op, mock_timer):
 
@@ -1128,9 +1128,9 @@ class TestTimeoutStageRunOpCalledWithQueryRequestOp(
 
         assert mock_timer.call_count == 1
         assert mock_timer.call_args == mocker.call(stage.timeout_intervals[type(op)], mocker.ANY)
-        assert op.timeout_timer is mock_timer.return_value
-        assert op.timeout_timer.start.call_count == 1
-        assert op.timeout_timer.start.call_args == mocker.call()
+        assert op.provisioning_timeout_timer is mock_timer.return_value
+        assert op.provisioning_timeout_timer.start.call_count == 1
+        assert op.provisioning_timeout_timer.start.call_args == mocker.call()
 
     @pytest.mark.it("Sends the operation down the pipeline")
     def test_sends_down(self, mocker, stage, op, mock_timer):
@@ -1138,7 +1138,7 @@ class TestTimeoutStageRunOpCalledWithQueryRequestOp(
 
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
-        assert op.timeout_timer is mock_timer.return_value
+        assert op.provisioning_timeout_timer is mock_timer.return_value
 
 
 @pytest.mark.describe(
@@ -1250,7 +1250,7 @@ class TestOpTimeoutStageRegisterRequestCompletesBeforeTimeout(TimeoutStageRunOpR
         stage.run_op(op)
         assert not op.completed
         assert mock_timer.call_count == 1
-        mock_timer_inst = op.timeout_timer
+        mock_timer_inst = op.provisioning_timeout_timer
         assert mock_timer_inst is mock_timer.return_value
         assert mock_timer_inst.cancel.call_count == 0
 
@@ -1260,7 +1260,7 @@ class TestOpTimeoutStageRegisterRequestCompletesBeforeTimeout(TimeoutStageRunOpR
         # Timer is now cancelled and cleared
         assert mock_timer_inst.cancel.call_count == 1
         assert mock_timer_inst.cancel.call_args == mocker.call()
-        assert op.timeout_timer is None
+        assert op.provisioning_timeout_timer is None
 
 
 @pytest.mark.describe(
@@ -1286,7 +1286,7 @@ class TestOpTimeoutStageQueryRequestCompletesBeforeTimeout(TimeoutStageRunOpRequ
         stage.run_op(op)
         assert not op.completed
         assert mock_timer.call_count == 1
-        mock_timer_inst = op.timeout_timer
+        mock_timer_inst = op.provisioning_timeout_timer
         assert mock_timer_inst is mock_timer.return_value
         assert mock_timer_inst.cancel.call_count == 0
 
@@ -1296,4 +1296,4 @@ class TestOpTimeoutStageQueryRequestCompletesBeforeTimeout(TimeoutStageRunOpRequ
         # Timer is now cancelled and cleared
         assert mock_timer_inst.cancel.call_count == 1
         assert mock_timer_inst.cancel.call_args == mocker.call()
-        assert op.timeout_timer is None
+        assert op.provisioning_timeout_timer is None

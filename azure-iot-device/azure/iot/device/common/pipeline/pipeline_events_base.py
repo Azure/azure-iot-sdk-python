@@ -45,12 +45,12 @@ class ResponseEvent(PipelineEvent):
     stage which takes the contents of this event and puts it into the RequestAndResponseOperation
     operation with the matching $rid value.
 
-    :ivar status_code: The status code returned by the response.  Any value under 300 is
-        considered success.
-    :type status_code: int
     :ivar request_id: The request ID which will eventually be used to match a RequestOperation
       operation to this event.
     :type request_id: str
+    :ivar status_code: The status code returned by the response.  Any value under 300 is
+        considered success.
+    :type status_code: int
     :ivar response_body: The body of the response.
     :type response_body: str
     :ivar retry_after: A retry interval value that was extracted from the topic.

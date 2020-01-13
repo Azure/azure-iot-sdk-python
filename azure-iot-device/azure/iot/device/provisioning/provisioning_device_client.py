@@ -20,7 +20,7 @@ from azure.iot.device import exceptions
 logger = logging.getLogger(__name__)
 
 
-def wait_for_completion(callback):
+def handle_result(callback):
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
@@ -65,7 +65,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
             payload=self._provisioning_payload, callback=register_complete
         )
 
-        result = wait_for_completion(register_complete)
+        result = handle_result(register_complete)
 
         log_on_register_complete(result)
         return result
@@ -82,6 +82,6 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         subscription_complete = EventedCallback()
         self._provisioning_pipeline.enable_responses(callback=subscription_complete)
 
-        wait_for_completion(subscription_complete)
+        handle_result(subscription_complete)
 
         logger.info("Successfully subscribed to Device Provisioning Service to receive responses")

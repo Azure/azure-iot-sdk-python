@@ -99,6 +99,8 @@ class TestRegistrationResult(object):
     )
     def test_registration_state_to_string_without_payload(self):
         registration_state = create_registration_state()
+        # Serializes the __dict__ of every object instead of the object itself.
+        # Helpful for all sorts of complex objects.
         json_payload = json.dumps(None, default=lambda o: o.__dict__, sort_keys=True)
 
         string_repr = "\n".join([fake_device_id, fake_assigned_hub, fake_sub_status, json_payload])

@@ -17,7 +17,7 @@ import logging
 import weakref
 import json
 from threading import Timer
-from .constant import REGISTER, QUERY
+import time
 from .mqtt_topic import get_optional_element
 
 logger = logging.getLogger(__name__)
@@ -61,48 +61,58 @@ class UseSecurityClientStage(PipelineStage):
 
 
 class CommonProvisioningStage(PipelineStage):
-    @pipeline_thread.runs_on_pipeline_thread
-    def _get_error(self, provisioning_op, prov_op_name, error):
+    """
+    This is a super stage that the RegistrationStage and PollingStatusStage of
+    provisioning would both use. It  some common functions like decoding response
+    and retrieving error, registration status, operation id and forming a complete result.
+    """
+
+    # @pipeline_thread.runs_on_pipeline_thread
+    @staticmethod
+    def _get_error(provisioning_op, error):
         if error:
             return error
         elif 300 <= provisioning_op.status_code < 429:
             logger.error(
                 "Received error with status code {status_code} for {prov_op_name} request operation".format(
-                    prov_op_name=prov_op_name, status_code=provisioning_op.status_code
+                    prov_op_name=provisioning_op.request_type,
+                    status_code=provisioning_op.status_code,
                 )
             )
             logger.error("response body: {}".format(provisioning_op.response_body))
             return exceptions.ServiceError(
                 "{prov_op_name} request returned a service error status code {status_code}".format(
-                    prov_op_name=prov_op_name, status_code=provisioning_op.status_code
+                    prov_op_name=provisioning_op.request_type,
+                    status_code=provisioning_op.status_code,
                 )
             )
         else:
             return None
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _decode_response(self, provisioning_op):
+    # @pipeline_thread.runs_on_pipeline_thread
+    @staticmethod
+    def _decode_response(provisioning_op):
         return json.loads(provisioning_op.response_body.decode("utf-8"))
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _get_registration_status(self, decoded_response):
+    # @pipeline_thread.runs_on_pipeline_thread
+    @staticmethod
+    def _get_registration_status(decoded_response):
         return get_optional_element(decoded_response, "status")
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _get_operation_id(self, decoded_response):
+    # @pipeline_thread.runs_on_pipeline_thread
+    @staticmethod
+    def _get_operation_id(decoded_response):
         return get_optional_element(decoded_response, "operationId")
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _form_complete_result(self, operation_id, decoded_response, status):
+    # @pipeline_thread.runs_on_pipeline_thread
+    @staticmethod
+    def _form_complete_result(operation_id, decoded_response, status):
         """
         Create the registration result from the complete decoded json response for details regarding the registration process.
         """
         decoded_state = (get_optional_element(decoded_response, "registrationState"),)
         registration_state = None
         if decoded_state is not None:
-            # Everything needs to be converted to string explicitly for python 2
-            # as everything is by default a unicode character
-
             registration_state = RegistrationState(
                 device_id=get_optional_element(decoded_state[0], "deviceId"),
                 assigned_hub=get_optional_element(decoded_state[0], "assignedHub"),
@@ -147,7 +157,7 @@ class PollingStatusStage(CommonProvisioningStage):
 
                 # This could be an error that has been reported to this stage Or this
                 # could be an error because the service responded with status code 300
-                error = self._get_error(query_request_op, QUERY, error=error)
+                error = CommonProvisioningStage._get_error(query_request_op, error=error)
 
                 if not error:
                     success_status_code = query_request_op.status_code
@@ -156,9 +166,11 @@ class PollingStatusStage(CommonProvisioningStage):
                         if query_request_op.retry_after is not None
                         else constant.DEFAULT_POLLING_INTERVAL
                     )
-                    decoded_response = self._decode_response(query_request_op)
-                    operation_id = self._get_operation_id(decoded_response)
-                    registration_status = self._get_registration_status(decoded_response)
+                    decoded_response = CommonProvisioningStage._decode_response(query_request_op)
+                    operation_id = CommonProvisioningStage._get_operation_id(decoded_response)
+                    registration_status = CommonProvisioningStage._get_registration_status(
+                        decoded_response
+                    )
 
                     # retry after or assigning scenario
                     if success_status_code >= 429 or registration_status == "assigning":
@@ -192,10 +204,12 @@ class PollingStatusStage(CommonProvisioningStage):
 
                     # Service success scenario
                     else:
-                        registration_status = self._get_registration_status(decoded_response)
+                        registration_status = CommonProvisioningStage._get_registration_status(
+                            decoded_response
+                        )
                         if registration_status == "assigned" or registration_status == "failed":
                             # process complete response here
-                            complete_registration_result = self._form_complete_result(
+                            complete_registration_result = CommonProvisioningStage._form_complete_result(
                                 operation_id=operation_id,
                                 decoded_response=decoded_response,
                                 status=registration_status,
@@ -225,8 +239,8 @@ class PollingStatusStage(CommonProvisioningStage):
                     request_type=constant.QUERY,
                     method="GET",
                     resource_location="/",
-                    query_params={"operation_id": op.operation_id},
-                    request_body=op.request_payload,
+                    query_params={"operation_id": query_status_op.operation_id},
+                    request_body=query_status_op.request_payload,
                     callback=on_query_response,
                 )
             )
@@ -246,9 +260,9 @@ class RegistrationStage(CommonProvisioningStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, operation):
-        if isinstance(operation, pipeline_ops_provisioning.SendRegistrationRequestOperation):
-            initial_register_op = operation
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
+            initial_register_op = op
 
             def on_registration_response(op, error):
                 logger.debug(
@@ -259,7 +273,7 @@ class RegistrationStage(CommonProvisioningStage):
 
                 # This could be an error that has been reported to this stage Or this
                 # could be an error because the service responded with status code >=300
-                error = self._get_error(op, REGISTER, error=error)
+                error = CommonProvisioningStage._get_error(op, error=error)
 
                 if not error:
                     success_status_code = op.status_code
@@ -268,8 +282,8 @@ class RegistrationStage(CommonProvisioningStage):
                         if op.retry_after is not None
                         else constant.DEFAULT_POLLING_INTERVAL
                     )
-                    decoded_response = self._decode_response(op)
-                    operation_id = self._get_operation_id(decoded_response)
+                    decoded_response = CommonProvisioningStage._decode_response(op)
+                    operation_id = CommonProvisioningStage._get_operation_id(decoded_response)
 
                     # retry after scenario
                     if success_status_code >= 429:
@@ -305,11 +319,13 @@ class RegistrationStage(CommonProvisioningStage):
 
                     # Service success scenario
                     else:
-                        registration_status = self._get_registration_status(decoded_response)
+                        registration_status = CommonProvisioningStage._get_registration_status(
+                            decoded_response
+                        )
                         if registration_status == "assigned" or registration_status == "failed":
                             # process complete response here
                             # TODO Is there an response when service returns "failed" ?
-                            complete_registration_result = self._form_complete_result(
+                            complete_registration_result = CommonProvisioningStage._form_complete_result(
                                 operation_id=operation_id,
                                 decoded_response=decoded_response,
                                 status=registration_status,
@@ -339,6 +355,7 @@ class RegistrationStage(CommonProvisioningStage):
                                 callback=copy_result_to_original_op,
                             )
 
+                            time.sleep(constant.DEFAULT_POLLING_INTERVAL)
                             self.send_op_down(query_worker_op)
                         else:
                             error = exceptions.ServiceError(
@@ -366,7 +383,7 @@ class RegistrationStage(CommonProvisioningStage):
             )
 
         else:
-            super(RegistrationStage, self)._run_op(operation)
+            super(RegistrationStage, self)._run_op(op)
 
 
 class ProvisioningTimeoutStage(PipelineStage):
@@ -410,11 +427,9 @@ class ProvisioningTimeoutStage(PipelineStage):
                 )
 
             logger.debug("{}({}): Creating timer".format(self.name, op.name))
-            op.timeout_timer = Timer(constant.DEFAULT_TIMEOUT_INTERVAL, on_timeout)
-            op.timeout_timer.start()
+            op.provisioning_timeout_timer = Timer(constant.DEFAULT_TIMEOUT_INTERVAL, on_timeout)
+            op.provisioning_timeout_timer.start()
 
-            # Send the op down, but intercept the return of the op so we can
-            # remove the timer when the op is done
             op.add_callback(self._clear_timer)
             logger.debug("{}({}): Sending down".format(self.name, op.name))
             self.send_op_down(op)
@@ -424,10 +439,10 @@ class ProvisioningTimeoutStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _clear_timer(self, op, error):
         # When an op comes back, delete the timer and pass it right up.
-        if op.timeout_timer:
+        if op.provisioning_timeout_timer:
             logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
-            op.timeout_timer.cancel()
-            op.timeout_timer = None
+            op.provisioning_timeout_timer.cancel()
+            op.provisioning_timeout_timer = None
 
 
 class DeviceRegistrationPayload(object):

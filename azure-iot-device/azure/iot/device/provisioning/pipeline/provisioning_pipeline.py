@@ -15,7 +15,7 @@ from azure.iot.device.provisioning.pipeline import (
 )
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device.provisioning.security import SymmetricKeySecurityClient, X509SecurityClient
-from azure.iot.device.provisioning.pipeline import constant as dps_constants
+from azure.iot.device.provisioning.pipeline import constant as provisioning_constants
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class ProvisioningPipeline(object):
         Constructor for instantiating a pipeline
         :param security_client: The security client which stores credentials
         """
-        self.responses_enabled = {dps_constants.REGISTER: False}
+        self.responses_enabled = {provisioning_constants.REGISTER: False}
 
         # Event Handlers - Will be set by Client after instantiation of pipeline
         self.on_connected = None
@@ -86,6 +86,14 @@ class ProvisioningPipeline(object):
         Connect to the service.
 
         :param callback: callback which is called when the connection to the service is complete.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
         """
         logger.info("connect called")
 
@@ -99,6 +107,11 @@ class ProvisioningPipeline(object):
         Disconnect from the service.
 
         :param callback: callback which is called when the connection to the service has been disconnected
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
         logger.info("disconnect called")
 
@@ -109,13 +122,13 @@ class ProvisioningPipeline(object):
 
     def enable_responses(self, callback=None):
         """
-        Disable response from the DPS service by subscribing to the appropriate topics.
+        Enable response from the DPS service by subscribing to the appropriate topics.
 
-        :param callback: callback which is called when the feature is enabled
+        :param callback: callback which is called when responses are enabled
         """
         logger.debug("enable_responses called")
 
-        self.responses_enabled[dps_constants.REGISTER] = True
+        self.responses_enabled[provisioning_constants.REGISTER] = True
 
         def pipeline_callback(op, error):
             callback(error=error)
@@ -127,7 +140,7 @@ class ProvisioningPipeline(object):
     def disable_responses(self, callback=None):
         """
         Disable response from the DPS service by unsubscribing from the appropriate topics.
-        :param callback: callback which is called when the feature is disabled
+        :param callback: callback which is called when the responses are disabled
 
         """
         logger.debug("disable_responses called")
@@ -140,6 +153,20 @@ class ProvisioningPipeline(object):
         )
 
     def register(self, payload=None, callback=None):
+        """
+        Register to the device provisioning service.
+        :param payload: Payload that can be sent with the registration request.
+        :param callback: callback which is called when the registration is done.
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
+        """
+
         def on_complete(op, error):
             # TODO : Apparently when its failed we can get result as well as error.
             if error:

@@ -106,9 +106,15 @@ def get_optional_element(content, element_name, index=0):
     if element is None:
         return None
     else:
-        if type(element) is object or type(element) is dict:
-            return element
-        elif type(element) is list:
+        # if type(element) is object or type(element) is dict:
+        #     return element
+        # elif type(element) is list:
+        #     return element[index]
+        # else:
+        #     return str(element)
+        if isinstance(element, list):
             return element[index]
+        elif isinstance(element, dict) or isinstance(element, object):
+            return element
         else:
             return str(element)

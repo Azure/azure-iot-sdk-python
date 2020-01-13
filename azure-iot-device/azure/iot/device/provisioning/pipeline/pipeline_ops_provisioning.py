@@ -99,7 +99,7 @@ class SendRegistrationRequestOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, request_payload, registration_id, registration_result=None, callback=None):
+    def __init__(self, request_payload, registration_id, callback, registration_result=None):
         """
         Initializer for SendRegistrationRequestOperation objects.
 
@@ -124,7 +124,7 @@ class SendQueryRequestOperation(PipelineOperation):
     This operation is in the group of DPS operations because it is very specific to the DPS client.
     """
 
-    def __init__(self, operation_id, request_payload, registration_result=None, callback=None):
+    def __init__(self, operation_id, request_payload, callback, registration_result=None):
         """
         Initializer for SendRegistrationRequestOperation objects.
 
