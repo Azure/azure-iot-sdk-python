@@ -750,7 +750,7 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
         assert stage._pending_connection_op is op
 
     @pytest.mark.it(
-        "Triggers the background exception handler (with error cause) when the connection failure is unexpected"
+        "Triggers the swallowed exception handler (with error cause) when the connection failure is unexpected"
     )
     @pytest.mark.parametrize(
         "pending_connection_op",
@@ -767,15 +767,17 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
     ):
         # A connection failure is unexpected if there is not a pending Connect/ReauthorizeConnection operation
         # i.e. "Why did we get a connection failure? We weren't even trying to connect!"
-        mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
+        mock_handler = mocker.patch.object(handle_exceptions, "swallow_unraised_exception")
         stage._pending_connection_operation = pending_connection_op
 
         # Trigger connection failure with arbitrary cause
         stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
 
-        # Background exception handler has been called
+        # swallow exception handler has been called
         assert mock_handler.call_count == 1
-        assert mock_handler.call_args == mocker.call(arbitrary_exception)
+        assert mock_handler.call_args == mocker.call(
+            arbitrary_exception, log_msg=mocker.ANY, log_lvl="info"
+        )
 
 
 @pytest.mark.describe("MQTTTransportStage - EVENT: MQTT disconnected")
@@ -907,10 +909,10 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         assert isinstance(pending_connection_op.error, transport_exceptions.ConnectionDroppedError)
 
     @pytest.mark.it(
-        "Sends a ConnectionDroppedError to the background exception handler, if there is no pending operation when a disconnection occurs"
+        "Sends a ConnectionDroppedError to the swallowed exception handler, if there is no pending operation when a disconnection occurs"
     )
     def test_no_pending_op(self, mocker, stage, cause):
-        mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
+        mock_handler = mocker.patch.object(handle_exceptions, "swallow_unraised_exception")
         assert stage._pending_connection_op is None
 
         # Trigger disconnect
