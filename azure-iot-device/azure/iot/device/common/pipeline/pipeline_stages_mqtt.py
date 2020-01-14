@@ -226,7 +226,7 @@ class MQTTTransportStage(PipelineStage):
         :param Exception cause: The Exception that caused the connection failure.
         """
 
-        logger.error("{}: _on_mqtt_connection_failure called: {}".format(self.name, cause))
+        logger.info("{}: _on_mqtt_connection_failure called: {}".format(self.name, cause))
 
         if isinstance(
             self._pending_connection_op, pipeline_ops_base.ConnectOperation
@@ -239,7 +239,9 @@ class MQTTTransportStage(PipelineStage):
             op.complete(error=cause)
         else:
             logger.warning("{}: Connection failure was unexpected".format(self.name))
-            handle_exceptions.handle_background_exception(cause)
+            handle_exceptions.swallow_unraised_exception(
+                cause, log_msg="Unexpected connection failure.  Safe to ignore.", log_lvl="info"
+            )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_disconnected(self, cause=None):
@@ -249,12 +251,12 @@ class MQTTTransportStage(PipelineStage):
         :param Exception cause: The Exception that caused the disconnection, if any (optional)
         """
         if cause:
-            logger.error("{}: _on_mqtt_disconnect called: {}".format(self.name, cause))
+            logger.info("{}: _on_mqtt_disconnect called: {}".format(self.name, cause))
         else:
             logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
         # Send an event to tell other pipeilne stages that we're disconnected. Do this before
-        # we do anything else (in case upper stages have any "are we connected" logic.
+        # we do anything else (in case upper stages have any "are we connected" logic.)
         self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
         if self._pending_connection_op:
@@ -285,6 +287,11 @@ class MQTTTransportStage(PipelineStage):
                     )
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
-            # Regardless of cause, it is now a ConnectionDroppedError
+            # Regardless of cause, it is now a ConnectionDroppedError.  log it and swallow it.
+            # Higher layers will see that we're disconencted and reconnect as necessary.
             e = transport_exceptions.ConnectionDroppedError(cause=cause)
-            handle_exceptions.handle_background_exception(e)
+            handle_exceptions.swallow_unraised_exception(
+                e,
+                log_msg="Unexpected disconnection.  Safe to ignore since other stages will reconnect.",
+                log_lvl="info",
+            )
