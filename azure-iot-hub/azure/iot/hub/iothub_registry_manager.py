@@ -461,17 +461,17 @@ class IoTHubRegistryManager(object):
         return self.protocol.registry_manager.get_device_statistics()
 
     def get_devices(self, max_number_of_devices=None):
-        """"Get the identities of multiple devices from the IoT hub identity
-        registry. Not recommended. Use the IoT Hub query language to retrieve
-        device twin and device identity information. See
-        https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub
-        and
-        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language
-        for more information.
+        """Get the identities of multiple devices from the IoT hub identity
+           registry. Not recommended. Use the IoT Hub query language to retrieve
+           device twin and device identity information. See
+           https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub
+           and
+           https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language
+           for more information.
 
         :param int max_number_of_devices: This parameter when specified, defines the maximum number
-        of device identities that are returned. Any value outside the range of
-        1-1000 is considered to be 1000
+           of device identities that are returned. Any value outside the range of
+           1-1000 is considered to be 1000
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -504,6 +504,9 @@ class IoTHubRegistryManager(object):
     def query_iot_hub(self, query_specification):
         """Query an IoT hub to retrieve information regarding device twins using a
            SQL-like language.
+           See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
+           for more information. Pagination of results is supported. This returns
+           information about device twins only.
 
         :param QuerySpecification query: The query specification.
 
