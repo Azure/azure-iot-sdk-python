@@ -10,7 +10,6 @@ from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import QuerySpecification
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = "test_device"
 
 
 def print_twin(title, iothub_device):
@@ -46,11 +45,14 @@ try:
     query_specification = QuerySpecification(query= "SELECT * FROM devices")
 
     # Get device twins using query
-    devices = iothub_registry_manager.query_iot_hub(query_specification)
+    query_result = iothub_registry_manager.query_iot_hub(query_specification)
 
-    if devices:
+    print("Type: {0}".format(query_result.type))
+    print("Continuation token: {0}".format(query_result.continuation_token))
+    print("")
+    if query_result.items:
         x = 0
-        for d in devices:
+        for d in query_result.items:
             print_twin("Query device twins {0}".format(x), d)
             x += 1
     else:

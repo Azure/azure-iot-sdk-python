@@ -10,7 +10,7 @@ from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import Twin, TwinProperties
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = "test_device"
+device_id = os.getenv("IOTHUB_NEW_DEVICE_ID")
 
 
 def print_device_info(title, iothub_device):

@@ -23,6 +23,31 @@ from .protocol.models import (
 )
 
 
+class QueryResult():
+    """The query result.
+    :param type: The query result type. Possible values include: 'unknown',
+     'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment',
+     'enrollmentGroup', 'deviceRegistration'
+    :type type: str or ~protocol.models.enum
+    :param items: The query result items, as a collection.
+    :type items: list[object]
+    :param continuation_token: Request continuation token.
+    :type continuation_token: str
+    """
+
+    _attribute_map = {
+        "type": {"key": "type", "type": "str"},
+        "items": {"key": "items", "type": "[object]"},
+        "continuation_token": {"key": "continuationToken", "type": "str"},
+    }
+
+    def __init__(self, **kwargs):
+        super(QueryResult, self).__init__(**kwargs)
+        self.type = kwargs.get("type", None)
+        self.items = kwargs.get("items", None)
+        self.continuation_token = kwargs.get("continuation_token", None)
+
+
 class IoTHubRegistryManager(object):
     """A class to provide convenience APIs for IoTHub Registry Manager operations,
     based on top of the auto generated IotHub REST APIs
@@ -513,9 +538,17 @@ class IoTHubRegistryManager(object):
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
-        :returns: The BulkRegistryOperationResult object.
+        :returns: The QueryResult object.
         """
-        return self.protocol.registry_manager.query_iot_hub(query_specification)
+        raw_response = self.protocol.registry_manager.query_iot_hub(query_specification, None, True)
+        
+        queryResult = QueryResult()
+        if raw_response.headers:
+            queryResult.type = raw_response.headers["x-ms-item-type"]
+            queryResult.continuation_token = raw_response.headers["x-ms-continuation"]
+        queryResult.items = raw_response.output
+
+        return queryResult
 
     def get_twin(self, device_id):
         """Gets a device twin.
@@ -623,6 +656,6 @@ class IoTHubRegistryManager(object):
 
         :returns: The CloudToDeviceMethodResult object.
         """
-        return self.protocol.device_method.invoke_device_module_method(
+        return self.protocol.device_method.invoke_module_method(
             device_id, module_id, direct_method_request
         )
