@@ -1280,7 +1280,7 @@ class TestIoTHubDeviceClientDisconnect(IoTHubDeviceClientTestsConfig, SharedClie
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - EVENT: Disconnect")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - OCCURANCE: Disconnect")
 class TestIoTHubDeviceClientDisconnectEvent(
     IoTHubDeviceClientTestsConfig, SharedClientDisconnectEventTests
 ):
@@ -2159,7 +2159,7 @@ class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClie
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - EVENT: Disconnect")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURANCE: Disconnect")
 class TestIoTHubModuleClientDisconnectEvent(
     IoTHubModuleClientTestsConfig, SharedClientDisconnectEventTests
 ):
