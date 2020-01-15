@@ -56,9 +56,13 @@ class AbstractIoTHubClient(object):
         :param str server_verification_cert: The trusted certificate chain. Necessary when
             using connecting to an endpoint which has a non-standard root of trust, such as a
             protocol gateway.
-        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
-        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
 
         :raises: ValueError if given an invalid connection_string.
 
@@ -132,9 +136,13 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type x509: :class:`azure.iot.device.X509`
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
 
-        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
-        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
@@ -159,9 +167,13 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             Can be found in the Azure portal in the Overview tab as the string hostname.
         :param device_id: The device ID
 
-        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
-        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
         :return: An instance of an IoTHub client that uses a symmetric key for authentication.
         """
 
@@ -200,9 +212,13 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         This method can only be run from inside an IoT Edge container, or in a debugging
         environment configured for Edge development (e.g. Visual Studio, Visual Studio Code)
 
-        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
-        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid
@@ -295,8 +311,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT over websockets.
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
-        :param str product_info: Configuration Option. Default is empty string. The string contains arbitrary product info which is appended to the user agent string.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """

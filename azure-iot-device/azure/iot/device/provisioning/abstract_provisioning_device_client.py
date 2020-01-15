@@ -14,7 +14,7 @@ import logging
 from .security.sk_security_client import SymmetricKeySecurityClient
 from .security.x509_security_client import X509SecurityClient
 from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
-from azure.iot.device.common.pipeline.config import BasePipelineConfig
+from azure.iot.device.provisioning.pipeline.config import ProvisioningPipelineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +58,18 @@ class AbstractProvisioningDeviceClient(object):
             32 bytes when new enrollments are saved with the Auto-generate keys option enabled.
             Users can provide their own symmetric keys for enrollments by disabling this option
             within 16 bytes and 64 bytes and in valid Base64 format.
+
         :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
         security_client = SymmetricKeySecurityClient(
             provisioning_host, registration_id, id_scope, symmetric_key
         )
-        pipeline_configuration = BasePipelineConfig(**kwargs)
+        pipeline_configuration = ProvisioningPipelineConfig(**kwargs)
         mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)
         return cls(mqtt_provisioning_pipeline)
 
@@ -90,12 +94,16 @@ class AbstractProvisioningDeviceClient(object):
             contain cert (either the root certificate or one of the intermediate CA certificates).
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
+
         :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
-        :param str cipher: Configuration Option. Default is empty string. The string contains the desired cipher suites in the OpenSSL cipher list format.
+        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
         security_client = X509SecurityClient(provisioning_host, registration_id, id_scope, x509)
-        pipeline_configuration = BasePipelineConfig(**kwargs)
+        pipeline_configuration = ProvisioningPipelineConfig(**kwargs)
         mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)
         return cls(mqtt_provisioning_pipeline)
 

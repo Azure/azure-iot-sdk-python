@@ -301,8 +301,11 @@ class MQTTTransport(object):
             ssl_context.load_default_certs()
 
         if self._cipher:
-            # TODO: this could raise ssl.SSLError. What to do if it does?
-            ssl_context.set_ciphers(self._cipher)
+            try:
+                ssl_context.set_ciphers(self._cipher)
+            except ssl.SSLError as e:
+                # TODO: custom error with more detail?
+                raise e
 
         if self._x509_cert is not None:
             logger.debug("configuring SSL context with client-side certificate and key")
