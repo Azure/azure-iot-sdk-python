@@ -575,7 +575,7 @@ class TestMQTTTransportStageRunOpCalledWithArbitraryOperation(
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
-@pytest.mark.describe("MQTTTransportStage - EVENT: MQTT message received")
+@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT message received")
 class TestMQTTTransportStageProtocolClientEvents(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Sends an IncomingMQTTMessageEvent event up the pipeline")
     def test_incoming_message_handler(self, stage, mocker):
@@ -599,7 +599,7 @@ class TestMQTTTransportStageProtocolClientEvents(MQTTTransportStageTestConfigCom
         assert event.topic == fake_topic
 
 
-@pytest.mark.describe("MQTTTransportStage - EVENT: MQTT connected")
+@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT connected")
 class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Sends a ConnectedEvent up the pipeline")
     @pytest.mark.parametrize(
@@ -675,7 +675,7 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
         assert stage._pending_connection_op is op
 
 
-@pytest.mark.describe("MQTTTransportStage - EVENT: MQTT connection failure")
+@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT connection failure")
 class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Does not send any events up the pipeline")
     @pytest.mark.parametrize(
@@ -780,7 +780,7 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
         )
 
 
-@pytest.mark.describe("MQTTTransportStage - EVENT: MQTT disconnected")
+@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT disconnected")
 class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
     @pytest.fixture(params=[False, True], ids=["No error cause", "With error cause"])
     def cause(self, request, arbitrary_exception):

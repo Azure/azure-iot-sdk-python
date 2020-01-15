@@ -516,7 +516,7 @@ class TestReauthorizeConnection(object):
             transport.reauthorize_connection(fake_password)
 
 
-@pytest.mark.describe("MQTTTransport - EVENT: Connect Completed")
+@pytest.mark.describe("MQTTTransport - OCCURANCE: Connect Completed")
 class TestEventConnectComplete(object):
     @pytest.mark.it(
         "Triggers on_mqtt_connected_handler event handler upon successful connect completion"
@@ -575,7 +575,7 @@ class TestEventConnectComplete(object):
         assert e_info.value is arbitrary_base_exception
 
 
-@pytest.mark.describe("MQTTTransport - EVENT: Connection Failure")
+@pytest.mark.describe("MQTTTransport - OCCURANCE: Connection Failure")
 class TestEventConnectionFailure(object):
     @pytest.mark.parametrize(
         "error_params",
@@ -723,7 +723,7 @@ class TestDisconnect(object):
         # No assert required - not throwing an error -> success!
 
 
-@pytest.mark.describe("MQTTTransport - EVENT: Disconnect Completed")
+@pytest.mark.describe("MQTTTransport - OCCURANCE: Disconnect Completed")
 class TestEventDisconnectCompleted(object):
     @pytest.mark.it(
         "Triggers on_mqtt_disconnected_handler event handler upon disconnect completion"
@@ -1732,7 +1732,7 @@ class TestPublish(object):
             transport.publish(topic=fake_topic, payload=fake_payload, callback=None)
 
 
-@pytest.mark.describe("MQTTTransport - EVENT: Message Received")
+@pytest.mark.describe("MQTTTransport - OCCURANCE: Message Received")
 class TestMessageReceived(object):
     @pytest.fixture()
     def message(self):
