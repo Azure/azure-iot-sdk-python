@@ -638,7 +638,7 @@ class TestIoTHubPipelineDisableFeature(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Connected")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Connected")
 class TestIoTHubPipelineEVENTConnect(object):
     @pytest.mark.it("Triggers the 'on_connected' handler")
     def test_with_handler(self, mocker, pipeline):
@@ -660,7 +660,7 @@ class TestIoTHubPipelineEVENTConnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Disconnected")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Disconnected")
 class TestIoTHubPipelineEVENTDisconnect(object):
     @pytest.mark.it("Triggers the 'on_disconnected' handler")
     def test_with_handler(self, mocker, pipeline):
@@ -682,7 +682,7 @@ class TestIoTHubPipelineEVENTDisconnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: C2D Message Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: C2D Message Received")
 class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_c2d_message_received' handler, passing the received message as an argument"
@@ -710,7 +710,7 @@ class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Input Message Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Input Message Received")
 class TestIoTHubPipelineEVENTReceiveInputMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_input_message_received' handler, passing the received message and input name as arguments"
@@ -740,7 +740,7 @@ class TestIoTHubPipelineEVENTReceiveInputMessage(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Method Request Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Method Request Received")
 class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
     @pytest.mark.it(
         "Triggers the 'on_method_request_received' handler, passing the received method request as an argument"
@@ -770,7 +770,7 @@ class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Twin Desired Properties Patch Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Twin Desired Properties Patch Received")
 class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it(
         "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"

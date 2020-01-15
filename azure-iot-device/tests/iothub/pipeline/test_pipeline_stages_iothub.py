@@ -309,7 +309,9 @@ class TestUseAuthProviderStageRunOpWithAribitraryOperation(
         assert not op.completed
 
 
-@pytest.mark.describe("UseAuthProviderStage - EVENT: SAS Authentication Provider updates SAS token")
+@pytest.mark.describe(
+    "UseAuthProviderStage - OCCURANCE: SAS Authentication Provider updates SAS token"
+)
 class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProviderStageTestConfig):
     # Auth Providers are configured with different values depending on if the higher level client
     # is a Device or Module. Parametrize with both possibilities.
@@ -476,7 +478,7 @@ class TestTwinRequestResponseStageRunOpWithArbitraryOperation(
 
 # TODO: Provide a more accurate set of status codes for tests
 @pytest.mark.describe(
-    "TwinRequestResponseStage - EVENT: RequestAndResponseOperation created from GetTwinOperation is completed"
+    "TwinRequestResponseStage - OCCURANCE: RequestAndResponseOperation created from GetTwinOperation is completed"
 )
 class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperationCompleted(
     TwinRequestResponseStageTestConfig
@@ -618,7 +620,7 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
 
 
 @pytest.mark.describe(
-    "TwinRequestResponseStage - EVENT: RequestAndResponseOperation created from PatchTwinReportedPropertiesOperation is completed"
+    "TwinRequestResponseStage - OCCURANCE: RequestAndResponseOperation created from PatchTwinReportedPropertiesOperation is completed"
 )
 class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromPatchTwinReportedPropertiesOperation(
     TwinRequestResponseStageTestConfig

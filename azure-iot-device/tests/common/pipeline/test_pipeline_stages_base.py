@@ -740,7 +740,7 @@ class ConnectionLockStageBlockingOpCompletedTestConfig(ConnectionLockStageTestCo
 
 
 @pytest.mark.describe(
-    "ConnectionLockStage - EVENT: Operation blocking ConnectionLockStage is completed successfully"
+    "ConnectionLockStage - OCCURANCE: Operation blocking ConnectionLockStage is completed successfully"
 )
 class TestConnectionLockStageBlockingOpCompletedNoError(
     ConnectionLockStageBlockingOpCompletedTestConfig
@@ -844,7 +844,7 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
 
 
 @pytest.mark.describe(
-    "ConnectionLockStage - EVENT: Operation blocking ConnectionLockStage is completed with error"
+    "ConnectionLockStage - OCCURANCE: Operation blocking ConnectionLockStage is completed with error"
 )
 class TestConnectionLockStageBlockingOpCompletedWithError(
     ConnectionLockStageBlockingOpCompletedTestConfig
@@ -1039,7 +1039,7 @@ class TestCoordinateRequestAndResponseStageRunOpWithArbitraryOp(
 
 
 @pytest.mark.describe(
-    "CoordinateRequestAndResponseStage - EVENT: RequestOperation tied to a stored RequestAndResponseOperation is completed"
+    "CoordinateRequestAndResponseStage - OCCURANCE: RequestOperation tied to a stored RequestAndResponseOperation is completed"
 )
 class TestCoordinateRequestAndResponseStageRequestOperationCompleted(
     CoordinateRequestAndResponseStageTestConfig
@@ -1296,7 +1296,7 @@ class TestOpTimeoutStageRunOpCalledWithOpThatDoesNotTimeout(
 
 
 @pytest.mark.describe(
-    "OpTimeoutStage - EVENT: Operation with a timeout timer times out before completion"
+    "OpTimeoutStage - OCCURANCE: Operation with a timeout timer times out before completion"
 )
 class TestOpTimeoutStageOpTimesOut(OpTimeoutStageTestConfig):
     @pytest.fixture(params=ops_that_time_out)
@@ -1322,7 +1322,7 @@ class TestOpTimeoutStageOpTimesOut(OpTimeoutStageTestConfig):
 
 
 @pytest.mark.describe(
-    "OpTimeoutStage - EVENT: Operation with a timeout timer completes before timeout"
+    "OpTimeoutStage - OCCURANCE: Operation with a timeout timer completes before timeout"
 )
 class TestOpTimeoutStageOpCompletesBeforeTimeout(OpTimeoutStageTestConfig):
     @pytest.fixture(params=ops_that_time_out)
@@ -1445,7 +1445,7 @@ class TestRetryStageRunOp(RetryStageTestConfig, StageRunOpTestBase):
 
 
 @pytest.mark.describe(
-    "RetryStage - EVENT: Retryable operation completes unsuccessfully with a retryable error after call to .run_op()"
+    "RetryStage - OCCURANCE: Retryable operation completes unsuccessfully with a retryable error after call to .run_op()"
 )
 class TestRetryStageRetryableOperationCompletedWithRetryableError(RetryStageTestConfig):
     @pytest.fixture(params=retryable_ops, ids=[x[0].__name__ for x in retryable_ops])
@@ -1651,7 +1651,7 @@ class TestRetryStageRetryableOperationCompletedWithRetryableError(RetryStageTest
 
 
 @pytest.mark.describe(
-    "RetryStage - EVENT: Retryable operation completes unsucessfully with a non-retryable error after call to .run_op()"
+    "RetryStage - OCCURANCE: Retryable operation completes unsucessfully with a non-retryable error after call to .run_op()"
 )
 class TestRetryStageRetryableOperationCompletedWithNonRetryableError(RetryStageTestConfig):
     @pytest.fixture(params=retryable_ops, ids=[x[0].__name__ for x in retryable_ops])
@@ -1690,7 +1690,7 @@ class TestRetryStageRetryableOperationCompletedWithNonRetryableError(RetryStageT
 
 
 @pytest.mark.describe(
-    "RetryStage - EVENT: Retryable operation completes successfully after call to .run_op()"
+    "RetryStage - OCCURANCE: Retryable operation completes successfully after call to .run_op()"
 )
 class TestRetryStageRetryableOperationCompletedSuccessfully(RetryStageTestConfig):
     @pytest.fixture(params=retryable_ops, ids=[x[0].__name__ for x in retryable_ops])
@@ -1726,7 +1726,7 @@ class TestRetryStageRetryableOperationCompletedSuccessfully(RetryStageTestConfig
 
 
 @pytest.mark.describe(
-    "RetryStage - EVENT: Non-retryable operation completes after call to .run_op()"
+    "RetryStage - OCCURANCE: Non-retryable operation completes after call to .run_op()"
 )
 class TestRetryStageNonretryableOperationCompleted(RetryStageTestConfig):
     @pytest.fixture
@@ -2165,7 +2165,7 @@ class TestReconnectStageHandlePipelineEventWithArbitraryEvent(
         assert mock_timer.call_count == 0
 
 
-@pytest.mark.describe("ReconnectStage - EVENT: Reconnect Timer expires")
+@pytest.mark.describe("ReconnectStage - OCCURANCE: Reconnect Timer expires")
 class TestReconnectStageReconnectTimerExpires(ReconnectStageTestConfig):
     @pytest.fixture(params=[True, False], ids=["Virtually Connected", "Virtually Disconnected"])
     def virtually_connected(self, request):
@@ -2235,7 +2235,7 @@ class TestReconnectStageReconnectTimerExpires(ReconnectStageTestConfig):
 # correct, the correct tests cannot be written, and to write incorrect tests would cover up the
 # problem
 @pytest.mark.describe(
-    "ReconnectStage - EVENT: ConnectOperation that was created in order to reconnect is completed"
+    "ReconnectStage - OCCURANCE: ConnectOperation that was created in order to reconnect is completed"
 )
 class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTestConfig):
     transient_connect_errors = [
