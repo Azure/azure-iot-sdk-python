@@ -141,13 +141,13 @@ class PollingStatusStage(CommonProvisioningStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
+        if isinstance(op, pipeline_ops_provisioning.PollStatusOperation):
             query_status_op = op
 
             def on_query_response(op, error):
                 query_request_op = op
                 logger.debug(
-                    "{stage_name}({op_name}): Received response with status code {status_code} for SendQueryRequestOperation with operation id {oper_id}".format(
+                    "{stage_name}({op_name}): Received response with status code {status_code} for PollStatusOperation with operation id {oper_id}".format(
                         stage_name=self.name,
                         op_name=op.name,
                         status_code=query_request_op.status_code,
@@ -261,12 +261,12 @@ class RegistrationStage(CommonProvisioningStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
+        if isinstance(op, pipeline_ops_provisioning.RegisterOperation):
             initial_register_op = op
 
             def on_registration_response(op, error):
                 logger.debug(
-                    "{stage_name}({op_name}): Received response with status code {status_code} for SendRegistrationRequestOperation".format(
+                    "{stage_name}({op_name}): Received response with status code {status_code} for RegisterOperation".format(
                         stage_name=self.name, op_name=op.name, status_code=op.status_code
                     )
                 )
@@ -348,15 +348,33 @@ class RegistrationStage(CommonProvisioningStage):
                                 initial_register_op.registration_result = op.registration_result
                                 initial_register_op.error = error
 
-                            query_worker_op = initial_register_op.spawn_worker_op(
-                                worker_op_type=pipeline_ops_provisioning.SendQueryRequestOperation,
-                                request_payload=" ",
-                                operation_id=operation_id,
-                                callback=copy_result_to_original_op,
+                            @pipeline_thread.invoke_on_pipeline_thread_nowait
+                            def do_query_after_interval():
+                                initial_register_op.polling_timer.cancel()
+                                initial_register_op.polling_timer = None
+
+                                query_worker_op = initial_register_op.spawn_worker_op(
+                                    worker_op_type=pipeline_ops_provisioning.PollStatusOperation,
+                                    request_payload=" ",
+                                    operation_id=operation_id,
+                                    callback=copy_result_to_original_op,
+                                )
+
+                                self.send_op_down(query_worker_op)
+
+                            logger.warning(
+                                "{stage_name}({op_name}): Op will transition into polling after interval {interval}.  Setting timer.".format(
+                                    stage_name=self.name,
+                                    op_name=op.name,
+                                    interval=constant.DEFAULT_POLLING_INTERVAL,
+                                )
                             )
 
-                            time.sleep(constant.DEFAULT_POLLING_INTERVAL)
-                            self.send_op_down(query_worker_op)
+                            initial_register_op.polling_timer = Timer(
+                                constant.DEFAULT_POLLING_INTERVAL, do_query_after_interval
+                            )
+                            initial_register_op.polling_timer.start()
+
                         else:
                             error = exceptions.ServiceError(
                                 "Registration Request encountered an invalid registration status {status} with a status code of {status_code}".format(

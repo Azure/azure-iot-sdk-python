@@ -147,10 +147,10 @@ pipeline_ops_test.add_operation_tests(
 )
 
 
-class SendRegistrationRequestOperationTestConfig(object):
+class RegisterOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_provisioning.SendRegistrationRequestOperation
+        return pipeline_ops_provisioning.RegisterOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -162,9 +162,7 @@ class SendRegistrationRequestOperationTestConfig(object):
         return kwargs
 
 
-class SendRegistrationRequestOperationInstantiationTests(
-    SendRegistrationRequestOperationTestConfig
-):
+class RegisterOperationInstantiationTests(RegisterOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'request_payload' attribute with the provided 'request_payload' parameter"
     )
@@ -182,16 +180,16 @@ class SendRegistrationRequestOperationInstantiationTests(
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_provisioning.SendRegistrationRequestOperation,
-    op_test_config_class=SendRegistrationRequestOperationTestConfig,
-    extended_op_instantiation_test_class=SendRegistrationRequestOperationInstantiationTests,
+    op_class_under_test=pipeline_ops_provisioning.RegisterOperation,
+    op_test_config_class=RegisterOperationTestConfig,
+    extended_op_instantiation_test_class=RegisterOperationInstantiationTests,
 )
 
 
-class SendQueryRequestOperationTestConfig(object):
+class PollStatusOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_provisioning.SendQueryRequestOperation
+        return pipeline_ops_provisioning.PollStatusOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -203,7 +201,7 @@ class SendQueryRequestOperationTestConfig(object):
         return kwargs
 
 
-class SendQueryRequestOperationInstantiationTests(SendQueryRequestOperationTestConfig):
+class PollStatusOperationInstantiationTests(PollStatusOperationTestConfig):
     @pytest.mark.it(
         "Initializes 'operation_id' attribute with the provided 'operation_id' parameter"
     )
@@ -221,7 +219,7 @@ class SendQueryRequestOperationInstantiationTests(SendQueryRequestOperationTestC
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_provisioning.SendQueryRequestOperation,
-    op_test_config_class=SendQueryRequestOperationTestConfig,
-    extended_op_instantiation_test_class=SendQueryRequestOperationInstantiationTests,
+    op_class_under_test=pipeline_ops_provisioning.PollStatusOperation,
+    op_test_config_class=PollStatusOperationTestConfig,
+    extended_op_instantiation_test_class=PollStatusOperationInstantiationTests,
 )

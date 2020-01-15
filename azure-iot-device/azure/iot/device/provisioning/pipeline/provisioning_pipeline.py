@@ -175,7 +175,7 @@ class ProvisioningPipeline(object):
                 callback(result=op.registration_result)
 
         self._pipeline.run_op(
-            pipeline_ops_provisioning.SendRegistrationRequestOperation(
+            pipeline_ops_provisioning.RegisterOperation(
                 request_payload=payload, registration_id=self._registration_id, callback=on_complete
             )
         )

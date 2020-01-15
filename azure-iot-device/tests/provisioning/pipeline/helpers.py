@@ -9,8 +9,8 @@ all_provisioning_ops = [
     pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
     pipeline_ops_provisioning.SetX509SecurityClientOperation,
     pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
-    pipeline_ops_provisioning.SendRegistrationRequestOperation,
-    pipeline_ops_provisioning.SendQueryRequestOperation,
+    pipeline_ops_provisioning.RegisterOperation,
+    pipeline_ops_provisioning.PollStatusOperation,
 ]
 
 fake_key_values = {}

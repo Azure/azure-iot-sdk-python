@@ -88,7 +88,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests_old(
     cls=pipeline_stages_provisioning.RegistrationStage,
     module=this_module,
     all_ops=all_common_ops + all_provisioning_ops,
-    handled_ops=[pipeline_ops_provisioning.SendRegistrationRequestOperation],
+    handled_ops=[pipeline_ops_provisioning.RegisterOperation],
     all_events=all_common_events,
     handled_events=[],
 )
@@ -98,7 +98,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests_old(
     cls=pipeline_stages_provisioning.PollingStatusStage,
     module=this_module,
     all_ops=all_common_ops + all_provisioning_ops,
-    handled_ops=[pipeline_ops_provisioning.SendQueryRequestOperation],
+    handled_ops=[pipeline_ops_provisioning.PollStatusOperation],
     all_events=all_common_events,
     handled_events=[],
 )
@@ -356,15 +356,11 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
     "request_payload",
     [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
 )
-@pytest.mark.describe(
-    "RegistrationStage - .run_op() -- called with SendRegistrationRequestOperation"
-)
-class TestRegistrationStageWithSendRegistrationRequestOperation(
-    StageRunOpTestBase, RegistrationStageConfig
-):
+@pytest.mark.describe("RegistrationStage - .run_op() -- called with RegisterOperation")
+class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, RegistrationStageConfig):
     @pytest.fixture
     def op(self, stage, mocker, request_payload):
-        op = pipeline_ops_provisioning.SendRegistrationRequestOperation(
+        op = pipeline_ops_provisioning.RegisterOperation(
             request_payload, fake_registration_id, callback=mocker.MagicMock()
         )
         return op
@@ -405,16 +401,16 @@ class TestRegistrationStageWithArbitraryOperation(StageRunOpTestBase, Registrati
 
 
 @pytest.mark.describe(
-    "RegistrationStage - EVENT: RequestAndResponseOperation created from SendRegistrationRequestOperation is completed"
+    "RegistrationStage - EVENT: RequestAndResponseOperation created from RegisterOperation is completed"
 )
 @pytest.mark.parametrize(
     "request_payload",
     [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
 )
-class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(RegistrationStageConfig):
+class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfig):
     @pytest.fixture
     def send_registration_op(self, mocker, request_payload):
-        op = pipeline_ops_provisioning.SendRegistrationRequestOperation(
+        op = pipeline_ops_provisioning.RegisterOperation(
             request_payload, fake_registration_id, callback=mocker.MagicMock()
         )
         return op
@@ -444,7 +440,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
         )
 
     @pytest.mark.it(
-        "Completes the SendRegistrationRequestOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
+        "Completes the RegisterOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
     )
     @pytest.mark.parametrize(
         "status_code",
@@ -485,7 +481,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
         assert send_registration_op.registration_result is None
 
     @pytest.mark.it(
-        "Completes the SendRegistrationRequestOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed with a status code >= 300 and less than 429"
+        "Completes the RegisterOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed with a status code >= 300 and less than 429"
     )
     @pytest.mark.parametrize(
         "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
@@ -517,7 +513,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
         assert send_registration_op.registration_result is None
 
     @pytest.mark.it(
-        "Decodes, deserializes, and returns registration_result on the SendRegistrationRequestOperation op when RequestAndResponseOperation completes with no error if the status code < 300 and if status is 'assigned'"
+        "Decodes, deserializes, and returns registration_result on the RegisterOperation op when RequestAndResponseOperation completes with no error if the status code < 300 and if status is 'assigned'"
     )
     def test_request_and_response_op_completed_success_with_status_assigned(
         self, stage, request_payload, send_registration_op, request_and_response_op
@@ -542,7 +538,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
         assert str(send_registration_op.registration_result) == str(registration_result)
 
     @pytest.mark.it(
-        "Decodes, deserializes, and returns registration_result along with an error on the SendRegistrationRequestOperation op when RequestAndResponseOperation completes with status code < 300 and status 'failed'"
+        "Decodes, deserializes, and returns registration_result along with an error on the RegisterOperation op when RequestAndResponseOperation completes with status code < 300 and status 'failed'"
     )
     def test_request_and_response_op_completed_success_with_status_failed(
         self, stage, request_payload, send_registration_op, request_and_response_op
@@ -568,7 +564,7 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
         assert "failed registration status" in str(send_registration_op.error)
 
     @pytest.mark.it(
-        "Returns error on the SendRegistrationRequestOperation op when RequestAndResponseOperation completes with status code < 300 and some unknown status"
+        "Returns error on the RegisterOperation op when RequestAndResponseOperation completes with status code < 300 and some unknown status"
     )
     def test_request_and_response_op_completed_success_with_unknown_status(
         self, stage, request_payload, send_registration_op, request_and_response_op
@@ -597,6 +593,10 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
     def test_spawns_another_op_request_and_response_op_completed_success_with_status_assigning(
         self, mocker, stage, request_payload, send_registration_op, request_and_response_op
     ):
+        mock_timer = mocker.patch(
+            "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
+        )
+
         mocker.spy(send_registration_op, "spawn_worker_op")
         registration_result = create_registration_result(request_payload, "assigning")
 
@@ -609,6 +609,9 @@ class TestRegistrationStageWithSendRegistrationRequestOperationCompleted(Registr
             registration_result
         )
         request_and_response_op.complete()
+
+        timer_callback = mock_timer.call_args[0][1]
+        timer_callback()
 
         assert request_and_response_op.completed
         assert request_and_response_op.error is None
@@ -633,21 +636,19 @@ class RetryStageConfig(object):
         return stage
 
 
-@pytest.mark.describe(
-    "RegistrationStage - .run_op() -- retried again with SendRegistrationRequestOperation"
-)
+@pytest.mark.describe("RegistrationStage - .run_op() -- retried again with RegisterOperation")
 @pytest.mark.parametrize(
     "request_payload",
     [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
 )
-class TestRegistrationStageWithSendRegistrationRequestRetryOperation(RetryStageConfig):
+class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
     @pytest.fixture
     def cls_type(self):
         return pipeline_stages_provisioning.RegistrationStage
 
     @pytest.fixture
     def op(self, stage, mocker, request_payload):
-        return pipeline_ops_provisioning.SendRegistrationRequestOperation(
+        return pipeline_ops_provisioning.RegisterOperation(
             request_payload, fake_registration_id, callback=mocker.MagicMock()
         )
 
@@ -716,11 +717,11 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe("PollingStatusStage - .run_op() -- called with SendQueryRequestOperation")
-class TestPollingStatusStageWithSendQueryRequestOperation(StageRunOpTestBase, PollingStageConfig):
+@pytest.mark.describe("PollingStatusStage - .run_op() -- called with PollStatusOperation")
+class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingStageConfig):
     @pytest.fixture
     def op(self, stage, mocker):
-        op = pipeline_ops_provisioning.SendQueryRequestOperation(
+        op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
         return op
@@ -755,12 +756,12 @@ class TestPollingStatusStageWithArbitraryOperation(StageRunOpTestBase, PollingSt
 
 
 @pytest.mark.describe(
-    "PollingStatusStage - EVENT: RequestAndResponseOperation created from SendQueryRequestOperation is completed"
+    "PollingStatusStage - EVENT: RequestAndResponseOperation created from PollStatusOperation is completed"
 )
-class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageConfig):
+class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig):
     @pytest.fixture
     def send_query_op(self, mocker):
-        op = pipeline_ops_provisioning.SendQueryRequestOperation(
+        op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
         return op
@@ -784,7 +785,7 @@ class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageC
         return op
 
     @pytest.mark.it(
-        "Completes the SendQueryRequestOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
+        "Completes the PollStatusOperation unsuccessfully, with the error from the RequestAndResponseOperation, if the RequestAndResponseOperation is completed unsuccessfully"
     )
     @pytest.mark.parametrize(
         "status_code",
@@ -825,7 +826,7 @@ class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageC
         assert send_query_op.registration_result is None
 
     @pytest.mark.it(
-        "Completes the SendQueryRequestOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed with a status code >= 300 and less than 429"
+        "Completes the PollStatusOperation unsuccessfully with a ServiceError if the RequestAndResponseOperation is completed with a status code >= 300 and less than 429"
     )
     @pytest.mark.parametrize(
         "has_response_body", [True, False], ids=["With Response Body", "No Response Body"]
@@ -857,7 +858,7 @@ class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageC
         assert send_query_op.registration_result is None
 
     @pytest.mark.it(
-        "Decodes, deserializes, and returns registration_result on the SendQueryRequestOperation op when RequestAndResponseOperation completes with no error if the status code < 300 and if status is 'assigned'"
+        "Decodes, deserializes, and returns registration_result on the PollStatusOperation op when RequestAndResponseOperation completes with no error if the status code < 300 and if status is 'assigned'"
     )
     def test_request_and_response_op_completed_success_with_status_assigned(
         self, stage, send_query_op, request_and_response_op
@@ -882,7 +883,7 @@ class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageC
         assert str(send_query_op.registration_result) == str(registration_result)
 
     @pytest.mark.it(
-        "Decodes, deserializes, and returns registration_result along with an error on the SendQueryRequestOperation op when RequestAndResponseOperation completes with status code < 300 and status 'failed'"
+        "Decodes, deserializes, and returns registration_result along with an error on the PollStatusOperation op when RequestAndResponseOperation completes with status code < 300 and status 'failed'"
     )
     def test_request_and_response_op_completed_success_with_status_failed(
         self, stage, send_query_op, request_and_response_op
@@ -908,7 +909,7 @@ class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageC
         assert "failed registration status" in str(send_query_op.error)
 
     @pytest.mark.it(
-        "Returns error on the SendQueryRequestOperation op when RequestAndResponseOperation completes with status code < 300 and some unknown status"
+        "Returns error on the PollStatusOperation op when RequestAndResponseOperation completes with status code < 300 and some unknown status"
     )
     def test_request_and_response_op_completed_success_with_unknown_status(
         self, stage, send_query_op, request_and_response_op
@@ -932,17 +933,15 @@ class TestPollingStatusStageWithSendQueryRequestOperationCompleted(PollingStageC
         assert "invalid registration status" in str(send_query_op.error)
 
 
-@pytest.mark.describe(
-    "PollingStatusStage - .run_op() -- retried again with SendQueryRequestOperation"
-)
-class TestPollingStatusStageWithSendQueryRequestRetryOperation(RetryStageConfig):
+@pytest.mark.describe("PollingStatusStage - .run_op() -- retried again with PollStatusOperation")
+class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
     @pytest.fixture
     def cls_type(self):
         return pipeline_stages_provisioning.PollingStatusStage
 
     @pytest.fixture
     def op(self, stage, mocker):
-        op = pipeline_ops_provisioning.SendQueryRequestOperation(
+        op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
         return op
