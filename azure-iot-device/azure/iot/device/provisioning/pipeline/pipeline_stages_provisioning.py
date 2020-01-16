@@ -169,7 +169,9 @@ class PollingStatusStage(CommonProvisioningStage):
                 )
 
             logger.debug("{}({}): Creating provisioning timeout timer".format(self.name, op.name))
-            query_status_op.provisioning_timeout_timer = Timer(0.02, query_timeout)
+            query_status_op.provisioning_timeout_timer = Timer(
+                constant.DEFAULT_TIMEOUT_INTERVAL, query_timeout
+            )
             query_status_op.provisioning_timeout_timer.start()
 
             def on_query_response(op, error):
