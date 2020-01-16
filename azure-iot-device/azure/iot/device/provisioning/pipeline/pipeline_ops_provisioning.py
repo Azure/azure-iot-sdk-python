@@ -114,6 +114,8 @@ class RegisterOperation(PipelineOperation):
         self.registration_id = registration_id
         self.registration_result = registration_result
         self.retry_after_timer = None
+        self.polling_timer = None
+        self.provisioning_timeout_timer = None
 
 
 class PollStatusOperation(PipelineOperation):
@@ -139,3 +141,4 @@ class PollStatusOperation(PipelineOperation):
         self.request_payload = request_payload
         self.registration_result = registration_result
         self.polling_timer = None
+        self.provisioning_timeout_timer = None

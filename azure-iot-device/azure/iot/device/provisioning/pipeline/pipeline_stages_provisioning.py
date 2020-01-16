@@ -67,7 +67,17 @@ class CommonProvisioningStage(PipelineStage):
     and retrieving error, registration status, operation id and forming a complete result.
     """
 
-    # @pipeline_thread.runs_on_pipeline_thread
+    @pipeline_thread.runs_on_pipeline_thread
+    def _clear_timeout_timer(self, op, error):
+        """
+        Clearing timer for provisioning operations (Register and PollStatus)
+        when they respond back from service.
+        """
+        if op.provisioning_timeout_timer:
+            logger.debug("{}({}): Cancelling provisioning timeout timer".format(self.name, op.name))
+            op.provisioning_timeout_timer.cancel()
+            op.provisioning_timeout_timer = None
+
     @staticmethod
     def _get_error(provisioning_op, error):
         if error:
@@ -89,22 +99,18 @@ class CommonProvisioningStage(PipelineStage):
         else:
             return None
 
-    # @pipeline_thread.runs_on_pipeline_thread
     @staticmethod
     def _decode_response(provisioning_op):
         return json.loads(provisioning_op.response_body.decode("utf-8"))
 
-    # @pipeline_thread.runs_on_pipeline_thread
     @staticmethod
     def _get_registration_status(decoded_response):
         return get_optional_element(decoded_response, "status")
 
-    # @pipeline_thread.runs_on_pipeline_thread
     @staticmethod
     def _get_operation_id(decoded_response):
         return get_optional_element(decoded_response, "operationId")
 
-    # @pipeline_thread.runs_on_pipeline_thread
     @staticmethod
     def _form_complete_result(operation_id, decoded_response, status):
         """
@@ -144,29 +150,51 @@ class PollingStatusStage(CommonProvisioningStage):
         if isinstance(op, pipeline_ops_provisioning.PollStatusOperation):
             query_status_op = op
 
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def query_timeout():
+                this = self_weakref()
+                logger.info(
+                    "{stage_name}({op_name}): returning timeout error".format(
+                        stage_name=this.name, op_name=op.name
+                    )
+                )
+                query_status_op.complete(
+                    error=(
+                        exceptions.ServiceError(
+                            "Operation timed out before provisioning service could respond for PollStatus operation".format()
+                        )
+                    )
+                )
+
+            logger.debug("{}({}): Creating provisioning timeout timer".format(self.name, op.name))
+            query_status_op.provisioning_timeout_timer = Timer(0.02, query_timeout)
+            query_status_op.provisioning_timeout_timer.start()
+
             def on_query_response(op, error):
-                query_request_op = op
+                self._clear_timeout_timer(query_status_op, error)
                 logger.debug(
                     "{stage_name}({op_name}): Received response with status code {status_code} for PollStatusOperation with operation id {oper_id}".format(
                         stage_name=self.name,
                         op_name=op.name,
-                        status_code=query_request_op.status_code,
-                        oper_id=query_request_op.query_params["operation_id"],
+                        status_code=op.status_code,
+                        oper_id=op.query_params["operation_id"],
                     )
                 )
 
                 # This could be an error that has been reported to this stage Or this
                 # could be an error because the service responded with status code 300
-                error = CommonProvisioningStage._get_error(query_request_op, error=error)
+                error = CommonProvisioningStage._get_error(op, error=error)
 
                 if not error:
-                    success_status_code = query_request_op.status_code
+                    success_status_code = op.status_code
                     polling_interval = (
-                        int(query_request_op.retry_after, 10)
-                        if query_request_op.retry_after is not None
+                        int(op.retry_after, 10)
+                        if op.retry_after is not None
                         else constant.DEFAULT_POLLING_INTERVAL
                     )
-                    decoded_response = CommonProvisioningStage._decode_response(query_request_op)
+                    decoded_response = CommonProvisioningStage._decode_response(op)
                     operation_id = CommonProvisioningStage._get_operation_id(decoded_response)
                     registration_status = CommonProvisioningStage._get_registration_status(
                         decoded_response
@@ -199,6 +227,7 @@ class PollingStatusStage(CommonProvisioningStage):
                             )
                         )
 
+                        logger.debug("{}({}): Creating polling timer".format(self.name, op.name))
                         query_status_op.polling_timer = Timer(polling_interval, do_polling)
                         query_status_op.polling_timer.start()
 
@@ -260,14 +289,6 @@ class RegistrationStage(CommonProvisioningStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _clear_timer(self, op, error):
-        # When an op comes back, delete the timer and pass it right up.
-        if op.provisioning_timeout_timer:
-            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
-            op.provisioning_timeout_timer.cancel()
-            op.provisioning_timeout_timer = None
-
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.RegisterOperation):
             initial_register_op = op
@@ -276,8 +297,11 @@ class RegistrationStage(CommonProvisioningStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def register_timeout():
                 this = self_weakref()
-                logger.info("{}({}): returning timeout error".format(this.name, op.name))
-                # For DPS it is an Service Timeout Error as opposed to pipeline timing out
+                logger.info(
+                    "{stage_name}({op_name}): returning timeout error".format(
+                        stage_name=this.name, op_name=op.name
+                    )
+                )
                 initial_register_op.complete(
                     error=(
                         exceptions.ServiceError(
@@ -286,15 +310,14 @@ class RegistrationStage(CommonProvisioningStage):
                     )
                 )
 
-            logger.debug("{}({}): Creating timer".format(self.name, op.name))
+            logger.debug("{}({}): Creating provisioning timeout timer".format(self.name, op.name))
             initial_register_op.provisioning_timeout_timer = Timer(
                 constant.DEFAULT_TIMEOUT_INTERVAL, register_timeout
             )
             initial_register_op.provisioning_timeout_timer.start()
-            # initial_register_op.add_callback(self._clear_timer)
 
             def on_registration_response(op, error):
-                self._clear_timer(initial_register_op, error)
+                self._clear_timeout_timer(initial_register_op, error)
                 logger.debug(
                     "{stage_name}({op_name}): Received response with status code {status_code} for RegisterOperation".format(
                         stage_name=self.name, op_name=op.name, status_code=op.status_code
@@ -342,6 +365,7 @@ class RegistrationStage(CommonProvisioningStage):
                             )
                         )
 
+                        logger.debug("{}({}): Creating retry timer".format(self.name, op.name))
                         initial_register_op.retry_after_timer = Timer(
                             retry_interval, do_retry_after
                         )
@@ -371,6 +395,8 @@ class RegistrationStage(CommonProvisioningStage):
                             initial_register_op.complete(error=error)
                         elif registration_status == "assigning":
 
+                            self_weakref = weakref.ref(self)
+
                             def copy_result_to_original_op(op, error):
                                 logger.debug(
                                     "Copying registration result from Query Status Op to Registration Op"
@@ -380,8 +406,15 @@ class RegistrationStage(CommonProvisioningStage):
 
                             @pipeline_thread.invoke_on_pipeline_thread_nowait
                             def do_query_after_interval():
+                                this = self_weakref()
                                 initial_register_op.polling_timer.cancel()
                                 initial_register_op.polling_timer = None
+
+                                logger.info(
+                                    "{stage_name}({op_name}): polling".format(
+                                        stage_name=this.name, op_name=op.name
+                                    )
+                                )
 
                                 query_worker_op = initial_register_op.spawn_worker_op(
                                     worker_op_type=pipeline_ops_provisioning.PollStatusOperation,
@@ -400,6 +433,9 @@ class RegistrationStage(CommonProvisioningStage):
                                 )
                             )
 
+                            logger.debug(
+                                "{}({}): Creating polling timer".format(self.name, op.name)
+                            )
                             initial_register_op.polling_timer = Timer(
                                 constant.DEFAULT_POLLING_INTERVAL, do_query_after_interval
                             )
@@ -432,67 +468,6 @@ class RegistrationStage(CommonProvisioningStage):
 
         else:
             super(RegistrationStage, self)._run_op(op)
-
-
-class ProvisioningTimeoutStage(PipelineStage):
-    """
-    The purpose of the timeout stage is to add timeout errors to select operations
-
-    The timeout_intervals attribute contains a list of operations to track along with
-    their timeout values.
-
-    For each operation that needs a timeout check, this stage will add a timer to
-    the operation.  If the timer elapses, this stage will fail the operation with
-    a PipelineTimeoutError.
-    """
-
-    def __init__(self):
-        super(ProvisioningTimeoutStage, self).__init__()
-        self.timeout_intervals = {
-            # pipeline_ops_base.RequestOperation: constant.DEFAULT_TIMEOUT_INTERVAL
-            pipeline_ops_provisioning.RegisterOperation: constant.DEFAULT_TIMEOUT_INTERVAL,
-            pipeline_ops_provisioning.PollStatusOperation: constant.DEFAULT_TIMEOUT_INTERVAL,
-        }
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-        if type(op) in self.timeout_intervals:
-            # Create a timer to watch for operation timeout on this op and attach it
-            # to the op.
-            self_weakref = weakref.ref(self)
-
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_timeout():
-                this = self_weakref()
-                logger.info("{}({}): returning timeout error".format(this.name, op.name))
-                # For DPS it is an Service Timeout Error as opposed to pipeline timing out
-                op.complete(
-                    error=(
-                        exceptions.ServiceError(
-                            "Operation timed out before provisioning service could respond for {type_of} operation".format(
-                                type_of=op.request_type
-                            )
-                        )
-                    )
-                )
-
-            logger.debug("{}({}): Creating timer".format(self.name, op.name))
-            op.provisioning_timeout_timer = Timer(constant.DEFAULT_TIMEOUT_INTERVAL, on_timeout)
-            op.provisioning_timeout_timer.start()
-
-            op.add_callback(self._clear_timer)
-            logger.debug("{}({}): Sending down".format(self.name, op.name))
-            self.send_op_down(op)
-        else:
-            self.send_op_down(op)
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _clear_timer(self, op, error):
-        # When an op comes back, delete the timer and pass it right up.
-        if op.provisioning_timeout_timer:
-            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
-            op.provisioning_timeout_timer.cancel()
-            op.provisioning_timeout_timer = None
 
 
 class DeviceRegistrationPayload(object):

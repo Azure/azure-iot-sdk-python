@@ -183,7 +183,6 @@ class TestProvisioningPipelineInstantiation(object):
             pipeline_stages_provisioning.RegistrationStage,
             pipeline_stages_provisioning.PollingStatusStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,
-            pipeline_stages_provisioning.ProvisioningTimeoutStage,
             pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
             pipeline_stages_base.ReconnectStage,
             pipeline_stages_base.AutoConnectStage,
