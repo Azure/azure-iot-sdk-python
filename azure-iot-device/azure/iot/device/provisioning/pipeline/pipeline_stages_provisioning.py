@@ -260,11 +260,41 @@ class RegistrationStage(CommonProvisioningStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
+    def _clear_timer(self, op, error):
+        # When an op comes back, delete the timer and pass it right up.
+        if op.provisioning_timeout_timer:
+            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
+            op.provisioning_timeout_timer.cancel()
+            op.provisioning_timeout_timer = None
+
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.RegisterOperation):
             initial_register_op = op
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def register_timeout():
+                this = self_weakref()
+                logger.info("{}({}): returning timeout error".format(this.name, op.name))
+                # For DPS it is an Service Timeout Error as opposed to pipeline timing out
+                initial_register_op.complete(
+                    error=(
+                        exceptions.ServiceError(
+                            "Operation timed out before provisioning service could respond for Register operation".format()
+                        )
+                    )
+                )
+
+            logger.debug("{}({}): Creating timer".format(self.name, op.name))
+            initial_register_op.provisioning_timeout_timer = Timer(
+                constant.DEFAULT_TIMEOUT_INTERVAL, register_timeout
+            )
+            initial_register_op.provisioning_timeout_timer.start()
+            # initial_register_op.add_callback(self._clear_timer)
 
             def on_registration_response(op, error):
+                self._clear_timer(initial_register_op, error)
                 logger.debug(
                     "{stage_name}({op_name}): Received response with status code {status_code} for RegisterOperation".format(
                         stage_name=self.name, op_name=op.name, status_code=op.status_code
@@ -419,7 +449,9 @@ class ProvisioningTimeoutStage(PipelineStage):
     def __init__(self):
         super(ProvisioningTimeoutStage, self).__init__()
         self.timeout_intervals = {
-            pipeline_ops_base.RequestOperation: constant.DEFAULT_TIMEOUT_INTERVAL
+            # pipeline_ops_base.RequestOperation: constant.DEFAULT_TIMEOUT_INTERVAL
+            pipeline_ops_provisioning.RegisterOperation: constant.DEFAULT_TIMEOUT_INTERVAL,
+            pipeline_ops_provisioning.PollStatusOperation: constant.DEFAULT_TIMEOUT_INTERVAL,
         }
 
     @pipeline_thread.runs_on_pipeline_thread
