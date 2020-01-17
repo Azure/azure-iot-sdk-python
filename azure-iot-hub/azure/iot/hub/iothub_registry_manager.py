@@ -526,7 +526,7 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.registry_manager.bulk_device_crud(devices)
 
-    def query_iot_hub(self, query_specification):
+    def query_iot_hub(self, query_specification, continuation_token=None, max_item_count=None):
         """Query an IoT hub to retrieve information regarding device twins using a
            SQL-like language.
            See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
@@ -534,14 +534,16 @@ class IoTHubRegistryManager(object):
            information about device twins only.
 
         :param QuerySpecification query: The query specification.
+        :param str continuation_token: Continuation token for paging
+        :param str max_item_count: Maximum number of requested device twins
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The QueryResult object.
         """
-        raw_response = self.protocol.registry_manager.query_iot_hub(query_specification, None, True)
-        
+        raw_response = self.protocol.registry_manager.query_iot_hub(query_specification, continuation_token, max_item_count, None, True)
+
         queryResult = QueryResult()
         if raw_response.headers:
             queryResult.type = raw_response.headers["x-ms-item-type"]

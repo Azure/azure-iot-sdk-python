@@ -327,6 +327,18 @@
           },
           {
             "$ref": "#/parameters/api-version"
+          },
+          {
+            "name": "x-ms-continuation",
+            "in": "header",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "x-ms-max-item-count",
+            "in": "header",
+            "required": false,
+            "type": "string"
           }
         ],
         "responses": {

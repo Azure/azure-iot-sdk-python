@@ -7,7 +7,7 @@
 import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
-from azure.iot.hub.protocol.models import QuerySpecification
+from azure.iot.hub.models import QuerySpecification
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 
@@ -38,25 +38,41 @@ def print_twin(title, iothub_device):
     print("")
 
 
+def print_query_result(title, query_result):
+    print("")
+    print("Type: {0}".format(query_result.type))
+    print("Continuation token: {0}".format(query_result.continuation_token))
+    if query_result.items:
+        x = 1
+        for d in query_result.items:
+            print_twin("{0}: {0}".format(x), title, d)
+            x += 1
+    else:
+        print("No item found")
+
+
 try:
     # Create IoTHubRegistryManager
     iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
 
     query_specification = QuerySpecification(query= "SELECT * FROM devices")
 
-    # Get device twins using query
-    query_result = iothub_registry_manager.query_iot_hub(query_specification)
+    # Get specified number of devices (in this case 4)    
+    query_result0 = iothub_registry_manager.query_iot_hub(query_specification, None, 4)
+    print_items("Query 4 device twins", query_result0)
 
-    print("Type: {0}".format(query_result.type))
-    print("Continuation token: {0}".format(query_result.continuation_token))
-    print("")
-    if query_result.items:
-        x = 0
-        for d in query_result.items:
-            print_twin("Query device twins {0}".format(x), d)
-            x += 1
-    else:
-        print("No device found")
+    # Get all device twins using query
+    query_result1 = iothub_registry_manager.query_iot_hub(query_specification)
+    print_items("Query all device twins", query_result1)
+
+    print_items("Query 4 device twins", query_result1.items)
+
+    # Paging... Get more devices (over 1000)
+    continuation_token = query_result1.continuation_token
+    if continuation_token:
+        query_result2 = iothub_registry_manager.query_iot_hub(query_specification, continuation_token)
+        print_items("Query all device twins - continued", query_result2)
+
 
 except Exception as ex:
     print("Unexpected error {0}".format(ex))

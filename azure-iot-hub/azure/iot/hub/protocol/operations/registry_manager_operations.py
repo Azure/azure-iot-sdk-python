@@ -251,7 +251,7 @@ class RegistryManagerOperations(object):
     bulk_device_crud.metadata = {'url': '/devices'}
 
     def query_iot_hub(
-            self, query_specification, custom_headers=None, raw=False, **operation_config):
+            self, query_specification, x_ms_continuation=None, x_ms_max_item_count=None, custom_headers=None, raw=False, **operation_config):
         """Query an IoT hub to retrieve information regarding device twins using a
         SQL-like language.
 
@@ -263,6 +263,10 @@ class RegistryManagerOperations(object):
 
         :param query_specification:
         :type query_specification: ~protocol.models.QuerySpecification
+        :param x_ms_continuation:
+        :type x_ms_continuation: str
+        :param x_ms_max_item_count:
+        :type x_ms_max_item_count: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
@@ -287,6 +291,10 @@ class RegistryManagerOperations(object):
         header_parameters['Content-Type'] = 'application/json; charset=utf-8'
         if custom_headers:
             header_parameters.update(custom_headers)
+        if x_ms_continuation is not None:
+            header_parameters['x-ms-continuation'] = self._serialize.header("x_ms_continuation", x_ms_continuation, 'str')
+        if x_ms_max_item_count is not None:
+            header_parameters['x-ms-max-item-count'] = self._serialize.header("x_ms_max_item_count", x_ms_max_item_count, 'str')
 
         # Construct body
         body_content = self._serialize.body(query_specification, 'QuerySpecification')
