@@ -610,6 +610,8 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         )
         request_and_response_op.complete()
 
+        assert send_registration_op.retry_after_timer is None
+        assert send_registration_op.polling_timer is not None
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
 
@@ -679,6 +681,8 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
+        assert op.retry_after_timer is not None
+        assert op.polling_timer is None
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
 
@@ -967,6 +971,8 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
+        assert op.retry_after_timer is not None
+        assert op.polling_timer is None
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
 
@@ -999,6 +1005,8 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
         next_op.response_body = get_registration_result_as_bytes(registration_result)
         next_op.complete()
 
+        assert op.retry_after_timer is None
+        assert op.polling_timer is not None
         timer_callback = mock_timer.call_args[0][1]
         timer_callback()
 

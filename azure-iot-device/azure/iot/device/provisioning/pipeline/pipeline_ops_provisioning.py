@@ -140,5 +140,6 @@ class PollStatusOperation(PipelineOperation):
         self.operation_id = operation_id
         self.request_payload = request_payload
         self.registration_result = registration_result
+        self.retry_after_timer = None
         self.polling_timer = None
         self.provisioning_timeout_timer = None

@@ -79,27 +79,6 @@ class CommonProvisioningStage(PipelineStage):
             op.provisioning_timeout_timer = None
 
     @staticmethod
-    def _get_error(provisioning_op, error):
-        if error:
-            return error
-        elif 300 <= provisioning_op.status_code < 429:
-            logger.error(
-                "Received error with status code {status_code} for {prov_op_name} request operation".format(
-                    prov_op_name=provisioning_op.request_type,
-                    status_code=provisioning_op.status_code,
-                )
-            )
-            logger.error("response body: {}".format(provisioning_op.response_body))
-            return exceptions.ServiceError(
-                "{prov_op_name} request returned a service error status code {status_code}".format(
-                    prov_op_name=provisioning_op.request_type,
-                    status_code=provisioning_op.status_code,
-                )
-            )
-        else:
-            return None
-
-    @staticmethod
     def _decode_response(provisioning_op):
         return json.loads(provisioning_op.response_body.decode("utf-8"))
 
@@ -116,25 +95,115 @@ class CommonProvisioningStage(PipelineStage):
         """
         Create the registration result from the complete decoded json response for details regarding the registration process.
         """
-        decoded_state = (get_optional_element(decoded_response, "registrationState"),)
+        decoded_state = get_optional_element(decoded_response, "registrationState")
         registration_state = None
         if decoded_state is not None:
             registration_state = RegistrationState(
-                device_id=get_optional_element(decoded_state[0], "deviceId"),
-                assigned_hub=get_optional_element(decoded_state[0], "assignedHub"),
-                sub_status=get_optional_element(decoded_state[0], "substatus"),
-                created_date_time=get_optional_element(decoded_state[0], "createdDateTimeUtc"),
-                last_update_date_time=get_optional_element(
-                    decoded_state[0], "lastUpdatedDateTimeUtc"
-                ),
-                etag=get_optional_element(decoded_state[0], "etag"),
-                payload=get_optional_element(decoded_state[0], "payload"),
+                device_id=get_optional_element(decoded_state, "deviceId"),
+                assigned_hub=get_optional_element(decoded_state, "assignedHub"),
+                sub_status=get_optional_element(decoded_state, "substatus"),
+                created_date_time=get_optional_element(decoded_state, "createdDateTimeUtc"),
+                last_update_date_time=get_optional_element(decoded_state, "lastUpdatedDateTimeUtc"),
+                etag=get_optional_element(decoded_state, "etag"),
+                payload=get_optional_element(decoded_state, "payload"),
             )
 
         registration_result = RegistrationResult(
             operation_id=operation_id, status=status, registration_state=registration_state
         )
         return registration_result
+
+    def _process_service_error_status_code(self, original_provisioning_op, request_response_op):
+        logger.error(
+            "{stage_name}({op_name}): Received error with status code {status_code} for {prov_op_name} request operation".format(
+                stage_name=self.name,
+                op_name=request_response_op.name,
+                prov_op_name=request_response_op.request_type,
+                status_code=request_response_op.status_code,
+            )
+        )
+        logger.error(
+            "{stage_name}({op_name}): Response body: {body}".format(
+                stage_name=self.name,
+                op_name=request_response_op.name,
+                body=request_response_op.response_body,
+            )
+        )
+        original_provisioning_op.complete(
+            error=exceptions.ServiceError(
+                "{prov_op_name} request returned a service error status code {status_code}".format(
+                    prov_op_name=request_response_op.request_type,
+                    status_code=request_response_op.status_code,
+                )
+            )
+        )
+
+    def _process_retry_status_code(self, error, original_provisioning_op, request_response_op):
+        retry_interval = (
+            int(request_response_op.retry_after, 10)
+            if request_response_op.retry_after is not None
+            else constant.DEFAULT_POLLING_INTERVAL
+        )
+
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.invoke_on_pipeline_thread_nowait
+        def do_retry_after():
+            this = self_weakref()
+            logger.info(
+                "{stage_name}({op_name}): retrying".format(
+                    stage_name=this.name, op_name=request_response_op.name
+                )
+            )
+            original_provisioning_op.retry_after_timer.cancel()
+            original_provisioning_op.retry_after_timer = None
+            original_provisioning_op.completed = False
+            this.run_op(original_provisioning_op)
+
+        logger.warning(
+            "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
+                stage_name=self.name,
+                op_name=request_response_op.name,
+                interval=retry_interval,
+                error=error,
+            )
+        )
+
+        logger.debug("{}({}): Creating retry timer".format(self.name, request_response_op.name))
+        original_provisioning_op.retry_after_timer = Timer(retry_interval, do_retry_after)
+        original_provisioning_op.retry_after_timer.start()
+
+    @staticmethod
+    def _process_failed_and_assigned_registration_status(
+        error,
+        operation_id,
+        decoded_response,
+        registration_status,
+        original_provisioning_op,
+        request_response_op,
+    ):
+        complete_registration_result = CommonProvisioningStage._form_complete_result(
+            operation_id=operation_id, decoded_response=decoded_response, status=registration_status
+        )
+        original_provisioning_op.registration_result = complete_registration_result
+        if registration_status == "failed":
+            error = exceptions.ServiceError(
+                "Query Status operation returned a failed registration status  with a status code of {status_code}".format(
+                    status_code=request_response_op.status_code
+                )
+            )
+        original_provisioning_op.complete(error=error)
+
+    @staticmethod
+    def _process_unknown_registration_status(
+        registration_status, original_provisioning_op, request_response_op
+    ):
+        error = exceptions.ServiceError(
+            "Query Status Operation encountered an invalid registration status {status} with a status code of {status_code}".format(
+                status=registration_status, status_code=request_response_op.status_code
+            )
+        )
+        original_provisioning_op.complete(error=error)
 
 
 class PollingStatusStage(CommonProvisioningStage):
@@ -149,7 +218,6 @@ class PollingStatusStage(CommonProvisioningStage):
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.PollStatusOperation):
             query_status_op = op
-
             self_weakref = weakref.ref(self)
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
@@ -185,85 +253,77 @@ class PollingStatusStage(CommonProvisioningStage):
                     )
                 )
 
-                # This could be an error that has been reported to this stage Or this
-                # could be an error because the service responded with status code 300
-                error = CommonProvisioningStage._get_error(op, error=error)
-
-                if not error:
-                    success_status_code = op.status_code
-                    polling_interval = (
-                        int(op.retry_after, 10)
-                        if op.retry_after is not None
-                        else constant.DEFAULT_POLLING_INTERVAL
-                    )
-                    decoded_response = CommonProvisioningStage._decode_response(op)
-                    operation_id = CommonProvisioningStage._get_operation_id(decoded_response)
-                    registration_status = CommonProvisioningStage._get_registration_status(
-                        decoded_response
-                    )
-
-                    # retry after or assigning scenario
-                    if success_status_code >= 429 or registration_status == "assigning":
-
-                        self_weakref = weakref.ref(self)
-
-                        @pipeline_thread.invoke_on_pipeline_thread_nowait
-                        def do_polling():
-                            this = self_weakref()
-                            logger.info(
-                                "{stage_name}({op_name}): retrying".format(
-                                    stage_name=this.name, op_name=op.name
-                                )
-                            )
-                            query_status_op.polling_timer.cancel()
-                            query_status_op.polling_timer = None
-                            query_status_op.completed = False
-                            this.run_op(query_status_op)
-
-                        logger.info(
-                            "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
-                                stage_name=self.name,
-                                op_name=op.name,
-                                interval=polling_interval,
-                                error=error,
-                            )
+                if error:
+                    logger.error(
+                        "{stage_name}({op_name}): Received error for {prov_op_name} operation".format(
+                            stage_name=self.name, op_name=op.name, prov_op_name=op.request_type
                         )
-
-                        logger.debug("{}({}): Creating polling timer".format(self.name, op.name))
-                        query_status_op.polling_timer = Timer(polling_interval, do_polling)
-                        query_status_op.polling_timer.start()
-
-                    # Service success scenario
-                    else:
-                        registration_status = CommonProvisioningStage._get_registration_status(
-                            decoded_response
-                        )
-                        if registration_status == "assigned" or registration_status == "failed":
-                            # process complete response here
-                            complete_registration_result = CommonProvisioningStage._form_complete_result(
-                                operation_id=operation_id,
-                                decoded_response=decoded_response,
-                                status=registration_status,
-                            )
-                            query_status_op.registration_result = complete_registration_result
-
-                            if registration_status == "failed":
-                                error = exceptions.ServiceError(
-                                    "Query Status operation returned a failed registration status  with a status code of {status_code}".format(
-                                        status_code=success_status_code
-                                    )
-                                )
-                        else:
-                            error = exceptions.ServiceError(
-                                "Query Status Operation encountered an invalid registration status {status} with a status code of {status_code}".format(
-                                    status=registration_status, status_code=success_status_code
-                                )
-                            )
-
-                        query_status_op.complete(error=error)
+                    )
+                    query_status_op.complete(error=error)
 
                 else:
-                    query_status_op.complete(error=error)
+                    if 300 <= op.status_code < 429:
+                        self._process_service_error_status_code(query_status_op, op)
+
+                    elif op.status_code >= 429:
+                        self._process_retry_status_code(error, query_status_op, op)
+
+                    else:
+                        decoded_response = self._decode_response(op)
+                        operation_id = self._get_operation_id(decoded_response)
+                        registration_status = self._get_registration_status(decoded_response)
+                        if registration_status == "assigning":
+                            polling_interval = (
+                                int(op.retry_after, 10)
+                                if op.retry_after is not None
+                                else constant.DEFAULT_POLLING_INTERVAL
+                            )
+                            self_weakref = weakref.ref(self)
+
+                            @pipeline_thread.invoke_on_pipeline_thread_nowait
+                            def do_polling():
+                                this = self_weakref()
+                                logger.info(
+                                    "{stage_name}({op_name}): retrying".format(
+                                        stage_name=this.name, op_name=op.name
+                                    )
+                                )
+                                query_status_op.polling_timer.cancel()
+                                query_status_op.polling_timer = None
+                                query_status_op.completed = False
+                                this.run_op(query_status_op)
+
+                            logger.info(
+                                "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
+                                    stage_name=self.name,
+                                    op_name=op.name,
+                                    interval=polling_interval,
+                                    error=error,
+                                )
+                            )
+
+                            logger.debug(
+                                "{}({}): Creating polling timer".format(self.name, op.name)
+                            )
+                            query_status_op.polling_timer = Timer(polling_interval, do_polling)
+                            query_status_op.polling_timer.start()
+
+                        elif registration_status == "assigned" or registration_status == "failed":
+                            self._process_failed_and_assigned_registration_status(
+                                error=error,
+                                operation_id=operation_id,
+                                decoded_response=decoded_response,
+                                registration_status=registration_status,
+                                original_provisioning_op=query_status_op,
+                                request_response_op=op,
+                            )
+
+                        else:
+                            self._process_unknown_registration_status(
+                                registration_status=registration_status,
+                                original_provisioning_op=query_status_op,
+                                request_response_op=op,
+                            )
 
             self.send_op_down(
                 pipeline_ops_base.RequestAndResponseOperation(
@@ -325,78 +385,28 @@ class RegistrationStage(CommonProvisioningStage):
                         stage_name=self.name, op_name=op.name, status_code=op.status_code
                     )
                 )
-
-                # This could be an error that has been reported to this stage Or this
-                # could be an error because the service responded with status code >=300
-                error = CommonProvisioningStage._get_error(op, error=error)
-
-                if not error:
-                    success_status_code = op.status_code
-                    retry_interval = (
-                        int(op.retry_after, 10)
-                        if op.retry_after is not None
-                        else constant.DEFAULT_POLLING_INTERVAL
+                if error:
+                    logger.error(
+                        "{stage_name}({op_name}): Received error for {prov_op_name} operation".format(
+                            stage_name=self.name, op_name=op.name, prov_op_name=op.request_type
+                        )
                     )
-                    decoded_response = CommonProvisioningStage._decode_response(op)
-                    operation_id = CommonProvisioningStage._get_operation_id(decoded_response)
+                    initial_register_op.complete(error=error)
 
-                    # retry after scenario
-                    if success_status_code >= 429:
+                else:
 
-                        self_weakref = weakref.ref(self)
+                    if 300 <= op.status_code < 429:
+                        self._process_service_error_status_code(initial_register_op, op)
 
-                        @pipeline_thread.invoke_on_pipeline_thread_nowait
-                        def do_retry_after():
-                            this = self_weakref()
-                            logger.info(
-                                "{stage_name}({op_name}): retrying".format(
-                                    stage_name=this.name, op_name=op.name
-                                )
-                            )
-                            initial_register_op.retry_after_timer.cancel()
-                            initial_register_op.retry_after_timer = None
-                            initial_register_op.completed = False
-                            this.run_op(initial_register_op)
+                    elif op.status_code >= 429:
+                        self._process_retry_status_code(error, initial_register_op, op)
 
-                        logger.warning(
-                            "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}.  Setting timer.".format(
-                                stage_name=self.name,
-                                op_name=op.name,
-                                interval=retry_interval,
-                                error=error,
-                            )
-                        )
-
-                        logger.debug("{}({}): Creating retry timer".format(self.name, op.name))
-                        initial_register_op.retry_after_timer = Timer(
-                            retry_interval, do_retry_after
-                        )
-                        initial_register_op.retry_after_timer.start()
-
-                    # Service success scenario
                     else:
-                        registration_status = CommonProvisioningStage._get_registration_status(
-                            decoded_response
-                        )
-                        if registration_status == "assigned" or registration_status == "failed":
-                            # process complete response here
-                            # TODO Is there an response when service returns "failed" ?
-                            complete_registration_result = CommonProvisioningStage._form_complete_result(
-                                operation_id=operation_id,
-                                decoded_response=decoded_response,
-                                status=registration_status,
-                            )
-                            initial_register_op.registration_result = complete_registration_result
-                            if registration_status == "failed":
-                                error = exceptions.ServiceError(
-                                    "Registration operation returned failed registration status  with a status code of {status_code}".format(
-                                        status_code=success_status_code
-                                    )
-                                )
-                            # complete the original op in both cases
-                            initial_register_op.complete(error=error)
-                        elif registration_status == "assigning":
+                        decoded_response = self._decode_response(op)
+                        operation_id = self._get_operation_id(decoded_response)
+                        registration_status = self._get_registration_status(decoded_response)
 
+                        if registration_status == "assigning":
                             self_weakref = weakref.ref(self)
 
                             def copy_result_to_original_op(op, error):
@@ -443,16 +453,22 @@ class RegistrationStage(CommonProvisioningStage):
                             )
                             initial_register_op.polling_timer.start()
 
-                        else:
-                            error = exceptions.ServiceError(
-                                "Registration Request encountered an invalid registration status {status} with a status code of {status_code}".format(
-                                    status=registration_status, status_code=success_status_code
-                                )
+                        elif registration_status == "failed" or registration_status == "assigned":
+                            self._process_failed_and_assigned_registration_status(
+                                error=error,
+                                operation_id=operation_id,
+                                decoded_response=decoded_response,
+                                registration_status=registration_status,
+                                original_provisioning_op=initial_register_op,
+                                request_response_op=op,
                             )
-                            initial_register_op.complete(error=error)
 
-                else:
-                    initial_register_op.complete(error=error)
+                        else:
+                            self._process_unknown_registration_status(
+                                registration_status=registration_status,
+                                original_provisioning_op=initial_register_op,
+                                request_response_op=op,
+                            )
 
             registration_payload = DeviceRegistrationPayload(
                 registration_id=initial_register_op.registration_id,
