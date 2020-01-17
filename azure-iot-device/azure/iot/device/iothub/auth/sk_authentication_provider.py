@@ -64,7 +64,7 @@ class SymmetricKeyAuthenticationProvider(BaseRenewableTokenAuthenticationProvide
         self.shared_access_key = shared_access_key
         self.shared_access_key_name = shared_access_key_name
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = None
+        self.server_verification_cert = None
 
     @staticmethod
     def parse(connection_string):

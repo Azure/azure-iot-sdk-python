@@ -33,9 +33,11 @@ class IoTHubMQTTTranslationStage(PipelineStage):
     def __init__(self):
         super(IoTHubMQTTTranslationStage, self).__init__()
         self.feature_to_topic = {}
+        self.device_id = None
+        self.module_id = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
 
         if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
             self.device_id = op.device_id
@@ -79,7 +81,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 client_id=client_id,
                 hostname=hostname,
                 username=username,
-                ca_cert=op.ca_cert,
+                server_verification_cert=op.server_verification_cert,
                 client_cert=op.client_cert,
                 sas_token=op.sas_token,
             )
@@ -186,7 +188,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            self.send_op_down(op)
+            super(IoTHubMQTTTranslationStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _set_topic_names(self, device_id, module_id):
@@ -257,9 +259,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 )
 
             else:
-                logger.debug("Uunknown topic: {} passing up to next handler".format(topic))
+                logger.debug("Unknown topic: {} passing up to next handler".format(topic))
                 self.send_event_up(event)
 
         else:
             # all other messages get passed up
-            self.send_event_up(event)
+            super(IoTHubMQTTTranslationStage, self)._handle_pipeline_event(event)

@@ -153,17 +153,17 @@ class TestIoTHubPipelineInstantiation(object):
     def test_sas_auth_op_fail(
         self, mocker, device_connection_string, arbitrary_exception, pipeline_configuration
     ):
-        old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
+        old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
                 op.complete(error=arbitrary_exception)
             else:
-                old_execute_op(self, op)
+                old_run_op(self, op)
 
         mocker.patch.object(
             pipeline_stages_base.PipelineRootStage,
-            "_execute_op",
+            "_run_op",
             side_effect=fail_set_auth_provider,
             autospec=True,
         )
@@ -191,17 +191,17 @@ class TestIoTHubPipelineInstantiation(object):
         "Raises exceptions that occurred in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
     )
     def test_cert_auth_op_fail(self, mocker, x509, arbitrary_exception, pipeline_configuration):
-        old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
+        old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_set_auth_provider(self, op):
             if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
                 op.complete(error=arbitrary_exception)
             else:
-                old_execute_op(self, op)
+                old_run_op(self, op)
 
         mocker.patch.object(
             pipeline_stages_base.PipelineRootStage,
-            "_execute_op",
+            "_run_op",
             side_effect=fail_set_auth_provider,
             autospec=True,
         )
@@ -638,7 +638,7 @@ class TestIoTHubPipelineDisableFeature(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Connected")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Connected")
 class TestIoTHubPipelineEVENTConnect(object):
     @pytest.mark.it("Triggers the 'on_connected' handler")
     def test_with_handler(self, mocker, pipeline):
@@ -660,7 +660,7 @@ class TestIoTHubPipelineEVENTConnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Disconnected")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Disconnected")
 class TestIoTHubPipelineEVENTDisconnect(object):
     @pytest.mark.it("Triggers the 'on_disconnected' handler")
     def test_with_handler(self, mocker, pipeline):
@@ -682,7 +682,7 @@ class TestIoTHubPipelineEVENTDisconnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: C2D Message Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: C2D Message Received")
 class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_c2d_message_received' handler, passing the received message as an argument"
@@ -710,7 +710,7 @@ class TestIoTHubPipelineEVENTRecieveC2DMessage(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Input Message Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Input Message Received")
 class TestIoTHubPipelineEVENTReceiveInputMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_input_message_received' handler, passing the received message and input name as arguments"
@@ -740,7 +740,7 @@ class TestIoTHubPipelineEVENTReceiveInputMessage(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Method Request Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Method Request Received")
 class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
     @pytest.mark.it(
         "Triggers the 'on_method_request_received' handler, passing the received method request as an argument"
@@ -770,7 +770,7 @@ class TestIoTHubPipelineEVENTReceiveMethodRequest(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("IoTHubPipeline - EVENT: Twin Desired Properties Patch Received")
+@pytest.mark.describe("IoTHubPipeline - OCCURANCE: Twin Desired Properties Patch Received")
 class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it(
         "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"
@@ -796,3 +796,18 @@ class TestIoTHubPipelineEVENTReceiveDesiredPropertiesPatch(object):
         pipeline._pipeline.on_pipeline_event_handler(twin_patch_event)
 
         # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("IoTHubPipeline - PROPERTY .connected")
+class TestIotHubPipelinePROPERTYConnected(object):
+    @pytest.mark.it("Cannot be changed")
+    def test_read_only(self, pipeline):
+        with pytest.raises(AttributeError):
+            pipeline.connected = not pipeline.connected
+
+    @pytest.mark.it("Reflects the value of the root stage property of the same name")
+    def test_reflects_pipeline_property(self, pipeline):
+        pipeline._pipeline.connected = True
+        assert pipeline.connected
+        pipeline._pipeline.connected = False
+        assert not pipeline.connected

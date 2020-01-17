@@ -27,7 +27,7 @@
 # fake_registration_id = "registered_remembrall"
 # fake_provisioning_host = "hogwarts.com"
 # fake_id_scope = "weasley_wizard_wheezes"
-# fake_ca_cert = "fake_certificate"
+# fake_server_verification_cert = "fake_certificate"
 # fake_sas_token = "horcrux_token"
 # fake_security_client = "secure_via_muffliato"
 # fake_request_id = "fake_request_1234"
@@ -156,17 +156,17 @@
 #         arbitrary_exception,
 #         pipeline_configuration,
 #     ):
-#         old_execute_op = pipeline_stages_base.PipelineRootStage._execute_op
+#         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
 #         def fail_set_auth_provider(self, op):
 #             if isinstance(op, params_security_clients["set_args_op_class"]):
 #                 op.complete(error=arbitrary_exception)
 #             else:
-#                 old_execute_op(self, op)
+#                 old_run_op(self, op)
 
 #         mocker.patch.object(
 #             pipeline_stages_base.PipelineRootStage,
-#             "_execute_op",
+#             "_run_op",
 #             side_effect=fail_set_auth_provider,
 #             autospec=True,
 #         )

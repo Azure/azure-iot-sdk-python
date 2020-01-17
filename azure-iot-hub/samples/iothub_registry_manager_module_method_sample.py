@@ -7,7 +7,7 @@
 import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
-from azure.iot.hub.protocol.models import CloudToDeviceMethod
+from azure.iot.hub.models import CloudToDeviceMethod
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
@@ -27,10 +27,7 @@ try:
         device_id, module_id, managed_by, primary_key, secondary_key
     )
 
-    deviceMethod = CloudToDeviceMethod(
-        method_name=method_name,
-        payload=method_payload
-    )
+    deviceMethod = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
     iothub_registry_manager.invoke_device_module_method(device_id, module_id, deviceMethod)
 
     # Delete Module

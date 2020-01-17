@@ -29,7 +29,7 @@ class IoTHubPipeline(object):
         """
         Constructor for instantiating a pipeline adapter object
         :param auth_provider: The authentication provider
-        :param protocol: The protocol for connecting to IoT Hub
+        :param pipeline_configuration: The configuration generated based on user inputs
         """
 
         self.feature_enabled = {
@@ -325,3 +325,10 @@ class IoTHubPipeline(object):
                 feature_name=feature_name, callback=on_complete
             )
         )
+
+    @property
+    def connected(self):
+        """
+        Read-only property to indicate if the transport is connected or not.
+        """
+        return self._pipeline.connected

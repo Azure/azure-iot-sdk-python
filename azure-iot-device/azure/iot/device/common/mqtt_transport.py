@@ -91,14 +91,20 @@ class MQTTTransport(object):
     """
 
     def __init__(
-        self, client_id, hostname, username, ca_cert=None, x509_cert=None, websockets=False
+        self,
+        client_id,
+        hostname,
+        username,
+        server_verification_cert=None,
+        x509_cert=None,
+        websockets=False,
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
         :param str client_id: The id of the client connecting to the broker.
         :param str hostname: Hostname or IP address of the remote broker.
         :param str username: Username for login to the remote broker.
-        :param str ca_cert: Certificate which can be used to validate a server-side TLS connection (optional).
+        :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         """
@@ -106,7 +112,7 @@ class MQTTTransport(object):
         self._hostname = hostname
         self._username = username
         self._mqtt_client = None
-        self._ca_cert = ca_cert
+        self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._websockets = websockets
 
@@ -183,10 +189,10 @@ class MQTTTransport(object):
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
-            logger.debug("".join(traceback.format_stack()))
 
             cause = None
             if rc:  # i.e. if there is an error
+                logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
                 this._stop_automatic_reconnect()
 
@@ -286,8 +292,8 @@ class MQTTTransport(object):
         logger.debug("creating a SSL context")
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
-        if self._ca_cert:
-            ssl_context.load_verify_locations(cadata=self._ca_cert)
+        if self._server_verification_cert:
+            ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
             ssl_context.load_default_certs()
         ssl_context.verify_mode = ssl.CERT_REQUIRED

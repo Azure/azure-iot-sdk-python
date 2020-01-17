@@ -22,6 +22,70 @@ try:
 except ImportError:
     from inspect import getargspec
 
+
+class StageRunOpTestBase(object):
+    """All PipelineStage .run_op() tests should inherit from this base class.
+    It provides basic tests for dealing with exceptions.
+    """
+
+    @pytest.mark.it(
+        "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
+    )
+    def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
+        stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+        # mocker.spy(op, "complete")
+
+        stage.run_op(op)
+
+        assert op.completed
+        assert op.error is arbitrary_exception
+        # assert op.complete.call_count == 1
+        # assert op.complete.call_args == mocker.call(error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Allows any BaseException that was raised during execution of the operation to propogate"
+    )
+    def test_base_exception_propogates(self, mocker, stage, op, arbitrary_base_exception):
+        stage._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
+
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            stage.run_op(op)
+        assert e_info.value is arbitrary_base_exception
+
+
+class StageHandlePipelineEventTestBase(object):
+    """All PipelineStage .handle_pipeline_event() tests should inherit from this base class.
+    It provides basic tests for dealing with exceptions.
+    """
+
+    @pytest.mark.it(
+        "Sends any unexpected Exceptions raised during handling of the event to the background exception handler"
+    )
+    def test_uses_background_exception_handler(self, mocker, stage, event, arbitrary_exception):
+        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
+        mocker.spy(handle_exceptions, "handle_background_exception")
+
+        stage.handle_pipeline_event(event)
+
+        assert handle_exceptions.handle_background_exception.call_count == 1
+        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
+            arbitrary_exception
+        )
+
+    @pytest.mark.it("Allows any BaseException raised during handling of the event to propogate")
+    def test_base_exception_propogates(self, mocker, stage, event, arbitrary_base_exception):
+        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
+
+        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
+            stage.handle_pipeline_event(event)
+        assert e_info.value is arbitrary_base_exception
+
+
+############################################
+# EVERYTHING BELOW THIS POINT IS DEPRECATED#
+############################################
+# CT-TODO: remove
+
 all_common_ops = [
     pipeline_ops_base.ConnectOperation,
     pipeline_ops_base.ReauthorizeConnectionOperation,
@@ -51,7 +115,6 @@ def all_except(all_items, items_to_exclude):
     return [x for x in all_items if x not in items_to_exclude]
 
 
-# TODO: Remove this definition
 class StageTestBase(object):
     @pytest.fixture(autouse=True)
     def stage_base_configuration(self, stage, mocker):
@@ -65,7 +128,7 @@ class StageTestBase(object):
         """
 
         class NextStageForTest(pipeline_stages_base.PipelineStage):
-            def _execute_op(self, op):
+            def _run_op(self, op):
                 pass
 
         next = NextStageForTest()
@@ -75,10 +138,10 @@ class StageTestBase(object):
             .append_stage(next)
         )
 
-        mocker.spy(stage, "_execute_op")
+        mocker.spy(stage, "_run_op")
         mocker.spy(stage, "run_op")
 
-        mocker.spy(next, "_execute_op")
+        mocker.spy(next, "_run_op")
         mocker.spy(next, "run_op")
 
         return root
@@ -88,78 +151,20 @@ class StageTestBase(object):
         def complete_op_success(op):
             op.complete()
 
-        stage.next._execute_op = complete_op_success
-        mocker.spy(stage.next, "_execute_op")
+        stage.next._run_op = complete_op_success
+        mocker.spy(stage.next, "_run_op")
 
     @pytest.fixture
     def next_stage_raises_arbitrary_exception(
         self, stage, stage_base_configuration, mocker, arbitrary_exception
     ):
-        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
+        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
 
     @pytest.fixture
     def next_stage_raises_arbitrary_base_exception(
         self, stage, stage_base_configuration, mocker, arbitrary_base_exception
     ):
-        stage.next._execute_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
-
-
-# TODO: refactor all .run_op() tests to use this
-class StageRunOpTestBase(object):
-    """All PipelineStage .run_op() tests should inherit from this base class.
-    It provides basic tests for dealing with exceptions.
-    """
-
-    @pytest.mark.it(
-        "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
-    )
-    def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
-        stage._execute_op = mocker.MagicMock(side_effect=arbitrary_exception)
-        mocker.spy(op, "complete")
-
-        stage.run_op(op)
-
-        assert op.complete.call_count == 1
-        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Allows any BaseException that was raised during execution of the operation to propogate"
-    )
-    def test_base_exception_propogates(self, mocker, stage, op, arbitrary_base_exception):
-        stage._execute_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
-
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        assert e_info.value is arbitrary_base_exception
-
-
-# TODO: refactor all .handle_pipeline_event() tests to use this
-class StageHandlePipelineEventTestBase(object):
-    """All PipelineStage .handle_pipeline_event() tests should inherit from this base class.
-    It provides basic tests for dealing with exceptions.
-    """
-
-    @pytest.mark.it(
-        "Sends any unexpected Exceptions raised during handling of the event to the background exception handler"
-    )
-    def test_uses_background_exception_handler(self, mocker, stage, event, arbitrary_exception):
-        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
-        mocker.spy(handle_exceptions, "handle_background_exception")
-
-        stage.handle_pipeline_event(event)
-
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
-            arbitrary_exception
-        )
-
-    @pytest.mark.it("Allows any BaseException raised during handling of the event to propogate")
-    def test_base_exception_propogates(self, mocker, stage, event, arbitrary_base_exception):
-        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
-
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.handle_pipeline_event(event)
-        assert e_info.value is arbitrary_base_exception
+        stage.next._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
 
 def assert_callback_succeeded(op, callback=None):

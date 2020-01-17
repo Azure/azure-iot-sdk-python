@@ -7,7 +7,7 @@
 import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
-from azure.iot.hub.protocol.models import CloudToDeviceMethod
+from azure.iot.hub.models import CloudToDeviceMethod
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -20,10 +20,7 @@ try:
     # Create IoTHubRegistryManager
     registry_manager = IoTHubRegistryManager(iothub_connection_str)
 
-    deviceMethod = CloudToDeviceMethod(
-        method_name=method_name,
-        payload=method_payload
-    )
+    deviceMethod = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
     registry_manager.invoke_device_method(device_id, deviceMethod)
 
 except Exception as ex:

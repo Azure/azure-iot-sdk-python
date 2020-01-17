@@ -144,7 +144,11 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         t = self._token_update_timer
         self._token_update_timer = None
         if t:
-            logger.debug("Canceling token update timer for (%s,%s)", self.device_id, self.module_id)
+            logger.debug(
+                "Canceling token update timer for (%s,%s)",
+                self.device_id,
+                self.module_id if self.module_id else "",
+            )
             t.cancel()
 
     def _schedule_token_update(self, seconds_until_update):

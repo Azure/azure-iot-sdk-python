@@ -72,7 +72,7 @@ class SetIoTHubConnectionArgsOperation(PipelineOperation):
         callback,
         module_id=None,
         gateway_hostname=None,
-        ca_cert=None,
+        server_verification_cert=None,
         client_cert=None,
         sas_token=None,
     ):
@@ -85,8 +85,8 @@ class SetIoTHubConnectionArgsOperation(PipelineOperation):
           for the module we are connecting.
         :param str gateway_hostname: (optional) If we are going through a gateway host, this is the
           hostname for the gateway
-        :param str ca_cert: (Optional) The CA certificate to use if the server that we're going to
-          connect to uses server-side TLS
+        :param str server_verification_cert: (Optional) The server verification certificate to use
+          if the server that we're going to connect to uses server-side TLS
         :param X509 client_cert: (Optional) The x509 object containing a client certificate and key used to connect
           to the service
         :param str sas_token: The token string which will be used to authenticate with the service
@@ -99,7 +99,7 @@ class SetIoTHubConnectionArgsOperation(PipelineOperation):
         self.module_id = module_id
         self.hostname = hostname
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = ca_cert
+        self.server_verification_cert = server_verification_cert
         self.client_cert = client_cert
         self.sas_token = sas_token
 

@@ -29,19 +29,21 @@ class UseAuthProviderStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
             self.auth_provider = op.auth_provider
             self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
-                self, "on_sas_token_updated"
+                self, "_on_sas_token_updated"
             )
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
                 device_id=self.auth_provider.device_id,
-                module_id=getattr(self.auth_provider, "module_id", None),
+                module_id=self.auth_provider.module_id,
                 hostname=self.auth_provider.hostname,
                 gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                server_verification_cert=getattr(
+                    self.auth_provider, "server_verification_cert", None
+                ),
                 sas_token=self.auth_provider.get_current_sas_token(),
             )
             self.send_op_down(worker_op)
@@ -51,18 +53,20 @@ class UseAuthProviderStage(PipelineStage):
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
                 device_id=self.auth_provider.device_id,
-                module_id=getattr(self.auth_provider, "module_id", None),
+                module_id=self.auth_provider.module_id,
                 hostname=self.auth_provider.hostname,
                 gateway_hostname=getattr(self.auth_provider, "gateway_hostname", None),
-                ca_cert=getattr(self.auth_provider, "ca_cert", None),
+                server_verification_cert=getattr(
+                    self.auth_provider, "server_verification_cert", None
+                ),
                 client_cert=self.auth_provider.get_x509_certificate(),
             )
             self.send_op_down(worker_op)
         else:
-            self.send_op_down(op)
+            super(UseAuthProviderStage, self)._run_op(op)
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
-    def on_sas_token_updated(self):
+    def _on_sas_token_updated(self):
         logger.info(
             "{}: New sas token received.  Passing down UpdateSasTokenOperation.".format(self.name)
         )
@@ -82,7 +86,7 @@ class UseAuthProviderStage(PipelineStage):
                 )
 
         self.send_op_down(
-            op=pipeline_ops_base.UpdateSasTokenOperation(
+            pipeline_ops_base.UpdateSasTokenOperation(
                 sas_token=self.auth_provider.get_current_sas_token(),
                 callback=on_token_update_complete,
             )
@@ -100,7 +104,7 @@ class TwinRequestResponseStage(PipelineStage):
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         def map_twin_error(error, twin_op):
             if error:
                 return error
@@ -165,4 +169,4 @@ class TwinRequestResponseStage(PipelineStage):
             )
 
         else:
-            self.send_op_down(op)
+            super(TwinRequestResponseStage, self)._run_op(op)

@@ -164,7 +164,10 @@ def edge_local_debug_environment():
         shared_access_key=shared_access_key,
         gateway_hostname=gateway_hostname,
     )
-    return {"EdgeHubConnectionString": cs, "EdgeModuleCACertificateFile": "__FAKE_CA_CERTIFICATE__"}
+    return {
+        "EdgeHubConnectionString": cs,
+        "EdgeModuleCACertificateFile": "__FAKE_SERVER_VERIFICATION_CERTIFICATE__",
+    }
 
 
 """----Shared mock pipeline fixture----"""
@@ -202,6 +205,22 @@ class FakeIoTHubPipeline:
         callback()
 
 
+class FakeHTTPPipeline:
+    def __init__(self):
+        pass
+
+    def invoke_method(self, device_id, method_params, callback, module_id=None):
+        callback(invoke_method_response="__fake_method_response__")
+
+    def get_storage_info_for_blob(self, blob_name, callback):
+        callback(storage_info="__fake_storage_info__")
+
+    def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description, callback
+    ):
+        callback()
+
+
 @pytest.fixture
 def iothub_pipeline(mocker):
     """This fixture will automatically handle callbacks and should be
@@ -219,10 +238,39 @@ def iothub_pipeline_manual_cb(mocker):
 
 
 @pytest.fixture
-def edge_pipeline(mocker):
-    return mocker.MagicMock()  # TODO: change this to wrap a pipeline object
+def http_pipeline(mocker):
+    """This fixture will automatically handle callbacks and should be
+    used in the majority of tests
+    """
+    return mocker.MagicMock(wraps=FakeHTTPPipeline())
+
+
+@pytest.fixture
+def http_pipeline_manual_cb(mocker):
+    """This fixture is for use in tests where manual triggering of a
+    callback is required
+    """
+    return mocker.MagicMock()
 
 
 @pytest.fixture
 def fake_twin():
     return {"fake_twin": True}
+
+
+"""----Shared symmetric key fixtures----"""
+
+
+@pytest.fixture
+def symmetric_key():
+    return shared_access_key
+
+
+@pytest.fixture
+def hostname_fixture():
+    return hostname
+
+
+@pytest.fixture
+def device_id_fixture():
+    return device_id
