@@ -10,7 +10,6 @@ from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import ExportImportDevice, AuthenticationMechanism, SymmetricKey
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = "test_device"
 
 
 def print_device_info(title, iothub_device):

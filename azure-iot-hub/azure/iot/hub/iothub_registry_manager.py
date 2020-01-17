@@ -486,8 +486,8 @@ class IoTHubRegistryManager(object):
         return self.protocol.registry_manager.get_device_statistics()
 
     def get_devices(self, max_number_of_devices=None):
-        """Get the identities of multiple devices from the IoT hub identity
-           registry. Not recommended. Use the IoT Hub query language to retrieve
+        """Get the identities of multiple devices from the IoTHub identity
+           registry. Not recommended. Use the IoTHub query language to retrieve
            device twin and device identity information. See
            https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub
            and
@@ -507,10 +507,10 @@ class IoTHubRegistryManager(object):
 
     def bulk_create_or_update_devices(self, devices):
         """Create, update, or delete the identities of multiple devices from the
-           IoT hub identity registry.
+           IoTHub identity registry.
 
            Create, update, or delete the identities of multiple devices from the
-           IoT hub identity registry. A device identity can be specified only once
+           IoTHub identity registry. A device identity can be specified only once
            in the list. Different operations (create, update, delete) on different
            devices are allowed. A maximum of 100 devices can be specified per
            invocation. For large scale operations, consider using the import
@@ -527,7 +527,7 @@ class IoTHubRegistryManager(object):
         return self.protocol.registry_manager.bulk_device_crud(devices)
 
     def query_iot_hub(self, query_specification, continuation_token=None, max_item_count=None):
-        """Query an IoT hub to retrieve information regarding device twins using a
+        """Query an IoTHub to retrieve information regarding device twins using a
            SQL-like language.
            See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
            for more information. Pagination of results is supported. This returns
