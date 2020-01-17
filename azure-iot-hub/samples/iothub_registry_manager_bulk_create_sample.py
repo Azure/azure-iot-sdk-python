@@ -45,21 +45,13 @@ try:
     secondary_key1 = "111222333444555666777888999000aaabbbcccdddee"
     symmetric_key1 = SymmetricKey(primary_key=primary_key1, secondary_key=secondary_key1)
     authentication1 = AuthenticationMechanism(type="sas", symmetric_key=symmetric_key1)
-    device1 = ExportImportDevice(
-        id = "ExpDevice1",
-        status = "enabled",
-        authentication = authentication1
-    )
+    device1 = ExportImportDevice(id="BulkDevice1", status="enabled", authentication=authentication1)
 
     primary_key2 = "cccbbbaaadddeeefffggghhhiiijjjkkklllmmmnnnoo"
     secondary_key2 = "333222111444555666777888999000aaabbbcccdddee"
     symmetric_key2 = SymmetricKey(primary_key=primary_key2, secondary_key=secondary_key2)
     authentication2 = AuthenticationMechanism(type="sas", symmetric_key=symmetric_key2)
-    device2 = ExportImportDevice(
-        id = "ExpDevice2",
-        status = "enabled",
-        authentication = authentication2
-    )
+    device2 = ExportImportDevice(id="BulkDevice2", status="enabled", authentication=authentication2)
 
     # Create devices
     device1.import_mode = "create"
