@@ -61,7 +61,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self._token_update_timer = None
         self.shared_access_key_name = None
         self.sas_token_str = None
-        self.on_sas_token_updated_handler = None
+        self.on_sas_token_updated_handler = []
 
     def __del__(self):
         self._cancel_token_update_timer()
