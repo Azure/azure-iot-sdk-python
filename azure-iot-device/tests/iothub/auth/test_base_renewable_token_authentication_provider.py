@@ -104,7 +104,8 @@ def test_generate_new_sas_token_calls_on_sas_token_updated_handler_when_sas_upda
     update_callback_list = [MagicMock(), MagicMock(), MagicMock()]
     device_auth_provider.on_sas_token_updated_handler_list = update_callback_list
     device_auth_provider.generate_new_sas_token()
-    map(lambda x: x.assert_called_once_with(), update_callback_list)
+    for x in update_callback_list:
+        x()
 
 
 def test_device_generate_new_sas_token_calls_sign_with_correct_default_args(
@@ -165,7 +166,8 @@ def test_update_timer_generates_new_sas_token_and_calls_on_sas_token_updated_han
     timer_callback = fake_timer_object.call_args[0][1]
     device_auth_provider._sign.reset_mock()
     timer_callback()
-    map(lambda x: x.assert_called_once_with(), update_callback_list)
+    for x in update_callback_list:
+        x()
     assert device_auth_provider._sign.call_count == 1
 
 

@@ -204,7 +204,6 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
             )
             for x in self.on_sas_token_updated_handler_list:
                 x()
-            # map(lambda x: x(), self.on_sas_token_updated_handler_list)
         else:
             logger.warning(
                 "_notify_token_updated: on_sas_token_updated_handler_list not set.  Doing nothing."
