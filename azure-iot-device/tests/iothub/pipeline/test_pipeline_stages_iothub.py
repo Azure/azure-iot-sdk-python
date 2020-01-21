@@ -349,7 +349,7 @@ class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProvid
 
     @pytest.mark.it("Sends an UpdateSasTokenOperation with the new SAS token down the pipeline")
     def test_generates_new_token(self, mocker, stage):
-        stage.auth_provider.on_sas_token_updated_handler()
+        stage.auth_provider.on_sas_token_updated_handler_list()
 
         assert stage.send_op_down.call_count == 1
         op = stage.send_op_down.call_args[0][0]
@@ -362,7 +362,7 @@ class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProvid
     def test_update_fails(
         self, mocker, stage, arbitrary_exception, mock_handle_background_exception
     ):
-        stage.auth_provider.on_sas_token_updated_handler()
+        stage.auth_provider.on_sas_token_updated_handler_list()
 
         assert stage.send_op_down.call_count == 1
         op = stage.send_op_down.call_args[0][0]
