@@ -98,12 +98,14 @@ class DeviceRegistryOperationError(Model):
      'InvalidContainerReceiveLink', 'InvalidPartitionEpoch', 'RestoreTimedOut',
      'StreamReservationFailure', 'UnexpectedPropertyValue',
      'OrchestrationOperationFailed', 'ModelRepoEndpointError',
-     'ResolutionError', 'GenericBadGateway', 'InvalidResponseWhileProxying',
-     'GenericServiceUnavailable', 'ServiceUnavailable', 'PartitionNotFound',
-     'IotHubActivationFailed', 'ServerBusy', 'IotHubRestoring',
-     'ReceiveLinkOpensThrottled', 'ConnectionUnavailable', 'DeviceUnavailable',
-     'ConfigurationNotAvailable', 'GroupNotAvailable', 'GenericGatewayTimeout',
-     'GatewayTimeout'
+     'ResolutionError', 'UnableToFetchCredentials', 'UnableToFetchTenantInfo',
+     'UnableToShareIdentity', 'GenericBadGateway',
+     'InvalidResponseWhileProxying', 'GenericServiceUnavailable',
+     'ServiceUnavailable', 'PartitionNotFound', 'IotHubActivationFailed',
+     'ServerBusy', 'IotHubRestoring', 'ReceiveLinkOpensThrottled',
+     'ConnectionUnavailable', 'DeviceUnavailable', 'ConfigurationNotAvailable',
+     'GroupNotAvailable', 'HostingServiceNotAvailable',
+     'GenericGatewayTimeout', 'GatewayTimeout'
     :type error_code: str or ~protocol.models.enum
     :param error_status: Additional details associated with the error.
     :type error_status: str
