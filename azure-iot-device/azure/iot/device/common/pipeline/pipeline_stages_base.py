@@ -375,6 +375,17 @@ class ConnectionLockStage(PipelineStage):
 
             @pipeline_thread.runs_on_pipeline_thread
             def on_operation_complete(op, error):
+                if error:
+                    logger.error(
+                        "{}({}): op failed.  Unblocking queue with error: {}".format(
+                            self.name, op.name, error
+                        )
+                    )
+                else:
+                    logger.debug(
+                        "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
+                    )
+
                 self._unblock(op, error)
 
             op.add_callback(on_operation_complete)
