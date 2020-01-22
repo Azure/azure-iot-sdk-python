@@ -97,7 +97,6 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
-        logger.debug("{}({}): running".format(self.name, op.name))
         try:
             self._run_op(op)
         except Exception as e:
@@ -165,7 +164,6 @@ class PipelineStage(object):
             )
             op.complete(error=error)
         else:
-            logger.debug("{}({}): passing to next stage.".format(self.name, op.name))
             self.next.run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -176,9 +174,6 @@ class PipelineStage(object):
         bottom) and move up the pipeline until they're handled or until they error out.
         """
         if self.previous:
-            logger.debug(
-                "{}({}): pushing event up to {}".format(self.name, event.name, self.previous.name)
-            )
             self.previous.handle_pipeline_event(event)
         else:
             logger.error("{}({}): Error: unhandled event".format(self.name, event.name))
@@ -380,19 +375,7 @@ class ConnectionLockStage(PipelineStage):
 
             @pipeline_thread.runs_on_pipeline_thread
             def on_operation_complete(op, error):
-                if error:
-                    logger.error(
-                        "{}({}): op failed.  Unblocking queue with error: {}".format(
-                            self.name, op.name, error
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
-                    )
-
                 self._unblock(op, error)
-                logger.debug("{}({}): unblock is complete".format(self.name, op.name))
 
             op.add_callback(on_operation_complete)
             self.send_op_down(op)
@@ -799,7 +782,7 @@ class ReconnectStage(PipelineStage):
                 this.send_op_down(pipeline_ops_base.ConnectOperation(on_connect_complete))
             else:
                 logger.debug(
-                    "{}: retry timer expired, but client is connected.  Doing nothing".format(
+                    "{}: reconnect timer expired, but client is connected.  Doing nothing".format(
                         this.name
                     )
                 )
