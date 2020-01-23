@@ -55,6 +55,16 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         :returns: RegistrationResult indicating the result of the registration.
         :rtype: :class:`azure.iot.device.RegistrationResult`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+
         """
         logger.info("Registering with Provisioning Service...")
 
