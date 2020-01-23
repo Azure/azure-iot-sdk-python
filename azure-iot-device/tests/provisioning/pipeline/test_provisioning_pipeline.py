@@ -561,19 +561,3 @@ class TestEnable(object):
 
         assert mock_mqtt_transport.subscribe.call_count == 1
         assert mock_mqtt_transport.subscribe.call_args[1]["topic"] == fake_sub_unsub_topic
-
-
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Disable")
-class TestDisable(object):
-    @pytest.mark.it("Calls unsubscribe on provider")
-    def test_unsubscribe_calls_unsubscribe_on_provider(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-        mock_provisioning_pipeline.disable_responses(None)
-
-        assert mock_mqtt_transport.unsubscribe.call_count == 1
-        assert mock_mqtt_transport.unsubscribe.call_args[1]["topic"] == fake_sub_unsub_topic

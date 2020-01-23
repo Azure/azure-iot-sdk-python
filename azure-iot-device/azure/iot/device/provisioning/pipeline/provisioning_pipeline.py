@@ -136,21 +136,6 @@ class ProvisioningPipeline(object):
             pipeline_ops_base.EnableFeatureOperation(feature_name=None, callback=pipeline_callback)
         )
 
-    def disable_responses(self, callback=None):
-        """
-        Disable response from the DPS service by unsubscribing from the appropriate topics.
-        :param callback: callback which is called when the responses are disabled
-
-        """
-        logger.debug("disable_responses called")
-
-        def pipeline_callback(op, error):
-            callback(error=error)
-
-        self._pipeline.run_op(
-            pipeline_ops_base.DisableFeatureOperation(feature_name=None, callback=pipeline_callback)
-        )
-
     def register(self, payload=None, callback=None):
         """
         Register to the device provisioning service.

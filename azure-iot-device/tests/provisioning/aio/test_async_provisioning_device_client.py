@@ -74,9 +74,6 @@ class FakeProvisioningPipeline:
     def enable_responses(self, callback):
         callback()
 
-    def disable_responses(self, callback):
-        callback()
-
     def register(self, payload, callback):
         callback(result={})
 
