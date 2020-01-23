@@ -61,7 +61,7 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self._token_update_timer = None
         self.shared_access_key_name = None
         self.sas_token_str = None
-        self.on_sas_token_updated_handler = None
+        self.on_sas_token_updated_handler_list = []
 
     def __del__(self):
         self._cancel_token_update_timer()
@@ -81,14 +81,14 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
 
         If self.token_udpate_callback is set, this callback will be called to notify the
         pipeline that a new token is available.  The pipeline is responsible for doing
-        whatever is necessary to leverage the new token when the on_sas_token_updated_handler
+        whatever is necessary to leverage the new token when the on_sas_token_updated_handler_list
         function is called.
 
         The token that is generated expires at some point in the future, based on the token
         renewal interval and the token renewal margin.  When a token is first generated, the
         authorization provider object will set a timer which will be responsible for renewing
         the token before the it expires.  When this timer fires, it will automatically generate
-        a new sas token and notify the pipeline by calling self.on_sas_token_updated_handler.
+        a new sas token and notify the pipeline by calling self.on_sas_token_updated_handler_list.
 
         The token update timer is set based on two numbers: self.token_validity_period and
         self.token_renewal_margin
@@ -198,14 +198,15 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         In response to this event, clients should re-initiate their connection in order to use
         the updated sas token.
         """
-        if self.on_sas_token_updated_handler:
+        if bool(len(self.on_sas_token_updated_handler_list)):
             logger.debug(
                 "sending token update notification for (%s, %s)", self.device_id, self.module_id
             )
-            self.on_sas_token_updated_handler()
+            for x in self.on_sas_token_updated_handler_list:
+                x()
         else:
             logger.warning(
-                "_notify_token_updated: on_sas_token_updated_handler not set.  Doing nothing."
+                "_notify_token_updated: on_sas_token_updated_handler_list not set.  Doing nothing."
             )
 
     def get_current_sas_token(self):
