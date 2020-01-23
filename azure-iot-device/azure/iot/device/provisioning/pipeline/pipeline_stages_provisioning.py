@@ -63,8 +63,9 @@ class UseSecurityClientStage(PipelineStage):
 class CommonProvisioningStage(PipelineStage):
     """
     This is a super stage that the RegistrationStage and PollingStatusStage of
-    provisioning would both use. It  some common functions like decoding response
-    and retrieving error, registration status, operation id and forming a complete result.
+    provisioning would both use. It contains some common functions like decoding response
+    and retrieving error, retrieving registration status, retrieving operation id
+    and forming a complete result.
     """
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -231,7 +232,9 @@ class PollingStatusStage(CommonProvisioningStage):
                 query_status_op.complete(
                     error=(
                         exceptions.ServiceError(
-                            "Operation timed out before provisioning service could respond for PollStatus operation".format()
+                            "Operation timed out before provisioning service could respond for {op_type} operation".format(
+                                op_type=constant.QUERY
+                            )
                         )
                     )
                 )
@@ -367,7 +370,9 @@ class RegistrationStage(CommonProvisioningStage):
                 initial_register_op.complete(
                     error=(
                         exceptions.ServiceError(
-                            "Operation timed out before provisioning service could respond for Register operation".format()
+                            "Operation timed out before provisioning service could respond for {op_type} operation".format(
+                                op_type=constant.REGISTER
+                            )
                         )
                     )
                 )

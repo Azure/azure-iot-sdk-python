@@ -177,6 +177,21 @@ class RegisterOperationInstantiationTests(RegisterOperationTestConfig):
         op = cls_type(**init_kwargs)
         assert op.registration_id == init_kwargs["registration_id"]
 
+    @pytest.mark.it("Initializes 'retry_after_timer' attribute to None")
+    def test_retry_after_timer(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.retry_after_timer is None
+
+    @pytest.mark.it("Initializes 'polling_timer' attribute to None")
+    def test_polling_timer(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.polling_timer is None
+
+    @pytest.mark.it("Initializes 'provisioning_timeout_timer' attribute to None")
+    def test_provisioning_timeout_timer(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.provisioning_timeout_timer is None
+
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
@@ -215,6 +230,21 @@ class PollStatusOperationInstantiationTests(PollStatusOperationTestConfig):
     def test_request_payload(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
         assert op.request_payload == init_kwargs["request_payload"]
+
+    @pytest.mark.it("Initializes 'retry_after_timer' attribute to None")
+    def test_retry_after_timer(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.retry_after_timer is None
+
+    @pytest.mark.it("Initializes 'polling_timer' attribute to None")
+    def test_polling_timer(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.polling_timer is None
+
+    @pytest.mark.it("Initializes 'provisioning_timeout_timer' attribute to None")
+    def test_provisioning_timeout_timer(self, cls_type, init_kwargs):
+        op = cls_type(**init_kwargs)
+        assert op.provisioning_timeout_timer is None
 
 
 pipeline_ops_test.add_operation_tests(

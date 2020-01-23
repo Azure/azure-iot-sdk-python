@@ -697,6 +697,88 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
         assert next_op_2.request_body == request_body
 
 
+@pytest.mark.describe(
+    "RegistrationStage - .run_op() -- Called with register request operation eligible for timeout"
+)
+class TestRegistrationStageWithTimeoutOfRegisterOperation(
+    StageRunOpTestBase, RegistrationStageConfig
+):
+    @pytest.fixture
+    def op(self, stage, mocker):
+        op = pipeline_ops_provisioning.RegisterOperation(
+            " ", fake_registration_id, callback=mocker.MagicMock()
+        )
+        return op
+
+    @pytest.fixture
+    def mock_timer(self, mocker):
+        return mocker.patch(
+            "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
+        )
+
+    @pytest.mark.it(
+        "Adds a provisioning timeout timer with the interval specified in the configuration to the operation, and starts it"
+    )
+    def test_adds_timer(self, mocker, stage, op, mock_timer):
+        stage.run_op(op)
+
+        assert mock_timer.call_count == 1
+        assert mock_timer.call_args == mocker.call(constant.DEFAULT_TIMEOUT_INTERVAL, mocker.ANY)
+        assert op.provisioning_timeout_timer is mock_timer.return_value
+        assert op.provisioning_timeout_timer.start.call_count == 1
+        assert op.provisioning_timeout_timer.start.call_args == mocker.call()
+
+    @pytest.mark.it(
+        "Sends converted RequestResponse Op down the pipeline after attaching timer to the original op"
+    )
+    def test_sends_down(self, mocker, stage, op, mock_timer):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
+
+        assert op.provisioning_timeout_timer is mock_timer.return_value
+
+    @pytest.mark.it("Completes the operation unsuccessfully, with a ServiceError due to timeout")
+    def test_not_complete_timeout(self, mocker, stage, op, mock_timer):
+        # Apply the timer
+        stage.run_op(op)
+        assert not op.completed
+        assert mock_timer.call_count == 1
+        on_timer_complete = mock_timer.call_args[0][1]
+
+        # Call timer complete callback (indicating timer completion)
+        on_timer_complete()
+
+        # Op is now completed with error
+        assert op.completed
+        assert isinstance(op.error, exceptions.ServiceError)
+        assert "register" in op.error.args[0]
+
+    @pytest.mark.it(
+        "Completes the operation successfully, cancels and clears the operation's timeout timer"
+    )
+    def test_complete_before_timeout(self, mocker, stage, op, mock_timer):
+        # Apply the timer
+        stage.run_op(op)
+        assert not op.completed
+        assert mock_timer.call_count == 1
+        mock_timer_inst = op.provisioning_timeout_timer
+        assert mock_timer_inst is mock_timer.return_value
+        assert mock_timer_inst.cancel.call_count == 0
+
+        # Complete the next operation
+        new_op = stage.send_op_down.call_args[0][0]
+        new_op.complete()
+
+        # Timer is now cancelled and cleared
+        assert mock_timer_inst.cancel.call_count == 1
+        assert mock_timer_inst.cancel.call_args == mocker.call()
+        assert op.provisioning_timeout_timer is None
+
+
 class PollingStageConfig(object):
     @pytest.fixture
     def cls_type(self):
@@ -1021,286 +1103,81 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
         assert next_op_2.request_body == " "
 
 
-# class TimeoutStageTestConfig(object):
-#     @pytest.fixture
-#     def cls_type(self):
-#         return pipeline_stages_provisioning.ProvisioningTimeoutStage
-#
-#     @pytest.fixture
-#     def init_kwargs(self, mocker):
-#         return {}
-#
-#     @pytest.fixture
-#     def stage(self, mocker, cls_type, init_kwargs):
-#         stage = cls_type(**init_kwargs)
-#         # stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-#         #     pipeline_configuration=mocker.MagicMock()
-#         # )
-#         stage.send_op_down = mocker.MagicMock()
-#         stage.send_event_up = mocker.MagicMock()
-#         return stage
+@pytest.mark.describe(
+    "RegistrationStage - .run_op() -- Called with register request operation eligible for timeout"
+)
+class TestPollingStageWithTimeoutOfQueryOperation(StageRunOpTestBase, PollingStageConfig):
+    @pytest.fixture
+    def op(self, stage, mocker):
+        op = pipeline_ops_provisioning.PollStatusOperation(
+            fake_operation_id, " ", callback=mocker.MagicMock()
+        )
+        return op
 
+    @pytest.fixture
+    def mock_timer(self, mocker):
+        return mocker.patch(
+            "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
+        )
 
-# class TimeoutStageInstantiationTests(TimeoutStageTestConfig):
-#     @pytest.mark.it("Sets default time out intervals to a constant for RequestOperation")
-#     def test_timeout_intervals(self, init_kwargs):
-#         stage = pipeline_stages_provisioning.ProvisioningTimeoutStage(**init_kwargs)
-#         assert (
-#             stage.timeout_intervals[pipeline_ops_base.RequestOperation]
-#             == constant.DEFAULT_TIMEOUT_INTERVAL
-#         )
-#
-#
-# pipeline_stage_test.add_base_pipeline_stage_tests(
-#     test_module=this_module,
-#     stage_class_under_test=pipeline_stages_provisioning.ProvisioningTimeoutStage,
-#     stage_test_config_class=TimeoutStageTestConfig,
-#     extended_stage_instantiation_test_class=TimeoutStageInstantiationTests,
-# )
+    @pytest.mark.it(
+        "Adds a provisioning timeout timer with the interval specified in the configuration to the operation, and starts it"
+    )
+    def test_adds_timer(self, mocker, stage, op, mock_timer):
+        stage.run_op(op)
 
+        assert mock_timer.call_count == 1
+        assert mock_timer.call_args == mocker.call(constant.DEFAULT_TIMEOUT_INTERVAL, mocker.ANY)
+        assert op.provisioning_timeout_timer is mock_timer.return_value
+        assert op.provisioning_timeout_timer.start.call_count == 1
+        assert op.provisioning_timeout_timer.start.call_args == mocker.call()
 
-# class TimeoutStageRunOpRequestConfig(TimeoutStageTestConfig):
-#     @pytest.fixture
-#     def mock_timer(self, mocker):
-#         return mocker.patch(
-#             "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning.Timer"
-#         )
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - .run_op() -- Called with register request operation eligible for timeout"
-# )
-# class TestTimeoutStageRunOpCalledWithRegisterRequestOp(
-#     TimeoutStageRunOpRequestConfig, StageRunOpTestBase
-# ):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = pipeline_ops_base.RequestOperation(
-#             method="PUT",
-#             resource_location="/",
-#             request_body=" ",
-#             request_id=fake_request_id,
-#             request_type="REGISTER",
-#             callback=mocker.MagicMock(),
-#         )
-#         return op
-#
-#     @pytest.mark.it(
-#         "Adds a provisioning timeout timer with the interval specified in the configuration to the operation, and starts it"
-#     )
-#     def test_adds_timer(self, mocker, stage, op, mock_timer):
-#
-#         stage.run_op(op)
-#
-#         assert mock_timer.call_count == 1
-#         assert mock_timer.call_args == mocker.call(stage.timeout_intervals[type(op)], mocker.ANY)
-#         assert op.provisioning_timeout_timer is mock_timer.return_value
-#         assert op.provisioning_timeout_timer.start.call_count == 1
-#         assert op.provisioning_timeout_timer.start.call_args == mocker.call()
-#
-#     @pytest.mark.it("Sends the operation down the pipeline")
-#     def test_sends_down(self, mocker, stage, op, mock_timer):
-#         stage.run_op(op)
-#
-#         assert stage.send_op_down.call_count == 1
-#         assert stage.send_op_down.call_args == mocker.call(op)
-#         assert op.provisioning_timeout_timer is mock_timer.return_value
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - .run_op() -- Called with query request operation eligible for timeout"
-# )
-# class TestTimeoutStageRunOpCalledWithQueryRequestOp(
-#     TimeoutStageRunOpRequestConfig, StageRunOpTestBase
-# ):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = pipeline_ops_base.RequestOperation(
-#             method="GET",
-#             resource_location="/",
-#             request_body=" ",
-#             request_id=fake_request_id,
-#             request_type="QUERY",
-#             callback=mocker.MagicMock(),
-#             query_params={"operation_id": fake_operation_id},
-#         )
-#         return op
-#
-#     @pytest.mark.it(
-#         "Adds a provisioning timeout timer with the interval specified in the configuration to the operation, and starts it"
-#     )
-#     def test_adds_timer(self, mocker, stage, op, mock_timer):
-#
-#         stage.run_op(op)
-#
-#         assert mock_timer.call_count == 1
-#         assert mock_timer.call_args == mocker.call(stage.timeout_intervals[type(op)], mocker.ANY)
-#         assert op.provisioning_timeout_timer is mock_timer.return_value
-#         assert op.provisioning_timeout_timer.start.call_count == 1
-#         assert op.provisioning_timeout_timer.start.call_args == mocker.call()
-#
-#     @pytest.mark.it("Sends the operation down the pipeline")
-#     def test_sends_down(self, mocker, stage, op, mock_timer):
-#         stage.run_op(op)
-#
-#         assert stage.send_op_down.call_count == 1
-#         assert stage.send_op_down.call_args == mocker.call(op)
-#         assert op.provisioning_timeout_timer is mock_timer.return_value
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - .run_op() -- Called with arbitrary operation that is not eligible for timeout"
-# )
-# class TestOpTimeoutStageRunOpCalledWithOpThatDoesNotTimeout(
-#     TimeoutStageRunOpRequestConfig, StageRunOpTestBase
-# ):
-#     @pytest.fixture
-#     def op(self, arbitrary_op):
-#         return arbitrary_op
-#
-#     @pytest.mark.it("Sends the operation down the pipeline without attaching a timeout timer")
-#     def test_sends_down(self, mocker, stage, op, mock_timer):
-#         stage.run_op(op)
-#
-#         assert stage.send_op_down.call_count == 1
-#         assert stage.send_op_down.call_args == mocker.call(op)
-#         assert mock_timer.call_count == 0
-#         assert not hasattr(op, "timeout_timer")
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - EVENT: REGISTER request operation with a timeout timer times out before completion"
-# )
-# class TestOpTimeoutStageRegisterRequestTimesOut(TimeoutStageRunOpRequestConfig):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = pipeline_ops_base.RequestOperation(
-#             method="PUT",
-#             resource_location="/",
-#             request_body=" ",
-#             request_id=fake_request_id,
-#             request_type="REGISTER",
-#             callback=mocker.MagicMock(),
-#         )
-#         return op
-#
-#     @pytest.mark.it("Completes the operation unsuccessfully, with a PiplineTimeoutError")
-#     def test_pipeline_timeout(self, mocker, stage, op, mock_timer):
-#         # Apply the timer
-#         stage.run_op(op)
-#         assert not op.completed
-#         assert mock_timer.call_count == 1
-#         on_timer_complete = mock_timer.call_args[0][1]
-#
-#         # Call timer complete callback (indicating timer completion)
-#         on_timer_complete()
-#
-#         # Op is now completed with error
-#         assert op.completed
-#         assert isinstance(op.error, exceptions.ServiceError)
-#         assert "REGISTER" in op.error.args[0]
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - EVENT: QUERY request operation with a timeout timer times out before completion"
-# )
-# class TestOpTimeoutStageQueryRequestTimesOut(TimeoutStageRunOpRequestConfig):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = pipeline_ops_base.RequestOperation(
-#             method="GET",
-#             resource_location="/",
-#             request_body=" ",
-#             request_id=fake_request_id,
-#             request_type="QUERY",
-#             callback=mocker.MagicMock(),
-#             query_params={"operation_id": fake_operation_id},
-#         )
-#         return op
-#
-#     @pytest.mark.it("Completes the operation unsuccessfully, with a PiplineTimeoutError")
-#     def test_pipeline_timeout(self, mocker, stage, op, mock_timer):
-#         # Apply the timer
-#         stage.run_op(op)
-#         assert not op.completed
-#         assert mock_timer.call_count == 1
-#         on_timer_complete = mock_timer.call_args[0][1]
-#
-#         # Call timer complete callback (indicating timer completion)
-#         on_timer_complete()
-#
-#         # Op is now completed with error
-#         assert op.completed
-#         assert isinstance(op.error, exceptions.ServiceError)
-#         assert "QUERY" in op.error.args[0]
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - EVENT: Operation with a timeout timer completes before timeout"
-# )
-# class TestOpTimeoutStageRegisterRequestCompletesBeforeTimeout(TimeoutStageRunOpRequestConfig):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = pipeline_ops_base.RequestOperation(
-#             method="PUT",
-#             resource_location="/",
-#             request_body=" ",
-#             request_id=fake_request_id,
-#             request_type="REGISTER",
-#             callback=mocker.MagicMock(),
-#         )
-#         return op
-#
-#     @pytest.mark.it("Cancels and clears the operation's timeout timer")
-#     def test_complete_before_timeout(self, mocker, stage, op, mock_timer):
-#         # Apply the timer
-#         stage.run_op(op)
-#         assert not op.completed
-#         assert mock_timer.call_count == 1
-#         mock_timer_inst = op.provisioning_timeout_timer
-#         assert mock_timer_inst is mock_timer.return_value
-#         assert mock_timer_inst.cancel.call_count == 0
-#
-#         # Complete the operation
-#         op.complete()
-#
-#         # Timer is now cancelled and cleared
-#         assert mock_timer_inst.cancel.call_count == 1
-#         assert mock_timer_inst.cancel.call_args == mocker.call()
-#         assert op.provisioning_timeout_timer is None
-#
-#
-# @pytest.mark.describe(
-#     "ProvisioningTimeoutStage - EVENT: Operation with a timeout timer completes before timeout"
-# )
-# class TestOpTimeoutStageQueryRequestCompletesBeforeTimeout(TimeoutStageRunOpRequestConfig):
-#     @pytest.fixture
-#     def op(self, mocker):
-#         op = pipeline_ops_base.RequestOperation(
-#             method="GET",
-#             resource_location="/",
-#             request_body=" ",
-#             request_id=fake_request_id,
-#             request_type="QUERY",
-#             callback=mocker.MagicMock(),
-#             query_params={"operation_id": fake_operation_id},
-#         )
-#         return op
-#
-#     @pytest.mark.it("Cancels and clears the operation's timeout timer")
-#     def test_complete_before_timeout(self, mocker, stage, op, mock_timer):
-#         # Apply the timer
-#         stage.run_op(op)
-#         assert not op.completed
-#         assert mock_timer.call_count == 1
-#         mock_timer_inst = op.provisioning_timeout_timer
-#         assert mock_timer_inst is mock_timer.return_value
-#         assert mock_timer_inst.cancel.call_count == 0
-#
-#         # Complete the operation
-#         op.complete()
-#
-#         # Timer is now cancelled and cleared
-#         assert mock_timer_inst.cancel.call_count == 1
-#         assert mock_timer_inst.cancel.call_args == mocker.call()
-#         assert op.provisioning_timeout_timer is None
+    @pytest.mark.it(
+        "Sends converted RequestResponse Op down the pipeline after attaching timer to the original op"
+    )
+    def test_sends_down(self, mocker, stage, op, mock_timer):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_base.RequestAndResponseOperation)
+
+        assert op.provisioning_timeout_timer is mock_timer.return_value
+
+    @pytest.mark.it("Completes the operation unsuccessfully, with a ServiceError due to timeout")
+    def test_not_complete_timeout(self, mocker, stage, op, mock_timer):
+        # Apply the timer
+        stage.run_op(op)
+        assert not op.completed
+        assert mock_timer.call_count == 1
+        on_timer_complete = mock_timer.call_args[0][1]
+
+        # Call timer complete callback (indicating timer completion)
+        on_timer_complete()
+
+        # Op is now completed with error
+        assert op.completed
+        assert isinstance(op.error, exceptions.ServiceError)
+        assert "query" in op.error.args[0]
+
+    @pytest.mark.it(
+        "Completes the operation successfully, cancels and clears the operation's timeout timer"
+    )
+    def test_complete_before_timeout(self, mocker, stage, op, mock_timer):
+        # Apply the timer
+        stage.run_op(op)
+        assert not op.completed
+        assert mock_timer.call_count == 1
+        mock_timer_inst = op.provisioning_timeout_timer
+        assert mock_timer_inst is mock_timer.return_value
+        assert mock_timer_inst.cancel.call_count == 0
+
+        # Complete the next operation
+        new_op = stage.send_op_down.call_args[0][0]
+        new_op.complete()
+
+        # Timer is now cancelled and cleared
+        assert mock_timer_inst.cancel.call_count == 1
+        assert mock_timer_inst.cancel.call_args == mocker.call()
+        assert op.provisioning_timeout_timer is None
