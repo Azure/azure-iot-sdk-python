@@ -32,8 +32,10 @@ class UseAuthProviderStage(PipelineStage):
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
             self.auth_provider = op.auth_provider
-            self.auth_provider.on_sas_token_updated_handler = CallableWeakMethod(
-                self, "_on_sas_token_updated"
+            # Here we append rather than just add it to the handler value because otherwise it
+            # would overwrite the handler from another pipeline that might be using the same auth provider.
+            self.auth_provider.on_sas_token_updated_handler_list.append(
+                CallableWeakMethod(self, "_on_sas_token_updated")
             )
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_iothub.SetIoTHubConnectionArgsOperation,
