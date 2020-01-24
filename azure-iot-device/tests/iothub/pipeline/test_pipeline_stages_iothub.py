@@ -116,6 +116,7 @@ class TestUseAuthProviderStageRunOpWithSetAuthProviderOperation(
                 hostname=fake_hostname, device_id=fake_device_id, module_id=fake_module_id
             )
         fake_auth_provider.get_current_sas_token = mocker.MagicMock()
+        fake_auth_provider.on_sas_token_updated_handler_list = [mocker.MagicMock()]
         return fake_auth_provider
 
     @pytest.fixture
@@ -329,6 +330,7 @@ class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProvid
                 hostname=fake_hostname, device_id=fake_device_id, module_id=fake_module_id
             )
         fake_auth_provider.get_current_sas_token = mocker.MagicMock()
+        fake_auth_provider.on_sas_token_updated_handler_list = [mocker.MagicMock()]
         return fake_auth_provider
 
     @pytest.fixture
@@ -349,7 +351,8 @@ class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProvid
 
     @pytest.mark.it("Sends an UpdateSasTokenOperation with the new SAS token down the pipeline")
     def test_generates_new_token(self, mocker, stage):
-        stage.auth_provider.on_sas_token_updated_handler()
+        for x in stage.auth_provider.on_sas_token_updated_handler_list:
+            x()
 
         assert stage.send_op_down.call_count == 1
         op = stage.send_op_down.call_args[0][0]
@@ -362,7 +365,8 @@ class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProvid
     def test_update_fails(
         self, mocker, stage, arbitrary_exception, mock_handle_background_exception
     ):
-        stage.auth_provider.on_sas_token_updated_handler()
+        for x in stage.auth_provider.on_sas_token_updated_handler_list:
+            x()
 
         assert stage.send_op_down.call_count == 1
         op = stage.send_op_down.call_args[0][0]
