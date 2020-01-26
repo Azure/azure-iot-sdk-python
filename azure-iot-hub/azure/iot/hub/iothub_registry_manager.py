@@ -21,7 +21,7 @@ from .protocol.models import (
 )
 
 
-class QueryResult:
+class QueryResult(object):
     """The query result.
     :param type: The query result type. Possible values include: 'unknown',
      'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment',
