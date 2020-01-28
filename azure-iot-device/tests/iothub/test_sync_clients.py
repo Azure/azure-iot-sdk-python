@@ -492,6 +492,25 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    def test_raises_error_when_message_data_greater_than_256(self, client, iothub_pipeline):
+        data_input = "serpensortia" * 256000
+        message = Message(data_input)
+        with pytest.raises(ValueError) as e_info:
+            client.send_message(message)
+        assert "256 KB" in e_info.value.message
+        assert iothub_pipeline.send_message.call_count == 0
+
+    @pytest.mark.it("Raises error when message size is greater than 256 KB")
+    def test_raises_error_when_message_size_greater_than_256(self, client, iothub_pipeline):
+        data_input = "serpensortia"
+        message = Message(data_input)
+        message.custom_properties["spell"] = data_input * 256000
+        with pytest.raises(ValueError) as e_info:
+            client.send_message(message)
+        assert "256 KB" in e_info.value.message
+        assert iothub_pipeline.send_message.call_count == 0
+
 
 class SharedClientReceiveMethodRequestTests(object):
     @pytest.mark.it("Implicitly enables methods feature if not already enabled")

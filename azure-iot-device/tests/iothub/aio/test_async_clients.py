@@ -19,6 +19,7 @@ from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.auth import IoTEdgeError
+import sys
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
@@ -495,6 +496,25 @@ class SharedClientSendD2CMessageTests(object):
         sent_message = iothub_pipeline.send_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
+
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    async def test_raises_error_when_message_data_greater_than_256(self, client, iothub_pipeline):
+        data_input = "serpensortia" * 256000
+        message = Message(data_input)
+        with pytest.raises(ValueError) as e_info:
+            await client.send_message(message)
+        assert "256 KB" in e_info.value.message
+        assert iothub_pipeline.send_message.call_count == 0
+
+    @pytest.mark.it("Raises error when message size is greater than 256 KB")
+    async def test_raises_error_when_message_size_greater_than_256(self, client, iothub_pipeline):
+        data_input = "serpensortia"
+        message = Message(data_input)
+        message.custom_properties["spell"] = data_input * 256000
+        with pytest.raises(ValueError) as e_info:
+            await client.send_message(message)
+        assert "256 KB" in e_info.value.message
+        assert iothub_pipeline.send_message.call_count == 0
 
 
 class SharedClientReceiveMethodRequestTests(object):

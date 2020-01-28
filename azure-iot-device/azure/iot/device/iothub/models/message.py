@@ -6,6 +6,7 @@
 """This module contains a class representing messages that are sent or received.
 """
 from azure.iot.device import constant
+import sys
 
 
 # TODO: Revise this class. Does all of this REALLY need to be here?
@@ -75,3 +76,16 @@ class Message(object):
 
     def __str__(self):
         return str(self.data)
+
+    def get_size(self):
+        total = 0
+        total = total + sum(
+            sys.getsizeof(v)
+            for v in self.__dict__.values()
+            if v is not None and v is not self.custom_properties
+        )
+        if self.custom_properties:
+            total = total + sum(
+                sys.getsizeof(v) for v in self.custom_properties.values() if v is not None
+            )
+        return total
