@@ -29,6 +29,10 @@ class AbstractProvisioningDeviceClient(object):
         """
         Initializes the provisioning client.
 
+        NOTE: This initializer should not be called directly.
+        Instead, the class methods that start with `create_from_` should be used to create a
+        client object.
+
         :param provisioning_pipeline: Instance of the provisioning pipeline object.
         :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
         """

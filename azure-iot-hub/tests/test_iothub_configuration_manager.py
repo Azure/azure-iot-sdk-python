@@ -32,11 +32,11 @@ fake_configuration_content = "fake_configuration_content"
 
 
 @pytest.fixture(scope="function", autouse=True)
-def mock_service_operations(mocker):
-    mock_service_operations_init = mocker.patch(
-        "azure.iot.hub.protocol.iot_hub_gateway_service_ap_is20190630.ServiceOperations"
+def mock_configuration_operations(mocker):
+    mock_configuration_operations_init = mocker.patch(
+        "azure.iot.hub.protocol.iot_hub_gateway_service_ap_is.ConfigurationOperations"
     )
-    return mock_service_operations_init.return_value
+    return mock_configuration_operations_init.return_value
 
 
 @pytest.fixture(scope="function")
@@ -54,11 +54,11 @@ def iothub_configuration_manager():
 @pytest.mark.describe("IoTHubConfigurationManager - .get_configuration()")
 class TestGetConfiguration(object):
     @pytest.mark.it("Gets configuration")
-    def test_get_configuration(self, mocker, mock_service_operations, iothub_configuration_manager):
+    def test_get(self, mocker, mock_configuration_operations, iothub_configuration_manager):
         iothub_configuration_manager.get_configuration(fake_configuration_id)
 
-        assert mock_service_operations.get_configuration.call_count == 1
-        assert mock_service_operations.get_configuration.call_args == mocker.call(
+        assert mock_configuration_operations.get.call_count == 1
+        assert mock_configuration_operations.get.call_args == mocker.call(
             fake_configuration_id
         )
 
@@ -67,12 +67,12 @@ class TestGetConfiguration(object):
 class TestCreateConfiguration(object):
     @pytest.mark.it("Creates configuration")
     def test_create_configuration(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.create_configuration(fake_configuration)
 
-        assert mock_service_operations.create_or_update_configuration.call_count == 1
-        assert mock_service_operations.create_or_update_configuration.call_args == mocker.call(
+        assert mock_configuration_operations.create_or_update.call_count == 1
+        assert mock_configuration_operations.create_or_update.call_args == mocker.call(
             fake_configuration_id, fake_configuration
         )
 
@@ -81,12 +81,12 @@ class TestCreateConfiguration(object):
 class TestUpdateConfiguration(object):
     @pytest.mark.it("Updates configuration")
     def test_update_configuration(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.update_configuration(fake_configuration, fake_etag)
 
-        assert mock_service_operations.create_or_update_configuration.call_count == 1
-        assert mock_service_operations.create_or_update_configuration.call_args == mocker.call(
+        assert mock_configuration_operations.create_or_update.call_count == 1
+        assert mock_configuration_operations.create_or_update.call_args == mocker.call(
             fake_configuration_id, fake_configuration, fake_etag
         )
 
@@ -95,50 +95,50 @@ class TestUpdateConfiguration(object):
 class TestDeleteConfiguration(object):
     @pytest.mark.it("Deletes configuration")
     def test_delete_configuration(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.delete_configuration(fake_configuration_id)
 
-        assert mock_service_operations.delete_configuration.call_count == 1
-        assert mock_service_operations.delete_configuration.call_args == mocker.call(
+        assert mock_configuration_operations.delete.call_count == 1
+        assert mock_configuration_operations.delete.call_args == mocker.call(
             fake_configuration_id, "*"
         )
 
     @pytest.mark.it("Deletes configuration with an etag")
     def test_delete_configuration_with_etag(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.delete_configuration(
             configuration_id=fake_configuration_id, etag=fake_etag
         )
 
-        assert mock_service_operations.delete_configuration.call_count == 1
-        assert mock_service_operations.delete_configuration.call_args == mocker.call(
+        assert mock_configuration_operations.delete.call_count == 1
+        assert mock_configuration_operations.delete.call_args == mocker.call(
             fake_configuration_id, fake_etag
         )
 
 
 @pytest.mark.describe("IoTHubConfigurationManager - .get_configurations()")
 class TestGetConfigurations(object):
-    @pytest.mark.it("Gets configuration")
+    @pytest.mark.it("Get configurations")
     def test_get_configurations(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.get_configurations(fake_max_count)
 
-        assert mock_service_operations.get_configurations.call_count == 1
-        assert mock_service_operations.get_configurations.call_args == mocker.call(fake_max_count)
+        assert mock_configuration_operations.get_configurations.call_count == 1
+        assert mock_configuration_operations.get_configurations.call_args == mocker.call(fake_max_count)
 
 
 @pytest.mark.describe("IoTHubConfigurationManager - .test_configuration_queries()")
 class TestTestConfigurationQueries(object):
     @pytest.mark.it("Test test_configuration_queries")
     def test_test_configuration_queries(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.test_configuration_queries(fake_configuration_queries)
-        assert mock_service_operations.test_configuration_queries.call_count == 1
-        assert mock_service_operations.test_configuration_queries.call_args == mocker.call(
+        assert mock_configuration_operations.test_queries.call_count == 1
+        assert mock_configuration_operations.test_queries.call_args == mocker.call(
             fake_configuration_queries
         )
 
@@ -147,12 +147,12 @@ class TestTestConfigurationQueries(object):
 class TestApplyConfigurationOnEdgeDevice(object):
     @pytest.mark.it("Test apply configuration on edge device")
     def test_apply_configuration_on_edge_device(
-        self, mocker, mock_service_operations, iothub_configuration_manager
+        self, mocker, mock_configuration_operations, iothub_configuration_manager
     ):
         iothub_configuration_manager.apply_configuration_on_edge_device(
             fake_device_id, fake_configuration_content
         )
-        assert mock_service_operations.apply_configuration_on_edge_device.call_count == 1
-        assert mock_service_operations.apply_configuration_on_edge_device.call_args == mocker.call(
+        assert mock_configuration_operations.apply_on_edge_device.call_count == 1
+        assert mock_configuration_operations.apply_on_edge_device.call_args == mocker.call(
             fake_device_id, fake_configuration_content
         )

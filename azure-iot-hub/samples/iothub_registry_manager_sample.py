@@ -10,7 +10,7 @@ from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = "test_device"
+device_id = os.getenv("IOTHUB_NEW_DEVICE_ID")
 
 
 def print_device_info(title, iothub_device):
@@ -94,6 +94,17 @@ try:
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
     print(updated_twin)
     print("")
+
+    # Get devices
+    max_number_of_devices = 10
+    devices = iothub_registry_manager.get_devices(max_number_of_devices)
+    if devices:
+        x = 0
+        for d in devices:
+            print_device_info("Get devices {0}".format(x), d)
+            x += 1
+    else:
+        print("No device found")
 
     # Delete the device
     iothub_registry_manager.delete_device(device_id)

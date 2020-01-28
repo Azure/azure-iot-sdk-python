@@ -11,7 +11,6 @@ from azure.iot.hub.models import CloudToDeviceMethod
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_connection_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
 method_name = "lockDoor"
 method_payload = "now"
