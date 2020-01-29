@@ -11,4 +11,4 @@ USER_AGENT = "py-azure-iot-device/{version}".format(version=VERSION)
 IOTHUB_API_VERSION = "2018-06-30"
 PROVISIONING_API_VERSION = "2019-03-31"
 SECURITY_MESSAGE_INTERFACE_ID = "urn:azureiot:Security:SecurityAgent:1"
-SIZE_LIMIT = 256000
+SIZE_LIMIT = 262144
