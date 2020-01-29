@@ -2,7 +2,6 @@
 
 The Azure IoT Device SDK for Python provides functionality for communicating with the Azure IoT Hub for both Devices and Modules.
 
-
 ## Azure IoT Device Features
 
 The SDK provides the following clients:
@@ -29,7 +28,6 @@ These clients are available with an asynchronous API, as well as a blocking sync
 | Python Version | Asynchronous API | Synchronous API |
 | -------------- | ---------------- | --------------- |
 | Python 3.5.3+  | **YES**          | **YES**         |
-| Python 3.4     | NO               | **YES**         |
 | Python 2.7     | NO               | **YES**         |
 
 ## Installation
@@ -50,7 +48,6 @@ Check out the [samples repository](../azure-iot-device/samples) for example code
 * Send and receive updates to device twin
 * Receive invocations to direct methods
 * Register a device with the Device Provisioning Service
-* Legacy scenarios for Python 2.7 and 3.4
 
 ## Getting help and finding API docs
 
