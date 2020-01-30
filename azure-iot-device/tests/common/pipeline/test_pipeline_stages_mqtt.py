@@ -116,7 +116,7 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         assert stage.sas_token == op.sas_token
 
     @pytest.mark.it(
-        "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
+        "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage"
     )
     @pytest.mark.parametrize(
         "websockets",

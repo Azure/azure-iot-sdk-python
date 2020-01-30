@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProvisioningPipelineConfig(BasePipelineConfig):
-    """A class for storing all configurations/options for IoTHub clients in the Azure IoT Python Device Client Library.
+    """A class for storing all configurations/options for Provisioning clients in the Azure IoT Python Device Client Library.
     """
 
     pass
