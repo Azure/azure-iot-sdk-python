@@ -35,40 +35,6 @@ def mock_pipeline_http_init(mocker):
     return mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
 
-# ##################
-# # ABSTRACT TESTS #
-# ##################
-
-# """By using abstract classes we can enforce a set of tests across all classes that inherit from it.
-# This allows us to be sure that all relevant test units have the same coverage"""
-
-# # @six.add_metaclass(abc.ABCMeta)
-# # class AbstractClientCreateMethodUserOptionTests(object):
-# #     """Tests for user options provided via creation methods"""
-# #     @abc.abstractmethod
-# #     def test_product_info_option(self):
-# #         pass
-
-# #     @abc.abstractmethod
-# #     def test_websockets_option(self):
-# #         pass
-
-# #     @abc.abstractmethod
-# #     def test_cipher_option(self):
-# #         pass
-
-# #     @abc.abstractmethod
-# #     def test_server_verification_cert_option(self):
-# #         pass
-
-# #     @abc.abstractmethod
-# #     def test_invalid_option(self):
-# #         pass
-
-# #     @abc.abstractmethod
-# #     def test_default_options(self):
-# #         pass
-
 ################
 # SHARED TESTS #
 ################
@@ -1895,7 +1861,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         "Uses Edge container environment variables to create an IoTEdgeAuthenticationProvider"
     )
     def test_auth_provider_creation(self, mocker, client_class, edge_container_environment):
-        mocker.patch.dict(os.environ, edge_container_environment)
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         mock_auth_init = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
 
         client_class.create_from_edge_environment()
@@ -1920,7 +1886,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         # This test verifies that with a hybrid environment, the auth provider will always be
         # an IoTEdgeAuthenticationProvider, even if local debug variables are present
         hybrid_environment = merge_dicts(edge_container_environment, edge_local_debug_environment)
-        mocker.patch.dict(os.environ, hybrid_environment)
+        mocker.patch.dict(os.environ, hybrid_environment, clear=True)
         mock_edge_auth_init = mocker.patch(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         )
@@ -1946,7 +1912,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         "Uses the IoTEdgeAuthenticationProvider to create an IoTHubPipeline and an HTTPPipeline"
     )
     def test_pipeline_creation(self, mocker, client_class, edge_container_environment):
-        mocker.patch.dict(os.environ, edge_container_environment)
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         ).return_value
@@ -1970,7 +1936,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
 
     @pytest.mark.it("Uses the IoTHubPipeline and the HTTPPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, edge_container_environment):
-        mocker.patch.dict(os.environ, edge_container_environment)
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         # Always patch the IoTEdgeAuthenticationProvider to prevent I/O operations
         mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
         mock_iothub_pipeline = mocker.patch(
@@ -1990,7 +1956,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
 
     @pytest.mark.it("Returns the instantiated client")
     def test_returns_client(self, mocker, client_class, edge_container_environment):
-        mocker.patch.dict(os.environ, edge_container_environment)
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         # Always patch the IoTEdgeAuthenticationProvider to prevent I/O operations
         mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
 
@@ -2016,14 +1982,14 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
     ):
         # Remove a variable from the fixture
         del edge_container_environment[missing_env_var]
-        mocker.patch.dict(os.environ, edge_container_environment)
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
 
         with pytest.raises(OSError):
             client_class.create_from_edge_environment()
 
     @pytest.mark.it("Raises OSError if there is an error using the Edge for authentication")
     def test_bad_edge_auth(self, mocker, client_class, edge_container_environment):
-        mocker.patch.dict(os.environ, edge_container_environment)
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         mock_auth = mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
         my_edge_error = IoTEdgeError()
         mock_auth.side_effect = my_edge_error
@@ -2047,7 +2013,7 @@ class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
     def test_pipeline_configuration_defaults(
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
@@ -2087,7 +2053,7 @@ class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
         product_info,
         mock_open,
     ):
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         mock_config_init = mocker.patch(
@@ -2112,7 +2078,7 @@ class TestConfigurationIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
     def test_pipeline_configuration_fails_with_bad_option(
         self, mocker, mock_pipeline_init, client_class, edge_local_debug_environment, mock_open
     ):
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mocker.patch("azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider")
 
         kwargs = {"bad_option": "__fake_parameter__"}
@@ -2136,7 +2102,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
         mock_file_handle = mock_open.return_value.__enter__.return_value
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         client_class.create_from_edge_environment()
         assert mock_open.call_count == 1
         assert mock_open.call_args == mocker.call(
@@ -2151,7 +2117,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
         expected_cert = mock_open.return_value.__enter__.return_value.read.return_value
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mock_auth_parse = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse
@@ -2178,7 +2144,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         # This test verifies that with a hybrid environment, the auth provider will always be
         # an IoTEdgeAuthenticationProvider, even if local debug variables are present
         hybrid_environment = merge_dicts(edge_container_environment, edge_local_debug_environment)
-        mocker.patch.dict(os.environ, hybrid_environment)
+        mocker.patch.dict(os.environ, hybrid_environment, clear=True)
         mock_edge_auth_init = mocker.patch(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         )
@@ -2204,7 +2170,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         "Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline and an HTTPPipeline"
     )
     def test_pipeline_creation(self, mocker, client_class, edge_local_debug_environment, mock_open):
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
@@ -2229,7 +2195,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
     def test_client_instantiation(
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mock_iothub_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.IoTHubPipeline"
         ).return_value
@@ -2247,7 +2213,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
 
     @pytest.mark.it("Returns the instantiated client")
     def test_returns_client(self, mocker, client_class, edge_local_debug_environment, mock_open):
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
 
         client = client_class.create_from_edge_environment()
 
@@ -2262,7 +2228,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
     ):
         # Remove a variable from the fixture
         del edge_local_debug_environment[missing_env_var]
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
 
         with pytest.raises(OSError):
             client_class.create_from_edge_environment()
@@ -2288,7 +2254,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         self, mocker, client_class, edge_local_debug_environment, bad_cs, mock_open
     ):
         edge_local_debug_environment["EdgeHubConnectionString"] = bad_cs
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
 
         with pytest.raises(ValueError):
             client_class.create_from_edge_environment()
@@ -2303,7 +2269,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
         except NameError:
             FileNotFoundError = IOError
 
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         my_fnf_error = FileNotFoundError()
         mock_open.side_effect = my_fnf_error
         with pytest.raises(ValueError) as e_info:
@@ -2319,7 +2285,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(IoTHubModuleCl
             error = IOError()
         else:
             error = OSError()
-        mocker.patch.dict(os.environ, edge_local_debug_environment)
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         mock_open.side_effect = error
         with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
