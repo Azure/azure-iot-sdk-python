@@ -86,7 +86,7 @@ class AbstractIoTHubClient(object):
             arbitrary product info which is appended to the user agent string.
 
         :raises: ValueError if given an invalid connection_string.
-        :raises: TypeError if given an unrecognized user option.
+        :raises: TypeError if given an unrecognized parameter.
 
         :returns: An instance of an IoTHub client that uses a connection string for authentication.
         """
@@ -179,7 +179,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
 
-        :raises: TypeError if given an unrecognized user option.
+        :raises: TypeError if given an unrecognized parameter.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
@@ -223,7 +223,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
 
-        :raises: TypeError if given an unrecognized user option.
+        :raises: TypeError if given an unrecognized parameter.
 
         :return: An instance of an IoTHub client that uses a symmetric key for authentication.
         """
@@ -271,7 +271,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
-        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+        :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
@@ -283,6 +283,12 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :returns: An instance of an IoTHub client that uses the IoT Edge environment for
             authentication.
         """
+        _validate_kwargs(**kwargs)
+        if kwargs.get("server_verification_cert"):
+            raise TypeError(
+                "'server_verification_cert' is not supported by clients using an IoT Edge environment"
+            )
+
         # First try the regular Edge container variables
         try:
             hostname = os.environ["IOTEDGE_IOTHUBHOSTNAME"]
@@ -344,12 +350,17 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err.__cause__ = e
                 raise new_err
 
-        pipeline_configuration = IoTHubPipelineConfig(**kwargs)
+        # Pipeline Config setup
+        pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
+        pipeline_configuration = IoTHubPipelineConfig(**pipeline_config_kwargs)
         pipeline_configuration.method_invoke = (
             True
         )  # Method Invoke is allowed on modules created from edge environment
+
+        # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
         iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+
         return cls(iothub_pipeline, http_pipeline)
 
     @classmethod
@@ -378,7 +389,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
 
-        :raises: TypeError if given an unrecognized user option.
+        :raises: TypeError if given an unrecognized parameter.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
