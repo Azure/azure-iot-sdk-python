@@ -19,6 +19,17 @@ from azure.iot.device.provisioning.pipeline.config import ProvisioningPipelineCo
 logger = logging.getLogger(__name__)
 
 
+def _validate_kwargs(**kwargs):
+    """Helper function to validate user provided kwargs.
+    Raises TypeError if an invalid option has been provided"""
+    # TODO: add support for server_verification_cert
+    valid_kwargs = ["websockets", "cipher"]
+
+    for kwarg in kwargs:
+        if kwarg not in valid_kwargs:
+            raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg))
+
+
 @six.add_metaclass(abc.ABCMeta)
 class AbstractProvisioningDeviceClient(object):
     """
@@ -63,13 +74,16 @@ class AbstractProvisioningDeviceClient(object):
             Users can provide their own symmetric keys for enrollments by disabling this option
             within 16 bytes and 64 bytes and in valid Base64 format.
 
-        :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
-        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
 
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
+        _validate_kwargs(**kwargs)
+
         security_client = SymmetricKeySecurityClient(
             provisioning_host, registration_id, id_scope, symmetric_key
         )
@@ -99,13 +113,16 @@ class AbstractProvisioningDeviceClient(object):
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
 
-        :param bool websockets: The switch for enabling MQTT over websockets. Defaults to false (no websockets).
-        :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
 
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
+        _validate_kwargs(**kwargs)
+
         security_client = X509SecurityClient(provisioning_host, registration_id, id_scope, x509)
         pipeline_configuration = ProvisioningPipelineConfig(**kwargs)
         mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)

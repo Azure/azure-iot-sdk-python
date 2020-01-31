@@ -68,6 +68,11 @@ class FakeProvisioningPipeline:
         callback(result={})
 
 
+@pytest.fixture
+def mock_pipeline_init(mocker):
+    return mocker.patch("azure.iot.device.provisioning.pipeline.ProvisioningPipeline")
+
+
 # automatically mock the transport for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_transport(mocker):
@@ -76,25 +81,140 @@ def mock_transport(mocker):
     )
 
 
-@pytest.mark.describe("ProvisioningDeviceClient - Init")
-class TestClientCreate(object):
-    xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
+class SharedClientCreateMethodUserOptionTests(object):
+    # In these tests we patch the entire 'auth' library instead of specific auth providers in order
+    # to make them more generic, and applicable across all creation methods.
+    @pytest.mark.it(
+        "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_websockets_option(
+        self, mocker, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        # mocker.patch("azure.iot.device.iothub.auth")
 
-    @pytest.mark.it("Is created from a symmetric key")
-    def test_create_from_symmetric_key(self, mocker):
-        client = ProvisioningDeviceClient.create_from_symmetric_key(
-            fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
-        )
-        assert isinstance(client, ProvisioningDeviceClient)
-        assert client._provisioning_pipeline is not None
+        client_create_method(*create_method_args, websockets=True)
 
-    @pytest.mark.it("Is created from a x509 certificate key")
-    def test_create_from_x509_cert(self, mocker):
-        client = ProvisioningDeviceClient.create_from_x509_certificate(
-            fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()
-        )
-        assert isinstance(client, ProvisioningDeviceClient)
-        assert client._provisioning_pipeline is not None
+        # Get configuration object
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][1]
+
+        assert config.websockets
+
+    # @pytest.mark.it("Sets the 'cipher' user option parameter on the PipelineConfig, if provided")
+    # def test_cipher_option(
+    #     self,
+    #     mocker,
+    #     client_create_method,
+    #     create_method_args,
+    #     mock_mqtt_pipeline_init,
+    #     mock_http_pipeline_init,
+    # ):
+    #     mocker.patch("azure.iot.device.iothub.auth")
+
+    #     cipher = "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256"
+    #     client_create_method(*create_method_args, cipher=cipher)
+
+    #     # Get configuration object, and ensure it was used for both protocol pipelines
+    #     assert mock_mqtt_pipeline_init.call_count == 1
+    #     config = mock_mqtt_pipeline_init.call_args[0][1]
+    #     assert config == mock_http_pipeline_init.call_args[0][1]
+
+    #     assert config.cipher == cipher
+
+    # @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
+    # def test_invalid_option(
+    #     self,
+    #     mocker,
+    #     client_create_method,
+    #     create_method_args,
+    #     mock_mqtt_pipeline_init,
+    #     mock_http_pipeline_init,
+    # ):
+    #     mocker.patch("azure.iot.device.iothub.auth")
+
+    #     with pytest.raises(TypeError):
+    #         client_create_method(*create_method_args, invalid_option="some_value")
+
+    # @pytest.mark.it("Sets default user options if none are provided")
+    # def test_default_options(
+    #     self,
+    #     mocker,
+    #     client_create_method,
+    #     create_method_args,
+    #     mock_mqtt_pipeline_init,
+    #     mock_http_pipeline_init,
+    # ):
+    #     mocker.patch("azure.iot.device.iothub.auth")
+    #     client_create_method(*create_method_args)
+
+    #     # Get configuration object, and ensure it was used for both protocol pipelines
+    #     assert mock_mqtt_pipeline_init.call_count == 1
+    #     config = mock_mqtt_pipeline_init.call_args[0][1]
+    #     assert config == mock_http_pipeline_init.call_args[0][1]
+
+    #     # Get auth provider object, and ensure it was used for both protocol pipelines
+    #     auth = mock_mqtt_pipeline_init.call_args[0][0]
+    #     assert auth == mock_http_pipeline_init.call_args[0][0]
+
+    #     assert config.product_info == ""
+    #     assert not config.websockets
+    #     assert not config.cipher
+    #     assert auth.server_verification_cert is None
+
+
+@pytest.mark.describe("ProvisioningDeviceClient - Instantiation")
+class TestClientInstantiation(object):
+    @pytest.mark.it(
+        "Stores the ProvisioningPipeline from the 'provisioning_pipeline' parameter in the '_provisioning_pipeline' attribute"
+    )
+    def test_sets_provisioning_pipeline(self, provisioning_pipeline):
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+
+        assert client._provisioning_pipeline is provisioning_pipeline
+
+    @pytest.mark.it(
+        "Instantiates with the initial value of the '_provisioning_payload' attribute set to None"
+    )
+    def test_payload(self, provisioning_pipeline):
+        client = ProvisioningDeviceClient(provisioning_pipeline)
+
+        assert client._provisioning_payload is None
+
+
+@pytest.mark.describe("ProvisioningDeviceClient - .create_from_symmetric_key()")
+class TestClientCreateFromSymmetricKey(SharedClientCreateMethodUserOptionTests):
+    @pytest.fixture
+    def client_create_method(self):
+        return ProvisioningDeviceClient.create_from_symmetric_key
+
+    @pytest.fixture
+    def create_method_args(self):
+        return [fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope]
+
+    @pytest.mark.it("Creates a SymmetricKeySecurityClient using the given parameters")
+    def test_security_client(self):
+        pass
+
+
+# @pytest.mark.describe("ProvisioningDeviceClient - Init")
+# class TestClientCreate(object):
+#     xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
+
+#     @pytest.mark.it("Is created from a symmetric key")
+#     def test_create_from_symmetric_key(self, mocker):
+#         client = ProvisioningDeviceClient.create_from_symmetric_key(
+#             fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
+#         )
+#         assert isinstance(client, ProvisioningDeviceClient)
+#         assert client._provisioning_pipeline is not None
+
+#     @pytest.mark.it("Is created from a x509 certificate key")
+#     def test_create_from_x509_cert(self, mocker):
+#         client = ProvisioningDeviceClient.create_from_x509_certificate(
+#             fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()
+#         )
+#         assert isinstance(client, ProvisioningDeviceClient)
+#         assert client._provisioning_pipeline is not None
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - .register()")
