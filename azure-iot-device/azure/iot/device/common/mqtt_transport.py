@@ -351,9 +351,18 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
         except socket.error as e:
-            # If the socket can't open (e.g. using iptables REJECT), we get a
-            # socket.error.  Convert this into ConnectionFailedError so we can retry
-            raise exceptions.ConnectionFailedError(cause=e)
+            # Only this type will raise a special error
+            # To stop it from retrying.
+            if (
+                isinstance(e, ssl.SSLError)
+                and e.strerror is not None
+                and "CERTIFICATE_VERIFY_FAILED" in e.strerror
+            ):
+                raise exceptions.TlsExchangeAuthError(cause=e)
+            else:
+                # If the socket can't open (e.g. using iptables REJECT), we get a
+                # socket.error.  Convert this into ConnectionFailedError so we can retry
+                raise exceptions.ConnectionFailedError(cause=e)
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e
