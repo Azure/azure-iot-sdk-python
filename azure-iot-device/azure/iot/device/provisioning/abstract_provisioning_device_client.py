@@ -11,10 +11,7 @@ Device Provisioning Service.
 import abc
 import six
 import logging
-from .security.sk_security_client import SymmetricKeySecurityClient
-from .security.x509_security_client import X509SecurityClient
-from azure.iot.device.provisioning.pipeline.provisioning_pipeline import ProvisioningPipeline
-from azure.iot.device.provisioning.pipeline.config import ProvisioningPipelineConfig
+from azure.iot.device.provisioning import pipeline, security
 
 logger = logging.getLogger(__name__)
 
@@ -80,15 +77,22 @@ class AbstractProvisioningDeviceClient(object):
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
 
+        :raises: TypeError if given an unrecognized parameter.
+
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
         _validate_kwargs(**kwargs)
 
-        security_client = SymmetricKeySecurityClient(
-            provisioning_host, registration_id, id_scope, symmetric_key
+        security_client = security.SymmetricKeySecurityClient(
+            provisioning_host=provisioning_host,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            symmetric_key=symmetric_key,
         )
-        pipeline_configuration = ProvisioningPipelineConfig(**kwargs)
-        mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)
+        pipeline_configuration = pipeline.ProvisioningPipelineConfig(**kwargs)
+        mqtt_provisioning_pipeline = pipeline.ProvisioningPipeline(
+            security_client, pipeline_configuration
+        )
         return cls(mqtt_provisioning_pipeline)
 
     @classmethod
@@ -119,13 +123,22 @@ class AbstractProvisioningDeviceClient(object):
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
 
+        :raises: TypeError if given an unrecognized parameter.
+
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
         _validate_kwargs(**kwargs)
 
-        security_client = X509SecurityClient(provisioning_host, registration_id, id_scope, x509)
-        pipeline_configuration = ProvisioningPipelineConfig(**kwargs)
-        mqtt_provisioning_pipeline = ProvisioningPipeline(security_client, pipeline_configuration)
+        security_client = security.X509SecurityClient(
+            provisioning_host=provisioning_host,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            x509=x509,
+        )
+        pipeline_configuration = pipeline.ProvisioningPipelineConfig(**kwargs)
+        mqtt_provisioning_pipeline = pipeline.ProvisioningPipeline(
+            security_client, pipeline_configuration
+        )
         return cls(mqtt_provisioning_pipeline)
 
     @abc.abstractmethod

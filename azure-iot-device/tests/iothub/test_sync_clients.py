@@ -135,6 +135,9 @@ class SharedClientCreateMethodUserOptionTests(object):
 
         assert config.websockets
 
+    # TODO: Show that input in the wrong format is formatted to the correct one. This test exists
+    # in the IoTHubPipelineConfig object already, but we do not currently show that this is felt
+    # from the API level.
     @pytest.mark.it("Sets the 'cipher' user option parameter on the PipelineConfig, if provided")
     def test_cipher_option(
         self,

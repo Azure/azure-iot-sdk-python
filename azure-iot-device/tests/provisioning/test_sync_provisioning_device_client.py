@@ -12,6 +12,7 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationState,
 )
 from azure.iot.device.provisioning.pipeline import exceptions as pipeline_exceptions
+from azure.iot.device.provisioning import security, pipeline
 import threading
 from azure.iot.device import exceptions as client_exceptions
 
@@ -31,18 +32,15 @@ fake_request_id = "request_1234"
 fake_device_id = "MyNimbus2000"
 fake_assigned_hub = "Dumbledore'sArmy"
 
-fake_registration_state = RegistrationState(fake_device_id, fake_assigned_hub, fake_sub_status)
+
+@pytest.fixture
+def registration_result():
+    registration_state = RegistrationState(fake_device_id, fake_assigned_hub, fake_sub_status)
+    return RegistrationResult(fake_operation_id, fake_status, registration_state)
 
 
-def create_success_result():
-    return RegistrationResult(fake_operation_id, fake_status, fake_registration_state)
-
-
-def create_error():
-    return RuntimeError("Incoming Failure")
-
-
-def fake_x509():
+@pytest.fixture
+def x509():
     return X509(fake_x509_cert_file_value, fake_x509_cert_key_file, fake_pass_phrase)
 
 
@@ -82,16 +80,12 @@ def mock_transport(mocker):
 
 
 class SharedClientCreateMethodUserOptionTests(object):
-    # In these tests we patch the entire 'auth' library instead of specific auth providers in order
-    # to make them more generic, and applicable across all creation methods.
     @pytest.mark.it(
         "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
     )
     def test_websockets_option(
         self, mocker, client_create_method, create_method_args, mock_pipeline_init
     ):
-        # mocker.patch("azure.iot.device.iothub.auth")
-
         client_create_method(*create_method_args, websockets=True)
 
         # Get configuration object
@@ -100,66 +94,42 @@ class SharedClientCreateMethodUserOptionTests(object):
 
         assert config.websockets
 
-    # @pytest.mark.it("Sets the 'cipher' user option parameter on the PipelineConfig, if provided")
-    # def test_cipher_option(
-    #     self,
-    #     mocker,
-    #     client_create_method,
-    #     create_method_args,
-    #     mock_mqtt_pipeline_init,
-    #     mock_http_pipeline_init,
-    # ):
-    #     mocker.patch("azure.iot.device.iothub.auth")
+    # TODO: Show that input in the wrong format is formatted to the correct one. This test exists
+    # in the ProvisioningPipelineConfig object already, but we do not currently show that this is felt
+    # from the API level.
+    @pytest.mark.it("Sets the 'cipher' user option parameter on the PipelineConfig, if provided")
+    def test_cipher_option(
+        self, mocker, client_create_method, create_method_args, mock_pipeline_init
+    ):
 
-    #     cipher = "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256"
-    #     client_create_method(*create_method_args, cipher=cipher)
+        cipher = "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256"
+        client_create_method(*create_method_args, cipher=cipher)
 
-    #     # Get configuration object, and ensure it was used for both protocol pipelines
-    #     assert mock_mqtt_pipeline_init.call_count == 1
-    #     config = mock_mqtt_pipeline_init.call_args[0][1]
-    #     assert config == mock_http_pipeline_init.call_args[0][1]
+        # Get configuration object
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][1]
 
-    #     assert config.cipher == cipher
+        assert config.cipher == cipher
 
-    # @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
-    # def test_invalid_option(
-    #     self,
-    #     mocker,
-    #     client_create_method,
-    #     create_method_args,
-    #     mock_mqtt_pipeline_init,
-    #     mock_http_pipeline_init,
-    # ):
-    #     mocker.patch("azure.iot.device.iothub.auth")
+    @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
+    def test_invalid_option(
+        self, mocker, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        with pytest.raises(TypeError):
+            client_create_method(*create_method_args, invalid_option="some_value")
 
-    #     with pytest.raises(TypeError):
-    #         client_create_method(*create_method_args, invalid_option="some_value")
+    @pytest.mark.it("Sets default user options if none are provided")
+    def test_default_options(
+        self, mocker, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        client_create_method(*create_method_args)
 
-    # @pytest.mark.it("Sets default user options if none are provided")
-    # def test_default_options(
-    #     self,
-    #     mocker,
-    #     client_create_method,
-    #     create_method_args,
-    #     mock_mqtt_pipeline_init,
-    #     mock_http_pipeline_init,
-    # ):
-    #     mocker.patch("azure.iot.device.iothub.auth")
-    #     client_create_method(*create_method_args)
+        # Get configuration object
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][1]
 
-    #     # Get configuration object, and ensure it was used for both protocol pipelines
-    #     assert mock_mqtt_pipeline_init.call_count == 1
-    #     config = mock_mqtt_pipeline_init.call_args[0][1]
-    #     assert config == mock_http_pipeline_init.call_args[0][1]
-
-    #     # Get auth provider object, and ensure it was used for both protocol pipelines
-    #     auth = mock_mqtt_pipeline_init.call_args[0][0]
-    #     assert auth == mock_http_pipeline_init.call_args[0][0]
-
-    #     assert config.product_info == ""
-    #     assert not config.websockets
-    #     assert not config.cipher
-    #     assert auth.server_verification_cert is None
+        assert not config.websockets
+        assert not config.cipher
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - Instantiation")
@@ -189,41 +159,157 @@ class TestClientCreateFromSymmetricKey(SharedClientCreateMethodUserOptionTests):
 
     @pytest.fixture
     def create_method_args(self):
-        return [fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope]
+        return [fake_provisioning_host, fake_registration_id, fake_id_scope, fake_symmetric_key]
 
     @pytest.mark.it("Creates a SymmetricKeySecurityClient using the given parameters")
-    def test_security_client(self):
-        pass
+    def test_security_client(self, mocker):
+        spy_sec_client = mocker.spy(security, "SymmetricKeySecurityClient")
+
+        ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            symmetric_key=fake_symmetric_key,
+        )
+
+        assert spy_sec_client.call_count == 1
+        assert spy_sec_client.call_args == mocker.call(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            symmetric_key=fake_symmetric_key,
+        )
+
+    @pytest.mark.it(
+        "Uses the SymmetricKeySecurityClient object and the ProvisioningPipelineConfig object to create a ProvisioningPipeline"
+    )
+    def test_pipeline(self, mocker, mock_pipeline_init):
+        # Note that the details of how the pipeline config is set up are covered in the
+        # SharedClientCreateMethodUserOptionTests
+        mock_pipeline_config = mocker.patch.object(
+            pipeline, "ProvisioningPipelineConfig"
+        ).return_value
+        mock_sec_client = mocker.patch.object(security, "SymmetricKeySecurityClient").return_value
+
+        ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            symmetric_key=fake_symmetric_key,
+        )
+
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_sec_client, mock_pipeline_config)
+
+    @pytest.mark.it("Uses the ProvisioningPipeline to instantiate the client")
+    def test_client_creation(self, mocker, mock_pipeline_init):
+        spy_client_init = mocker.spy(ProvisioningDeviceClient, "__init__")
+
+        ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            symmetric_key=fake_symmetric_key,
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(mocker.ANY, mock_pipeline_init.return_value)
+
+    @pytest.mark.it("Returns the instantiated client")
+    def test_returns_client(self, mocker):
+        client = ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            symmetric_key=fake_symmetric_key,
+        )
+        assert isinstance(client, ProvisioningDeviceClient)
 
 
-# @pytest.mark.describe("ProvisioningDeviceClient - Init")
-# class TestClientCreate(object):
-#     xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
+@pytest.mark.describe("ProvisioningDeviceClient - .create_from_x509_certificate()")
+class TestClientCreateFromX509Certificate(SharedClientCreateMethodUserOptionTests):
+    @pytest.fixture
+    def client_create_method(self):
+        return ProvisioningDeviceClient.create_from_x509_certificate
 
-#     @pytest.mark.it("Is created from a symmetric key")
-#     def test_create_from_symmetric_key(self, mocker):
-#         client = ProvisioningDeviceClient.create_from_symmetric_key(
-#             fake_provisioning_host, fake_symmetric_key, fake_registration_id, fake_id_scope
-#         )
-#         assert isinstance(client, ProvisioningDeviceClient)
-#         assert client._provisioning_pipeline is not None
+    @pytest.fixture
+    def create_method_args(self, x509):
+        return [fake_provisioning_host, fake_registration_id, fake_id_scope, x509]
 
-#     @pytest.mark.it("Is created from a x509 certificate key")
-#     def test_create_from_x509_cert(self, mocker):
-#         client = ProvisioningDeviceClient.create_from_x509_certificate(
-#             fake_provisioning_host, fake_registration_id, fake_id_scope, fake_x509()
-#         )
-#         assert isinstance(client, ProvisioningDeviceClient)
-#         assert client._provisioning_pipeline is not None
+    @pytest.mark.it("Creates an X509SecurityClient using the given parameters")
+    def test_security_client(self, mocker, x509):
+        spy_sec_client = mocker.spy(security, "X509SecurityClient")
+
+        ProvisioningDeviceClient.create_from_x509_certificate(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            x509=x509,
+        )
+
+        assert spy_sec_client.call_count == 1
+        assert spy_sec_client.call_args == mocker.call(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            x509=x509,
+        )
+
+    @pytest.mark.it(
+        "Uses the X509SecurityClient object and the ProvisioningPipelineConfig object to create a ProvisioningPipeline"
+    )
+    def test_pipeline(self, mocker, mock_pipeline_init, x509):
+        # Note that the details of how the pipeline config is set up are covered in the
+        # SharedClientCreateMethodUserOptionTests
+        mock_pipeline_config = mocker.patch.object(
+            pipeline, "ProvisioningPipelineConfig"
+        ).return_value
+        mock_sec_client = mocker.patch.object(security, "X509SecurityClient").return_value
+
+        ProvisioningDeviceClient.create_from_x509_certificate(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            x509=x509,
+        )
+
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args == mocker.call(mock_sec_client, mock_pipeline_config)
+
+    @pytest.mark.it("Uses the ProvisioningPipeline to instantiate the client")
+    def test_client_creation(self, mocker, mock_pipeline_init, x509):
+        spy_client_init = mocker.spy(ProvisioningDeviceClient, "__init__")
+
+        ProvisioningDeviceClient.create_from_x509_certificate(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            x509=x509,
+        )
+
+        assert spy_client_init.call_count == 1
+        assert spy_client_init.call_args == mocker.call(mocker.ANY, mock_pipeline_init.return_value)
+
+    @pytest.mark.it("Returns the instantiated client")
+    def test_returns_client(self, mocker, x509):
+        client = ProvisioningDeviceClient.create_from_x509_certificate(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            x509=x509,
+        )
+        assert isinstance(client, ProvisioningDeviceClient)
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - .register()")
 class TestClientRegister(object):
     @pytest.mark.it("Implicitly enables responses from provisioning service if not already enabled")
-    def test_enables_provisioning_only_if_not_already_enabled(self, mocker, provisioning_pipeline):
+    def test_enables_provisioning_only_if_not_already_enabled(
+        self, mocker, provisioning_pipeline, registration_result
+    ):
         # Override callback to pass successful result
         def register_complete_success_callback(payload, callback):
-            callback(result=create_success_result())
+            callback(result=registration_result)
 
         mocker.patch.object(
             provisioning_pipeline, "register", side_effect=register_complete_success_callback
@@ -244,9 +330,11 @@ class TestClientRegister(object):
         assert provisioning_pipeline.enable_responses.call_count == 0
 
     @pytest.mark.it("Begins a 'register' pipeline operation")
-    def test_register_calls_pipeline_register(self, provisioning_pipeline, mocker):
+    def test_register_calls_pipeline_register(
+        self, provisioning_pipeline, mocker, registration_result
+    ):
         def register_complete_success_callback(payload, callback):
-            callback(result=create_success_result())
+            callback(result=registration_result)
 
         mocker.patch.object(
             provisioning_pipeline, "register", side_effect=register_complete_success_callback
@@ -258,7 +346,7 @@ class TestClientRegister(object):
     @pytest.mark.it(
         "Waits for the completion of the 'register' pipeline operation before returning"
     )
-    def test_waits_for_pipeline_op_completion(self, mocker):
+    def test_waits_for_pipeline_op_completion(self, mocker, registration_result):
         manual_provisioning_pipeline_with_callback = mocker.MagicMock()
         event_init_mock = mocker.patch.object(threading, "Event")
         event_mock = event_init_mock.return_value
@@ -275,7 +363,7 @@ class TestClientRegister(object):
 
             # Manually trigger callback
             cb = pipeline_function.call_args[1]["callback"]
-            cb(result=create_success_result())
+            cb(result=registration_result)
 
             # Assert Event is now completed
             assert event_mock.set.call_count == 1
@@ -287,8 +375,10 @@ class TestClientRegister(object):
         client.register()
 
     @pytest.mark.it("Returns the registration result that the pipeline returned")
-    def test_verifies_registration_result_returned(self, mocker, provisioning_pipeline):
-        result = create_success_result()
+    def test_verifies_registration_result_returned(
+        self, mocker, provisioning_pipeline, registration_result
+    ):
+        result = registration_result
 
         def register_complete_success_callback(payload, callback):
             callback(result=result)
