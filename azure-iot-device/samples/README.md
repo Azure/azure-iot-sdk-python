@@ -112,4 +112,4 @@ Further samples with more complex IoT Edge scenarios are contained in the [advan
 * Receive input messages on a Module
 * Send messages to a Module Output
 
-Samples for the legacy clients, that use a synchronous API, intended for use with Python 2.7, Python 3.4, or compatibility scenarios for Python 3.5+ are contained in the [legacy-samples](legacy-samples) directory.
+Samples for the synchronous clients, intended for use with Python 2.7 or compatibility scenarios for Python 3.5+ are contained in the [sync-samples](sync-samples) directory.
