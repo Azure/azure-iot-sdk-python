@@ -14,9 +14,6 @@ import io
 from . import auth
 from . import pipeline
 
-from azure.iot.device.iothub.pipeline.config import IoTHubPipelineConfig
-
-
 logger = logging.getLogger(__name__)
 
 # A note on implementation:
@@ -98,7 +95,7 @@ class AbstractIoTHubClient(object):
 
         # Pipeline Config setup
         pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
 
@@ -187,7 +184,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         # Pipeline Config setup
         pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
         # Auth Provider setup
@@ -231,7 +228,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         # Pipeline Config setup
         pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
         # Auth Provider setup
@@ -352,7 +349,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Pipeline Config setup
         pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
         pipeline_configuration.method_invoke = (
             True
         )  # Method Invoke is allowed on modules created from edge environment
@@ -397,7 +394,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Pipeline Config setup
         pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
 
         # Auth Provider setup
         authentication_provider = auth.X509AuthenticationProvider(

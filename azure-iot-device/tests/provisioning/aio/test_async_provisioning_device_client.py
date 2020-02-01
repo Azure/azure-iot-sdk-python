@@ -76,17 +76,10 @@ class FakeProvisioningPipeline:
         callback(result={})
 
 
-@pytest.fixture
+# automatically mock the pipeline for all tests in this file
+@pytest.fixture(autouse=True)
 def mock_pipeline_init(mocker):
     return mocker.patch("azure.iot.device.provisioning.pipeline.ProvisioningPipeline")
-
-
-# automatically mock the transport for all tests in this file.
-@pytest.fixture(autouse=True)
-def mock_transport(mocker):
-    mocker.patch(
-        "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
-    )
 
 
 class SharedClientCreateMethodUserOptionTests(object):
