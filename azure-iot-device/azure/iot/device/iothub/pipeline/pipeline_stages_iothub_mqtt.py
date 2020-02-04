@@ -119,12 +119,6 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
                     self.send_op_down(worker_op)
 
-                logger.debug(
-                    "{}({}): passing to next stage with updated callback.".format(
-                        self.name, op.name
-                    )
-                )
-
             # now, pass the UpdateSasTokenOperation down with our new callback.
             op.add_callback(on_token_update_complete)
             self.send_op_down(op)
