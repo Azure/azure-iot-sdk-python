@@ -519,7 +519,7 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
         # Had to do greater than check for python 2. Ideally should be not equal check
-        if message.get_size() > device_constant.SIZE_LIMIT:
+        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             assert False
 
         client.send_message(message)
@@ -2498,6 +2498,48 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         sent_message = iothub_pipeline.send_output_event.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
+
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    def test_raises_error_when_message_to_output_data_greater_than_256(
+        self, client, iothub_pipeline
+    ):
+        output_name = "some_output"
+        data_input = "serpensortia" * 256000
+        message = Message(data_input)
+        with pytest.raises(ValueError) as e_info:
+            client.send_message_to_output(message, output_name)
+        assert "256 KB" in e_info.value.args[0]
+        assert iothub_pipeline.send_output_event.call_count == 0
+
+    @pytest.mark.it("Raises error when message size is greater than 256 KB")
+    def test_raises_error_when_message_to_output_size_greater_than_256(
+        self, client, iothub_pipeline
+    ):
+        output_name = "some_output"
+        data_input = "serpensortia"
+        message = Message(data_input)
+        message.custom_properties["spell"] = data_input * 256000
+        with pytest.raises(ValueError) as e_info:
+            client.send_message_to_output(message, output_name)
+        assert "256 KB" in e_info.value.args[0]
+        assert iothub_pipeline.send_output_event.call_count == 0
+
+    @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
+    def test_raises_error_when_message_to_output_data_equal_to_256(self, client, iothub_pipeline):
+        output_name = "some_output"
+        data_input = "a" * 261976
+        message = Message(data_input)
+        # This check was put as message class may undergo the default content type encoding change
+        # and the above calculation will change.
+        if message.get_size() != device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+            assert False
+
+        client.send_message_to_output(message, output_name)
+
+        assert iothub_pipeline.send_output_event.call_count == 1
+        sent_message = iothub_pipeline.send_output_event.call_args[0][0]
+        assert isinstance(sent_message, Message)
+        assert sent_message.data == data_input
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .receive_message_on_input()")
