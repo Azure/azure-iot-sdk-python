@@ -457,12 +457,13 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
+        :raises: ValueError if the message fails size validation.
         """
         if not isinstance(message, Message):
             message = Message(message)
 
         if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
-            raise ValueError("Size of telemetry message can not exceed 256 KB.")
+            raise ValueError("Size of message can not exceed 256 KB.")
 
         message.output_name = output_name
 
