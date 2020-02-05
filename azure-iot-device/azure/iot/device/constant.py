@@ -6,7 +6,7 @@
 """This module defines constants for use across the azure-iot-device package
 """
 
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 USER_AGENT = "py-azure-iot-device/{version}".format(version=VERSION)
 IOTHUB_API_VERSION = "2018-06-30"
 PROVISIONING_API_VERSION = "2019-03-31"
