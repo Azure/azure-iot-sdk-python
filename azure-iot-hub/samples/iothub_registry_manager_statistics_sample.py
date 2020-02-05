@@ -19,12 +19,30 @@ try:
     # GetStatistics
     service_statistics = registry_manager.get_service_statistics()
     print("Service Statistics:")
-    print("Total device count                       : {0}".format(service_statistics))
+    print(
+        "Total connected device count             : {0}".format(
+            service_statistics.connected_device_count
+        )
+    )
     print("")
 
     registry_statistics = registry_manager.get_device_registry_statistics()
     print("Device Registry Statistics:")
-    print("Total device count                       : {0}".format(registry_statistics))
+    print(
+        "Total device count                       : {0}".format(
+            registry_statistics.total_device_count
+        )
+    )
+    print(
+        "Enabled device count                     : {0}".format(
+            registry_statistics.enabled_device_count
+        )
+    )
+    print(
+        "Disabled device count                    : {0}".format(
+            registry_statistics.disabled_device_count
+        )
+    )
     print("")
 
 except Exception as ex:
