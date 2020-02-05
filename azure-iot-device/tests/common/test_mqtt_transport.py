@@ -24,6 +24,7 @@ fake_username = fake_hostname + "/" + fake_device_id
 new_fake_password = "new fake password"
 fake_topic = "fake_topic"
 fake_payload = "Tarantallegra"
+fake_cipher = "DHE-RSA-AES128-SHA"
 fake_qos = 1
 fake_mid = 52
 fake_rc = 0
@@ -230,30 +231,22 @@ class TestInstantiation(object):
             cadata=server_verification_cert
         )
 
-    # TODO: Finalize these test args once the format for ciphers is determined
     @pytest.mark.it(
-        "Configures TLS/SSL context with provided cipher(s) if present during instantiation"
+        "Configures TLS/SSL context with provided cipher if present during instantiation"
     )
-    @pytest.mark.parametrize(
-        "cipher",
-        [
-            pytest.param("DHE-RSA-AES128-SHA", id="Single cipher"),
-            pytest.param(
-                "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
-                id="Cipher list",
-            ),
-        ],
-    )
-    def test_confgures_tls_context_with_cipher(self, mocker, mock_mqtt_client, cipher):
+    def test_confgures_tls_context_with_cipher(self, mocker, mock_mqtt_client):
         mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
         mock_ssl_context = mock_ssl_context_constructor.return_value
 
         MQTTTransport(
-            client_id=fake_device_id, hostname=fake_hostname, username=fake_username, cipher=cipher
+            client_id=fake_device_id,
+            hostname=fake_hostname,
+            username=fake_username,
+            cipher=fake_cipher,
         )
 
         assert mock_ssl_context.set_ciphers.call_count == 1
-        assert mock_ssl_context.set_ciphers.call_args == mocker.call(cipher)
+        assert mock_ssl_context.set_ciphers.call_args == mocker.call(fake_cipher)
 
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(

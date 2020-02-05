@@ -11,7 +11,6 @@ import time
 import os
 import io
 import six
-import abc
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.iothub.pipeline import IoTHubPipeline, constant
