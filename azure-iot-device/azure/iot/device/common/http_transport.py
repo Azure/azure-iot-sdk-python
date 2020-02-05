@@ -21,7 +21,7 @@ class HTTPTransport(object):
     A wrapper class that provides an implementation-agnostic HTTP interface.
     """
 
-    def __init__(self, hostname, server_verification_cert=None, x509_cert=None):
+    def __init__(self, hostname, server_verification_cert=None, x509_cert=None, cipher=None):
         """
         Constructor to instantiate an HTTP protocol wrapper.
 

@@ -98,6 +98,7 @@ class MQTTTransport(object):
         server_verification_cert=None,
         x509_cert=None,
         websockets=False,
+        cipher=None,
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
@@ -107,6 +108,7 @@ class MQTTTransport(object):
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
+        :param str cipher: Cipher string in OpenSSL cipher list format
         """
         self._client_id = client_id
         self._hostname = hostname
@@ -115,6 +117,7 @@ class MQTTTransport(object):
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._websockets = websockets
+        self._cipher = cipher
 
         self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
@@ -296,8 +299,13 @@ class MQTTTransport(object):
             ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
             ssl_context.load_default_certs()
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        ssl_context.check_hostname = True
+
+        if self._cipher:
+            try:
+                ssl_context.set_ciphers(self._cipher)
+            except ssl.SSLError as e:
+                # TODO: custom error with more detail?
+                raise e
 
         if self._x509_cert is not None:
             logger.debug("configuring SSL context with client-side certificate and key")
@@ -306,6 +314,9 @@ class MQTTTransport(object):
                 self._x509_cert.key_file,
                 self._x509_cert.pass_phrase,
             )
+
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
 
         return ssl_context
 
