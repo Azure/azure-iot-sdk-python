@@ -18,7 +18,7 @@ class BasePipelineConfig(object):
     config files.
     """
 
-    def __init__(self, websockets=False, cipher=""):
+    def __init__(self, websockets=False, cipher="", proxy_options=None):
         """Initializer for BasePipelineConfig
 
         :param bool websockets: Enabling/disabling websockets in MQTT. This feature is relevant
@@ -29,6 +29,7 @@ class BasePipelineConfig(object):
         """
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
+        self.proxy_options = proxy_options
 
     @staticmethod
     def _sanitize_cipher(cipher):

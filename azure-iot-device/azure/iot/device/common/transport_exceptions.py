@@ -47,3 +47,12 @@ class TlsExchangeAuthError(ChainableException):
     """
 
     pass
+
+
+class ProtocolProxyError(ChainableException):
+    """
+    All proxy-related errors.
+    TODO : Not sure what to name it here. There is a class called Proxy Error already in Pysocks
+    """
+
+    pass
