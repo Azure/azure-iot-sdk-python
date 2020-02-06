@@ -344,6 +344,11 @@ class SharedClientConnectTests(object):
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
+            pytest.param(
+                pipeline_exceptions.TlsExchangeAuthError,
+                client_exceptions.ClientError,
+                id="TlsExchangeAuthError->ClientError",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )

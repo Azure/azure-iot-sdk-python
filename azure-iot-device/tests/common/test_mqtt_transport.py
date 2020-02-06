@@ -414,6 +414,19 @@ class TestConnect(object):
             transport.connect(fake_password)
         assert e_info.value.__cause__ is socket_error
 
+    @pytest.mark.it(
+        "Raises a TlsExchangeAuthError if Paho connect raises a socket.error of type SSLCertVerificationError Exception"
+    )
+    def test_client_raises_socket_tls_auth_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socket_error = ssl.SSLError("socket error", "CERTIFICATE_VERIFY_FAILED")
+        mock_mqtt_client.connect.side_effect = socket_error
+        with pytest.raises(errors.TlsExchangeAuthError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socket_error
+        print(e_info.value.__cause__.strerror)
+
     @pytest.mark.it("Allows any BaseExceptions raised in Paho connect to propagate")
     def test_client_raises_base_exception(
         self, mock_mqtt_client, transport, arbitrary_base_exception
