@@ -51,16 +51,67 @@ class IoTHubPipeline(object):
         # Currently a single timeout stage and a single retry stage for MQTT retry only.
         # Later, a higher level timeout and a higher level retry stage.
         self._pipeline = (
+            #
+            # The root is always the root.  By definition, it's the first stage in the pipeline.
+            #
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
+            #
+            # UseAuthProviderStage comes near the root by default because it doesn't need to be after
+            # anything, but it does need to be before IoTHubMQTTTranslationStage.
+            #
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
+            #
+            # TwinRequestResponseStage comes near the root by default because it doesn't need to be
+            # after anything
+            #
             .append_stage(pipeline_stages_iothub.TwinRequestResponseStage())
+            #
+            # CoordinateRequestAndResponseStage needs to be after TwinRequestResponseStage because
+            # TwinRequestResponseStage creates the request ops that CoordinateRequestAndResponseStage
+            # is coordinating.  It needs to be before IoTHubMQTTTranslationStage because that stage
+            # operates on ops that CoordinateRequestAndResponseStage produces
+            #
             .append_stage(pipeline_stages_base.CoordinateRequestAndResponseStage())
+            #
+            # IoTHubMQTTTranslationStage comes here because this is the point where we can translate
+            # all operations directly into MQTT.  After this stage, only pipeline_stages_base stages
+            # are allowed because IoTHubMQTTTranslationStage removes all the IoTHub-ness from the ops
+            #
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
-            .append_stage(pipeline_stages_base.ReconnectStage())
+            #
+            # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
+            # and this is the first place in the pipeline wherer we can guaranetee that all network
+            # ops are MQTT ops.
+            #
             .append_stage(pipeline_stages_base.AutoConnectStage())
+            #
+            # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
+            # the virtually_conencted flag and we want an automatic connection op to set this flag so
+            # we can reconnect autoconnect operations.  This is important, for example, if a
+            # send_message causes the transport to automatically connect, but that connection fails.
+            # When that happens, the ReconenctState will hold onto the ConnectOperation until it
+            # succeeds, and only then will return success to the AutoConnectStage which will
+            # allow the publish to continue.
+            #
+            .append_stage(pipeline_stages_base.ReconnectStage())
+            #
+            # ConnectionLockStage needs to be after ReconnectStage because we want any ops that
+            # ReconnectStage creates to go through the ConnectionLockStage gate
+            #
             .append_stage(pipeline_stages_base.ConnectionLockStage())
+            #
+            # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
+            #
             .append_stage(pipeline_stages_base.RetryStage())
+            #
+            # OpTimeoutStage needs to be after RetryStage because OpTimeoutStage returns the timeout
+            # errors that RetryStage is watching for.
+            #
             .append_stage(pipeline_stages_base.OpTimeoutStage())
+            #
+            # MQTTTransportStage needs to be at the very end of the pipeline because this is where
+            # operations turn into network traffic
+            #
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 

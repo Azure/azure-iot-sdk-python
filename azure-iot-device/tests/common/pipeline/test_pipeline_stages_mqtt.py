@@ -909,7 +909,7 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         assert isinstance(pending_connection_op.error, transport_exceptions.ConnectionDroppedError)
 
     @pytest.mark.it(
-        "Sends a ConnectionDroppedError to the swallowed exception handler, if there is no pending operation when a disconnection occurs"
+        "Sends the error to the swallowed exception handler, if there is no pending operation when a disconnection occurs"
     )
     def test_no_pending_op(self, mocker, stage, cause):
         mock_handler = mocker.patch.object(handle_exceptions, "swallow_unraised_exception")
@@ -920,7 +920,6 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
 
         assert mock_handler.call_count == 1
         exception = mock_handler.call_args[0][0]
-        assert isinstance(exception, transport_exceptions.ConnectionDroppedError)
         assert exception.__cause__ is cause
 
     @pytest.mark.it("Clears any pending operation on the stage")
