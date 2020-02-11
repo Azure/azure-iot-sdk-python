@@ -647,7 +647,6 @@ class RetryStage(PipelineStage):
         self.retry_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
-            pipeline_ops_base.ConnectOperation: 20,
             pipeline_ops_mqtt.MQTTPublishOperation: 20,
         }
         self.ops_waiting_to_retry = []
