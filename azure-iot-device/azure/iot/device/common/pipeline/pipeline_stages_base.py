@@ -9,6 +9,7 @@ import abc
 import six
 import sys
 import time
+import traceback
 import uuid
 import weakref
 from six.moves import queue
@@ -102,7 +103,10 @@ class PipelineStage(object):
         except Exception as e:
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
             # within ._run_op()
-            logger.error(msg="Unexpected error in {}._run_op() call".format(self), exc_info=e)
+
+            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.error(msg="Unexpected error in {}._run_op() call".format(self))
+            logger.error(traceback.format_exc())
             op.complete(error=e)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -131,9 +135,9 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            logger.error(
-                msg="Unexpected error in {}._handle_pipeline_event() call".format(self), exc_info=e
-            )
+            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
+            logger.error(traceback.format_exc())
             handle_exceptions.handle_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
