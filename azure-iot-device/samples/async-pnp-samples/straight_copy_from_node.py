@@ -8,7 +8,6 @@ import asyncio
 import os
 import random
 
-# Note: pnp namespace and Pnp name in PascalCase
 from azure.iot.pnp.aio import IoTHubPnpClient
 from azure.iot.pnp.models import (
     Interface,
@@ -21,6 +20,25 @@ from azure.iot.pnp.models import (
 )
 
 capability_model = "urn:azureiot:samplemodel:1"
+
+
+"""
+Big questions:
+
+    1. Do we automatically reate Python-native objects from the DTDL?  If so, how do we deal with naming -- processorArchitecture
+       the model should be processor_architecture if it's a python attribute
+
+    2. Do we invest more time in getting rid of the big switch model or let it drop?
+
+Inconsistencies:
+
+    1. For updating properties, you use the Property object.  For receiving property updates, you use a switch on the interface
+
+    2. For sending property data, you call update on the property object.  For sending telemetry, you send json on the inerface.
+
+    3. Command and Telemetry objects seem to be completely useless.  The app developer uses names for everything.
+
+"""
 
 
 # Note: Node calls the BaseInterface
@@ -81,9 +99,9 @@ exit_interface = SampleExit("urn_azureiotsdknode_SampleInterface_SampleExit")
 
 
 # Note: this follows the method pattern from the pythonIoTHubDeviceClient object.
-async def environmental_command_listener(pnp_client):
+async def environmental_command_listener(interface):
     while True:
-        command_request = await pnp_client.receive_pnp_command("environmentalSensor")
+        command_request = await interface.receive_pnp_command()
 
         if command_request.command_name == "blink":
             print("Got the blink command")
@@ -92,7 +110,7 @@ async def environmental_command_listener(pnp_client):
                 command_request, 200, "blink response"
             )
             try:
-                await pnp_client.send_command_acknowledge(command_acknowledge)
+                await interface.send_command_acknowledge(command_acknowledge)
             except Exception:
                 print("responding to the blink command failed")
 
@@ -109,7 +127,7 @@ async def environmental_command_listener(pnp_client):
                 command_request, 200, "runDiagnostics response"
             )
             try:
-                await pnp_client.send_command_acknowledge(command_acknowledge)
+                await interface.send_command_acknowledge(command_acknowledge)
             except Exception as e:
                 print("responding to the runDiagnostics command failed: {}".format(e))
             else:
@@ -117,17 +135,18 @@ async def environmental_command_listener(pnp_client):
                     command_request, 200, "runDiagnostics update response"
                 )
                 try:
-                    await pnp_client.send_command_update(command_update)
+                    await interface.send_command_update(command_update)
                 except Exception as e:
                     print("Got an error on the update: {}".format(e))
 
 
-async def environmental_property_changed_listener(pnp_client):
+async def environmental_property_changed_listener(interface):
     while True:
-        property_change = await pnp_client.receive_property_change("environmentalSensor")
-        property = getattr(environmental_sensor, property_change.property_name, None)
+        property_change = await interface.receive_property_change()
+        property = getattr(interface, property_change.property_name, None)
 
         try:
+            # question: is the JSON blob below standard?  Should there be a model object for this?
             property.report(
                 property_change.desired_value + "the boss",
                 {
@@ -142,13 +161,13 @@ async def environmental_property_changed_listener(pnp_client):
             print("The update worked!!!!")
 
 
-async def model_definition_command_listener(pnp_client):
+async def model_definition_command_listener(interface):
     pass
     # copypasta
 
 
-async def exit_interface_command_listener(pnp_client):
-    command_request = await pnp_client.receive_pnp_command("exitInterface")
+async def wait_for_exit_command_listener(interface):
+    command_request = await interface.receive_pnp_command()
     print(
         "received command: "
         + command_request.command_name
@@ -156,8 +175,9 @@ async def exit_interface_command_listener(pnp_client):
         + command_request.interface_instance_name
     )
     command_acknowledge = CommandAcknowledge.create_from_command_request(command_request, 200, None)
-    await pnp_client.send_command_acknowledge(command_acknowledge)
+    await interface.send_command_acknowledge(command_acknowledge)
     await asyncio.sleep(2)
+    # coroutine returns, causing main() to exit
 
 
 async def main():
@@ -173,9 +193,9 @@ async def main():
 
     listeners = asyncio.ensure_future(
         asyncio.gather(
-            environmental_command_listener(pnp_client),
-            environmental_property_changed_listener(pnp_client),
-            model_definition_command_listener(pnp_client),
+            environmental_command_listener(environmental_sensor),
+            environmental_property_changed_listener(environmental_sensor),
+            model_definition_command_listener(model_definition),
         )
     )
 
@@ -199,7 +219,7 @@ async def main():
 
     sender = asyncio.ensure_future(send_telemetry())
 
-    await exit_interface_command_listener(pnp_client)
+    await wait_for_exit_command_listener(exit_interface)
 
     await listeners.cancel()
     await sender.cancel()
