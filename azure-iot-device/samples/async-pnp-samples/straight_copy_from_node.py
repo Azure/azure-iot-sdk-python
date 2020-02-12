@@ -4,19 +4,32 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import asyncio
+import os
+import random
+
 # Note: pnp namespace and Pnp name in PascalCase
 from azure.iot.pnp.aio import IoTHubPnpClient
-from azure.iot.pnp.models import Interface, Telemetry, Property, WriteableProperty, Command, CommandAcknowledge, CommandUpdate
+from azure.iot.pnp.models import (
+    Interface,
+    Telemetry,
+    Property,
+    WriteableProperty,
+    Command,
+    CommandAcknowledge,
+    CommandUpdate,
+)
 
-capability_model= "urn:azureiot:samplemodel:1"
+capability_model = "urn:azureiot:samplemodel:1"
+
 
 # Note: Node calls the BaseInterface
 class EnvironmentalSensor(Interface):
     def __init__(self, interface_instance_name):
         # Note: instance_name or interface_instance_name?
-        super(EnvironmentalSensor, self).__init__(interface_instance_name, "urn:contoso:com:EnvironmentalSensor:1")
+        super(EnvironmentalSensor, self).__init__(
+            interface_instance_name, "urn:contoso:com:EnvironmentalSensor:1"
+        )
         self.temp = Telemetry()
         self.humid = Telemetry()
         self.state = Property()
@@ -25,14 +38,16 @@ class EnvironmentalSensor(Interface):
         self.turn_off = Command()
         self.turn_on = Command()
         self.run_diagnostics = Command()
-        # Note: Node has Property(true) for writeable
+        # Note: Node has Property(True) for writeable
         self.name = WriteableProperty()
         self.brightness = WriteableProperty()
 
 
 class DeviceInformation(Interface):
     def __init__(self, interface_instance_name):
-        super(DeviceInformation, self).__init__(interface_instance_name, "urn:azureiot:DeviceInformation:1")
+        super(DeviceInformation, self).__init__(
+            interface_instance_name, "urn:azureiot:DeviceInformation:1"
+        )
         self.manufacturer = Property()
         self.model = Property()
         self.sw_version = Property()
@@ -45,19 +60,25 @@ class DeviceInformation(Interface):
 
 class SampleExit(Interface):
     def __init__(self, interface_instance_name):
-        super(SampleExit, self).__init__(interface_instance_name, "urn:azureiotsdknode:SampleInterface:SampleExit:1")
+        super(SampleExit, self).__init__(
+            interface_instance_name, "urn:azureiotsdknode:SampleInterface:SampleExit:1"
+        )
         self.exit = Command()
 
 
 class ModelDefinition(Interface):
     def __init__(self, interface_instance_name):
-        super(ModelDefinition, self).__init__(interface_instance_name, "urn:azureiot:ModelDiscovery:ModelDefinition:1")
+        super(ModelDefinition, self).__init__(
+            interface_instance_name, "urn:azureiot:ModelDiscovery:ModelDefinition:1"
+        )
         self.get_model_definition = Command()
+
 
 environmental_sensor = EnvironmentalSensor("environmentalSensor")
 device_information = DeviceInformation("deviceInformation")
 model_definition = ModelDefinition("urn_azureiot_ModelDiscovery_ModelDefinition")
 exit_interface = SampleExit("urn_azureiotsdknode_SampleInterface_SampleExit")
+
 
 # Note: this follows the method pattern from the pythonIoTHubDeviceClient object.
 async def environmental_command_listener(pnp_client):
@@ -67,7 +88,9 @@ async def environmental_command_listener(pnp_client):
         if command_request.command_name == "blink":
             print("Got the blink command")
 
-            command_acknowledge = CommandAcknowledge.create_from_command_request(command_request, 200, "blink response")
+            command_acknowledge = CommandAcknowledge.create_from_command_request(
+                command_request, 200, "blink response"
+            )
             try:
                 await pnp_client.send_command_acknowledge(command_acknowledge)
             except Exception:
@@ -82,17 +105,22 @@ async def environmental_command_listener(pnp_client):
         elif command_request.command_name == "runDiagnostics":
             print("Got the runDiagnostics command.")
 
-            command_acknowledge = CommandAcknowledge.create_from_command_request(command_request, 200, "runDiagnostics response")
+            command_acknowledge = CommandAcknowledge.create_from_command_request(
+                command_request, 200, "runDiagnostics response"
+            )
             try:
                 await pnp_client.send_command_acknowledge(command_acknowledge)
             except Exception as e:
-                print("responding to the runDiagnostics command failed: {}".format(e))" + err.toString())
+                print("responding to the runDiagnostics command failed: {}".format(e))
             else:
-                command_update = CommandUpdate.create_from_command_request(command_request, 200, "runDiagnostics update response")
+                command_update = CommandUpdate.create_from_command_request(
+                    command_request, 200, "runDiagnostics update response"
+                )
                 try:
                     await pnp_client.send_command_update(command_update)
                 except Exception as e:
                     print("Got an error on the update: {}".format(e))
+
 
 async def environmental_property_changed_listener(pnp_client):
     while True:
@@ -100,7 +128,14 @@ async def environmental_property_changed_listener(pnp_client):
         property = getattr(environmental_sensor, property_change.property_name, None)
 
         try:
-            property.report(property_change.desired_value + "the boss", {responseVersion: propertyChange. version, statusCode: 200, statusDescription: "a promotion"})
+            property.report(
+                property_change.desired_value + "the boss",
+                {
+                    "responseVersion": property_change.version,
+                    "statusCode": 200,
+                    "statusDescription": "a promotion",
+                },
+            )
         except Exception:
             print("did not do the update")
         else:
@@ -108,16 +143,22 @@ async def environmental_property_changed_listener(pnp_client):
 
 
 async def model_definition_command_listener(pnp_client):
-    while True:
-        command_request = await pnp_client.receive_pnp_command("modelDefinition")
-        # copypasta
+    pass
+    # copypasta
+
 
 async def exit_interface_command_listener(pnp_client):
     command_request = await pnp_client.receive_pnp_command("exitInterface")
-    console.log("received command: " + command_request.command_name + " for interfaceInstance: " + command_request.interface_instance_name)
+    print(
+        "received command: "
+        + command_request.command_name
+        + " for interfaceInstance: "
+        + command_request.interface_instance_name
+    )
     command_acknowledge = CommandAcknowledge.create_from_command_request(command_request, 200, None)
     await pnp_client.send_command_acknowledge(command_acknowledge)
     await asyncio.sleep(2)
+
 
 async def main():
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
@@ -130,12 +171,15 @@ async def main():
 
     await pnp_client.register()
 
-    listeners = asyncio.ensure_future(asyncio.gather(
-        environmental_command_listener(pnp_client),
-        environmental_property_changed_listener(pnp_client),
-        model_definition_command_listener(pnp_client)))
+    listeners = asyncio.ensure_future(
+        asyncio.gather(
+            environmental_command_listener(pnp_client),
+            environmental_property_changed_listener(pnp_client),
+            model_definition_command_listener(pnp_client),
+        )
+    )
 
-    await environmental_sensor.state.report(true)
+    await environmental_sensor.state.report(True)
     await device_information.manufacturer.report("Contoso Device Corporation")
     await device_information.model.report("Contoso 4762B-turbo")
     await device_information.sw_version.report("3.1")
@@ -148,8 +192,11 @@ async def main():
     #  send telemetry every 5 seconds
     def send_telemetry():
         while True:
-            await environmental_sensor.sendTelemetry( { temp: 10 + random.random_int(0,90), humid: 1 + random.randint(0,99) } )
-            await sleep(5000)
+            await environmental_sensor.sendTelemetry(
+                {"temp": 10 + random.random_int(0, 90), "humid": 1 + random.randint(0, 99)}
+            )
+            await asyncio.sleep(5)
+
     sender = asyncio.ensure_future(send_telemetry())
 
     await exit_interface_command_listener(pnp_client)
