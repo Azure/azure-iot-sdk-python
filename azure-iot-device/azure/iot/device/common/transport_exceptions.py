@@ -38,3 +38,12 @@ class ProtocolClientError(ChainableException):
     """
 
     pass
+
+
+class TlsExchangeAuthError(ChainableException):
+    """
+    Error returned when transport layer exchanges
+    result in a SSLCertVerification error.
+    """
+
+    pass
