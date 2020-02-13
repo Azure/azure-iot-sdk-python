@@ -15,9 +15,10 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from . import pipeline_ops_iothub, pipeline_ops_iothub_http, http_path_iothub, http_map_error
-from . import constant as pipeline_constant
 from azure.iot.device import exceptions
 from azure.iot.device import constant as pkg_constant
+from azure.iot.device.product_info import ProductInfo
+
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 deviceId=self.device_id, moduleId=self.module_id
             )  # these are the identifiers of the current module
             user_agent = urllib.parse.quote_plus(
-                pkg_constant.USER_AGENT
+                ProductInfo.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
             headers = {
@@ -134,7 +135,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             path = http_path_iothub.get_storage_info_for_blob_path(self.device_id)
             body = json.dumps({"blobName": op.blob_name})
             user_agent = urllib.parse.quote_plus(
-                pkg_constant.USER_AGENT
+                ProductInfo.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
             headers = {
@@ -186,7 +187,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 }
             )
             user_agent = urllib.parse.quote_plus(
-                pkg_constant.USER_AGENT
+                ProductInfo.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
 
