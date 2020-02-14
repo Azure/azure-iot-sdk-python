@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
+from .iothub_amqp_client import IoTHubAmqpClient as iothub_amqp_client
 from .auth import ConnectionStringAuthentication
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 from .protocol.models import (
@@ -663,3 +663,16 @@ class IoTHubRegistryManager(object):
         return self.protocol.device_method.invoke_module_method(
             device_id, module_id, direct_method_request
         )
+
+    def send_c2d_message(self, device_id, message):
+        """Send a C2D mesage to a IoTHub Device.
+
+        :param str device_id: The name (Id) of the device.
+        :param str message: The message that is to be delievered to the device.
+
+        :raises: Exception if the Send command is not able to send the message
+        """
+        svc_client = iothub_amqp_client(
+            self.auth["HostName"], self.auth["SharedAccessKeyName"], self.auth["SharedAccessKey"]
+        )
+        svc_client.send_message_to_device(device_id, message)

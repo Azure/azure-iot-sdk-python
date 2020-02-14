@@ -7,6 +7,7 @@
 import pytest
 from azure.iot.hub.protocol.models import AuthenticationMechanism
 from azure.iot.hub.iothub_registry_manager import IoTHubRegistryManager
+from azure.iot.hub.iothub_amqp_client import IoTHubAmqpClient as iothub_amqp_client
 
 """---Constants---"""
 
@@ -40,6 +41,7 @@ fake_job_properties = "fake_job_properties"
 fake_device_twin = "fake_device_twin"
 fake_module_twin = "fake_module_twin"
 fake_direct_method_request = "fake_direct_method_request"
+fake_message_to_send = "fake_message_to_send"
 
 """----Shared fixtures----"""
 
@@ -88,6 +90,17 @@ def mock_device_constructor(mocker):
 @pytest.fixture(scope="function")
 def mock_module_constructor(mocker):
     return mocker.patch("azure.iot.hub.iothub_registry_manager.Module")
+
+
+@pytest.fixture(scope="function")
+def mock_uamqp_send_message_to_device(mocker):
+    mock_uamqp_send = mocker.patch.object(iothub_amqp_client, "send_message_to_device")
+    return mock_uamqp_send
+
+
+@pytest.fixture
+def mock_uamqp_disconnect_sync(mocker):
+    return mocker.patch.object(iothub_amqp_client, "disconnect_sync")
 
 
 @pytest.mark.describe("IoTHubRegistryManager - .create_device_with_sas()")
@@ -149,7 +162,10 @@ class TestCreateDeviceWithSymmetricKey(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_device.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_device.call_args[0][0] == fake_device_id
+        assert (
+            mock_registry_manager_operations.create_or_update_device.call_args[0][0]
+            == fake_device_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_device.call_args[0][1]
             == mock_device_constructor.return_value
@@ -222,7 +238,10 @@ class TestCreateDeviceWithX509(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_device.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_device.call_args[0][0] == fake_device_id
+        assert (
+            mock_registry_manager_operations.create_or_update_device.call_args[0][0]
+            == fake_device_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_device.call_args[0][1]
             == mock_device_constructor.return_value
@@ -261,7 +280,10 @@ class TestCreateDeviceWithCA(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_device.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_device.call_args[0][0] == fake_device_id
+        assert (
+            mock_registry_manager_operations.create_or_update_device.call_args[0][0]
+            == fake_device_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_device.call_args[0][1]
             == mock_device_constructor.return_value
@@ -330,7 +352,10 @@ class TestUpdateDeviceWithSymmetricKey(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_device.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_device.call_args[0][0] == fake_device_id
+        assert (
+            mock_registry_manager_operations.create_or_update_device.call_args[0][0]
+            == fake_device_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_device.call_args[0][1]
             == mock_device_constructor.return_value
@@ -406,7 +431,10 @@ class TestUpdateDeviceWithX509(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_device.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_device.call_args[0][0] == fake_device_id
+        assert (
+            mock_registry_manager_operations.create_or_update_device.call_args[0][0]
+            == fake_device_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_device.call_args[0][1]
             == mock_device_constructor.return_value
@@ -446,7 +474,10 @@ class TestUpdateDeviceWithCA(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_device.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_device.call_args[0][0] == fake_device_id
+        assert (
+            mock_registry_manager_operations.create_or_update_device.call_args[0][0]
+            == fake_device_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_device.call_args[0][1]
             == mock_device_constructor.return_value
@@ -470,7 +501,9 @@ class TestDeleteDevice(object):
         iothub_registry_manager.delete_device(fake_device_id)
 
         assert mock_registry_manager_operations.delete_device.call_count == 1
-        assert mock_registry_manager_operations.delete_device.call_args == mocker.call(fake_device_id, "*")
+        assert mock_registry_manager_operations.delete_device.call_args == mocker.call(
+            fake_device_id, "*"
+        )
 
     @pytest.mark.it("Deletes device with an etag for the provided device id and etag")
     def test_delete_device_with_etag(
@@ -546,8 +579,14 @@ class TestCreateModuleWithSymmetricKey(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_module.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][0] == fake_device_id
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][1] == fake_module_id
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][0]
+            == fake_device_id
+        )
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][1]
+            == fake_module_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_module.call_args[0][2]
             == mock_module_constructor.return_value
@@ -623,8 +662,14 @@ class TestCreateModuleWithX509(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_module.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][0] == fake_device_id
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][1] == fake_module_id
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][0]
+            == fake_device_id
+        )
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][1]
+            == fake_module_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_module.call_args[0][2]
             == mock_module_constructor.return_value
@@ -664,8 +709,14 @@ class TestCreateModuleWithCA(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_module.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][0] == fake_device_id
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][1] == fake_module_id
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][0]
+            == fake_device_id
+        )
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][1]
+            == fake_module_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_module.call_args[0][2]
             == mock_module_constructor.return_value
@@ -732,8 +783,14 @@ class TestUpdateModuleWithSymmetricKey(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_module.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][0] == fake_device_id
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][1] == fake_module_id
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][0]
+            == fake_device_id
+        )
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][1]
+            == fake_module_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_module.call_args[0][2]
             == mock_module_constructor.return_value
@@ -807,8 +864,14 @@ class TestUpdateModuleWithX509(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_module.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][0] == fake_device_id
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][1] == fake_module_id
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][0]
+            == fake_device_id
+        )
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][1]
+            == fake_module_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_module.call_args[0][2]
             == mock_module_constructor.return_value
@@ -854,8 +917,14 @@ class TestUpdateModuleWithCA(object):
         )
 
         assert mock_registry_manager_operations.create_or_update_module.call_count == 1
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][0] == fake_device_id
-        assert mock_registry_manager_operations.create_or_update_module.call_args[0][1] == fake_module_id
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][0]
+            == fake_device_id
+        )
+        assert (
+            mock_registry_manager_operations.create_or_update_module.call_args[0][1]
+            == fake_module_id
+        )
         assert (
             mock_registry_manager_operations.create_or_update_module.call_args[0][2]
             == mock_module_constructor.return_value
@@ -914,7 +983,9 @@ class TestDeleteModule(object):
 @pytest.mark.describe("IoTHubRegistryManager - .get_service_statistics()")
 class TestGetServiceStats(object):
     @pytest.mark.it("Gets service statistics")
-    def test_get_service_statistics(self, mocker, mock_registry_manager_operations, iothub_registry_manager):
+    def test_get_service_statistics(
+        self, mocker, mock_registry_manager_operations, iothub_registry_manager
+    ):
         iothub_registry_manager.get_service_statistics()
 
         assert mock_registry_manager_operations.get_service_statistics.call_count == 1
@@ -936,9 +1007,7 @@ class TestGetDeviceRegistryStats(object):
 @pytest.mark.describe("IoTHubRegistryManager - .get_devices()")
 class TestGetDevices(object):
     @pytest.mark.it("Gets devices")
-    def test_get_devices(
-        self, mocker, mock_registry_manager_operations, iothub_registry_manager
-    ):
+    def test_get_devices(self, mocker, mock_registry_manager_operations, iothub_registry_manager):
         iothub_registry_manager.get_devices()
 
         assert mock_registry_manager_operations.get_devices.call_count == 1
@@ -948,14 +1017,14 @@ class TestGetDevices(object):
 @pytest.mark.describe("IoTHubRegistryManager - .get_devices(max_number_of_devices)")
 class TestGetDevicesWithMax(object):
     @pytest.mark.it("Gets devices with max_number_of_devices")
-    def test_get_devices(
-        self, mocker, mock_registry_manager_operations, iothub_registry_manager
-    ):
+    def test_get_devices(self, mocker, mock_registry_manager_operations, iothub_registry_manager):
         max_number_of_devices = 42
         iothub_registry_manager.get_devices(max_number_of_devices)
 
         assert mock_registry_manager_operations.get_devices.call_count == 1
-        assert mock_registry_manager_operations.get_devices.call_args == mocker.call(max_number_of_devices)
+        assert mock_registry_manager_operations.get_devices.call_args == mocker.call(
+            max_number_of_devices
+        )
 
 
 @pytest.mark.describe("IoTHubRegistryManager - .bulk_create_or_update_devices()")
@@ -1000,7 +1069,9 @@ class TestQueryIoTHubWithContinuationTokenAndMaxItermCount(object):
     def test_query_iot_hub(self, mocker, mock_registry_manager_operations, iothub_registry_manager):
         continuation_token = 42
         max_item_count = 84
-        iothub_registry_manager.query_iot_hub(fake_query_specification, continuation_token, max_item_count)
+        iothub_registry_manager.query_iot_hub(
+            fake_query_specification, continuation_token, max_item_count
+        )
         assert mock_registry_manager_operations.query_iot_hub.call_count == 1
         assert mock_registry_manager_operations.query_iot_hub.call_args == mocker.call(
             fake_query_specification, continuation_token, max_item_count, None, True
@@ -1078,7 +1149,9 @@ class TestUpdateModuleTwin(object):
 @pytest.mark.describe("IoTHubRegistryManager - .invoke_device_method()")
 class TestInvokeDeviceMethod(object):
     @pytest.mark.it("Test invoke device method")
-    def test_invoke_device_method(self, mocker, mock_device_method_operations, iothub_registry_manager):
+    def test_invoke_device_method(
+        self, mocker, mock_device_method_operations, iothub_registry_manager
+    ):
         iothub_registry_manager.invoke_device_method(fake_device_id, fake_direct_method_request)
         assert mock_device_method_operations.invoke_device_method.call_count == 1
         assert mock_device_method_operations.invoke_device_method.call_args == mocker.call(
@@ -1099,3 +1172,15 @@ class TestInvokeDeviceModuleMethod(object):
         assert mock_device_method_operations.invoke_module_method.call_args == mocker.call(
             fake_device_id, fake_module_id, fake_direct_method_request
         )
+
+
+@pytest.mark.describe("IoTHubRegistryManager - .send_c2d_message()")
+class TestSendC2dMessage(object):
+    @pytest.mark.it("Test send c2d message")
+    def test_send_c2d_message(
+        self, mocker, mock_uamqp_send_message_to_device, iothub_registry_manager
+    ):
+
+        iothub_registry_manager.send_c2d_message(fake_device_id, fake_message_to_send)
+
+        assert mock_uamqp_send_message_to_device.call_count == 1
