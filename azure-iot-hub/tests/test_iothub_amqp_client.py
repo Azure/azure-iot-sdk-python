@@ -12,7 +12,6 @@ import hashlib
 import copy
 import logging
 import uamqp
-from uamqp import utils, errors
 from azure.iot.hub.iothub_amqp_client import IoTHubAmqpClient
 
 try:
@@ -37,8 +36,8 @@ def mock_uamqp_SendClient(mocker):
     return mock_uamqp_SendClient
 
 
-@pytest.mark.describe("IoTHubAmqpClient - .send_message_to_device()")
-class TestSendMessageToDevice(object):
+@pytest.mark.describe("IoTHubAmqpClient - Amqp Client Connections")
+class TestIoTHubAmqpClient(object):
     @pytest.mark.it("Send Message To Device")
     def test_send_message_to_device(self, mocker, mock_uamqp_SendClient):
         iothub_amqp_client = IoTHubAmqpClient(
@@ -61,3 +60,13 @@ class TestSendMessageToDevice(object):
         )
         with pytest.raises(Exception):
             iothub_amqp_client.send_message_to_device(fake_device_id, fake_message)
+
+    @pytest.mark.it("Disconnect a Device")
+    def test_disconnect_sync(self, mocker, mock_uamqp_SendClient):
+        iothub_amqp_client = IoTHubAmqpClient(
+            fake_hostname, fake_shared_access_key_name, fake_shared_access_key
+        )
+        amqp_client_obj = mock_uamqp_SendClient.return_value
+        iothub_amqp_client.disconnect_sync()
+
+        assert amqp_client_obj.close.call_count == 1

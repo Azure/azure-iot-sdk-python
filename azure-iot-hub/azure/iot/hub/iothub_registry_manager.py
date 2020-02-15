@@ -63,9 +63,17 @@ class IoTHubRegistryManager(object):
         :returns: Instance of the IoTHubRegistryManager object.
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
-
         self.auth = ConnectionStringAuthentication(connection_string)
         self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+        self.amqp_svc_client = iothub_amqp_client(
+            self.auth["HostName"], self.auth["SharedAccessKeyName"], self.auth["SharedAccessKey"]
+        )
+
+    def __del__(self):
+        """
+        Deinitializer for a Registry Manager Service client.
+        """
+        self.amqp_svc_client.disconnect_sync()
 
     def create_device_with_sas(self, device_id, primary_key, secondary_key, status):
         """Creates a device identity on IoTHub using SAS authentication.
@@ -672,7 +680,5 @@ class IoTHubRegistryManager(object):
 
         :raises: Exception if the Send command is not able to send the message
         """
-        svc_client = iothub_amqp_client(
-            self.auth["HostName"], self.auth["SharedAccessKeyName"], self.auth["SharedAccessKey"]
-        )
-        svc_client.send_message_to_device(device_id, message)
+
+        self.amqp_svc_client.send_message_to_device(device_id, message)

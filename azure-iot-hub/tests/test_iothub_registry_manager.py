@@ -1184,3 +1184,6 @@ class TestSendC2dMessage(object):
         iothub_registry_manager.send_c2d_message(fake_device_id, fake_message_to_send)
 
         assert mock_uamqp_send_message_to_device.call_count == 1
+        assert mock_uamqp_send_message_to_device.call_args == mocker.call(
+            fake_device_id, fake_message_to_send
+        )
