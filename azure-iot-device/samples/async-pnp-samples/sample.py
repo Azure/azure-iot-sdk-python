@@ -9,14 +9,16 @@ import os
 import random
 
 from azure.iot.pnp.aio import IoTHubPnpClient
+
+# These are objects that are modeled in the DTDL
+from azure.iot.pnp.models import BaseInterface, Telemetry, Property, WriteableProperty, Command
+
+# These are objects that represent communication with the service
 from azure.iot.pnp.models import (
-    Interface,
-    Telemetry,
-    Property,
-    WriteableProperty,
-    Command,
+    CommandRequest,
     CommandAcknowledge,
     CommandUpdate,
+    PropertyUpdateRequest,
 )
 
 capability_model = "urn:azureiot:samplemodel:1"
@@ -26,105 +28,99 @@ capability_model = "urn:azureiot:samplemodel:1"
 Big questions:
 
     1. Do we automatically reate Python-native objects from the DTDL?  If so, how do we deal with naming -- processorArchitecture
-       the model should be processor_architecture if it's a python attribute
+       the model should be processorArchitecture if it's a python attribute
+
+       Decision #1: generating object being covered in meeting with modeling team.
+       Decision #2: keeping camelCase if that's what the DTDL uses.  Not converting to boxcar_case.
 
     2. Do we invest more time in getting rid of the big switch model or let it drop?
 
-Inconsistencies:
-
-    1. For updating properties, you use the Property object.  For receiving property updates, you use a switch on the interface
-
-    2. For sending property data, you call update on the property object.  For sending telemetry, you send json on the inerface.
-
-    3. Command and Telemetry objects seem to be completely useless.  The app developer uses names for everything.
+       Decision: big switch.
 
 """
 
 
-# Note: Node calls the BaseInterface
-class EnvironmentalSensor(Interface):
+class EnvironmentalSensor(BaseInterface):
     def __init__(self, interface_instance_name):
         # Note: instance_name or interface_instance_name?
         super(EnvironmentalSensor, self).__init__(
             interface_instance_name, "urn:contoso:com:EnvironmentalSensor:1"
         )
-        self.temp = Telemetry()
-        self.humid = Telemetry()
-        self.state = Property()
-        self.blink = Command()
-        # Note: the command in the model is TurnOff, but pythonic naming has us calling the Command object turn_off.  Confusing!
-        self.turn_off = Command()
-        self.turn_on = Command()
-        self.run_diagnostics = Command()
-        # Note: Node has Property(True) for writeable
-        self.name = WriteableProperty()
-        self.brightness = WriteableProperty()
+        self.telemetry.temp = Telemetry()
+        self.telemetry.humid = Telemetry()
+        self.properties.state = Property()
+        self.commands.blink = Command()
+        self.commands.turnOff = Command()
+        self.commands.turnOn = Command()
+        self.commands.runDiagnostics = Command()
+        self.properties.name = WriteableProperty()
+        self.properties.brightness = WriteableProperty()
 
 
-class DeviceInformation(Interface):
+class DeviceInformation(BaseInterface):
     def __init__(self, interface_instance_name):
         super(DeviceInformation, self).__init__(
             interface_instance_name, "urn:azureiot:DeviceInformation:1"
         )
-        self.manufacturer = Property()
-        self.model = Property()
-        self.sw_version = Property()
-        self.os_name = Property()
-        self.processor_architecture = Property()
-        self.processor_manufacturer = Property()
-        self.total_storage = Property()
-        self.total_memory = Property()
+        self.properties.manufacturer = Property()
+        self.properties.model = Property()
+        self.properties.swVersion = Property()
+        self.properties.osName = Property()
+        self.properties.processorArchitecture = Property()
+        self.properties.processorManufacturer = Property()
+        self.properties.totalStorage = Property()
+        self.properties.totalMemory = Property()
 
 
-class SampleExit(Interface):
+class SampleExit(BaseInterface):
     def __init__(self, interface_instance_name):
         super(SampleExit, self).__init__(
-            interface_instance_name, "urn:azureiotsdknode:SampleInterface:SampleExit:1"
+            interface_instance_name, "urn:azureiotsdknode:SampleBaseInterface:SampleExit:1"
         )
-        self.exit = Command()
+        self.commands.exit = Command()
 
 
-class ModelDefinition(Interface):
+class ModelDefinition(BaseInterface):
     def __init__(self, interface_instance_name):
         super(ModelDefinition, self).__init__(
             interface_instance_name, "urn:azureiot:ModelDiscovery:ModelDefinition:1"
         )
-        self.get_model_definition = Command()
+        self.commands.getModelDefinition = Command()
 
 
 environmental_sensor = EnvironmentalSensor("environmentalSensor")
 device_information = DeviceInformation("deviceInformation")
 model_definition = ModelDefinition("urn_azureiot_ModelDiscovery_ModelDefinition")
-exit_interface = SampleExit("urn_azureiotsdknode_SampleInterface_SampleExit")
+exit_interface = SampleExit("urn_azureiotsdknode_SampleBaseInterface_SampleExit")
 
 
 # Note: this follows the method pattern from the pythonIoTHubDeviceClient object.
-async def environmental_command_listener(interface):
+async def environmental_model_listener(interface):
     while True:
-        command_request = await interface.receive_pnp_command()
+        incoming_message = await interface.receive_pnp_message()
 
-        if command_request.command_name == "blink":
+        if incoming_message.target == interface.commands.blink:
             print("Got the blink command")
 
             command_acknowledge = CommandAcknowledge.create_from_command_request(
-                command_request, 200, "blink response"
+                incoming_message, 200, "blink response"
             )
             try:
                 await interface.send_command_acknowledge(command_acknowledge)
             except Exception:
                 print("responding to the blink command failed")
 
-        elif command_request.command_name == "turnOn":
+        elif incoming_message.target == interface.commands.turnOn:
             # copypasta
             pass
-        elif command_request.command_name == "turnOff":
+        elif incoming_message.target == interface.commands.turnOff:
             # copypasta
             pass
-        elif command_request.command_name == "runDiagnostics":
+        elif incoming_message.target == interface.commands.runDiagnostics:
             print("Got the runDiagnostics command.")
 
             command_acknowledge = CommandAcknowledge.create_from_command_request(
-                command_request, 200, "runDiagnostics response"
+                incoming_message, 200, "runDiagnostics response"
             )
             try:
                 await interface.send_command_acknowledge(command_acknowledge)
@@ -132,52 +128,54 @@ async def environmental_command_listener(interface):
                 print("responding to the runDiagnostics command failed: {}".format(e))
             else:
                 command_update = CommandUpdate.create_from_command_request(
-                    command_request, 200, "runDiagnostics update response"
+                    incoming_message, 200, "runDiagnostics update response"
                 )
                 try:
                     await interface.send_command_update(command_update)
                 except Exception as e:
                     print("Got an error on the update: {}".format(e))
+        elif isinstance(incoming_message, PropertyUpdateRequest):
+            property = incoming_message.target
+            property_change = incoming_message
+
+            try:
+                # question: is the JSON blob below standard?  Should there be a model object for this?
+                property.report(
+                    property_change.desired_value + "the boss",
+                    {
+                        "responseVersion": property_change.version,
+                        "statusCode": 200,
+                        "statusDescription": "a promotion",
+                    },
+                )
+            except Exception:
+                print("did not do the update")
+            else:
+                print("The update worked!!!!")
 
 
-async def environmental_property_changed_listener(interface):
-    while True:
-        property_change = await interface.receive_property_change()
-        property = getattr(interface, property_change.property_name, None)
-
-        try:
-            # question: is the JSON blob below standard?  Should there be a model object for this?
-            property.report(
-                property_change.desired_value + "the boss",
-                {
-                    "responseVersion": property_change.version,
-                    "statusCode": 200,
-                    "statusDescription": "a promotion",
-                },
-            )
-        except Exception:
-            print("did not do the update")
-        else:
-            print("The update worked!!!!")
-
-
-async def model_definition_command_listener(interface):
+async def model_definition_listener(interface):
     pass
     # copypasta
 
 
-async def wait_for_exit_command_listener(interface):
-    command_request = await interface.receive_pnp_command()
-    print(
-        "received command: "
-        + command_request.command_name
-        + " for interfaceInstance: "
-        + command_request.interface_instance_name
-    )
-    command_acknowledge = CommandAcknowledge.create_from_command_request(command_request, 200, None)
-    await interface.send_command_acknowledge(command_acknowledge)
-    await asyncio.sleep(2)
-    # coroutine returns, causing main() to exit
+async def exit_interface_listener(interface):
+    while True:
+        incoming_message = await interface.receive_pnp_message()
+        if incoming_message.target == interface.commands.exit:
+            print(
+                "received command: "
+                + incoming_message.target.command_name
+                + " for interfaceInstance: "
+                + incoming_message.interface_instance_name
+            )
+            command_acknowledge = CommandAcknowledge.create_from_command_request(
+                incoming_message, 200, None
+            )
+            await interface.send_command_acknowledge(command_acknowledge)
+            await asyncio.sleep(2)
+            exit
+            # coroutine returns, causing main() to exit
 
 
 async def main():
@@ -193,33 +191,35 @@ async def main():
 
     listeners = asyncio.ensure_future(
         asyncio.gather(
-            environmental_command_listener(environmental_sensor),
-            environmental_property_changed_listener(environmental_sensor),
-            model_definition_command_listener(model_definition),
+            environmental_model_listener(environmental_sensor),
+            model_definition_listener(model_definition),
         )
     )
 
-    await environmental_sensor.state.report(True)
-    await device_information.manufacturer.report("Contoso Device Corporation")
-    await device_information.model.report("Contoso 4762B-turbo")
-    await device_information.sw_version.report("3.1")
-    await device_information.os_name.report("ContosoOS")
-    await device_information.processor_architecture.report("4762")
-    await device_information.processor_manufacturer.report("Contoso Foundries")
-    await device_information.total_storage.report("64000")
-    await device_information.total_memory.report("640")
+    environmental_sensor.properties.state = True
+    await environmental_sensor.report_properties()  # only reports changed properties
+
+    device_information.properties.manufacturer = "Contoso Device Corporation"
+    device_information.properties.model = "Contoso 4762B-turbo"
+    device_information.properties.sw_version = "3.1"
+    device_information.properties.os_name = "ContosoOS"
+    device_information.properties.processor_architecture = "4762"
+    device_information.properties.processor_manufacturer = "Contoso Foundries"
+    device_information.properties.total_storage = "64000"
+    device_information.properties.total_memory = "640"
+    await device_information.report_properties()  # only repors changed properties
 
     #  send telemetry every 5 seconds
     def send_telemetry():
         while True:
-            await environmental_sensor.sendTelemetry(
-                {"temp": 10 + random.random_int(0, 90), "humid": 1 + random.randint(0, 99)}
-            )
+            environmental_sensor.telemetry.temp = 10 + random.random_int(0, 90)
+            environmental_sensor.telemetry.humid = 1 + random.randint(0, 99)
+            await environmental_sensor.report_telemetry()  # only sends telemetry values that have changed
             await asyncio.sleep(5)
 
     sender = asyncio.ensure_future(send_telemetry())
 
-    await wait_for_exit_command_listener(exit_interface)
+    await exit_interface_listener(exit_interface)
 
     await listeners.cancel()
     await sender.cancel()
