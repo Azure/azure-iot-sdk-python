@@ -7,5 +7,3 @@ pytest-timeout
 mock #remove this as soon as no references to it remain in the code
 flake8
 azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for end to end tests for DPS
-PySocks
-win-inet-pton; python_version == '2.7'  # Only needed for python 2
