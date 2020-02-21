@@ -386,6 +386,7 @@ def create_intermediate(
 
     with open("demoCA/newcerts/intermediate_cert.pem", "r") as f:
         read_data = f.read()
+        logging.debug("writing intermediate cert on console")
         logging.debug(read_data)
 
 
@@ -560,6 +561,7 @@ def create_leaf_certificates(
 
     with open("demoCA/newcerts/" + cert_file_name, "r") as f:
         read_data = f.read()
+        logging.debug("writing device cert on console")
         logging.debug(read_data)
 
 
