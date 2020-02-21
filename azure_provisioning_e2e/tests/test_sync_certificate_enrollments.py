@@ -166,6 +166,12 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
             device_key_input_file = common_device_key_input_file + str(index) + ".pem"
             device_cert_input_file = common_device_cert_input_file + str(index) + ".pem"
             device_inter_cert_chain_file = common_device_inter_cert_chain_file + str(index) + ".pem"
+
+            with open(device_inter_cert_chain_file, "r") as f:
+                read_data = f.read()
+                logging.debug("writing device cert on console")
+                logging.debug(read_data)
+
             filenames = [device_cert_input_file, intermediate_cert_filename]
             with open(device_inter_cert_chain_file, "w") as outfile:
                 for fname in filenames:
