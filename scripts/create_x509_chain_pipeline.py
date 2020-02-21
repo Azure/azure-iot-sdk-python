@@ -272,6 +272,8 @@ def create_intermediate(
         in_key_file_path = "ca_key.pem"
         with open(in_cert_file_path, "w") as out_ca_pem:
             cert = str(base64.b64decode(ca_cert), "ascii")
+            logging.debug("root cert decoded")
+            logging.debug(cert)
             out_ca_pem.write(cert)
 
             if os.path.exists(in_cert_file_path):
@@ -383,11 +385,6 @@ def create_intermediate(
         print("Done generating intermediate certificate")
     else:
         print("intermediate cert NOT generated")
-
-    with open("demoCA/newcerts/intermediate_cert.pem", "r") as f:
-        read_data = f.read()
-        logging.debug("writing intermediate cert on console")
-        logging.debug(read_data)
 
 
 def create_certificate_chain(
@@ -558,11 +555,6 @@ def create_leaf_certificates(
         )
     else:
         print("device cert NOT generated")
-
-    with open("demoCA/newcerts/" + cert_file_name, "r") as f:
-        read_data = f.read()
-        logging.debug("writing device cert on console")
-        logging.debug(read_data)
 
 
 def before_cert_creation_from_pipeline():

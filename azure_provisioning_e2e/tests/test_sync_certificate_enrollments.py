@@ -192,7 +192,8 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
         assert count == device_count_in_group
 
     finally:
-        service_client.delete_enrollment_group_by_param(group_id)
+        pass
+        # service_client.delete_enrollment_group_by_param(group_id)
 
 
 @pytest.mark.skip(
