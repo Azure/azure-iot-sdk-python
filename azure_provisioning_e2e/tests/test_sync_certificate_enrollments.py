@@ -173,11 +173,6 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
                     with open(fname) as infile:
                         outfile.write(infile.read())
 
-            with open(device_inter_cert_chain_file, "r") as f:
-                read_data = f.read()
-                logging.debug("writing device cert on console")
-                logging.debug(read_data)
-
             registration_result = result_from_register(
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,
@@ -192,8 +187,7 @@ def test_group_of_devices_register_with_no_device_id_for_a_x509_intermediate_aut
         assert count == device_count_in_group
 
     finally:
-        pass
-        # service_client.delete_enrollment_group_by_param(group_id)
+        service_client.delete_enrollment_group_by_param(group_id)
 
 
 @pytest.mark.skip(

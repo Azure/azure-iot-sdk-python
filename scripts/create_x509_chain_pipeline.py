@@ -5,9 +5,6 @@ import shutil
 import subprocess
 import argparse
 import getpass
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 def create_custom_config():
@@ -272,8 +269,6 @@ def create_intermediate(
         in_key_file_path = "ca_key.pem"
         with open(in_cert_file_path, "w") as out_ca_pem:
             cert = str(base64.b64decode(ca_cert), "ascii")
-            logging.debug("root cert decoded")
-            logging.debug(cert)
             out_ca_pem.write(cert)
 
             if os.path.exists(in_cert_file_path):
