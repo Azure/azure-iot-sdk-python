@@ -12,8 +12,8 @@ import requests
 import requests_unixsocket
 import logging
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
-from azure.iot.device import constant
 from azure.iot.device.common.chainable_exception import ChainableException
+from azure.iot.device.product_info import ProductInfo
 
 requests_unixsocket.monkeypatch()
 
@@ -116,7 +116,7 @@ class IoTEdgeHsm(object):
         r = requests.get(
             self.workload_uri + "trust-bundle",
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)},
+            headers={"User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())},
         )
         # Validate that the request was successful
         try:
@@ -162,7 +162,7 @@ class IoTEdgeHsm(object):
         r = requests.post(  # TODO: can we use json field instead of data?
             url=path,
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)},
+            headers={"User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())},
             data=json.dumps(sign_request),
         )
         try:

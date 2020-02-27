@@ -20,6 +20,7 @@ from . import pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
 from . import constant as pipeline_constant
 from . import exceptions as pipeline_exceptions
 from azure.iot.device import constant as pkg_constant
+from azure.iot.device.product_info import ProductInfo
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
             query_param_seq = [
                 ("api-version", pkg_constant.IOTHUB_API_VERSION),
-                ("DeviceClientType", pkg_constant.USER_AGENT),
+                ("DeviceClientType", ProductInfo.get_iothub_user_agent()),
             ]
             username = "{hostname}/{client_id}/?{query_params}{optional_product_info}".format(
                 hostname=op.hostname,

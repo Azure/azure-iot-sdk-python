@@ -31,6 +31,7 @@ from tests.provisioning.pipeline.helpers import all_provisioning_ops
 from tests.common.pipeline import pipeline_stage_test
 import json
 from azure.iot.device.provisioning.pipeline import constant as pipeline_constant
+from azure.iot.device.product_info import ProductInfo
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -169,7 +170,7 @@ class TestProvisioningMQTTTranslationStageWithSetProvisioningClientConnectionArg
                 id_scope=fake_id_scope,
                 registration_id=fake_registration_id,
                 api_version=constant.PROVISIONING_API_VERSION,
-                client_version=urllib.parse.quote_plus(constant.USER_AGENT),
+                client_version=urllib.parse.quote_plus(ProductInfo.get_provisioning_user_agent()),
             )
         )
 
