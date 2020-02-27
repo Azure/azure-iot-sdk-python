@@ -42,6 +42,10 @@ def handle_result(callback):
         raise exceptions.ClientError(
             message="Error in the IoTHub client due to TLS exchanges.", cause=e
         )
+    except pipeline_exceptions.ProtocolProxyError as e:
+        raise exceptions.ClientError(
+            message="Error in the IoTHub client raised due to proxy connections.", cause=e
+        )
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
