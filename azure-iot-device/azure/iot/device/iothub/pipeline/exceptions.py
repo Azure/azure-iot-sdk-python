@@ -18,4 +18,5 @@ from azure.iot.device.common.transport_exceptions import (
     UnauthorizedError,
     ProtocolClientError,
     TlsExchangeAuthError,
+    ProtocolProxyError,
 )

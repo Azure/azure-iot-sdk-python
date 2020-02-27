@@ -74,6 +74,7 @@ class MQTTTransportStage(PipelineStage):
                 x509_cert=op.client_cert,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
                 cipher=self.pipeline_root.pipeline_configuration.cipher,
+                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
             )
             self.transport.on_mqtt_connected_handler = CallableWeakMethod(
                 self, "_on_mqtt_connected"
