@@ -136,10 +136,21 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             pytest.param("", id="Pipeline NOT configured for custom cipher(s)"),
         ],
     )
-    def test_creates_transport(self, mocker, stage, op, mock_transport, websockets, cipher):
+    @pytest.mark.parametrize(
+        "proxy_options",
+        [
+            pytest.param("FAKE-PROXY", id="Proxy present"),
+            pytest.param(None, id="Proxy None"),
+            pytest.param("", id="Proxy Absent"),
+        ],
+    )
+    def test_creates_transport(
+        self, mocker, stage, op, mock_transport, websockets, cipher, proxy_options
+    ):
         # Configure websockets & cipher
         stage.pipeline_root.pipeline_configuration.websockets = websockets
         stage.pipeline_root.pipeline_configuration.cipher = cipher
+        stage.pipeline_root.pipeline_configuration.proxy_options = proxy_options
 
         assert stage.transport is None
 
@@ -154,6 +165,7 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             x509_cert=op.client_cert,
             websockets=websockets,
             cipher=cipher,
+            proxy_options=proxy_options,
         )
         assert stage.transport is mock_transport.return_value
 
