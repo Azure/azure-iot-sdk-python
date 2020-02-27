@@ -32,9 +32,10 @@ class ProductInfo(object):
         """
         Create the user agent for IotHub
         """
-        return (
-            "{iothub_iden}/{version}".format(iothub_iden=IOTHUB_IDENTIFIER, version=VERSION)
-            + ProductInfo._get_common_user_agent()
+        return "{iothub_iden}/{version}{common}".format(
+            iothub_iden=IOTHUB_IDENTIFIER,
+            version=VERSION,
+            common=ProductInfo._get_common_user_agent(),
         )
 
     @staticmethod
@@ -42,9 +43,8 @@ class ProductInfo(object):
         """
         Create the user agent for Provisioning
         """
-        return (
-            "{provisioning_iden}/{version}".format(
-                provisioning_iden=PROVISIONING_IDENTIFIER, version=VERSION
-            )
-            + ProductInfo._get_common_user_agent()
+        return "{provisioning_iden}/{version}{common}".format(
+            provisioning_iden=PROVISIONING_IDENTIFIER,
+            version=VERSION,
+            common=ProductInfo._get_common_user_agent(),
         )
