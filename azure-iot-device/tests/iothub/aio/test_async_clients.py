@@ -534,7 +534,7 @@ class SharedClientSendD2CMessageTests(object):
 
     @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
     async def test_raises_error_when_message_data_equal_to_256(self, client, iothub_pipeline):
-        data_input = "a" * 261976
+        data_input = "a" * 262095
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
@@ -2054,7 +2054,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         self, client, iothub_pipeline
     ):
         output_name = "some_output"
-        data_input = "a" * 261976
+        data_input = "a" * 262095
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
