@@ -732,51 +732,64 @@ transient_connect_errors = [
 
 
 class ReconnectState(object):
-    never_connected = "never_connected"
-    waiting_to_reconnect = "waiting_to_reconnect"
-    deferred = "deferred"
+    """
+    Class which holds reconenct states as class variables.  Created to make code that reads like an enum without using an enum.
+
+    NEVER_CONNECTED: Ttransport has never been conencted.  This state is necessary because some errors might be fatal or transient,
+    depending on wether the transport has been connceted.  For example, a failed conenction is a transient error if we've connected
+    before, but it's fatal if we've never conencted.
+
+    WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.
+
+    CONNECTED_OR_DISCONNECTED: The transport is either connected or disconencted.  This stage doesn't really care which one, so
+    it doesn't keep track.
+    """
+
+    NEVER_CONNECTED = "NEVER_CONNECTED"
+    WAITING_TO_RECONNECT = "WAITING_TO_RECONNECT"
+    CONNECTED_OR_DISCONNECTED = "CONNECTED_OR_DISCONNECTED"
 
 
 class ReconnectStage(PipelineStage):
     def __init__(self):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
-        self.state = ReconnectState.never_connected
+        self.state = ReconnectState.NEVER_CONNECTED
         # connect delay is hardcoded for now.  Later, this comes from a retry policy
         self.reconnect_delay = 10
-        self.waiting_ops = []
+        self.waiting_connect_ops = []
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.ConnectOperation):
-            if self.state in [ReconnectState.waiting_to_reconnect]:
+            if self.state == ReconnectState.WAITING_TO_RECONNECT:
                 logger.info(
                     "{}({}): State is {}.  Adding to wait list".format(
                         self.name, op.name, self.state
                     )
                 )
-                self.waiting_ops.append(op)
+                self.waiting_connect_ops.append(op)
             else:
                 logger.info(
                     "{}({}): State is {}.  Adding to wait list and sending new connect op down".format(
                         self.name, op.name, self.state
                     )
                 )
-                self.waiting_ops.append(op)
+                self.waiting_connect_ops.append(op)
                 self._send_new_connect_op_down()
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
-            if self.state in [ReconnectState.waiting_to_reconnect]:
+            if self.state == ReconnectState.WAITING_TO_RECONNECT:
                 logger.info(
                     "{}({}): State is {}.  Canceling waiting ops and sending disconnect down.".format(
                         self.name, op.name, self.state
                     )
                 )
                 self._clear_reconnect_timer()
-                self._complete_waiting_ops(
+                self._complete_waiting_connect_ops(
                     pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
                 )
-                self.state = ReconnectState.deferred
+                self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
                 op.complete()
 
             else:
@@ -797,7 +810,7 @@ class ReconnectStage(PipelineStage):
                         self.name, event.name, self.state
                     )
                 )
-                self.state = ReconnectState.waiting_to_reconnect
+                self.state = ReconnectState.WAITING_TO_RECONNECT
                 self._start_reconnect_timer()
             else:
                 logger.info(
@@ -818,31 +831,31 @@ class ReconnectStage(PipelineStage):
             this = self_weakref()
             if this:
                 if error:
-                    if this.state == ReconnectState.never_connected:
+                    if this.state == ReconnectState.NEVER_CONNECTED:
                         logger.info(
                             "{}({}): error on first connection.  Not triggering reconnection".format(
                                 this.name, op.name
                             )
                         )
-                        this._complete_waiting_ops(error)
+                        this._complete_waiting_connect_ops(error)
                     elif type(error) in transient_connect_errors:
                         logger.info(
                             "{}({}): State is {}.  Connect failed with transient error. Triggering reconnect timer".format(
                                 self.name, op.name, self.state
                             )
                         )
-                        self.state = ReconnectState.waiting_to_reconnect
+                        self.state = ReconnectState.WAITING_TO_RECONNECT
                         self._start_reconnect_timer()
 
-                    elif this.state == ReconnectState.waiting_to_reconnect:
+                    elif this.state == ReconnectState.WAITING_TO_RECONNECT:
                         logger.info(
                             "{}({}): non-tranient error.  Failing all waiting ops.n".format(
                                 this.name, op.name
                             )
                         )
-                        self.state = ReconnectState.deferred
+                        self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
                         self._clear_reconnect_timer()
-                        this._complete_waiting_ops(error)
+                        this._complete_waiting_connect_ops(error)
 
                     else:
                         logger.info(
@@ -850,16 +863,16 @@ class ReconnectStage(PipelineStage):
                                 this.name, op.name, this.state
                             )
                         )
-                        this._complete_waiting_ops(error)
+                        this._complete_waiting_connect_ops(error)
                 else:
                     logger.info(
                         "{}({}): State is {}.  Connection succeeded".format(
                             this.name, op.name, this.state
                         )
                     )
-                    self.state = ReconnectState.deferred
+                    self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
                     self._clear_reconnect_timer()
-                    self._complete_waiting_ops()
+                    self._complete_waiting_connect_ops()
 
         logger.info("{}: sending new connect op down".format(self.name))
         op = pipeline_ops_base.ConnectOperation(callback=on_connect_complete)
@@ -880,13 +893,13 @@ class ReconnectStage(PipelineStage):
         def on_reconnect_timer_expired():
             this = self_weakref()
             this.reconnect_timer = None
-            if this.state == ReconnectState.waiting_to_reconnect:
+            if this.state == ReconnectState.WAITING_TO_RECONNECT:
                 logger.info(
                     "{}: State is {}. Reconnect timer expired.  Sending connect op down".format(
                         this.name, this.state
                     )
                 )
-                this.state = ReconnectState.deferred
+                this.state = ReconnectState.CONNECTED_OR_DISCONNECTED
                 this._send_new_connect_op_down()
             else:
                 logger.info(
@@ -909,7 +922,7 @@ class ReconnectStage(PipelineStage):
             self.reconnect_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _complete_waiting_ops(self, error=None):
+    def _complete_waiting_connect_ops(self, error=None):
         """
         A note of explanation: when we are waiting to reconnect, we need to keep a list of
         all connect ops that come through here.  We do this for 2 reasons:
@@ -929,7 +942,7 @@ class ReconnectStage(PipelineStage):
         this stage should be taking care of that.
         """
         logger.info("{}: completing waiting ops with error={}".format(self.name, error))
-        list_copy = self.waiting_ops
-        self.waiting_ops = []
+        list_copy = self.waiting_connect_ops
+        self.waiting_connect_ops = []
         for op in list_copy:
             op.complete(error)
