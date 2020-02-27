@@ -56,7 +56,7 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
-    install_requires=["msrest"],
+    install_requires=["msrest", "uamqp"],
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
     packages=find_packages(
         exclude=[
