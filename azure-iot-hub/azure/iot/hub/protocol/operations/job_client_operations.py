@@ -41,7 +41,7 @@ class JobClientOperations(object):
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
         for more information.
 
-        :param job_properties:
+        :param job_properties: Specifies the job specification.
         :type job_properties: ~protocol.models.JobProperties
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
