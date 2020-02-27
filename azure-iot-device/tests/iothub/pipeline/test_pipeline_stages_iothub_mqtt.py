@@ -3,7 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import functools
 import logging
 import pytest
 import json
@@ -26,18 +25,11 @@ from azure.iot.device.iothub.pipeline import (
 from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from tests.common.pipeline.helpers import (
-    assert_callback_failed,
-    assert_callback_succeeded,
-    all_common_ops,
-    all_common_events,
-    all_except,
-    StageTestBase,
-)
+from tests.common.pipeline.helpers import all_common_ops, all_common_events, StageTestBase
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
-import uuid
+from azure.iot.device.product_info import ProductInfo
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -111,7 +103,7 @@ fake_method_request_topic = "$iothub/methods/POST/{}/?$rid={}".format(
 )
 fake_method_request_payload = "{}".encode("utf-8")
 
-encoded_user_agent = urllib.parse.quote_plus(pkg_constant.USER_AGENT)
+encoded_user_agent = urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())
 
 fake_message_user_property_1_key = "is-muggle"
 fake_message_user_property_1_value = "yes"
