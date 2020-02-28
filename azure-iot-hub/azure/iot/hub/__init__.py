@@ -6,5 +6,11 @@ This library provides service clients and associated models for communicating wi
 from .iothub_registry_manager import IoTHubRegistryManager
 from .iothub_configuration_manager import IoTHubConfigurationManager
 from .iothub_job_manager import IoTHubJobManager
+from .iothub_http_runtime_manager import IoTHubHttpRuntimeManager
 
-__all__ = ["IoTHubRegistryManager", "IoTHubConfigurationManager", "IoTHubJobManager"]
+__all__ = [
+    "IoTHubRegistryManager",
+    "IoTHubConfigurationManager",
+    "IoTHubJobManager",
+    "IoTHubHttpRuntimeManager",
+]
