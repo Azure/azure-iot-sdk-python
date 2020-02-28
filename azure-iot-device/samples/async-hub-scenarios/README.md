@@ -68,8 +68,10 @@ In order to use these samples, you **must** have the following environment varia
 There are 2 ways that your device can get registered to the provisioning service differing in authentication mechanisms and another additional environment variable is needed to for the samples:-
 
 * [provision_symmetric_key.py](provision_symmetric_key.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [provision_symmetric_key_and_send_telemetry.py](provision_symmetric_key_and_send_telemetry.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key, then send a telemetry message to IoTHub. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
 * [provision_symmetric_key_with_payload.py](provision_symmetric_key_with_payload.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key while supplying a custom payload. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
 * [provision_x509.py](provision_x509.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
+* [provision_x509_and_send_telemetry.py](provision_x509_and_send_telemetry.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key, then send a telemetry message to IoTHub. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
 
 #### Group
 
