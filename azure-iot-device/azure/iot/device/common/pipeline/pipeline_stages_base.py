@@ -9,6 +9,7 @@ import abc
 import six
 import sys
 import time
+import traceback
 import uuid
 import weakref
 from six.moves import queue
@@ -97,13 +98,15 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
-        logger.debug("{}({}): running".format(self.name, op.name))
         try:
             self._run_op(op)
         except Exception as e:
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
             # within ._run_op()
-            logger.error(msg="Unexpected error in {}._run_op() call".format(self), exc_info=e)
+
+            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.error(msg="Unexpected error in {}._run_op() call".format(self))
+            logger.error(traceback.format_exc())
             op.complete(error=e)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -132,9 +135,9 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            logger.error(
-                msg="Unexpected error in {}._handle_pipeline_event() call".format(self), exc_info=e
-            )
+            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
+            logger.error(traceback.format_exc())
             handle_exceptions.handle_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -165,7 +168,6 @@ class PipelineStage(object):
             )
             op.complete(error=error)
         else:
-            logger.debug("{}({}): passing to next stage.".format(self.name, op.name))
             self.next.run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -176,9 +178,6 @@ class PipelineStage(object):
         bottom) and move up the pipeline until they're handled or until they error out.
         """
         if self.previous:
-            logger.debug(
-                "{}({}): pushing event up to {}".format(self.name, event.name, self.previous.name)
-            )
             self.previous.handle_pipeline_event(event)
         else:
             logger.error("{}({}): Error: unhandled event".format(self.name, event.name))
@@ -392,7 +391,6 @@ class ConnectionLockStage(PipelineStage):
                     )
 
                 self._unblock(op, error)
-                logger.debug("{}({}): unblock is complete".format(self.name, op.name))
 
             op.add_callback(on_operation_complete)
             self.send_op_down(op)
@@ -649,7 +647,6 @@ class RetryStage(PipelineStage):
         self.retry_intervals = {
             pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
             pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
-            pipeline_ops_base.ConnectOperation: 20,
             pipeline_ops_mqtt.MQTTPublishOperation: 20,
         }
         self.ops_waiting_to_retry = []
@@ -681,11 +678,7 @@ class RetryStage(PipelineStage):
         """
         if error:
             if self._should_watch_for_retry(op):
-                if type(error) in [
-                    pipeline_exceptions.PipelineTimeoutError,
-                    transport_exceptions.ConnectionDroppedError,
-                    transport_exceptions.ConnectionFailedError,
-                ]:
+                if isinstance(error, pipeline_exceptions.PipelineTimeoutError):
                     return True
         return False
 
@@ -738,32 +731,159 @@ transient_connect_errors = [
 ]
 
 
+class ReconnectState(object):
+    """
+    Class which holds reconenct states as class variables.  Created to make code that reads like an enum without using an enum.
+
+    NEVER_CONNECTED: Ttransport has never been conencted.  This state is necessary because some errors might be fatal or transient,
+    depending on wether the transport has been connceted.  For example, a failed conenction is a transient error if we've connected
+    before, but it's fatal if we've never conencted.
+
+    WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.
+
+    CONNECTED_OR_DISCONNECTED: The transport is either connected or disconencted.  This stage doesn't really care which one, so
+    it doesn't keep track.
+    """
+
+    NEVER_CONNECTED = "NEVER_CONNECTED"
+    WAITING_TO_RECONNECT = "WAITING_TO_RECONNECT"
+    CONNECTED_OR_DISCONNECTED = "CONNECTED_OR_DISCONNECTED"
+
+
 class ReconnectStage(PipelineStage):
     def __init__(self):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
-        self.virtually_connected = False
+        self.state = ReconnectState.NEVER_CONNECTED
         # connect delay is hardcoded for now.  Later, this comes from a retry policy
         self.reconnect_delay = 10
+        self.waiting_connect_ops = []
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.ConnectOperation):
-            self.virtually_connected = True
-            self.send_op_down(op)
+            if self.state == ReconnectState.WAITING_TO_RECONNECT:
+                logger.info(
+                    "{}({}): State is {}.  Adding to wait list".format(
+                        self.name, op.name, self.state
+                    )
+                )
+                self.waiting_connect_ops.append(op)
+            else:
+                logger.info(
+                    "{}({}): State is {}.  Adding to wait list and sending new connect op down".format(
+                        self.name, op.name, self.state
+                    )
+                )
+                self.waiting_connect_ops.append(op)
+                self._send_new_connect_op_down()
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
-            self.virtually_connected = False
-            self.send_op_down(op)
+            if self.state == ReconnectState.WAITING_TO_RECONNECT:
+                logger.info(
+                    "{}({}): State is {}.  Canceling waiting ops and sending disconnect down.".format(
+                        self.name, op.name, self.state
+                    )
+                )
+                self._clear_reconnect_timer()
+                self._complete_waiting_connect_ops(
+                    pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
+                )
+                self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                op.complete()
+
+            else:
+                logger.info(
+                    "{}({}): State is {}.  Sending op down.".format(self.name, op.name, self.state)
+                )
+                self.send_op_down(op)
 
         else:
             self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _set_reconnect_timer(self):
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_base.DisconnectedEvent):
+            if self.pipeline_root.connected:
+                logger.info(
+                    "{}({}): State is {}.  Triggering reconnect timer".format(
+                        self.name, event.name, self.state
+                    )
+                )
+                self.state = ReconnectState.WAITING_TO_RECONNECT
+                self._start_reconnect_timer()
+            else:
+                logger.info(
+                    "{}({}): State is {}.  Doing nothing".format(self.name, event.name, self.state)
+                )
+
+            self.send_event_up(event)
+
+        else:
+            self.send_event_up(event)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _send_new_connect_op_down(self):
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_connect_complete(op, error):
+            this = self_weakref()
+            if this:
+                if error:
+                    if this.state == ReconnectState.NEVER_CONNECTED:
+                        logger.info(
+                            "{}({}): error on first connection.  Not triggering reconnection".format(
+                                this.name, op.name
+                            )
+                        )
+                        this._complete_waiting_connect_ops(error)
+                    elif type(error) in transient_connect_errors:
+                        logger.info(
+                            "{}({}): State is {}.  Connect failed with transient error. Triggering reconnect timer".format(
+                                self.name, op.name, self.state
+                            )
+                        )
+                        self.state = ReconnectState.WAITING_TO_RECONNECT
+                        self._start_reconnect_timer()
+
+                    elif this.state == ReconnectState.WAITING_TO_RECONNECT:
+                        logger.info(
+                            "{}({}): non-tranient error.  Failing all waiting ops.n".format(
+                                this.name, op.name
+                            )
+                        )
+                        self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                        self._clear_reconnect_timer()
+                        this._complete_waiting_connect_ops(error)
+
+                    else:
+                        logger.info(
+                            "{}({}): State is {}.  Connection failed. Not triggering reconnection".format(
+                                this.name, op.name, this.state
+                            )
+                        )
+                        this._complete_waiting_connect_ops(error)
+                else:
+                    logger.info(
+                        "{}({}): State is {}.  Connection succeeded".format(
+                            this.name, op.name, this.state
+                        )
+                    )
+                    self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                    self._clear_reconnect_timer()
+                    self._complete_waiting_connect_ops()
+
+        logger.info("{}: sending new connect op down".format(self.name))
+        op = pipeline_ops_base.ConnectOperation(callback=on_connect_complete)
+        self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _start_reconnect_timer(self):
         """
         Set a timer to reconnect after some period of time
         """
+        logger.info("{}: State is {}. Starting reconnect timer".format(self.name, self.state))
 
         self._clear_reconnect_timer()
 
@@ -772,41 +892,22 @@ class ReconnectStage(PipelineStage):
         @pipeline_thread.invoke_on_pipeline_thread_nowait
         def on_reconnect_timer_expired():
             this = self_weakref()
-
-            if not this.pipeline_root.connected:
+            this.reconnect_timer = None
+            if this.state == ReconnectState.WAITING_TO_RECONNECT:
                 logger.info(
-                    "{}: reconnect timer expired.  Sending connect op down".format(this.name)
+                    "{}: State is {}. Reconnect timer expired.  Sending connect op down".format(
+                        this.name, this.state
+                    )
                 )
-
-                def on_connect_complete(op, error):
-                    inner_this = self_weakref()
-                    if error:
-                        if type(error) in transient_connect_errors:
-                            logger.debug(
-                                "{}: reconnect failed because {}.  Setting new timer.".format(
-                                    inner_this.name, error
-                                )
-                            )
-                            inner_this._set_reconnect_timer()
-                        else:
-                            logger.debug(
-                                "{}: reconnect failed because {}.  Not setting new timer.".format(
-                                    inner_this.name, error
-                                )
-                            )
-                    else:
-                        logger.debug("{}: reconnect successful".format(inner_this.name))
-
-                logger.debug("{}: Sending connect operation down".format(this.name))
-                this.send_op_down(pipeline_ops_base.ConnectOperation(on_connect_complete))
+                this.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                this._send_new_connect_op_down()
             else:
-                logger.debug(
-                    "{}: retry timer expired, but client is connected.  Doing nothing".format(
-                        this.name
+                logger.info(
+                    "{}: State is {}.  Reconnect timer expired.  Doing nothing".format(
+                        this.name, this.state
                     )
                 )
 
-        logger.info("{}: Setting reconnect timer".format(self.name))
         self.reconnect_timer = threading.Timer(self.reconnect_delay, on_reconnect_timer_expired)
         self.reconnect_timer.start()
 
@@ -816,32 +917,32 @@ class ReconnectStage(PipelineStage):
         Clear any previous reconnect timer
         """
         if self.reconnect_timer:
-            logger.info("{}: Clearing reconnect timer".format(self.name))
+            logger.info("{}: clearing reconnect timer".format(self.name))
             self.reconnect_timer.cancel()
             self.reconnect_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _handle_pipeline_event(self, event):
-        if isinstance(event, pipeline_events_base.ConnectedEvent):
-            self._clear_reconnect_timer()
-            self.send_event_up(event)
+    def _complete_waiting_connect_ops(self, error=None):
+        """
+        A note of explanation: when we are waiting to reconnect, we need to keep a list of
+        all connect ops that come through here.  We do this for 2 reasons:
 
-        elif isinstance(event, pipeline_events_base.DisconnectedEvent):
-            if self.pipeline_root.connected:
-                if self.virtually_connected:
-                    logger.info(
-                        "{}: disconnected but virtually connected.  Triggering reconnect timer.".format(
-                            self.name
-                        )
-                    )
-                    self._set_reconnect_timer()
-                else:
-                    logger.info(
-                        "{}: disconnected, but not virtually connected.  Not triggering reconnect timer.".format(
-                            self.name
-                        )
-                    )
-            self.send_event_up(event)
+        1. We don't want to pass them down immediately because we want to honor the waiting
+           period.  If we passed them down immediately, we'd try to reconnect immediately
+           instead of waiting until reconnect_timer fires.
 
-        else:
-            self.send_event_up(event)
+        2. When we're retrying, there are new ConnectOperation ops sent down regularly.
+           Any of the ops could be the one that succeeds.  When that happens, we need a
+           way to to complete all of the ops that are patiently waiting for the connection.
+
+        Right now, we only need to do this with ConnectOperation ops because these are the
+        only ops that need to wait because these are the only ops that cause a connection
+        to be established.  Other ops pass through this stage, and might fail in later
+        stages, but that's OK.  If they needed a connection, the AutoConnectStage before
+        this stage should be taking care of that.
+        """
+        logger.info("{}: completing waiting ops with error={}".format(self.name, error))
+        list_copy = self.waiting_connect_ops
+        self.waiting_connect_ops = []
+        for op in list_copy:
+            op.complete(error)

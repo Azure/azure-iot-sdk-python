@@ -73,6 +73,8 @@ class MQTTTransportStage(PipelineStage):
                 server_verification_cert=op.server_verification_cert,
                 x509_cert=op.client_cert,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
+                cipher=self.pipeline_root.pipeline_configuration.cipher,
+                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
             )
             self.transport.on_mqtt_connected_handler = CallableWeakMethod(
                 self, "_on_mqtt_connected"
@@ -216,7 +218,7 @@ class MQTTTransportStage(PipelineStage):
             # This should indicate something odd is going on.
             # If this occurs, either a connect was completed while there was no pending op,
             # OR that a connect was completed while a disconnect op was pending
-            logger.warning("Connection was unexpected")
+            logger.info("Connection was unexpected")
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_connection_failure(self, cause):
@@ -238,7 +240,7 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
             op.complete(error=cause)
         else:
-            logger.warning("{}: Connection failure was unexpected".format(self.name))
+            logger.info("{}: Connection failure was unexpected".format(self.name))
             handle_exceptions.swallow_unraised_exception(
                 cause, log_msg="Unexpected connection failure.  Safe to ignore.", log_lvl="info"
             )
@@ -286,7 +288,7 @@ class MQTTTransportStage(PipelineStage):
                         error=transport_exceptions.ConnectionDroppedError("transport disconnected")
                     )
         else:
-            logger.warning("{}: disconnection was unexpected".format(self.name))
+            logger.info("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError.  log it and swallow it.
             # Higher layers will see that we're disconencted and reconnect as necessary.
             e = transport_exceptions.ConnectionDroppedError(cause=cause)

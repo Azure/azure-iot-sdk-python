@@ -7,3 +7,4 @@ INTERNAL USAGE ONLY
 
 from .iothub_pipeline import IoTHubPipeline
 from .http_pipeline import HTTPPipeline
+from .config import IoTHubPipelineConfig

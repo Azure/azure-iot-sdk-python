@@ -13,6 +13,7 @@ import traceback
 import weakref
 import socket
 from . import transport_exceptions as exceptions
+import socks
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,8 @@ class MQTTTransport(object):
         server_verification_cert=None,
         x509_cert=None,
         websockets=False,
+        cipher=None,
+        proxy_options=None,
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
@@ -107,6 +110,8 @@ class MQTTTransport(object):
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
+        :param str cipher: Cipher string in OpenSSL cipher list format
+        :param proxy_options: Options for sending traffic through proxy servers.
         """
         self._client_id = client_id
         self._hostname = hostname
@@ -115,6 +120,8 @@ class MQTTTransport(object):
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._websockets = websockets
+        self._cipher = cipher
+        self._proxy_options = proxy_options
 
         self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
@@ -145,6 +152,15 @@ class MQTTTransport(object):
             logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
                 client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
+            )
+
+        if self._proxy_options:
+            mqtt_client.proxy_set(
+                proxy_type=self._proxy_options.proxy_type,
+                proxy_addr=self._proxy_options.proxy_address,
+                proxy_port=self._proxy_options.proxy_port,
+                proxy_username=self._proxy_options.proxy_username,
+                proxy_password=self._proxy_options.proxy_password,
             )
 
         mqtt_client.enable_logger(logging.getLogger("paho"))
@@ -296,8 +312,13 @@ class MQTTTransport(object):
             ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
             ssl_context.load_default_certs()
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        ssl_context.check_hostname = True
+
+        if self._cipher:
+            try:
+                ssl_context.set_ciphers(self._cipher)
+            except ssl.SSLError as e:
+                # TODO: custom error with more detail?
+                raise e
 
         if self._x509_cert is not None:
             logger.debug("configuring SSL context with client-side certificate and key")
@@ -306,6 +327,9 @@ class MQTTTransport(object):
                 self._x509_cert.key_file,
                 self._x509_cert.pass_phrase,
             )
+
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
 
         return ssl_context
 
@@ -316,6 +340,9 @@ class MQTTTransport(object):
         This method should be called as an entry point before sending any telemetry.
 
         The password is not required if the transport was instantiated with an x509 certificate.
+
+        If MQTT connection has been proxied, connection will take a bit longer to allow negotiation
+        with the proxy server. Any errors in the proxy connection process will trigger exceptions
 
         :param str password: The password for connecting with the MQTT broker (Optional).
 
@@ -340,9 +367,30 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
         except socket.error as e:
-            # If the socket can't open (e.g. using iptables REJECT), we get a
-            # socket.error.  Convert this into ConnectionFailedError so we can retry
-            raise exceptions.ConnectionFailedError(cause=e)
+            # Only this type will raise a special error
+            # To stop it from retrying.
+            if (
+                isinstance(e, ssl.SSLError)
+                and e.strerror is not None
+                and "CERTIFICATE_VERIFY_FAILED" in e.strerror
+            ):
+                raise exceptions.TlsExchangeAuthError(cause=e)
+            elif isinstance(e, socks.ProxyError):
+                if isinstance(e, socks.SOCKS5AuthError):
+                    # TODO This is the only I felt like specializing
+                    raise exceptions.UnauthorizedError(cause=e)
+                else:
+                    raise exceptions.ProtocolProxyError(cause=e)
+            else:
+                # If the socket can't open (e.g. using iptables REJECT), we get a
+                # socket.error.  Convert this into ConnectionFailedError so we can retry
+                raise exceptions.ConnectionFailedError(cause=e)
+
+        except socks.ProxyError as pe:
+            if isinstance(pe, socks.SOCKS5AuthError):
+                raise exceptions.UnauthorizedError(cause=pe)
+            else:
+                raise exceptions.ProtocolProxyError(cause=pe)
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e

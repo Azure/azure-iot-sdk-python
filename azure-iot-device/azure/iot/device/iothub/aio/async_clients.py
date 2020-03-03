@@ -20,6 +20,7 @@ from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
+from azure.iot.device import constant as device_constant
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,14 @@ async def handle_result(callback):
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except pipeline_exceptions.TlsExchangeAuthError as e:
+        raise exceptions.ClientError(
+            message="Error in the IoTHub client due to TLS exchanges.", cause=e
+        )
+    except pipeline_exceptions.ProtocolProxyError as e:
+        raise exceptions.ClientError(
+            message="Error in the IoTHub client raised due to proxy connections.", cause=e
+        )
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -133,9 +142,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
+        :raises: ValueError if the message fails size validation.
         """
         if not isinstance(message, Message):
             message = Message(message)
+
+        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+            raise ValueError("Size of telemetry message can not exceed 256 KB.")
 
         logger.info("Sending message to Hub...")
         send_message_async = async_adapter.emulate_async(self._iothub_pipeline.send_message)
@@ -413,9 +426,13 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
+        :raises: ValueError if the message fails size validation.
         """
         if not isinstance(message, Message):
             message = Message(message)
+
+        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+            raise ValueError("Size of message can not exceed 256 KB.")
 
         message.output_name = output_name
 

@@ -6,6 +6,7 @@
 """This module contains a class representing messages that are sent or received.
 """
 from azure.iot.device import constant
+import sys
 
 
 # TODO: Revise this class. Does all of this REALLY need to be here?
@@ -29,20 +30,15 @@ class Message(object):
     """
 
     def __init__(
-        self,
-        data,
-        message_id=None,
-        content_encoding="utf-8",
-        content_type="application/json",
-        output_name=None,
+        self, data, message_id=None, content_encoding=None, content_type=None, output_name=None
     ):
         """
         Initializer for Message
 
         :param data: The  data that constitutes the payload
         :param str message_id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
-        :param str content_encoding: Content encoding of the message data. Default is 'utf-8'. Other values can be utf-16' or 'utf-32'
-        :param str content_type: Content type property used to routes with the message body. Default value is 'application/json'
+        :param str content_encoding: Content encoding of the message data. Other values can be utf-16' or 'utf-32'
+        :param str content_type: Content type property used to routes with the message body.
         :param str output_name: Name of the output that the is being sent to.
         """
         self.data = data
@@ -75,3 +71,16 @@ class Message(object):
 
     def __str__(self):
         return str(self.data)
+
+    def get_size(self):
+        total = 0
+        total = total + sum(
+            sys.getsizeof(v)
+            for v in self.__dict__.values()
+            if v is not None and v is not self.custom_properties
+        )
+        if self.custom_properties:
+            total = total + sum(
+                sys.getsizeof(v) for v in self.custom_properties.values() if v is not None
+            )
+        return total

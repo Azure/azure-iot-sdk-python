@@ -14,6 +14,7 @@ import copy
 import pytest
 import logging
 import socket
+import socks
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -24,6 +25,7 @@ fake_username = fake_hostname + "/" + fake_device_id
 new_fake_password = "new fake password"
 fake_topic = "fake_topic"
 fake_payload = "Tarantallegra"
+fake_cipher = "DHE-RSA-AES128-SHA"
 fake_qos = 1
 fake_mid = 52
 fake_rc = 0
@@ -230,6 +232,23 @@ class TestInstantiation(object):
             cadata=server_verification_cert
         )
 
+    @pytest.mark.it(
+        "Configures TLS/SSL context with provided cipher if present during instantiation"
+    )
+    def test_confgures_tls_context_with_cipher(self, mocker, mock_mqtt_client):
+        mock_ssl_context_constructor = mocker.patch.object(ssl, "SSLContext")
+        mock_ssl_context = mock_ssl_context_constructor.return_value
+
+        MQTTTransport(
+            client_id=fake_device_id,
+            hostname=fake_hostname,
+            username=fake_username,
+            cipher=fake_cipher,
+        )
+
+        assert mock_ssl_context.set_ciphers.call_count == 1
+        assert mock_ssl_context.set_ciphers.call_args == mocker.call(fake_cipher)
+
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(
         self, mocker, mock_mqtt_client
@@ -395,6 +414,49 @@ class TestConnect(object):
         with pytest.raises(errors.ConnectionFailedError) as e_info:
             transport.connect(fake_password)
         assert e_info.value.__cause__ is socket_error
+
+    @pytest.mark.it(
+        "Raises a TlsExchangeAuthError if Paho connect raises a socket.error of type SSLCertVerificationError Exception"
+    )
+    def test_client_raises_socket_tls_auth_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socket_error = ssl.SSLError("socket error", "CERTIFICATE_VERIFY_FAILED")
+        mock_mqtt_client.connect.side_effect = socket_error
+        with pytest.raises(errors.TlsExchangeAuthError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socket_error
+        print(e_info.value.__cause__.strerror)
+
+    @pytest.mark.it(
+        "Raises a ProtocolProxyError if Paho connect raises a socket error or a ProxyError exception"
+    )
+    def test_client_raises_socket_error_or_proxy_error_as_proxy_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socks_error = socks.SOCKS5Error(
+            "it is a sock 5 error", socket_err="a general SOCKS5Error error"
+        )
+        mock_mqtt_client.connect.side_effect = socks_error
+        with pytest.raises(errors.ProtocolProxyError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socks_error
+        print(e_info.value.__cause__.strerror)
+
+    @pytest.mark.it(
+        "Raises a UnauthorizedError if Paho connect raises a socket error or a ProxyError exception"
+    )
+    def test_client_raises_socket_error_or_proxy_error_as_unauthorized_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socks_error = socks.SOCKS5AuthError(
+            "it is a sock 5 auth error", socket_err="an auth SOCKS5Error error"
+        )
+        mock_mqtt_client.connect.side_effect = socks_error
+        with pytest.raises(errors.UnauthorizedError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socks_error
+        print(e_info.value.__cause__.strerror)
 
     @pytest.mark.it("Allows any BaseExceptions raised in Paho connect to propagate")
     def test_client_raises_base_exception(

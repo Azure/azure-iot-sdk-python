@@ -115,20 +115,42 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         stage.run_op(op)
         assert stage.sas_token == op.sas_token
 
-    # TODO: Should probably remove the requirement to set it on the root. This seems only needed by Horton
     @pytest.mark.it(
-        "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
+        "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage"
     )
     @pytest.mark.parametrize(
         "websockets",
         [
-            pytest.param(True, id="Pipeline Configured for Websockets"),
-            pytest.param(False, id="Pipeline NOT Configured for Websockets"),
+            pytest.param(True, id="Pipeline configured for websockets"),
+            pytest.param(False, id="Pipeline NOT configured for websockets"),
         ],
     )
-    def test_creates_transport(self, mocker, stage, op, websockets, mock_transport):
-        # Configure websockets
+    @pytest.mark.parametrize(
+        "cipher",
+        [
+            pytest.param("DHE-RSA-AES128-SHA", id="Pipeline configured for custom cipher"),
+            pytest.param(
+                "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
+                id="Pipeline configured for multiple custom ciphers",
+            ),
+            pytest.param("", id="Pipeline NOT configured for custom cipher(s)"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "proxy_options",
+        [
+            pytest.param("FAKE-PROXY", id="Proxy present"),
+            pytest.param(None, id="Proxy None"),
+            pytest.param("", id="Proxy Absent"),
+        ],
+    )
+    def test_creates_transport(
+        self, mocker, stage, op, mock_transport, websockets, cipher, proxy_options
+    ):
+        # Configure websockets & cipher
         stage.pipeline_root.pipeline_configuration.websockets = websockets
+        stage.pipeline_root.pipeline_configuration.cipher = cipher
+        stage.pipeline_root.pipeline_configuration.proxy_options = proxy_options
 
         assert stage.transport is None
 
@@ -142,6 +164,8 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             server_verification_cert=op.server_verification_cert,
             x509_cert=op.client_cert,
             websockets=websockets,
+            cipher=cipher,
+            proxy_options=proxy_options,
         )
         assert stage.transport is mock_transport.return_value
 
@@ -897,7 +921,7 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         assert isinstance(pending_connection_op.error, transport_exceptions.ConnectionDroppedError)
 
     @pytest.mark.it(
-        "Sends a ConnectionDroppedError to the swallowed exception handler, if there is no pending operation when a disconnection occurs"
+        "Sends the error to the swallowed exception handler, if there is no pending operation when a disconnection occurs"
     )
     def test_no_pending_op(self, mocker, stage, cause):
         mock_handler = mocker.patch.object(handle_exceptions, "swallow_unraised_exception")
@@ -908,7 +932,6 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
 
         assert mock_handler.call_count == 1
         exception = mock_handler.call_args[0][0]
-        assert isinstance(exception, transport_exceptions.ConnectionDroppedError)
         assert exception.__cause__ is cause
 
     @pytest.mark.it("Clears any pending operation on the stage")
