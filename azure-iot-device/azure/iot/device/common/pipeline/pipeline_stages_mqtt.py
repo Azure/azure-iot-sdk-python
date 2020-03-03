@@ -133,6 +133,17 @@ class MQTTTransportStage(PipelineStage):
                 logger.error("transport.reauthorize_connection raised error")
                 logger.error(traceback.format_exc())
                 self._pending_connection_op = None
+                # Send up a DisconenctedEvent.  If we ran a ReauthorizeConnectionOperatoin,
+                # some code must think we're still connected.  If we got an exception here,
+                # we're not conencted, and we need to notify upper layers. (Paho should do this,
+                # but it only causes a DisconnectedEvent on manual disconnect or if a PINGRESP
+                # failed, and it's possible to hit this code without either of those things
+                # happening.
+                # BKTODO: it("sends a DisconnectedEvent up if reauthorize_connection fails")
+                if isinstance(e, transport_exceptions.ConnectionDroppedError) or isinstance(
+                    e, transport_exceptions.ConnectionFailedError
+                ):
+                    self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 op.complete(error=e)
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
@@ -156,7 +167,15 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
                 op.complete()
 
-            self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
+            # BKTODO: it("sends a DisconnectedEvent up if publish fails")
+            try:
+                self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
+            except (
+                transport_exceptions.ConnectionDroppedError,
+                transport_exceptions.ConnectionFailedError,
+            ):
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                raise
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTSubscribeOperation):
             logger.info("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
@@ -166,7 +185,15 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug("{}({}): SUBACK received. completing op.".format(self.name, op.name))
                 op.complete()
 
-            self.transport.subscribe(topic=op.topic, callback=on_subscribed)
+            # BKTODO: it("sends a DisconnectedEvent up if subscribe fails")
+            try:
+                self.transport.subscribe(topic=op.topic, callback=on_subscribed)
+            except (
+                transport_exceptions.ConnectionDroppedError,
+                transport_exceptions.ConnectionFailedError,
+            ):
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                raise
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTUnsubscribeOperation):
             logger.info("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
@@ -178,7 +205,15 @@ class MQTTTransportStage(PipelineStage):
                 )
                 op.complete()
 
-            self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
+            # BKTODO: it("sends a DisconnectedEvent up if unsubscribe fails")
+            try:
+                self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
+            except (
+                transport_exceptions.ConnectionDroppedError,
+                transport_exceptions.ConnectionFailedError,
+            ):
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                raise
 
         else:
             # This code block should not be reached in correct program flow.

@@ -1,4 +1,4 @@
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
@@ -420,7 +420,9 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.reconnect()
         except Exception as e:
-            raise exceptions.ProtocolClientError(
+            logger.info("reconnect raised {}".format(e))
+            self._stop_automatic_reconnect()
+            raise exceptions.ConnectionDroppedError(
                 message="Unexpected Paho failure during reconnect", cause=e
             )
         logger.debug("_mqtt_client.reconnect returned rc={}".format(rc))
@@ -446,13 +448,10 @@ class MQTTTransport(object):
         self._mqtt_client.loop_stop()
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
+            # No matter what, we always raise here to give upper layers a chance to respond
+            # to this error.
             err = _create_error_from_rc_code(rc)
-            # If we get a ConnectionDroppedError, swallow it, because we have successfully disconnected!
-            if type(err) is exceptions.ConnectionDroppedError:
-                logger.warning("Dropped connection while disconnecting - swallowing error")
-                pass
-            else:
-                raise err
+            raise err
 
     def subscribe(self, topic, qos=1, callback=None):
         """
