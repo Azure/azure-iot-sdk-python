@@ -139,7 +139,6 @@ class MQTTTransportStage(PipelineStage):
                 # but it only causes a DisconnectedEvent on manual disconnect or if a PINGRESP
                 # failed, and it's possible to hit this code without either of those things
                 # happening.
-                # BKTODO: it("sends a DisconnectedEvent up if reauthorize_connection fails")
                 if isinstance(e, transport_exceptions.ConnectionDroppedError) or isinstance(
                     e, transport_exceptions.ConnectionFailedError
                 ):
@@ -167,7 +166,6 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
                 op.complete()
 
-            # BKTODO: it("sends a DisconnectedEvent up if publish fails")
             try:
                 self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
             except (
@@ -185,7 +183,6 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug("{}({}): SUBACK received. completing op.".format(self.name, op.name))
                 op.complete()
 
-            # BKTODO: it("sends a DisconnectedEvent up if subscribe fails")
             try:
                 self.transport.subscribe(topic=op.topic, callback=on_subscribed)
             except (
@@ -205,7 +202,6 @@ class MQTTTransportStage(PipelineStage):
                 )
                 op.complete()
 
-            # BKTODO: it("sends a DisconnectedEvent up if unsubscribe fails")
             try:
                 self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
             except (
