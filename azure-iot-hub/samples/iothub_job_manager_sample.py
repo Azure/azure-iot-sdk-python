@@ -36,7 +36,7 @@ def print_export_import_job(title, job):
     print("    output_blob_container_uri: {}".format(job.output_blob_container_uri))
     print("    output_blob_name: {}".format(job.output_blob_name))
     print("    exclude_keys_in_export: {}".format(job.exclude_keys_in_export))
-    print("    authentication_type: {}".format(job.authentication_type))
+    print("    storage_authentication_type: {}".format(job.storage_authentication_type))
     print("    failure_reason: {}".format(job.failure_reason))
 
 

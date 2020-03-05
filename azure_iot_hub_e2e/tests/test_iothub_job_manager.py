@@ -25,17 +25,17 @@ class TestJobManager(object):
             iothub_job_manager = IoTHubJobManager(iothub_connection_str)
 
             # Create export/import job
-            authentication_type = "keyBased"
+            storage_authentication_type = "keyBased"
             properties_type = "export"
             job_properties = JobProperties()
-            job_properties.authentication_type = authentication_type
+            job_properties.storage_authentication_type = storage_authentication_type
             job_properties.type = properties_type
             job_properties.output_blob_container_uri = output_container_uri
 
             new_export_import_job = iothub_job_manager.create_import_export_job(job_properties)
 
             # Verify result
-            assert new_export_import_job.authentication_type == authentication_type
+            assert new_export_import_job.storage_authentication_type == storage_authentication_type
             assert new_export_import_job.type == properties_type
             assert new_export_import_job.output_blob_container_uri == output_container_uri
 
@@ -47,8 +47,8 @@ class TestJobManager(object):
             # Verify result
             assert get_export_import_job.job_id == new_export_import_job.job_id
             assert (
-                get_export_import_job.authentication_type
-                == new_export_import_job.authentication_type
+                get_export_import_job.storage_authentication_type
+                == new_export_import_job.storage_authentication_type
             )
             assert get_export_import_job.type == new_export_import_job.type
             assert (
