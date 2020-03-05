@@ -17,10 +17,7 @@ class DigitalTwinInterfacesPatchInterfacesValuePropertiesValue(Model):
     """
 
     _attribute_map = {
-        "desired": {
-            "key": "desired",
-            "type": "DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired",
-        }
+        'desired': {'key': 'desired', 'type': 'DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired'},
     }
 
     def __init__(self, *, desired=None, **kwargs) -> None:

@@ -22,15 +22,15 @@ class CloudToDeviceMethod(Model):
     """
 
     _attribute_map = {
-        "method_name": {"key": "methodName", "type": "str"},
-        "payload": {"key": "payload", "type": "object"},
-        "response_timeout_in_seconds": {"key": "responseTimeoutInSeconds", "type": "int"},
-        "connect_timeout_in_seconds": {"key": "connectTimeoutInSeconds", "type": "int"},
+        'method_name': {'key': 'methodName', 'type': 'str'},
+        'payload': {'key': 'payload', 'type': 'object'},
+        'response_timeout_in_seconds': {'key': 'responseTimeoutInSeconds', 'type': 'int'},
+        'connect_timeout_in_seconds': {'key': 'connectTimeoutInSeconds', 'type': 'int'},
     }
 
     def __init__(self, **kwargs):
         super(CloudToDeviceMethod, self).__init__(**kwargs)
-        self.method_name = kwargs.get("method_name", None)
-        self.payload = kwargs.get("payload", None)
-        self.response_timeout_in_seconds = kwargs.get("response_timeout_in_seconds", None)
-        self.connect_timeout_in_seconds = kwargs.get("connect_timeout_in_seconds", None)
+        self.method_name = kwargs.get('method_name', None)
+        self.payload = kwargs.get('payload', None)
+        self.response_timeout_in_seconds = kwargs.get('response_timeout_in_seconds', None)
+        self.connect_timeout_in_seconds = kwargs.get('connect_timeout_in_seconds', None)

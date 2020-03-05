@@ -24,23 +24,14 @@ class DeviceJobStatistics(Model):
     """
 
     _attribute_map = {
-        "device_count": {"key": "deviceCount", "type": "int"},
-        "failed_count": {"key": "failedCount", "type": "int"},
-        "succeeded_count": {"key": "succeededCount", "type": "int"},
-        "running_count": {"key": "runningCount", "type": "int"},
-        "pending_count": {"key": "pendingCount", "type": "int"},
+        'device_count': {'key': 'deviceCount', 'type': 'int'},
+        'failed_count': {'key': 'failedCount', 'type': 'int'},
+        'succeeded_count': {'key': 'succeededCount', 'type': 'int'},
+        'running_count': {'key': 'runningCount', 'type': 'int'},
+        'pending_count': {'key': 'pendingCount', 'type': 'int'},
     }
 
-    def __init__(
-        self,
-        *,
-        device_count: int = None,
-        failed_count: int = None,
-        succeeded_count: int = None,
-        running_count: int = None,
-        pending_count: int = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, device_count: int=None, failed_count: int=None, succeeded_count: int=None, running_count: int=None, pending_count: int=None, **kwargs) -> None:
         super(DeviceJobStatistics, self).__init__(**kwargs)
         self.device_count = device_count
         self.failed_count = failed_count

@@ -49,49 +49,32 @@ class JobProperties(Model):
      jobs.  Default: false.  If false, authorization keys are included
      in export output.  Keys are exported as null otherwise.
     :type exclude_keys_in_export: bool
-    :param authentication_type: Specifies authentication type being used for
-     connecting to storage account. Possible values include: 'keyBased',
-     'identityBased'
-    :type authentication_type: str or ~protocol.models.enum
+    :param storage_authentication_type: Specifies authentication type being
+     used for connecting to storage account. Possible values include:
+     'keyBased', 'identityBased'
+    :type storage_authentication_type: str or ~protocol.models.enum
     :param failure_reason: System genereated.  Ignored at creation.
      If status == failure, this represents a string containing the reason.
     :type failure_reason: str
     """
 
     _attribute_map = {
-        "job_id": {"key": "jobId", "type": "str"},
-        "start_time_utc": {"key": "startTimeUtc", "type": "iso-8601"},
-        "end_time_utc": {"key": "endTimeUtc", "type": "iso-8601"},
-        "type": {"key": "type", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "progress": {"key": "progress", "type": "int"},
-        "input_blob_container_uri": {"key": "inputBlobContainerUri", "type": "str"},
-        "input_blob_name": {"key": "inputBlobName", "type": "str"},
-        "output_blob_container_uri": {"key": "outputBlobContainerUri", "type": "str"},
-        "output_blob_name": {"key": "outputBlobName", "type": "str"},
-        "exclude_keys_in_export": {"key": "excludeKeysInExport", "type": "bool"},
-        "authentication_type": {"key": "authenticationType", "type": "str"},
-        "failure_reason": {"key": "failureReason", "type": "str"},
+        'job_id': {'key': 'jobId', 'type': 'str'},
+        'start_time_utc': {'key': 'startTimeUtc', 'type': 'iso-8601'},
+        'end_time_utc': {'key': 'endTimeUtc', 'type': 'iso-8601'},
+        'type': {'key': 'type', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'progress': {'key': 'progress', 'type': 'int'},
+        'input_blob_container_uri': {'key': 'inputBlobContainerUri', 'type': 'str'},
+        'input_blob_name': {'key': 'inputBlobName', 'type': 'str'},
+        'output_blob_container_uri': {'key': 'outputBlobContainerUri', 'type': 'str'},
+        'output_blob_name': {'key': 'outputBlobName', 'type': 'str'},
+        'exclude_keys_in_export': {'key': 'excludeKeysInExport', 'type': 'bool'},
+        'storage_authentication_type': {'key': 'storageAuthenticationType', 'type': 'str'},
+        'failure_reason': {'key': 'failureReason', 'type': 'str'},
     }
 
-    def __init__(
-        self,
-        *,
-        job_id: str = None,
-        start_time_utc=None,
-        end_time_utc=None,
-        type=None,
-        status=None,
-        progress: int = None,
-        input_blob_container_uri: str = None,
-        input_blob_name: str = None,
-        output_blob_container_uri: str = None,
-        output_blob_name: str = None,
-        exclude_keys_in_export: bool = None,
-        authentication_type=None,
-        failure_reason: str = None,
-        **kwargs
-    ) -> None:
+    def __init__(self, *, job_id: str=None, start_time_utc=None, end_time_utc=None, type=None, status=None, progress: int=None, input_blob_container_uri: str=None, input_blob_name: str=None, output_blob_container_uri: str=None, output_blob_name: str=None, exclude_keys_in_export: bool=None, storage_authentication_type=None, failure_reason: str=None, **kwargs) -> None:
         super(JobProperties, self).__init__(**kwargs)
         self.job_id = job_id
         self.start_time_utc = start_time_utc
@@ -104,5 +87,5 @@ class JobProperties(Model):
         self.output_blob_container_uri = output_blob_container_uri
         self.output_blob_name = output_blob_name
         self.exclude_keys_in_export = exclude_keys_in_export
-        self.authentication_type = authentication_type
+        self.storage_authentication_type = storage_authentication_type
         self.failure_reason = failure_reason

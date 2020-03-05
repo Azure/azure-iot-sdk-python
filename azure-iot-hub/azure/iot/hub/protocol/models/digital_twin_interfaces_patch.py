@@ -17,9 +17,9 @@ class DigitalTwinInterfacesPatch(Model):
     """
 
     _attribute_map = {
-        "interfaces": {"key": "interfaces", "type": "{DigitalTwinInterfacesPatchInterfacesValue}"}
+        'interfaces': {'key': 'interfaces', 'type': '{DigitalTwinInterfacesPatchInterfacesValue}'},
     }
 
     def __init__(self, **kwargs):
         super(DigitalTwinInterfacesPatch, self).__init__(**kwargs)
-        self.interfaces = kwargs.get("interfaces", None)
+        self.interfaces = kwargs.get('interfaces', None)

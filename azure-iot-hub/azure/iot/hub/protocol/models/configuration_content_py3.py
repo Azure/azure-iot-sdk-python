@@ -20,14 +20,12 @@ class ConfigurationContent(Model):
     """
 
     _attribute_map = {
-        "device_content": {"key": "deviceContent", "type": "{object}"},
-        "modules_content": {"key": "modulesContent", "type": "{{object}}"},
-        "module_content": {"key": "moduleContent", "type": "{object}"},
+        'device_content': {'key': 'deviceContent', 'type': '{object}'},
+        'modules_content': {'key': 'modulesContent', 'type': '{{object}}'},
+        'module_content': {'key': 'moduleContent', 'type': '{object}'},
     }
 
-    def __init__(
-        self, *, device_content=None, modules_content=None, module_content=None, **kwargs
-    ) -> None:
+    def __init__(self, *, device_content=None, modules_content=None, module_content=None, **kwargs) -> None:
         super(ConfigurationContent, self).__init__(**kwargs)
         self.device_content = device_content
         self.modules_content = modules_content

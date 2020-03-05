@@ -8,6 +8,7 @@
 from .iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs
 from .version import VERSION
 
-__all__ = ["IotHubGatewayServiceAPIs"]
+__all__ = ['IotHubGatewayServiceAPIs']
 
 __version__ = VERSION
+

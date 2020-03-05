@@ -18,8 +18,8 @@ class ConfigurationMetrics(Model):
     """
 
     _attribute_map = {
-        "results": {"key": "results", "type": "{long}"},
-        "queries": {"key": "queries", "type": "{str}"},
+        'results': {'key': 'results', 'type': '{long}'},
+        'queries': {'key': 'queries', 'type': '{str}'},
     }
 
     def __init__(self, *, results=None, queries=None, **kwargs) -> None:

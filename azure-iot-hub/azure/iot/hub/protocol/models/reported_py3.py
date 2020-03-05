@@ -18,8 +18,8 @@ class Reported(Model):
     """
 
     _attribute_map = {
-        "value": {"key": "value", "type": "object"},
-        "desired_state": {"key": "desiredState", "type": "DesiredState"},
+        'value': {'key': 'value', 'type': 'object'},
+        'desired_state': {'key': 'desiredState', 'type': 'DesiredState'},
     }
 
     def __init__(self, *, value=None, desired_state=None, **kwargs) -> None:

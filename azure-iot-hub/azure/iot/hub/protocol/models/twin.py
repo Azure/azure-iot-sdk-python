@@ -63,41 +63,41 @@ class Twin(Model):
     """
 
     _attribute_map = {
-        "device_id": {"key": "deviceId", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
-        "tags": {"key": "tags", "type": "{object}"},
-        "properties": {"key": "properties", "type": "TwinProperties"},
-        "etag": {"key": "etag", "type": "str"},
-        "version": {"key": "version", "type": "long"},
-        "device_etag": {"key": "deviceEtag", "type": "str"},
-        "status": {"key": "status", "type": "str"},
-        "status_reason": {"key": "statusReason", "type": "str"},
-        "status_update_time": {"key": "statusUpdateTime", "type": "iso-8601"},
-        "connection_state": {"key": "connectionState", "type": "str"},
-        "last_activity_time": {"key": "lastActivityTime", "type": "iso-8601"},
-        "cloud_to_device_message_count": {"key": "cloudToDeviceMessageCount", "type": "int"},
-        "authentication_type": {"key": "authenticationType", "type": "str"},
-        "x509_thumbprint": {"key": "x509Thumbprint", "type": "X509Thumbprint"},
-        "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
-        "device_scope": {"key": "deviceScope", "type": "str"},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
+        'tags': {'key': 'tags', 'type': '{object}'},
+        'properties': {'key': 'properties', 'type': 'TwinProperties'},
+        'etag': {'key': 'etag', 'type': 'str'},
+        'version': {'key': 'version', 'type': 'long'},
+        'device_etag': {'key': 'deviceEtag', 'type': 'str'},
+        'status': {'key': 'status', 'type': 'str'},
+        'status_reason': {'key': 'statusReason', 'type': 'str'},
+        'status_update_time': {'key': 'statusUpdateTime', 'type': 'iso-8601'},
+        'connection_state': {'key': 'connectionState', 'type': 'str'},
+        'last_activity_time': {'key': 'lastActivityTime', 'type': 'iso-8601'},
+        'cloud_to_device_message_count': {'key': 'cloudToDeviceMessageCount', 'type': 'int'},
+        'authentication_type': {'key': 'authenticationType', 'type': 'str'},
+        'x509_thumbprint': {'key': 'x509Thumbprint', 'type': 'X509Thumbprint'},
+        'capabilities': {'key': 'capabilities', 'type': 'DeviceCapabilities'},
+        'device_scope': {'key': 'deviceScope', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(Twin, self).__init__(**kwargs)
-        self.device_id = kwargs.get("device_id", None)
-        self.module_id = kwargs.get("module_id", None)
-        self.tags = kwargs.get("tags", None)
-        self.properties = kwargs.get("properties", None)
-        self.etag = kwargs.get("etag", None)
-        self.version = kwargs.get("version", None)
-        self.device_etag = kwargs.get("device_etag", None)
-        self.status = kwargs.get("status", None)
-        self.status_reason = kwargs.get("status_reason", None)
-        self.status_update_time = kwargs.get("status_update_time", None)
-        self.connection_state = kwargs.get("connection_state", None)
-        self.last_activity_time = kwargs.get("last_activity_time", None)
-        self.cloud_to_device_message_count = kwargs.get("cloud_to_device_message_count", None)
-        self.authentication_type = kwargs.get("authentication_type", None)
-        self.x509_thumbprint = kwargs.get("x509_thumbprint", None)
-        self.capabilities = kwargs.get("capabilities", None)
-        self.device_scope = kwargs.get("device_scope", None)
+        self.device_id = kwargs.get('device_id', None)
+        self.module_id = kwargs.get('module_id', None)
+        self.tags = kwargs.get('tags', None)
+        self.properties = kwargs.get('properties', None)
+        self.etag = kwargs.get('etag', None)
+        self.version = kwargs.get('version', None)
+        self.device_etag = kwargs.get('device_etag', None)
+        self.status = kwargs.get('status', None)
+        self.status_reason = kwargs.get('status_reason', None)
+        self.status_update_time = kwargs.get('status_update_time', None)
+        self.connection_state = kwargs.get('connection_state', None)
+        self.last_activity_time = kwargs.get('last_activity_time', None)
+        self.cloud_to_device_message_count = kwargs.get('cloud_to_device_message_count', None)
+        self.authentication_type = kwargs.get('authentication_type', None)
+        self.x509_thumbprint = kwargs.get('x509_thumbprint', None)
+        self.capabilities = kwargs.get('capabilities', None)
+        self.device_scope = kwargs.get('device_scope', None)

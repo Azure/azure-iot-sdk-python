@@ -18,11 +18,11 @@ class Reported(Model):
     """
 
     _attribute_map = {
-        "value": {"key": "value", "type": "object"},
-        "desired_state": {"key": "desiredState", "type": "DesiredState"},
+        'value': {'key': 'value', 'type': 'object'},
+        'desired_state': {'key': 'desiredState', 'type': 'DesiredState'},
     }
 
     def __init__(self, **kwargs):
         super(Reported, self).__init__(**kwargs)
-        self.value = kwargs.get("value", None)
-        self.desired_state = kwargs.get("desired_state", None)
+        self.value = kwargs.get('value', None)
+        self.desired_state = kwargs.get('desired_state', None)

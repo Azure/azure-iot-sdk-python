@@ -18,11 +18,11 @@ class DigitalTwinInterfaces(Model):
     """
 
     _attribute_map = {
-        "interfaces": {"key": "interfaces", "type": "{Interface}"},
-        "version": {"key": "version", "type": "long"},
+        'interfaces': {'key': 'interfaces', 'type': '{Interface}'},
+        'version': {'key': 'version', 'type': 'long'},
     }
 
-    def __init__(self, *, interfaces=None, version: int = None, **kwargs) -> None:
+    def __init__(self, *, interfaces=None, version: int=None, **kwargs) -> None:
         super(DigitalTwinInterfaces, self).__init__(**kwargs)
         self.interfaces = interfaces
         self.version = version

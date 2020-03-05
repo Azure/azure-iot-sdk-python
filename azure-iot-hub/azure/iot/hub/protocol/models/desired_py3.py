@@ -16,7 +16,9 @@ class Desired(Model):
     :type value: object
     """
 
-    _attribute_map = {"value": {"key": "value", "type": "object"}}
+    _attribute_map = {
+        'value': {'key': 'value', 'type': 'object'},
+    }
 
     def __init__(self, *, value=None, **kwargs) -> None:
         super(Desired, self).__init__(**kwargs)

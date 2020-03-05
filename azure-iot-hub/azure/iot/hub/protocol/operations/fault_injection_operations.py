@@ -18,7 +18,7 @@ class FaultInjectionOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-01".
+    :ivar api_version: Version of the Api. Constant value: "2020-03-13".
     """
 
     models = models
@@ -30,9 +30,10 @@ class FaultInjectionOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-01"
+        self.api_version = "2020-03-13"
 
-    def get(self, custom_headers=None, raw=False, **operation_config):
+    def get(
+            self, custom_headers=None, raw=False, **operation_config):
         """Get FaultInjection entity.
 
         :param dict custom_headers: headers that will be added to the request
@@ -47,17 +48,15 @@ class FaultInjectionOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get.metadata["url"]
+        url = self.get.metadata['url']
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Accept"] = "application/json"
+        header_parameters['Accept'] = 'application/json'
         if custom_headers:
             header_parameters.update(custom_headers)
 
@@ -71,17 +70,17 @@ class FaultInjectionOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("FaultInjectionProperties", response)
+            deserialized = self._deserialize('FaultInjectionProperties', response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
+    get.metadata = {'url': '/faultInjection'}
 
-    get.metadata = {"url": "/faultInjection"}
-
-    def set(self, value, custom_headers=None, raw=False, **operation_config):
+    def set(
+            self, value, custom_headers=None, raw=False, **operation_config):
         """Create or update FaultInjection entity.
 
         :param value:
@@ -97,22 +96,20 @@ class FaultInjectionOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.set.metadata["url"]
+        url = self.set.metadata['url']
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
         if custom_headers:
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(value, "FaultInjectionProperties")
+        body_content = self._serialize.body(value, 'FaultInjectionProperties')
 
         # Construct and send request
         request = self._client.put(url, query_parameters, header_parameters, body_content)
@@ -124,5 +121,4 @@ class FaultInjectionOperations(object):
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
-
-    set.metadata = {"url": "/faultInjection"}
+    set.metadata = {'url': '/faultInjection'}

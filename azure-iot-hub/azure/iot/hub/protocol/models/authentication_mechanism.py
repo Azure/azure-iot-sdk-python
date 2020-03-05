@@ -21,13 +21,13 @@ class AuthenticationMechanism(Model):
     """
 
     _attribute_map = {
-        "symmetric_key": {"key": "symmetricKey", "type": "SymmetricKey"},
-        "x509_thumbprint": {"key": "x509Thumbprint", "type": "X509Thumbprint"},
-        "type": {"key": "type", "type": "str"},
+        'symmetric_key': {'key': 'symmetricKey', 'type': 'SymmetricKey'},
+        'x509_thumbprint': {'key': 'x509Thumbprint', 'type': 'X509Thumbprint'},
+        'type': {'key': 'type', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(AuthenticationMechanism, self).__init__(**kwargs)
-        self.symmetric_key = kwargs.get("symmetric_key", None)
-        self.x509_thumbprint = kwargs.get("x509_thumbprint", None)
-        self.type = kwargs.get("type", None)
+        self.symmetric_key = kwargs.get('symmetric_key', None)
+        self.x509_thumbprint = kwargs.get('x509_thumbprint', None)
+        self.type = kwargs.get('type', None)

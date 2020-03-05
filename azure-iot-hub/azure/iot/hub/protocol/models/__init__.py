@@ -43,15 +43,9 @@ try:
     from .query_result_py3 import QueryResult
     from .module_py3 import Module
     from .cloud_to_device_method_result_py3 import CloudToDeviceMethodResult
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired_py3 import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired,
-    )
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value_py3 import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValue,
-    )
-    from .digital_twin_interfaces_patch_interfaces_value_py3 import (
-        DigitalTwinInterfacesPatchInterfacesValue,
-    )
+    from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired_py3 import DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired
+    from .digital_twin_interfaces_patch_interfaces_value_properties_value_py3 import DigitalTwinInterfacesPatchInterfacesValuePropertiesValue
+    from .digital_twin_interfaces_patch_interfaces_value_py3 import DigitalTwinInterfacesPatchInterfacesValue
     from .digital_twin_interfaces_patch_py3 import DigitalTwinInterfacesPatch
 except (SyntaxError, ImportError):
     from .configuration_metrics import ConfigurationMetrics
@@ -91,57 +85,51 @@ except (SyntaxError, ImportError):
     from .query_result import QueryResult
     from .module import Module
     from .cloud_to_device_method_result import CloudToDeviceMethodResult
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired,
-    )
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValue,
-    )
-    from .digital_twin_interfaces_patch_interfaces_value import (
-        DigitalTwinInterfacesPatchInterfacesValue,
-    )
+    from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired import DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired
+    from .digital_twin_interfaces_patch_interfaces_value_properties_value import DigitalTwinInterfacesPatchInterfacesValuePropertiesValue
+    from .digital_twin_interfaces_patch_interfaces_value import DigitalTwinInterfacesPatchInterfacesValue
     from .digital_twin_interfaces_patch import DigitalTwinInterfacesPatch
 
 __all__ = [
-    "ConfigurationMetrics",
-    "ConfigurationContent",
-    "Configuration",
-    "ConfigurationQueriesTestInput",
-    "ConfigurationQueriesTestResponse",
-    "RegistryStatistics",
-    "ServiceStatistics",
-    "SymmetricKey",
-    "X509Thumbprint",
-    "AuthenticationMechanism",
-    "DeviceCapabilities",
-    "Device",
-    "PropertyContainer",
-    "ExportImportDevice",
-    "DeviceRegistryOperationError",
-    "DeviceRegistryOperationWarning",
-    "BulkRegistryOperationResult",
-    "QuerySpecification",
-    "TwinProperties",
-    "Twin",
-    "JobProperties",
-    "PurgeMessageQueueResult",
-    "FaultInjectionConnectionProperties",
-    "FaultInjectionProperties",
-    "DesiredState",
-    "Reported",
-    "Desired",
-    "Property",
-    "Interface",
-    "DigitalTwinInterfaces",
-    "CloudToDeviceMethod",
-    "JobRequest",
-    "DeviceJobStatistics",
-    "JobResponse",
-    "QueryResult",
-    "Module",
-    "CloudToDeviceMethodResult",
-    "DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired",
-    "DigitalTwinInterfacesPatchInterfacesValuePropertiesValue",
-    "DigitalTwinInterfacesPatchInterfacesValue",
-    "DigitalTwinInterfacesPatch",
+    'ConfigurationMetrics',
+    'ConfigurationContent',
+    'Configuration',
+    'ConfigurationQueriesTestInput',
+    'ConfigurationQueriesTestResponse',
+    'RegistryStatistics',
+    'ServiceStatistics',
+    'SymmetricKey',
+    'X509Thumbprint',
+    'AuthenticationMechanism',
+    'DeviceCapabilities',
+    'Device',
+    'PropertyContainer',
+    'ExportImportDevice',
+    'DeviceRegistryOperationError',
+    'DeviceRegistryOperationWarning',
+    'BulkRegistryOperationResult',
+    'QuerySpecification',
+    'TwinProperties',
+    'Twin',
+    'JobProperties',
+    'PurgeMessageQueueResult',
+    'FaultInjectionConnectionProperties',
+    'FaultInjectionProperties',
+    'DesiredState',
+    'Reported',
+    'Desired',
+    'Property',
+    'Interface',
+    'DigitalTwinInterfaces',
+    'CloudToDeviceMethod',
+    'JobRequest',
+    'DeviceJobStatistics',
+    'JobResponse',
+    'QueryResult',
+    'Module',
+    'CloudToDeviceMethodResult',
+    'DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired',
+    'DigitalTwinInterfacesPatchInterfacesValuePropertiesValue',
+    'DigitalTwinInterfacesPatchInterfacesValue',
+    'DigitalTwinInterfacesPatch',
 ]

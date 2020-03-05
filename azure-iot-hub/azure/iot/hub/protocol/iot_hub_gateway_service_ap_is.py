@@ -31,16 +31,17 @@ class IotHubGatewayServiceAPIsConfiguration(Configuration):
     :param str base_url: Service URL
     """
 
-    def __init__(self, credentials, base_url=None):
+    def __init__(
+            self, credentials, base_url=None):
 
         if credentials is None:
             raise ValueError("Parameter 'credentials' must not be None.")
         if not base_url:
-            base_url = "https://fully-qualified-iothubname.azure-devices.net"
+            base_url = 'https://fully-qualified-iothubname.azure-devices.net'
 
         super(IotHubGatewayServiceAPIsConfiguration, self).__init__(base_url)
 
-        self.add_user_agent("iothubgatewayserviceapis/{}".format(VERSION))
+        self.add_user_agent('iothubgatewayserviceapis/{}'.format(VERSION))
 
         self.credentials = credentials
 
@@ -74,35 +75,30 @@ class IotHubGatewayServiceAPIs(SDKClient):
     :param str base_url: Service URL
     """
 
-    def __init__(self, credentials, base_url=None):
+    def __init__(
+            self, credentials, base_url=None):
 
         self.config = IotHubGatewayServiceAPIsConfiguration(credentials, base_url)
         super(IotHubGatewayServiceAPIs, self).__init__(self.config.credentials, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = "2020-03-01"
+        self.api_version = '2020-03-13'
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
         self.configuration = ConfigurationOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)
         self.registry_manager = RegistryManagerOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)
         self.job_client = JobClientOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)
         self.fault_injection = FaultInjectionOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
-        self.twin = TwinOperations(self._client, self.config, self._serialize, self._deserialize)
+            self._client, self.config, self._serialize, self._deserialize)
+        self.twin = TwinOperations(
+            self._client, self.config, self._serialize, self._deserialize)
         self.digital_twin = DigitalTwinOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)
         self.http_runtime = HttpRuntimeOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)
         self.device_method = DeviceMethodOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
+            self._client, self.config, self._serialize, self._deserialize)

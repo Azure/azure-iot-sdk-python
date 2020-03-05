@@ -25,11 +25,11 @@ class TwinProperties(Model):
     """
 
     _attribute_map = {
-        "desired": {"key": "desired", "type": "{object}"},
-        "reported": {"key": "reported", "type": "{object}"},
+        'desired': {'key': 'desired', 'type': '{object}'},
+        'reported': {'key': 'reported', 'type': '{object}'},
     }
 
     def __init__(self, **kwargs):
         super(TwinProperties, self).__init__(**kwargs)
-        self.desired = kwargs.get("desired", None)
-        self.reported = kwargs.get("reported", None)
+        self.desired = kwargs.get('desired', None)
+        self.reported = kwargs.get('reported', None)

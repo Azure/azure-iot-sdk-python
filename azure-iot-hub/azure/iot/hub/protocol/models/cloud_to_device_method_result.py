@@ -18,11 +18,11 @@ class CloudToDeviceMethodResult(Model):
     """
 
     _attribute_map = {
-        "status": {"key": "status", "type": "int"},
-        "payload": {"key": "payload", "type": "object"},
+        'status': {'key': 'status', 'type': 'int'},
+        'payload': {'key': 'payload', 'type': 'object'},
     }
 
     def __init__(self, **kwargs):
         super(CloudToDeviceMethodResult, self).__init__(**kwargs)
-        self.status = kwargs.get("status", None)
-        self.payload = kwargs.get("payload", None)
+        self.status = kwargs.get('status', None)
+        self.payload = kwargs.get('payload', None)

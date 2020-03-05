@@ -18,11 +18,11 @@ class FaultInjectionConnectionProperties(Model):
     """
 
     _attribute_map = {
-        "action": {"key": "action", "type": "str"},
-        "block_duration_in_minutes": {"key": "blockDurationInMinutes", "type": "int"},
+        'action': {'key': 'action', 'type': 'str'},
+        'block_duration_in_minutes': {'key': 'blockDurationInMinutes', 'type': 'int'},
     }
 
     def __init__(self, **kwargs):
         super(FaultInjectionConnectionProperties, self).__init__(**kwargs)
-        self.action = kwargs.get("action", None)
-        self.block_duration_in_minutes = kwargs.get("block_duration_in_minutes", None)
+        self.action = kwargs.get('action', None)
+        self.block_duration_in_minutes = kwargs.get('block_duration_in_minutes', None)

@@ -20,13 +20,13 @@ class DesiredState(Model):
     """
 
     _attribute_map = {
-        "code": {"key": "code", "type": "int"},
-        "version": {"key": "version", "type": "long"},
-        "description": {"key": "description", "type": "str"},
+        'code': {'key': 'code', 'type': 'int'},
+        'version': {'key': 'version', 'type': 'long'},
+        'description': {'key': 'description', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(DesiredState, self).__init__(**kwargs)
-        self.code = kwargs.get("code", None)
-        self.version = kwargs.get("version", None)
-        self.description = kwargs.get("description", None)
+        self.code = kwargs.get('code', None)
+        self.version = kwargs.get('version', None)
+        self.description = kwargs.get('description', None)

@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "version": "2020-03-01",
+    "version": "2020-03-13",
     "title": "IotHub Gateway Service APIs"
   },
   "host": "fully-qualified-iothubname.azure-devices.net",
@@ -2329,6 +2329,7 @@
             "UnableToFetchTenantInfo",
             "UnableToShareIdentity",
             "UnableToExpandDiscoveryInfo",
+            "UnableToExpandComponentInfo",
             "GenericBadGateway",
             "InvalidResponseWhileProxying",
             "GenericServiceUnavailable",
@@ -2579,7 +2580,7 @@
           "description": "Optional for export jobs; ignored for other jobs.  Default: false.  If false, authorization keys are included\r\nin export output.  Keys are exported as null otherwise.",
           "type": "boolean"
         },
-        "authenticationType": {
+        "storageAuthenticationType": {
           "description": "Specifies authentication type being used for connecting to storage account.",
           "enum": [
             "keyBased",
@@ -3046,7 +3047,7 @@
       "description": "Version of the Api.",
       "required": true,
       "type": "string",
-      "default": "2020-03-01"
+      "default": "2020-03-13"
     }
   }
 }

@@ -18,11 +18,11 @@ class DigitalTwinInterfaces(Model):
     """
 
     _attribute_map = {
-        "interfaces": {"key": "interfaces", "type": "{Interface}"},
-        "version": {"key": "version", "type": "long"},
+        'interfaces': {'key': 'interfaces', 'type': '{Interface}'},
+        'version': {'key': 'version', 'type': 'long'},
     }
 
     def __init__(self, **kwargs):
         super(DigitalTwinInterfaces, self).__init__(**kwargs)
-        self.interfaces = kwargs.get("interfaces", None)
-        self.version = kwargs.get("version", None)
+        self.interfaces = kwargs.get('interfaces', None)
+        self.version = kwargs.get('version', None)

@@ -15,8 +15,10 @@ class DeviceCapabilities(Model):
     :type iot_edge: bool
     """
 
-    _attribute_map = {"iot_edge": {"key": "iotEdge", "type": "bool"}}
+    _attribute_map = {
+        'iot_edge': {'key': 'iotEdge', 'type': 'bool'},
+    }
 
-    def __init__(self, *, iot_edge: bool = None, **kwargs) -> None:
+    def __init__(self, *, iot_edge: bool=None, **kwargs) -> None:
         super(DeviceCapabilities, self).__init__(**kwargs)
         self.iot_edge = iot_edge

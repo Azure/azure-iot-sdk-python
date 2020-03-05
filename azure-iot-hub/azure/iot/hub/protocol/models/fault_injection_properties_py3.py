@@ -20,14 +20,12 @@ class FaultInjectionProperties(Model):
     """
 
     _attribute_map = {
-        "iot_hub_name": {"key": "IotHubName", "type": "str"},
-        "connection": {"key": "connection", "type": "FaultInjectionConnectionProperties"},
-        "last_updated_time_utc": {"key": "lastUpdatedTimeUtc", "type": "iso-8601"},
+        'iot_hub_name': {'key': 'IotHubName', 'type': 'str'},
+        'connection': {'key': 'connection', 'type': 'FaultInjectionConnectionProperties'},
+        'last_updated_time_utc': {'key': 'lastUpdatedTimeUtc', 'type': 'iso-8601'},
     }
 
-    def __init__(
-        self, *, iot_hub_name: str = None, connection=None, last_updated_time_utc=None, **kwargs
-    ) -> None:
+    def __init__(self, *, iot_hub_name: str=None, connection=None, last_updated_time_utc=None, **kwargs) -> None:
         super(FaultInjectionProperties, self).__init__(**kwargs)
         self.iot_hub_name = iot_hub_name
         self.connection = connection

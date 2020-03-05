@@ -18,11 +18,11 @@ class Interface(Model):
     """
 
     _attribute_map = {
-        "name": {"key": "name", "type": "str"},
-        "properties": {"key": "properties", "type": "{Property}"},
+        'name': {'key': 'name', 'type': 'str'},
+        'properties': {'key': 'properties', 'type': '{Property}'},
     }
 
     def __init__(self, **kwargs):
         super(Interface, self).__init__(**kwargs)
-        self.name = kwargs.get("name", None)
-        self.properties = kwargs.get("properties", None)
+        self.name = kwargs.get('name', None)
+        self.properties = kwargs.get('properties', None)

@@ -18,8 +18,8 @@ class Property(Model):
     """
 
     _attribute_map = {
-        "reported": {"key": "reported", "type": "Reported"},
-        "desired": {"key": "desired", "type": "Desired"},
+        'reported': {'key': 'reported', 'type': 'Reported'},
+        'desired': {'key': 'desired', 'type': 'Desired'},
     }
 
     def __init__(self, *, reported=None, desired=None, **kwargs) -> None:

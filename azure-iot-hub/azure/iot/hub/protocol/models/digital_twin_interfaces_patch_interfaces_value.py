@@ -17,12 +17,9 @@ class DigitalTwinInterfacesPatchInterfacesValue(Model):
     """
 
     _attribute_map = {
-        "properties": {
-            "key": "properties",
-            "type": "{DigitalTwinInterfacesPatchInterfacesValuePropertiesValue}",
-        }
+        'properties': {'key': 'properties', 'type': '{DigitalTwinInterfacesPatchInterfacesValuePropertiesValue}'},
     }
 
     def __init__(self, **kwargs):
         super(DigitalTwinInterfacesPatchInterfacesValue, self).__init__(**kwargs)
-        self.properties = kwargs.get("properties", None)
+        self.properties = kwargs.get('properties', None)

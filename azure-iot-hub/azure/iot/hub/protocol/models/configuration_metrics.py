@@ -18,11 +18,11 @@ class ConfigurationMetrics(Model):
     """
 
     _attribute_map = {
-        "results": {"key": "results", "type": "{long}"},
-        "queries": {"key": "queries", "type": "{str}"},
+        'results': {'key': 'results', 'type': '{long}'},
+        'queries': {'key': 'queries', 'type': '{str}'},
     }
 
     def __init__(self, **kwargs):
         super(ConfigurationMetrics, self).__init__(**kwargs)
-        self.results = kwargs.get("results", None)
-        self.queries = kwargs.get("queries", None)
+        self.results = kwargs.get('results', None)
+        self.queries = kwargs.get('queries', None)

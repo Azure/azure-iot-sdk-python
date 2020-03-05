@@ -20,13 +20,13 @@ class PurgeMessageQueueResult(Model):
     """
 
     _attribute_map = {
-        "total_messages_purged": {"key": "totalMessagesPurged", "type": "int"},
-        "device_id": {"key": "deviceId", "type": "str"},
-        "module_id": {"key": "moduleId", "type": "str"},
+        'total_messages_purged': {'key': 'totalMessagesPurged', 'type': 'int'},
+        'device_id': {'key': 'deviceId', 'type': 'str'},
+        'module_id': {'key': 'moduleId', 'type': 'str'},
     }
 
     def __init__(self, **kwargs):
         super(PurgeMessageQueueResult, self).__init__(**kwargs)
-        self.total_messages_purged = kwargs.get("total_messages_purged", None)
-        self.device_id = kwargs.get("device_id", None)
-        self.module_id = kwargs.get("module_id", None)
+        self.total_messages_purged = kwargs.get('total_messages_purged', None)
+        self.device_id = kwargs.get('device_id', None)
+        self.module_id = kwargs.get('module_id', None)

@@ -15,12 +15,12 @@ from .http_runtime_operations import HttpRuntimeOperations
 from .device_method_operations import DeviceMethodOperations
 
 __all__ = [
-    "ConfigurationOperations",
-    "RegistryManagerOperations",
-    "JobClientOperations",
-    "FaultInjectionOperations",
-    "TwinOperations",
-    "DigitalTwinOperations",
-    "HttpRuntimeOperations",
-    "DeviceMethodOperations",
+    'ConfigurationOperations',
+    'RegistryManagerOperations',
+    'JobClientOperations',
+    'FaultInjectionOperations',
+    'TwinOperations',
+    'DigitalTwinOperations',
+    'HttpRuntimeOperations',
+    'DeviceMethodOperations',
 ]

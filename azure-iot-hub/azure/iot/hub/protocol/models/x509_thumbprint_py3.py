@@ -18,13 +18,11 @@ class X509Thumbprint(Model):
     """
 
     _attribute_map = {
-        "primary_thumbprint": {"key": "primaryThumbprint", "type": "str"},
-        "secondary_thumbprint": {"key": "secondaryThumbprint", "type": "str"},
+        'primary_thumbprint': {'key': 'primaryThumbprint', 'type': 'str'},
+        'secondary_thumbprint': {'key': 'secondaryThumbprint', 'type': 'str'},
     }
 
-    def __init__(
-        self, *, primary_thumbprint: str = None, secondary_thumbprint: str = None, **kwargs
-    ) -> None:
+    def __init__(self, *, primary_thumbprint: str=None, secondary_thumbprint: str=None, **kwargs) -> None:
         super(X509Thumbprint, self).__init__(**kwargs)
         self.primary_thumbprint = primary_thumbprint
         self.secondary_thumbprint = secondary_thumbprint

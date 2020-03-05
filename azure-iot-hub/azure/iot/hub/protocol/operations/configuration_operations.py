@@ -18,7 +18,7 @@ class ConfigurationOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-01".
+    :ivar api_version: Version of the Api. Constant value: "2020-03-13".
     """
 
     models = models
@@ -30,9 +30,10 @@ class ConfigurationOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-01"
+        self.api_version = "2020-03-13"
 
-    def get(self, id, custom_headers=None, raw=False, **operation_config):
+    def get(
+            self, id, custom_headers=None, raw=False, **operation_config):
         """Retrieve a configuration for Iot Hub devices and modules by it
         identifier.
 
@@ -50,19 +51,19 @@ class ConfigurationOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get.metadata["url"]
-        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self.get.metadata['url']
+        path_format_arguments = {
+            'id': self._serialize.url("id", id, 'str')
+        }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Accept"] = "application/json"
+        header_parameters['Accept'] = 'application/json'
         if custom_headers:
             header_parameters.update(custom_headers)
 
@@ -76,19 +77,17 @@ class ConfigurationOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Configuration", response)
+            deserialized = self._deserialize('Configuration', response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-
-    get.metadata = {"url": "/configurations/{id}"}
+    get.metadata = {'url': '/configurations/{id}'}
 
     def create_or_update(
-        self, id, configuration, if_match=None, custom_headers=None, raw=False, **operation_config
-    ):
+            self, id, configuration, if_match=None, custom_headers=None, raw=False, **operation_config):
         """Create or update the configuration for devices or modules of an IoT
         hub. An ETag must not be specified for the create operation. An ETag
         must be specified for the update operation. Note that configuration Id
@@ -112,27 +111,27 @@ class ConfigurationOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.create_or_update.metadata["url"]
-        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self.create_or_update.metadata['url']
+        path_format_arguments = {
+            'id': self._serialize.url("id", id, 'str')
+        }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Accept"] = "application/json"
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        header_parameters['Accept'] = 'application/json'
+        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters['If-Match'] = self._serialize.header("if_match", if_match, 'str')
 
         # Construct body
-        body_content = self._serialize.body(configuration, "Configuration")
+        body_content = self._serialize.body(configuration, 'Configuration')
 
         # Construct and send request
         request = self._client.put(url, query_parameters, header_parameters, body_content)
@@ -144,19 +143,19 @@ class ConfigurationOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Configuration", response)
+            deserialized = self._deserialize('Configuration', response)
         if response.status_code == 201:
-            deserialized = self._deserialize("Configuration", response)
+            deserialized = self._deserialize('Configuration', response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
+    create_or_update.metadata = {'url': '/configurations/{id}'}
 
-    create_or_update.metadata = {"url": "/configurations/{id}"}
-
-    def delete(self, id, if_match=None, custom_headers=None, raw=False, **operation_config):
+    def delete(
+            self, id, if_match=None, custom_headers=None, raw=False, **operation_config):
         """Delete the configuration for devices or modules of an IoT hub. This
         request requires the If-Match header. The client may specify the ETag
         for the device identity on the request in order to compare to the ETag
@@ -182,22 +181,22 @@ class ConfigurationOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.delete.metadata["url"]
-        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self.delete.metadata['url']
+        path_format_arguments = {
+            'id': self._serialize.url("id", id, 'str')
+        }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+            header_parameters['If-Match'] = self._serialize.header("if_match", if_match, 'str')
 
         # Construct and send request
         request = self._client.delete(url, query_parameters, header_parameters)
@@ -209,10 +208,10 @@ class ConfigurationOperations(object):
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
+    delete.metadata = {'url': '/configurations/{id}'}
 
-    delete.metadata = {"url": "/configurations/{id}"}
-
-    def get_configurations(self, top=None, custom_headers=None, raw=False, **operation_config):
+    def get_configurations(
+            self, top=None, custom_headers=None, raw=False, **operation_config):
         """Get multiple configurations for devices or modules of an IoT Hub.
         Returns the specified number of configurations for Iot Hub. Pagination
         is not supported.
@@ -231,19 +230,17 @@ class ConfigurationOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get_configurations.metadata["url"]
+        url = self.get_configurations.metadata['url']
 
         # Construct parameters
         query_parameters = {}
         if top is not None:
-            query_parameters["top"] = self._serialize.query("top", top, "int")
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+            query_parameters['top'] = self._serialize.query("top", top, 'int')
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Accept"] = "application/json"
+        header_parameters['Accept'] = 'application/json'
         if custom_headers:
             header_parameters.update(custom_headers)
 
@@ -257,17 +254,17 @@ class ConfigurationOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("[Configuration]", response)
+            deserialized = self._deserialize('[Configuration]', response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
+    get_configurations.metadata = {'url': '/configurations'}
 
-    get_configurations.metadata = {"url": "/configurations"}
-
-    def test_queries(self, input, custom_headers=None, raw=False, **operation_config):
+    def test_queries(
+            self, input, custom_headers=None, raw=False, **operation_config):
         """Validates the target condition query and custom metric queries for a
         configuration.
 
@@ -289,23 +286,21 @@ class ConfigurationOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.test_queries.metadata["url"]
+        url = self.test_queries.metadata['url']
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Accept"] = "application/json"
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        header_parameters['Accept'] = 'application/json'
+        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
         if custom_headers:
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(input, "ConfigurationQueriesTestInput")
+        body_content = self._serialize.body(input, 'ConfigurationQueriesTestInput')
 
         # Construct and send request
         request = self._client.post(url, query_parameters, header_parameters, body_content)
@@ -317,17 +312,17 @@ class ConfigurationOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("ConfigurationQueriesTestResponse", response)
+            deserialized = self._deserialize('ConfigurationQueriesTestResponse', response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
+    test_queries.metadata = {'url': '/configurations/testQueries'}
 
-    test_queries.metadata = {"url": "/configurations/testQueries"}
-
-    def apply_on_edge_device(self, id, content, custom_headers=None, raw=False, **operation_config):
+    def apply_on_edge_device(
+            self, id, content, custom_headers=None, raw=False, **operation_config):
         """Applies the provided configuration content to the specified edge
         device.
 
@@ -349,25 +344,25 @@ class ConfigurationOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.apply_on_edge_device.metadata["url"]
-        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self.apply_on_edge_device.metadata['url']
+        path_format_arguments = {
+            'id': self._serialize.url("id", id, 'str')
+        }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
+        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Accept"] = "application/json"
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        header_parameters['Accept'] = 'application/json'
+        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
         if custom_headers:
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(content, "ConfigurationContent")
+        body_content = self._serialize.body(content, 'ConfigurationContent')
 
         # Construct and send request
         request = self._client.post(url, query_parameters, header_parameters, body_content)
@@ -379,12 +374,11 @@ class ConfigurationOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("object", response)
+            deserialized = self._deserialize('object', response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-
-    apply_on_edge_device.metadata = {"url": "/devices/{id}/applyConfigurationContent"}
+    apply_on_edge_device.metadata = {'url': '/devices/{id}/applyConfigurationContent'}

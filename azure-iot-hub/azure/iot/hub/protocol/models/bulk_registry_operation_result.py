@@ -22,13 +22,13 @@ class BulkRegistryOperationResult(Model):
     """
 
     _attribute_map = {
-        "is_successful": {"key": "isSuccessful", "type": "bool"},
-        "errors": {"key": "errors", "type": "[DeviceRegistryOperationError]"},
-        "warnings": {"key": "warnings", "type": "[DeviceRegistryOperationWarning]"},
+        'is_successful': {'key': 'isSuccessful', 'type': 'bool'},
+        'errors': {'key': 'errors', 'type': '[DeviceRegistryOperationError]'},
+        'warnings': {'key': 'warnings', 'type': '[DeviceRegistryOperationWarning]'},
     }
 
     def __init__(self, **kwargs):
         super(BulkRegistryOperationResult, self).__init__(**kwargs)
-        self.is_successful = kwargs.get("is_successful", None)
-        self.errors = kwargs.get("errors", None)
-        self.warnings = kwargs.get("warnings", None)
+        self.is_successful = kwargs.get('is_successful', None)
+        self.errors = kwargs.get('errors', None)
+        self.warnings = kwargs.get('warnings', None)

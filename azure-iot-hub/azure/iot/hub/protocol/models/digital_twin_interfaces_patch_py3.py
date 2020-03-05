@@ -17,7 +17,7 @@ class DigitalTwinInterfacesPatch(Model):
     """
 
     _attribute_map = {
-        "interfaces": {"key": "interfaces", "type": "{DigitalTwinInterfacesPatchInterfacesValue}"}
+        'interfaces': {'key': 'interfaces', 'type': '{DigitalTwinInterfacesPatchInterfacesValue}'},
     }
 
     def __init__(self, *, interfaces=None, **kwargs) -> None:

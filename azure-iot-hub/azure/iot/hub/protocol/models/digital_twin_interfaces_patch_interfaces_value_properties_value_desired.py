@@ -16,10 +16,10 @@ class DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired(Model):
     :type value: object
     """
 
-    _attribute_map = {"value": {"key": "value", "type": "object"}}
+    _attribute_map = {
+        'value': {'key': 'value', 'type': 'object'},
+    }
 
     def __init__(self, **kwargs):
-        super(DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired, self).__init__(
-            **kwargs
-        )
-        self.value = kwargs.get("value", None)
+        super(DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired, self).__init__(**kwargs)
+        self.value = kwargs.get('value', None)
