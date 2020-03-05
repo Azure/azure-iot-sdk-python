@@ -18,7 +18,7 @@ class DeviceMethodOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-13".
+    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
     """
 
     models = models
@@ -33,7 +33,8 @@ class DeviceMethodOperations(object):
         self.api_version = "2020-03-13"
 
     def invoke_device_method(
-            self, device_id, direct_method_request, custom_headers=None, raw=False, **operation_config):
+        self, device_id, direct_method_request, custom_headers=None, raw=False, **operation_config
+    ):
         """Invoke a direct method on a device.
 
         Invoke a direct method on a device. See
@@ -56,25 +57,25 @@ class DeviceMethodOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.invoke_device_method.metadata['url']
-        path_format_arguments = {
-            'deviceId': self._serialize.url("device_id", device_id, 'str')
-        }
+        url = self.invoke_device_method.metadata["url"]
+        path_format_arguments = {"deviceId": self._serialize.url("device_id", device_id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
-        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(direct_method_request, 'CloudToDeviceMethod')
+        body_content = self._serialize.body(direct_method_request, "CloudToDeviceMethod")
 
         # Construct and send request
         request = self._client.post(url, query_parameters, header_parameters, body_content)
@@ -86,17 +87,25 @@ class DeviceMethodOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('CloudToDeviceMethodResult', response)
+            deserialized = self._deserialize("CloudToDeviceMethodResult", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    invoke_device_method.metadata = {'url': '/twins/{deviceId}/methods'}
+
+    invoke_device_method.metadata = {"url": "/twins/{deviceId}/methods"}
 
     def invoke_module_method(
-            self, device_id, module_id, direct_method_request, custom_headers=None, raw=False, **operation_config):
+        self,
+        device_id,
+        module_id,
+        direct_method_request,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
         """Invoke a direct method on a module of a device.
 
         Invoke a direct method on a module of a device. See
@@ -121,26 +130,28 @@ class DeviceMethodOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.invoke_module_method.metadata['url']
+        url = self.invoke_module_method.metadata["url"]
         path_format_arguments = {
-            'deviceId': self._serialize.url("device_id", device_id, 'str'),
-            'moduleId': self._serialize.url("module_id", module_id, 'str')
+            "deviceId": self._serialize.url("device_id", device_id, "str"),
+            "moduleId": self._serialize.url("module_id", module_id, "str"),
         }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
-        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
 
         # Construct body
-        body_content = self._serialize.body(direct_method_request, 'CloudToDeviceMethod')
+        body_content = self._serialize.body(direct_method_request, "CloudToDeviceMethod")
 
         # Construct and send request
         request = self._client.post(url, query_parameters, header_parameters, body_content)
@@ -152,11 +163,12 @@ class DeviceMethodOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('CloudToDeviceMethodResult', response)
+            deserialized = self._deserialize("CloudToDeviceMethodResult", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    invoke_module_method.metadata = {'url': '/twins/{deviceId}/modules/{moduleId}/methods'}
+
+    invoke_module_method.metadata = {"url": "/twins/{deviceId}/modules/{moduleId}/methods"}

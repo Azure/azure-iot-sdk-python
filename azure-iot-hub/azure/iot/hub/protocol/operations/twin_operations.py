@@ -18,7 +18,7 @@ class TwinOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-13".
+    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
     """
 
     models = models
@@ -32,8 +32,7 @@ class TwinOperations(object):
         self.config = config
         self.api_version = "2020-03-13"
 
-    def get_device_twin(
-            self, id, custom_headers=None, raw=False, **operation_config):
+    def get_device_twin(self, id, custom_headers=None, raw=False, **operation_config):
         """Gets a device twin.
 
         Gets a device twin. See
@@ -53,19 +52,19 @@ class TwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get_device_twin.metadata['url']
-        path_format_arguments = {
-            'id': self._serialize.url("id", id, 'str')
-        }
+        url = self.get_device_twin.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
+        header_parameters["Accept"] = "application/json"
         if custom_headers:
             header_parameters.update(custom_headers)
 
@@ -79,17 +78,25 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('Twin', response)
+            deserialized = self._deserialize("Twin", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    get_device_twin.metadata = {'url': '/twins/{id}'}
+
+    get_device_twin.metadata = {"url": "/twins/{id}"}
 
     def replace_device_twin(
-            self, id, device_twin_info, if_match=None, custom_headers=None, raw=False, **operation_config):
+        self,
+        id,
+        device_twin_info,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
         """Replaces tags and desired properties of a device twin.
 
         Replaces a device twin. See
@@ -113,27 +120,27 @@ class TwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.replace_device_twin.metadata['url']
-        path_format_arguments = {
-            'id': self._serialize.url("id", id, 'str')
-        }
+        url = self.replace_device_twin.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
-        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters['If-Match'] = self._serialize.header("if_match", if_match, 'str')
+            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
 
         # Construct body
-        body_content = self._serialize.body(device_twin_info, 'Twin')
+        body_content = self._serialize.body(device_twin_info, "Twin")
 
         # Construct and send request
         request = self._client.put(url, query_parameters, header_parameters, body_content)
@@ -145,17 +152,25 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('Twin', response)
+            deserialized = self._deserialize("Twin", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    replace_device_twin.metadata = {'url': '/twins/{id}'}
+
+    replace_device_twin.metadata = {"url": "/twins/{id}"}
 
     def update_device_twin(
-            self, id, device_twin_info, if_match=None, custom_headers=None, raw=False, **operation_config):
+        self,
+        id,
+        device_twin_info,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
         """Updates tags and desired properties of a device twin.
 
         Updates a device twin. See
@@ -179,27 +194,27 @@ class TwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.update_device_twin.metadata['url']
-        path_format_arguments = {
-            'id': self._serialize.url("id", id, 'str')
-        }
+        url = self.update_device_twin.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
-        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters['If-Match'] = self._serialize.header("if_match", if_match, 'str')
+            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
 
         # Construct body
-        body_content = self._serialize.body(device_twin_info, 'Twin')
+        body_content = self._serialize.body(device_twin_info, "Twin")
 
         # Construct and send request
         request = self._client.patch(url, query_parameters, header_parameters, body_content)
@@ -211,17 +226,17 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('Twin', response)
+            deserialized = self._deserialize("Twin", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    update_device_twin.metadata = {'url': '/twins/{id}'}
 
-    def get_module_twin(
-            self, id, mid, custom_headers=None, raw=False, **operation_config):
+    update_device_twin.metadata = {"url": "/twins/{id}"}
+
+    def get_module_twin(self, id, mid, custom_headers=None, raw=False, **operation_config):
         """Gets a module twin.
 
         Gets a module twin. See
@@ -243,20 +258,22 @@ class TwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get_module_twin.metadata['url']
+        url = self.get_module_twin.metadata["url"]
         path_format_arguments = {
-            'id': self._serialize.url("id", id, 'str'),
-            'mid': self._serialize.url("mid", mid, 'str')
+            "id": self._serialize.url("id", id, "str"),
+            "mid": self._serialize.url("mid", mid, "str"),
         }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
+        header_parameters["Accept"] = "application/json"
         if custom_headers:
             header_parameters.update(custom_headers)
 
@@ -270,17 +287,26 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('Twin', response)
+            deserialized = self._deserialize("Twin", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    get_module_twin.metadata = {'url': '/twins/{id}/modules/{mid}'}
+
+    get_module_twin.metadata = {"url": "/twins/{id}/modules/{mid}"}
 
     def replace_module_twin(
-            self, id, mid, device_twin_info, if_match=None, custom_headers=None, raw=False, **operation_config):
+        self,
+        id,
+        mid,
+        device_twin_info,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
         """Replaces tags and desired properties of a module twin.
 
         Replaces a module twin. See
@@ -306,28 +332,30 @@ class TwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.replace_module_twin.metadata['url']
+        url = self.replace_module_twin.metadata["url"]
         path_format_arguments = {
-            'id': self._serialize.url("id", id, 'str'),
-            'mid': self._serialize.url("mid", mid, 'str')
+            "id": self._serialize.url("id", id, "str"),
+            "mid": self._serialize.url("mid", mid, "str"),
         }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
-        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters['If-Match'] = self._serialize.header("if_match", if_match, 'str')
+            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
 
         # Construct body
-        body_content = self._serialize.body(device_twin_info, 'Twin')
+        body_content = self._serialize.body(device_twin_info, "Twin")
 
         # Construct and send request
         request = self._client.put(url, query_parameters, header_parameters, body_content)
@@ -339,17 +367,26 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('Twin', response)
+            deserialized = self._deserialize("Twin", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    replace_module_twin.metadata = {'url': '/twins/{id}/modules/{mid}'}
+
+    replace_module_twin.metadata = {"url": "/twins/{id}/modules/{mid}"}
 
     def update_module_twin(
-            self, id, mid, device_twin_info, if_match=None, custom_headers=None, raw=False, **operation_config):
+        self,
+        id,
+        mid,
+        device_twin_info,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
         """Updates tags and desired properties of a module twin.
 
         Updates a module twin. See
@@ -375,28 +412,30 @@ class TwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.update_module_twin.metadata['url']
+        url = self.update_module_twin.metadata["url"]
         path_format_arguments = {
-            'id': self._serialize.url("id", id, 'str'),
-            'mid': self._serialize.url("mid", mid, 'str')
+            "id": self._serialize.url("id", id, "str"),
+            "mid": self._serialize.url("mid", mid, "str"),
         }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
-        header_parameters['Accept'] = 'application/json'
-        header_parameters['Content-Type'] = 'application/json; charset=utf-8'
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
         if if_match is not None:
-            header_parameters['If-Match'] = self._serialize.header("if_match", if_match, 'str')
+            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
 
         # Construct body
-        body_content = self._serialize.body(device_twin_info, 'Twin')
+        body_content = self._serialize.body(device_twin_info, "Twin")
 
         # Construct and send request
         request = self._client.patch(url, query_parameters, header_parameters, body_content)
@@ -408,11 +447,12 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize('Twin', response)
+            deserialized = self._deserialize("Twin", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
         return deserialized
-    update_module_twin.metadata = {'url': '/twins/{id}/modules/{mid}'}
+
+    update_module_twin.metadata = {"url": "/twins/{id}/modules/{mid}"}

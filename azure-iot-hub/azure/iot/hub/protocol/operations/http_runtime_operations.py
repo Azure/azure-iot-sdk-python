@@ -18,7 +18,7 @@ class HttpRuntimeOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-13".
+    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
     """
 
     models = models
@@ -32,8 +32,7 @@ class HttpRuntimeOperations(object):
         self.config = config
         self.api_version = "2020-03-13"
 
-    def receive_feedback_notification(
-            self, custom_headers=None, raw=False, **operation_config):
+    def receive_feedback_notification(self, custom_headers=None, raw=False, **operation_config):
         """This method is used to retrieve feedback of a cloud-to-device message.
 
         This method is used to retrieve feedback of a cloud-to-device message
@@ -53,11 +52,13 @@ class HttpRuntimeOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.receive_feedback_notification.metadata['url']
+        url = self.receive_feedback_notification.metadata["url"]
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
@@ -74,10 +75,12 @@ class HttpRuntimeOperations(object):
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
-    receive_feedback_notification.metadata = {'url': '/messages/serviceBound/feedback'}
+
+    receive_feedback_notification.metadata = {"url": "/messages/serviceBound/feedback"}
 
     def complete_feedback_notification(
-            self, lock_token, custom_headers=None, raw=False, **operation_config):
+        self, lock_token, custom_headers=None, raw=False, **operation_config
+    ):
         """This method completes a feedback message.
 
         This method completes a feedback message. The lockToken obtained when
@@ -100,15 +103,15 @@ class HttpRuntimeOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.complete_feedback_notification.metadata['url']
-        path_format_arguments = {
-            'lockToken': self._serialize.url("lock_token", lock_token, 'str')
-        }
+        url = self.complete_feedback_notification.metadata["url"]
+        path_format_arguments = {"lockToken": self._serialize.url("lock_token", lock_token, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
@@ -125,10 +128,12 @@ class HttpRuntimeOperations(object):
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
-    complete_feedback_notification.metadata = {'url': '/messages/serviceBound/feedback/{lockToken}'}
+
+    complete_feedback_notification.metadata = {"url": "/messages/serviceBound/feedback/{lockToken}"}
 
     def abandon_feedback_notification(
-            self, lock_token, custom_headers=None, raw=False, **operation_config):
+        self, lock_token, custom_headers=None, raw=False, **operation_config
+    ):
         """This method abandons a feedback message.
 
         This method abandons a feedback message. The lockToken obtained when
@@ -151,15 +156,15 @@ class HttpRuntimeOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.abandon_feedback_notification.metadata['url']
-        path_format_arguments = {
-            'lockToken': self._serialize.url("lock_token", lock_token, 'str')
-        }
+        url = self.abandon_feedback_notification.metadata["url"]
+        path_format_arguments = {"lockToken": self._serialize.url("lock_token", lock_token, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
         query_parameters = {}
-        query_parameters['api-version'] = self._serialize.query("self.api_version", self.api_version, 'str')
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
 
         # Construct headers
         header_parameters = {}
@@ -176,4 +181,7 @@ class HttpRuntimeOperations(object):
         if raw:
             client_raw_response = ClientRawResponse(None, response)
             return client_raw_response
-    abandon_feedback_notification.metadata = {'url': '/messages/serviceBound/feedback/{lockToken}/abandon'}
+
+    abandon_feedback_notification.metadata = {
+        "url": "/messages/serviceBound/feedback/{lockToken}/abandon"
+    }
