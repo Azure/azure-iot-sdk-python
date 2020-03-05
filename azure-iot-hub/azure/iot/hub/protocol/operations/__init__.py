@@ -10,7 +10,6 @@ from .registry_manager_operations import RegistryManagerOperations
 from .job_client_operations import JobClientOperations
 from .fault_injection_operations import FaultInjectionOperations
 from .twin_operations import TwinOperations
-from .digital_twin_operations import DigitalTwinOperations
 from .http_runtime_operations import HttpRuntimeOperations
 from .device_method_operations import DeviceMethodOperations
 
@@ -20,7 +19,6 @@ __all__ = [
     "JobClientOperations",
     "FaultInjectionOperations",
     "TwinOperations",
-    "DigitalTwinOperations",
     "HttpRuntimeOperations",
     "DeviceMethodOperations",
 ]
