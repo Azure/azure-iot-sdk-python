@@ -6,6 +6,7 @@
 import threading
 import logging
 import six
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,6 @@ class EventedCallback(object):
 
         def wrapping_callback(*args, **kwargs):
             if "error" in kwargs and kwargs["error"]:
-                logger.error("Callback called with error {}".format(kwargs["error"]))
                 self.exception = kwargs["error"]
             elif return_arg_name:
                 if return_arg_name in kwargs:
@@ -44,10 +44,9 @@ class EventedCallback(object):
                     )
 
             if self.exception:
-                logger.error(
-                    "Callback completed with error {}".format(self.exception),
-                    exc_info=self.exception,
-                )
+                # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+                logger.error("Callback completed with error {}".format(self.exception))
+                logger.error(traceback.format_exc())
             else:
                 logger.debug("Callback completed with result {}".format(self.result))
 

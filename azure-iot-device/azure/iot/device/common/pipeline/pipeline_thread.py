@@ -9,7 +9,7 @@ import threading
 import traceback
 from multiprocessing.pool import ThreadPool
 from concurrent.futures import ThreadPoolExecutor
-from azure.iot.device.common import unhandled_exceptions
+from azure.iot.device.common import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
                     return func(*args, **kwargs)
                 except Exception as e:
                     if not block:
-                        unhandled_exceptions.exception_caught_in_background_thread(e)
+                        handle_exceptions.handle_background_exception(e)
                     else:
                         raise
                 except BaseException:
@@ -166,6 +166,15 @@ def invoke_on_callback_thread_nowait(func):
     return _invoke_on_executor_thread(func=func, thread_name="callback", block=False)
 
 
+def invoke_on_http_thread_nowait(func):
+    """
+    Run the decorated function on the callback thread, but don't wait for it to complete
+    """
+    # TODO: Refactor this since this is not in the pipeline thread anymore, so we need to pull this into common.
+    # Also, the max workers eventually needs to be a bigger number, so that needs to be fixed to allow for more than one HTTP Request a a time.
+    return _invoke_on_executor_thread(func=func, thread_name="azure_iot_http", block=False)
+
+
 def _assert_executor_thread(func, thread_name):
     """
     Decorator which asserts that the given function only gets called inside the given
@@ -196,3 +205,10 @@ def runs_on_pipeline_thread(func):
     Decorator which marks a function as only running inside the pipeline thread.
     """
     return _assert_executor_thread(func=func, thread_name="pipeline")
+
+
+def runs_on_http_thread(func):
+    """
+    Decorator which marks a function as only running inside the http thread.
+    """
+    return _assert_executor_thread(func=func, thread_name="azure_iot_http")

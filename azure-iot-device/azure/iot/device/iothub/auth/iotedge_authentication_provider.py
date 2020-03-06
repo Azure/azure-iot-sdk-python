@@ -12,14 +12,15 @@ import requests
 import requests_unixsocket
 import logging
 from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
-from azure.iot.device import constant
+from azure.iot.device.common.chainable_exception import ChainableException
+from azure.iot.device.product_info import ProductInfo
 
 requests_unixsocket.monkeypatch()
 
 logger = logging.getLogger(__name__)
 
 
-class IoTEdgeError(Exception):
+class IoTEdgeError(ChainableException):
     pass
 
 
@@ -56,7 +57,7 @@ class IoTEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
             workload_uri=workload_uri,
         )
         self.gateway_hostname = gateway_hostname
-        self.ca_cert = self.hsm.get_trust_bundle()
+        self.server_verification_cert = self.hsm.get_trust_bundle()
 
     # TODO: reconsider this design when refactoring the BaseRenewableToken auth parent
     # TODO: Consider handling the quoting within this function, and renaming quoted_resource_uri to resource_uri
@@ -107,7 +108,7 @@ class IoTEdgeHsm(object):
         Return the trust bundle that can be used to validate the server-side SSL
         TLS connection that we use to talk to edgeHub.
 
-        :return: The CA certificate to use for connections to the Azure IoT Edge
+        :return: The server verification certificate to use for connections to the Azure IoT Edge
         instance, as a PEM certificate in string form.
 
         :raises: IoTEdgeError if unable to retrieve the certificate.
@@ -115,23 +116,23 @@ class IoTEdgeHsm(object):
         r = requests.get(
             self.workload_uri + "trust-bundle",
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)},
+            headers={"User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())},
         )
         # Validate that the request was successful
         try:
             r.raise_for_status()
-        except requests.exceptions.HTTPError:
-            raise IoTEdgeError("Unable to get trust bundle from EdgeHub")
+        except requests.exceptions.HTTPError as e:
+            raise IoTEdgeError(message="Unable to get trust bundle from EdgeHub", cause=e)
         # Decode the trust bundle
         try:
             bundle = r.json()
-        except ValueError:
-            raise IoTEdgeError("Unable to decode trust bundle")
+        except ValueError as e:
+            raise IoTEdgeError(message="Unable to decode trust bundle", cause=e)
         # Retrieve the certificate
         try:
             cert = bundle["certificate"]
-        except KeyError:
-            raise IoTEdgeError("No certificate in trust bundle")
+        except KeyError as e:
+            raise IoTEdgeError(message="No certificate in trust bundle", cause=e)
         return cert
 
     def sign(self, data_str):
@@ -161,21 +162,21 @@ class IoTEdgeHsm(object):
         r = requests.post(  # TODO: can we use json field instead of data?
             url=path,
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)},
+            headers={"User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())},
             data=json.dumps(sign_request),
         )
         try:
             r.raise_for_status()
-        except requests.exceptions.HTTPError:
-            raise IoTEdgeError("Unable to sign data")
+        except requests.exceptions.HTTPError as e:
+            raise IoTEdgeError(message="Unable to sign data", cause=e)
         try:
             sign_response = r.json()
-        except ValueError:
-            raise IoTEdgeError("Unable to decode signed data")
+        except ValueError as e:
+            raise IoTEdgeError(message="Unable to decode signed data", cause=e)
         try:
             signed_data_str = sign_response["digest"]
-        except KeyError:
-            raise IoTEdgeError("No signed data received")
+        except KeyError as e:
+            raise IoTEdgeError(message="No signed data received", cause=e)
 
         return urllib.parse.quote(signed_data_str)
 

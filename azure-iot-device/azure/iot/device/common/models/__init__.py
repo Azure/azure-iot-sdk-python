@@ -4,3 +4,4 @@ This package provides object models for use within the Azure Provisioning Device
 """
 
 from .x509 import X509
+from .proxy_options import ProxyOptions

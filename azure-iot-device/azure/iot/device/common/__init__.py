@@ -5,6 +5,6 @@ This package provides shared modules for use with various Azure IoT device-side 
 INTERNAL USAGE ONLY
 """
 
-from .models import X509
+from .models import X509, ProxyOptions
 
-__all__ = ["X509"]
+__all__ = ["X509", "ProxyOptions"]
