@@ -312,6 +312,7 @@ class AutoConnectStage(PipelineStage):
                 )
                 self.send_op_down(op)
             else:
+                # operation needs connection, but pipeline is not connected.
                 logger.debug(
                     "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
                         self.name, op.name

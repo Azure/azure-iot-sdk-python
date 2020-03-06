@@ -397,13 +397,11 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
         stage.run_op(op)
         assert stage._pending_connection_op is None
 
-    @pytest.mark.parametrize(
-        "connection_error",
-        [transport_exceptions.ConnectionFailedError, transport_exceptions.ConnectionDroppedError],
-    )
-    @pytest.mark.it("Sends a DisconnectedEvent if there is a connection-based failure")
-    def test_sends_disconencted_event(self, mocker, stage, op, connection_error):
-        stage.transport.reauthorize_connection.side_effect = connection_error
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.reauthorize_connection.side_effect = (
+            transport_exceptions.ConnectionDroppedError
+        )
         stage.run_op(op)
         assert stage.send_event_up.call_count == 1
         assert isinstance(
@@ -520,13 +518,9 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         assert op.completed
         assert op.error is None
 
-    @pytest.mark.parametrize(
-        "connection_error",
-        [transport_exceptions.ConnectionFailedError, transport_exceptions.ConnectionDroppedError],
-    )
-    @pytest.mark.it("Sends a DisconnectedEvent if there is a connection-based failure")
-    def test_sends_disconencted_event(self, mocker, stage, op, connection_error):
-        stage.transport.publish.side_effect = connection_error
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.publish.side_effect = transport_exceptions.ConnectionDroppedError
         stage.run_op(op)
         assert stage.send_event_up.call_count == 1
         assert isinstance(
@@ -573,13 +567,9 @@ class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
         assert op.completed
         assert op.error is None
 
-    @pytest.mark.parametrize(
-        "connection_error",
-        [transport_exceptions.ConnectionFailedError, transport_exceptions.ConnectionDroppedError],
-    )
-    @pytest.mark.it("Sends a DisconnectedEvent if there is a connection-based failure")
-    def test_sends_disconencted_event(self, mocker, stage, op, connection_error):
-        stage.transport.subscribe.side_effect = connection_error
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.subscribe.side_effect = transport_exceptions.ConnectionDroppedError
         stage.run_op(op)
         assert stage.send_event_up.call_count == 1
         assert isinstance(
@@ -626,13 +616,9 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
         assert op.completed
         assert op.error is None
 
-    @pytest.mark.parametrize(
-        "connection_error",
-        [transport_exceptions.ConnectionFailedError, transport_exceptions.ConnectionDroppedError],
-    )
-    @pytest.mark.it("Sends a DisconnectedEvent if there is a connection-based failure")
-    def test_sends_disconencted_event(self, mocker, stage, op, connection_error):
-        stage.transport.unsubscribe.side_effect = connection_error
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.unsubscribe.side_effect = transport_exceptions.ConnectionDroppedError
         stage.run_op(op)
         assert stage.send_event_up.call_count == 1
         assert isinstance(

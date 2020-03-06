@@ -139,9 +139,7 @@ class MQTTTransportStage(PipelineStage):
                 # but it only causes a DisconnectedEvent on manual disconnect or if a PINGRESP
                 # failed, and it's possible to hit this code without either of those things
                 # happening.
-                if isinstance(e, transport_exceptions.ConnectionDroppedError) or isinstance(
-                    e, transport_exceptions.ConnectionFailedError
-                ):
+                if isinstance(e, transport_exceptions.ConnectionDroppedError):
                     self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 op.complete(error=e)
 
@@ -168,10 +166,7 @@ class MQTTTransportStage(PipelineStage):
 
             try:
                 self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
-            except (
-                transport_exceptions.ConnectionDroppedError,
-                transport_exceptions.ConnectionFailedError,
-            ):
+            except transport_exceptions.ConnectionDroppedError:
                 self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 raise
 
@@ -185,10 +180,7 @@ class MQTTTransportStage(PipelineStage):
 
             try:
                 self.transport.subscribe(topic=op.topic, callback=on_subscribed)
-            except (
-                transport_exceptions.ConnectionDroppedError,
-                transport_exceptions.ConnectionFailedError,
-            ):
+            except transport_exceptions.ConnectionDroppedError:
                 self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 raise
 
@@ -204,10 +196,7 @@ class MQTTTransportStage(PipelineStage):
 
             try:
                 self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
-            except (
-                transport_exceptions.ConnectionDroppedError,
-                transport_exceptions.ConnectionFailedError,
-            ):
+            except transport_exceptions.ConnectionDroppedError:
                 self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 raise
 
