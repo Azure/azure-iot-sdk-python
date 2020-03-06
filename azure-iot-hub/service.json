@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "version": "2020-03-01",
+    "version": "2020-03-13",
     "title": "IotHub Gateway Service APIs"
   },
   "host": "fully-qualified-iothubname.azure-devices.net",
@@ -532,6 +532,7 @@
           {
             "name": "jobProperties",
             "in": "body",
+            "description": "Specifies the job specification.",
             "required": true,
             "schema": {
               "$ref": "#/definitions/JobProperties"
@@ -985,84 +986,6 @@
             "description": "Returns the device twin object",
             "schema": {
               "$ref": "#/definitions/Twin"
-            }
-          }
-        }
-      }
-    },
-    "/digitaltwins/{digitalTwinId}": {
-      "get": {
-        "summary": "Gets the digital twin.",
-        "operationId": "DigitalTwin_GetDigitalTwin",
-        "consumes": [],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "digitalTwinId",
-            "in": "path",
-            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns the digital twin object",
-            "schema": {
-              "type": "object"
-            }
-          }
-        }
-      },
-      "patch": {
-        "summary": "Updates the digital twin.",
-        "operationId": "DigitalTwin_UpdateDigitalTwin",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "digitalTwinId",
-            "in": "path",
-            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "digitalTwinPatch",
-            "in": "body",
-            "description": "Digital twin components to update.",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object"
-              }
-            }
-          },
-          {
-            "name": "If-Match",
-            "in": "header",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns the digital twin object",
-            "schema": {
-              "type": "object"
             }
           }
         }
@@ -1636,55 +1559,6 @@
           },
           "204": {
             "description": "Model is not resolved, See the 'x-ms-model-resolution-description' and 'x-ms-model-resolution-status' for the resolution status code and description.",
-            "headers": {
-              "ETag": {
-                "description": "ETag of the digital twin.",
-                "type": "string"
-              },
-              "x-ms-model-id": {
-                "description": "Digital twin model id.",
-                "type": "string"
-              },
-              "x-ms-model-resolution-status": {
-                "description": "Digital twin model resolution status: enum [Pending, Success, NotFound, Failed, Resolved, Deleted]",
-                "type": "string"
-              },
-              "x-ms-model-resolution-description": {
-                "description": "Digital twin model resolution status description.",
-                "type": "string"
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "Updates the digital twin model content. If the content is empty or null, Digital twin model resolution status will be reset\r\nIf content exists, then it will be updated with the uploaded content.",
-        "operationId": "DigitalTwin_UpdateDigitalTwinModel",
-        "consumes": [],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "modelId",
-            "in": "path",
-            "description": "Model id Ex: <example>urn:contoso:TemperatureSensor:1</example>",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "If-Match",
-            "in": "header",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Update or Reset the Digital twin model definition is succesful.",
             "headers": {
               "ETag": {
                 "description": "ETag of the digital twin.",
@@ -2294,6 +2168,8 @@
             "InvalidDeviceScope",
             "ConnectionForcefullyClosedOnFaultInjection",
             "ConnectionRejectedOnFaultInjection",
+            "InvalidEndpointAuthenticationType",
+            "ManagedIdentityNotEnabled",
             "InvalidRouteTestInput",
             "InvalidSourceOnRoute",
             "RoutingNotEnabled",
@@ -2317,6 +2193,7 @@
             "InvalidPnPDesiredProperties",
             "InvalidPnPReportedProperties",
             "InvalidPnPWritableReportedProperties",
+            "InvalidDigitalTwinJsonPatch",
             "GenericUnauthorized",
             "IotHubNotFound",
             "IotHubUnauthorizedAccess",
@@ -2334,6 +2211,7 @@
             "RoutingEndpointResponseForbidden",
             "InvalidMessageExpiryTime",
             "OperationNotAvailableInCurrentTier",
+            "KeyEncryptionKeyRevoked",
             "DeviceModelMaxPropertiesExceeded",
             "DeviceModelMaxIndexablePropertiesExceeded",
             "IotDpsSuspended",
@@ -2442,6 +2320,7 @@
             "InvalidPartitionEpoch",
             "RestoreTimedOut",
             "StreamReservationFailure",
+            "SerializationError",
             "UnexpectedPropertyValue",
             "OrchestrationOperationFailed",
             "ModelRepoEndpointError",
@@ -2449,6 +2328,8 @@
             "UnableToFetchCredentials",
             "UnableToFetchTenantInfo",
             "UnableToShareIdentity",
+            "UnableToExpandDiscoveryInfo",
+            "UnableToExpandComponentInfo",
             "GenericBadGateway",
             "InvalidResponseWhileProxying",
             "GenericServiceUnavailable",
@@ -2698,6 +2579,14 @@
         "excludeKeysInExport": {
           "description": "Optional for export jobs; ignored for other jobs.  Default: false.  If false, authorization keys are included\r\nin export output.  Keys are exported as null otherwise.",
           "type": "boolean"
+        },
+        "storageAuthenticationType": {
+          "description": "Specifies authentication type being used for connecting to storage account.",
+          "enum": [
+            "keyBased",
+            "identityBased"
+          ],
+          "type": "string"
         },
         "failureReason": {
           "description": "System genereated.  Ignored at creation.\r\nIf status == failure, this represents a string containing the reason.",
@@ -3158,7 +3047,7 @@
       "description": "Version of the Api.",
       "required": true,
       "type": "string",
-      "default": "2020-03-01"
+      "default": "2020-03-13"
     }
   }
 }
