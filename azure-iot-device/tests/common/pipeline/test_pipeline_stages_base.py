@@ -312,9 +312,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
     @pytest.mark.it(
         "Does not complete the operation if the op fails and the transport is no longer connected"
     )
-    def test_failure_and_disconnect_no_complete(
-        self, mocker, stage, op, arbitrary_exception
-    ):
+    def test_failure_and_disconnect_no_complete(self, mocker, stage, op, arbitrary_exception):
         stage.pipeline_root.connected = True
 
         stage.run_op(op)
@@ -401,6 +399,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
         assert op.completed
         assert op.error == arbitrary_exception
         assert callback.call_args == mocker.call(op=op, error=arbitrary_exception)
+
 
 @pytest.mark.describe(
     "AutoConnectStage - .run_op() -- Called with an Operation that requires an active connection (pipeline not connected)"
@@ -512,9 +511,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionNotConnected(
     @pytest.mark.it(
         "Does not complete the operation if the op fails and the transport is no longer connected"
     )
-    def test_failure_and_disconnect_no_complete(
-        self, mocker, stage, op, arbitrary_exception
-    ):
+    def test_failure_and_disconnect_no_complete(self, mocker, stage, op, arbitrary_exception):
         stage.pipeline_root.connected = False
 
         stage.run_op(op)
