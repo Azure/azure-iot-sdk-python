@@ -18,7 +18,7 @@ class RegistryManagerOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-01".
+    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
     """
 
     models = models
@@ -30,7 +30,7 @@ class RegistryManagerOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-01"
+        self.api_version = "2020-03-13"
 
     def get_device_statistics(self, custom_headers=None, raw=False, **operation_config):
         """Retrieves statistics about device identities in the IoT hub’s identity
