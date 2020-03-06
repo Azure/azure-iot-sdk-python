@@ -7,13 +7,19 @@
 import logging
 import abc
 import six
+import sys
+import time
+import traceback
 import uuid
+import weakref
 from six.moves import queue
+import threading
 from . import pipeline_events_base
-from . import pipeline_ops_base
-from . import operation_flow
+from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
-from azure.iot.device.common import unhandled_exceptions
+from . import pipeline_exceptions
+from azure.iot.device.common import handle_exceptions, transport_exceptions
+from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +49,11 @@ class PipelineStage(object):
     (use an auth provider) and converts it into something more generic (here is your device_id, etc, and use
     this SAS token when connecting).
 
-    An example of a generic-to-specific stage is IoTHubMQTTConverterStage which converts IoTHub operations
+    An example of a generic-to-specific stage is IoTHubMQTTTranslationStage which converts IoTHub operations
     (such as SendD2CMessageOperation) to MQTT operations (such as Publish).
 
     Each stage should also work in the broadest domain possible.  For example a generic stage (say
-    "EnsureConnectionStage") that initiates a connection if any arbitrary operation needs a connection is more useful
+    "AutoConnectStage") that initiates a connection if any arbitrary operation needs a connection is more useful
     than having some MQTT-specific code that re-connects to the MQTT broker if the user calls Publish and
     there's no connection.
 
@@ -81,7 +87,7 @@ class PipelineStage(object):
     def run_op(self, op):
         """
         Run the given operation.  This is the public function that outside callers would call to run an
-        operation.  Derived classes should override the private _execute_op function to implement
+        operation.  Derived classes should override the private _run_op function to implement
         stage-specific behavior.  When run_op returns, that doesn't mean that the operation has executed
         to completion.  Rather, it means that the pipeline has done something that will cause the
         operation to eventually execute to completion.  That might mean that something was sent over
@@ -92,29 +98,29 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
-        logger.debug("{}({}): running".format(self.name, op.name))
         try:
-            self._execute_op(op)
+            self._run_op(op)
         except Exception as e:
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
-            # within ._execute_op()
-            logger.error(msg="Unexpected error in {}._execute_op() call".format(self), exc_info=e)
-            op.error = e
-            operation_flow.complete_op(self, op)
+            # within ._run_op()
 
-    @abc.abstractmethod
-    def _execute_op(self, op):
+            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.error(msg="Unexpected error in {}._run_op() call".format(self))
+            logger.error(traceback.format_exc())
+            op.complete(error=e)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
         """
-        Abstract method to run the actual operation.  This function is implemented in derived classes
-        and performs the actual work that any operation expects.  The default behavior for this function
-        should be to forward the event to the next stage using operation_flow.pass_op_to_next_stage for any
-        operations that a particular stage might not operate on.
+        Implementation of the stage-specific function of .run_op(). Override this method instead of
+        .run_op() in child classes in order to change how a stage behaves when running an operation.
 
-        See the description of the run_op method for more discussion on what it means to "run" an operation.
+        See the description of the .run_op() method for more discussion on what it means to "run"
+        an operation.
 
         :param PipelineOperation op: The operation to run.
         """
-        pass
+        self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def handle_pipeline_event(self, event):
@@ -129,10 +135,10 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            logger.error(
-                msg="Unexpected error in {}._handle_pipeline_event() call".format(self), exc_info=e
-            )
-            unhandled_exceptions.exception_caught_in_background_thread(e)
+            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
+            logger.error(traceback.format_exc())
+            handle_exceptions.handle_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -143,23 +149,42 @@ class PipelineStage(object):
 
         :param PipelineEvent event: The event that is being passed back up the pipeline
         """
-        operation_flow.pass_event_to_previous_stage(self, event)
+        self.send_event_up(event)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
+    def send_op_down(self, op):
         """
-        Called by lower layers when the protocol client connects
+        Helper function to continue a given operation by passing it to the next stage
+        in the pipeline.  If there is no next stage in the pipeline, this function
+        will fail the operation and call complete_op to return the failure back up the
+        pipeline.
+
+        :param PipelineOperation op: Operation which is being passed on
         """
-        if self.previous:
-            self.previous.on_connected()
+        if not self.next:
+            logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
+            error = pipeline_exceptions.PipelineError(
+                "{} not handled after {} stage with no next stage".format(op.name, self.name)
+            )
+            op.complete(error=error)
+        else:
+            self.next.run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
+    def send_event_up(self, event):
         """
-        Called by lower layers when the protocol client disconnects
+        Helper function to pass an event to the previous stage of the pipeline.  This is the default
+        behavior of events while traveling through the pipeline. They start somewhere (maybe the
+        bottom) and move up the pipeline until they're handled or until they error out.
         """
         if self.previous:
-            self.previous.on_disconnected()
+            self.previous.handle_pipeline_event(event)
+        else:
+            logger.error("{}({}): Error: unhandled event".format(self.name, event.name))
+            error = pipeline_exceptions.PipelineError(
+                "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
+            )
+            handle_exceptions.handle_background_exception(error)
 
 
 class PipelineRootStage(PipelineStage):
@@ -181,42 +206,36 @@ class PipelineRootStage(PipelineStage):
     :type on_disconnected_handler: Function
     """
 
-    def __init__(self):
+    def __init__(self, pipeline_configuration):
         super(PipelineRootStage, self).__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
         self.connected = False
+        self.pipeline_configuration = pipeline_configuration
 
     def run_op(self, op):
-        op.callback = pipeline_thread.invoke_on_callback_thread_nowait(op.callback)
+        # CT-TODO: make this more elegant
+        op.callback_stack[0] = pipeline_thread.invoke_on_callback_thread_nowait(
+            op.callback_stack[0]
+        )
         pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
-        """
-        run the operation.  At the root, the only thing to do is to pass the operation
-        to the next stage.
-
-        :param PipelineOperation op: Operation to run.
-        """
-        operation_flow.pass_op_to_next_stage(self, op)
-
-    def append_stage(self, new_next_stage):
+    def append_stage(self, new_stage):
         """
         Add the next stage to the end of the pipeline.  This is the function that callers
         use to build the pipeline by appending stages.  This function returns the root of
         the pipeline so that calls to this function can be chained together.
 
-        :param PipelineStage new_next_stage: Stage to add to the end of the pipeline
+        :param PipelineStage new_stage: Stage to add to the end of the pipeline
         :returns: The root of the pipeline.
         """
         old_tail = self
         while old_tail.next:
             old_tail = old_tail.next
-        old_tail.next = new_next_stage
-        new_next_stage.previous = old_tail
-        new_next_stage.pipeline_root = self
+        old_tail.next = new_stage
+        new_stage.previous = old_tail
+        new_stage.pipeline_root = self
         return self
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -229,42 +248,39 @@ class PipelineRootStage(PipelineStage):
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
-        if self.on_pipeline_event_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(event)
+        if isinstance(event, pipeline_events_base.ConnectedEvent):
+            logger.debug(
+                "{}: ConnectedEvent received. Calling on_connected_handler".format(self.name)
+            )
+            self.connected = True
+            if self.on_connected_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
+
+        elif isinstance(event, pipeline_events_base.DisconnectedEvent):
+            logger.debug(
+                "{}: DisconnectedEvent received. Calling on_disconnected_handler".format(self.name)
+            )
+            self.connected = False
+            if self.on_disconnected_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+
         else:
-            logger.warning("incoming pipeline event with no handler.  dropping.")
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_connected(self):
-        logger.debug(
-            "{}: on_connected.  on_connected_handler={}".format(
-                self.name, self.on_connected_handler
-            )
-        )
-        self.connected = True
-        if self.on_connected_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_connected_handler)()
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def on_disconnected(self):
-        logger.debug(
-            "{}: on_disconnected.  on_disconnected_handler={}".format(
-                self.name, self.on_disconnected_handler
-            )
-        )
-        self.connected = False
-        if self.on_disconnected_handler:
-            pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
+            if self.on_pipeline_event_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(
+                    event
+                )
+            else:
+                logger.warning("incoming pipeline event with no handler.  dropping.")
 
 
-class EnsureConnectionStage(PipelineStage):
+class AutoConnectStage(PipelineStage):
     """
     This stage is responsible for ensuring that the protocol is connected when
     it needs to be connected.
     """
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
         # Any operation that requires a connection can trigger a connection if
         # we're not connected.
         if op.needs_connection and not self.pipeline_root.connected:
@@ -278,90 +294,95 @@ class EnsureConnectionStage(PipelineStage):
         # Finally, if this stage doesn't need to do anything else with this operation,
         # it just passes it down.
         else:
-            operation_flow.pass_op_to_next_stage(self, op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _do_connect(self, op):
         """
         Start connecting the transport in response to some operation
         """
+        # Alias to avoid overload within the callback below
+        # CT-TODO: remove the need for this with better callback semantics
+        op_needs_complete = op
+
         # function that gets called after we're connected.
         @pipeline_thread.runs_on_pipeline_thread
-        def on_connect_op_complete(op_connect):
-            if op_connect.error:
+        def on_connect_op_complete(op, error):
+            if error:
                 logger.error(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
-                        self.name, op.name, op_connect.error
+                        self.name, op_needs_complete.name, error
                     )
                 )
-                op.error = op_connect.error
-                operation_flow.complete_op(stage=self, op=op)
+                op_needs_complete.complete(error=error)
             else:
                 logger.debug(
-                    "{}({}): connection is complete.  Continuing with op".format(self.name, op.name)
+                    "{}({}): connection is complete.  Continuing with op".format(
+                        self.name, op_needs_complete.name
+                    )
                 )
-                operation_flow.pass_op_to_next_stage(stage=self, op=op)
+                self.send_op_down(op_needs_complete)
 
         # call down to the next stage to connect.
         logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))
-        operation_flow.pass_op_to_next_stage(
-            self, pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete)
-        )
+        self.send_op_down(pipeline_ops_base.ConnectOperation(callback=on_connect_op_complete))
 
 
-class SerializeConnectOpsStage(PipelineStage):
+class ConnectionLockStage(PipelineStage):
     """
-    This stage is responsible for serializing connect, disconnect, and reconnect ops on
+    This stage is responsible for serializing connect, disconnect, and reauthorize ops on
     the pipeline, such that only a single one of these ops can go past this stage at a
     time.  This way, we don't have to worry about cases like "what happens if we try to
-    disconnect if we're in the middle of reconnecting."  This stage will wait for the
-    reconnect to complete before letting the disconnect past.
+    disconnect if we're in the middle of reauthorizing."  This stage will wait for the
+    reauthorize to complete before letting the disconnect past.
     """
 
     def __init__(self):
-        super(SerializeConnectOpsStage, self).__init__()
+        super(ConnectionLockStage, self).__init__()
         self.queue = queue.Queue()
         self.blocked = False
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
+    def _run_op(self, op):
+
         # If this stage is currently blocked (because we're waiting for a connection, etc,
         # to complete), we queue up all operations until after the connect completes.
         if self.blocked:
             logger.info(
-                "{}({}): pipeline is blocked waiting for a prior connect/disconnect/reconnect to complete.  queueing.".format(
+                "{}({}): pipeline is blocked waiting for a prior connect/disconnect/reauthorize to complete.  queueing.".format(
                     self.name, op.name
                 )
             )
             self.queue.put_nowait(op)
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation) and self.pipeline_root.connected:
-            logger.info("{}({}): Transport is connected.  Completing.".format(self.name, op.name))
-            operation_flow.complete_op(stage=self, op=op)
+            logger.info(
+                "{}({}): Transport is already connected.  Completing.".format(self.name, op.name)
+            )
+            op.complete()
 
         elif (
             isinstance(op, pipeline_ops_base.DisconnectOperation)
             and not self.pipeline_root.connected
         ):
             logger.info(
-                "{}({}): Transport is disconnected.  Completing.".format(self.name, op.name)
+                "{}({}): Transport is already disconnected.  Completing.".format(self.name, op.name)
             )
-            operation_flow.complete_op(stage=self, op=op)
+            op.complete()
 
         elif (
             isinstance(op, pipeline_ops_base.DisconnectOperation)
             or isinstance(op, pipeline_ops_base.ConnectOperation)
-            or isinstance(op, pipeline_ops_base.ReconnectOperation)
+            or isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation)
         ):
             self._block(op)
-            old_callback = op.callback
 
             @pipeline_thread.runs_on_pipeline_thread
-            def on_operation_complete(op):
-                if op.error:
+            def on_operation_complete(op, error):
+                if error:
                     logger.error(
                         "{}({}): op failed.  Unblocking queue with error: {}".format(
-                            self.name, op.name, op.error
+                            self.name, op.name, error
                         )
                     )
                 else:
@@ -369,25 +390,18 @@ class SerializeConnectOpsStage(PipelineStage):
                         "{}({}): op succeeded.  Unblocking queue".format(self.name, op.name)
                     )
 
-                op.callback = old_callback
-                self._unblock(op, op.error)
-                logger.debug(
-                    "{}({}): unblock is complete.  completing op that caused unblock".format(
-                        self.name, op.name
-                    )
-                )
-                operation_flow.complete_op(stage=self, op=op)
+                self._unblock(op, error)
 
-            op.callback = on_operation_complete
-            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+            op.add_callback(on_operation_complete)
+            self.send_op_down(op)
 
         else:
-            operation_flow.pass_op_to_next_stage(stage=self, op=op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):
         """
-        block this stage while we're waiting for the connect/disconnect/reconnect operation to complete.
+        block this stage while we're waiting for the connect/disconnect/reauthorize operation to complete.
         """
         logger.debug("{}({}): blocking".format(self.name, op.name))
         self.blocked = True
@@ -395,7 +409,7 @@ class SerializeConnectOpsStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _unblock(self, op, error):
         """
-        Unblock this stage after the connect/disconnect/reconnect operation is complete.  This also means
+        Unblock this stage after the connect/disconnect/reauthorize operation is complete.  This also means
         releasing all the operations that were queued up.
         """
         logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
@@ -418,21 +432,20 @@ class SerializeConnectOpsStage(PipelineStage):
                         self.name, op.name, op_to_release.name
                     )
                 )
-                op_to_release.error = error
-                operation_flow.complete_op(self, op_to_release)
+                op_to_release.complete(error=error)
             else:
                 logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
-                # call run_op directly here so operations go through this stage again (especiall connect/disconnect ops)
+                # call run_op directly here so operations go through this stage again (especially connect/disconnect ops)
                 self.run_op(op_to_release)
 
 
 class CoordinateRequestAndResponseStage(PipelineStage):
     """
-    Pipeline stage which is responsible for coordinating SendIotRequestAndWaitForResponseOperation operations.  For each
-    SendIotRequestAndWaitForResponseOperation operation, this stage passes down a SendIotRequestOperation operation and waits for
-    an IotResponseEvent event.  All other events are passed down unmodified.
+    Pipeline stage which is responsible for coordinating RequestAndResponseOperation operations.  For each
+    RequestAndResponseOperation operation, this stage passes down a RequestOperation operation and waits for
+    an ResponseEvent event.  All other events are passed down unmodified.
     """
 
     def __init__(self):
@@ -440,31 +453,38 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         self.pending_responses = {}
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _execute_op(self, op):
-        if isinstance(op, pipeline_ops_base.SendIotRequestAndWaitForResponseOperation):
-            # Convert SendIotRequestAndWaitForResponseOperation operation into a SendIotRequestOperation operation
-            # and send it down.  A lower level will convert the SendIotRequestOperation into an
-            # actual protocol client operation.  The SendIotRequestAndWaitForResponseOperation operation will be
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_base.RequestAndResponseOperation):
+            # Convert RequestAndResponseOperation operation into a RequestOperation operation
+            # and send it down.  A lower level will convert the RequestOperation into an
+            # actual protocol client operation.  The RequestAndResponseOperation operation will be
             # completed when the corresponding IotResponse event is received in this stage.
 
             request_id = str(uuid.uuid4())
 
+            # Alias to avoid overload within the callback below
+            # CT-TODO: remove the need for this with better callback semantics
+            op_waiting_for_response = op
+
             @pipeline_thread.runs_on_pipeline_thread
-            def on_send_request_done(send_request_op):
+            def on_send_request_done(op, error):
                 logger.debug(
                     "{}({}): Finished sending {} request to {} resource {}".format(
-                        self.name, op.name, op.request_type, op.method, op.resource_location
+                        self.name,
+                        op_waiting_for_response.name,
+                        op_waiting_for_response.request_type,
+                        op_waiting_for_response.method,
+                        op_waiting_for_response.resource_location,
                     )
                 )
-                if send_request_op.error:
-                    op.error = send_request_op.error
+                if error:
                     logger.debug(
                         "{}({}): removing request {} from pending list".format(
-                            self.name, op.name, request_id
+                            self.name, op_waiting_for_response.name, request_id
                         )
                     )
                     del (self.pending_responses[request_id])
-                    operation_flow.complete_op(self, op)
+                    op_waiting_for_response.complete(error=error)
                 else:
                     # request sent.  Nothing to do except wait for the response
                     pass
@@ -480,23 +500,24 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             )
             self.pending_responses[request_id] = op
 
-            new_op = pipeline_ops_base.SendIotRequestOperation(
+            new_op = pipeline_ops_base.RequestOperation(
                 method=op.method,
                 resource_location=op.resource_location,
                 request_body=op.request_body,
                 request_id=request_id,
                 request_type=op.request_type,
                 callback=on_send_request_done,
+                query_params=op.query_params,
             )
-            operation_flow.pass_op_to_next_stage(self, new_op)
+            self.send_op_down(new_op)
 
         else:
-            operation_flow.pass_op_to_next_stage(self, op)
+            self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
-        if isinstance(event, pipeline_events_base.IotResponseEvent):
-            # match IotResponseEvent events to the saved dictionary of SendIotRequestAndWaitForResponseOperation
+        if isinstance(event, pipeline_events_base.ResponseEvent):
+            # match ResponseEvent events to the saved dictionary of RequestAndResponseOperation
             # operations which have not received responses yet.  If the operation is found,
             # complete it.
 
@@ -510,6 +531,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 del (self.pending_responses[event.request_id])
                 op.status_code = event.status_code
                 op.response_body = event.response_body
+                op.retry_after = event.retry_after
                 logger.debug(
                     "{}({}): Completing {} request to {} resource {} with status {}".format(
                         self.name,
@@ -520,7 +542,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         op.status_code,
                     )
                 )
-                operation_flow.complete_op(self, op)
+                op.complete()
             else:
                 logger.warning(
                     "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
@@ -528,4 +550,399 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                     )
                 )
         else:
-            operation_flow.pass_event_to_previous_stage(self, event)
+            self.send_event_up(event)
+
+
+class OpTimeoutStage(PipelineStage):
+    """
+    The purpose of the timeout stage is to add timeout errors to select operations
+
+    The timeout_intervals attribute contains a list of operations to track along with
+    their timeout values.  Right now this list is hard-coded but the operations and
+    intervals will eventually become a parameter.
+
+    For each operation that needs a timeout check, this stage will add a timer to
+    the operation.  If the timer elapses, this stage will fail the operation with
+    a PipelineTimeoutError.  The intention is that a higher stage will know what to
+    do with that error and act accordingly (either return the error to the user or
+    retry).
+
+    This stage currently assumes that all timed out operation are just "lost".
+    It does not attempt to cancel the operation, as Paho doesn't have a way to
+    cancel an operation, and with QOS=1, sending a pub or sub twice is not
+    catastrophic.
+
+    Also, as a long-term plan, the operations that need to be watched for timeout
+    will become an initialization parameter for this stage so that differet
+    instances of this stage can watch for timeouts on different operations.
+    This will be done because we want a lower-level timeout stage which can watch
+    for timeouts at the MQTT level, and we want a higher-level timeout stage which
+    can watch for timeouts at the iothub level.  In this way, an MQTT operation that
+    times out can be retried as an MQTT operation and a higher-level IoTHub operation
+    which times out can be retried as an IoTHub operation (which might necessitate
+    redoing multiple MQTT operations).
+    """
+
+    def __init__(self):
+        super(OpTimeoutStage, self).__init__()
+        # use a fixed list and fixed intervals for now.  Later, this info will come in
+        # as an init param or a retry poicy
+        self.timeout_intervals = {
+            pipeline_ops_mqtt.MQTTSubscribeOperation: 10,
+            pipeline_ops_mqtt.MQTTUnsubscribeOperation: 10,
+        }
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if type(op) in self.timeout_intervals:
+            # Create a timer to watch for operation timeout on this op and attach it
+            # to the op.
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def on_timeout():
+                this = self_weakref()
+                logger.info("{}({}): returning timeout error".format(this.name, op.name))
+                op.complete(
+                    error=pipeline_exceptions.PipelineTimeoutError(
+                        "operation timed out before protocol client could respond"
+                    )
+                )
+
+            logger.debug("{}({}): Creating timer".format(self.name, op.name))
+            op.timeout_timer = threading.Timer(self.timeout_intervals[type(op)], on_timeout)
+            op.timeout_timer.start()
+
+            # Send the op down, but intercept the return of the op so we can
+            # remove the timer when the op is done
+            op.add_callback(self._clear_timer)
+            logger.debug("{}({}): Sending down".format(self.name, op.name))
+            self.send_op_down(op)
+        else:
+            self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _clear_timer(self, op, error):
+        # When an op comes back, delete the timer and pass it right up.
+        if op.timeout_timer:
+            logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
+            op.timeout_timer.cancel()
+            op.timeout_timer = None
+
+
+class RetryStage(PipelineStage):
+    """
+    The purpose of the retry stage is to watch specific operations for specific
+    errors and retry the operations as appropriate.
+
+    Unlike the OpTimeoutStage, this stage will never need to worry about cancelling
+    failed operations.  When an operation is retried at this stage, it is already
+    considered "failed", so no cancellation needs to be done.
+    """
+
+    def __init__(self):
+        super(RetryStage, self).__init__()
+        # Retry intervals are hardcoded for now. Later, they come in as an
+        # init param, probably via retry policy.
+        self.retry_intervals = {
+            pipeline_ops_mqtt.MQTTSubscribeOperation: 20,
+            pipeline_ops_mqtt.MQTTUnsubscribeOperation: 20,
+            pipeline_ops_mqtt.MQTTPublishOperation: 20,
+        }
+        self.ops_waiting_to_retry = []
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        """
+        Send all ops down and intercept their return to "watch for retry"
+        """
+        if self._should_watch_for_retry(op):
+            op.add_callback(self._do_retry_if_necessary)
+            self.send_op_down(op)
+        else:
+            self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _should_watch_for_retry(self, op):
+        """
+        Return True if this op needs to be watched for retry.  This can be
+        called before the op runs.
+        """
+        return type(op) in self.retry_intervals
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _should_retry(self, op, error):
+        """
+        Return True if this op needs to be retried.  This must be called after
+        the op completes.
+        """
+        if error:
+            if self._should_watch_for_retry(op):
+                if isinstance(error, pipeline_exceptions.PipelineTimeoutError):
+                    return True
+        return False
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _do_retry_if_necessary(self, op, error):
+        """
+        Handler which gets called when operations are complete.  This function
+        is where we check to see if a retry is necessary and set a "retry timer"
+        which can be used to send the op down again.
+        """
+        if self._should_retry(op, error):
+            self_weakref = weakref.ref(self)
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def do_retry():
+                this = self_weakref()
+                logger.info("{}({}): retrying".format(this.name, op.name))
+                op.retry_timer.cancel()
+                op.retry_timer = None
+                this.ops_waiting_to_retry.remove(op)
+                # Don't just send it down directly.  Instead, go through run_op so we get
+                # retry functionality this time too
+                this.run_op(op)
+
+            interval = self.retry_intervals[type(op)]
+            logger.warning(
+                "{}({}): Op needs retry with interval {} because of {}.  Setting timer.".format(
+                    self.name, op.name, interval, error
+                )
+            )
+
+            # if we don't keep track of this op, it might get collected.
+            op.halt_completion()
+            self.ops_waiting_to_retry.append(op)
+            op.retry_timer = threading.Timer(self.retry_intervals[type(op)], do_retry)
+            op.retry_timer.start()
+
+        else:
+            if op.retry_timer:
+                op.retry_timer.cancel()
+                op.retry_timer = None
+
+
+transient_connect_errors = [
+    pipeline_exceptions.OperationCancelled,
+    pipeline_exceptions.PipelineTimeoutError,
+    pipeline_exceptions.OperationError,
+    transport_exceptions.ConnectionFailedError,
+    transport_exceptions.ConnectionDroppedError,
+]
+
+
+class ReconnectState(object):
+    """
+    Class which holds reconenct states as class variables.  Created to make code that reads like an enum without using an enum.
+
+    NEVER_CONNECTED: Ttransport has never been conencted.  This state is necessary because some errors might be fatal or transient,
+    depending on wether the transport has been connceted.  For example, a failed conenction is a transient error if we've connected
+    before, but it's fatal if we've never conencted.
+
+    WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.
+
+    CONNECTED_OR_DISCONNECTED: The transport is either connected or disconencted.  This stage doesn't really care which one, so
+    it doesn't keep track.
+    """
+
+    NEVER_CONNECTED = "NEVER_CONNECTED"
+    WAITING_TO_RECONNECT = "WAITING_TO_RECONNECT"
+    CONNECTED_OR_DISCONNECTED = "CONNECTED_OR_DISCONNECTED"
+
+
+class ReconnectStage(PipelineStage):
+    def __init__(self):
+        super(ReconnectStage, self).__init__()
+        self.reconnect_timer = None
+        self.state = ReconnectState.NEVER_CONNECTED
+        # connect delay is hardcoded for now.  Later, this comes from a retry policy
+        self.reconnect_delay = 10
+        self.waiting_connect_ops = []
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_base.ConnectOperation):
+            if self.state == ReconnectState.WAITING_TO_RECONNECT:
+                logger.info(
+                    "{}({}): State is {}.  Adding to wait list".format(
+                        self.name, op.name, self.state
+                    )
+                )
+                self.waiting_connect_ops.append(op)
+            else:
+                logger.info(
+                    "{}({}): State is {}.  Adding to wait list and sending new connect op down".format(
+                        self.name, op.name, self.state
+                    )
+                )
+                self.waiting_connect_ops.append(op)
+                self._send_new_connect_op_down()
+
+        elif isinstance(op, pipeline_ops_base.DisconnectOperation):
+            if self.state == ReconnectState.WAITING_TO_RECONNECT:
+                logger.info(
+                    "{}({}): State is {}.  Canceling waiting ops and sending disconnect down.".format(
+                        self.name, op.name, self.state
+                    )
+                )
+                self._clear_reconnect_timer()
+                self._complete_waiting_connect_ops(
+                    pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
+                )
+                self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                op.complete()
+
+            else:
+                logger.info(
+                    "{}({}): State is {}.  Sending op down.".format(self.name, op.name, self.state)
+                )
+                self.send_op_down(op)
+
+        else:
+            self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_base.DisconnectedEvent):
+            if self.pipeline_root.connected:
+                logger.info(
+                    "{}({}): State is {}.  Triggering reconnect timer".format(
+                        self.name, event.name, self.state
+                    )
+                )
+                self.state = ReconnectState.WAITING_TO_RECONNECT
+                self._start_reconnect_timer()
+            else:
+                logger.info(
+                    "{}({}): State is {}.  Doing nothing".format(self.name, event.name, self.state)
+                )
+
+            self.send_event_up(event)
+
+        else:
+            self.send_event_up(event)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _send_new_connect_op_down(self):
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_connect_complete(op, error):
+            this = self_weakref()
+            if this:
+                if error:
+                    if this.state == ReconnectState.NEVER_CONNECTED:
+                        logger.info(
+                            "{}({}): error on first connection.  Not triggering reconnection".format(
+                                this.name, op.name
+                            )
+                        )
+                        this._complete_waiting_connect_ops(error)
+                    elif type(error) in transient_connect_errors:
+                        logger.info(
+                            "{}({}): State is {}.  Connect failed with transient error. Triggering reconnect timer".format(
+                                self.name, op.name, self.state
+                            )
+                        )
+                        self.state = ReconnectState.WAITING_TO_RECONNECT
+                        self._start_reconnect_timer()
+
+                    elif this.state == ReconnectState.WAITING_TO_RECONNECT:
+                        logger.info(
+                            "{}({}): non-tranient error.  Failing all waiting ops.n".format(
+                                this.name, op.name
+                            )
+                        )
+                        self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                        self._clear_reconnect_timer()
+                        this._complete_waiting_connect_ops(error)
+
+                    else:
+                        logger.info(
+                            "{}({}): State is {}.  Connection failed. Not triggering reconnection".format(
+                                this.name, op.name, this.state
+                            )
+                        )
+                        this._complete_waiting_connect_ops(error)
+                else:
+                    logger.info(
+                        "{}({}): State is {}.  Connection succeeded".format(
+                            this.name, op.name, this.state
+                        )
+                    )
+                    self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                    self._clear_reconnect_timer()
+                    self._complete_waiting_connect_ops()
+
+        logger.info("{}: sending new connect op down".format(self.name))
+        op = pipeline_ops_base.ConnectOperation(callback=on_connect_complete)
+        self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _start_reconnect_timer(self):
+        """
+        Set a timer to reconnect after some period of time
+        """
+        logger.info("{}: State is {}. Starting reconnect timer".format(self.name, self.state))
+
+        self._clear_reconnect_timer()
+
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.invoke_on_pipeline_thread_nowait
+        def on_reconnect_timer_expired():
+            this = self_weakref()
+            this.reconnect_timer = None
+            if this.state == ReconnectState.WAITING_TO_RECONNECT:
+                logger.info(
+                    "{}: State is {}. Reconnect timer expired.  Sending connect op down".format(
+                        this.name, this.state
+                    )
+                )
+                this.state = ReconnectState.CONNECTED_OR_DISCONNECTED
+                this._send_new_connect_op_down()
+            else:
+                logger.info(
+                    "{}: State is {}.  Reconnect timer expired.  Doing nothing".format(
+                        this.name, this.state
+                    )
+                )
+
+        self.reconnect_timer = threading.Timer(self.reconnect_delay, on_reconnect_timer_expired)
+        self.reconnect_timer.start()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _clear_reconnect_timer(self):
+        """
+        Clear any previous reconnect timer
+        """
+        if self.reconnect_timer:
+            logger.info("{}: clearing reconnect timer".format(self.name))
+            self.reconnect_timer.cancel()
+            self.reconnect_timer = None
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _complete_waiting_connect_ops(self, error=None):
+        """
+        A note of explanation: when we are waiting to reconnect, we need to keep a list of
+        all connect ops that come through here.  We do this for 2 reasons:
+
+        1. We don't want to pass them down immediately because we want to honor the waiting
+           period.  If we passed them down immediately, we'd try to reconnect immediately
+           instead of waiting until reconnect_timer fires.
+
+        2. When we're retrying, there are new ConnectOperation ops sent down regularly.
+           Any of the ops could be the one that succeeds.  When that happens, we need a
+           way to to complete all of the ops that are patiently waiting for the connection.
+
+        Right now, we only need to do this with ConnectOperation ops because these are the
+        only ops that need to wait because these are the only ops that cause a connection
+        to be established.  Other ops pass through this stage, and might fail in later
+        stages, but that's OK.  If they needed a connection, the AutoConnectStage before
+        this stage should be taking care of that.
+        """
+        logger.info("{}: completing waiting ops with error={}".format(self.name, error))
+        list_copy = self.waiting_connect_ops
+        self.waiting_connect_ops = []
+        for op in list_copy:
+            op.complete(error)

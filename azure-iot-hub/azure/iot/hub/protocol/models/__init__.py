@@ -24,13 +24,12 @@ try:
     from .device_registry_operation_warning_py3 import DeviceRegistryOperationWarning
     from .bulk_registry_operation_result_py3 import BulkRegistryOperationResult
     from .query_specification_py3 import QuerySpecification
-    from .query_result_py3 import QueryResult
+    from .twin_properties_py3 import TwinProperties
+    from .twin_py3 import Twin
     from .job_properties_py3 import JobProperties
     from .purge_message_queue_result_py3 import PurgeMessageQueueResult
     from .fault_injection_connection_properties_py3 import FaultInjectionConnectionProperties
     from .fault_injection_properties_py3 import FaultInjectionProperties
-    from .twin_properties_py3 import TwinProperties
-    from .twin_py3 import Twin
     from .desired_state_py3 import DesiredState
     from .reported_py3 import Reported
     from .desired_py3 import Desired
@@ -41,6 +40,7 @@ try:
     from .job_request_py3 import JobRequest
     from .device_job_statistics_py3 import DeviceJobStatistics
     from .job_response_py3 import JobResponse
+    from .query_result_py3 import QueryResult
     from .module_py3 import Module
     from .cloud_to_device_method_result_py3 import CloudToDeviceMethodResult
     from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired_py3 import (
@@ -72,13 +72,12 @@ except (SyntaxError, ImportError):
     from .device_registry_operation_warning import DeviceRegistryOperationWarning
     from .bulk_registry_operation_result import BulkRegistryOperationResult
     from .query_specification import QuerySpecification
-    from .query_result import QueryResult
+    from .twin_properties import TwinProperties
+    from .twin import Twin
     from .job_properties import JobProperties
     from .purge_message_queue_result import PurgeMessageQueueResult
     from .fault_injection_connection_properties import FaultInjectionConnectionProperties
     from .fault_injection_properties import FaultInjectionProperties
-    from .twin_properties import TwinProperties
-    from .twin import Twin
     from .desired_state import DesiredState
     from .reported import Reported
     from .desired import Desired
@@ -89,6 +88,7 @@ except (SyntaxError, ImportError):
     from .job_request import JobRequest
     from .device_job_statistics import DeviceJobStatistics
     from .job_response import JobResponse
+    from .query_result import QueryResult
     from .module import Module
     from .cloud_to_device_method_result import CloudToDeviceMethodResult
     from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired import (
@@ -121,13 +121,12 @@ __all__ = [
     "DeviceRegistryOperationWarning",
     "BulkRegistryOperationResult",
     "QuerySpecification",
-    "QueryResult",
+    "TwinProperties",
+    "Twin",
     "JobProperties",
     "PurgeMessageQueueResult",
     "FaultInjectionConnectionProperties",
     "FaultInjectionProperties",
-    "TwinProperties",
-    "Twin",
     "DesiredState",
     "Reported",
     "Desired",
@@ -138,6 +137,7 @@ __all__ = [
     "JobRequest",
     "DeviceJobStatistics",
     "JobResponse",
+    "QueryResult",
     "Module",
     "CloudToDeviceMethodResult",
     "DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired",

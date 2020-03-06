@@ -36,7 +36,7 @@ setup(
     version=constant["VERSION"],
     description="Microsoft Azure IoTHub Service Library",
     license="MIT License",
-    url="https://github.com/Azure/azure-iot-sdk-python-preview",
+    url="https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
     long_description=_long_description,
@@ -54,8 +54,9 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
-    install_requires=["msrest"],
+    install_requires=["msrest", "uamqp"],
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
     packages=find_packages(
         exclude=[

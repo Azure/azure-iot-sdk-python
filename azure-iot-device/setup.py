@@ -36,7 +36,7 @@ setup(
     version=constant["VERSION"],
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
-    url="https://github.com/Azure/azure-iot-sdk-python-preview",
+    url="https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
     long_description=_long_description,
@@ -54,6 +54,7 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
     install_requires=[
         # Define sub-dependencies due to pip dependency resolution bug
@@ -71,6 +72,8 @@ setup(
         "requests-unixsocket>=0.1.5,<1.0.0",
         "janus>=0.4.0,<1.0.0;python_version>='3.5'",
         "futures;python_version == '2.7'",
+        "PySocks",
+        "win-inet-pton;python_version == '2.7'",
     ],
     extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",

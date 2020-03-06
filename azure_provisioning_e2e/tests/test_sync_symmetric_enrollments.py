@@ -27,7 +27,8 @@ linked_iot_hub = connection_string_to_hostname(os.getenv("IOTHUB_CONNECTION_STRI
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the device_id equal to the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
-def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment():
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enrollment(protocol):
     try:
         individual_enrollment_record = create_individual_enrollment(
             "e2e-dps-underthewhompingwillow" + str(uuid.uuid4())
@@ -36,7 +37,7 @@ def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enroll
         registration_id = individual_enrollment_record.registration_id
         symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
 
-        registration_result = result_from_register(registration_id, symmetric_key)
+        registration_result = result_from_register(registration_id, symmetric_key, protocol)
 
         assert_device_provisioned(
             device_id=registration_id, registration_result=registration_result
@@ -49,7 +50,8 @@ def test_device_register_with_no_device_id_for_a_symmetric_key_individual_enroll
 @pytest.mark.it(
     "A device gets provisioned to the linked IoTHub with the user supplied device_id different from the registration_id of the individual enrollment that has been created with a symmetric key authentication"
 )
-def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment():
+@pytest.mark.parametrize("protocol", ["mqtt", "mqttws"])
+def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollment(protocol):
 
     device_id = "e2edpstommarvoloriddle"
     try:
@@ -60,7 +62,7 @@ def test_device_register_with_device_id_for_a_symmetric_key_individual_enrollmen
         registration_id = individual_enrollment_record.registration_id
         symmetric_key = individual_enrollment_record.attestation.symmetric_key.primary_key
 
-        registration_result = result_from_register(registration_id, symmetric_key)
+        registration_result = result_from_register(registration_id, symmetric_key, protocol)
 
         assert device_id != registration_id
         assert_device_provisioned(device_id=device_id, registration_result=registration_result)
@@ -105,12 +107,14 @@ def assert_device_provisioned(device_id, registration_result):
     assert device.device_id == device_id
 
 
-def result_from_register(registration_id, symmetric_key):
+def result_from_register(registration_id, symmetric_key, protocol):
+    protocol_boolean_mapping = {"mqtt": False, "mqttws": True}
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=PROVISIONING_HOST,
         registration_id=registration_id,
         id_scope=ID_SCOPE,
         symmetric_key=symmetric_key,
+        websockets=protocol_boolean_mapping[protocol],
     )
 
     return provisioning_device_client.register()

@@ -49,16 +49,12 @@ class FakeAuthProvider(BaseRenewableTokenAuthenticationProvider):
 
 @pytest.fixture(scope="function")
 def device_auth_provider():
-    auth_provider = FakeAuthProvider(fake_hostname, fake_device_id, None)
-    yield auth_provider
-    auth_provider.disconnect()
+    return FakeAuthProvider(fake_hostname, fake_device_id, None)
 
 
 @pytest.fixture(scope="function")
 def module_auth_provider():
-    auth_provider = FakeAuthProvider(fake_hostname, fake_device_id, fake_module_id)
-    yield auth_provider
-    auth_provider.disconnect()
+    return FakeAuthProvider(fake_hostname, fake_device_id, fake_module_id)
 
 
 @pytest.fixture(scope="function")
@@ -102,13 +98,14 @@ def test_get_current_sas_token_returns_existing_sas_token(device_auth_provider):
     assert token1 == token2
 
 
-def test_generate_new_sas_token_calls_on_sas_token_updated_handler_when_sas_udpates(
+def test_generate_new_sas_token_calls_on_sas_token_updated_handler_when_sas_updates(
     device_auth_provider
 ):
-    update_callback = MagicMock()
-    device_auth_provider.on_sas_token_updated_handler = update_callback
+    update_callback_list = [MagicMock(), MagicMock(), MagicMock()]
+    device_auth_provider.on_sas_token_updated_handler_list = update_callback_list
     device_auth_provider.generate_new_sas_token()
-    update_callback.assert_called_once_with()
+    for x in update_callback_list:
+        x.assert_called_once_with()
 
 
 def test_device_generate_new_sas_token_calls_sign_with_correct_default_args(
@@ -163,17 +160,21 @@ def test_generate_new_sas_token_cancels_and_reschedules_update_timer_with_correc
 def test_update_timer_generates_new_sas_token_and_calls_on_sas_token_updated_handler(
     device_auth_provider, fake_timer_object
 ):
-    update_callback = MagicMock()
+    update_callback_list = [MagicMock(), MagicMock(), MagicMock()]
     device_auth_provider.generate_new_sas_token()
-    device_auth_provider.on_sas_token_updated_handler = update_callback
+    device_auth_provider.on_sas_token_updated_handler_list = update_callback_list
     timer_callback = fake_timer_object.call_args[0][1]
     device_auth_provider._sign.reset_mock()
     timer_callback()
-    update_callback.assert_called_once_with()
+    for x in update_callback_list:
+        x.assert_called_once_with()
     assert device_auth_provider._sign.call_count == 1
 
 
-def test_disconnect_cancels_update_timer(device_auth_provider, fake_timer_object):
+def test_finalizer_cancels_update_timer(fake_timer_object):
+    # can't use the device_auth_provider fixture here because the fixture adds
+    # to the object refcount and prevents del from calling the finalizer
+    device_auth_provider = FakeAuthProvider(fake_hostname, fake_device_id, None)
     device_auth_provider.generate_new_sas_token()
-    device_auth_provider.disconnect()
+    del device_auth_provider
     fake_timer_object.return_value.cancel.assert_called_once_with()

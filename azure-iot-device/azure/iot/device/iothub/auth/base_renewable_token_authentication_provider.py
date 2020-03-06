@@ -10,6 +10,7 @@ import abc
 import logging
 import math
 import six
+import weakref
 from threading import Timer
 import six.moves.urllib as urllib
 from .authentication_provider import AuthenticationProvider
@@ -60,10 +61,9 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         self._token_update_timer = None
         self.shared_access_key_name = None
         self.sas_token_str = None
-        self.on_sas_token_updated_handler = None
+        self.on_sas_token_updated_handler_list = []
 
-    def disconnect(self):
-        """Cancel updates to the SAS Token"""
+    def __del__(self):
         self._cancel_token_update_timer()
 
     def generate_new_sas_token(self):
@@ -81,14 +81,14 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
 
         If self.token_udpate_callback is set, this callback will be called to notify the
         pipeline that a new token is available.  The pipeline is responsible for doing
-        whatever is necessary to leverage the new token when the on_sas_token_updated_handler
+        whatever is necessary to leverage the new token when the on_sas_token_updated_handler_list
         function is called.
 
         The token that is generated expires at some point in the future, based on the token
         renewal interval and the token renewal margin.  When a token is first generated, the
         authorization provider object will set a timer which will be responsible for renewing
         the token before the it expires.  When this timer fires, it will automatically generate
-        a new sas token and notify the pipeline by calling self.on_sas_token_updated_handler.
+        a new sas token and notify the pipeline by calling self.on_sas_token_updated_handler_list.
 
         The token update timer is set based on two numbers: self.token_validity_period and
         self.token_renewal_margin
@@ -144,7 +144,11 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         t = self._token_update_timer
         self._token_update_timer = None
         if t:
-            logger.debug("Canceling token update timer for (%s,%s)", self.device_id, self.module_id)
+            logger.debug(
+                "Canceling token update timer for (%s,%s)",
+                self.device_id,
+                self.module_id if self.module_id else "",
+            )
             t.cancel()
 
     def _schedule_token_update(self, seconds_until_update):
@@ -160,9 +164,30 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
             seconds_until_update,
         )
 
+        # It's important to use a weak reference to self inside this timer function
+        # because we don't want the timer to prevent this object (`self`) from being collected.
+        #
+        # We want `self` to get collected when the pipeline gets collected, and
+        # we want the pipeline to get collected when the client object gets collected.
+        # This way, everything gets cleaned up when the user is done with the client object,
+        # as expected.
+        #
+        # If timerfunc used `self` directly, that would be a strong reference, and that strong
+        # reference would prevent `self` from being collected as long as the timer existed.
+        #
+        # If this isn't collected when the client is collected, then the object that implements the
+        # on_sas_token_updated_hndler doesn't get collected.  Since that object is part of the
+        # pipeline, a major part of the pipeline ends up staying around, probably orphaned from
+        # the client.  Since that orphaned part of the pipeline contains Paho, bad things can happen
+        # if we don't clean up Paho correctly.  This is especially noticable if one process
+        # destroys a client object and creates a new one.
+        #
+        self_weakref = weakref.ref(self)
+
         def timerfunc():
-            logger.debug("Timed SAS update for (%s,%s)", self.device_id, self.module_id)
-            self.generate_new_sas_token()
+            this = self_weakref()
+            logger.debug("Timed SAS update for (%s,%s)", this.device_id, this.module_id)
+            this.generate_new_sas_token()
 
         self._token_update_timer = Timer(seconds_until_update, timerfunc)
         self._token_update_timer.daemon = True
@@ -173,14 +198,15 @@ class BaseRenewableTokenAuthenticationProvider(AuthenticationProvider):
         In response to this event, clients should re-initiate their connection in order to use
         the updated sas token.
         """
-        if self.on_sas_token_updated_handler:
+        if bool(len(self.on_sas_token_updated_handler_list)):
             logger.debug(
                 "sending token update notification for (%s, %s)", self.device_id, self.module_id
             )
-            self.on_sas_token_updated_handler()
+            for x in self.on_sas_token_updated_handler_list:
+                x()
         else:
             logger.warning(
-                "_notify_token_updated: on_sas_token_updated_handler not set.  Doing nothing."
+                "_notify_token_updated: on_sas_token_updated_handler_list not set.  Doing nothing."
             )
 
     def get_current_sas_token(self):
