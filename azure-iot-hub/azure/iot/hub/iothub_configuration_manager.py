@@ -15,7 +15,7 @@ class IoTHubConfigurationManager(object):
     """
 
     def __init__(self, connection_string):
-        """Initializer for a Registry Manager Service client.
+        """Initializer for a Configuration Manager Service client.
 
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.

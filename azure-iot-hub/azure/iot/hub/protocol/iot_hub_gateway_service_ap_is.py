@@ -14,7 +14,6 @@ from .operations.registry_manager_operations import RegistryManagerOperations
 from .operations.job_client_operations import JobClientOperations
 from .operations.fault_injection_operations import FaultInjectionOperations
 from .operations.twin_operations import TwinOperations
-from .operations.digital_twin_operations import DigitalTwinOperations
 from .operations.http_runtime_operations import HttpRuntimeOperations
 from .operations.device_method_operations import DeviceMethodOperations
 from . import models
@@ -61,8 +60,6 @@ class IotHubGatewayServiceAPIs(SDKClient):
     :vartype fault_injection: protocol.operations.FaultInjectionOperations
     :ivar twin: Twin operations
     :vartype twin: protocol.operations.TwinOperations
-    :ivar digital_twin: DigitalTwin operations
-    :vartype digital_twin: protocol.operations.DigitalTwinOperations
     :ivar http_runtime: HttpRuntime operations
     :vartype http_runtime: protocol.operations.HttpRuntimeOperations
     :ivar device_method: DeviceMethod operations
@@ -80,7 +77,7 @@ class IotHubGatewayServiceAPIs(SDKClient):
         super(IotHubGatewayServiceAPIs, self).__init__(self.config.credentials, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = "2020-03-01"
+        self.api_version = "2020-03-13"
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
@@ -97,9 +94,6 @@ class IotHubGatewayServiceAPIs(SDKClient):
             self._client, self.config, self._serialize, self._deserialize
         )
         self.twin = TwinOperations(self._client, self.config, self._serialize, self._deserialize)
-        self.digital_twin = DigitalTwinOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
         self.http_runtime = HttpRuntimeOperations(
             self._client, self.config, self._serialize, self._deserialize
         )
