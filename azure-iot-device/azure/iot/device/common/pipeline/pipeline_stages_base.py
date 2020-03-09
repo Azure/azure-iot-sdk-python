@@ -283,13 +283,42 @@ class AutoConnectStage(PipelineStage):
     def _run_op(self, op):
         # Any operation that requires a connection can trigger a connection if
         # we're not connected.
-        if op.needs_connection and not self.pipeline_root.connected:
-            logger.debug(
-                "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
-                    self.name, op.name
+        if op.needs_connection:
+            if self.pipeline_root.connected:
+
+                # If we think we're connected, we pass the op down, but we also check the result.
+                # If we fail the op and we're not connected when we're done, we run through this
+                # stage again to connect.  This is more common than you might think because the
+                # *nix network stack won't detect a dropped connection until the client tries to
+                # send something, so it's very possible that we're disconnected but don't know
+                # it yet.
+
+                @pipeline_thread.runs_on_pipeline_thread
+                def check_for_connection_failure(op, error):
+                    if error and not self.pipeline_root.connected:
+                        logger.info(
+                            "{}({}): op failed with {} and we're not conencted.  Re-submitting.".format(
+                                self.name, op.name, error
+                            )
+                        )
+                        op.halt_completion()
+                        self.run_op(op)
+
+                op.add_callback(check_for_connection_failure)
+                logger.info(
+                    "{}({}): Connected.  Sending down and adding callback to check result".format(
+                        self.name, op.name
+                    )
                 )
-            )
-            self._do_connect(op)
+                self.send_op_down(op)
+            else:
+                # operation needs connection, but pipeline is not connected.
+                logger.debug(
+                    "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
+                        self.name, op.name
+                    )
+                )
+                self._do_connect(op)
 
         # Finally, if this stage doesn't need to do anything else with this operation,
         # it just passes it down.
@@ -309,7 +338,7 @@ class AutoConnectStage(PipelineStage):
         @pipeline_thread.runs_on_pipeline_thread
         def on_connect_op_complete(op, error):
             if error:
-                logger.error(
+                logger.info(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
                         self.name, op_needs_complete.name, error
                     )
@@ -317,11 +346,14 @@ class AutoConnectStage(PipelineStage):
                 op_needs_complete.complete(error=error)
             else:
                 logger.debug(
-                    "{}({}): connection is complete.  Continuing with op".format(
+                    "{}({}): connection is complete.  Running op that triggered connection.".format(
                         self.name, op_needs_complete.name
                     )
                 )
-                self.send_op_down(op_needs_complete)
+                # use run_op instead of send_op_down because we want the check_for_connection_failure logic
+                # above to run.  Just because we just connected, it doesn't mean the connection won't drop
+                # before we're done sending.  (This does actually happen in stress scenarios)
+                self.run_op(op_needs_complete)
 
         # call down to the next stage to connect.
         logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))

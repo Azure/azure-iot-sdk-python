@@ -253,9 +253,9 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 
 @pytest.mark.describe(
-    "AutoConnectStage - .run_op() -- Called with an Operation that requires an active connection"
+    "AutoConnectStage - .run_op() -- Called with an Operation that requires an active connection (pipeline connected)"
 )
-class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
+class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
     AutoConnectStageTestConfig, StageRunOpTestBase
 ):
 
@@ -280,9 +280,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         assert op.needs_connection
         return op
 
-    @pytest.mark.it(
-        "Sends the operation down the pipeline if the pipeline is already in a 'connected' state"
-    )
+    @pytest.mark.it("Immediately sends the operation down the pipeline")
     def test_already_connected(self, mocker, stage, op):
         stage.pipeline_root.connected = True
 
@@ -291,12 +289,150 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
+    @pytest.mark.it("Allows the op to complete successfully")
+    def test_success(self, mocker, stage, op):
+        callback = op.callback_stack[0]
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # complete the op
+        op.complete()
+
+        # assert that the op completed successfully
+        assert op.complete
+        assert op.error is None
+        assert callback.call_count == 1
+        assert callback.call_args == mocker.call(op=op, error=None)
+
     @pytest.mark.it(
-        "Sends a new ConnectOperation down the pipeline if the pipeline is not yet in a 'connected' state"
+        "Does not complete the operation if the op fails and the transport is no longer connected"
     )
+    def test_failure_and_disconnect_no_complete(self, mocker, stage, op, arbitrary_exception):
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # disconnect the transport and complete the op with failure
+        stage.pipeline_root.connected = False
+        op.complete(arbitrary_exception)
+
+        # assert that the op didn't complete
+        assert not op.completed
+
+    @pytest.mark.it(
+        "Sends down a new ConnectOperation if the op fails and the transport is no longer connected"
+    )
+    def test_failure_and_disconnect_new_connect_operation(
+        self, mocker, stage, op, arbitrary_exception
+    ):
+        stage.pipeline_root.connected = True
+        stage.run_op(op)
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # disconnect the transport and complete the op with failure
+        stage.pipeline_root.connected = False
+        op.complete(arbitrary_exception)
+
+        # assert that we got a new connect operation
+        assert stage.send_op_down.call_count == 2
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+
+    @pytest.mark.it(
+        "Runs the operation a second time if the stage needs to reconnect after the op fails"
+    )
+    def test_failure_and_disconnect_resubmit_operation(
+        self, mocker, stage, op, arbitrary_exception
+    ):
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # disconnect the transport and complete the op with failure
+        stage.pipeline_root.connected = False
+        op.complete(arbitrary_exception)
+
+        # assert that we got a new connect operation
+        assert stage.send_op_down.call_count == 2
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+
+        # complete the connect op
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our op got sent down again
+        assert stage.send_op_down.call_count == 3
+        assert stage.send_op_down.call_args[0][0] is op
+
+    @pytest.mark.it("Fails the op if the op fails and the transport is still connected")
+    def test_failure_still_connected(self, mocker, stage, op, arbitrary_exception):
+        callback = op.callback_stack[0]
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # fail
+        op.complete(arbitrary_exception)
+
+        # assert that the op failure went back to the caller
+        assert op.completed
+        assert op.error == arbitrary_exception
+        assert callback.call_args == mocker.call(op=op, error=arbitrary_exception)
+
+
+@pytest.mark.describe(
+    "AutoConnectStage - .run_op() -- Called with an Operation that requires an active connection (pipeline not connected)"
+)
+class TestAutoConnectStageRunOpWithOpThatRequiresConnectionNotConnected(
+    AutoConnectStageTestConfig, StageRunOpTestBase
+):
+
+    fake_topic = "__fake_topic__"
+    fake_payload = "__fake_payload__"
+
+    ops_requiring_connection = [
+        pipeline_ops_mqtt.MQTTPublishOperation,
+        pipeline_ops_mqtt.MQTTSubscribeOperation,
+        pipeline_ops_mqtt.MQTTUnsubscribeOperation,
+    ]
+
+    @pytest.fixture(params=ops_requiring_connection)
+    def op(self, mocker, request):
+        op_class = request.param
+        if op_class is pipeline_ops_mqtt.MQTTPublishOperation:
+            op = op_class(
+                topic=self.fake_topic, payload=self.fake_payload, callback=mocker.MagicMock()
+            )
+        else:
+            op = op_class(topic=self.fake_topic, callback=mocker.MagicMock())
+        assert op.needs_connection
+        return op
+
+    @pytest.mark.it("Sends a new ConnectOperation down the pipeline")
     def test_not_connected(self, mocker, stage, op):
         mock_connect_op = mocker.patch.object(pipeline_ops_base, "ConnectOperation").return_value
-        assert not stage.pipeline_root.connected
+        stage.pipeline_root.connected = False
 
         stage.run_op(op)
 
@@ -307,7 +443,8 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         "Sends the operation down the pipeline once the ConnectOperation completes successfully"
     )
     def test_connect_success(self, mocker, stage, op):
-        assert not stage.pipeline_root.connected
+        stage.pipeline_root.connected = False
+        mocker.spy(stage, "run_op")
 
         # Run the original operation
         stage.run_op(op)
@@ -321,14 +458,14 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         connect_op.complete()  # no error
 
         # The original operation has now been sent down the pipeline
-        assert stage.send_op_down.call_count == 2
-        assert stage.send_op_down.call_args == mocker.call(op)
+        assert stage.run_op.call_count == 2
+        assert stage.run_op.call_args == mocker.call(op)
 
     @pytest.mark.it(
         "Completes the operation with the error from the ConnectOperation, if the ConnectOperation completes with an error"
     )
     def test_connect_failure(self, mocker, stage, op, arbitrary_exception):
-        assert not stage.pipeline_root.connected
+        stage.pipeline_root.connected = False
 
         # Run the original operation
         stage.run_op(op)
@@ -344,6 +481,148 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnection(
         # The original operation has been completed the exception from the ConnectOperation
         assert op.completed
         assert op.error is arbitrary_exception
+
+    @pytest.mark.it("Allows the op to complete successfully")
+    def test_success(self, mocker, stage, op):
+        callback = op.callback_stack[0]
+        stage.pipeline_root.connected = False
+
+        stage.run_op(op)
+
+        # complete the connection
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 2
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # complete the op
+        op.complete()
+
+        # assert that the op completed successfully
+        assert op.complete
+        assert op.error is None
+        assert callback.call_count == 1
+        assert callback.call_args == mocker.call(op=op, error=None)
+
+    @pytest.mark.it(
+        "Does not complete the operation if the op fails and the transport is no longer connected"
+    )
+    def test_failure_and_disconnect_no_complete(self, mocker, stage, op, arbitrary_exception):
+        stage.pipeline_root.connected = False
+
+        stage.run_op(op)
+
+        # complete the connection
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 2
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # disconnect the transport and complete the op with failure
+        stage.pipeline_root.connected = False
+        op.complete(arbitrary_exception)
+
+        # assert that the op didn't complete
+        assert not op.completed
+
+    @pytest.mark.it(
+        "Sends down a new ConnectOperation if the op fails and the transport is no longer connected"
+    )
+    def test_failure_and_disconnect_new_connect_operation(
+        self, mocker, stage, op, arbitrary_exception
+    ):
+        stage.pipeline_root.connected = False
+
+        stage.run_op(op)
+
+        # complete the connection
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 2
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # disconnect the transport and complete the op with failure
+        stage.pipeline_root.connected = False
+        op.complete(arbitrary_exception)
+
+        # assert that we got a new connect operation
+        assert stage.send_op_down.call_count == 3
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+
+    @pytest.mark.it(
+        "Runs the operation a second time if the stage needs to reconnect after the op fails"
+    )
+    def test_failure_and_disconnect_resubmit_operation(
+        self, mocker, stage, op, arbitrary_exception
+    ):
+        stage.pipeline_root.connected = False
+
+        stage.run_op(op)
+
+        # complete the connection
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 2
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # disconnect the transport and complete the op with failure
+        stage.pipeline_root.connected = False
+        op.complete(arbitrary_exception)
+
+        # assert that we got a new connect operation
+        assert stage.send_op_down.call_count == 3
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+
+        # complete the connect op
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our op got sent down again
+        assert stage.send_op_down.call_count == 4
+        assert stage.send_op_down.call_args[0][0] is op
+
+    @pytest.mark.it("Fails the op if the op fails and the transport is still connected")
+    def test_failure_still_connected(self, mocker, stage, op, arbitrary_exception):
+        callback = op.callback_stack[0]
+        stage.pipeline_root.connected = False
+
+        stage.run_op(op)
+
+        # complete the connection
+        connect_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(connect_op, pipeline_ops_base.ConnectOperation)
+        stage.pipeline_root.connected = True
+        connect_op.complete()
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 2
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # fail
+        op.complete(arbitrary_exception)
+
+        # assert that the op failure went back to the caller
+        assert op.completed
+        assert op.error == arbitrary_exception
+        assert callback.call_args == mocker.call(op=op, error=arbitrary_exception)
 
 
 @pytest.mark.describe(

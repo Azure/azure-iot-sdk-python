@@ -397,6 +397,23 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
         stage.run_op(op)
         assert stage._pending_connection_op is None
 
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.reauthorize_connection.side_effect = (
+            transport_exceptions.ConnectionDroppedError
+        )
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 1
+        assert isinstance(
+            stage.send_event_up.call_args[0][0], pipeline_events_base.DisconnectedEvent
+        )
+
+    @pytest.mark.it("Does not send a DisconnectedEvent if there is an arbitrary failure")
+    def test_doesnt_send_disconencted_event(self, mocker, stage, op, arbitrary_exception):
+        stage.transport.reauthorize_connection.side_effect = arbitrary_exception
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 0
+
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with DisconnectOperation")
 class TestMQTTTransportStageRunOpCalledWithDisconnectOperation(
@@ -501,6 +518,21 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         assert op.completed
         assert op.error is None
 
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.publish.side_effect = transport_exceptions.ConnectionDroppedError
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 1
+        assert isinstance(
+            stage.send_event_up.call_args[0][0], pipeline_events_base.DisconnectedEvent
+        )
+
+    @pytest.mark.it("Does not send a DisconnectedEvent if there is an arbitrary failure")
+    def test_doesnt_send_disconencted_event(self, mocker, stage, op, arbitrary_exception):
+        stage.transport.publish.side_effect = arbitrary_exception
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 0
+
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTSubscribeOperation")
 class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
@@ -535,6 +567,21 @@ class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
         assert op.completed
         assert op.error is None
 
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.subscribe.side_effect = transport_exceptions.ConnectionDroppedError
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 1
+        assert isinstance(
+            stage.send_event_up.call_args[0][0], pipeline_events_base.DisconnectedEvent
+        )
+
+    @pytest.mark.it("Does not send a DisconnectedEvent if there is an arbitrary failure")
+    def test_doesnt_send_disconencted_event(self, mocker, stage, op, arbitrary_exception):
+        stage.transport.subscribe.side_effect = arbitrary_exception
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 0
+
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- called with MQTTUnsubscribeOperation")
 class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
@@ -568,6 +615,21 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
 
         assert op.completed
         assert op.error is None
+
+    @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
+    def test_sends_disconencted_event(self, mocker, stage, op):
+        stage.transport.unsubscribe.side_effect = transport_exceptions.ConnectionDroppedError
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 1
+        assert isinstance(
+            stage.send_event_up.call_args[0][0], pipeline_events_base.DisconnectedEvent
+        )
+
+    @pytest.mark.it("Does not send a DisconnectedEvent if there is an arbitrary failure")
+    def test_doesnt_send_disconencted_event(self, mocker, stage, op, arbitrary_exception):
+        stage.transport.unsubscribe.side_effect = arbitrary_exception
+        stage.run_op(op)
+        assert stage.send_event_up.call_count == 0
 
 
 # NOTE: This is not something that should ever happen in correct program flow
