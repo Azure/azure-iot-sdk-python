@@ -6,6 +6,7 @@
 
 from setuptools import setup, find_packages
 from io import open  # io.open needed for Python 2 compat
+import re
 
 # azure v0.x is not compatible with this package
 # azure v0.x used to have a __version__ attribute (newer versions don't)
@@ -27,9 +28,22 @@ except ImportError:
 with open("README.md", "r") as fh:
     _long_description = fh.read()
 
-constant = {}
-with open("azure/iot/hub/constant.py") as fh:
-    exec(fh.read(), constant)
+filename = "azure/iot/hub/constant.py"
+version = None
+
+with open(filename, "r") as fh:
+    if not re.search("\n+VERSION", fh.read()):
+        raise ValueError("VERSION  is not defined in constants.")
+
+with open(filename, "r") as fh:
+    for line in fh:
+        if re.search("^VERSION", line):
+            constant, value = line.strip().split("=")
+            if not value:
+                raise ValueError("Value for VERSION not defined in constants.")
+            else:
+                version = str(value.strip())  # Needed to add str for python 2 unicode
+            break
 
 setup(
     name="azure-iot-hub",
