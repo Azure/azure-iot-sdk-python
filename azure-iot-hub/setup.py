@@ -47,7 +47,7 @@ with open(filename, "r") as fh:
 
 setup(
     name="azure-iot-hub",
-    version=constant["VERSION"],
+    version=version,
     description="Microsoft Azure IoTHub Service Library",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub",
