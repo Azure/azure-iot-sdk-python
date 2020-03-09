@@ -7,7 +7,7 @@
 Currently we have to do like this so that we don't use exec anywhere"""
 
 
-def execute_atrocity_for_sync():
+def execute_patch_for_sync():
     from azure.iot.device.iothub.sync_clients import IoTHubDeviceClient as IoTHubDeviceClient
 
     def connect(self):

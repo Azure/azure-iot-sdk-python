@@ -10,7 +10,7 @@ from .common import *
 from . import iothub
 from . import provisioning
 from . import common
-from . import patch, abomination
+from . import patch, patch_documentation
 import sys
 
 if sys.version_info > (3, 5):  # This only works for python 3.5+ at present
@@ -20,7 +20,7 @@ if sys.version_info > (3, 5):  # This only works for python 3.5+ at present
     # patch.add_shims_for_inherited_methods(IoTHubDeviceClient)  # noqa: F405
     # patch.add_shims_for_inherited_methods(IoTHubModuleClient)  # noqa: F405
     # patch.add_shims_for_inherited_methods(ProvisioningDeviceClient)  # noqa: F405
-    abomination.execute_atrocity_for_sync()
+    patch_documentation.execute_patch_for_sync()
 
 
 # iothub and common subpackages are still showing up in intellisense

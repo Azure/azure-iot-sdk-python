@@ -7,7 +7,7 @@
 Currently we have to do like this so that we don't use exec anywhere"""
 
 
-def execute_atrocity_for_async():
+def execute_patch_for_async():
     from azure.iot.device.iothub.aio.async_clients import IoTHubDeviceClient as IoTHubDeviceClient_
 
     async def connect(self):
