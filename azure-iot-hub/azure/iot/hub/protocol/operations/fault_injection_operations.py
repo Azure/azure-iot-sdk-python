@@ -18,7 +18,7 @@ class FaultInjectionOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
+    :ivar api_version: Version of the Api. Constant value: "2020-03-01".
     """
 
     models = models
@@ -30,7 +30,7 @@ class FaultInjectionOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-13"
+        self.api_version = "2020-03-01"
 
     def get(self, custom_headers=None, raw=False, **operation_config):
         """Get FaultInjection entity.
