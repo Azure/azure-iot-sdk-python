@@ -56,7 +56,7 @@ def add_shims_for_inherited_methods(target_class):
         module=class_module.__name__, target_class=target_class.__name__, alias=classname_alias
     )
     logger.debug("exec: " + import_cmdstr)
-    exec(import_cmdstr, shim_scope)
+    # exec(import_cmdstr, shim_scope)
 
     for method in all_methods:
         method_name = method[0]
@@ -115,14 +115,14 @@ def add_shims_for_inherited_methods(target_class):
                 invocation=str(invoke_params),
             )
             logger.debug("exec: " + fn_def_cmdstr)
-            exec(fn_def_cmdstr, shim_scope)
+            # exec(fn_def_cmdstr, shim_scope)
 
             # Copy the docstring from the method to the shim function
             set_doc_cmdstr = "{method_name}.__doc__ = {leaf_class}.{method_name}.__doc__".format(
                 method_name=method_name, leaf_class=classname_alias
             )
             logger.debug("exec: " + set_doc_cmdstr)
-            exec(set_doc_cmdstr, shim_scope)
+            # exec(set_doc_cmdstr, shim_scope)
 
             # Add shim function to leaf/child class as a classmethod if the method being shimmed is a classmethod
             if inspect.ismethod(method_obj):
@@ -135,7 +135,7 @@ def add_shims_for_inherited_methods(target_class):
                     leaf_class=classname_alias, method_name=method_name
                 )
             logger.debug("exec: " + attach_shim_cmdstr)
-            exec(attach_shim_cmdstr, shim_scope)
+            # exec(attach_shim_cmdstr, shim_scope)
 
     # NOTE: the __qualname__ attributes of these new shim methods are merely the method name,
     # rather than <class_name>.<method_name>, due to the scoping of the definition.
