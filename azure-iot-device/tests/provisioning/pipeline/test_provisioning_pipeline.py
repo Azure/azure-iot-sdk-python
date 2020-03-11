@@ -253,7 +253,7 @@ class TestProvisioningPipelineInstantiation(object):
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Connect")
+@pytest.mark.describe("ProvisioningPipeline - .connect()")
 class TestProvisioningPipelineConnect(object):
     @pytest.mark.it("Runs a ConnectOperation on the pipeline")
     def test_runs_op(self, pipeline, mocker):
@@ -294,7 +294,7 @@ class TestProvisioningPipelineConnect(object):
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("IoTHubPipeline - .disconnect()")
+@pytest.mark.describe("ProvisioningPipeline - .disconnect()")
 class TestProvisioningPipelineDisconnect(object):
     @pytest.mark.it("Runs a DisconnectOperation on the pipeline")
     def test_runs_op(self, pipeline, mocker):
@@ -334,7 +334,7 @@ class TestProvisioningPipelineDisconnect(object):
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Send Register")
+@pytest.mark.describe("ProvisioningPipeline - .register()")
 class TestSendRegister(object):
     @pytest.mark.it("Request calls publish on provider")
     def test_send_register_request_calls_publish_on_provider(
@@ -511,7 +511,7 @@ class TestSendRegister(object):
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Disconnect")
+@pytest.mark.describe("ProvisioningPipeline - .disconnect()")
 class TestDisconnect(object):
     @pytest.mark.it("Calls disconnect on provider")
     def test_disconnect_calls_disconnect_on_provider(
@@ -548,7 +548,7 @@ class TestDisconnect(object):
 
 
 @pytest.mark.parametrize("params_security_clients", different_security_clients)
-@pytest.mark.describe("Provisioning pipeline - Enable")
+@pytest.mark.describe("ProvisioningPipeline - .enable_responses()")
 class TestEnable(object):
     @pytest.mark.it("Calls subscribe on provider")
     def test_subscribe_calls_subscribe_on_provider(

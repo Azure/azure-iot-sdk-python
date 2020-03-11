@@ -24,7 +24,7 @@ from azure.iot.device.iothub.auth.x509_authentication_provider import X509Authen
 logger = logging.getLogger(__name__)
 
 
-class IoTHubPipeline(object):
+class MQTTPipeline(object):
     def __init__(self, auth_provider, pipeline_configuration):
         """
         Constructor for instantiating a pipeline adapter object
@@ -269,7 +269,7 @@ class IoTHubPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        logger.debug("IoTHubPipeline send_method_response called")
+        logger.debug("MQTTPipeline send_method_response called")
 
         def on_complete(op, error):
             callback(error=error)
