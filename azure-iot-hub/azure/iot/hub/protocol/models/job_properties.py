@@ -49,10 +49,6 @@ class JobProperties(Model):
      jobs.  Default: false.  If false, authorization keys are included
      in export output.  Keys are exported as null otherwise.
     :type exclude_keys_in_export: bool
-    :param storage_authentication_type: Specifies authentication type being
-     used for connecting to storage account. Possible values include:
-     'keyBased', 'identityBased'
-    :type storage_authentication_type: str or ~protocol.models.enum
     :param failure_reason: System genereated.  Ignored at creation.
      If status == failure, this represents a string containing the reason.
     :type failure_reason: str
@@ -70,7 +66,6 @@ class JobProperties(Model):
         "output_blob_container_uri": {"key": "outputBlobContainerUri", "type": "str"},
         "output_blob_name": {"key": "outputBlobName", "type": "str"},
         "exclude_keys_in_export": {"key": "excludeKeysInExport", "type": "bool"},
-        "storage_authentication_type": {"key": "storageAuthenticationType", "type": "str"},
         "failure_reason": {"key": "failureReason", "type": "str"},
     }
 
@@ -87,5 +82,4 @@ class JobProperties(Model):
         self.output_blob_container_uri = kwargs.get("output_blob_container_uri", None)
         self.output_blob_name = kwargs.get("output_blob_name", None)
         self.exclude_keys_in_export = kwargs.get("exclude_keys_in_export", None)
-        self.storage_authentication_type = kwargs.get("storage_authentication_type", None)
         self.failure_reason = kwargs.get("failure_reason", None)

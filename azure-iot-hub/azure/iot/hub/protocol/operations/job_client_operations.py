@@ -18,7 +18,7 @@ class JobClientOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
+    :ivar api_version: Version of the Api. Constant value: "2020-03-01".
     """
 
     models = models
@@ -30,7 +30,7 @@ class JobClientOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-13"
+        self.api_version = "2020-03-01"
 
     def create_import_export_job(
         self, job_properties, custom_headers=None, raw=False, **operation_config
@@ -41,7 +41,7 @@ class JobClientOperations(object):
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
         for more information.
 
-        :param job_properties: Specifies the job specification.
+        :param job_properties:
         :type job_properties: ~protocol.models.JobProperties
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
