@@ -30,7 +30,13 @@ logger = logging.getLogger(__name__)
 def _validate_kwargs(**kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
-    valid_kwargs = ["product_info", "websockets", "cipher", "server_verification_cert"]
+    valid_kwargs = [
+        "product_info",
+        "websockets",
+        "cipher",
+        "server_verification_cert",
+        "proxy_options",
+    ]
 
     for kwarg in kwargs:
         if kwarg not in valid_kwargs:
@@ -46,6 +52,8 @@ def _get_pipeline_config_kwargs(**kwargs):
         new_kwargs["websockets"] = kwargs["websockets"]
     if "cipher" in kwargs:
         new_kwargs["cipher"] = kwargs["cipher"]
+    if "proxy_options" in kwargs:
+        new_kwargs["proxy_options"] = kwargs["proxy_options"]
     return new_kwargs
 
 
@@ -55,13 +63,13 @@ class AbstractIoTHubClient(object):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a generic client.
 
-        :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
-        self._iothub_pipeline = iothub_pipeline
+        self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
 
     @classmethod
@@ -81,6 +89,8 @@ class AbstractIoTHubClient(object):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unrecognized parameter.
@@ -105,9 +115,9 @@ class AbstractIoTHubClient(object):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def connect(self):
@@ -146,7 +156,7 @@ class AbstractIoTHubClient(object):
         """
         Read-only property to indicate if the transport is connected or not.
         """
-        return self._iothub_pipeline.connected
+        return self._mqtt_pipeline.connected
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -175,6 +185,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
@@ -195,9 +207,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
@@ -219,6 +231,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
@@ -239,9 +253,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def receive_message(self):
@@ -250,13 +264,13 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
-    def __init__(self, iothub_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a module client.
 
-        :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
-        super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline, http_pipeline)
+        super(AbstractIoTHubModuleClient, self).__init__(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
@@ -273,6 +287,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -356,9 +372,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
@@ -385,6 +401,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
@@ -404,8 +422,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline, http_pipeline)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def send_message_to_output(self, message, output_name):

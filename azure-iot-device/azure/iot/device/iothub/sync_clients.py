@@ -38,6 +38,14 @@ def handle_result(callback):
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except pipeline_exceptions.TlsExchangeAuthError as e:
+        raise exceptions.ClientError(
+            message="Error in the IoTHub client due to TLS exchanges.", cause=e
+        )
+    except pipeline_exceptions.ProtocolProxyError as e:
+        raise exceptions.ClientError(
+            message="Error in the IoTHub client raised due to proxy connections.", cause=e
+        )
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -53,8 +61,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
-        :param iothub_pipeline: The IoTHubPipeline used for the client
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The MQTTPipeline used for the client
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The HTTPPipeline used for the client
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
@@ -64,12 +72,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super(GenericIoTHubClient, self).__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
-        self._iothub_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
-        self._iothub_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
-        self._iothub_pipeline.on_method_request_received = CallableWeakMethod(
+        self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
+        self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
+        self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(
             self._inbox_manager, "route_method_request"
         )
-        self._iothub_pipeline.on_twin_patch_received = CallableWeakMethod(
+        self._mqtt_pipeline.on_twin_patch_received = CallableWeakMethod(
             self._inbox_manager, "route_twin_patch"
         )
 
@@ -104,7 +112,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Connecting to Hub...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.connect(callback=callback)
+        self._mqtt_pipeline.connect(callback=callback)
         handle_result(callback)
 
         logger.info("Successfully connected to Hub")
@@ -121,7 +129,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Disconnecting from Hub...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.disconnect(callback=callback)
+        self._mqtt_pipeline.disconnect(callback=callback)
         handle_result(callback)
 
         logger.info("Successfully disconnected from Hub")
@@ -158,7 +166,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Sending message to Hub...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.send_message(message, callback=callback)
+        self._mqtt_pipeline.send_message(message, callback=callback)
         handle_result(callback)
 
         logger.info("Successfully sent message to Hub")
@@ -175,7 +183,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: MethodRequest object representing the received method request, or None if
             no method request has been received by the end of the blocking period.
         """
-        if not self._iothub_pipeline.feature_enabled[pipeline_constant.METHODS]:
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._enable_feature(pipeline_constant.METHODS)
 
         method_inbox = self._inbox_manager.get_method_request_inbox(method_name)
@@ -212,7 +220,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Sending method response to Hub...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.send_method_response(method_response, callback=callback)
+        self._mqtt_pipeline.send_method_response(method_response, callback=callback)
         handle_result(callback)
 
         logger.info("Successfully sent method response to Hub")
@@ -229,7 +237,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Enabling feature:" + feature_name + "...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.enable_feature(feature_name, callback=callback)
+        self._mqtt_pipeline.enable_feature(feature_name, callback=callback)
         callback.wait_for_completion()
 
         logger.info("Successfully enabled feature:" + feature_name)
@@ -253,11 +261,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
-        if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN]:
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
             self._enable_feature(pipeline_constant.TWIN)
 
         callback = EventedCallback(return_arg_name="twin")
-        self._iothub_pipeline.get_twin(callback=callback)
+        self._mqtt_pipeline.get_twin(callback=callback)
         twin = handle_result(callback)
 
         logger.info("Successfully retrieved twin")
@@ -285,11 +293,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
-        if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN]:
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
             self._enable_feature(pipeline_constant.TWIN)
 
         callback = EventedCallback()
-        self._iothub_pipeline.patch_twin_reported_properties(
+        self._mqtt_pipeline.patch_twin_reported_properties(
             patch=reported_properties_patch, callback=callback
         )
         handle_result(callback)
@@ -317,7 +325,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             received by the end of the blocking period
         :rtype: dict or None
         """
-        if not self._iothub_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
         twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
 
@@ -336,19 +344,19 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
-        :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
         super(IoTHubDeviceClient, self).__init__(
-            iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline
+            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
         )
-        self._iothub_pipeline.on_c2d_message_received = CallableWeakMethod(
+        self._mqtt_pipeline.on_c2d_message_received = CallableWeakMethod(
             self._inbox_manager, "route_c2d_message"
         )
 
@@ -362,7 +370,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             no method request has been received by the end of the blocking period.
         :rtype: :class:`azure.iot.device.Message` or None
         """
-        if not self._iothub_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
 
@@ -415,21 +423,21 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
 
-        :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
         super(IoTHubModuleClient, self).__init__(
-            iothub_pipeline=iothub_pipeline, http_pipeline=http_pipeline
+            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
         )
-        self._iothub_pipeline.on_input_message_received = CallableWeakMethod(
+        self._mqtt_pipeline.on_input_message_received = CallableWeakMethod(
             self._inbox_manager, "route_input_message"
         )
 
@@ -470,7 +478,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Sending message to output:" + output_name + "...")
 
         callback = EventedCallback()
-        self._iothub_pipeline.send_output_event(message, callback=callback)
+        self._mqtt_pipeline.send_output_event(message, callback=callback)
         handle_result(callback)
 
         logger.info("Successfully sent message to output: " + output_name)
@@ -485,7 +493,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :returns: Message that was sent to the specified input, or None if
             no method request has been received by the end of the blocking period.
         """
-        if not self._iothub_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
         input_inbox = self._inbox_manager.get_input_message_inbox(input_name)
 

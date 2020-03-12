@@ -14,6 +14,7 @@ import copy
 import pytest
 import logging
 import socket
+import socks
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -414,6 +415,49 @@ class TestConnect(object):
             transport.connect(fake_password)
         assert e_info.value.__cause__ is socket_error
 
+    @pytest.mark.it(
+        "Raises a TlsExchangeAuthError if Paho connect raises a socket.error of type SSLCertVerificationError Exception"
+    )
+    def test_client_raises_socket_tls_auth_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socket_error = ssl.SSLError("socket error", "CERTIFICATE_VERIFY_FAILED")
+        mock_mqtt_client.connect.side_effect = socket_error
+        with pytest.raises(errors.TlsExchangeAuthError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socket_error
+        print(e_info.value.__cause__.strerror)
+
+    @pytest.mark.it(
+        "Raises a ProtocolProxyError if Paho connect raises a socket error or a ProxyError exception"
+    )
+    def test_client_raises_socket_error_or_proxy_error_as_proxy_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socks_error = socks.SOCKS5Error(
+            "it is a sock 5 error", socket_err="a general SOCKS5Error error"
+        )
+        mock_mqtt_client.connect.side_effect = socks_error
+        with pytest.raises(errors.ProtocolProxyError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socks_error
+        print(e_info.value.__cause__.strerror)
+
+    @pytest.mark.it(
+        "Raises a UnauthorizedError if Paho connect raises a socket error or a ProxyError exception"
+    )
+    def test_client_raises_socket_error_or_proxy_error_as_unauthorized_error(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        socks_error = socks.SOCKS5AuthError(
+            "it is a sock 5 auth error", socket_err="an auth SOCKS5Error error"
+        )
+        mock_mqtt_client.connect.side_effect = socks_error
+        with pytest.raises(errors.UnauthorizedError) as e_info:
+            transport.connect(fake_password)
+        assert e_info.value.__cause__ is socks_error
+        print(e_info.value.__cause__.strerror)
+
     @pytest.mark.it("Allows any BaseExceptions raised in Paho connect to propagate")
     def test_client_raises_base_exception(
         self, mock_mqtt_client, transport, arbitrary_base_exception
@@ -475,12 +519,14 @@ class TestReauthorizeConnection(object):
         assert mock_mqtt_client.reconnect.call_count == 1
         assert mock_mqtt_client.reconnect.call_args == mocker.call()
 
-    @pytest.mark.it("Raises a ProtocolClientError if Paho reconnect raises an unexpected Exception")
+    @pytest.mark.it(
+        "Raises a ConnectionDroppedError if Paho reconnect raises an unexpected Exception"
+    )
     def test_client_raises_unexpected_error(
         self, mocker, mock_mqtt_client, transport, arbitrary_exception
     ):
         mock_mqtt_client.reconnect.side_effect = arbitrary_exception
-        with pytest.raises(errors.ProtocolClientError) as e_info:
+        with pytest.raises(errors.ConnectionDroppedError) as e_info:
             transport.reauthorize_connection(fake_password)
         assert e_info.value.__cause__ is arbitrary_exception
 
@@ -507,6 +553,48 @@ class TestReauthorizeConnection(object):
         mock_mqtt_client.reconnect.return_value = error_params["rc"]
         with pytest.raises(error_params["error"]):
             transport.reauthorize_connection(fake_password)
+
+    @pytest.mark.it(
+        "Calls the paho disconnect method if an exception is raised from the reconnect method"
+    )
+    def test_client_calls_paho_disconnect(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        mock_mqtt_client.reconnect.side_effect = arbitrary_exception
+
+        assert mock_mqtt_client.disconnect.call_count == 0
+        with pytest.raises(errors.ConnectionDroppedError):
+            transport.reauthorize_connection(fake_password)
+
+        assert mock_mqtt_client.disconnect.call_count == 1
+
+    @pytest.mark.it(
+        "Calls the paho loop_stop method if an exception is raised from the reconnect method"
+    )
+    def test_client_calls_paho_loop_stop(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        mock_mqtt_client.reconnect.side_effect = arbitrary_exception
+
+        assert mock_mqtt_client.loop_stop.call_count == 0
+        with pytest.raises(errors.ConnectionDroppedError):
+            transport.reauthorize_connection(fake_password)
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+
+    @pytest.mark.it(
+        "Sets the paho thread to None if an exception is raised from the reconnect method"
+    )
+    def test_client_sets_paho_thread_to_None(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        mock_mqtt_client.reconnect.side_effect = arbitrary_exception
+
+        mock_mqtt_client._thread = mocker.MagicMock()
+        with pytest.raises(errors.ConnectionDroppedError):
+            transport.reauthorize_connection(fake_password)
+
+        assert mock_mqtt_client._thread is None
 
 
 @pytest.mark.describe("MQTTTransport - OCCURANCE: Connect Completed")
@@ -679,18 +767,11 @@ class TestDisconnect(object):
             transport.disconnect()
         assert e_info.value is arbitrary_base_exception
 
-    # NOTE: this test tests for most possible return codes, even ones that shouldn't be
-    # possible on a disconnect operation. The exception is codes that correspond to a
-    # ConnectionDroppedError, as that does not result in a failure for .disconnect()
     @pytest.mark.it("Raises a custom Exception if Paho disconnect returns a failing rc code")
     @pytest.mark.parametrize(
         "error_params",
-        [x for x in operation_return_codes if x["error"] is not errors.ConnectionDroppedError],
-        ids=[
-            "{}->{}".format(x["name"], x["error"].__name__)
-            for x in operation_return_codes
-            if x["error"] is not errors.ConnectionDroppedError
-        ],
+        operation_return_codes,
+        ids=["{}->{}".format(x["name"], x["error"].__name__) for x in operation_return_codes],
     )
     def test_client_returns_failing_rc_code(
         self, mocker, mock_mqtt_client, transport, error_params
@@ -698,22 +779,6 @@ class TestDisconnect(object):
         mock_mqtt_client.disconnect.return_value = error_params["rc"]
         with pytest.raises(error_params["error"]):
             transport.disconnect()
-
-    # NOTE: Because .disconnect() intends to disconnect the connection, if the connection drops
-    # it isn't really a failure
-    @pytest.mark.it("Swallows failing rc codes related to dropped connections")
-    @pytest.mark.parametrize(
-        "error_params",
-        [x for x in operation_return_codes if x["error"] is errors.ConnectionDroppedError],
-        ids=[
-            x["name"] for x in operation_return_codes if x["error"] is errors.ConnectionDroppedError
-        ],
-    )
-    def test_client_drops_connection(self, mock_mqtt_client, transport, error_params):
-        mock_mqtt_client.disconnect.return_value = error_params["rc"]
-        transport.disconnect()
-
-        # No assert required - not throwing an error -> success!
 
 
 @pytest.mark.describe("MQTTTransport - OCCURANCE: Disconnect Completed")

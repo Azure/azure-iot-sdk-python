@@ -74,6 +74,7 @@ class MQTTTransportStage(PipelineStage):
                 x509_cert=op.client_cert,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
                 cipher=self.pipeline_root.pipeline_configuration.cipher,
+                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
             )
             self.transport.on_mqtt_connected_handler = CallableWeakMethod(
                 self, "_on_mqtt_connected"
@@ -132,6 +133,14 @@ class MQTTTransportStage(PipelineStage):
                 logger.error("transport.reauthorize_connection raised error")
                 logger.error(traceback.format_exc())
                 self._pending_connection_op = None
+                # Send up a DisconenctedEvent.  If we ran a ReauthorizeConnectionOperatoin,
+                # some code must think we're still connected.  If we got an exception here,
+                # we're not conencted, and we need to notify upper layers. (Paho should do this,
+                # but it only causes a DisconnectedEvent on manual disconnect or if a PINGRESP
+                # failed, and it's possible to hit this code without either of those things
+                # happening.
+                if isinstance(e, transport_exceptions.ConnectionDroppedError):
+                    self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 op.complete(error=e)
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
@@ -155,7 +164,11 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
                 op.complete()
 
-            self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
+            try:
+                self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
+            except transport_exceptions.ConnectionDroppedError:
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                raise
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTSubscribeOperation):
             logger.info("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
@@ -165,7 +178,11 @@ class MQTTTransportStage(PipelineStage):
                 logger.debug("{}({}): SUBACK received. completing op.".format(self.name, op.name))
                 op.complete()
 
-            self.transport.subscribe(topic=op.topic, callback=on_subscribed)
+            try:
+                self.transport.subscribe(topic=op.topic, callback=on_subscribed)
+            except transport_exceptions.ConnectionDroppedError:
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                raise
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTUnsubscribeOperation):
             logger.info("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
@@ -177,7 +194,11 @@ class MQTTTransportStage(PipelineStage):
                 )
                 op.complete()
 
-            self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
+            try:
+                self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
+            except transport_exceptions.ConnectionDroppedError:
+                self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                raise
 
         else:
             # This code block should not be reached in correct program flow.
@@ -217,7 +238,7 @@ class MQTTTransportStage(PipelineStage):
             # This should indicate something odd is going on.
             # If this occurs, either a connect was completed while there was no pending op,
             # OR that a connect was completed while a disconnect op was pending
-            logger.warning("Connection was unexpected")
+            logger.info("Connection was unexpected")
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
     def _on_mqtt_connection_failure(self, cause):
@@ -239,7 +260,7 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
             op.complete(error=cause)
         else:
-            logger.warning("{}: Connection failure was unexpected".format(self.name))
+            logger.info("{}: Connection failure was unexpected".format(self.name))
             handle_exceptions.swallow_unraised_exception(
                 cause, log_msg="Unexpected connection failure.  Safe to ignore.", log_lvl="info"
             )
@@ -287,7 +308,7 @@ class MQTTTransportStage(PipelineStage):
                         error=transport_exceptions.ConnectionDroppedError("transport disconnected")
                     )
         else:
-            logger.warning("{}: disconnection was unexpected".format(self.name))
+            logger.info("{}: disconnection was unexpected".format(self.name))
             # Regardless of cause, it is now a ConnectionDroppedError.  log it and swallow it.
             # Higher layers will see that we're disconencted and reconnect as necessary.
             e = transport_exceptions.ConnectionDroppedError(cause=cause)

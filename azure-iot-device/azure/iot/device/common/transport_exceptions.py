@@ -38,3 +38,21 @@ class ProtocolClientError(ChainableException):
     """
 
     pass
+
+
+class TlsExchangeAuthError(ChainableException):
+    """
+    Error returned when transport layer exchanges
+    result in a SSLCertVerification error.
+    """
+
+    pass
+
+
+class ProtocolProxyError(ChainableException):
+    """
+    All proxy-related errors.
+    TODO : Not sure what to name it here. There is a class called Proxy Error already in Pysocks
+    """
+
+    pass

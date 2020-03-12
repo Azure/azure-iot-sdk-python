@@ -13,7 +13,7 @@ import io
 import six
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device import exceptions as client_exceptions
-from azure.iot.device.iothub.pipeline import IoTHubPipeline, constant
+from azure.iot.device.iothub.pipeline import MQTTPipeline, constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.DEBUG)
 # automatically mock the mqtt pipeline for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_mqtt_pipeline_init(mocker):
-    return mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+    return mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline")
 
 
 # automatically mock the http pipeline for all tests in this file.
@@ -40,48 +40,48 @@ def mock_http_pipeline_init(mocker):
 ################
 class SharedClientInstantiationTests(object):
     @pytest.mark.it(
-        "Stores the IoTHubPipeline from the 'iothub_pipeline' parameter in the '_iothub_pipeline' attribute"
+        "Stores the MQTTPipeline from the 'mqtt_pipeline' parameter in the '_mqtt_pipeline' attribute"
     )
-    def test_iothub_pipeline_attribute(self, client_class, iothub_pipeline, http_pipeline):
-        client = client_class(iothub_pipeline, http_pipeline)
+    def test_mqtt_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
 
-        assert client._iothub_pipeline is iothub_pipeline
+        assert client._mqtt_pipeline is mqtt_pipeline
 
     @pytest.mark.it(
         "Stores the HTTPPipeline from the 'http_pipeline' parameter in the '_http_pipeline' attribute"
     )
-    def test_sets_http_pipeline_attribute(self, client_class, iothub_pipeline, http_pipeline):
-        client = client_class(iothub_pipeline, http_pipeline)
+    def test_sets_http_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._http_pipeline is http_pipeline
 
-    @pytest.mark.it("Sets on_connected handler in the IoTHubPipeline")
+    @pytest.mark.it("Sets on_connected handler in the MQTTPipeline")
     def test_sets_on_connected_handler_in_pipeline(
-        self, client_class, iothub_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
-        assert client._iothub_pipeline.on_connected is not None
-        assert client._iothub_pipeline.on_connected == client._on_connected
+        assert client._mqtt_pipeline.on_connected is not None
+        assert client._mqtt_pipeline.on_connected == client._on_connected
 
-    @pytest.mark.it("Sets on_disconnected handler in the IoTHubPipeline")
+    @pytest.mark.it("Sets on_disconnected handler in the MQTTPipeline")
     def test_sets_on_disconnected_handler_in_pipeline(
-        self, client_class, iothub_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
-        assert client._iothub_pipeline.on_disconnected is not None
-        assert client._iothub_pipeline.on_disconnected == client._on_disconnected
+        assert client._mqtt_pipeline.on_disconnected is not None
+        assert client._mqtt_pipeline.on_disconnected == client._on_disconnected
 
-    @pytest.mark.it("Sets on_method_request_received handler in the IoTHubPipeline")
+    @pytest.mark.it("Sets on_method_request_received handler in the MQTTPipeline")
     def test_sets_on_method_request_received_handler_in_pipleline(
-        self, client_class, iothub_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
-        assert client._iothub_pipeline.on_method_request_received is not None
+        assert client._mqtt_pipeline.on_method_request_received is not None
         assert (
-            client._iothub_pipeline.on_method_request_received
+            client._mqtt_pipeline.on_method_request_received
             == client._inbox_manager.route_method_request
         )
 
@@ -225,7 +225,7 @@ class SharedClientCreateFromConnectionStringTests(object):
         assert mock_auth_parse.call_count == 1
         assert mock_auth_parse.call_args == mocker.call(connection_string)
 
-    @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline")
+    @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an MQTTPipeline")
     def test_pipeline_creation(
         self, mocker, client_class, connection_string, mock_mqtt_pipeline_init
     ):
@@ -242,9 +242,9 @@ class SharedClientCreateFromConnectionStringTests(object):
             mock_auth, mock_config_init.return_value
         )
 
-    @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
+    @pytest.mark.it("Uses the MQTTPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, connection_string):
-        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline").return_value
         mock_pipeline_http = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
         ).return_value
@@ -305,16 +305,16 @@ class WaitsForEventCompletion(object):
 
 class SharedClientConnectTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
-    def test_calls_pipeline_connect(self, client, iothub_pipeline):
+    def test_calls_pipeline_connect(self, client, mqtt_pipeline):
         client.connect()
-        assert iothub_pipeline.connect.call_count == 1
+        assert mqtt_pipeline.connect.call_count == 1
 
     @pytest.mark.it("Waits for the completion of the 'connect' pipeline operation before returning")
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb
     ):
         self.add_event_completion_checks(
-            mocker=mocker, pipeline_function=iothub_pipeline_manual_cb.connect
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.connect
         )
         client_manual_cb.connect()
 
@@ -344,16 +344,26 @@ class SharedClientConnectTests(WaitsForEventCompletion):
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
+            pytest.param(
+                pipeline_exceptions.TlsExchangeAuthError,
+                client_exceptions.ClientError,
+                id="TlsExchangeAuthError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolProxyError,
+                client_exceptions.ClientError,
+                id="ProtocolProxyError->ClientError",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
     def test_raises_error_on_pipeline_op_error(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, pipeline_error, client_error
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, pipeline_error, client_error
     ):
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.connect,
+            pipeline_function=mqtt_pipeline_manual_cb.connect,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
@@ -363,18 +373,18 @@ class SharedClientConnectTests(WaitsForEventCompletion):
 
 class SharedClientDisconnectTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'disconnect' pipeline operation")
-    def test_calls_pipeline_disconnect(self, client, iothub_pipeline):
+    def test_calls_pipeline_disconnect(self, client, mqtt_pipeline):
         client.disconnect()
-        assert iothub_pipeline.disconnect.call_count == 1
+        assert mqtt_pipeline.disconnect.call_count == 1
 
     @pytest.mark.it(
         "Waits for the completion of the 'disconnect' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb
     ):
         self.add_event_completion_checks(
-            mocker=mocker, pipeline_function=iothub_pipeline_manual_cb.disconnect
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.disconnect
         )
         client_manual_cb.disconnect()
 
@@ -393,12 +403,12 @@ class SharedClientDisconnectTests(WaitsForEventCompletion):
         ],
     )
     def test_raises_error_on_pipeline_op_error(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, pipeline_error, client_error
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, pipeline_error, client_error
     ):
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.disconnect,
+            pipeline_function=mqtt_pipeline_manual_cb.disconnect,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
@@ -415,20 +425,20 @@ class SharedClientDisconnectEventTests(object):
 
 
 class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
-    @pytest.mark.it("Begins a 'send_message' IoTHubPipeline operation")
-    def test_calls_pipeline_send_message(self, client, iothub_pipeline, message):
+    @pytest.mark.it("Begins a 'send_message' MQTTPipeline operation")
+    def test_calls_pipeline_send_message(self, client, mqtt_pipeline, message):
         client.send_message(message)
-        assert iothub_pipeline.send_message.call_count == 1
-        assert iothub_pipeline.send_message.call_args[0][0] is message
+        assert mqtt_pipeline.send_message.call_count == 1
+        assert mqtt_pipeline.send_message.call_args[0][0] is message
 
     @pytest.mark.it(
         "Waits for the completion of the 'send_message' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, message
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, message
     ):
         self.add_event_completion_checks(
-            mocker=mocker, pipeline_function=iothub_pipeline_manual_cb.send_message
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_message
         )
         client_manual_cb.send_message(message)
 
@@ -465,7 +475,7 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         self,
         mocker,
         client_manual_cb,
-        iothub_pipeline_manual_cb,
+        mqtt_pipeline_manual_cb,
         message,
         pipeline_error,
         client_error,
@@ -473,7 +483,7 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.send_message,
+            pipeline_function=mqtt_pipeline_manual_cb.send_message,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
@@ -495,36 +505,36 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         ],
     )
     def test_wraps_data_in_message_and_calls_pipeline_send_message(
-        self, client, iothub_pipeline, message_input
+        self, client, mqtt_pipeline, message_input
     ):
         client.send_message(message_input)
-        assert iothub_pipeline.send_message.call_count == 1
-        sent_message = iothub_pipeline.send_message.call_args[0][0]
+        assert mqtt_pipeline.send_message.call_count == 1
+        sent_message = mqtt_pipeline.send_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
     @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    def test_raises_error_when_message_data_greater_than_256(self, client, iothub_pipeline):
+    def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
         data_input = "serpensortia" * 25600
         message = Message(data_input)
         with pytest.raises(ValueError) as e_info:
             client.send_message(message)
         assert "256 KB" in e_info.value.args[0]
-        assert iothub_pipeline.send_message.call_count == 0
+        assert mqtt_pipeline.send_message.call_count == 0
 
     @pytest.mark.it("Raises error when message size is greater than 256 KB")
-    def test_raises_error_when_message_size_greater_than_256(self, client, iothub_pipeline):
+    def test_raises_error_when_message_size_greater_than_256(self, client, mqtt_pipeline):
         data_input = "serpensortia"
         message = Message(data_input)
         message.custom_properties["spell"] = data_input * 25600
         with pytest.raises(ValueError) as e_info:
             client.send_message(message)
         assert "256 KB" in e_info.value.args[0]
-        assert iothub_pipeline.send_message.call_count == 0
+        assert mqtt_pipeline.send_message.call_count == 0
 
     @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
-    def test_raises_error_when_message_data_equal_to_256(self, client, iothub_pipeline):
-        data_input = "a" * 261976
+    def test_raises_error_when_message_data_equal_to_256(self, client, mqtt_pipeline):
+        data_input = "a" * 262095
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
@@ -534,8 +544,8 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
 
         client.send_message(message)
 
-        assert iothub_pipeline.send_message.call_count == 1
-        sent_message = iothub_pipeline.send_message.call_args[0][0]
+        assert mqtt_pipeline.send_message.call_count == 1
+        sent_message = mqtt_pipeline.send_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == data_input
 
@@ -547,26 +557,26 @@ class SharedClientReceiveMethodRequestTests(object):
         [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
     )
     def test_enables_methods_only_if_not_already_enabled(
-        self, mocker, client, iothub_pipeline, method_name
+        self, mocker, client, mqtt_pipeline, method_name
     ):
         mocker.patch.object(SyncClientInbox, "get")  # patch this receive_method_request won't block
 
         # Verify Input Messaging enabled if not enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             False
         )  # Method Requests will appear disabled
         client.receive_method_request(method_name)
-        assert iothub_pipeline.enable_feature.call_count == 1
-        assert iothub_pipeline.enable_feature.call_args[0][0] == constant.METHODS
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.METHODS
 
-        iothub_pipeline.enable_feature.reset_mock()
+        mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify Input Messaging not enabled if already enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             True
         )  # Input Messages will appear enabled
         client.receive_method_request(method_name)
-        assert iothub_pipeline.enable_feature.call_count == 0
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it(
         "Returns a MethodRequest from the generic method inbox, if available, when called without method name"
@@ -702,20 +712,20 @@ class SharedClientReceiveMethodRequestTests(object):
 
 class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'send_method_response' pipeline operation")
-    def test_send_method_response_calls_pipeline(self, client, iothub_pipeline, method_response):
+    def test_send_method_response_calls_pipeline(self, client, mqtt_pipeline, method_response):
 
         client.send_method_response(method_response)
-        assert iothub_pipeline.send_method_response.call_count == 1
-        assert iothub_pipeline.send_method_response.call_args[0][0] is method_response
+        assert mqtt_pipeline.send_method_response.call_count == 1
+        assert mqtt_pipeline.send_method_response.call_args[0][0] is method_response
 
     @pytest.mark.it(
         "Waits for the completion of the 'send_method_response' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, method_response
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, method_response
     ):
         self.add_event_completion_checks(
-            mocker=mocker, pipeline_function=iothub_pipeline_manual_cb.send_method_response
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_method_response
         )
         client_manual_cb.send_method_response(method_response)
 
@@ -752,7 +762,7 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
         self,
         mocker,
         client_manual_cb,
-        iothub_pipeline_manual_cb,
+        mqtt_pipeline_manual_cb,
         method_response,
         pipeline_error,
         client_error,
@@ -760,7 +770,7 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.send_method_response,
+            pipeline_function=mqtt_pipeline_manual_cb.send_method_response,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
@@ -770,45 +780,43 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
 
 class SharedClientGetTwinTests(WaitsForEventCompletion):
     @pytest.fixture
-    def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, iothub_pipeline):
+    def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
         def immediate_callback(callback):
             callback(twin=fake_twin)
 
-        mocker.patch.object(iothub_pipeline, "get_twin", side_effect=immediate_callback)
+        mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
 
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
     def test_enables_twin_only_if_not_already_enabled(
-        self, mocker, client, iothub_pipeline, patch_get_twin_to_return_fake_twin, fake_twin
+        self, mocker, client, mqtt_pipeline, patch_get_twin_to_return_fake_twin, fake_twin
     ):
         # Verify twin enabled if not enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
-            False
-        )  # twin will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
         client.get_twin()
-        assert iothub_pipeline.enable_feature.call_count == 1
-        assert iothub_pipeline.enable_feature.call_args[0][0] == constant.TWIN
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.TWIN
 
-        iothub_pipeline.enable_feature.reset_mock()
+        mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify twin not enabled if already enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
         client.get_twin()
-        assert iothub_pipeline.enable_feature.call_count == 0
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Begins a 'get_twin' pipeline operation")
-    def test_get_twin_calls_pipeline(self, client, iothub_pipeline):
+    def test_get_twin_calls_pipeline(self, client, mqtt_pipeline):
         client.get_twin()
-        assert iothub_pipeline.get_twin.call_count == 1
+        assert mqtt_pipeline.get_twin.call_count == 1
 
     @pytest.mark.it(
         "Waits for the completion of the 'get_twin' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, fake_twin
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, fake_twin
     ):
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.get_twin,
+            pipeline_function=mqtt_pipeline_manual_cb.get_twin,
             kwargs={"twin": fake_twin},
         )
         client_manual_cb.get_twin()
@@ -843,12 +851,12 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
         ],
     )
     def test_raises_error_on_pipeline_op_error(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, pipeline_error, client_error
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, pipeline_error, client_error
     ):
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.get_twin,
+            pipeline_function=mqtt_pipeline_manual_cb.get_twin,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
@@ -857,11 +865,11 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
 
     @pytest.mark.it("Returns the twin that the pipeline returned")
     def test_verifies_twin_returned(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, fake_twin
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, fake_twin
     ):
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.get_twin,
+            pipeline_function=mqtt_pipeline_manual_cb.get_twin,
             kwargs={"twin": fake_twin},
         )
         returned_twin = client_manual_cb.get_twin()
@@ -871,39 +879,37 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
 class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
     def test_enables_twin_only_if_not_already_enabled(
-        self, mocker, client, iothub_pipeline, twin_patch_reported
+        self, mocker, client, mqtt_pipeline, twin_patch_reported
     ):
         # patch this so x_get_twin won't block
         def immediate_callback(patch, callback):
             callback()
 
         mocker.patch.object(
-            iothub_pipeline, "patch_twin_reported_properties", side_effect=immediate_callback
+            mqtt_pipeline, "patch_twin_reported_properties", side_effect=immediate_callback
         )
 
         # Verify twin enabled if not enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
-            False
-        )  # twin will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
         client.patch_twin_reported_properties(twin_patch_reported)
-        assert iothub_pipeline.enable_feature.call_count == 1
-        assert iothub_pipeline.enable_feature.call_args[0][0] == constant.TWIN
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.TWIN
 
-        iothub_pipeline.enable_feature.reset_mock()
+        mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify twin not enabled if already enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
         client.patch_twin_reported_properties(twin_patch_reported)
-        assert iothub_pipeline.enable_feature.call_count == 0
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Begins a 'patch_twin_reported_properties' pipeline operation")
     def test_patch_twin_reported_properties_calls_pipeline(
-        self, client, iothub_pipeline, twin_patch_reported
+        self, client, mqtt_pipeline, twin_patch_reported
     ):
         client.patch_twin_reported_properties(twin_patch_reported)
-        assert iothub_pipeline.patch_twin_reported_properties.call_count == 1
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 1
         assert (
-            iothub_pipeline.patch_twin_reported_properties.call_args[1]["patch"]
+            mqtt_pipeline.patch_twin_reported_properties.call_args[1]["patch"]
             is twin_patch_reported
         )
 
@@ -911,11 +917,10 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
         "Waits for the completion of the 'patch_twin_reported_properties' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, twin_patch_reported
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, twin_patch_reported
     ):
         self.add_event_completion_checks(
-            mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.patch_twin_reported_properties,
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.patch_twin_reported_properties
         )
         client_manual_cb.patch_twin_reported_properties(twin_patch_reported)
 
@@ -952,7 +957,7 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
         self,
         mocker,
         client_manual_cb,
-        iothub_pipeline_manual_cb,
+        mqtt_pipeline_manual_cb,
         twin_patch_reported,
         pipeline_error,
         client_error,
@@ -960,7 +965,7 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.patch_twin_reported_properties,
+            pipeline_function=mqtt_pipeline_manual_cb.patch_twin_reported_properties,
             kwargs={"error": my_pipeline_error},
         )
         with pytest.raises(client_error) as e_info:
@@ -972,27 +977,25 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
     @pytest.mark.it(
         "Implicitly enables Twin desired properties patch feature if not already enabled"
     )
-    def test_enables_twin_patches_only_if_not_already_enabled(
-        self, mocker, client, iothub_pipeline
-    ):
+    def test_enables_twin_patches_only_if_not_already_enabled(self, mocker, client, mqtt_pipeline):
         mocker.patch.object(
             SyncClientInbox, "get"
         )  # patch this so receive_twin_desired_properties_patch won't block
 
         # Verify twin patches enabled if not enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             False
         )  # twin patches will appear disabled
         client.receive_twin_desired_properties_patch()
-        assert iothub_pipeline.enable_feature.call_count == 1
-        assert iothub_pipeline.enable_feature.call_args[0][0] == constant.TWIN_PATCHES
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.TWIN_PATCHES
 
-        iothub_pipeline.enable_feature.reset_mock()
+        mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify twin patches not enabled if already enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
         client.receive_twin_desired_properties_patch()
-        assert iothub_pipeline.enable_feature.call_count == 0
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a patch from the twin patch inbox, if available")
     def test_returns_message_from_twin_patch_inbox(self, mocker, client, twin_patch_desired):
@@ -1073,10 +1076,10 @@ class SharedClientPROPERTYConnectedTests(object):
             client.connected = not client.connected
 
     @pytest.mark.it("Reflects the value of the root stage property of the same name")
-    def test_reflects_pipeline_property(self, client, iothub_pipeline):
-        iothub_pipeline.connected = True
+    def test_reflects_pipeline_property(self, client, mqtt_pipeline):
+        mqtt_pipeline.connected = True
         assert client.connected
-        iothub_pipeline.connected = False
+        mqtt_pipeline.connected = False
         assert not client.connected
 
 
@@ -1089,18 +1092,18 @@ class IoTHubDeviceClientTestsConfig(object):
         return IoTHubDeviceClient
 
     @pytest.fixture
-    def client(self, iothub_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubDeviceClient(iothub_pipeline, http_pipeline)
+        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
 
     @pytest.fixture
-    def client_manual_cb(self, iothub_pipeline_manual_cb, http_pipeline_manual_cb):
+    def client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
-        return IoTHubDeviceClient(iothub_pipeline_manual_cb, http_pipeline_manual_cb)
+        return IoTHubDeviceClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
@@ -1118,16 +1121,15 @@ class IoTHubDeviceClientTestsConfig(object):
 class TestIoTHubDeviceClientInstantiation(
     IoTHubDeviceClientTestsConfig, SharedClientInstantiationTests
 ):
-    @pytest.mark.it("Sets on_c2d_message_received handler in the IoTHubPipeline")
+    @pytest.mark.it("Sets on_c2d_message_received handler in the MQTTPipeline")
     def test_sets_on_c2d_message_received_handler_in_pipeline(
-        self, client_class, iothub_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
-        assert client._iothub_pipeline.on_c2d_message_received is not None
+        assert client._mqtt_pipeline.on_c2d_message_received is not None
         assert (
-            client._iothub_pipeline.on_c2d_message_received
-            == client._inbox_manager.route_c2d_message
+            client._mqtt_pipeline.on_c2d_message_received == client._inbox_manager.route_c2d_message
         )
 
 
@@ -1182,7 +1184,7 @@ class TestIoTHubDeviceClientCreateFromSymmetricKey(
             shared_access_key=symmetric_key,
         )
 
-    @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline")
+    @pytest.mark.it("Uses the SymmetricKeyAuthenticationProvider to create an MQTTPipeline")
     def test_pipeline_creation(
         self,
         mocker,
@@ -1207,11 +1209,11 @@ class TestIoTHubDeviceClientCreateFromSymmetricKey(
             mock_auth, mock_config_init.return_value
         )
 
-    @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
+    @pytest.mark.it("Uses the MQTTPipeline to instantiate the client")
     def test_client_instantiation(
         self, mocker, client_class, symmetric_key, hostname_fixture, device_id_fixture
     ):
-        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline").return_value
         mock_pipeline_http = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
         ).return_value
@@ -1261,7 +1263,7 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id
         )
 
-    @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
+    @pytest.mark.it("Uses the X509AuthenticationProvider to create an MQTTPipeline")
     def test_pipeline_creation(self, mocker, client_class, x509, mock_mqtt_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
@@ -1278,9 +1280,9 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
             mock_auth, mock_config_init.return_value
         )
 
-    @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
+    @pytest.mark.it("Uses the MQTTPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):
-        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline").return_value
         mock_pipeline_http = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
         ).return_value
@@ -1329,23 +1331,21 @@ class TestIoTHubDeviceClientSendD2CMessage(
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .receive_message()")
 class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Implicitly enables C2D messaging feature if not already enabled")
-    def test_enables_c2d_messaging_only_if_not_already_enabled(
-        self, mocker, client, iothub_pipeline
-    ):
+    def test_enables_c2d_messaging_only_if_not_already_enabled(self, mocker, client, mqtt_pipeline):
         mocker.patch.object(SyncClientInbox, "get")  # patch this so receive_message won't block
 
         # Verify C2D Messaging enabled if not enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
         client.receive_message()
-        assert iothub_pipeline.enable_feature.call_count == 1
-        assert iothub_pipeline.enable_feature.call_args[0][0] == constant.C2D_MSG
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.C2D_MSG
 
-        iothub_pipeline.enable_feature.reset_mock()
+        mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify C2D Messaging not enabled if already enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # C2D will appear enabled
         client.receive_message()
-        assert iothub_pipeline.enable_feature.call_count == 0
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the C2D inbox, if available")
     def test_returns_message_from_c2d_inbox(self, mocker, client, message):
@@ -1609,18 +1609,18 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, iothub_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubModuleClient(iothub_pipeline, http_pipeline)
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline)
 
     @pytest.fixture
-    def client_manual_cb(self, iothub_pipeline_manual_cb, http_pipeline_manual_cb):
+    def client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
-        return IoTHubModuleClient(iothub_pipeline_manual_cb, http_pipeline_manual_cb)
+        return IoTHubModuleClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
@@ -1638,15 +1638,15 @@ class IoTHubModuleClientTestsConfig(object):
 class TestIoTHubModuleClientInstantiation(
     IoTHubModuleClientTestsConfig, SharedClientInstantiationTests
 ):
-    @pytest.mark.it("Sets on_input_message_received handler in the IoTHubPipeline")
+    @pytest.mark.it("Sets on_input_message_received handler in the MQTTPipeline")
     def test_sets_on_input_message_received_handler_in_pipeline(
-        self, client_class, iothub_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(iothub_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
-        assert client._iothub_pipeline.on_input_message_received is not None
+        assert client._mqtt_pipeline.on_input_message_received is not None
         assert (
-            client._iothub_pipeline.on_input_message_received
+            client._mqtt_pipeline.on_input_message_received
             == client._inbox_manager.route_input_message
         )
 
@@ -1797,7 +1797,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         )
 
     @pytest.mark.it(
-        "Uses the IoTEdgeAuthenticationProvider to create an IoTHubPipeline and an HTTPPipeline"
+        "Uses the IoTEdgeAuthenticationProvider to create an MQTTPipeline and an HTTPPipeline"
     )
     def test_pipeline_creation(self, mocker, client_class, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
@@ -1805,13 +1805,13 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
             "azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider"
         ).return_value
         mock_config_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipelineConfig")
-        mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+        mock_mqtt_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline")
         mock_http_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
         client_class.create_from_edge_environment()
 
-        assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(
+        assert mock_mqtt_pipeline_init.call_count == 1
+        assert mock_mqtt_pipeline_init.call_args == mocker.call(
             mock_auth, mock_config_init.return_value
         )
         assert mock_http_pipeline_init.call_count == 1
@@ -1820,13 +1820,13 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
             mock_auth, mock_config_init.return_value
         )
 
-    @pytest.mark.it("Uses the IoTHubPipeline and the HTTPPipeline to instantiate the client")
+    @pytest.mark.it("Uses the MQTTPipeline and the HTTPPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         # Always patch the IoTEdgeAuthenticationProvider to prevent I/O operations
         mocker.patch("azure.iot.device.iothub.auth.IoTEdgeAuthenticationProvider")
-        mock_iothub_pipeline = mocker.patch(
-            "azure.iot.device.iothub.pipeline.IoTHubPipeline"
+        mock_mqtt_pipeline = mocker.patch(
+            "azure.iot.device.iothub.pipeline.MQTTPipeline"
         ).return_value
         mock_http_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
@@ -1836,9 +1836,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnv(
         client_class.create_from_edge_environment()
 
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(
-            mocker.ANY, mock_iothub_pipeline, mock_http_pipeline
-        )
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_mqtt_pipeline, mock_http_pipeline)
 
     @pytest.mark.it("Returns the instantiated client")
     def test_returns_client(self, mocker, client_class, edge_container_environment):
@@ -1974,7 +1972,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
         )
 
     @pytest.mark.it(
-        "Uses the SymmetricKeyAuthenticationProvider to create an IoTHubPipeline and an HTTPPipeline"
+        "Uses the SymmetricKeyAuthenticationProvider to create an MQTTPipeline and an HTTPPipeline"
     )
     def test_pipeline_creation(self, mocker, client_class, edge_local_debug_environment, mock_open):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
@@ -1982,13 +1980,13 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
             "azure.iot.device.iothub.auth.SymmetricKeyAuthenticationProvider"
         ).parse.return_value
         mock_config_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipelineConfig")
-        mock_iothub_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline")
+        mock_mqtt_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline")
         mock_http_pipeline_init = mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
         client_class.create_from_edge_environment()
 
-        assert mock_iothub_pipeline_init.call_count == 1
-        assert mock_iothub_pipeline_init.call_args == mocker.call(
+        assert mock_mqtt_pipeline_init.call_count == 1
+        assert mock_mqtt_pipeline_init.call_args == mocker.call(
             mock_auth, mock_config_init.return_value
         )
         assert mock_http_pipeline_init.call_count == 1
@@ -1996,13 +1994,13 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
             mock_auth, mock_config_init.return_value
         )
 
-    @pytest.mark.it("Uses the IoTHubPipeline and the HTTPPipeline to instantiate the client")
+    @pytest.mark.it("Uses the MQTTPipeline and the HTTPPipeline to instantiate the client")
     def test_client_instantiation(
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
-        mock_iothub_pipeline = mocker.patch(
-            "azure.iot.device.iothub.pipeline.IoTHubPipeline"
+        mock_mqtt_pipeline = mocker.patch(
+            "azure.iot.device.iothub.pipeline.MQTTPipeline"
         ).return_value
         mock_http_pipeline = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
@@ -2012,9 +2010,7 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
         client_class.create_from_edge_environment()
 
         assert spy_init.call_count == 1
-        assert spy_init.call_args == mocker.call(
-            mocker.ANY, mock_iothub_pipeline, mock_http_pipeline
-        )
+        assert spy_init.call_args == mocker.call(mocker.ANY, mock_mqtt_pipeline, mock_http_pipeline)
 
     @pytest.mark.it("Returns the instantiated client")
     def test_returns_client(self, mocker, client_class, edge_local_debug_environment, mock_open):
@@ -2128,7 +2124,7 @@ class TestIoTHubModuleClientCreateFromX509Certificate(
             x509=x509, hostname=self.hostname, device_id=self.device_id, module_id=self.module_id
         )
 
-    @pytest.mark.it("Uses the X509AuthenticationProvider to create an IoTHubPipeline")
+    @pytest.mark.it("Uses the X509AuthenticationProvider to create an MQTTPipeline")
     def test_pipeline_creation(self, mocker, client_class, x509, mock_mqtt_pipeline_init):
         mock_auth = mocker.patch(
             "azure.iot.device.iothub.auth.X509AuthenticationProvider"
@@ -2145,9 +2141,9 @@ class TestIoTHubModuleClientCreateFromX509Certificate(
             mock_auth, mock_config_init.return_value
         )
 
-    @pytest.mark.it("Uses the IoTHubPipeline to instantiate the client")
+    @pytest.mark.it("Uses the MQTTPipeline to instantiate the client")
     def test_client_instantiation(self, mocker, client_class, x509):
-        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipeline").return_value
+        mock_pipeline = mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline").return_value
         mock_pipeline_http = mocker.patch(
             "azure.iot.device.iothub.pipeline.HTTPPipeline"
         ).return_value
@@ -2197,21 +2193,21 @@ class TestIoTHubNModuleClientSendD2CMessage(
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_message_to_output()")
 class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'send_output_event' pipeline operation")
-    def test_calls_pipeline_send_message_to_output(self, client, iothub_pipeline, message):
+    def test_calls_pipeline_send_message_to_output(self, client, mqtt_pipeline, message):
         output_name = "some_output"
         client.send_message_to_output(message, output_name)
-        assert iothub_pipeline.send_output_event.call_count == 1
-        assert iothub_pipeline.send_output_event.call_args[0][0] is message
+        assert mqtt_pipeline.send_output_event.call_count == 1
+        assert mqtt_pipeline.send_output_event.call_args[0][0] is message
         assert message.output_name == output_name
 
     @pytest.mark.it(
         "Waits for the completion of the 'send_output_event' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
-        self, mocker, client_manual_cb, iothub_pipeline_manual_cb, message
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, message
     ):
         self.add_event_completion_checks(
-            mocker=mocker, pipeline_function=iothub_pipeline_manual_cb.send_output_event
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_output_event
         )
         output_name = "some_output"
         client_manual_cb.send_message_to_output(message, output_name)
@@ -2249,7 +2245,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         self,
         mocker,
         client_manual_cb,
-        iothub_pipeline_manual_cb,
+        mqtt_pipeline_manual_cb,
         message,
         pipeline_error,
         client_error,
@@ -2257,7 +2253,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=iothub_pipeline_manual_cb.send_output_event,
+            pipeline_function=mqtt_pipeline_manual_cb.send_output_event,
             kwargs={"error": my_pipeline_error},
         )
         output_name = "some_output"
@@ -2280,31 +2276,27 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         ],
     )
     def test_send_message_to_output_calls_pipeline_wraps_data_in_message(
-        self, client, iothub_pipeline, message_input
+        self, client, mqtt_pipeline, message_input
     ):
         output_name = "some_output"
         client.send_message_to_output(message_input, output_name)
-        assert iothub_pipeline.send_output_event.call_count == 1
-        sent_message = iothub_pipeline.send_output_event.call_args[0][0]
+        assert mqtt_pipeline.send_output_event.call_count == 1
+        sent_message = mqtt_pipeline.send_output_event.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
     @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    def test_raises_error_when_message_to_output_data_greater_than_256(
-        self, client, iothub_pipeline
-    ):
+    def test_raises_error_when_message_to_output_data_greater_than_256(self, client, mqtt_pipeline):
         output_name = "some_output"
         data_input = "serpensortia" * 256000
         message = Message(data_input)
         with pytest.raises(ValueError) as e_info:
             client.send_message_to_output(message, output_name)
         assert "256 KB" in e_info.value.args[0]
-        assert iothub_pipeline.send_output_event.call_count == 0
+        assert mqtt_pipeline.send_output_event.call_count == 0
 
     @pytest.mark.it("Raises error when message size is greater than 256 KB")
-    def test_raises_error_when_message_to_output_size_greater_than_256(
-        self, client, iothub_pipeline
-    ):
+    def test_raises_error_when_message_to_output_size_greater_than_256(self, client, mqtt_pipeline):
         output_name = "some_output"
         data_input = "serpensortia"
         message = Message(data_input)
@@ -2312,12 +2304,12 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         with pytest.raises(ValueError) as e_info:
             client.send_message_to_output(message, output_name)
         assert "256 KB" in e_info.value.args[0]
-        assert iothub_pipeline.send_output_event.call_count == 0
+        assert mqtt_pipeline.send_output_event.call_count == 0
 
     @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
-    def test_raises_error_when_message_to_output_data_equal_to_256(self, client, iothub_pipeline):
+    def test_raises_error_when_message_to_output_data_equal_to_256(self, client, mqtt_pipeline):
         output_name = "some_output"
-        data_input = "a" * 261976
+        data_input = "a" * 262095
         message = Message(data_input)
         # This check was put as message class may undergo the default content type encoding change
         # and the above calculation will change.
@@ -2327,8 +2319,8 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
 
         client.send_message_to_output(message, output_name)
 
-        assert iothub_pipeline.send_output_event.call_count == 1
-        sent_message = iothub_pipeline.send_output_event.call_args[0][0]
+        assert mqtt_pipeline.send_output_event.call_count == 1
+        sent_message = mqtt_pipeline.send_output_event.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == data_input
 
@@ -2337,7 +2329,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
 class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Implicitly enables input messaging feature if not already enabled")
     def test_enables_input_messaging_only_if_not_already_enabled(
-        self, mocker, client, iothub_pipeline
+        self, mocker, client, mqtt_pipeline
     ):
         mocker.patch.object(
             SyncClientInbox, "get"
@@ -2345,21 +2337,21 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         input_name = "some_input"
 
         # Verify Input Messaging enabled if not enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             False
         )  # Input Messages will appear disabled
         client.receive_message_on_input(input_name)
-        assert iothub_pipeline.enable_feature.call_count == 1
-        assert iothub_pipeline.enable_feature.call_args[0][0] == constant.INPUT_MSG
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.INPUT_MSG
 
-        iothub_pipeline.enable_feature.reset_mock()
+        mqtt_pipeline.enable_feature.reset_mock()
 
         # Verify Input Messaging not enabled if already enabled
-        iothub_pipeline.feature_enabled.__getitem__.return_value = (
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = (
             True
         )  # Input Messages will appear enabled
         client.receive_message_on_input(input_name)
-        assert iothub_pipeline.enable_feature.call_count == 0
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Returns a message from the input inbox, if available")
     def test_returns_message_from_input_inbox(self, mocker, client, message):

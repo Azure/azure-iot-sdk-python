@@ -3,34 +3,23 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import functools
 import logging
 import pytest
 import json
 import sys
 import six.moves.urllib as urllib
-from azure.iot.device.common.pipeline import (
-    pipeline_events_base,
-    pipeline_ops_base,
-    pipeline_stages_base,
-    pipeline_ops_http,
-)
+from azure.iot.device.common.pipeline import pipeline_stages_base, pipeline_ops_http
 from azure.iot.device.iothub.pipeline import (
-    constant,
-    pipeline_events_iothub,
     pipeline_ops_iothub,
     pipeline_ops_iothub_http,
     pipeline_stages_iothub_http,
     config,
 )
-from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.exceptions import ServiceError
-from azure.iot.device.iothub.models.message import Message
-from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
-import uuid
+from azure.iot.device.product_info import ProductInfo
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
@@ -304,7 +293,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
 
         # Validate headers
         expected_user_agent = urllib.parse.quote_plus(
-            pkg_constant.USER_AGENT + str(custom_user_agent)
+            ProductInfo.get_iothub_user_agent() + str(custom_user_agent)
         )
         expected_edge_string = "{}/{}".format(stage.device_id, stage.module_id)
 
@@ -539,7 +528,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
 
         # Validate headers
         expected_user_agent = urllib.parse.quote_plus(
-            pkg_constant.USER_AGENT + str(custom_user_agent)
+            ProductInfo.get_iothub_user_agent() + str(custom_user_agent)
         )
 
         assert new_op.headers["Host"] == stage.hostname
@@ -774,7 +763,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
 
         # Validate headers
         expected_user_agent = urllib.parse.quote_plus(
-            pkg_constant.USER_AGENT + str(custom_user_agent)
+            ProductInfo.get_iothub_user_agent() + str(custom_user_agent)
         )
 
         assert new_op.headers["Host"] == stage.hostname

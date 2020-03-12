@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
+import re
 from io import open  # io.open needed for Python 2 compat
 
 # azure v0.x is not compatible with this package
@@ -27,13 +28,27 @@ except ImportError:
 with open("README.md", "r") as fh:
     _long_description = fh.read()
 
-constant = {}
-with open("azure/iot/device/constant.py") as fh:
-    exec(fh.read(), constant)
+
+filename = "azure/iot/device/constant.py"
+version = None
+
+with open(filename, "r") as fh:
+    if not re.search("\n+VERSION", fh.read()):
+        raise ValueError("VERSION  is not defined in constants.")
+
+with open(filename, "r") as fh:
+    for line in fh:
+        if re.search("^VERSION", line):
+            constant, value = line.strip().split("=")
+            if not value:
+                raise ValueError("Value for VERSION not defined in constants.")
+            else:
+                version = str(value.strip())  # Needed to add str for python 2 unicode
+            break
 
 setup(
     name="azure-iot-device",
-    version=constant["VERSION"],
+    version=version,
     description="Microsoft Azure IoT Device Library",
     license="MIT License",
     url="https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device",
@@ -72,6 +87,8 @@ setup(
         "requests-unixsocket>=0.1.5,<1.0.0",
         "janus>=0.4.0,<1.0.0;python_version>='3.5'",
         "futures;python_version == '2.7'",
+        "PySocks",
+        "win-inet-pton;python_version == '2.7'",
     ],
     extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",

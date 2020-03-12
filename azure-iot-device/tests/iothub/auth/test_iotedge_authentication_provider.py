@@ -16,7 +16,7 @@ from azure.iot.device.iothub.auth.iotedge_authentication_provider import (
     IoTEdgeError,
 )
 from .shared_auth_tests import SharedBaseRenewableAuthenticationProviderInstantiationTests
-from azure.iot.device import constant
+from azure.iot.device.product_info import ProductInfo
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -192,7 +192,9 @@ class TestIoTEdgeHsmGetTrustBundle(object):
         mock_request_get = mocker.patch.object(requests, "get")
         expected_url = hsm.workload_uri + "trust-bundle"
         expected_params = {"api-version": hsm.api_version}
-        expected_headers = {"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)}
+        expected_headers = {
+            "User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())
+        }
 
         hsm.get_trust_bundle()
 
@@ -258,7 +260,9 @@ class TestIoTEdgeHsmSign(object):
             module_generation_id=hsm.module_generation_id,
         )
         expected_params = {"api-version": hsm.api_version}
-        expected_headers = {"User-Agent": urllib.parse.quote_plus(constant.USER_AGENT)}
+        expected_headers = {
+            "User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())
+        }
         expected_json = json.dumps({"keyId": "primary", "algo": "HMACSHA256", "data": data_str_b64})
 
         hsm.sign(data_str)

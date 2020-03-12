@@ -222,7 +222,7 @@ class FakeHTTPPipeline:
 
 
 @pytest.fixture
-def iothub_pipeline(mocker):
+def mqtt_pipeline(mocker):
     """This fixture will automatically handle callbacks and should be
     used in the majority of tests.
     """
@@ -230,7 +230,7 @@ def iothub_pipeline(mocker):
 
 
 @pytest.fixture
-def iothub_pipeline_manual_cb(mocker):
+def mqtt_pipeline_manual_cb(mocker):
     """This fixture is for use in tests where manual triggering of a
     callback is required
     """

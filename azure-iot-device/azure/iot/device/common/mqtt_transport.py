@@ -13,6 +13,7 @@ import traceback
 import weakref
 import socket
 from . import transport_exceptions as exceptions
+import socks
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ class MQTTTransport(object):
         x509_cert=None,
         websockets=False,
         cipher=None,
+        proxy_options=None,
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
@@ -109,6 +111,7 @@ class MQTTTransport(object):
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         :param str cipher: Cipher string in OpenSSL cipher list format
+        :param proxy_options: Options for sending traffic through proxy servers.
         """
         self._client_id = client_id
         self._hostname = hostname
@@ -118,6 +121,7 @@ class MQTTTransport(object):
         self._x509_cert = x509_cert
         self._websockets = websockets
         self._cipher = cipher
+        self._proxy_options = proxy_options
 
         self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
@@ -148,6 +152,15 @@ class MQTTTransport(object):
             logger.info("Creating client for connecting using MQTT over TCP")
             mqtt_client = mqtt.Client(
                 client_id=self._client_id, clean_session=False, protocol=mqtt.MQTTv311
+            )
+
+        if self._proxy_options:
+            mqtt_client.proxy_set(
+                proxy_type=self._proxy_options.proxy_type,
+                proxy_addr=self._proxy_options.proxy_address,
+                proxy_port=self._proxy_options.proxy_port,
+                proxy_username=self._proxy_options.proxy_username,
+                proxy_password=self._proxy_options.proxy_password,
             )
 
         mqtt_client.enable_logger(logging.getLogger("paho"))
@@ -328,6 +341,9 @@ class MQTTTransport(object):
 
         The password is not required if the transport was instantiated with an x509 certificate.
 
+        If MQTT connection has been proxied, connection will take a bit longer to allow negotiation
+        with the proxy server. Any errors in the proxy connection process will trigger exceptions
+
         :param str password: The password for connecting with the MQTT broker (Optional).
 
         :raises: ConnectionFailedError if connection could not be established.
@@ -351,9 +367,30 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
         except socket.error as e:
-            # If the socket can't open (e.g. using iptables REJECT), we get a
-            # socket.error.  Convert this into ConnectionFailedError so we can retry
-            raise exceptions.ConnectionFailedError(cause=e)
+            # Only this type will raise a special error
+            # To stop it from retrying.
+            if (
+                isinstance(e, ssl.SSLError)
+                and e.strerror is not None
+                and "CERTIFICATE_VERIFY_FAILED" in e.strerror
+            ):
+                raise exceptions.TlsExchangeAuthError(cause=e)
+            elif isinstance(e, socks.ProxyError):
+                if isinstance(e, socks.SOCKS5AuthError):
+                    # TODO This is the only I felt like specializing
+                    raise exceptions.UnauthorizedError(cause=e)
+                else:
+                    raise exceptions.ProtocolProxyError(cause=e)
+            else:
+                # If the socket can't open (e.g. using iptables REJECT), we get a
+                # socket.error.  Convert this into ConnectionFailedError so we can retry
+                raise exceptions.ConnectionFailedError(cause=e)
+
+        except socks.ProxyError as pe:
+            if isinstance(pe, socks.SOCKS5AuthError):
+                raise exceptions.UnauthorizedError(cause=pe)
+            else:
+                raise exceptions.ProtocolProxyError(cause=pe)
         except Exception as e:
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e
@@ -383,7 +420,9 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.reconnect()
         except Exception as e:
-            raise exceptions.ProtocolClientError(
+            logger.info("reconnect raised {}".format(e))
+            self._stop_automatic_reconnect()
+            raise exceptions.ConnectionDroppedError(
                 message="Unexpected Paho failure during reconnect", cause=e
             )
         logger.debug("_mqtt_client.reconnect returned rc={}".format(rc))
@@ -409,13 +448,10 @@ class MQTTTransport(object):
         self._mqtt_client.loop_stop()
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
+            # No matter what, we always raise here to give upper layers a chance to respond
+            # to this error.
             err = _create_error_from_rc_code(rc)
-            # If we get a ConnectionDroppedError, swallow it, because we have successfully disconnected!
-            if type(err) is exceptions.ConnectionDroppedError:
-                logger.warning("Dropped connection while disconnecting - swallowing error")
-                pass
-            else:
-                raise err
+            raise err
 
     def subscribe(self, topic, qos=1, callback=None):
         """

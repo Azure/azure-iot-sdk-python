@@ -3,7 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import functools
 import logging
 import pytest
 import json
@@ -26,18 +25,11 @@ from azure.iot.device.iothub.pipeline import (
 from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from tests.common.pipeline.helpers import (
-    assert_callback_failed,
-    assert_callback_succeeded,
-    all_common_ops,
-    all_common_events,
-    all_except,
-    StageTestBase,
-)
+from tests.common.pipeline.helpers import all_common_ops, all_common_events, StageTestBase
 from tests.iothub.pipeline.helpers import all_iothub_ops, all_iothub_events
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
-import uuid
+from azure.iot.device.product_info import ProductInfo
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -111,7 +103,7 @@ fake_method_request_topic = "$iothub/methods/POST/{}/?$rid={}".format(
 )
 fake_method_request_payload = "{}".encode("utf-8")
 
-encoded_user_agent = urllib.parse.quote_plus(pkg_constant.USER_AGENT)
+encoded_user_agent = urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())
 
 fake_message_user_property_1_key = "is-muggle"
 fake_message_user_property_1_value = "yes"
@@ -627,13 +619,11 @@ publish_ops = [
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {"message": Message(fake_message_body), "callback": None},
-        "topic": "devices/{}/messages/events/{}&{}".format(
-            fake_device_id, default_content_type_encoded, default_content_encoding_encoded
-        ),
+        "topic": "devices/{}/messages/events/".format(fake_device_id),
         "publish_payload": fake_message_body,
     },
     {
-        "name": "send telemetry overriding the content type and content encoding",
+        "name": "send telemetry with content type and content encoding",
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {
@@ -657,9 +647,7 @@ publish_ops = [
             "message": Message(fake_message_body, content_type=fake_content_type),
             "callback": None,
         },
-        "topic": "devices/{}/messages/events/{}&{}".format(
-            fake_device_id, fake_content_type_encoded, default_content_encoding_encoded
-        ),
+        "topic": "devices/{}/messages/events/{}".format(fake_device_id, fake_content_type_encoded),
         "publish_payload": fake_message_body,
     },
     {
@@ -670,12 +658,7 @@ publish_ops = [
             "message": Message(fake_message_body, output_name=fake_output_name),
             "callback": None,
         },
-        "topic": "devices/{}/messages/events/{}&{}&{}".format(
-            fake_device_id,
-            fake_output_name_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
-        ),
+        "topic": "devices/{}/messages/events/{}".format(fake_device_id, fake_output_name_encoded),
         "publish_payload": fake_message_body,
     },
     {
@@ -683,11 +666,8 @@ publish_ops = [
         "stage_type": "device",
         "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
         "op_init_kwargs": {"message": create_security_message(fake_message_body), "callback": None},
-        "topic": "devices/{}/messages/events/{}&{}&{}".format(
-            fake_device_id,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
-            security_message_interface_id_encoded,
+        "topic": "devices/{}/messages/events/{}".format(
+            fake_device_id, security_message_interface_id_encoded
         ),
         "publish_payload": fake_message_body,
     },
@@ -701,12 +681,8 @@ publish_ops = [
             ),
             "callback": None,
         },
-        "topic": "devices/{}/messages/events/{}&{}&{}&{}".format(
-            fake_device_id,
-            fake_output_name_encoded,
-            fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
+        "topic": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id, fake_output_name_encoded, fake_message_id_encoded
         ),
         "publish_payload": fake_message_body,
     },
@@ -718,11 +694,8 @@ publish_ops = [
             "message": create_message_with_user_properties(fake_message_body, is_multiple=False),
             "callback": None,
         },
-        "topic": "devices/{}/messages/events/{}&{}&{}".format(
-            fake_device_id,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
-            fake_message_user_property_1_encoded,
+        "topic": "devices/{}/messages/events/{}".format(
+            fake_device_id, fake_message_user_property_1_encoded
         ),
         "publish_payload": fake_message_body,
     },
@@ -735,17 +708,13 @@ publish_ops = [
             "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
-        "topic1": "devices/{}/messages/events/{}&{}&{}&{}".format(
+        "topic1": "devices/{}/messages/events/{}&{}".format(
             fake_device_id,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_1_encoded,
             fake_message_user_property_2_encoded,
         ),
-        "topic2": "devices/{}/messages/events/{}&{}&{}&{}".format(
+        "topic2": "devices/{}/messages/events/{}&{}".format(
             fake_device_id,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_2_encoded,
             fake_message_user_property_1_encoded,
         ),
@@ -761,12 +730,8 @@ publish_ops = [
             ),
             "callback": None,
         },
-        "topic": "devices/{}/messages/events/{}&{}&{}&{}".format(
-            fake_device_id,
-            fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
-            fake_message_user_property_1_encoded,
+        "topic": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id, fake_message_id_encoded, fake_message_user_property_1_encoded
         ),
         "publish_payload": fake_message_body,
     },
@@ -781,21 +746,17 @@ publish_ops = [
             "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
-        "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}".format(
+        "topic1": "devices/{}/messages/events/{}&{}&{}&{}".format(
             fake_device_id,
             fake_output_name_encoded,
             fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_1_encoded,
             fake_message_user_property_2_encoded,
         ),
-        "topic2": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}".format(
+        "topic2": "devices/{}/messages/events/{}&{}&{}&{}".format(
             fake_device_id,
             fake_output_name_encoded,
             fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_2_encoded,
             fake_message_user_property_1_encoded,
         ),
@@ -812,22 +773,18 @@ publish_ops = [
             "callback": None,
         },
         # For more than 1 user property the order could be different, creating 2 different topics
-        "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}&{}".format(
+        "topic1": "devices/{}/messages/events/{}&{}&{}&{}&{}".format(
             fake_device_id,
             fake_output_name_encoded,
             fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             security_message_interface_id_encoded,
             fake_message_user_property_1_encoded,
             fake_message_user_property_2_encoded,
         ),
-        "topic2": "devices/{}/messages/events/{}&{}&{}&{}&{}&{}&{}".format(
+        "topic2": "devices/{}/messages/events/{}&{}&{}&{}&{}".format(
             fake_device_id,
             fake_output_name_encoded,
             fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             security_message_interface_id_encoded,
             fake_message_user_property_2_encoded,
             fake_message_user_property_1_encoded,
@@ -842,17 +799,13 @@ publish_ops = [
             "message": Message(fake_message_body, output_name=fake_output_name),
             "callback": None,
         },
-        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
-            fake_device_id,
-            fake_module_id,
-            fake_output_name,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
+        "topic": "devices/{}/modules/{}/messages/events/%24.on={}".format(
+            fake_device_id, fake_module_id, fake_output_name
         ),
         "publish_payload": fake_message_body,
     },
     {
-        "name": "send output overriding content type and content encoding",
+        "name": "send output with content type and content encoding",
         "stage_type": "module",
         "op_class": pipeline_ops_iothub.SendOutputEventOperation,
         "op_init_kwargs": {
@@ -883,13 +836,8 @@ publish_ops = [
             ),
             "callback": None,
         },
-        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}".format(
-            fake_device_id,
-            fake_module_id,
-            fake_output_name,
-            fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
+        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}".format(
+            fake_device_id, fake_module_id, fake_output_name, fake_message_id_encoded
         ),
         "publish_payload": fake_message_body,
     },
@@ -903,13 +851,8 @@ publish_ops = [
             ),
             "callback": None,
         },
-        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}".format(
-            fake_device_id,
-            fake_module_id,
-            fake_output_name,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
-            fake_message_user_property_1_encoded,
+        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}".format(
+            fake_device_id, fake_module_id, fake_output_name, fake_message_user_property_1_encoded
         ),
         "publish_payload": fake_message_body,
     },
@@ -923,21 +866,17 @@ publish_ops = [
             ),
             "callback": None,
         },
-        "topic1": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
+        "topic1": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
             fake_module_id,
             fake_output_name,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_1_encoded,
             fake_message_user_property_2_encoded,
         ),
-        "topic2": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
+        "topic2": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
             fake_module_id,
             fake_output_name,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_2_encoded,
             fake_message_user_property_1_encoded,
         ),
@@ -953,13 +892,11 @@ publish_ops = [
             ),
             "callback": None,
         },
-        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}&{}&{}".format(
+        "topic": "devices/{}/modules/{}/messages/events/%24.on={}&{}&{}".format(
             fake_device_id,
             fake_module_id,
             fake_output_name,
             fake_message_id_encoded,
-            default_content_type_encoded,
-            default_content_encoding_encoded,
             fake_message_user_property_1_encoded,
         ),
         "publish_payload": fake_message_body,
