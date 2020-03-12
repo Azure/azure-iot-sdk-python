@@ -90,7 +90,7 @@ class AbstractIoTHubClient(object):
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
-        :type ProxyOptions: :class:`azure.iot.device.common.proxy_options`
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unrecognized parameter.
@@ -186,7 +186,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
-        :type ProxyOptions: :class:`azure.iot.device.common.proxy_options`
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
@@ -231,6 +231,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
@@ -285,6 +287,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -397,6 +401,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type cipher: str or list(str)
         :param str product_info: Configuration Option. Default is empty string. The string contains
             arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
