@@ -63,13 +63,13 @@ class AbstractIoTHubClient(object):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, iothub_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a generic client.
 
-        :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
-        self._iothub_pipeline = iothub_pipeline
+        self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
 
     @classmethod
@@ -115,9 +115,9 @@ class AbstractIoTHubClient(object):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def connect(self):
@@ -156,7 +156,7 @@ class AbstractIoTHubClient(object):
         """
         Read-only property to indicate if the transport is connected or not.
         """
-        return self._iothub_pipeline.connected
+        return self._mqtt_pipeline.connected
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -207,9 +207,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
@@ -253,9 +253,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def receive_message(self):
@@ -264,13 +264,13 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
-    def __init__(self, iothub_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a module client.
 
-        :param iothub_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type iothub_pipeline: :class:`azure.iot.device.iothub.pipeline.IoTHubPipeline`
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
-        super(AbstractIoTHubModuleClient, self).__init__(iothub_pipeline, http_pipeline)
+        super(AbstractIoTHubModuleClient, self).__init__(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
@@ -372,9 +372,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
 
-        return cls(iothub_pipeline, http_pipeline)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
@@ -422,8 +422,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        iothub_pipeline = pipeline.IoTHubPipeline(authentication_provider, pipeline_configuration)
-        return cls(iothub_pipeline, http_pipeline)
+        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def send_message_to_output(self, message, output_name):
