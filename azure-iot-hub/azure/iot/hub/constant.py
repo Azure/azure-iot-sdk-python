@@ -6,4 +6,4 @@
 """This module defines constants for use across the azure-iot-hub package
 """
 
-VERSION = "2.2.0.limited"
+VERSION = "2.2.0-limited"
