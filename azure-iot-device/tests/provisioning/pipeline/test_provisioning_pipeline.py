@@ -58,34 +58,18 @@ def mock_x509():
     return X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
 
 
-different_security_clients = [
-    pytest.param(
-        {
-            "client_class": SymmetricKeySecurityClient,
-            "init_kwargs": {
-                "provisioning_host": fake_provisioning_host,
-                "registration_id": fake_registration_id,
-                "id_scope": fake_id_scope,
-                "symmetric_key": fake_symmetric_key,
-            },
-            "set_args_op_class": pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
-        },
-        id="Symmetric",
-    ),
-    pytest.param(
-        {
-            "client_class": X509SecurityClient,
-            "init_kwargs": {
-                "provisioning_host": fake_provisioning_host,
-                "registration_id": fake_registration_id,
-                "id_scope": fake_id_scope,
-                "x509": mock_x509(),
-            },
-            "set_args_op_class": pipeline_ops_provisioning.SetX509SecurityClientOperation,
-        },
-        id="X509",
-    ),
-]
+x509_security_client = X509SecurityClient(
+    provisioning_host=fake_provisioning_host,
+    registration_id=fake_registration_id,
+    id_scope=fake_id_scope,
+    x509=mock_x509(),
+)
+symmetric_key_security_client = SymmetricKeySecurityClient(
+    provisioning_host=fake_provisioning_host,
+    registration_id=fake_registration_id,
+    id_scope=fake_id_scope,
+    symmetric_key=fake_symmetric_key,
+)
 
 
 def assert_for_symmetric_key(password):
@@ -103,9 +87,11 @@ def assert_for_client_x509(x509):
     assert x509.pass_phrase == fake_pass_phrase
 
 
-@pytest.fixture(scope="function")
-def input_security_client(params_security_clients):
-    return params_security_clients["client_class"](**params_security_clients["init_kwargs"])
+@pytest.fixture(scope="function", params=[x509_security_client, symmetric_key_security_client])
+def input_security_client(request):
+    print(request)
+    print(request.param)
+    return request.param
 
 
 @pytest.fixture
@@ -145,7 +131,6 @@ def mock_provisioning_pipeline(
 
 
 @pytest.mark.describe("ProvisioningPipeline - Instantiation")
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
 class TestProvisioningPipelineInstantiation(object):
     @pytest.mark.it("Begins tracking the enabled/disabled status of responses")
     def test_features(self, input_security_client, pipeline_configuration):
@@ -209,32 +194,30 @@ class TestProvisioningPipelineInstantiation(object):
     @pytest.mark.it(
         "Runs a Set SecurityClient Operation with the provided SecurityClient on the pipeline"
     )
-    def test_security_client_success(
-        self, mocker, params_security_clients, input_security_client, pipeline_configuration
-    ):
+    def test_security_client_success(self, mocker, input_security_client, pipeline_configuration):
         mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
         pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
 
         op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, params_security_clients["set_args_op_class"])
+        if isinstance(input_security_client, X509SecurityClient):
+            assert isinstance(op, pipeline_ops_provisioning.SetX509SecurityClientOperation)
+        else:
+            assert isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation)
         assert op.security_client is input_security_client
 
     @pytest.mark.it(
         "Raises exceptions that occurred in execution upon unsuccessful completion of the Set SecurityClient Operation"
     )
     def test_security_client_failure(
-        self,
-        mocker,
-        params_security_clients,
-        input_security_client,
-        arbitrary_exception,
-        pipeline_configuration,
+        self, mocker, input_security_client, arbitrary_exception, pipeline_configuration
     ):
         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
         def fail_set_security_client(self, op):
-            if isinstance(op, params_security_clients["set_args_op_class"]):
+            if isinstance(input_security_client, X509SecurityClient) or isinstance(
+                input_security_client, SymmetricKeySecurityClient
+            ):
                 op.complete(error=arbitrary_exception)
             else:
                 old_run_op(self, op)
@@ -246,13 +229,11 @@ class TestProvisioningPipelineInstantiation(object):
             autospec=True,
         )
 
-        # auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
             ProvisioningPipeline(input_security_client, pipeline_configuration)
         assert e_info.value is arbitrary_exception
 
 
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("ProvisioningPipeline - .connect()")
 class TestProvisioningPipelineConnect(object):
     @pytest.mark.it("Runs a ConnectOperation on the pipeline")
@@ -293,7 +274,6 @@ class TestProvisioningPipelineConnect(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("ProvisioningPipeline - .disconnect()")
 class TestProvisioningPipelineDisconnect(object):
     @pytest.mark.it("Runs a DisconnectOperation on the pipeline")
@@ -333,12 +313,11 @@ class TestProvisioningPipelineDisconnect(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("ProvisioningPipeline - .register()")
 class TestSendRegister(object):
     @pytest.mark.it("Request calls publish on provider")
     def test_send_register_request_calls_publish_on_provider(
-        self, mocker, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
+        self, mocker, mock_provisioning_pipeline, input_security_client, mock_mqtt_transport
     ):
         mock_init_uuid = mocker.patch(
             "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
@@ -352,11 +331,11 @@ class TestSendRegister(object):
 
         assert mock_mqtt_transport.connect.call_count == 1
 
-        if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
+        if isinstance(input_security_client, X509SecurityClient):
+            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
+        else:
             assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
             assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-        elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
 
         fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
             fake_request_id
@@ -369,7 +348,7 @@ class TestSendRegister(object):
 
     @pytest.mark.it("Request queues and connects before calling publish on provider")
     def test_send_request_queues_and_connects_before_sending(
-        self, mocker, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
+        self, mocker, mock_provisioning_pipeline, input_security_client, mock_mqtt_transport
     ):
 
         mock_init_uuid = mocker.patch(
@@ -382,11 +361,11 @@ class TestSendRegister(object):
         # verify that we called connect
         assert mock_mqtt_transport.connect.call_count == 1
 
-        if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
+        if isinstance(input_security_client, X509SecurityClient):
+            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
+        else:
             assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
             assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-        elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
 
         # verify that we're not connected yet and verify that we havent't published yet
         mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
@@ -412,7 +391,7 @@ class TestSendRegister(object):
 
     @pytest.mark.it("Request queues and waits for connect to be completed")
     def test_send_request_queues_if_waiting_for_connect_complete(
-        self, mocker, mock_provisioning_pipeline, params_security_clients, mock_mqtt_transport
+        self, mocker, mock_provisioning_pipeline, input_security_client, mock_mqtt_transport
     ):
         mock_init_uuid = mocker.patch(
             "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
@@ -423,11 +402,11 @@ class TestSendRegister(object):
         mock_provisioning_pipeline.connect()
         assert mock_mqtt_transport.connect.call_count == 1
 
-        if params_security_clients["client_class"].__name__ == "SymmetricKeySecurityClient":
+        if isinstance(input_security_client, X509SecurityClient):
+            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
+        else:
             assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
             assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-        elif params_security_clients["client_class"].__name__ == "X509SecurityClient":
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
 
         # send an event
         mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
@@ -510,7 +489,6 @@ class TestSendRegister(object):
         mock_mqtt_transport.disconnect.assert_called_once_with()
 
 
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("ProvisioningPipeline - .disconnect()")
 class TestDisconnect(object):
     @pytest.mark.it("Calls disconnect on provider")
@@ -547,7 +525,6 @@ class TestDisconnect(object):
         mock_provisioning_pipeline.on_disconnected.assert_called_once_with("disconnected")
 
 
-@pytest.mark.parametrize("params_security_clients", different_security_clients)
 @pytest.mark.describe("ProvisioningPipeline - .enable_responses()")
 class TestEnable(object):
     @pytest.mark.it("Calls subscribe on provider")
