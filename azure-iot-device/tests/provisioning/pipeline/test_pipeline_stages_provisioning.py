@@ -354,7 +354,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- called with RegisterOperation")
 class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, RegistrationStageConfig):
-    @pytest.fixture(params=[" ", fake_payload])
+    @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
     def request_payload(self, request):
         return request.param
 
@@ -404,7 +404,7 @@ class TestRegistrationStageWithArbitraryOperation(StageRunOpTestBase, Registrati
     "RegistrationStage - EVENT: RequestAndResponseOperation created from RegisterOperation is completed"
 )
 class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfig):
-    @pytest.fixture(params=[" ", fake_payload])
+    @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
     def request_payload(self, request):
         return request.param
 
@@ -640,7 +640,7 @@ class RetryStageConfig(object):
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- retried again with RegisterOperation")
 class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
-    @pytest.fixture(params=[" ", fake_payload])
+    @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
     def request_payload(self, request):
         return request.param
 

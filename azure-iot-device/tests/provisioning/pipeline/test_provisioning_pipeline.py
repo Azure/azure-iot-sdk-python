@@ -58,18 +58,26 @@ def mock_x509():
     return X509(fake_x509_cert_file, fake_x509_cert_key_file, fake_pass_phrase)
 
 
-x509_security_client = X509SecurityClient(
-    provisioning_host=fake_provisioning_host,
-    registration_id=fake_registration_id,
-    id_scope=fake_id_scope,
-    x509=mock_x509(),
-)
-symmetric_key_security_client = SymmetricKeySecurityClient(
-    provisioning_host=fake_provisioning_host,
-    registration_id=fake_registration_id,
-    id_scope=fake_id_scope,
-    symmetric_key=fake_symmetric_key,
-)
+different_security_clients = [
+    (
+        SymmetricKeySecurityClient,
+        {
+            "provisioning_host": fake_provisioning_host,
+            "registration_id": fake_registration_id,
+            "id_scope": fake_id_scope,
+            "symmetric_key": fake_symmetric_key,
+        },
+    ),
+    (
+        X509SecurityClient,
+        {
+            "provisioning_host": fake_provisioning_host,
+            "registration_id": fake_registration_id,
+            "id_scope": fake_id_scope,
+            "x509": mock_x509(),
+        },
+    ),
+]
 
 
 def assert_for_symmetric_key(password):
@@ -87,11 +95,15 @@ def assert_for_client_x509(x509):
     assert x509.pass_phrase == fake_pass_phrase
 
 
-@pytest.fixture(scope="function", params=[x509_security_client, symmetric_key_security_client])
+@pytest.fixture(
+    scope="function",
+    params=different_security_clients,
+    ids=[x[0].__name__ for x in different_security_clients],
+)
 def input_security_client(request):
-    print(request)
-    print(request.param)
-    return request.param
+    sec_client_class = request.param[0]
+    init_kwargs = request.param[1]
+    return sec_client_class(**init_kwargs)
 
 
 @pytest.fixture
