@@ -352,12 +352,12 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.parametrize(
-    "request_payload",
-    [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
-)
 @pytest.mark.describe("RegistrationStage - .run_op() -- called with RegisterOperation")
 class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, RegistrationStageConfig):
+    @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
+    def request_payload(self, request):
+        return request.param
+
     @pytest.fixture
     def op(self, stage, mocker, request_payload):
         op = pipeline_ops_provisioning.RegisterOperation(
@@ -403,11 +403,11 @@ class TestRegistrationStageWithArbitraryOperation(StageRunOpTestBase, Registrati
 @pytest.mark.describe(
     "RegistrationStage - EVENT: RequestAndResponseOperation created from RegisterOperation is completed"
 )
-@pytest.mark.parametrize(
-    "request_payload",
-    [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
-)
 class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfig):
+    @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
+    def request_payload(self, request):
+        return request.param
+
     @pytest.fixture
     def send_registration_op(self, mocker, request_payload):
         op = pipeline_ops_provisioning.RegisterOperation(
@@ -639,11 +639,11 @@ class RetryStageConfig(object):
 
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- retried again with RegisterOperation")
-@pytest.mark.parametrize(
-    "request_payload",
-    [pytest.param(" ", id="empty payload"), pytest.param(fake_payload, id="some payload")],
-)
 class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
+    @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
+    def request_payload(self, request):
+        return request.param
+
     @pytest.fixture
     def cls_type(self):
         return pipeline_stages_provisioning.RegistrationStage
