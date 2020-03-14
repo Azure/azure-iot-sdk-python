@@ -58,6 +58,9 @@ class HTTPTransportStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
         stage.send_op_down = mocker.MagicMock()
         return stage
 
@@ -103,11 +106,24 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
         stage.run_op(op)
         assert stage.sas_token == op.sas_token
 
-    # TODO: Should probably remove the requirement to set it on the root. This seems only needed by Horton
     @pytest.mark.it(
         "Creates an HTTPTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
     )
-    def test_creates_transport(self, mocker, stage, op, mock_transport):
+    @pytest.mark.parametrize(
+        "cipher",
+        [
+            pytest.param("DHE-RSA-AES128-SHA", id="Pipeline configured for custom cipher"),
+            pytest.param(
+                "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
+                id="Pipeline configured for multiple custom ciphers",
+            ),
+            pytest.param("", id="Pipeline NOT configured for custom cipher(s)"),
+        ],
+    )
+    def test_creates_transport(self, mocker, stage, op, mock_transport, cipher):
+        # Setup pipeline config
+        stage.pipeline_root.pipeline_configuration.cipher = cipher
+
         assert stage.transport is None
 
         stage.run_op(op)
@@ -117,6 +133,7 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
             hostname=op.hostname,
             server_verification_cert=op.server_verification_cert,
             x509_cert=op.client_cert,
+            cipher=cipher,
         )
         assert stage.transport is mock_transport.return_value
 
@@ -145,6 +162,9 @@ class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
             "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport", autospec=True
         )
         stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
         stage.send_op_down = mocker.MagicMock()
         # Set up the Transport on the stage
         if request.param == "SAS":
