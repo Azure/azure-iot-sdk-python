@@ -36,6 +36,8 @@ Pip installs are provided for all of the SDK libraries in this repo:
 
 *Features that are not planned may be prioritized in a future release, but are not currently planned
 
+This SDK only supports the **MQTT protocol**.
+
 ### Device Client Library ([azure-iot-device](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device))
 
 #### IoTHub Device Client
