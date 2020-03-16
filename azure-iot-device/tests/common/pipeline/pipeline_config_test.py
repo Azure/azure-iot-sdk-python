@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
+from azure.iot.device import ProxyOptions
 
 
 class PipelineConfigInstantiationTestBase(object):
@@ -21,6 +22,13 @@ class PipelineConfigInstantiationTestBase(object):
     def test_websockets_set(self, config_cls, websockets):
         config = config_cls(websockets=websockets)
         assert config.websockets is websockets
+
+    @pytest.mark.it(
+        "Instantiates with the 'websockets' attribute to 'False' if no 'websockets' parameter is provided"
+    )
+    def test_websockets_default(self, config_cls):
+        config = config_cls()
+        assert config.websockets is False
 
     @pytest.mark.it(
         "Instantiates with the 'cipher' attribute set to OpenSSL list formatted version of the provided 'cipher' parameter"
@@ -90,3 +98,45 @@ class PipelineConfigInstantiationTestBase(object):
     def test_invalid_cipher_param(self, config_cls, cipher):
         with pytest.raises(TypeError):
             config_cls(cipher=cipher)
+
+    @pytest.mark.it(
+        "Instantiates with the 'cipher' attribute to empty string ('') if no 'cipher' parameter is provided"
+    )
+    def test_cipher_default(self, config_cls):
+        config = config_cls()
+        assert config.cipher == ""
+
+    @pytest.mark.it(
+        "Instantiates with the 'proxy_options' attribute set to the ProxyOptions object provided in the 'proxy_options' parameter"
+    )
+    def test_proxy_options(self, mocker, config_cls):
+        proxy_options = ProxyOptions(
+            proxy_type=mocker.MagicMock(), proxy_addr="127.0.0.1", proxy_port=8888
+        )
+        config = config_cls(proxy_options=proxy_options)
+        assert config.proxy_options is proxy_options
+
+    @pytest.mark.it(
+        "Raises TypeError if the provided 'proxy_options' parameter is not a ProxyOptions object"
+    )
+    @pytest.mark.parametrize(
+        "proxy_options",
+        [
+            pytest.param(123, id="int"),
+            pytest.param("abc", id="string"),
+            pytest.param(True, id="bool"),
+            pytest.param(["a", "b"], id="list"),
+            pytest.param({"a": "b"}, id="dict"),
+            pytest.param(object(), id="other complex object type"),
+        ],
+    )
+    def test_invalid_proxy_options_param(self, config_cls, proxy_options):
+        with pytest.raises(TypeError):
+            config_cls(proxy_options=proxy_options)
+
+    @pytest.mark.it(
+        "Instantiates with the 'proxy_options' attribute to 'None' if no 'proxy_options' parameter is provided"
+    )
+    def test_proxy_options_default(self, config_cls):
+        config = config_cls()
+        assert config.proxy_options is None

@@ -7,6 +7,7 @@
 import logging
 import six
 import abc
+from azure.iot.device.common import models
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +27,17 @@ class BasePipelineConfig(object):
         :param cipher: Optional cipher suite(s) for TLS/SSL, as a string in
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
+        :param proxy_options: Details of proxy configuration
+        :type proxy_options: :class:`azure.iot.device.common.models.ProxyOptions`
         """
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
-        self.proxy_options = proxy_options
+
+        # TODO: validate this deeper
+        if isinstance(proxy_options, models.ProxyOptions) or proxy_options is None:
+            self.proxy_options = proxy_options
+        else:
+            raise TypeError
 
     @staticmethod
     def _sanitize_cipher(cipher):

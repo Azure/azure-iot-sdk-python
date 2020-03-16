@@ -196,26 +196,32 @@ class SharedClientCreateMethodUserOptionTests(object):
     @pytest.mark.it("Sets default user options if none are provided")
     async def test_default_options(
         self,
+        mocker,
         option_test_required_patching,
         client_create_method,
         create_method_args,
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
+        mock_config = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipelineConfig")
+
         client_create_method(*create_method_args)
 
-        # Get configuration object, and ensure it was used for both protocol pipelines
+        # Pipeline Config was instantiated with default arguments
+        assert mock_config.call_count == 1
+        expected_kwargs = {}
+        assert mock_config.call_args == mocker.call(**expected_kwargs)
+
+        # This default config was used for both protocol pipelines
         assert mock_mqtt_pipeline_init.call_count == 1
-        config = mock_mqtt_pipeline_init.call_args[0][1]
-        assert config == mock_http_pipeline_init.call_args[0][1]
+        assert mock_mqtt_pipeline_init.call_args[0][1] == mock_config.return_value
+        assert mock_http_pipeline_init.call_args[0][1] == mock_config.return_value
 
         # Get auth provider object, and ensure it was used for both protocol pipelines
         auth = mock_mqtt_pipeline_init.call_args[0][0]
         assert auth == mock_http_pipeline_init.call_args[0][0]
 
-        assert config.product_info == ""
-        assert not config.websockets
-        assert not config.cipher
+        # Ensure that auth options are set to expected defaults
         assert auth.server_verification_cert is None
 
 
@@ -1455,6 +1461,7 @@ class IoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
     @pytest.mark.it("Sets default user options if none are provided")
     async def test_default_options(
         self,
+        mocker,
         option_test_required_patching,
         client_create_method,
         create_method_args,
@@ -1462,20 +1469,23 @@ class IoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
         mock_http_pipeline_init,
     ):
         """THIS TEST OVERRIDES AN INHERITED TEST"""
+        mock_config = mocker.patch("azure.iot.device.iothub.pipeline.IoTHubPipelineConfig")
+
         client_create_method(*create_method_args)
 
-        # Get configuration object, and ensure it was used for both protocol pipelines
+        # Pipeline Config was instantiated with default arguments
+        assert mock_config.call_count == 1
+        expected_kwargs = {}
+        assert mock_config.call_args == mocker.call(**expected_kwargs)
+
+        # This default config was used for both protocol pipelines
         assert mock_mqtt_pipeline_init.call_count == 1
-        config = mock_mqtt_pipeline_init.call_args[0][1]
-        assert config == mock_http_pipeline_init.call_args[0][1]
+        assert mock_mqtt_pipeline_init.call_args[0][1] == mock_config.return_value
+        assert mock_http_pipeline_init.call_args[0][1] == mock_config.return_value
 
         # Get auth provider object, and ensure it was used for both protocol pipelines
         auth = mock_mqtt_pipeline_init.call_args[0][0]
         assert auth == mock_http_pipeline_init.call_args[0][0]
-
-        assert config.product_info == ""
-        assert not config.websockets
-        assert not config.cipher
 
 
 @pytest.mark.describe(
