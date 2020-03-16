@@ -95,7 +95,9 @@ setup(
     packages=find_packages(
         exclude=[
             "tests",
+            "tests.*",
             "samples",
+            "samples.*",
             # Exclude packages that will be covered by PEP420 or nspkg
             "azure",
             "azure.iot",
