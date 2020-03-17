@@ -16,7 +16,8 @@ device_client.connect()
 
 # get the twin
 twin = device_client.get_twin()
-print("Reported temperature is {}".format(twin["reported"]["temperature"]))
+print("Twin document:")
+print("{}".format(twin))
 
 # Finally, disconnect
 device_client.disconnect()
