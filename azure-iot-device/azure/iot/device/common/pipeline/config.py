@@ -36,7 +36,7 @@ class BasePipelineConfig(object):
         if isinstance(proxy_options, models.ProxyOptions) or proxy_options is None:
             self.proxy_options = proxy_options
         else:
-            raise TypeError
+            raise TypeError("Invalid type for 'proxy_options'")
 
     @staticmethod
     def _sanitize_cipher(cipher):
