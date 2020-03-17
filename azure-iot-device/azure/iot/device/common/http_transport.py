@@ -27,11 +27,13 @@ class HTTPTransport(object):
 
         :param str hostname: Hostname or IP address of the remote host.
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
+        :param str cipher: Cipher string in OpenSSL cipher list format (optional)
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         """
         self._hostname = hostname
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
+        self._cipher = cipher
         self._ssl_context = self._create_ssl_context()
 
     def _create_ssl_context(self):
@@ -45,8 +47,13 @@ class HTTPTransport(object):
             ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
             ssl_context.load_default_certs()
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        ssl_context.check_hostname = True
+
+        if self._cipher:
+            try:
+                ssl_context.set_ciphers(self._cipher)
+            except ssl.SSLError as e:
+                # TODO: custom error with more detail?
+                raise e
 
         if self._x509_cert is not None:
             logger.debug("configuring SSL context with client-side certificate and key")
@@ -55,6 +62,9 @@ class HTTPTransport(object):
                 self._x509_cert.key_file,
                 self._x509_cert.pass_phrase,
             )
+
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        ssl_context.check_hostname = True
 
         return ssl_context
 
