@@ -32,11 +32,7 @@ class BasePipelineConfig(object):
         """
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
-
-        if isinstance(proxy_options, models.ProxyOptions) or proxy_options is None:
-            self.proxy_options = proxy_options
-        else:
-            raise TypeError("Invalid type for 'proxy_options'")
+        self.proxy_options = proxy_options
 
     @staticmethod
     def _sanitize_cipher(cipher):

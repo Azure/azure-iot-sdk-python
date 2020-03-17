@@ -117,24 +117,6 @@ class PipelineConfigInstantiationTestBase(object):
         assert config.proxy_options is proxy_options
 
     @pytest.mark.it(
-        "Raises TypeError if the provided 'proxy_options' parameter is not a ProxyOptions object"
-    )
-    @pytest.mark.parametrize(
-        "proxy_options",
-        [
-            pytest.param(123, id="int"),
-            pytest.param("abc", id="string"),
-            pytest.param(True, id="bool"),
-            pytest.param(["a", "b"], id="list"),
-            pytest.param({"a": "b"}, id="dict"),
-            pytest.param(object(), id="other complex object type"),
-        ],
-    )
-    def test_invalid_proxy_options_param(self, config_cls, proxy_options):
-        with pytest.raises(TypeError):
-            config_cls(proxy_options=proxy_options)
-
-    @pytest.mark.it(
         "Instantiates with the 'proxy_options' attribute to 'None' if no 'proxy_options' parameter is provided"
     )
     def test_proxy_options_default(self, config_cls):
