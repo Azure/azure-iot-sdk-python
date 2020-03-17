@@ -46,6 +46,7 @@ class HTTPTransportStage(PipelineStage):
                 hostname=op.hostname,
                 server_verification_cert=op.server_verification_cert,
                 x509_cert=op.client_cert,
+                cipher=self.pipeline_root.pipeline_configuration.cipher,
             )
 
             self.pipeline_root.transport = self.transport
