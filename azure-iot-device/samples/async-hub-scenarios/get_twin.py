@@ -18,7 +18,8 @@ async def main():
 
     # get the twin
     twin = await device_client.get_twin()
-    print("Reported temperature is {}".format(twin["reported"]["temperature"]))
+    print("Twin document:")
+    print("{}".format(twin))
 
     # Finally, disconnect
     await device_client.disconnect()
