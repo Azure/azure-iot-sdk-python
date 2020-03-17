@@ -125,14 +125,19 @@ class SharedClientCreateMethodUserOptionTests(object):
     async def test_default_options(
         self, mocker, client_create_method, create_method_args, mock_pipeline_init
     ):
+        mock_config = mocker.patch(
+            "azure.iot.device.provisioning.pipeline.ProvisioningPipelineConfig"
+        )
         client_create_method(*create_method_args)
 
-        # Get configuration object
-        assert mock_pipeline_init.call_count == 1
-        config = mock_pipeline_init.call_args[0][1]
+        # Pipeline Config was instantiated with default arguments
+        assert mock_config.call_count == 1
+        expected_kwargs = {}
+        assert mock_config.call_args == mocker.call(**expected_kwargs)
 
-        assert not config.websockets
-        assert not config.cipher
+        # This default config was used for the protocol pipeline
+        assert mock_pipeline_init.call_count == 1
+        assert mock_pipeline_init.call_args[0][1] == mock_config.return_value
 
 
 @pytest.mark.describe("ProvisioningDeviceClient - Instantiation")

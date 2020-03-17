@@ -24,6 +24,7 @@ fake_path = "__fake_path__"
 
 fake_server_verification_cert = "__fake_server_verification_cert__"
 fake_x509_cert = "__fake_x509_certificate__"
+fake_cipher = "DHE-RSA-AES128-SHA"
 
 
 @pytest.mark.describe("HTTPTransport - Instantiation")
@@ -83,6 +84,17 @@ class TestInstantiation(object):
         assert mock_ssl_context.load_verify_locations.call_args == mocker.call(
             cadata=fake_server_verification_cert
         )
+
+    @pytest.mark.it(
+        "Configures TLS/SSL context with provided cipher if present during instantiation"
+    )
+    def test_confgures_tls_context_with_cipher(self, mocker):
+        mock_ssl_context = mocker.patch.object(ssl, "SSLContext").return_value
+
+        HTTPTransport(hostname=fake_hostname, cipher=fake_cipher)
+
+        assert mock_ssl_context.set_ciphers.call_count == 1
+        assert mock_ssl_context.set_ciphers.call_args == mocker.call(fake_cipher)
 
     @pytest.mark.it("Configures TLS/SSL context with client-provided-certificate-chain like x509")
     def test_configures_tls_context_with_client_provided_certificate_chain(self, mocker):
