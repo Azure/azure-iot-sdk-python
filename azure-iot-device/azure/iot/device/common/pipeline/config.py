@@ -33,7 +33,6 @@ class BasePipelineConfig(object):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
 
-        # TODO: validate this deeper
         if isinstance(proxy_options, models.ProxyOptions) or proxy_options is None:
             self.proxy_options = proxy_options
         else:
