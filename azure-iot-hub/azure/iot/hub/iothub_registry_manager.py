@@ -654,6 +654,9 @@ class IoTHubRegistryManager(object):
 
         :returns: The CloudToDeviceMethodResult object.
         """
+        if direct_method_request.payload is None:
+            direct_method_request.payload = ""
+
         return self.protocol.device_method.invoke_device_method(device_id, direct_method_request)
 
     def invoke_device_module_method(self, device_id, module_id, direct_method_request):
@@ -668,6 +671,9 @@ class IoTHubRegistryManager(object):
 
         :returns: The CloudToDeviceMethodResult object.
         """
+        if direct_method_request.payload is None:
+            direct_method_request.payload = ""
+
         return self.protocol.device_method.invoke_module_method(
             device_id, module_id, direct_method_request
         )

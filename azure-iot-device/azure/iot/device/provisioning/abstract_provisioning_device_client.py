@@ -76,6 +76,8 @@ class AbstractProvisioningDeviceClient(object):
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
@@ -122,6 +124,8 @@ class AbstractProvisioningDeviceClient(object):
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
             "OpenSSL cipher list format" or as a list of cipher suite strings.
         :type cipher: str or list(str)
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type ProxyOptions: :class:`azure.iot.device.ProxyOptions`
 
         :raises: TypeError if given an unrecognized parameter.
 
