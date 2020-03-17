@@ -103,7 +103,7 @@ class TestProxyOptions(object):
         "Instantiates with the 'proxy_password' property set to the value of the 'proxy_password' parameter, if provided"
     )
     def test_proxy_password(self, mocker):
-        proxy_password = "mypassword"
+        proxy_password = "fake_password"
         proxy_options = ProxyOptions(
             proxy_type=mocker.MagicMock(),
             proxy_addr="127.0.0.1",
