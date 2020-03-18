@@ -50,14 +50,6 @@ def apply_fake_pipeline_thread(fake_pipeline_thread):
     pass
 
 
-# automatically mock the transport for all tests in this file.
-@pytest.fixture(autouse=True)
-def mock_mqtt_transport(mocker):
-    return mocker.patch(
-        "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTTransport"
-    ).return_value
-
-
 fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
 fake_provisioning_host = "hogwarts.com"

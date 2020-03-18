@@ -184,7 +184,9 @@ class ProvisioningPipeline(object):
             callback(error=error)
 
         self._pipeline.run_op(
-            pipeline_ops_base.EnableFeatureOperation(feature_name=None, callback=pipeline_callback)
+            pipeline_ops_base.EnableFeatureOperation(
+                feature_name=provisioning_constants.REGISTER, callback=pipeline_callback
+            )
         )
 
     def register(self, payload=None, callback=None):
@@ -207,7 +209,7 @@ class ProvisioningPipeline(object):
             if error:
                 callback(error=error, result=None)
             else:
-                callback(error=None, result=op.registration_result)
+                callback(result=op.registration_result)
 
         self._pipeline.run_op(
             pipeline_ops_provisioning.RegisterOperation(

@@ -53,6 +53,7 @@ fake_x509_cert_file = "fantastic_beasts"
 fake_x509_cert_key_file = "where_to_find_them"
 fake_pass_phrase = "alohomora"
 fake_registration_result = "fake_result"
+fake_request_payload = "fake_request_payload"
 
 
 def mock_x509():
@@ -317,11 +318,29 @@ class TestSendRegister(object):
         cb = mocker.MagicMock()
         pipeline.register(callback=cb)
         assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_provisioning.RegisterOperation
-        )
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert isinstance(op, pipeline_ops_provisioning.RegisterOperation)
+        assert op.registration_id == fake_registration_id
 
-    @pytest.mark.it("Triggers the callback upon successful completion of the RegisterOperation")
+    @pytest.mark.it("passes the payload parameter as request_payload on the RegistrationRequest")
+    def test_sets_request_payload(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.register(payload=fake_request_payload, callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert op.request_payload is fake_request_payload
+
+    @pytest.mark.it(
+        "sets request_payload on the RegistrationRequest to None if no payload is provided"
+    )
+    def test_sets_empty_payload(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.register(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert op.request_payload is None
+
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the RegisterOperation, passing the registration result in the result parameter"
+    )
     def test_op_success_with_callback(self, mocker, pipeline):
         cb = mocker.MagicMock()
 
@@ -335,7 +354,7 @@ class TestSendRegister(object):
         op.complete(error=None)
 
         assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=None, result=fake_registration_result)
+        assert cb.call_args == mocker.call(result=fake_registration_result)
 
     @pytest.mark.it(
         "Calls the callback with the error upon unsuccessful completion of the RegisterOperation"
@@ -353,46 +372,6 @@ class TestSendRegister(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception, result=None)
 
 
-@pytest.mark.describe("ProvisioningPipeline - .disconnect()")
-class TestDisconnect(object):
-    @pytest.mark.it("Runs a DisconectOperation on the pipeline")
-    def test_runs_op(self, pipeline, mocker):
-        cb = mocker.MagicMock()
-        pipeline.disconnect(callback=cb)
-        assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(
-            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
-        )
-
-    @pytest.mark.it("Triggers the callback upon successful completion of the DisconnecOperation")
-    def test_op_success_with_callback(self, mocker, pipeline):
-        cb = mocker.MagicMock()
-
-        # Begin operation
-        pipeline.disconnect(callback=cb)
-        assert cb.call_count == 0
-
-        # Trigger op completion
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        op.complete(error=None)
-
-        assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=None)
-
-    @pytest.mark.it(
-        "Calls the callback with the error upon unsuccessful completion of the DisconnectOperation"
-    )
-    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
-        cb = mocker.MagicMock()
-
-        pipeline.disconnect(callback=cb)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-
-        op.complete(error=arbitrary_exception)
-        assert cb.call_count == 1
-        assert cb.call_args == mocker.call(error=arbitrary_exception)
-
-
 @pytest.mark.describe("ProvisioningPipeline - .enable_responses()")
 class TestEnable(object):
     @pytest.mark.it("Marks the feature as enabled")
@@ -401,13 +380,16 @@ class TestEnable(object):
         pipeline.enable_responses(callback=mocker.MagicMock())
         assert pipeline.responses_enabled[feature]
 
-    @pytest.mark.it("Runs a EnableFeatureOperation on the pipeline")
+    @pytest.mark.it(
+        "Runs a EnableFeatureOperation on the pipeline, passing in the name of the feature"
+    )
     def test_runs_op(self, pipeline, mocker):
         pipeline.enable_responses(callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
+        assert op.feature_name == dps_constants.REGISTER
 
     @pytest.mark.it(
         "Triggers the callback upon successful completion of the EnableFeatureOperation"
