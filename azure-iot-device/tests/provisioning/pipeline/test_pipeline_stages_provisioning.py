@@ -50,6 +50,14 @@ def apply_fake_pipeline_thread(fake_pipeline_thread):
     pass
 
 
+# automatically mock the transport for all tests in this file.
+@pytest.fixture(autouse=True)
+def mock_mqtt_transport(mocker):
+    return mocker.patch(
+        "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTTransport"
+    ).return_value
+
+
 fake_device_id = "elder_wand"
 fake_registration_id = "registered_remembrall"
 fake_provisioning_host = "hogwarts.com"
@@ -384,6 +392,9 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
         assert new_op.method == "PUT"
         assert new_op.resource_location == "/"
         assert new_op.request_body == request_body
+
+        # kill the timer
+        new_op.complete()
 
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- Called with other arbitrary operation")
@@ -825,6 +836,9 @@ class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingS
         assert new_op.method == "GET"
         assert new_op.resource_location == "/"
         assert new_op.request_body == " "
+
+        # kill the timer
+        new_op.complete()
 
 
 @pytest.mark.describe("PollingStatusStage - .run_op() -- Called with other arbitrary operation")

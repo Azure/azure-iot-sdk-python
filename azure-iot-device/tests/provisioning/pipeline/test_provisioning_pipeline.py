@@ -52,6 +52,7 @@ fake_sub_unsub_topic = "$dps/registrations/res/#"
 fake_x509_cert_file = "fantastic_beasts"
 fake_x509_cert_key_file = "where_to_find_them"
 fake_pass_phrase = "alohomora"
+fake_registration_result = "fake_result"
 
 
 def mock_x509():
@@ -124,22 +125,6 @@ def mock_mqtt_transport(mocker):
     return mocker.patch(
         "azure.iot.device.provisioning.pipeline.provisioning_pipeline.pipeline_stages_mqtt.MQTTTransport"
     ).return_value
-
-
-@pytest.fixture(scope="function")
-def mock_provisioning_pipeline(
-    mocker, input_security_client, mock_mqtt_transport, pipeline_configuration
-):
-    provisioning_pipeline = ProvisioningPipeline(input_security_client, pipeline_configuration)
-    provisioning_pipeline.on_connected = mocker.MagicMock()
-    provisioning_pipeline.on_disconnected = mocker.MagicMock()
-    provisioning_pipeline.on_message_received = mocker.MagicMock()
-    helpers.add_mock_method_waiter(provisioning_pipeline, "on_connected")
-    helpers.add_mock_method_waiter(provisioning_pipeline, "on_disconnected")
-    helpers.add_mock_method_waiter(mock_mqtt_transport, "publish")
-
-    yield provisioning_pipeline
-    provisioning_pipeline.disconnect()
 
 
 @pytest.mark.describe("ProvisioningPipeline - Instantiation")
@@ -327,226 +312,129 @@ class TestProvisioningPipelineDisconnect(object):
 
 @pytest.mark.describe("ProvisioningPipeline - .register()")
 class TestSendRegister(object):
-    @pytest.mark.it("Request calls publish on provider")
-    def test_send_register_request_calls_publish_on_provider(
-        self, mocker, mock_provisioning_pipeline, input_security_client, mock_mqtt_transport
-    ):
-        mock_init_uuid = mocker.patch(
-            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
-        )
-        mock_init_uuid.return_value = fake_request_id
-
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
-
-        assert mock_mqtt_transport.connect.call_count == 1
-
-        if isinstance(input_security_client, X509SecurityClient):
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
-        else:
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-
-        fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
-            fake_request_id
+    @pytest.mark.it("Runs a RegisterOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.register(callback=cb)
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_provisioning.RegisterOperation
         )
 
-        mock_mqtt_transport.wait_for_publish_to_be_called()
-        assert mock_mqtt_transport.publish.call_count == 1
-        assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
+    @pytest.mark.it("Triggers the callback upon successful completion of the RegisterOperation")
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
 
-    @pytest.mark.it("Request queues and connects before calling publish on provider")
-    def test_send_request_queues_and_connects_before_sending(
-        self, mocker, mock_provisioning_pipeline, input_security_client, mock_mqtt_transport
-    ):
+        # Begin operation
+        pipeline.register(callback=cb)
+        assert cb.call_count == 0
 
-        mock_init_uuid = mocker.patch(
-            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
-        )
-        mock_init_uuid.return_value = fake_request_id
-        # send an event
-        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
+        # Trigger op completion
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.registration_result = fake_registration_result
+        op.complete(error=None)
 
-        # verify that we called connect
-        assert mock_mqtt_transport.connect.call_count == 1
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None, result=fake_registration_result)
 
-        if isinstance(input_security_client, X509SecurityClient):
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
-        else:
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the RegisterOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
 
-        # verify that we're not connected yet and verify that we havent't published yet
-        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
-        mock_provisioning_pipeline.on_connected.assert_not_called()
-        mock_mqtt_transport.wait_for_publish_to_not_be_called()
-        mock_mqtt_transport.publish.assert_not_called()
+        pipeline.register(callback=cb)
 
-        # finish the connection
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.registration_result = fake_registration_result
+        op.complete(error=arbitrary_exception)
 
-        # verify that our connected callback was called and verify that we published the event
-        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
-
-        fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
-            fake_request_id
-        )
-
-        mock_mqtt_transport.wait_for_publish_to_be_called()
-        assert mock_mqtt_transport.publish.call_count == 1
-        assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
-
-    @pytest.mark.it("Request queues and waits for connect to be completed")
-    def test_send_request_queues_if_waiting_for_connect_complete(
-        self, mocker, mock_provisioning_pipeline, input_security_client, mock_mqtt_transport
-    ):
-        mock_init_uuid = mocker.patch(
-            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
-        )
-        mock_init_uuid.return_value = fake_request_id
-
-        # start connecting and verify that we've called into the transport
-        mock_provisioning_pipeline.connect()
-        assert mock_mqtt_transport.connect.call_count == 1
-
-        if isinstance(input_security_client, X509SecurityClient):
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is None
-        else:
-            assert mock_mqtt_transport.connect.call_args[1]["password"] is not None
-            assert_for_symmetric_key(mock_mqtt_transport.connect.call_args[1]["password"])
-
-        # send an event
-        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
-
-        # verify that we're not connected yet and verify that we havent't published yet
-        mock_provisioning_pipeline.wait_for_on_connected_to_not_be_called()
-        mock_provisioning_pipeline.on_connected.assert_not_called()
-        mock_mqtt_transport.wait_for_publish_to_not_be_called()
-        mock_mqtt_transport.publish.assert_not_called()
-
-        # finish the connection
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-
-        # verify that our connected callback was called and verify that we published the event
-        mock_provisioning_pipeline.on_connected.assert_called_once_with("connected")
-        fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
-            fake_request_id
-        )
-        mock_mqtt_transport.wait_for_publish_to_be_called()
-        assert mock_mqtt_transport.publish.call_count == 1
-        assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
-
-    @pytest.mark.it("Request can be sent multiple times overlapping each other")
-    def test_send_request_sends_overlapped_events(
-        self, mock_provisioning_pipeline, mock_mqtt_transport, mocker
-    ):
-        mock_init_uuid = mocker.patch(
-            "azure.iot.device.common.pipeline.pipeline_stages_base.uuid.uuid4"
-        )
-        mock_init_uuid.return_value = fake_request_id
-
-        fake_request_id_1 = fake_request_id
-        fake_msg_1 = fake_mqtt_payload
-        fake_msg_2 = "Petrificus Totalus"
-
-        # connect
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-
-        # send an event
-        callback_1 = mocker.MagicMock()
-        mock_provisioning_pipeline.register(payload=fake_msg_1, callback=callback_1)
-
-        fake_publish_topic = "$dps/registrations/PUT/iotdps-register/?$rid={}".format(
-            fake_request_id_1
-        )
-        mock_mqtt_transport.wait_for_publish_to_be_called()
-        assert mock_mqtt_transport.publish.call_count == 1
-        assert mock_mqtt_transport.publish.call_args[1]["topic"] == fake_publish_topic
-        assert mock_mqtt_transport.publish.call_args[1]["payload"] == fake_register_publish_payload
-
-        # while we're waiting for that send to complete, send another event
-        callback_2 = mocker.MagicMock()
-        # provisioning_pipeline.send_message(fake_msg_2, callback_2)
-        mock_provisioning_pipeline.register(payload=fake_msg_2, callback=callback_2)
-
-        # verify that we've called publish twice and verify that neither send_message
-        # has completed (because we didn't do anything here to complete it).
-        mock_mqtt_transport.wait_for_publish_to_be_called()
-        assert mock_mqtt_transport.publish.call_count == 2
-        callback_1.assert_not_called()
-        callback_2.assert_not_called()
-
-    @pytest.mark.it("Connects , sends request queues and then disconnects")
-    def test_connect_send_disconnect(self, mock_provisioning_pipeline, mock_mqtt_transport):
-        # connect
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-
-        # send an event
-        mock_provisioning_pipeline.register(payload=fake_mqtt_payload)
-        mock_mqtt_transport.on_mqtt_published(0)
-
-        # disconnect
-        mock_provisioning_pipeline.disconnect()
-        mock_mqtt_transport.disconnect.assert_called_once_with()
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception, result=None)
 
 
 @pytest.mark.describe("ProvisioningPipeline - .disconnect()")
 class TestDisconnect(object):
-    @pytest.mark.it("Calls disconnect on provider")
-    def test_disconnect_calls_disconnect_on_provider(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-        mock_provisioning_pipeline.disconnect()
+    @pytest.mark.it("Runs a DisconectOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.disconnect(callback=cb)
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.DisconnectOperation
+        )
 
-        mock_mqtt_transport.disconnect.assert_called_once_with()
+    @pytest.mark.it("Triggers the callback upon successful completion of the DisconnecOperation")
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
 
-    @pytest.mark.it("Is ignored if already disconnected")
-    def test_disconnect_ignored_if_already_disconnected(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.disconnect(None)
+        # Begin operation
+        pipeline.disconnect(callback=cb)
+        assert cb.call_count == 0
 
-        mock_mqtt_transport.disconnect.assert_not_called()
+        # Trigger op completion
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
 
-    @pytest.mark.it("After complete calls handler with `disconnected` state")
-    def test_disconnect_calls_client_disconnect_callback(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None)
 
-        mock_provisioning_pipeline.disconnect()
-        mock_mqtt_transport.on_mqtt_disconnected_handler(None)
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the DisconnectOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
 
-        mock_provisioning_pipeline.wait_for_on_disconnected_to_be_called()
-        mock_provisioning_pipeline.on_disconnected.assert_called_once_with("disconnected")
+        pipeline.disconnect(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        op.complete(error=arbitrary_exception)
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
 @pytest.mark.describe("ProvisioningPipeline - .enable_responses()")
 class TestEnable(object):
-    @pytest.mark.it("Calls subscribe on provider")
-    def test_subscribe_calls_subscribe_on_provider(
-        self, mock_provisioning_pipeline, mock_mqtt_transport
-    ):
-        mock_provisioning_pipeline.connect()
-        mock_mqtt_transport.on_mqtt_connected_handler()
-        mock_provisioning_pipeline.wait_for_on_connected_to_be_called()
-        mock_provisioning_pipeline.enable_responses()
+    @pytest.mark.it("Marks the feature as enabled")
+    def test_mark_feature_enabled(self, pipeline, mocker):
+        assert not pipeline.responses_enabled[feature]
+        pipeline.enable_responses(callback=mocker.MagicMock())
+        assert pipeline.responses_enabled[feature]
 
-        assert mock_mqtt_transport.subscribe.call_count == 1
-        assert mock_mqtt_transport.subscribe.call_args[1]["topic"] == fake_sub_unsub_topic
+    @pytest.mark.it("Runs a EnableFeatureOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        pipeline.enable_responses(callback=mocker.MagicMock())
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
+
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the EnableFeatureOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.enable_responses(callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None)
+
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the EnableFeatureOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
+        pipeline.enable_responses(callback=cb)
+
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=arbitrary_exception)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception)

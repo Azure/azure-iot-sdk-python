@@ -207,7 +207,7 @@ class ProvisioningPipeline(object):
             if error:
                 callback(error=error, result=None)
             else:
-                callback(result=op.registration_result)
+                callback(error=None, result=op.registration_result)
 
         self._pipeline.run_op(
             pipeline_ops_provisioning.RegisterOperation(
