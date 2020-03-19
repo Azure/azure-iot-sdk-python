@@ -79,8 +79,8 @@ for device_id in device_ids_to_keys:
     registration_result = results[device_id]
     print(registration_result)
     # Individual attributes can be seen as well
-    print("The request_id was :-")
-    print(registration_result.request_id)
+    print("The status was :-")
+    print(registration_result.status)
     print("The etag is :-")
     print(registration_result.registration_state.etag)
     print("\n")
