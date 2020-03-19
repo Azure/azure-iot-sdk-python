@@ -11,7 +11,7 @@ This being said, the more you do, the quicker it'll go through our gated build!
 -->
 
 # Checklist
-- [ ] I have read the [contribution guidelines] (https://github.com/Azure/azure-iot-sdk-python/.github/CONTRIBUTING.md).
+- [ ] I have read the [contribution guidelines](https://github.com/Azure/azure-iot-sdk-python/.github/CONTRIBUTING.md).
 - [ ] I added or modified the existing tests to cover the change (we do not allow our test coverage to go down).
 - If this is a modification that impacts the behavior of a public API
   - [ ] I edited the corresponding document in the `devdoc` folder and added or modified requirements.
