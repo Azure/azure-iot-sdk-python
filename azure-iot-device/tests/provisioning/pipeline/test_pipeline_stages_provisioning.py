@@ -385,6 +385,9 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
         assert new_op.resource_location == "/"
         assert new_op.request_body == request_body
 
+        # kill the timer
+        new_op.complete()
+
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- Called with other arbitrary operation")
 class TestRegistrationStageWithArbitraryOperation(StageRunOpTestBase, RegistrationStageConfig):
@@ -825,6 +828,9 @@ class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingS
         assert new_op.method == "GET"
         assert new_op.resource_location == "/"
         assert new_op.request_body == " "
+
+        # kill the timer
+        new_op.complete()
 
 
 @pytest.mark.describe("PollingStatusStage - .run_op() -- Called with other arbitrary operation")
