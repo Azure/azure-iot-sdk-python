@@ -13,6 +13,7 @@ provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 
 # These are the names of the devices that will eventually show up on the IoTHub
+# Please make sure that there are no spaces in these device ids.
 device_id_1 = os.getenv("PROVISIONING_DEVICE_ID_1")
 device_id_2 = os.getenv("PROVISIONING_DEVICE_ID_2")
 device_id_3 = os.getenv("PROVISIONING_DEVICE_ID_3")
@@ -26,7 +27,7 @@ results = {}
 # NOTE : Only for illustration purposes.
 # This is how a device key can be derived from the group symmetric key.
 # This is just a helper function to show how it is done.
-# Please don't directly store the group key on the device.
+# Please don't directly store the master group key on the device.
 # Follow the following method to compute the device key somewhere else.
 
 
@@ -52,8 +53,8 @@ derived_device_key_3 = "some_value_already_computed"
 
 
 device_ids_to_keys[device_id_1] = derived_device_key_1
-device_ids_to_keys[device_id_1] = derived_device_key_2
-device_ids_to_keys[device_id_1] = derived_device_key_3
+device_ids_to_keys[device_id_2] = derived_device_key_2
+device_ids_to_keys[device_id_3] = derived_device_key_3
 
 
 def register_device(registration_id):
