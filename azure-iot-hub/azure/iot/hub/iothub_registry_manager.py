@@ -678,13 +678,15 @@ class IoTHubRegistryManager(object):
             device_id, module_id, direct_method_request
         )
 
-    def send_c2d_message(self, device_id, message):
+    def send_c2d_message(self, device_id, message, properties={}):
         """Send a C2D mesage to a IoTHub Device.
 
         :param str device_id: The name (Id) of the device.
         :param str message: The message that is to be delievered to the device.
+        :param dict properties: The properties to be send with the message.  Can contain
+            application properties and system properties
 
         :raises: Exception if the Send command is not able to send the message
         """
 
-        self.amqp_svc_client.send_message_to_device(device_id, message)
+        self.amqp_svc_client.send_message_to_device(device_id, message, properties)

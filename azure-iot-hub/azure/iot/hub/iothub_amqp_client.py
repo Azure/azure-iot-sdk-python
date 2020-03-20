@@ -61,19 +61,38 @@ class IoTHubAmqpClient:
             self.amqp_client.close()
             self.amqp_client = None
 
-    def send_message_to_device(self, device_id, message):
+    def send_message_to_device(self, device_id, message, app_props):
         """Send a message to the specified deivce.
 
         :param str device_id: The name (Id) of the device.
         :param str message: The message that is to be delivered to the device.
+        :param dict app_props: Applicaiton and system properties for the message
 
         :raises: Exception if the Send command is not able to send the message
         """
         msg_content = message
-        app_properties = {}
         msg_props = uamqp.message.MessageProperties()
-        msg_props.to = "/devices/{}/messages/devicebound".format(device_id)
         msg_props.message_id = str(uuid4())
+        msg_props.to = "/devices/{}/messages/devicebound".format(device_id)
+
+        app_properties = {}
+
+        # loop through all properties and pull out the custom
+        # properties
+        for prop_key, prop_value in app_props.items():
+            if prop_key == "contentType":
+                msg_props.content_type = prop_value
+            elif prop_key == "contentEncoding":
+                msg_props.content_encoding = prop_value
+            elif prop_key == "correlationId":
+                msg_props.correlation_id = prop_value
+            elif prop_key == "expiryTimeUtc":
+                msg_props.absolute_expiry_time = prop_value
+            elif prop_key == "messageId":
+                msg_props.message_id = prop_value
+            else:
+                app_properties[prop_key] = prop_value
+
         message = uamqp.Message(
             msg_content, properties=msg_props, application_properties=app_properties
         )
