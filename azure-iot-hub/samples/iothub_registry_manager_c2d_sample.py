@@ -22,8 +22,11 @@ try:
 
     # Send 2nd Message To Device with property
     send_message = b"{ 'message': 'this is message 2' }"
-    #registry_manager.send_c2d_message(device_id, send_message, contentType='application/json', prop1="value1")
-    registry_manager.send_c2d_message(device_id, send_message, properties={ "contentType":"application/json", "prop1":"value1" })
+    registry_manager.send_c2d_message(device_id, send_message, { "contentType":"application/json", "prop1":"value1" })
+
+    # Send 2nd Message To Device with property
+    send_message = "Sending c2d message 3"
+    registry_manager.send_c2d_message(device_id, send_message, properties={ "prop1":"value1", "correlationId":"1234" })
 
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
