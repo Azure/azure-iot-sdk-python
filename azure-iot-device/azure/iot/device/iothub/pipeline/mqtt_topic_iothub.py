@@ -265,7 +265,7 @@ def encode_properties(message_to_send, topic):
         user_properties_encoded = urllib.parse.urlencode(message_to_send.custom_properties)
         topic += user_properties_encoded
 
-    return topic
+    return topic.replace("+", "%2B")
 
 
 def get_twin_response_topic_for_subscribe():

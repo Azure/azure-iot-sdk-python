@@ -75,6 +75,17 @@ fake_method_status = "__fake_method_status__"
 fake_method_response = MethodResponse(
     request_id=fake_request_id, status=fake_method_status, payload=fake_method_payload
 )
+fake_message_id_space = "ID 5b1d1d7ca5"
+fake_message_id_space_encoded = "%24.mid=ID%2B5b1d1d7ca5"
+fake_user_id_space = "Harry Potter"
+fake_user_id_space_encoded = "%24.uid=Harry%2BPotter"
+fake_message_user_property_1_key_space = "is-muggle"
+fake_message_user_property_1_value_space = "not sure"
+fake_message_user_property_2_key_space = "sorted house"
+fake_message_user_property_2_value_space = "hufflepuff"
+fake_message_user_property_1_space_encoded = "is-muggle=not%2Bsure"
+fake_message_user_property_2_space_encoded = "sorted%2Bhouse=hufflepuff"
+
 
 invalid_feature_name = "__invalid_feature_name__"
 unmatched_mqtt_topic = "__unmatched_mqtt_topic__"
@@ -147,6 +158,23 @@ def create_message_with_user_properties(message_content, is_multiple):
 def create_security_message(message_content):
     msg = Message(message_content)
     msg.set_as_security_message()
+    return msg
+
+
+def create_message_with_system_and_user_properties_with_spaces(message_content, is_multiple):
+    if is_multiple:
+        msg = Message(message_content, message_id=fake_message_id_space)
+        msg.user_id = fake_user_id_space
+    else:
+        msg = Message(message_content, message_id=fake_message_id_space)
+
+    msg.custom_properties[
+        fake_message_user_property_1_key_space
+    ] = fake_message_user_property_1_value_space
+    if is_multiple:
+        msg.custom_properties[
+            fake_message_user_property_2_key_space
+        ] = fake_message_user_property_2_value_space
     return msg
 
 
@@ -759,6 +787,50 @@ publish_ops = [
             fake_message_id_encoded,
             fake_message_user_property_2_encoded,
             fake_message_user_property_1_encoded,
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with 1 system and 1 user property containing spaces",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_message_with_system_and_user_properties_with_spaces(
+                fake_message_body, is_multiple=False
+            ),
+            "callback": None,
+        },
+        "topic": "devices/{}/messages/events/{}&{}".format(
+            fake_device_id,
+            fake_message_id_space_encoded,
+            fake_message_user_property_1_space_encoded,
+        ),
+        "publish_payload": fake_message_body,
+    },
+    {
+        "name": "send telemetry with multiple system and multiple user properties containing spaces",
+        "stage_type": "device",
+        "op_class": pipeline_ops_iothub.SendD2CMessageOperation,
+        "op_init_kwargs": {
+            "message": create_message_with_system_and_user_properties_with_spaces(
+                fake_message_body, is_multiple=True
+            ),
+            "callback": None,
+        },
+        # For more than 1 user property the order could be different, creating 2 different topics
+        "topic1": "devices/{}/messages/events/{}&{}&{}&{}".format(
+            fake_device_id,
+            fake_message_id_space_encoded,
+            fake_user_id_space_encoded,
+            fake_message_user_property_1_space_encoded,
+            fake_message_user_property_2_space_encoded,
+        ),
+        "topic2": "devices/{}/messages/events/{}&{}&{}&{}".format(
+            fake_device_id,
+            fake_message_id_space_encoded,
+            fake_user_id_space_encoded,
+            fake_message_user_property_2_space_encoded,
+            fake_message_user_property_1_space_encoded,
         ),
         "publish_payload": fake_message_body,
     },
