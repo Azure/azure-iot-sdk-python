@@ -27,7 +27,12 @@ fake_hostname = "hostname.mytest-net"
 fake_device_id = "device_id"
 fake_message = "fake_message"
 fake_app_prop = {"fake_prop1": "fake_value1"}
-fake_sys_prop = {"contentType": "value1", "contentEncoding": "value2", "correlationId": "value3", "expiryTimeUtc": 	1584727659}
+fake_sys_prop = {
+    "contentType": "value1",
+    "contentEncoding": "value2",
+    "correlationId": "value3",
+    "expiryTimeUtc": 1584727659,
+}
 fake_empty_prop = {}
 """----Shared fixtures----"""
 
@@ -36,6 +41,7 @@ fake_empty_prop = {}
 def mock_uamqp_SendClient(mocker):
     mock_uamqp_SendClient = mocker.patch.object(uamqp, "SendClient")
     return mock_uamqp_SendClient
+
 
 @pytest.mark.describe("IoTHubAmqpClient - Amqp Client Connections")
 class TestIoTHubAmqpClient(object):

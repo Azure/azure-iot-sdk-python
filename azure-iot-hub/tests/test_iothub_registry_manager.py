@@ -43,6 +43,7 @@ fake_module_twin = "fake_module_twin"
 fake_direct_method_request_with_payload_none = "fake_direct_method_request"
 fake_properties = {"fake_key": "fake_value"}
 
+
 class Fake_direct_method_request_with_payload:
     payload = ""
 
@@ -1234,6 +1235,7 @@ class TestSendC2dMessage(object):
             fake_device_id, fake_message_to_send, {}
         )
 
+
 @pytest.mark.describe("IoTHubRegistryManager - .send_c2d_message() with properties")
 class TestSendC2dMessageWithProperties(object):
     @pytest.mark.it("Test send c2d message with properties")
@@ -1241,7 +1243,9 @@ class TestSendC2dMessageWithProperties(object):
         self, mocker, mock_uamqp_send_message_to_device, iothub_registry_manager
     ):
 
-        iothub_registry_manager.send_c2d_message(fake_device_id, fake_message_to_send, fake_properties)
+        iothub_registry_manager.send_c2d_message(
+            fake_device_id, fake_message_to_send, fake_properties
+        )
 
         assert mock_uamqp_send_message_to_device.call_count == 1
         assert mock_uamqp_send_message_to_device.call_args == mocker.call(
