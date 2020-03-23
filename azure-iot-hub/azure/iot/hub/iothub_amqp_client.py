@@ -66,7 +66,7 @@ class IoTHubAmqpClient:
 
         :param str device_id: The name (Id) of the device.
         :param str message: The message that is to be delivered to the device.
-        :param dict app_props: Applicaiton and system properties for the message
+        :param dict app_props: Application and system properties for the message
 
         :raises: Exception if the Send command is not able to send the message
         """
