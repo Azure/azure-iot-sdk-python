@@ -10,7 +10,6 @@ from azure.iot.hub import IoTHubRegistryManager
 
 connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
-send_message = "C2D message to be send to device"
 
 try:
     # Create IoTHubRegistryManager
@@ -18,9 +17,22 @@ try:
     print("Conn String: {0}".format(connection_str))
 
     # Send Message To Device
+    send_message = "Sending c2d message 1"
     registry_manager.send_c2d_message(device_id, send_message)
+
+    # Send 2nd Message To Device with property
+    send_message = b"{ 'message': 'this is message 2' }"
+    registry_manager.send_c2d_message(
+        device_id, send_message, {"contentType": "application/json", "prop1": "value1"}
+    )
+
+    # Send 2nd Message To Device with property
+    send_message = "Sending c2d message 3"
+    registry_manager.send_c2d_message(
+        device_id, send_message, properties={"prop1": "value1", "correlationId": "1234"}
+    )
 
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_statistics stopped")
+    print("iothub_registry_c2d stopped")
