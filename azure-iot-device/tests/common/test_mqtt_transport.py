@@ -582,10 +582,11 @@ class TestReauthorizeConnection(object):
 
         assert mock_mqtt_client.loop_stop.call_count == 1
 
+    # BKTODO: expand to 2 tests
     @pytest.mark.it(
         "Sets the paho thread to None if an exception is raised from the reconnect method"
     )
-    def test_client_sets_paho_thread_to_None(
+    def _test_client_sets_paho_thread_to_None(
         self, mocker, mock_mqtt_client, transport, arbitrary_exception
     ):
         mock_mqtt_client.reconnect.side_effect = arbitrary_exception
@@ -888,6 +889,7 @@ class TestEventDisconnectCompleted(object):
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
         assert mock_mqtt_client.loop_stop.call_count == 0
 
+    # BKTODO: exppand to 2 tests
     @pytest.mark.it("Sets Paho's _thread to None if cause is not None")
     def test_sets_thread_to_none(self, mock_mqtt_client, transport):
         mock_mqtt_client._thread = fake_thread

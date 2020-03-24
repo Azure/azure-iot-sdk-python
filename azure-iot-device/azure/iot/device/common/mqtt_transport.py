@@ -210,7 +210,7 @@ class MQTTTransport(object):
             if rc:  # i.e. if there is an error
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
-                this._stop_automatic_reconnect()
+                this._cleanup_transport_on_error()
 
             if this.on_mqtt_disconnected_handler:
                 try:
@@ -264,14 +264,21 @@ class MQTTTransport(object):
         mqtt_client.on_publish = on_publish
         mqtt_client.on_message = on_message
 
+        # Set paho automatic-reconnect delay to 2 hours.  Ideally we would turn
+        # paho auto-reconnect off entirely, but this is the best we can do.  Without
+        # this, we run the risk of our auto-reconnect code and the paho auto-reconnect
+        # code conflicting with each other.
+        # BKTODO test
+        mqtt_client.reconnect_delay_set(120 * 60)
+
         logger.debug("Created MQTT protocol client, assigned callbacks")
         return mqtt_client
 
-    def _stop_automatic_reconnect(self):
+    def _cleanup_transport_on_error(self):
         """
-        After disconnecting because of an error, Paho will attempt to reconnect (some of the time --
-        this isn't 100% reliable).  We don't want Paho to reconnect because we want to control the
-        timing of the reconnect, so we force the connection closed.
+        After disconnecting because of an error, Paho was designed to keep the loop running and
+        to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
+        we want to control the timing of the reconnect, so we force the loop to stop.
 
         We are relying on intimite knowledge of Paho behavior here.  If this becomes a problem,
         it may be necessary to write our own Paho thread and stop using thread_start()/thread_stop().
@@ -281,7 +288,7 @@ class MQTTTransport(object):
 
         logger.info("Forcing paho disconnect to prevent it from automatically reconnecting")
 
-        # Note: We are calling this inside our on_disconnect() handler, so we are inside the
+        # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
         # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
         # loop_forever() function recomment calling disconnect() from a callback to exit the
         # Paho thread/loop.
@@ -297,8 +304,11 @@ class MQTTTransport(object):
         # Finally, because of a bug in Paho, we need to null out the _thread pointer.  This
         # is necessary because the code that sets _thread to None only gets called if you
         # call loop_stop from an external thread (and we're still inside the Paho thread here).
+        # BKTODO test thread nulling and not nulling
+        if threading.current_thread() == self._mqtt_client._thread:
+            logger.debug("in paho thread.  nulling _thread")
+            self._mqtt_client._thread = None
 
-        self._mqtt_client._thread = None
         logger.debug("Done forcing paho disconnect")
 
     def _create_ssl_context(self):
@@ -367,6 +377,9 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
         except socket.error as e:
+            # BKTODO: test
+            self._cleanup_transport_on_error()
+
             # Only this type will raise a special error
             # To stop it from retrying.
             if (
@@ -387,14 +400,22 @@ class MQTTTransport(object):
                 raise exceptions.ConnectionFailedError(cause=e)
 
         except socks.ProxyError as pe:
+            # BKTODO test
+            self._cleanup_transport_on_error()
+
             if isinstance(pe, socks.SOCKS5AuthError):
                 raise exceptions.UnauthorizedError(cause=pe)
             else:
                 raise exceptions.ProtocolProxyError(cause=pe)
+
         except Exception as e:
+            # BKTODO test
+            self._cleanup_transport_on_error()
+
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e
             )
+
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
             raise _create_error_from_rc_code(rc)
@@ -421,7 +442,7 @@ class MQTTTransport(object):
             rc = self._mqtt_client.reconnect()
         except Exception as e:
             logger.info("reconnect raised {}".format(e))
-            self._stop_automatic_reconnect()
+            self._cleanup_transport_on_error()
             raise exceptions.ConnectionDroppedError(
                 message="Unexpected Paho failure during reconnect", cause=e
             )
@@ -444,8 +465,15 @@ class MQTTTransport(object):
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during disconnect", cause=e
             )
+        # BKTODO test for loop stop exception and non-exception cases.  Test for null thread excepotion and non-exception case
+        finally:
+            self._mqtt_client.loop_stop()
+
+            if threading.current_thread() == self._mqtt_client._thread:
+                logger.debug("in paho thread.  nulling _thread")
+                self._mqtt_client._thread = None
+
         logger.debug("_mqtt_client.disconnect returned rc={}".format(rc))
-        self._mqtt_client.loop_stop()
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
             # No matter what, we always raise here to give upper layers a chance to respond
