@@ -19,6 +19,7 @@
 # certificates will be created using a company's proper secure signing process.
 # These certs are intended only to help demonstrate and prototype CA certs.
 ###############################################################################
+set -e
 
 root_ca_dir="."
 home_dir="."
