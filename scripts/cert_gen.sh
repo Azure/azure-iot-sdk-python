@@ -11,6 +11,9 @@
 # Currently the root cert will have a duration of 1 year.
 # All other certificates created from this root certificate
 # gets deleted after the tests.
+# NOTE : In case of 401 error during running DPS E2E tests for certificates
+# the certificates produced by this has expired. And the build environment
+# needs to run again.
 #
 # These certs MUST NOT be used in production.  It is expected that production
 # certificates will be created using a company's proper secure signing process.
