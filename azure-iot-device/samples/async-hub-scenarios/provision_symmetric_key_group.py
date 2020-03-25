@@ -15,6 +15,7 @@ provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
 
 # These are the names of the devices that will eventually show up on the IoTHub
+# Please make sure that there are no spaces in these device ids.
 device_id_1 = os.getenv("PROVISIONING_DEVICE_ID_1")
 device_id_2 = os.getenv("PROVISIONING_DEVICE_ID_2")
 device_id_3 = os.getenv("PROVISIONING_DEVICE_ID_3")
@@ -26,7 +27,7 @@ device_ids_to_keys = {}
 # NOTE : Only for illustration purposes.
 # This is how a device key can be derived from the group symmetric key.
 # This is just a helper function to show how it is done.
-# Please don't directly store the group key on the device.
+# Please don't directly store the group master key on the device.
 # Follow the following method to compute the device key somewhere else.
 
 
@@ -46,14 +47,16 @@ def derive_device_key(device_id, group_symmetric_key):
 
 # derived_device_key has been computed already using the helper function somewhere else
 # AND NOT on this sample. Do not use the direct master key on this sample to compute device key.
+
+
 derived_device_key_1 = "some_value_already_computed"
 derived_device_key_2 = "some_value_already_computed"
 derived_device_key_3 = "some_value_already_computed"
 
 
 device_ids_to_keys[device_id_1] = derived_device_key_1
-device_ids_to_keys[device_id_1] = derived_device_key_2
-device_ids_to_keys[device_id_1] = derived_device_key_3
+device_ids_to_keys[device_id_2] = derived_device_key_2
+device_ids_to_keys[device_id_3] = derived_device_key_3
 
 
 async def main():
@@ -68,9 +71,7 @@ async def main():
         return await provisioning_device_client.register()
 
     results = await asyncio.gather(
-        register_device(device_ids_to_keys[device_id_1]),
-        register_device(device_ids_to_keys[device_id_2]),
-        register_device(device_ids_to_keys[device_id_3]),
+        register_device(device_id_1), register_device(device_id_2), register_device(device_id_3)
     )
     for index in range(0, len(device_ids_to_keys)):
         registration_result = results[index]
