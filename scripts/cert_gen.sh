@@ -28,7 +28,6 @@ COUNTRY="US"
 STATE="WA"
 LOCALITY="Redmond"
 ORGANIZATION_NAME="My Organization"
-root_ca_password="1234"
 key_bits_length="4096"
 days_till_expire=365
 ca_chain_prefix="azure-iot-test-only.chain.ca"
@@ -61,6 +60,12 @@ function warn_certs_not_for_production()
 
 function generate_root_ca()
 {
+    if [ $# -ne 1 ]; then
+        echo "Usage: <password>"
+        exit 1
+    fi
+
+    root_ca_password="${1}"
     local common_name="Azure IoT Hub CA Cert Test Only"
     local password_cmd=" -aes256 -passout pass:${root_ca_password} "
 
@@ -318,7 +323,7 @@ function prepare_filesystem()
 function initial_cert_generation()
 {
     prepare_filesystem
-    generate_root_ca
+    generate_root_ca "${1}"
     generate_intermediate_ca
 }
 
@@ -385,7 +390,7 @@ function generate_edge_device_certificate()
 }
 
 if [ "${1}" == "create_root_and_intermediate" ]; then
-    initial_cert_generation
+    initial_cert_generation "${2}"
 elif [ "${1}" == "create_verification_certificate" ]; then
     generate_verification_certificate "${2}"
 elif [ "${1}" == "create_device_certificate" ]; then
