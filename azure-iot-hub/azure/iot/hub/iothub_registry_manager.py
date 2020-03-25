@@ -18,6 +18,7 @@ from .protocol.models import (
     Twin,
     CloudToDeviceMethod,
     CloudToDeviceMethodResult,
+    DeviceCapabilities,
 )
 
 
@@ -75,7 +76,7 @@ class IoTHubRegistryManager(object):
         """
         self.amqp_svc_client.disconnect_sync()
 
-    def create_device_with_sas(self, device_id, primary_key, secondary_key, status):
+    def create_device_with_sas(self, device_id, primary_key, secondary_key, status, iot_edge=False):
         """Creates a device identity on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
@@ -95,12 +96,15 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
         }
         device = Device(**kwargs)
 
         return self.protocol.registry_manager.create_or_update_device(device_id, device)
 
-    def create_device_with_x509(self, device_id, primary_thumbprint, secondary_thumbprint, status):
+    def create_device_with_x509(
+        self, device_id, primary_thumbprint, secondary_thumbprint, status, iot_edge=False
+    ):
         """Creates a device identity on IoTHub using X509 authentication.
 
         :param str device_id: The name (Id) of the device.
@@ -124,12 +128,13 @@ class IoTHubRegistryManager(object):
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
         }
         device = Device(**kwargs)
 
         return self.protocol.registry_manager.create_or_update_device(device_id, device)
 
-    def create_device_with_certificate_authority(self, device_id, status):
+    def create_device_with_certificate_authority(self, device_id, status, iot_edge=False):
         """Creates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
@@ -145,6 +150,7 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
         }
         device = Device(**kwargs)
 
