@@ -26,7 +26,7 @@ class HTTPTransport(object):
         Constructor to instantiate an HTTP protocol wrapper.
 
         :param str hostname: Hostname or IP address of the remote host.
-        :param str server_verification_cert: The path to the certificate which can be used to validate a server-side TLS connection (optional).
+        :param str server_verification_cert: The full path to the certificate which can be used to validate a server-side TLS connection (optional).
         :param str cipher: Cipher string in OpenSSL cipher list format (optional)
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         """

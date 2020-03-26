@@ -79,7 +79,7 @@ class AbstractIoTHubClient(object):
 
         :param str connection_string: The connection string for the IoTHub you wish to connect to.
 
-        :param str server_verification_cert: Configuration Option. The path to the trusted certificate chain.
+        :param str server_verification_cert: Configuration Option. The full path to the trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
@@ -175,7 +175,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type x509: :class:`azure.iot.device.X509`
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
 
-        :param str server_verification_cert: Configuration Option. The path to the trusted certificate chain.
+        :param str server_verification_cert: Configuration Option. The full path to the trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
@@ -221,7 +221,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             Can be found in the Azure portal in the Overview tab as the string hostname.
         :param device_id: The device ID
 
-        :param str server_verification_cert: Configuration Option. The path to the trusted certificate chain.
+        :param str server_verification_cert: Configuration Option. The full path to the trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
@@ -391,7 +391,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param str device_id: The ID used to uniquely identify a device in the IoTHub
         :param str module_id: The ID used to uniquely identify a module on a device on the IoTHub.
 
-        :param str server_verification_cert: Configuration Option. The path to the trusted certificate chain.
+        :param str server_verification_cert: Configuration Option. The full path to the trusted certificate chain.
             Necessary when using connecting to an endpoint which has a non-standard root of trust,
             such as a protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT

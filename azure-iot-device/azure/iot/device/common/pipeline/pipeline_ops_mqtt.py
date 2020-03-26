@@ -29,7 +29,7 @@ class SetMQTTConnectionArgsOperation(PipelineOperation):
         :param str client_id: The client identifier to use when connecting to the MQTT server
         :param str hostname: The hostname of the MQTT server we will eventually connect to
         :param str username: The username to use when connecting to the MQTT server
-        :param str server_verification_cert: (Optional) The path to the server verification certificate to use
+        :param str server_verification_cert: (Optional) The full path to the server verification certificate to use
           if the MQTT server that we're going to connect to uses server-side TLS
         :param X509 client_cert: (Optional) The x509 object containing a client certificate and key used to connect
           to the MQTT service
