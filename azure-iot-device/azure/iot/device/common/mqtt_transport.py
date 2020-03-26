@@ -107,7 +107,7 @@ class MQTTTransport(object):
         :param str client_id: The id of the client connecting to the broker.
         :param str hostname: Hostname or IP address of the remote broker.
         :param str username: Username for login to the remote broker.
-        :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
+        :param str server_verification_cert: The path to the certificate which can be used to validate a server-side TLS connection (optional).
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
         :param bool websockets: Indicates whether or not to enable a websockets connection in the Transport.
         :param str cipher: Cipher string in OpenSSL cipher list format
@@ -309,7 +309,7 @@ class MQTTTransport(object):
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
         if self._server_verification_cert:
-            ssl_context.load_verify_locations(cadata=self._server_verification_cert)
+            ssl_context.load_verify_locations(cafile=self._server_verification_cert)
         else:
             ssl_context.load_default_certs()
 

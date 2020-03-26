@@ -85,7 +85,7 @@ class SetIoTHubConnectionArgsOperation(PipelineOperation):
           for the module we are connecting.
         :param str gateway_hostname: (optional) If we are going through a gateway host, this is the
           hostname for the gateway
-        :param str server_verification_cert: (Optional) The server verification certificate to use
+        :param str server_verification_cert: (Optional) The path to the the server verification certificate to use
           if the server that we're going to connect to uses server-side TLS
         :param X509 client_cert: (Optional) The x509 object containing a client certificate and key used to connect
           to the service

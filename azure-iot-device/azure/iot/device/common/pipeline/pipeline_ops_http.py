@@ -19,7 +19,7 @@ class SetHTTPConnectionArgsOperation(PipelineOperation):
         """
         Initializer for SetHTTPConnectionArgsOperation objects.
         :param str hostname: The hostname of the HTTP server we will eventually connect to
-        :param str server_verification_cert: (Optional) The server verification certificate to use
+        :param str server_verification_cert: (Optional) The path to the server verification certificate to use
             if the HTTP server that we're going to connect to uses server-side TLS
         :param X509 client_cert: (Optional) The x509 object containing a client certificate and key used to connect
             to the HTTP service

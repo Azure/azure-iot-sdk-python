@@ -229,7 +229,7 @@ class TestInstantiation(object):
 
         assert mock_ssl_context.load_verify_locations.call_count == 1
         assert mock_ssl_context.load_verify_locations.call_args == mocker.call(
-            cadata=server_verification_cert
+            cafile=server_verification_cert
         )
 
     @pytest.mark.it(
