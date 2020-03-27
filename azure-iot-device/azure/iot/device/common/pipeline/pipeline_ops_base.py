@@ -227,7 +227,7 @@ class ConnectOperation(PipelineOperation):
     """
 
     def __init__(self, callback):
-        self.retry_timer = None
+        self.watchdog = None
         super(ConnectOperation, self).__init__(callback)
 
 
@@ -242,6 +242,10 @@ class ReauthorizeConnectionOperation(PipelineOperation):
 
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
+
+    def __init__(self, callback):
+        self.watchdog = None
+        super(ReauthorizeConnectionOperation, self).__init__(callback)
 
     pass
 
