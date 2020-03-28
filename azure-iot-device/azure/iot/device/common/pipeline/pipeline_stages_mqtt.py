@@ -95,17 +95,17 @@ class MQTTTransportStage(PipelineStage):
                     )
                 )
 
-        connection_op.watchdog = threading.Timer(WATCHDOG_INTERVAL, watchdog_function)
-        connection_op.watchdog.daemon = True
-        connection_op.watchdog.start()
+        connection_op.watchdog_timer = threading.Timer(WATCHDOG_INTERVAL, watchdog_function)
+        connection_op.watchdog_timer.daemon = True
+        connection_op.watchdog_timer.start()
 
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_connection_watchdog(self, op):
         try:
-            if op.watchdog:
+            if op.watchdog_timer:
                 logger.debug("{}({}): cancelling watchdog".format(self.name, op.name))
-                op.watchdog.cancel()
-                op.watchdog = None
+                op.watchdog_timer.cancel()
+                op.watchdog_timer = None
         except AttributeError:
             pass
 

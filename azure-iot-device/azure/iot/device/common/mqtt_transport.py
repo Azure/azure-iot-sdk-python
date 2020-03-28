@@ -268,6 +268,7 @@ class MQTTTransport(object):
         # paho auto-reconnect off entirely, but this is the best we can do.  Without
         # this, we run the risk of our auto-reconnect code and the paho auto-reconnect
         # code conflicting with each other.
+        # The choice of 2 hours is completely arbitrary
         mqtt_client.reconnect_delay_set(120 * 60)
 
         logger.debug("Created MQTT protocol client, assigned callbacks")

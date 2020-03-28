@@ -227,7 +227,7 @@ class ConnectOperation(PipelineOperation):
     """
 
     def __init__(self, callback):
-        self.watchdog = None
+        self.watchdog_timer = None
         super(ConnectOperation, self).__init__(callback)
 
 
@@ -244,7 +244,7 @@ class ReauthorizeConnectionOperation(PipelineOperation):
     """
 
     def __init__(self, callback):
-        self.watchdog = None
+        self.watchdog_timer = None
         super(ReauthorizeConnectionOperation, self).__init__(callback)
 
     pass

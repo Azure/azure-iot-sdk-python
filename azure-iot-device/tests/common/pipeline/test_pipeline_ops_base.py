@@ -26,10 +26,10 @@ class ConnectOperationTestConfig(object):
 
 
 class ConnectOperationInstantiationTests(ConnectOperationTestConfig):
-    @pytest.mark.it("Initializes 'watchdog' attribute to 'None'")
+    @pytest.mark.it("Initializes 'watchdog_timer' attribute to 'None'")
     def test_retry_timer(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
 
 
 pipeline_ops_test.add_operation_tests(
@@ -70,10 +70,10 @@ class ReauthorizeConnectionOperationTestConfig(object):
 
 
 class ReauthorizeConnectionOperationInstantiationTests(ReauthorizeConnectionOperationTestConfig):
-    @pytest.mark.it("Initializes 'watchdog' attribute to 'None'")
+    @pytest.mark.it("Initializes 'watchdog_timer' attribute to 'None'")
     def test_retry_timer(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
 
 
 pipeline_ops_test.add_operation_tests(

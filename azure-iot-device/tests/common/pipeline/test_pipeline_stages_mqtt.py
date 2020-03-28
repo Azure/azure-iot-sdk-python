@@ -346,7 +346,7 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
     def test_leaves_watchdog_running(self, mocker, stage, op, arbitrary_exception, mock_timer):
         stage.run_op(op)
         assert mock_timer.return_value.cancel.call_count == 0
-        assert op.watchdog is mock_timer.return_value
+        assert op.watchdog_timer is mock_timer.return_value
 
     @pytest.mark.it(
         "Cancels the connection watchdog if the MQTTTransport connect operation raises an exception"
@@ -355,7 +355,7 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
         stage.transport.connect.side_effect = arbitrary_exception
         stage.run_op(op)
         assert mock_timer.return_value.cancel.call_count == 1
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
 
 
 @pytest.mark.describe(
@@ -463,7 +463,7 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
     def test_leaves_watchdog_running(self, mocker, stage, op, arbitrary_exception, mock_timer):
         stage.run_op(op)
         assert mock_timer.return_value.cancel.call_count == 0
-        assert op.watchdog is mock_timer.return_value
+        assert op.watchdog_timer is mock_timer.return_value
 
     @pytest.mark.it(
         "Cancels the connection watchdog if the MQTTTransport reconnect operation raises an exception"
@@ -472,7 +472,7 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
         stage.transport.reauthorize_connection.side_effect = arbitrary_exception
         stage.run_op(op)
         assert mock_timer.return_value.cancel.call_count == 1
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with DisconnectOperation")
@@ -817,14 +817,14 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
         stage.run_op(op)
 
         # assert watchdog is running
-        assert op.watchdog is mock_timer.return_value
-        assert op.watchdog.start.call_count == 1
+        assert op.watchdog_timer is mock_timer.return_value
+        assert op.watchdog_timer.start.call_count == 1
 
         # Trigger connect completion
         stage.transport.on_mqtt_connected_handler()
 
         # assert watchdog was cancelled
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
         assert mock_timer.return_value.cancel.call_count == 1
 
     @pytest.mark.it(
@@ -836,14 +836,14 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
         stage.run_op(op)
 
         # assert watchdog is running
-        assert op.watchdog is mock_timer.return_value
-        assert op.watchdog.start.call_count == 1
+        assert op.watchdog_timer is mock_timer.return_value
+        assert op.watchdog_timer.start.call_count == 1
 
         # Trigger connect completion
         stage.transport.on_mqtt_connected_handler()
 
         # assert watchdog was cancelled
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
         assert mock_timer.return_value.cancel.call_count == 1
 
     @pytest.mark.it(
@@ -980,14 +980,14 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
         stage.run_op(op)
 
         # assert watchdog is running
-        assert op.watchdog is mock_timer.return_value
-        assert op.watchdog.start.call_count == 1
+        assert op.watchdog_timer is mock_timer.return_value
+        assert op.watchdog_timer.start.call_count == 1
 
         # Trigger connection failure with arbitrary cause
         stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
 
         # assert watchdog was cancelled
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
         assert mock_timer.return_value.cancel.call_count == 1
 
     @pytest.mark.it(
@@ -1001,14 +1001,14 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
         stage.run_op(op)
 
         # assert watchdog is running
-        assert op.watchdog is mock_timer.return_value
-        assert op.watchdog.start.call_count == 1
+        assert op.watchdog_timer is mock_timer.return_value
+        assert op.watchdog_timer.start.call_count == 1
 
         # Trigger connection failure with arbitrary cause
         stage.transport.on_mqtt_connection_failure_handler(arbitrary_exception)
 
         # assert watchdog was cancelled
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
         assert mock_timer.return_value.cancel.call_count == 1
 
     @pytest.mark.it(
@@ -1210,14 +1210,14 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         stage.run_op(op)
 
         # assert watchdog is running
-        assert op.watchdog is mock_timer.return_value
-        assert op.watchdog.start.call_count == 1
+        assert op.watchdog_timer is mock_timer.return_value
+        assert op.watchdog_timer.start.call_count == 1
 
         # Trigger disconnect
         stage.transport.on_mqtt_disconnected_handler(cause)
 
         # assert watchdog was cancelled
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
         assert mock_timer.return_value.cancel.call_count == 1
 
     @pytest.mark.it(
@@ -1229,14 +1229,14 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         stage.run_op(op)
 
         # assert watchdog is running
-        assert op.watchdog is mock_timer.return_value
-        assert op.watchdog.start.call_count == 1
+        assert op.watchdog_timer is mock_timer.return_value
+        assert op.watchdog_timer.start.call_count == 1
 
         # Trigger disconnect
         stage.transport.on_mqtt_disconnected_handler(cause)
 
         # assert watchdog was cancelled
-        assert op.watchdog is None
+        assert op.watchdog_timer is None
         assert mock_timer.return_value.cancel.call_count == 1
 
     @pytest.mark.it(
