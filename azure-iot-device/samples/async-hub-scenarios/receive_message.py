@@ -28,6 +28,8 @@ async def main():
             print(message.data)
             print("custom properties are")
             print(message.custom_properties)
+            print("content Type: {0}".format(message.content_type))
+            print("")
 
     # define behavior for halting the application
     def stdin_listener():

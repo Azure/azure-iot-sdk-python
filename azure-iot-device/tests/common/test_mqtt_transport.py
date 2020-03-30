@@ -15,6 +15,7 @@ import pytest
 import logging
 import socket
 import socks
+import threading
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -33,7 +34,6 @@ fake_success_rc = 0
 fake_failed_rc = mqtt.MQTT_ERR_PROTOCOL
 failed_connack_rc = mqtt.CONNACK_REFUSED_IDENTIFIER_REJECTED
 fake_keepalive = 1234
-fake_thread = "__fake_thread__"
 
 
 # mapping of Paho connack rc codes to Error object classes
@@ -123,7 +123,7 @@ operation_return_codes = [
 
 
 @pytest.fixture
-def mock_mqtt_client(mocker):
+def mock_mqtt_client(mocker, fake_paho_thread):
     mock = mocker.patch.object(mqtt, "Client")
     mock_mqtt_client = mock.return_value
     mock_mqtt_client.subscribe = mocker.MagicMock(return_value=(fake_rc, fake_mid))
@@ -132,6 +132,7 @@ def mock_mqtt_client(mocker):
     mock_mqtt_client.connect.return_value = 0
     mock_mqtt_client.reconnect.return_value = 0
     mock_mqtt_client.disconnect.return_value = 0
+    mock_mqtt_client._thread = fake_paho_thread
     return mock_mqtt_client
 
 
@@ -139,6 +140,30 @@ def mock_mqtt_client(mocker):
 def transport(mock_mqtt_client):
     # Implicitly imports the mocked Paho MQTT Client from mock_mqtt_client
     return MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
+
+
+@pytest.fixture
+def fake_paho_thread(mocker):
+    thread = mocker.MagicMock(spec=threading.Thread)
+    thread.name = "_fake_paho_thread_"
+    return thread
+
+
+@pytest.fixture
+def mock_paho_thread_current(mocker, fake_paho_thread):
+    return mocker.patch.object(threading, "current_thread", return_value=fake_paho_thread)
+
+
+@pytest.fixture
+def fake_non_paho_thread(mocker):
+    thread = mocker.MagicMock(spec=threading.Thread)
+    thread.name = "_fake_non_paho_thread_"
+    return thread
+
+
+@pytest.fixture
+def mock_non_paho_thread_current(mocker, fake_non_paho_thread):
+    return mocker.patch.object(threading, "current_thread", return_value=fake_non_paho_thread)
 
 
 @pytest.mark.describe("MQTTTransport - Instantiation")
@@ -304,6 +329,18 @@ class TestInstantiation(object):
         )
         assert transport._op_manager._pending_operation_callbacks == {}
         assert transport._op_manager._unknown_operation_completions == {}
+
+    @pytest.mark.it("Sets paho auto-reconnect interval to 2 hours")
+    def test_sets_reconnect_interval(self, mocker, transport, mock_mqtt_client):
+        MQTTTransport(client_id=fake_device_id, hostname=fake_hostname, username=fake_username)
+
+        # called once by the mqtt_client constructor and once by mqtt_transport.py
+        assert mock_mqtt_client.reconnect_delay_set.call_count == 2
+        assert mock_mqtt_client.reconnect_delay_set.call_args == mocker.call(120 * 60)
+
+
+class ArbitraryConnectException(Exception):
+    pass
 
 
 @pytest.mark.describe("MQTTTransport - .connect()")
@@ -482,6 +519,67 @@ class TestConnect(object):
         with pytest.raises(error_params["error"]):
             transport.connect(fake_password)
 
+    @pytest.fixture(
+        params=[
+            ArbitraryConnectException(),
+            socket.error(),
+            ssl.SSLError("socket error", "CERTIFICATE_VERIFY_FAILED"),
+            socks.SOCKS5Error("it is a sock 5 error", socket_err="a general SOCKS5Error error"),
+            socks.SOCKS5AuthError(
+                "it is a sock 5 auth error", socket_err="an auth SOCKS5Error error"
+            ),
+        ],
+        ids=[
+            "ArbitraryConnectException",
+            "socket.error",
+            "ssl.SSLError",
+            "socks.SOCKS5Error",
+            "socks.SOCKS5AuthError",
+        ],
+    )
+    def connect_exception(self, request):
+        return request.param
+
+    @pytest.mark.it("Calls _mqtt_client.disconnect if Paho raises an exception")
+    def test_calls_disconnect_on_exception(
+        self, mocker, mock_mqtt_client, transport, connect_exception
+    ):
+        mock_mqtt_client.connect.side_effect = connect_exception
+        with pytest.raises(Exception):
+            transport.connect(fake_password)
+        assert mock_mqtt_client.disconnect.call_count == 1
+
+    @pytest.mark.it("Calls _mqtt_client.loop_stop if Paho raises an exception")
+    def test_calls_loop_stop_on_exception(
+        self, mocker, mock_mqtt_client, transport, connect_exception
+    ):
+        mock_mqtt_client.connect.side_effect = connect_exception
+        with pytest.raises(Exception):
+            transport.connect(fake_password)
+        assert mock_mqtt_client.loop_stop.call_count == 1
+
+    @pytest.mark.it(
+        "Sets Paho's _thread to None if Paho raises an exception while running in the Paho thread"
+    )
+    def test_sets_thread_to_none_on_exception_in_paho_thread(
+        self, mocker, mock_mqtt_client, transport, mock_paho_thread_current, connect_exception
+    ):
+        mock_mqtt_client.connect.side_effect = connect_exception
+        with pytest.raises(Exception):
+            transport.connect(fake_password)
+        assert mock_mqtt_client._thread is None
+
+    @pytest.mark.it(
+        "Does not sets Paho's _thread to None if Paho raises an exception running outside the Paho thread"
+    )
+    def test_does_not_set_thread_to_none_on_exception_not_in_paho_thread(
+        self, mocker, mock_mqtt_client, transport, mock_non_paho_thread_current, connect_exception
+    ):
+        mock_mqtt_client.connect.side_effect = connect_exception
+        with pytest.raises(Exception):
+            transport.connect(fake_password)
+        assert mock_mqtt_client._thread is not None
+
 
 @pytest.mark.describe("MQTTTransport - .reauthorize_connection()")
 class TestReauthorizeConnection(object):
@@ -583,18 +681,30 @@ class TestReauthorizeConnection(object):
         assert mock_mqtt_client.loop_stop.call_count == 1
 
     @pytest.mark.it(
-        "Sets the paho thread to None if an exception is raised from the reconnect method"
+        "Sets the paho thread to None if an exception is raised from the reconnect method running in the Paho thread"
     )
     def test_client_sets_paho_thread_to_None(
-        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception, mock_paho_thread_current
     ):
         mock_mqtt_client.reconnect.side_effect = arbitrary_exception
 
-        mock_mqtt_client._thread = mocker.MagicMock()
         with pytest.raises(errors.ConnectionDroppedError):
             transport.reauthorize_connection(fake_password)
 
         assert mock_mqtt_client._thread is None
+
+    @pytest.mark.it(
+        "Does not sets the paho thread to None if an exception is raised from the reconnect method while running outside the Paho thread"
+    )
+    def _test_client_does_not_set_paho_thread_to_None(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception, mock_non_paho_thread_current
+    ):
+        mock_mqtt_client.reconnect.side_effect = arbitrary_exception
+
+        with pytest.raises(errors.ConnectionDroppedError):
+            transport.reauthorize_connection(fake_password)
+
+        assert mock_mqtt_client._thread is not None
 
 
 @pytest.mark.describe("MQTTTransport - OCCURANCE: Connect Completed")
@@ -740,13 +850,6 @@ class TestDisconnect(object):
         assert mock_mqtt_client.disconnect.call_count == 1
         assert mock_mqtt_client.disconnect.call_args == mocker.call()
 
-    @pytest.mark.it("Stops MQTT Network Loop")
-    def test_calls_loop_stop(self, mocker, mock_mqtt_client, transport):
-        transport.disconnect()
-
-        assert mock_mqtt_client.loop_stop.call_count == 1
-        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
-
     @pytest.mark.it(
         "Raises a ProtocolClientError if Paho disconnect raises an unexpected Exception"
     )
@@ -779,6 +882,67 @@ class TestDisconnect(object):
         mock_mqtt_client.disconnect.return_value = error_params["rc"]
         with pytest.raises(error_params["error"]):
             transport.disconnect()
+
+    @pytest.mark.it("Stops MQTT Network Loop when disconnect does not raise an exception")
+    def test_calls_loop_stop_on_success(self, mocker, mock_mqtt_client, transport):
+        transport.disconnect()
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it("Stops MQTT Network Loop when disconnect raises an exception")
+    def test_calls_loop_stop_on_exception(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception
+    ):
+        mock_mqtt_client.disconnect.side_effect = arbitrary_exception
+
+        with pytest.raises(Exception):
+            transport.disconnect()
+
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it(
+        "Sets Paho's _thread to None if disconnect does not raise an exception while running in the Paho thread"
+    )
+    def test_sets_thread_to_none_on_success_in_paho_thread(
+        self, mocker, mock_mqtt_client, transport, mock_paho_thread_current
+    ):
+        transport.disconnect()
+        assert mock_mqtt_client._thread is None
+
+    @pytest.mark.it(
+        "Sets Paho's _thread to None if disconnect raises an exception while running in the Paho thread"
+    )
+    def test_sets_thread_to_none_on_exception_in_paho_thread(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception, mock_paho_thread_current
+    ):
+        mock_mqtt_client.disconnect.side_effect = arbitrary_exception
+
+        with pytest.raises(Exception):
+            transport.disconnect()
+        assert mock_mqtt_client._thread is None
+
+    @pytest.mark.it(
+        "Does not set Paho's _thread to None if disconnect does not raise an exception while running outside the Paho thread"
+    )
+    def test_does_not_set_thread_to_none_on_success_in_non_paho_thread(
+        self, mocker, mock_mqtt_client, transport, mock_non_paho_thread_current
+    ):
+        transport.disconnect()
+        assert mock_mqtt_client._thread is not None
+
+    @pytest.mark.it(
+        "Does not set  Paho's _thread to None if disconnect raises an exception while running outside the Paho thread"
+    )
+    def test_does_not_set_thread_to_none_on_exception_in_non_paho_thread(
+        self, mocker, mock_mqtt_client, transport, arbitrary_exception, mock_non_paho_thread_current
+    ):
+        mock_mqtt_client.disconnect.side_effect = arbitrary_exception
+
+        with pytest.raises(Exception):
+            transport.disconnect()
+        assert mock_mqtt_client._thread is not None
 
 
 @pytest.mark.describe("MQTTTransport - OCCURANCE: Disconnect Completed")
@@ -888,17 +1052,41 @@ class TestEventDisconnectCompleted(object):
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
         assert mock_mqtt_client.loop_stop.call_count == 0
 
-    @pytest.mark.it("Sets Paho's _thread to None if cause is not None")
-    def test_sets_thread_to_none(self, mock_mqtt_client, transport):
-        mock_mqtt_client._thread = fake_thread
+    @pytest.mark.it(
+        "Sets Paho's _thread to None if cause is not None while running in the Paho thread"
+    )
+    def test_sets_thread_to_none_on_failure_in_paho_thread(
+        self, mock_mqtt_client, transport, mock_paho_thread_current
+    ):
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
         assert mock_mqtt_client._thread is None
 
-    @pytest.mark.it("Does not sets Paho's _thread to None if cause is None")
-    def test_does_not_set_thread_to_none(self, mock_mqtt_client, transport):
-        mock_mqtt_client._thread = fake_thread
+    @pytest.mark.it(
+        "Does not set Paho's _thread to None if cause is not None while running outside the paho thread"
+    )
+    def test_sets_thread_to_none_on_failure_in_non_paho_thread(
+        self, mock_mqtt_client, transport, mock_non_paho_thread_current
+    ):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_failed_rc)
+        assert mock_mqtt_client._thread is not None
+
+    @pytest.mark.it(
+        "Does not sets Paho's _thread to None if cause is None while running in the Paho thread"
+    )
+    def test_does_not_set_thread_to_none_on_success_in_paho_thread(
+        self, mock_mqtt_client, transport, mock_paho_thread_current
+    ):
         mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
-        assert mock_mqtt_client._thread == fake_thread
+        assert mock_mqtt_client._thread is not None
+
+    @pytest.mark.it(
+        "Does not sets Paho's _thread to None if cause is None while running outside the Paho thread"
+    )
+    def test_does_not_set_thread_to_none_on_success_in_non_paho_thread(
+        self, mock_mqtt_client, transport, mock_non_paho_thread_current
+    ):
+        mock_mqtt_client.on_disconnect(client=mock_mqtt_client, userdata=None, rc=fake_success_rc)
+        assert mock_mqtt_client._thread is not None
 
     @pytest.mark.it("Allows any Exception raised by Paho's disconnect() to propagate")
     def test_disconnect_raises_exception(

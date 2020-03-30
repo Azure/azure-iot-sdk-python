@@ -7,6 +7,8 @@
 import logging
 import six
 import traceback
+import threading
+import weakref
 from . import (
     pipeline_ops_base,
     PipelineStage,
@@ -21,6 +23,9 @@ from azure.iot.device.common import handle_exceptions, transport_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
+
+# Maximum amount of time we wait for ConnectOperation or ReauthorizeConnectionOperation to complete
+WATCHDOG_INTERVAL = 10
 
 
 class MQTTTransportStage(PipelineStage):
@@ -42,7 +47,7 @@ class MQTTTransportStage(PipelineStage):
         self._pending_connection_op = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _cancel_pending_connection_op(self):
+    def _cancel_pending_connection_op(self, error=None):
         """
         Cancel any running connect, disconnect or reauthorize_connection op. Since our ability to "cancel" is fairly limited,
         all this does (for now) is to fail the operation
@@ -53,11 +58,56 @@ class MQTTTransportStage(PipelineStage):
             # NOTE: This code path should NOT execute in normal flow. There should never already be a pending
             # connection op when another is added, due to the SerializeConnectOps stage.
             # If this block does execute, there is a bug in the codebase.
-            error = pipeline_exceptions.OperationCancelled(
-                "Cancelling because new ConnectOperation, DisconnectOperation, or ReauthorizeConnectionOperation was issued"
-            )  # TODO: should this actually somehow cancel the operation?
+            if not error:
+                error = pipeline_exceptions.OperationCancelled(
+                    "Cancelling because new ConnectOperation, DisconnectOperation, or ReauthorizeConnectionOperation was issued"
+                )
+            self._cancel_connection_watchdog(op)
             op.complete(error=error)
             self._pending_connection_op = None
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _start_connection_watchdog(self, connection_op):
+        logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
+
+        self_weakref = weakref.ref(self)
+        op_weakref = weakref.ref(connection_op)
+
+        @pipeline_thread.invoke_on_pipeline_thread
+        def watchdog_function():
+            this = self_weakref()
+            op = op_weakref()
+            if this and op and this._pending_connection_op is op:
+                logger.info(
+                    "{}({}): Connection watchdog expired.  Cancelling op".format(this.name, op.name)
+                )
+                this.transport.disconnect()
+                if this.pipeline_root.connected:
+                    logger.info(
+                        "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
+                            this.name, op.name
+                        )
+                    )
+                    this.send_event_up(pipeline_events_base.DisconnectedEvent())
+                this._cancel_pending_connection_op(
+                    error=pipeline_exceptions.OperationCancelled(
+                        "Transport timeout on connection operation"
+                    )
+                )
+
+        connection_op.watchdog_timer = threading.Timer(WATCHDOG_INTERVAL, watchdog_function)
+        connection_op.watchdog_timer.daemon = True
+        connection_op.watchdog_timer.start()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _cancel_connection_watchdog(self, op):
+        try:
+            if op.watchdog_timer:
+                logger.debug("{}({}): cancelling watchdog".format(self.name, op.name))
+                op.watchdog_timer.cancel()
+                op.watchdog_timer = None
+        except AttributeError:
+            pass
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -113,11 +163,13 @@ class MQTTTransportStage(PipelineStage):
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
+            self._start_connection_watchdog(op)
             try:
                 self.transport.connect(password=self.sas_token)
             except Exception as e:
                 logger.error("transport.connect raised error")
                 logger.error(traceback.format_exc())
+                self._cancel_connection_watchdog(op)
                 self._pending_connection_op = None
                 op.complete(error=e)
 
@@ -127,11 +179,13 @@ class MQTTTransportStage(PipelineStage):
             # We set _active_connect_op here because reauthorizing the connection is the same as a connect for "active operation" tracking purposes.
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
+            self._start_connection_watchdog(op)
             try:
                 self.transport.reauthorize_connection(password=self.sas_token)
             except Exception as e:
                 logger.error("transport.reauthorize_connection raised error")
                 logger.error(traceback.format_exc())
+                self._cancel_connection_watchdog(op)
                 self._pending_connection_op = None
                 # Send up a DisconenctedEvent.  If we ran a ReauthorizeConnectionOperatoin,
                 # some code must think we're still connected.  If we got an exception here,
@@ -148,6 +202,10 @@ class MQTTTransportStage(PipelineStage):
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
+            # We don't need a watchdog on disconnect because there's no callback to wait for
+            # and we respond to a watchdog timeout by calling disconnect, which is what we're
+            # already doing.
+
             try:
                 self.transport.disconnect()
             except Exception as e:
@@ -232,6 +290,7 @@ class MQTTTransportStage(PipelineStage):
         ):
             logger.debug("completing connect op")
             op = self._pending_connection_op
+            self._cancel_connection_watchdog(op)
             self._pending_connection_op = None
             op.complete()
         else:
@@ -257,6 +316,7 @@ class MQTTTransportStage(PipelineStage):
         ):
             logger.debug("{}: failing connect op".format(self.name))
             op = self._pending_connection_op
+            self._cancel_connection_watchdog(op)
             self._pending_connection_op = None
             op.complete(error=cause)
         else:
@@ -289,6 +349,7 @@ class MQTTTransportStage(PipelineStage):
                 "{}: completing pending {} op".format(self.name, self._pending_connection_op.name)
             )
             op = self._pending_connection_op
+            self._cancel_connection_watchdog(op)
             self._pending_connection_op = None
 
             if isinstance(op, pipeline_ops_base.DisconnectOperation):
