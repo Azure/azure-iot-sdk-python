@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 # DO NOT use urllib.parse.quote_plus(), as it turns ' ' characters into '+',
 # which is invalid for MQTT publishes.
 #
-# DO NOT use urllib.parse.unquote_plus(). as it turns '+' characters into ' ',
-# which is invalid.
+# DO NOT use urllib.parse.unquote_plus(), as it turns '+' characters into ' ',
+# which is also invalid.
 
 
 def _get_topic_base(device_id, module_id=None):
@@ -99,8 +99,6 @@ def get_twin_topic_for_publish(method, resource_location, request_id):
     """
     :return: The topic for publishing twin requests / patches. It is of the format
     "$iothub/twin/<method><resourceLocation>?$rid=<requestId>
-
-    Note that all inputs MUST be strings (not ints!)
     """
     return "$iothub/twin/{method}{resource_location}?$rid={request_id}".format(
         method=method,

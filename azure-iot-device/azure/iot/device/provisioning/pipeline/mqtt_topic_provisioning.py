@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 #
 # DO NOT use urllib.parse.quote_plus(), as it turns ' ' characters into '+',
 # which is invalid for MQTT publishes.
+#
+# DO NOT use urllib.parse.unquote_plus(), as it turns '+' characters into ' ',
+# which is also invalid.
 
 
 def _get_topic_base():
