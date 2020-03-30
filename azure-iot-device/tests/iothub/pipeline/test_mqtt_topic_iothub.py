@@ -14,11 +14,16 @@ logging.basicConfig(level=logging.DEBUG)
 
 # NOTE: All tests (that require it) are parametrized with multiple values for URL encoding.
 # This is to show that the URL encoding is done correctly - not all URL encoding encodes
-# the same way. We must always test the ' ' and '/' characters specifically, in addition
+# the same way.
+#
+# For URL encoding, we must always test the ' ' and '/' characters specifically, in addition
 # to a generic URL encoding value (e.g. $, #, etc.)
 #
 # For URL decoding, we must always test the '+' character speicifically, in addition to
-# a generic URL encoding value (e.g. $, #, etc.)
+# a generic URL encoded value (e.g. %24, %23, etc.)
+#
+# Please also always test that provided values are converted to strings in order to ensure
+# that they can be URL encoded without error.
 #
 # PLEASE DO THESE TESTS FOR EVEN CASES WHERE THOSE CHARACTERS SHOULD NOT OCCUR, FOR SAFETY.
 
@@ -48,6 +53,13 @@ class TestGetC2DTopicForSubscribe(object):
         ],
     )
     def test_url_encoding(self, device_id, expected_topic):
+        topic = mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id)
+        assert topic == expected_topic
+
+    @pytest.mark.it("Converts the device_id to string when generating the topic")
+    def test_str_conversion(self):
+        device_id = 2000
+        expected_topic = "devices/2000/messages/devicebound/#"
         topic = mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id)
         assert topic == expected_topic
 
@@ -87,6 +99,14 @@ class TestGetInputTopicForSubscribe(object):
         ],
     )
     def test_url_encoding(self, device_id, module_id, expected_topic):
+        topic = mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
+        assert topic == expected_topic
+
+    @pytest.mark.it("Converts the device_id and module_id to string when generating the topic")
+    def test_str_conversion(self):
+        device_id = 2000
+        module_id = 4000
+        expected_topic = "devices/2000/modules/4000/inputs/#"
         topic = mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
         assert topic == expected_topic
 
@@ -180,6 +200,18 @@ class TestGetTelemetryTopicForPublish(object):
         topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(device_id, module_id)
         assert topic == expected_topic
 
+    @pytest.mark.it("Converts the device_id and module_id to string when generating the topic")
+    @pytest.mark.parametrize(
+        "device_id, module_id, expected_topic",
+        [
+            pytest.param(2000, None, "devices/2000/messages/events/", id="Device"),
+            pytest.param(2000, 4000, "devices/2000/modules/4000/messages/events/", id="Module"),
+        ],
+    )
+    def test_str_conversion(self, device_id, module_id, expected_topic):
+        topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(device_id, module_id)
+        assert topic == expected_topic
+
 
 @pytest.mark.describe(".get_method_topic_for_publish()")
 class TestGetMethodTopicForPublish(object):
@@ -222,6 +254,14 @@ class TestGetMethodTopicForPublish(object):
         ],
     )
     def test_url_encoding(self, request_id, status, expected_topic):
+        topic = mqtt_topic_iothub.get_method_topic_for_publish(request_id, status)
+        assert topic == expected_topic
+
+    @pytest.mark.it("Converts the provided values to strings when generating the topic")
+    def test_str_conversion(self):
+        request_id = 1
+        status = 200
+        expected_topic = "$iothub/methods/res/200/?$rid=1"
         topic = mqtt_topic_iothub.get_method_topic_for_publish(request_id, status)
         assert topic == expected_topic
 
@@ -306,6 +346,26 @@ class TestGetTwinTopicForPublish(object):
         topic = mqtt_topic_iothub.get_twin_topic_for_publish(method, resource_location, request_id)
         assert topic == expected_topic
 
+    @pytest.mark.it("Converts 'request_id' parameter to string when generating the topic")
+    @pytest.mark.parametrize(
+        "method, resource_location, request_id, expected_topic",
+        [
+            # Get Twin
+            pytest.param("GET", "/", 4000, "$iothub/twin/GET/?$rid=4000", id="Get Twin"),
+            # Patch Twin
+            pytest.param(
+                "POST",
+                "/properties/reported/",
+                2000,
+                "$iothub/twin/POST/properties/reported/?$rid=2000",
+                id="Patch Twin",
+            ),
+        ],
+    )
+    def test_str_conversion(self, method, resource_location, request_id, expected_topic):
+        topic = mqtt_topic_iothub.get_twin_topic_for_publish(method, resource_location, request_id)
+        assert topic == expected_topic
+
 
 @pytest.mark.describe(".is_c2d_topic()")
 class TestIsC2DTopic(object):
@@ -332,7 +392,7 @@ class TestIsC2DTopic(object):
                 id="URL encoding of ' ' character required for device_id",
             ),
             # Note that this topic string is completely broken, even beyond the fact that device id's can't have a '/' in them.
-            # A device id with a '/' would not be possible to unencode correctly, because the '/' in the device name encoded in the
+            # A device id with a '/' would not be possible to decode correctly, because the '/' in the device name encoded in the
             # system properties would cause the system properties to not be able to be decoded correctly. But, like many tests
             # this is just for completeness, safety, and consistency.
             pytest.param(
@@ -343,6 +403,12 @@ class TestIsC2DTopic(object):
         ],
     )
     def test_url_encodes(self, topic, device_id):
+        assert mqtt_topic_iothub.is_c2d_topic(topic, device_id)
+
+    @pytest.mark.it("Converts the device id to string when matching to the topic")
+    def test_str_conversion(self):
+        topic = "devices/2000/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2F2000%2Fmessages%2Fdevicebound"
+        device_id = 2000
         assert mqtt_topic_iothub.is_c2d_topic(topic, device_id)
 
     @pytest.mark.it("Returns False if the provided topic is not a C2D topic")
@@ -410,6 +476,13 @@ class TestIsInputTopic(object):
         ],
     )
     def test_url_encodes(self, topic, device_id, module_id):
+        assert mqtt_topic_iothub.is_input_topic(topic, device_id, module_id)
+
+    @pytest.mark.it("Converts the device_id and module_id to string when matching to the topic")
+    def test_str_conversion(self):
+        topic = "devices/2000/modules/4000/inputs/fake_input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2F2000%2Fmodules%2F4000%2Finputs%2Ffake_input"
+        device_id = 2000
+        module_id = 4000
         assert mqtt_topic_iothub.is_input_topic(topic, device_id, module_id)
 
     @pytest.mark.it("Returns False if the provided topic is not an input topic")
@@ -530,9 +603,22 @@ class TestGetInputNameFromTopic(object):
         assert mqtt_topic_iothub.get_input_name_from_topic(topic) == expected_input_name
 
     @pytest.mark.it("URL decodes the returned input name")
-    def test_url_decodes_value(self):
-        topic = "devices/fake_device/modules/fake_module/inputs/fake%24input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake%24input"
-        expected_input_name = "fake$input"
+    @pytest.mark.parametrize(
+        "topic, expected_input_name",
+        [
+            pytest.param(
+                "devices/fake_device/modules/fake_module/inputs/fake%24input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake%24input",
+                "fake$input",
+                id="Standard URL Decoding",
+            ),
+            pytest.param(
+                "devices/fake_device/modules/fake_module/inputs/fake+input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake+input",
+                "fake+input",
+                id="Does NOT decode '+' character",
+            ),
+        ],
+    )
+    def test_url_decodes_value(self, topic, expected_input_name):
         assert mqtt_topic_iothub.get_input_name_from_topic(topic) == expected_input_name
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not an input name topic")
@@ -562,9 +648,22 @@ class TestGetMethodNameFromTopic(object):
         assert mqtt_topic_iothub.get_method_name_from_topic(topic) == expected_method_name
 
     @pytest.mark.it("URL decodes the returned method name")
-    def test_url_decodes_value(self):
-        topic = "$iothub/methods/POST/fake%24method/?$rid=1"
-        expected_method_name = "fake$method"
+    @pytest.mark.parametrize(
+        "topic, expected_method_name",
+        [
+            pytest.param(
+                "$iothub/methods/POST/fake%24method/?$rid=1",
+                "fake$method",
+                id="Standard URL Decoding",
+            ),
+            pytest.param(
+                "$iothub/methods/POST/fake+method/?$rid=1",
+                "fake+method",
+                id="Does NOT decode '+' character",
+            ),
+        ],
+    )
+    def test_url_decodes_value(self, topic, expected_method_name):
         assert mqtt_topic_iothub.get_method_name_from_topic(topic) == expected_method_name
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not a method topic")
@@ -593,12 +692,23 @@ class TestGetMethodRequestIdFromTopic(object):
 
         assert mqtt_topic_iothub.get_method_request_id_from_topic(topic) == expected_request_id
 
-    # NOTE: valid request ids shouldn't need to be URL decoded, but we do it for safety
-    # and consistency. As a result, this test covers request_id values that are not valid
     @pytest.mark.it("URL decodes the returned value")
-    def test_url_decodes_value(self):
-        topic = "$iothub/methods/POST/fake_method/?$rid=fake%24request%2Fid"
-        expected_request_id = "fake$request/id"
+    @pytest.mark.parametrize(
+        "topic, expected_request_id",
+        [
+            pytest.param(
+                "$iothub/methods/POST/fake_method/?$rid=fake%24request%2Fid",
+                "fake$request/id",
+                id="Standard URL Decoding",
+            ),
+            pytest.param(
+                "$iothub/methods/POST/fake_method/?$rid=fake+request+id",
+                "fake+request+id",
+                id="Does NOT decode '+' character",
+            ),
+        ],
+    )
+    def test_url_decodes_value(self, topic, expected_request_id):
         assert mqtt_topic_iothub.get_method_request_id_from_topic(topic) == expected_request_id
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not a method topic")
@@ -627,12 +737,23 @@ class TestGetTwinRequestIdFromTopic(object):
 
         assert mqtt_topic_iothub.get_twin_request_id_from_topic(topic) == expected_request_id
 
-    # NOTE: valid request ids shouldn't need to be URL decoded, but we do it for safety
-    # and consistency. As a result, this test covers request_id values that are not valid
     @pytest.mark.it("URL decodes the returned value")
-    def test_url_decodes_value(self):
-        topic = "$iothub/twin/res/200/?rid=fake%24request%2Fid"
-        expected_request_id = "fake$request/id"
+    @pytest.mark.parametrize(
+        "topic, expected_request_id",
+        [
+            pytest.param(
+                "$iothub/twin/res/200/?rid=fake%24request%2Fid",
+                "fake$request/id",
+                id="Standard URL Decoding",
+            ),
+            pytest.param(
+                "$iothub/twin/res/200/?rid=fake+request+id",
+                "fake+request+id",
+                id="Does NOT decode '+' character",
+            ),
+        ],
+    )
+    def test_url_decodes_value(self, topic, expected_request_id):
         assert mqtt_topic_iothub.get_twin_request_id_from_topic(topic) == expected_request_id
 
     @pytest.mark.it("Raises a ValueError if the provided topic is not a twin response topic")
@@ -661,6 +782,21 @@ class TestGetTwinStatusCodeFromTopic(object):
 
         assert mqtt_topic_iothub.get_twin_status_code_from_topic(topic) == expected_status
 
+    @pytest.mark.it("URL decodes the returned value")
+    @pytest.mark.parametrize(
+        "topic, expected_status",
+        [
+            pytest.param("$iothub/twin/res/%24%24%24/?rid=1", "$$$", id="Standard URL decoding"),
+            pytest.param(
+                "$iothub/twin/res/invalid+status/?rid=1",
+                "invalid+status",
+                id="Does NOT decode '+' character",
+            ),
+        ],
+    )
+    def test_url_decode(self, topic, expected_status):
+        assert mqtt_topic_iothub.get_twin_status_code_from_topic(topic) == expected_status
+
     @pytest.mark.it("Raises a ValueError if the provided topic is not a twin response topic")
     @pytest.mark.parametrize(
         "topic",
@@ -678,7 +814,6 @@ class TestGetTwinStatusCodeFromTopic(object):
             mqtt_topic_iothub.get_twin_request_id_from_topic(topic)
 
 
-# CT-TODO: add input message topic tests for all tests in this class
 @pytest.mark.describe(".extract_message_properties_from_topic()")
 class TestExtractMessagePropertiesFromTopic(object):
     @pytest.mark.it("Adds properties from topic to Message object")
@@ -771,6 +906,18 @@ class TestExtractMessagePropertiesFromTopic(object):
                 id="C2D message topic, Standard URL decoding",
             ),
             pytest.param(
+                "devices/fake+device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake+corid&%24.mid=message+id&%24.to=%2Fdevices%2Ffake+device%2Fmessages%2Fdevicebound&%24.ct=fake+content+type&%24.ce=utf-+&custom+1=value+1&custom+2=value+2&custom+3=value+3",
+                {
+                    "mid": "message+id",
+                    "exp": "3237-07-19T23:06:40.0000000Z",
+                    "cid": "fake+corid",
+                    "ct": "fake+content+type",
+                    "ce": "utf-+",
+                },
+                {"custom+1": "value+1", "custom+2": "value+2", "custom+3": "value+3"},
+                id="C2D message topic, does NOT decode '+' character",
+            ),
+            pytest.param(
                 "devices/fake%24device/modules/fake%23module/inputs/fake%25input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake%23corid&%24.mid=message%24id&%24.to=%2Fdevices%2Ffake%24device%2Fmodules%2Ffake%23module%2Finputs%2Ffake%25input&%24.ct=fake%23content%24type&%24.ce=utf-%24&custom%2A=value%23&custom%26=value%24&custom%25=value%40",
                 {
                     "mid": "message$id",
@@ -781,6 +928,18 @@ class TestExtractMessagePropertiesFromTopic(object):
                 },
                 {"custom*": "value#", "custom&": "value$", "custom%": "value@"},
                 id="Input message topic, Standard URL decoding",
+            ),
+            pytest.param(
+                "devices/fake+device/modules/fake+module/inputs/fake+input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake+corid&%24.mid=message+id&%24.to=%2Fdevices%2Ffake+device%2Fmodules%2Ffake+module%2Finputs%2Ffake+input&%24.ct=fake+content+type&%24.ce=utf-+&custom+1=value+1&custom+2=value+2&custom+3=value+3",
+                {
+                    "mid": "message+id",
+                    "exp": "3237-07-19T23:06:40.0000000Z",
+                    "cid": "fake+corid",
+                    "ct": "fake+content+type",
+                    "ce": "utf-+",
+                },
+                {"custom+1": "value+1", "custom+2": "value+2", "custom+3": "value+3"},
+                id="Input message topic, does NOT decode '+' character",
             ),
         ],
     )
@@ -1012,3 +1171,26 @@ class TestEncodeMessagePropertiesInTopic(object):
         assert encoded_topic.startswith(message_topic)
         encoding = encoded_topic.split(message_topic)[1]
         assert encoding == expected_encoding
+
+    @pytest.mark.it("String converts message properties when adding them to the topic")
+    def test_str_conversion(self, message_topic):
+        system_properties = {"mid": 1234, "cid": 5678, "uid": 4000, "on": 2222, "ce": 8, "ct": 12}
+        custom_properties = {1: 23, 47: 245, 3000: 9458}
+        expected_encoding = "%24.on=2222&%24.mid=1234&%24.cid=5678&%24.uid=4000&%24.ct=12&%24.ce=8&1=23&3000=9458&47=245"
+        message = self.create_message(system_properties, custom_properties)
+        encoded_topic = mqtt_topic_iothub.encode_message_properties_in_topic(message, message_topic)
+
+        assert encoded_topic.startswith(message_topic)
+        encoding = encoded_topic.split(message_topic)[1]
+        assert encoding == expected_encoding
+
+    @pytest.mark.it(
+        "Raises ValueError if duplicate keys exist in custom properties due to string conversion"
+    )
+    def test_duplicate_keys(self, message_topic):
+        system_properties = {}
+        custom_properties = {1: "val1", "1": "val2"}
+        message = self.create_message(system_properties, custom_properties)
+
+        with pytest.raises(ValueError):
+            mqtt_topic_iothub.encode_message_properties_in_topic(message, message_topic)

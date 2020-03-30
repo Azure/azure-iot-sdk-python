@@ -12,8 +12,16 @@ logging.basicConfig(level=logging.DEBUG)
 
 # NOTE: All tests (that require it) are parametrized with multiple values for URL encoding.
 # This is to show that the URL encoding is done correctly - not all URL encoding encodes
-# the same way. We must always test the ' ' and '/' characters specifically, in addition
+# the same way.
+#
+# For URL encoding, we must always test the ' ' and '/' characters specifically, in addition
 # to a generic URL encoding value (e.g. $, #, etc.)
+#
+# For URL decoding, we must always test the '+' character speicifically, in addition to
+# a generic URL encoded value (e.g. %24, %23, etc.)
+#
+# Please also always test that provided values are converted to strings in order to ensure
+# that they can be URL encoded without error.
 #
 # PLEASE DO THESE TESTS FOR EVEN CASES WHERE THOSE CHARACTERS SHOULD NOT OCCUR, FOR SAFETY.
 
@@ -37,9 +45,6 @@ class TestGetRegisterTopicForPublish(object):
         topic = mqtt_topic_provisioning.get_register_topic_for_publish(request_id)
         assert topic == expected_topic
 
-    # NOTE: request_id should not require URL encoding.
-    # No valid value would require URL encoding to be transmitted.
-    # However, we encode it anyway for safety.
     @pytest.mark.it("URL encodes the request id when generating the topic")
     @pytest.mark.parametrize(
         "request_id, expected_topic",
@@ -65,6 +70,13 @@ class TestGetRegisterTopicForPublish(object):
         topic = mqtt_topic_provisioning.get_register_topic_for_publish(request_id)
         assert topic == expected_topic
 
+    @pytest.mark.it("Converts the request id to string when generating the topic")
+    def test_string_conversion(self):
+        request_id = 1234
+        expected_topic = "$dps/registrations/PUT/iotdps-register/?$rid=1234"
+        topic = mqtt_topic_provisioning.get_register_topic_for_publish(request_id)
+        assert topic == expected_topic
+
 
 class TestGetQueryTopicForPublish(object):
     @pytest.mark.it("Returns the topic for publishing query requests to DPS")
@@ -75,10 +87,7 @@ class TestGetQueryTopicForPublish(object):
         topic = mqtt_topic_provisioning.get_query_topic_for_publish(request_id, operation_id)
         assert topic == expected_topic
 
-    # NOTE: request_id and operation_id should not require URL encoding.
-    # No valid value would require URL encoding to be transmitted.
-    # However, we encode them anyway for safety.
-    @pytest.mark.it("URL encodes the request id and operation id")
+    @pytest.mark.it("URL encodes the request id and operation id when generating the topic")
     @pytest.mark.parametrize(
         "request_id, operation_id, expected_topic",
         [
@@ -103,6 +112,16 @@ class TestGetQueryTopicForPublish(object):
         ],
     )
     def test_url_encoding(self, request_id, operation_id, expected_topic):
+        topic = mqtt_topic_provisioning.get_query_topic_for_publish(request_id, operation_id)
+        assert topic == expected_topic
+
+    @pytest.mark.it("Converts the request id and operation id to string when generating the topic")
+    def test_string_conversion(self):
+        request_id = 1234
+        operation_id = 4567
+        expected_topic = (
+            "$dps/registrations/GET/iotdps-get-operationstatus/?$rid=1234&operationId=4567"
+        )
         topic = mqtt_topic_provisioning.get_query_topic_for_publish(request_id, operation_id)
         assert topic == expected_topic
 
@@ -188,9 +207,6 @@ class TestExtractPropertiesFromDpsResponseTopic(object):
             == expected_dict
         )
 
-    # NOTE: properties should not require URL decoding.
-    # No valid value would require URL encoding to be transmitted.
-    # However, we treat them as if they were encoded anyway for safety (and ease of use).
     @pytest.mark.it("URL decodes properties extracted from the DPS response topic")
     @pytest.mark.parametrize(
         "topic, expected_dict",
@@ -201,14 +217,9 @@ class TestExtractPropertiesFromDpsResponseTopic(object):
                 id="Standard URL decoding",
             ),
             pytest.param(
-                "$dps/registrations/res/200/?$rid=request%20id",
-                {"rid": "request id"},
-                id="URL decoding of ' ' character",
-            ),
-            pytest.param(
-                "$dps/registrations/res/200/?$rid=request%2Fid",
-                {"rid": "request/id"},
-                id="URL decoding of '/' character",
+                "$dps/registrations/res/200/?$rid=request+id",
+                {"rid": "request+id"},
+                id="Ddoes NOT decode '+' character",
             ),
         ],
     )
@@ -251,6 +262,28 @@ class TestExtractStatusCodeFromDpsResponseTopic(object):
         ],
     )
     def test_returns_status(self, topic, expected_status):
+        assert (
+            mqtt_topic_provisioning.extract_status_code_from_dps_response_topic(topic)
+            == expected_status
+        )
+
+    @pytest.mark.it("URL decodes the status code extracted from DPS response topic")
+    @pytest.mark.parametrize(
+        "topic, expected_status",
+        [
+            pytest.param(
+                "$dps/registrations/res/%24%24%24/?$rid=3226c2f7-3d30-425c-b83b-0c34335f8220",
+                "$$$",
+                id="Standard URL decoding",
+            ),
+            pytest.param(
+                "$dps/registrations/res/invalid+status/?$rid=3226c2f7-3d30-425c-b83b-0c34335f8220",
+                "invalid+status",
+                id="Does NOT decode '+' character",
+            ),
+        ],
+    )
+    def test_url_decode(self, topic, expected_status):
         assert (
             mqtt_topic_provisioning.extract_status_code_from_dps_response_topic(topic)
             == expected_status

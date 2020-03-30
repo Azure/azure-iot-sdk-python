@@ -28,9 +28,9 @@ def _get_topic_base(device_id, module_id=None):
     device/module
     """
 
-    topic = "devices/" + urllib.parse.quote(device_id, safe="")
+    topic = "devices/" + urllib.parse.quote(str(device_id), safe="")
     if module_id:
-        topic = topic + "/modules/" + urllib.parse.quote(module_id, safe="")
+        topic = topic + "/modules/" + urllib.parse.quote(str(module_id), safe="")
     return topic
 
 
@@ -85,12 +85,10 @@ def get_method_topic_for_publish(request_id, status):
     """
     :return: The topic for publishing method responses. It is of the format
     "$iothub/methods/res/<status>/?$rid=<requestId>
-
-    Note that all inputs MUST be strings (not ints!)
     """
     return "$iothub/methods/res/{status}/?$rid={request_id}".format(
-        status=urllib.parse.quote(status, safe=""),
-        request_id=urllib.parse.quote(request_id, safe=""),
+        status=urllib.parse.quote(str(status), safe=""),
+        request_id=urllib.parse.quote(str(request_id), safe=""),
     )
 
 
@@ -107,7 +105,7 @@ def get_twin_topic_for_publish(method, resource_location, request_id):
     return "$iothub/twin/{method}{resource_location}?$rid={request_id}".format(
         method=method,
         resource_location=resource_location,
-        request_id=urllib.parse.quote(request_id, safe=""),
+        request_id=urllib.parse.quote(str(request_id), safe=""),
     )
 
 
@@ -117,7 +115,10 @@ def is_c2d_topic(topic, device_id):
     devices/<deviceId>/messages/devicebound
     :param topic: The topic string
     """
-    if "devices/{}/messages/devicebound".format(urllib.parse.quote(device_id, safe="")) in topic:
+    if (
+        "devices/{}/messages/devicebound".format(urllib.parse.quote(str(device_id), safe=""))
+        in topic
+    ):
         return True
     return False
 
@@ -132,7 +133,7 @@ def is_input_topic(topic, device_id, module_id):
         return False
     if (
         "devices/{}/modules/{}/inputs/".format(
-            urllib.parse.quote(device_id, safe=""), urllib.parse.quote(module_id, safe="")
+            urllib.parse.quote(str(device_id), safe=""), urllib.parse.quote(str(module_id), safe="")
         )
         in topic
     ):
@@ -249,7 +250,7 @@ def get_twin_status_code_from_topic(topic):
     """
     parts = topic.split("/")
     if is_twin_response_topic(topic) and len(parts) >= 4:
-        return parts[3]
+        return urllib.parse.unquote(parts[3])
     else:
         raise ValueError("topic has incorrect format")
 
@@ -279,6 +280,9 @@ def extract_message_properties_from_topic(topic, message_received):
 
     # We do not want to extract values corresponding to these keys
     ignored_extraction_values = ["iothub-ack", "$.to"]
+
+    # NOTE: we cannot use urllib.parse.parse_qs because it always decodes '+' as ' ',
+    # and the behavior cannot be overriden. Must parse key/value pairs manually.
 
     if properties:
         key_value_pairs = properties.split("&")
@@ -320,30 +324,30 @@ def encode_message_properties_in_topic(message_to_send, topic):
     """
     system_properties = []
     if message_to_send.output_name:
-        system_properties.append(("$.on", message_to_send.output_name))
+        system_properties.append(("$.on", str(message_to_send.output_name)))
     if message_to_send.message_id:
-        system_properties.append(("$.mid", message_to_send.message_id))
+        system_properties.append(("$.mid", str(message_to_send.message_id)))
 
     if message_to_send.correlation_id:
-        system_properties.append(("$.cid", message_to_send.correlation_id))
+        system_properties.append(("$.cid", str(message_to_send.correlation_id)))
 
     if message_to_send.user_id:
-        system_properties.append(("$.uid", message_to_send.user_id))
+        system_properties.append(("$.uid", str(message_to_send.user_id)))
 
     if message_to_send.content_type:
-        system_properties.append(("$.ct", message_to_send.content_type))
+        system_properties.append(("$.ct", str(message_to_send.content_type)))
 
     if message_to_send.content_encoding:
-        system_properties.append(("$.ce", message_to_send.content_encoding))
+        system_properties.append(("$.ce", str(message_to_send.content_encoding)))
 
     if message_to_send.iothub_interface_id:
-        system_properties.append(("$.ifid", message_to_send.iothub_interface_id))
+        system_properties.append(("$.ifid", str(message_to_send.iothub_interface_id)))
 
     if message_to_send.expiry_time_utc:
         system_properties.append(
             (
                 "$.exp",
-                message_to_send.expiry_time_utc.isoformat()
+                message_to_send.expiry_time_utc.isoformat()  # returns string
                 if isinstance(message_to_send.expiry_time_utc, date)
                 else message_to_send.expiry_time_utc,
             )
@@ -357,10 +361,20 @@ def encode_message_properties_in_topic(message_to_send, topic):
     if message_to_send.custom_properties and len(message_to_send.custom_properties) > 0:
         if system_properties and len(system_properties) > 0:
             topic += "&"
+
         # Convert the custom properties to a sorted list in order to ensure the
-        # resulting ordering in the topic string is consistent across versions of Python
-        custom_prop_seq = list(message_to_send.custom_properties.items())
+        # resulting ordering in the topic string is consistent across versions of Python.
+        # Convert to the properties to strings for safety.
+        custom_prop_seq = [
+            (str(i[0]), str(i[1])) for i in list(message_to_send.custom_properties.items())
+        ]
         custom_prop_seq.sort()
+
+        # Validate that string conversion has not created duplicate keys
+        keys = [i[0] for i in custom_prop_seq]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Duplicate keys in custom properties!")
+
         user_properties_encoded = version_compat.urlencode(
             custom_prop_seq, quote_via=urllib.parse.quote
         )

@@ -38,7 +38,7 @@ def get_register_topic_for_publish(request_id):
     "$dps/registrations/PUT/iotdps-register/?$rid=<request_id>
     """
     return (_get_topic_base() + "PUT/iotdps-register/?$rid={request_id}").format(
-        request_id=urllib.parse.quote(request_id, safe="")
+        request_id=urllib.parse.quote(str(request_id), safe="")
     )
 
 
@@ -51,8 +51,8 @@ def get_query_topic_for_publish(request_id, operation_id):
         _get_topic_base()
         + "GET/iotdps-get-operationstatus/?$rid={request_id}&operationId={operation_id}"
     ).format(
-        request_id=urllib.parse.quote(request_id, safe=""),
-        operation_id=urllib.parse.quote(operation_id, safe=""),
+        request_id=urllib.parse.quote(str(request_id), safe=""),
+        operation_id=urllib.parse.quote(str(operation_id), safe=""),
     )
 
 
@@ -83,12 +83,23 @@ def extract_properties_from_dps_response_topic(topic):
     :return: a dictionary of property keys mapped to property values.
     """
     topic_parts = topic.split("$")
-    key_value_dict = urllib.parse.parse_qs(topic_parts[2])
-    for k, v in key_value_dict.items():
-        if len(v) > 1:
-            raise ValueError("Duplicate keys in DPS response topic")
-        else:
-            key_value_dict[k] = v[0]
+    properties = topic_parts[2]
+
+    # NOTE: we cannot use urllib.parse.parse_qs because it always decodes '+' as ' ',
+    # and the behavior cannot be overriden. Must parse key/value pairs manually.
+
+    if properties:
+        key_value_pairs = properties.split("&")
+        key_value_dict = {}
+        for entry in key_value_pairs:
+            pair = entry.split("=")
+            key = urllib.parse.unquote(pair[0])
+            value = urllib.parse.unquote(pair[1])
+            if key_value_dict.get(key):
+                raise ValueError("Duplicate keys in DPS response topic")
+            else:
+                key_value_dict[key] = value
+
     return key_value_dict
 
 
@@ -104,4 +115,4 @@ def extract_status_code_from_dps_response_topic(topic):
     topic_parts = topic.split("$")
     url_parts = topic_parts[1].split("/")
     status_code = url_parts[POS_STATUS_CODE_IN_TOPIC]
-    return status_code
+    return urllib.parse.unquote(status_code)
