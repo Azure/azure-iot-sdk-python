@@ -1456,6 +1456,249 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithResponseEvent(
 
 
 @pytest.mark.describe(
+    "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- Called with ConnectedEvent"
+)
+class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent(
+    CoordinateRequestAndResponseStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def event(self):
+        return pipeline_events_base.ConnectedEvent()
+
+    def make_new_request_response_op(self, mocker, id):
+        return pipeline_ops_base.RequestAndResponseOperation(
+            request_type="some_request_type",
+            method="SOME_METHOD",
+            resource_location="some/resource/location/{}".format(id),
+            request_body="some_request_body",
+            callback=mocker.MagicMock(),
+        )
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
+        stage.send_event_up = mocker.MagicMock()
+        stage.send_op_down = mocker.MagicMock()
+
+        return stage
+
+    @pytest.mark.it(
+        "Sends down a new RequestOperation if the previous RequestOperation never completed"
+    )
+    def test_request_never_completed(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+
+        # send it down but don't complete it
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that it got sent again
+        assert stage.send_op_down.call_count == 2
+        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_base.RequestOperation)
+        assert stage.send_op_down.call_args[0][0].request_id == op1_guid
+
+    @pytest.mark.it(
+        "Sends down a new RequestOperation if the previous RequestOperation completed, but no corresponding ResponseEvent was receveived"
+    )
+    def test_response_never_received(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+
+        # send it down and completed the RequestOperation
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+        stage.send_op_down.call_args[0][0].complete()
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that it got sent again
+        assert stage.send_op_down.call_count == 2
+        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_base.RequestOperation)
+        assert stage.send_op_down.call_args[0][0].request_id == op1_guid
+
+    @pytest.mark.it(
+        "Sends down multiple RequestOperations if previous RequestOperations never completed"
+    )
+    def test_multiple_requests_never_completed(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+        op2 = self.make_new_request_response_op(mocker, "op2")
+
+        # send 2 ops down but don't complete them
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+
+        stage.run_op(op2)
+        assert stage.send_op_down.call_count == 2
+        op2_guid = stage.send_op_down.call_args[0][0].request_id
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that 2 more RequestOperation ops were send down
+        assert stage.send_op_down.call_count == 4
+        assert isinstance(
+            stage.send_op_down.call_args_list[0][0][0], pipeline_ops_base.RequestOperation
+        )
+        assert isinstance(
+            stage.send_op_down.call_args_list[1][0][0], pipeline_ops_base.RequestOperation
+        )
+
+        assert (
+            stage.send_op_down.call_args_list[2][0][0].request_id == op1_guid
+            and stage.send_op_down.call_args_list[3][0][0].request_id == op2_guid
+        ) or (
+            stage.send_op_down.call_args_list[2][0][0].request_id == op2_guid
+            and stage.send_op_down.call_args_list[3][0][0].request_id == op1_guid
+        )
+
+    @pytest.mark.it(
+        "Sends down multiple RequestOperations if previous RequestOperations completed, but the correspondig ResponseEvents were reveived"
+    )
+    def test_multiple_responses_never_received(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+        op2 = self.make_new_request_response_op(mocker, "op2")
+
+        # send 2 ops down
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+
+        stage.run_op(op2)
+        assert stage.send_op_down.call_count == 2
+        op2_guid = stage.send_op_down.call_args[0][0].request_id
+
+        # complete the 2 RequestOperation ops
+        stage.send_op_down.call_arg_list[0][0][0].complete()
+        stage.send_op_down.call_arg_list[1][0][0].complete()
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that 2 more RequestOperation ops were send down
+        assert stage.send_op_down.call_count == 4
+        assert isinstance(
+            stage.send_op_down.call_args_list[0][0][0], pipeline_ops_base.RequestOperation
+        )
+        assert isinstance(
+            stage.send_op_down.call_args_list[1][0][0], pipeline_ops_base.RequestOperation
+        )
+
+        assert (
+            stage.send_op_down.call_args_list[2][0][0].request_id == op1_guid
+            and stage.send_op_down.call_args_list[3][0][0].request_id == op2_guid
+        ) or (
+            stage.send_op_down.call_args_list[2][0][0].request_id == op2_guid
+            and stage.send_op_down.call_args_list[3][0][0].request_id == op1_guid
+        )
+
+    @pytest.mark.it(
+        "Does not send down a new RequestOperation if the RequestAndResponseOperation completed"
+    )
+    def test_request_and_response_completed(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+
+        # send it down and complete the RequestOperation op
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+        stage.send_op_down.call_args[0][0].complete()
+
+        # simulate the corresponding response
+        response_event = pipeline_events_base.ResponseEvent(
+            request_id=op1_guid, status_code=200, response_body="response body"
+        )
+        stage.handle_pipeline_event(response_event)
+
+        # verify that the op is complete
+        assert op1.completed
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that nothing else was sent
+        assert stage.send_op_down.call_count == 1
+
+    @pytest.mark.it("Can independently track and resend multiple RequestOperations")
+    def test_one_completed_one_outstanding(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+        op2 = self.make_new_request_response_op(mocker, "op2")
+
+        # send 2 ops down
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+
+        stage.run_op(op2)
+        assert stage.send_op_down.call_count == 2
+        op2_guid = stage.send_op_down.call_args[0][0].request_id
+
+        # complete the 2 RequestOperation ops
+        stage.send_op_down.call_arg_list[0][0][0].complete()
+        stage.send_op_down.call_arg_list[1][0][0].complete()
+
+        # simulate a response for the first RequestOperation
+        response_event = pipeline_events_base.ResponseEvent(
+            request_id=op1_guid, status_code=200, response_body="response body"
+        )
+        stage.handle_pipeline_event(response_event)
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that a new RequestOperation was sent down for the incomplete RequestAndResponseOperation
+        assert stage.send_op_down.call_count == 3
+        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_base.RequestOperation)
+        assert stage.send_op_down.call_args[0][0].request_id == op2_guid
+
+    @pytest.mark.it(
+        "Does not send down any RequestOperations if all previous RequestAndResponseOperations are complete"
+    )
+    def test_all_completed(self, stage, event, mocker):
+        op1 = self.make_new_request_response_op(mocker, "op1")
+        op2 = self.make_new_request_response_op(mocker, "op2")
+
+        # send 2 ops down
+        stage.run_op(op1)
+        assert stage.send_op_down.call_count == 1
+        op1_guid = stage.send_op_down.call_args[0][0].request_id
+
+        stage.run_op(op2)
+        assert stage.send_op_down.call_count == 2
+        op2_guid = stage.send_op_down.call_args[0][0].request_id
+
+        # complete the 2 RequestOperation ops
+        stage.send_op_down.call_arg_list[0][0][0].complete()
+        stage.send_op_down.call_arg_list[1][0][0].complete()
+
+        # simulate 2 responses
+        stage.handle_pipeline_event(
+            pipeline_events_base.ResponseEvent(
+                request_id=op1_guid, status_code=200, response_body="response body"
+            )
+        )
+        stage.handle_pipeline_event(
+            pipeline_events_base.ResponseEvent(
+                request_id=op2_guid, status_code=200, response_body="response body"
+            )
+        )
+
+        # simulate a connected event
+        stage.handle_pipeline_event(event)
+
+        # verify that nothing else was sent down
+        assert stage.send_op_down.call_count == 2
+
+
+@pytest.mark.describe(
     "CoordinateRequestAndResponseStage - .handle_pipeline_event() -- Called with arbitrary other event"
 )
 class TestCoordinateRequestAndResponseStageHandlePipelineEventWithArbitraryEvent(
