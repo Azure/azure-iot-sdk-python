@@ -6,11 +6,17 @@
 
 import json
 import logging
-from azure.iot.device.common.pipeline import pipeline_ops_base, PipelineStage, pipeline_thread
+import pprint  # BKTODO remove
+from azure.iot.device.common.pipeline import (
+    pipeline_events_base,
+    pipeline_ops_base,
+    PipelineStage,
+    pipeline_thread,
+)
 from azure.iot.device import exceptions
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
-from . import pipeline_ops_iothub
+from . import pipeline_events_iothub, pipeline_ops_iothub
 from . import constant
 
 logger = logging.getLogger(__name__)
@@ -93,6 +99,73 @@ class UseAuthProviderStage(PipelineStage):
                 callback=on_token_update_complete,
             )
         )
+
+
+class EnsureDesiredPropertiesStage(PipelineStage):
+    # BKTODO: enable last_version_seen on EnableFeatureOperation
+    def __init__(self):
+        self.last_version_seen = None
+        self.pending_get_request = None
+        super(EnsureDesiredPropertiesStage, self).__init__()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+            if op.feature_name == constant.TWIN_PATCHES:
+                logger.info(
+                    "{}: enabling twin patches.  setting last_version_seen".format(self.name)
+                )
+                self.last_version_seen = -1
+        self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _ensure_get_op(self):
+        if not self.pending_get_request:
+            logger.info("{}: sending twin GET to ensure freshness".format(self.name))
+            self.pending_get_request = pipeline_ops_iothub.GetTwinOperation(
+                callback=CallableWeakMethod(self, "_on_get_twin_complete")
+            )
+            self.send_op_down(self.pending_get_request)
+        else:
+            logger.info(
+                "{}: Outstanding twin GET already exists.  Not sending anything".format(self.name)
+            )
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _on_get_twin_complete(self, op, error):
+        logger.info("{}: _on_twin_get_complete".format(self.name))
+        self.pending_get_request = None
+        if error:
+            logger.info("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
+            self._ensure_get_op()
+        else:
+            logger.info("{} Twin GET response received.  Checking versions".format(self))
+            new_version = op.twin["desired"]["$version"]
+            logger.info(
+                "{}: old version = {}, new version = {}".format(
+                    self.name, self.last_version_seen, new_version
+                )
+            )
+            if self.last_version_seen != new_version:
+                logger.info("{}: Version changed.  Sending up new patch event".format(self.name))
+                self.last_version_seen = new_version
+                self.send_event_up(
+                    pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(op.twin["desired"])
+                )
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+            version = event.patch["$version"]
+            logger.info(
+                "{}: Desired patch received.  Saving $version={}".format(self.name, version)
+            )
+            self.last_version_seen = version
+        elif isinstance(event, pipeline_events_base.ConnectedEvent):
+            if self.last_version_seen:
+                logger.info("{}: Reconnected.  Getting twin")
+                self._ensure_get_op()
+        self.send_event_up(event)
 
 
 class TwinRequestResponseStage(PipelineStage):
