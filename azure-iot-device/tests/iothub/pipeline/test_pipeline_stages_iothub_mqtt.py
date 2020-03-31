@@ -103,7 +103,7 @@ fake_method_request_topic = "$iothub/methods/POST/{}/?$rid={}".format(
 )
 fake_method_request_payload = "{}".encode("utf-8")
 
-encoded_user_agent = urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())
+encoded_user_agent = urllib.parse.quote(ProductInfo.get_iothub_user_agent(), safe="")
 
 fake_message_user_property_1_key = "is-muggle"
 fake_message_user_property_1_value = "yes"

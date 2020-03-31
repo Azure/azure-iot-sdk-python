@@ -6,7 +6,8 @@
 
 import logging
 import json
-import six.moves.urllib as urllib
+from six.moves import urllib
+from azure.iot.device.common import version_compat
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -60,14 +61,17 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
             query_param_seq = [
                 ("api-version", pkg_constant.IOTHUB_API_VERSION),
-                ("DeviceClientType", ProductInfo.get_iothub_user_agent()),
+                (
+                    "DeviceClientType",
+                    ProductInfo.get_iothub_user_agent()
+                    + str(self.pipeline_root.pipeline_configuration.product_info),
+                ),
             ]
-            username = "{hostname}/{client_id}/?{query_params}{optional_product_info}".format(
+            username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=op.hostname,
                 client_id=client_id,
-                query_params=urllib.parse.urlencode(query_param_seq),
-                optional_product_info=urllib.parse.quote(
-                    str(self.pipeline_root.pipeline_configuration.product_info)
+                query_params=version_compat.urlencode(
+                    query_param_seq, quote_via=urllib.parse.quote
                 ),
             )
 
@@ -128,7 +132,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             op, pipeline_ops_iothub.SendOutputEventOperation
         ):
             # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
-            topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
+            topic = mqtt_topic_iothub.encode_message_properties_in_topic(
+                op.message, self.telemetry_topic
+            )
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
                 topic=topic,
@@ -194,9 +200,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             device_id, module_id
         )
         self.feature_to_topic = {
-            pipeline_constant.C2D_MSG: (
-                mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id, module_id)
-            ),
+            pipeline_constant.C2D_MSG: (mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id)),
             pipeline_constant.INPUT_MSG: (
                 mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
             ),
@@ -218,12 +222,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
             if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
                 message = Message(event.payload)
-                mqtt_topic_iothub.extract_properties_from_topic(topic, message)
+                mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
                 self.send_event_up(pipeline_events_iothub.C2DMessageEvent(message))
 
             elif mqtt_topic_iothub.is_input_topic(topic, self.device_id, self.module_id):
                 message = Message(event.payload)
-                mqtt_topic_iothub.extract_properties_from_topic(topic, message)
+                mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
                 input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
                 self.send_event_up(pipeline_events_iothub.InputMessageEvent(input_name, message))
 
