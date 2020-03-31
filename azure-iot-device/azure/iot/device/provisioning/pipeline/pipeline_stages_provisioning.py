@@ -18,7 +18,6 @@ import weakref
 import json
 from threading import Timer
 import time
-from .mqtt_topic import get_optional_element
 
 logger = logging.getLogger(__name__)
 
@@ -84,29 +83,21 @@ class CommonProvisioningStage(PipelineStage):
         return json.loads(provisioning_op.response_body.decode("utf-8"))
 
     @staticmethod
-    def _get_registration_status(decoded_response):
-        return get_optional_element(decoded_response, "status")
-
-    @staticmethod
-    def _get_operation_id(decoded_response):
-        return get_optional_element(decoded_response, "operationId")
-
-    @staticmethod
     def _form_complete_result(operation_id, decoded_response, status):
         """
         Create the registration result from the complete decoded json response for details regarding the registration process.
         """
-        decoded_state = get_optional_element(decoded_response, "registrationState")
+        decoded_state = decoded_response.get("registrationState", None)
         registration_state = None
         if decoded_state is not None:
             registration_state = RegistrationState(
-                device_id=get_optional_element(decoded_state, "deviceId"),
-                assigned_hub=get_optional_element(decoded_state, "assignedHub"),
-                sub_status=get_optional_element(decoded_state, "substatus"),
-                created_date_time=get_optional_element(decoded_state, "createdDateTimeUtc"),
-                last_update_date_time=get_optional_element(decoded_state, "lastUpdatedDateTimeUtc"),
-                etag=get_optional_element(decoded_state, "etag"),
-                payload=get_optional_element(decoded_state, "payload"),
+                device_id=decoded_state.get("deviceId", None),
+                assigned_hub=decoded_state.get("assignedHub", None),
+                sub_status=decoded_state.get("substatus", None),
+                created_date_time=decoded_state.get("createdDateTimeUtc", None),
+                last_update_date_time=decoded_state.get("lastUpdatedDateTimeUtc", None),
+                etag=decoded_state.get("etag", None),
+                payload=decoded_state.get("payload", None),
             )
 
         registration_result = RegistrationResult(
@@ -273,8 +264,8 @@ class PollingStatusStage(CommonProvisioningStage):
 
                     else:
                         decoded_response = self._decode_response(op)
-                        operation_id = self._get_operation_id(decoded_response)
-                        registration_status = self._get_registration_status(decoded_response)
+                        operation_id = decoded_response.get("operationId", None)
+                        registration_status = decoded_response.get("status", None)
                         if registration_status == "assigning":
                             polling_interval = (
                                 int(op.retry_after, 10)
@@ -408,8 +399,8 @@ class RegistrationStage(CommonProvisioningStage):
 
                     else:
                         decoded_response = self._decode_response(op)
-                        operation_id = self._get_operation_id(decoded_response)
-                        registration_status = self._get_registration_status(decoded_response)
+                        operation_id = decoded_response.get("operationId", None)
+                        registration_status = decoded_response.get("status", None)
 
                         if registration_status == "assigning":
                             self_weakref = weakref.ref(self)
