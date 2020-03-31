@@ -1485,9 +1485,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
 
         return stage
 
-    @pytest.mark.it(
-        "Sends down a new RequestOperation if the previous RequestOperation never completed"
-    )
+    @pytest.mark.it("Sends a RequestOperation down again if that RequestOperation never completed")
     def test_request_never_completed(self, stage, event, mocker):
         op1 = self.make_new_request_response_op(mocker, "op1")
 
@@ -1505,7 +1503,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         assert stage.send_op_down.call_args[0][0].request_id == op1_guid
 
     @pytest.mark.it(
-        "Sends down a new RequestOperation if the previous RequestOperation completed, but no corresponding ResponseEvent was receveived"
+        "Sends a RequestOperation down again if that RequestOperation completed, but no corresponding ResponseEvent was received"
     )
     def test_response_never_received(self, stage, event, mocker):
         op1 = self.make_new_request_response_op(mocker, "op1")
@@ -1525,7 +1523,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         assert stage.send_op_down.call_args[0][0].request_id == op1_guid
 
     @pytest.mark.it(
-        "Sends down multiple RequestOperations if previous RequestOperations never completed"
+        "Sends down multiple RequestOperations again if those RequestOperations never completed"
     )
     def test_multiple_requests_never_completed(self, stage, event, mocker):
         op1 = self.make_new_request_response_op(mocker, "op1")
@@ -1561,7 +1559,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         )
 
     @pytest.mark.it(
-        "Sends down multiple RequestOperations if previous RequestOperations completed, but the correspondig ResponseEvents were reveived"
+        "Sends down multiple RequestOperations again if those RequestOperations completed, but the correspondig ResponseEvents were never received"
     )
     def test_multiple_responses_never_received(self, stage, event, mocker):
         op1 = self.make_new_request_response_op(mocker, "op1")
@@ -1601,7 +1599,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         )
 
     @pytest.mark.it(
-        "Does not send down a new RequestOperation if the RequestAndResponseOperation completed"
+        "Does not send down any RequestOperations if the RequestAndResponseOperation completed"
     )
     def test_request_and_response_completed(self, stage, event, mocker):
         op1 = self.make_new_request_response_op(mocker, "op1")
@@ -1654,13 +1652,13 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         # simulate a connected event
         stage.handle_pipeline_event(event)
 
-        # verify that a new RequestOperation was sent down for the incomplete RequestAndResponseOperation
+        # verify that the re-sent RequestOperation was sent down for the incomplete RequestAndResponseOperation
         assert stage.send_op_down.call_count == 3
         assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_base.RequestOperation)
         assert stage.send_op_down.call_args[0][0].request_id == op2_guid
 
     @pytest.mark.it(
-        "Does not send down any RequestOperations if all previous RequestAndResponseOperations are complete"
+        "Does not send down any RequestOperations if all those RequestAndResponseOperations are complete"
     )
     def test_all_completed(self, stage, event, mocker):
         op1 = self.make_new_request_response_op(mocker, "op1")
