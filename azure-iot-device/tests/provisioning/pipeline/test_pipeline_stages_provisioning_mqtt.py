@@ -170,7 +170,9 @@ class TestProvisioningMQTTTranslationStageWithSetProvisioningClientConnectionArg
                 id_scope=fake_id_scope,
                 registration_id=fake_registration_id,
                 api_version=constant.PROVISIONING_API_VERSION,
-                client_version=urllib.parse.quote_plus(ProductInfo.get_provisioning_user_agent()),
+                client_version=urllib.parse.quote(
+                    ProductInfo.get_provisioning_user_agent(), safe=""
+                ),
             )
         )
 
