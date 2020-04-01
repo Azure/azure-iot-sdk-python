@@ -43,7 +43,9 @@ with open(filename, "r") as fh:
             if not value:
                 raise ValueError("Value for VERSION not defined in constants.")
             else:
-                version = str(value.strip())  # Needed to add str for python 2 unicode
+                # Strip whitespace and quotation marks
+                # Need to str convert for python 2 unicode
+                version = str(value.strip(' "'))
             break
 
 setup(
