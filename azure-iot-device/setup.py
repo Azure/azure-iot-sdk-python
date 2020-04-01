@@ -45,7 +45,7 @@ with open(filename, "r") as fh:
             else:
                 # Strip whitespace and quotation marks
                 # Need to str convert for python 2 unicode
-                version = str(value.strip(" \""))
+                version = str(value.strip(' "'))
             break
 
 setup(
