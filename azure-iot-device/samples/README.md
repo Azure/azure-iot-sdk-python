@@ -112,7 +112,7 @@ Further samples with more complex IoT Edge scenarios involving IoT Edge modules 
 * Receive input messages on a Module
 * Send messages to a Module Output
 
-Further that show connecting downstream or 'leaf' devices to IoT Edge are contained in the [advanced-downstream-scenarios](advanced-downstream-scenarios) directory, including:
+Additional samples that show connecting downstream or 'leaf' devices to IoT Edge are contained in the [advanced-downstream-scenarios](advanced-downstream-scenarios) directory, including:
 
 * Send multiple telemetry messages from a 'leaf' device to IoT Hub through IoT Edge
 
