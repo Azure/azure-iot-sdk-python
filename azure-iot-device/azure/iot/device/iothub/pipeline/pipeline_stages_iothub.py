@@ -102,7 +102,6 @@ class UseAuthProviderStage(PipelineStage):
 
 
 class EnsureDesiredPropertiesStage(PipelineStage):
-    # BKTODO: enable last_version_seen on EnableFeatureOperation
     def __init__(self):
         self.last_version_seen = None
         self.pending_get_request = None
