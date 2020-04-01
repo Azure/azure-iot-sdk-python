@@ -41,7 +41,12 @@ all_features = [
 
 @pytest.fixture
 def auth_provider(mocker):
-    return mocker.MagicMock()
+    auth = mocker.MagicMock()
+    # Add values so that it doesn't break down the pipeline.
+    # This will no longer be needed after auth revisions.
+    auth.device_id = "fake_device"
+    auth.module_id = None
+    return auth
 
 
 @pytest.fixture

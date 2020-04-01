@@ -494,57 +494,61 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
             request_id = str(uuid.uuid4())
 
-            # Alias to avoid overload within the callback below
-            # CT-TODO: remove the need for this with better callback semantics
-            op_waiting_for_response = op
-
-            @pipeline_thread.runs_on_pipeline_thread
-            def on_send_request_done(op, error):
-                logger.debug(
-                    "{}({}): Finished sending {} request to {} resource {}".format(
-                        self.name,
-                        op_waiting_for_response.name,
-                        op_waiting_for_response.request_type,
-                        op_waiting_for_response.method,
-                        op_waiting_for_response.resource_location,
-                    )
-                )
-                if error:
-                    logger.debug(
-                        "{}({}): removing request {} from pending list".format(
-                            self.name, op_waiting_for_response.name, request_id
-                        )
-                    )
-                    del (self.pending_responses[request_id])
-                    op_waiting_for_response.complete(error=error)
-                else:
-                    # request sent.  Nothing to do except wait for the response
-                    pass
-
-            logger.debug(
-                "{}({}): Sending {} request to {} resource {}".format(
-                    self.name, op.name, op.request_type, op.method, op.resource_location
-                )
-            )
-
             logger.debug(
                 "{}({}): adding request {} to pending list".format(self.name, op.name, request_id)
             )
             self.pending_responses[request_id] = op
 
-            new_op = pipeline_ops_base.RequestOperation(
-                method=op.method,
-                resource_location=op.resource_location,
-                request_body=op.request_body,
-                request_id=request_id,
-                request_type=op.request_type,
-                callback=on_send_request_done,
-                query_params=op.query_params,
-            )
-            self.send_op_down(new_op)
+            self._send_request_down(request_id, op)
 
         else:
             self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _send_request_down(self, request_id, op):
+        # Alias to avoid overload within the callback below
+        # CT-TODO: remove the need for this with better callback semantics
+        op_waiting_for_response = op
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_send_request_done(op, error):
+            logger.debug(
+                "{}({}): Finished sending {} request to {} resource {}".format(
+                    self.name,
+                    op_waiting_for_response.name,
+                    op_waiting_for_response.request_type,
+                    op_waiting_for_response.method,
+                    op_waiting_for_response.resource_location,
+                )
+            )
+            if error:
+                logger.debug(
+                    "{}({}): removing request {} from pending list".format(
+                        self.name, op_waiting_for_response.name, request_id
+                    )
+                )
+                del (self.pending_responses[request_id])
+                op_waiting_for_response.complete(error=error)
+            else:
+                # request sent.  Nothing to do except wait for the response
+                pass
+
+        logger.debug(
+            "{}({}): Sending {} request to {} resource {}".format(
+                self.name, op.name, op.request_type, op.method, op.resource_location
+            )
+        )
+
+        new_op = pipeline_ops_base.RequestOperation(
+            method=op.method,
+            resource_location=op.resource_location,
+            request_body=op.request_body,
+            request_id=request_id,
+            request_type=op.request_type,
+            callback=on_send_request_done,
+            query_params=op.query_params,
+        )
+        self.send_op_down(new_op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -581,6 +585,29 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         self.name, event.name, event.request_id
                     )
                 )
+
+        elif isinstance(event, pipeline_events_base.ConnectedEvent):
+            """
+            If we're reconnecting, send all pending requests down again.  This is necessary
+            because any response that might have been sent by the service was possibly lost
+            when the connection dropped.  The fact that the operation is still pending means
+            that we haven't received the response yet.  Sending the request more than once
+            will result in a reasonable response for all known operations, aside from extra
+            processing on the server in the case of a re-sent provisioing request, or the
+            appearance of a jump in $version attributes in the case of a lost twin PATCH
+            operation.  Since we're reusing the same $rid, the server, of course, _could_
+            recognize that this is a duplicate request, but the behavior in this case is
+            undefined.
+            """
+
+            self.send_event_up(event)
+
+            for request_id in self.pending_responses:
+                logger.info(
+                    "{}: ConnectedEvent: re-publishing request {}".format(self.name, request_id)
+                )
+                self._send_request_down(request_id, self.pending_responses[request_id])
+
         else:
             self.send_event_up(event)
 
