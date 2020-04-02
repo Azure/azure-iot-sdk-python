@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 """
-Welcome to the Upload to Blob sample for the Azure IoT Python SDK. To use this sample you must have azure.storage.blob installed in your python environment.
+Welcome to the Upload to Blob sample for the Azure IoT Device Library for Python. To use this sample you must have azure.storage.blob installed in your python environment.
 To do this, you can run:
 
     $ pip install azure.storage.blob
