@@ -343,9 +343,14 @@ class MQTTPipeline(object):
         logger.debug("enable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
-        self.feature_enabled[feature_name] = True
 
         def on_complete(op, error):
+            if error:
+                logger.warning(
+                    "Subscribe for {} failed.  Not enabling feature".format(feature_name)
+                )
+            else:
+                self.feature_enabled[feature_name] = True
             callback(error=error)
 
         self._pipeline.run_op(
