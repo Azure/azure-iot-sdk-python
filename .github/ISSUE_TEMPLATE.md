@@ -12,18 +12,22 @@ The commands in the comments can be run directly in a command prompt.
 -->
 
 # Context
+
 - **OS and version used:** <VERSION> (Windows 10, Ubuntu 15.04, etc. )
 - **Python version:** <VERSION> (in a command prompt: python --version )
 - **pip version:** <VERSION> (in a command prompt: pip --version )
 - **list of installed packages:** <VERSION> ( in a command prompt, from the directory containing your code: pip list )
 - **cloned repo:** <VERSION> ( **If** you are using a cloned sdk repository, in a command prompt: git describe )
 
-# Description of the issue:
+## Description of the issue
+
 Please be as detailed as possible: which feature has a problem, how often does it fail, etc.
 
-# Code sample exhibiting the issue:
+## Code sample exhibiting the issue
+
 Please remove any connection string information!
 
-# Console log of the issue:
+## Console log of the issue
+
 Consider setting the DEBUG environment variable to '*'. This will produce a much more verbose output that will help debugging
 Don't forget to remove any connection string information!
