@@ -46,81 +46,89 @@ def iothub_job_manager():
 
 @pytest.mark.describe("IoTHubJobManager - .create_import_export_job()")
 class TestCreateImportExportJob(object):
-    @pytest.mark.it("Creates export/import job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to create an export/import job")
     def test_create_export_import_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.create_import_export_job(fake_job_properties)
+        ret_val = iothub_job_manager.create_import_export_job(fake_job_properties)
         assert mock_job_client_operations.create_import_export_job.call_count == 1
         assert mock_job_client_operations.create_import_export_job.call_args == mocker.call(
             fake_job_properties
         )
+        assert ret_val == mock_job_client_operations.create_import_export_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .get_import_export_jobs()")
 class TestGetImportExportJobs(object):
-    @pytest.mark.it("Get export/import jobs")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to get an export/import jobs")
     def test_get_export_import_jobs(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.get_import_export_jobs()
+        ret_val = iothub_job_manager.get_import_export_jobs()
         assert mock_job_client_operations.get_import_export_jobs.call_count == 1
         assert mock_job_client_operations.get_import_export_jobs.call_args == mocker.call()
+        assert ret_val == mock_job_client_operations.get_import_export_jobs()
 
 
 @pytest.mark.describe("IoTHubJobManager - .get_import_export_job()")
 class TestGetImportExportJob(object):
-    @pytest.mark.it("Get export/import job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to get an export/import job")
     def test_get_export_import_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.get_import_export_job(fake_job_id)
+        ret_val = iothub_job_manager.get_import_export_job(fake_job_id)
         assert mock_job_client_operations.get_import_export_job.call_count == 1
         assert mock_job_client_operations.get_import_export_job.call_args == mocker.call(
             fake_job_id
         )
+        assert ret_val == mock_job_client_operations.get_import_export_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .cancel_import_export_job()")
 class TestCancelImportExportJob(object):
-    @pytest.mark.it("Cancel export/import job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to cancel an export/import job")
     def test_cancel_import_export_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.cancel_import_export_job(fake_job_id)
+        ret_val = iothub_job_manager.cancel_import_export_job(fake_job_id)
         assert mock_job_client_operations.cancel_import_export_job.call_count == 1
         assert mock_job_client_operations.cancel_import_export_job.call_args == mocker.call(
             fake_job_id
         )
+        assert ret_val == mock_job_client_operations.cancel_import_export_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .create_job()")
 class TestCreateJob(object):
-    @pytest.mark.it("Create job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to create a job")
     def test_create_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.create_job(fake_job_id, fake_job_request)
+        ret_val = iothub_job_manager.create_job(fake_job_id, fake_job_request)
         assert mock_job_client_operations.create_job.call_count == 1
         assert mock_job_client_operations.create_job.call_args == mocker.call(
             fake_job_id, fake_job_request
         )
+        assert ret_val == mock_job_client_operations.create_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .get_job()")
 class TestGetJob(object):
-    @pytest.mark.it("Get job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to get a job")
     def test_get_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.get_job(fake_job_id)
+        ret_val = iothub_job_manager.get_job(fake_job_id)
         assert mock_job_client_operations.get_job.call_count == 1
         assert mock_job_client_operations.get_job.call_args == mocker.call(fake_job_id)
+        assert ret_val == mock_job_client_operations.get_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .cancel_job()")
 class TestCancelJob(object):
-    @pytest.mark.it("Cancel job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to cancel a job")
     def test_get_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.cancel_job(fake_job_id)
+        ret_val = iothub_job_manager.cancel_job(fake_job_id)
         assert mock_job_client_operations.cancel_job.call_count == 1
         assert mock_job_client_operations.cancel_job.call_args == mocker.call(fake_job_id)
+        assert ret_val == mock_job_client_operations.cancel_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .query_jobs()")
 class TestQueryJob(object):
-    @pytest.mark.it("Query job")
+    @pytest.mark.it("Uses protocol layer Job Client runtime to query a job")
     def test_get_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        iothub_job_manager.query_jobs(fake_job_type, fake_job_status)
+        ret_val = iothub_job_manager.query_jobs(fake_job_type, fake_job_status)
         assert mock_job_client_operations.query_jobs.call_count == 1
         assert mock_job_client_operations.query_jobs.call_args == mocker.call(
             fake_job_type, fake_job_status
         )
+        assert ret_val == mock_job_client_operations.query_jobs()

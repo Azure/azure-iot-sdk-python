@@ -42,36 +42,39 @@ def iothub_http_runtime_manager():
 
 @pytest.mark.describe("IoTHubHttpRuntimeManager - .receive_feedback_notification()")
 class TestReceiveFeedbackNotification(object):
-    @pytest.mark.it("Receive feedback notification")
+    @pytest.mark.it("Uses protocol layer HTTP runtime to receive feedback notifications")
     def test_receive_feedback_notification(
         self, mocker, mock_http_runtime_operations, iothub_http_runtime_manager
     ):
-        iothub_http_runtime_manager.receive_feedback_notification()
+        ret_val = iothub_http_runtime_manager.receive_feedback_notification()
         assert mock_http_runtime_operations.receive_feedback_notification.call_count == 1
         assert mock_http_runtime_operations.receive_feedback_notification.call_args == mocker.call()
+        assert ret_val == mock_http_runtime_operations.receive_feedback_notification()
 
 
 @pytest.mark.describe("IoTHubHttpRuntimeManager - .complete_feedback_notification()")
 class TestCompleteFeedbackNotification(object):
-    @pytest.mark.it("Complete feedback notification")
+    @pytest.mark.it("Uses protocol layer HTTP runtime to complete feedback notifications")
     def test_complete_feedback_notification(
         self, mocker, mock_http_runtime_operations, iothub_http_runtime_manager
     ):
-        iothub_http_runtime_manager.complete_feedback_notification(fake_lock_token)
+        ret_val = iothub_http_runtime_manager.complete_feedback_notification(fake_lock_token)
         assert mock_http_runtime_operations.complete_feedback_notification.call_count == 1
         assert mock_http_runtime_operations.complete_feedback_notification.call_args == mocker.call(
             fake_lock_token
         )
+        assert ret_val == mock_http_runtime_operations.complete_feedback_notification()
 
 
 @pytest.mark.describe("IoTHubHttpRuntimeManager - .abandon_feedback_notification()")
 class TestAbandonFeedbackNotification(object):
-    @pytest.mark.it("Abandon feedback notification")
+    @pytest.mark.it("Uses protocol layer HTTP runtime to abandon feedback notifications")
     def test_abandon_feedback_notification(
         self, mocker, mock_http_runtime_operations, iothub_http_runtime_manager
     ):
-        iothub_http_runtime_manager.abandon_feedback_notification(fake_lock_token)
+        ret_val = iothub_http_runtime_manager.abandon_feedback_notification(fake_lock_token)
         assert mock_http_runtime_operations.abandon_feedback_notification.call_count == 1
         assert mock_http_runtime_operations.abandon_feedback_notification.call_args == mocker.call(
             fake_lock_token
         )
+        assert ret_val == mock_http_runtime_operations.abandon_feedback_notification()

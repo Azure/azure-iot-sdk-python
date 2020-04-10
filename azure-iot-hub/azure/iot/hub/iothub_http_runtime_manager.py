@@ -42,7 +42,7 @@ class IoTHubHttpRuntimeManager(object):
     def complete_feedback_notification(self, lock_token):
         """This method completes a feedback message.
 
-        :param lock_token Lock token.
+        :param str lock_token: Lock token.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -54,7 +54,7 @@ class IoTHubHttpRuntimeManager(object):
     def abandon_feedback_notification(self, lock_token):
         """This method abandons a feedback message.
 
-        :param lock_token Lock token.
+        :param str lock_token: Lock token.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
