@@ -4,9 +4,19 @@ This library provides asynchronous clients for communicating with Azure IoT serv
 from an IoT device.
 """
 
+# Import all exposed items in aio subpackages to expose them via this package
 from azure.iot.device.iothub.aio import *
 from azure.iot.device.provisioning.aio import *
+
+# Import the subpackages themselves in order to set the __all__
+import azure.iot.device.iothub.aio
+import azure.iot.device.provisioning.aio
+
+# Import the module to generate missing documentation
 from . import patch_documentation
+
+
+# TODO: remove this chunk of commented code if we truly no longer want to take this approach
 
 # Dynamically patch the clients to add shim implementations for all the inherited methods.
 # This is necessary to generate accurate online docs.
@@ -27,3 +37,5 @@ from . import patch_documentation
 
 
 patch_documentation.execute_patch_for_async()
+
+__all__ = azure.iot.device.iothub.aio.__all__ + azure.iot.device.provisioning.aio.__all__
