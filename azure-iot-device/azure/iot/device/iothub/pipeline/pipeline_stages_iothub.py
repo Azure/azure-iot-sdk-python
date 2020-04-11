@@ -6,27 +6,32 @@
 
 import json
 import logging
-from azure.iot.device.common.pipeline import pipeline_ops_base, PipelineStage, pipeline_thread
+from azure.iot.device.common.pipeline import (
+    pipeline_events_base,
+    pipeline_ops_base,
+    PipelineStage,
+    pipeline_thread,
+)
 from azure.iot.device import exceptions
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
-from . import pipeline_ops_iothub
+from . import pipeline_events_iothub, pipeline_ops_iothub
 from . import constant
 
 logger = logging.getLogger(__name__)
 
 
 class UseAuthProviderStage(PipelineStage):
-    def __init__(self):
-        super(UseAuthProviderStage, self).__init__()
-        self.auth_provider = None
-
     """
     PipelineStage which extracts relevant AuthenticationProvider values for a new
     SetIoTHubConnectionArgsOperation.
 
     All other operations are passed down.
     """
+
+    def __init__(self):
+        super(UseAuthProviderStage, self).__init__()
+        self.auth_provider = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -93,6 +98,107 @@ class UseAuthProviderStage(PipelineStage):
                 callback=on_token_update_complete,
             )
         )
+
+
+class EnsureDesiredPropertiesStage(PipelineStage):
+    """
+    Pipeline stage Responsible for making sure that desired properties are always kept up to date.
+    It does this by sending diwn a GetTwinOperation after a connection is reestablished, and, if
+    the desired properties have changed since the last time a patch was received, it will send up
+    an artificial patch event to send those updated properties to the app.
+    """
+
+    def __init__(self):
+        self.last_version_seen = None
+        self.pending_get_request = None
+        super(EnsureDesiredPropertiesStage, self).__init__()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _run_op(self, op):
+        if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+            # If we're enabling twin patches, we set last_version_seen to -1
+            # as a way of enabling this functionality.  If the ConnectedEvent handler
+            # sees this -1, it will send a GetTwinOperation to refresh desired properties.
+
+            if op.feature_name == constant.TWIN_PATCHES:
+                logger.info(
+                    "{}: enabling twin patches.  setting last_version_seen".format(self.name)
+                )
+                self.last_version_seen = -1
+        self.send_op_down(op)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _ensure_get_op(self):
+        """
+        Function which makes sure we have a GetTwin operation in progress.  If we've
+        already sent one down and we're waiting for it to return, we don't want to send
+        a new one down.  This is because layers below us (especially CoordinateRequestAndResponseStage)
+        will do everything they can to ensure we get a response on the already-pending
+        GetTwinOperation.
+        """
+        if not self.pending_get_request:
+            logger.info("{}: sending twin GET to ensure freshness".format(self.name))
+            self.pending_get_request = pipeline_ops_iothub.GetTwinOperation(
+                callback=CallableWeakMethod(self, "_on_get_twin_complete")
+            )
+            self.send_op_down(self.pending_get_request)
+        else:
+            logger.info(
+                "{}: Outstanding twin GET already exists.  Not sending anything".format(self.name)
+            )
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _on_get_twin_complete(self, op, error):
+        """
+        Function that gets called when a GetTwinOperation _that_we_initiated_ is complete.
+        This is where we compare $version values and decide if we want to create an artificial
+        TwinDesiredPropertiesPatchEvent or not.
+        """
+
+        logger.info("{}: _on_twin_get_complete".format(self.name))
+        self.pending_get_request = None
+        if error:
+            # If the GetTwinOperation failed, we blindly try again.  We run the risk of
+            # repeating this forever and might need to add logic to "give up" after some
+            # number of failures, but we don't have any real reason to add that just yet.
+
+            logger.info("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
+            self._ensure_get_op()
+        else:
+            logger.info("{} Twin GET response received.  Checking versions".format(self))
+            new_version = op.twin["desired"]["$version"]
+            logger.info(
+                "{}: old version = {}, new version = {}".format(
+                    self.name, self.last_version_seen, new_version
+                )
+            )
+            if self.last_version_seen != new_version:
+                # The twin we received has different (presumably newer) desired properties.
+                # Make an artificial patch and send it up
+
+                logger.info("{}: Version changed.  Sending up new patch event".format(self.name))
+                self.last_version_seen = new_version
+                self.send_event_up(
+                    pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(op.twin["desired"])
+                )
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _handle_pipeline_event(self, event):
+        if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
+            # remember the $version when we get a patch.
+            version = event.patch["$version"]
+            logger.info(
+                "{}: Desired patch received.  Saving $version={}".format(self.name, version)
+            )
+            self.last_version_seen = version
+        elif isinstance(event, pipeline_events_base.ConnectedEvent):
+            # If last_version_seen is truthy, that means we've seen desired property patches
+            # before (or we've enabled them at least).  If this is the case, get the twin to
+            # see if the desired props have been updated.
+            if self.last_version_seen:
+                logger.info("{}: Reconnected.  Getting twin")
+                self._ensure_get_op()
+        self.send_event_up(event)
 
 
 class TwinRequestResponseStage(PipelineStage):

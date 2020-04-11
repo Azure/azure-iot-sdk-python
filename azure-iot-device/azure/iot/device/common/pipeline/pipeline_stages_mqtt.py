@@ -269,6 +269,7 @@ class MQTTTransportStage(PipelineStage):
         Handler that gets called by the protocol library when an incoming message arrives.
         Convert that message into a pipeline event and pass it up for someone to handle.
         """
+        logger.debug("{}: message received on topic {}".format(self.name, topic))
         self.send_event_up(
             pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=payload)
         )
