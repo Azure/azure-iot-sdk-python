@@ -214,9 +214,9 @@ class MQTTTransport(object):
                     this._cleanup_transport_on_error()
 
             if not this:
-                # Paho will sometimes call this after we've been collected,  If so, we have to
+                # Paho will sometimes call this after we've been garbage collected,  If so, we have to
                 # stop the loop to make sure the Paho thread shuts down.
-                logger.info("disconnected after collection. stopping loop")
+                logger.info("disconnected after garbage collection. stopping loop")
                 client.loop_stop()
             else:
                 if this.on_mqtt_disconnected_handler:

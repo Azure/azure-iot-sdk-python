@@ -957,7 +957,7 @@ class TestEventDisconnectCompleted(object):
         )
         transport_weakref = weakref.ref(transport)
         transport = None
-        gc.collect(2)
+        gc.collect(2)  # 2 == collect as much as possible
         assert transport_weakref() is None
         return transport_weakref
 
@@ -1153,7 +1153,7 @@ class TestEventDisconnectCompleted(object):
         assert e_info.value is arbitrary_base_exception
 
     @pytest.mark.it(
-        "Does not raise any exceptions if the MQTTTransport object was garbage collected before the disconect completed"
+        "Does not raise any exceptions if the MQTTTransport object was garbage collected before the disconnect completed"
     )
     def test_no_exception_after_gc(
         self, mock_mqtt_client, collected_transport_weakref, rc_success_or_failure
@@ -1163,7 +1163,7 @@ class TestEventDisconnectCompleted(object):
         # lack of exception is success
 
     @pytest.mark.it(
-        "Calls Paho's loop_stop() if the MQTTTransport object was garbage collected before the disconect completed"
+        "Calls Paho's loop_stop() if the MQTTTransport object was garbage collected before the disconnect completed"
     )
     def test_calls_loop_stop_after_gc(
         self, collected_transport_weakref, mock_mqtt_client, rc_success_or_failure, mocker
@@ -1174,7 +1174,7 @@ class TestEventDisconnectCompleted(object):
         assert mock_mqtt_client.loop_stop.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Allows any Exception raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconect completed"
+        "Allows any Exception raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconnect completed"
     )
     def test_raises_exception_after_gc(
         self,
@@ -1188,7 +1188,7 @@ class TestEventDisconnectCompleted(object):
             mock_mqtt_client.on_disconnect(mock_mqtt_client, None, rc_success_or_failure)
 
     @pytest.mark.it(
-        "Allows any BaseException raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconect completed"
+        "Allows any BaseException raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconnect completed"
     )
     def test_raises_base_exception_after_gc(
         self,
