@@ -10,12 +10,12 @@ from .protocol.models import Configuration, ConfigurationContent, ConfigurationQ
 
 
 class IoTHubConfigurationManager(object):
-    """A class to provide convenience APIs for IoTHub Registry Manager operations,
+    """A class to provide convenience APIs for IoTHub Configuration Manager operations,
     based on top of the auto generated IotHub REST APIs
     """
 
     def __init__(self, connection_string):
-        """Initializer for a Registry Manager Service client.
+        """Initializer for a Configuration Manager Service client.
 
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
@@ -23,8 +23,8 @@ class IoTHubConfigurationManager(object):
         :param str connection_string: The IoTHub connection string used to authenticate connection
             with IoTHub.
 
-        :returns: Instance of the IoTHubRegistryManager object.
-        :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
+        :returns: Instance of the IoTHubConfigurationManager object.
+        :rtype: :class:`azure.iot.hub.IoTHubConfigurationManager`
         """
 
         self.auth = ConnectionStringAuthentication(connection_string)
