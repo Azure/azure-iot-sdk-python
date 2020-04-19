@@ -64,7 +64,6 @@ async def pnp_update_property(device_client, interface_name, **prop_kwargs):
     key = prefix + interface_name
     prop_object = PnpProperties(key, **prop_kwargs)
     prop_dict = prop_object._to_dict()
-    print(prop_dict)
     await device_client.patch_twin_reported_properties(prop_dict)
 
 

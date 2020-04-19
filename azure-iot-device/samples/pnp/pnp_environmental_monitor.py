@@ -98,12 +98,12 @@ async def main():
         sample_device_interface,
         # swVersion="4.3",
         manufacturer="Contoso Device Corporation",
-        # model="Contoso 4762B-turbo",
-        # osName="Mac Os",
-        # processorArchitecture="x86-64",
-        # processorManufacturer="Intel",
-        # totalStorage="1024 GB",
-        # totalMemory="32 GB",
+        model="Contoso 4762B-turbo",
+        osName="Mac Os",
+        processorArchitecture="x86-64",
+        processorManufacturer="Intel",
+        totalStorage="1024 GB",
+        totalMemory="32 GB",
     )
 
     ################################################
