@@ -10,7 +10,7 @@ command requests and pnp properties.
 """
 from azure.iot.device import Message, MethodResponse
 import json
-from pnp_helper import retrieve_values_dict_from_payload, create_command_response_payload
+import pnp_helper
 
 prefix = "$iotin:"
 
@@ -64,6 +64,7 @@ async def pnp_update_property(device_client, interface_name, **prop_kwargs):
     key = prefix + interface_name
     prop_object = PnpProperties(key, **prop_kwargs)
     prop_dict = prop_object._to_dict()
+    print(prop_dict)
     await device_client.patch_twin_reported_properties(prop_dict)
 
 
@@ -86,7 +87,7 @@ async def execute_listener(device_client, device_name, method_name=None, user_ha
 
         command_request = await device_client.receive_method_request(command_name)
 
-        values = retrieve_values_dict_from_payload(command_request)
+        values = pnp_helper.retrieve_values_dict_from_payload(command_request)
 
         if user_handler:
             await user_handler(values)
@@ -96,11 +97,9 @@ async def execute_listener(device_client, device_name, method_name=None, user_ha
         if method_name:
             response_status = 200
         else:
-            response_status = (
-                400
-            )  # What is the response status when we execute unknown method? It was 400 in this example prior
+            response_status = 404
 
-        response_payload = create_command_response_payload(method_name)
+        response_payload = pnp_helper.create_command_response_payload(method_name)
         command_response = MethodResponse.create_from_method_request(
             command_request, response_status, response_payload
         )

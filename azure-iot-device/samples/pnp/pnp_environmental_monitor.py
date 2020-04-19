@@ -9,7 +9,7 @@ import random
 import logging
 
 from azure.iot.device.aio import IoTHubDeviceClient
-from pnp_methods import execute_listener, pnp_update_property, pnp_send_telemetry
+import pnp_methods
 
 logging.basicConfig(level=logging.ERROR)
 capability_model = "digital-twin-model-id=urn:contoso:sample_device:1"
@@ -43,6 +43,12 @@ async def check_handler(values):
     print("Done checking")
 
 
+# END COMMAND HANDLERS
+#####################################################
+
+
+#####################################################
+# An # END KEYBOARD INPUT LISTENER to quit application
 def stdin_listener():
     """
     Listener for quitting the sample
@@ -52,6 +58,14 @@ def stdin_listener():
         if selection == "Q" or selection == "q":
             print("Quitting...")
             break
+
+
+# END KEYBOARD INPUT LISTENER
+#####################################################
+
+
+#####################################################
+# MAIN STARTS
 
 
 async def main():
@@ -72,24 +86,24 @@ async def main():
     # Get all the listeners running
     print("Listening for command requests")
     listeners = asyncio.gather(
-        execute_listener(device_client, device_name, "blink", blink_handler),
-        execute_listener(device_client, device_name, "turnon", turn_on_handler),
-        execute_listener(device_client, device_name, "turnoff", turn_off_handler),
-        execute_listener(device_client, device_name, "check", check_handler),
-        execute_listener(device_client, device_name),
+        pnp_methods.execute_listener(device_client, device_name, "blink", blink_handler),
+        pnp_methods.execute_listener(device_client, device_name, "turnon", turn_on_handler),
+        pnp_methods.execute_listener(device_client, device_name, "turnoff", turn_off_handler),
+        pnp_methods.execute_listener(device_client, device_name, "check", check_handler),
+        pnp_methods.execute_listener(device_client, device_name),
     )
 
-    await pnp_update_property(
+    await pnp_methods.pnp_update_property(
         device_client,
         sample_device_interface,
-        swVersion="4.3",
+        # swVersion="4.3",
         manufacturer="Contoso Device Corporation",
-        model="Contoso 4762B-turbo",
-        osName="Mac Os",
-        processorArchitecture="x86-64",
-        processorManufacturer="Intel",
-        totalStorage="1024 GB",
-        totalMemory="32 GB",
+        # model="Contoso 4762B-turbo",
+        # osName="Mac Os",
+        # processorArchitecture="x86-64",
+        # processorManufacturer="Intel",
+        # totalStorage="1024 GB",
+        # totalMemory="32 GB",
     )
 
     ################################################
@@ -98,7 +112,7 @@ async def main():
         print("Entering send_telemetry")
         while True:
             telemetry_msg = {"temp": random.randrange(10, 51), "humidity": random.randrange(10, 99)}
-            await pnp_send_telemetry(
+            await pnp_methods.pnp_send_telemetry(
                 device_client, device_name, telemetry_msg
             )  # only sends telemetry values that have changed
             await asyncio.sleep(8)
@@ -121,6 +135,9 @@ async def main():
     # finally, disconnect
     await device_client.disconnect()
 
+
+#####################################################
+# EXECUTE MAIN
 
 if __name__ == "__main__":
     asyncio.run(main())
