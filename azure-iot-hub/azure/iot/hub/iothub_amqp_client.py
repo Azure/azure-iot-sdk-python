@@ -90,6 +90,8 @@ class IoTHubAmqpClient:
                 msg_props.absolute_expiry_time = prop_value
             elif prop_key == "messageId":
                 msg_props.message_id = prop_value
+            elif prop_key == "userId":
+                msg_props.user_id = prop_value
             else:
                 app_properties[prop_key] = prop_value
 
@@ -99,4 +101,4 @@ class IoTHubAmqpClient:
         self.amqp_client.queue_message(message)
         results = self.amqp_client.send_all_messages(close_on_done=False)
         if uamqp.constants.MessageState.SendFailed in results:
-            raise Exception("C2D message sned failure")
+            raise Exception("C2D message send failure")
