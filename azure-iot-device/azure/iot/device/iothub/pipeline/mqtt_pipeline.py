@@ -61,6 +61,11 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
             #
+            # EnsureDesiredPropertiesStage needs to be above TwinRequestResponseStage because it
+            # sends GetTwinOperation ops and that stage handles those ops.
+            #
+            .append_stage(pipeline_stages_iothub.EnsureDesiredPropertiesStage())
+            #
             # TwinRequestResponseStage comes near the root by default because it doesn't need to be
             # after anything
             #
@@ -343,9 +348,14 @@ class MQTTPipeline(object):
         logger.debug("enable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
-        self.feature_enabled[feature_name] = True
 
         def on_complete(op, error):
+            if error:
+                logger.warning(
+                    "Subscribe for {} failed.  Not enabling feature".format(feature_name)
+                )
+            else:
+                self.feature_enabled[feature_name] = True
             callback(error=error)
 
         self._pipeline.run_op(

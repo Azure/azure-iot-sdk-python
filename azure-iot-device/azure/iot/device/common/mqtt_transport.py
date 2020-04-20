@@ -210,16 +210,23 @@ class MQTTTransport(object):
             if rc:  # i.e. if there is an error
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
-                this._cleanup_transport_on_error()
+                if this:
+                    this._cleanup_transport_on_error()
 
-            if this.on_mqtt_disconnected_handler:
-                try:
-                    this.on_mqtt_disconnected_handler(cause)
-                except Exception:
-                    logger.error("Unexpected error calling on_mqtt_disconnected_handler")
-                    logger.error(traceback.format_exc())
+            if not this:
+                # Paho will sometimes call this after we've been garbage collected,  If so, we have to
+                # stop the loop to make sure the Paho thread shuts down.
+                logger.info("disconnected after garbage collection. stopping loop")
+                client.loop_stop()
             else:
-                logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
+                if this.on_mqtt_disconnected_handler:
+                    try:
+                        this.on_mqtt_disconnected_handler(cause)
+                    except Exception:
+                        logger.error("Unexpected error calling on_mqtt_disconnected_handler")
+                        logger.error(traceback.format_exc())
+                else:
+                    logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
