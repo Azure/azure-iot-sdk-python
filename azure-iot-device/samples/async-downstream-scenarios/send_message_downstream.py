@@ -26,7 +26,7 @@ async def main():
 
     # The client object is used to interact with your Azure IoT Edge device.
     device_client = IoTHubDeviceClient.create_from_connection_string(connection_string=conn_str, server_verification_cert=root_ca_cert)
-    
+
     # Connect the client.
     await device_client.connect()
 
