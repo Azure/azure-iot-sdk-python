@@ -51,16 +51,6 @@ async def pnp_update_property(device_client, interface_name, **prop_kwargs):
     :param interface_name: The name of the interface. Like "sampleDeviceInfo".
     :param prop_kwargs: The user passed keyword arguments.
     """
-    # Method 1 : Get only 1 top level dict with a complex class as value.
-    # Will NOT WORK now as internal implementation does not support it yet
-    # prop_dict = construct_properties_from_top_level_dict_and_classes(interface)
-    # await device_client.patch_twin_reported_properties(prop_dict)
-
-    # Method 2 : Get all multi level dictionary. WORKS.
-    # prop_dict = construct_properties_from_all_dict_and_no_classes(interface)
-    # await device_client.patch_twin_reported_properties(prop_dict)
-
-    # METHOD 3
     key = prefix + interface_name
     prop_object = PnpProperties(key, **prop_kwargs)
     prop_dict = prop_object._to_dict()
