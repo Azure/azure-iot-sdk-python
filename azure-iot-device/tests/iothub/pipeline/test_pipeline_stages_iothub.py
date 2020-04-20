@@ -12,8 +12,13 @@ import threading
 from concurrent.futures import Future
 from azure.iot.device.exceptions import ServiceError
 from azure.iot.device.common import handle_exceptions
-from azure.iot.device.common.pipeline import pipeline_ops_base
-from azure.iot.device.iothub.pipeline import pipeline_stages_iothub, pipeline_ops_iothub
+from azure.iot.device.common.pipeline import pipeline_events_base, pipeline_ops_base
+from azure.iot.device.iothub.pipeline import (
+    pipeline_events_iothub,
+    pipeline_ops_iothub,
+    pipeline_stages_iothub,
+    constant as pipeline_constants,
+)
 from azure.iot.device.iothub.pipeline.exceptions import PipelineError
 from azure.iot.device.iothub.auth.authentication_provider import AuthenticationProvider
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
@@ -376,6 +381,364 @@ class TestUseAuthProviderStageWhenAuthProviderGeneratesNewSasToken(UseAuthProvid
         op.complete(error=arbitrary_exception)
         assert mock_handle_background_exception.call_count == 1
         assert mock_handle_background_exception.call_args == mocker.call(arbitrary_exception)
+
+
+#########################################
+# ENSURE DESIRED PROPERTIES STAGE STAGE #
+#########################################
+
+
+class EnsureDesiredPropertiesStageTestConfig(object):
+    @pytest.fixture
+    def cls_type(self):
+        return pipeline_stages_iothub.EnsureDesiredPropertiesStage
+
+    @pytest.fixture
+    def init_kwargs(self):
+        return {}
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+
+class EnsureDesiredPropertiesStageInstantiationTests(EnsureDesiredPropertiesStageTestConfig):
+    @pytest.mark.it("Initializes 'last_version_seen' None")
+    def test_last_version_seen(self, init_kwargs):
+        stage = pipeline_stages_iothub.EnsureDesiredPropertiesStage(**init_kwargs)
+        assert stage.last_version_seen is None
+
+    @pytest.mark.it("Initializes 'pending_get_request' None")
+    def test_pending_get_request(self, init_kwargs):
+        stage = pipeline_stages_iothub.EnsureDesiredPropertiesStage(**init_kwargs)
+        assert stage.pending_get_request is None
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    test_module=this_module,
+    stage_class_under_test=pipeline_stages_iothub.EnsureDesiredPropertiesStage,
+    stage_test_config_class=EnsureDesiredPropertiesStageTestConfig,
+    extended_stage_instantiation_test_class=EnsureDesiredPropertiesStageInstantiationTests,
+)
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - .run_op() -- Called with EnableFeatureOperation"
+)
+class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperation(
+    StageRunOpTestBase, EnsureDesiredPropertiesStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.EnableFeatureOperation(
+            feature_name="fake_feature_name", callback=mocker.MagicMock()
+        )
+
+    @pytest.mark.it("Sets `last_version_seen` to -1 if `op.feature_name` is 'twin_patches'")
+    def test_sets_last_version_seen(self, mocker, stage, op):
+        op.feature_name = pipeline_constants.TWIN_PATCHES
+
+        assert stage.last_version_seen is None
+        stage.run_op(op)
+
+        assert stage.last_version_seen == -1
+
+    @pytest.mark.parametrize(
+        "feature_name",
+        [
+            pipeline_constants.C2D_MSG,
+            pipeline_constants.INPUT_MSG,
+            pipeline_constants.METHODS,
+            pipeline_constants.TWIN,
+        ],
+    )
+    @pytest.mark.it(
+        "Does not change `last_version_seen` if `op.feature_name` is not 'twin_patches'"
+    )
+    def test_doesnt_set_last_version_seen(self, mocker, stage, op, feature_name):
+        op.feature_name = feature_name
+        stage.last_version_seen = mocker.MagicMock()
+
+        old_value = stage.last_version_seen
+        stage.run_op(op)
+
+        assert stage.last_version_seen == old_value
+
+    @pytest.mark.parametrize(
+        "feature_name",
+        [
+            pipeline_constants.C2D_MSG,
+            pipeline_constants.INPUT_MSG,
+            pipeline_constants.METHODS,
+            pipeline_constants.TWIN,
+            pipeline_constants.TWIN_PATCHES,
+        ],
+    )
+    @pytest.mark.it(
+        "Sends the EnableFeatureOperation op to the next stage for all valid `op.feature_name` values"
+    )
+    def test_passes_all_other_features_down(self, mocker, stage, op, feature_name):
+        op.feature_name = feature_name
+
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+
+@pytest.mark.describe("EnsureDesiredPropertiesStage - OCCURANCE: ConnectedEvent received")
+class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
+    EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+    @pytest.fixture
+    def event(self):
+        return pipeline_events_base.ConnectedEvent()
+
+    @pytest.mark.it(
+        "Sends a GetTwinOperation if last_version_seen is set and there is no pending GetTwinOperation"
+    )
+    def test_last_version_seen_no_pending(self, mocker, stage, event):
+        stage.last_version_seen = mocker.MagicMock()
+        stage.pending_get_request = None
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_op_down.call_count == 1
+        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation)
+
+    @pytest.mark.it(
+        "Does not send a GetTwinOperation if last verion seen is set and there is already a pending GetTwinOperation"
+    )
+    def test_last_version_seen_pending(self, mocker, stage, event):
+        stage.last_version_seen = mocker.MagicMock()
+        stage.pending_get_request = mocker.MagicMock()
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it(
+        "Does not send a GetTwinOperation if last_version_seen is not set and there is no pending GetTwinOperation"
+    )
+    def test_no_last_version_seen_no_pending(self, mocker, stage, event):
+        stage.last_version_seen = None
+        stage.pending_get_request = None
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it(
+        "Does not send a GetTwinOperation if last verion seen is not set and there is already a pending GetTwinOperation"
+    )
+    def test_no_last_version_seen_pending(self, mocker, stage, event):
+        stage.last_version_seen = None
+        stage.pending_get_request = mocker.MagicMock()
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_op_down.call_count == 0
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURANCE: TwinDesiredPropertiesPatchEvent received"
+)
+class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceived(
+    EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+    @pytest.fixture
+    def version(self, mocker):
+        return mocker.MagicMock()
+
+    @pytest.fixture
+    def event(self, version):
+        return pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(patch={"$version": version})
+
+    @pytest.mark.it("Saves the `$version` attribute of the patch into `last_version_seen`")
+    def test_saves_the_last_version_seen(self, mocker, stage, event, version):
+        stage.last_version_seen = mocker.MagicMock()
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.last_version_seen == version
+
+    @pytest.mark.it("Sends the event to the previous stage")
+    def test_sends_event_up(self, mocker, stage, event, version):
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
+
+
+@pytest.mark.describe(
+    "EnsureDesiredPropertiesStage - OCCURANCE: GetTwinOperation that was sent down by this stage completes"
+)
+class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
+    EnsureDesiredPropertiesStageTestConfig
+):
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs):
+        stage = cls_type(**init_kwargs)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+    @pytest.fixture
+    def get_twin_op(self, stage):
+        stage.last_version_seen = -1
+        stage.handle_pipeline_event(pipeline_events_base.ConnectedEvent())
+
+        get_twin_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(get_twin_op, pipeline_ops_iothub.GetTwinOperation)
+
+        stage.send_op_down.reset_mock()
+        stage.send_event_up.reset_mock()
+
+        return get_twin_op
+
+    @pytest.fixture
+    def new_version(self):
+        return 1234
+
+    @pytest.fixture
+    def new_twin(self, new_version):
+        return {"desired": {"$version": new_version}, "reported": {}}
+
+    @pytest.mark.it("Does not send a new GetTwinOperation if the op completes with success")
+    def test_does_not_send_new_get_twin_operation_on_success(self, stage, get_twin_op, new_twin):
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.send_op_down.call_count == 0
+
+    @pytest.mark.it("Sets `pending_get_request` to None if the op completes with success")
+    def test_sets_pending_request_to_none_on_success(self, mocker, stage, get_twin_op, new_twin):
+        stage.pending_get_request = mocker.MagicMock()
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.pending_get_request is None
+
+    @pytest.mark.it("Sends a new GetTwinOperation if the op completes with an error")
+    def test_sends_new_get_twin_operation_on_failure(self, stage, get_twin_op, arbitrary_exception):
+
+        assert stage.send_op_down.call_count == 0
+
+        get_twin_op.complete(error=arbitrary_exception)
+
+        assert stage.send_op_down.call_count == 1
+        assert isinstance(stage.send_op_down.call_args[0][0], pipeline_ops_iothub.GetTwinOperation)
+
+    @pytest.mark.it(
+        "Sets `pending_get_request` to the new GetTwinOperation if the op completes with an error"
+    )
+    def test_sets_pending_request_to_none_on_failure(
+        self, mocker, stage, get_twin_op, arbitrary_exception
+    ):
+        old_get_request = mocker.MagicMock()
+        stage.pending_get_request = old_get_request
+
+        get_twin_op.complete(error=arbitrary_exception)
+
+        assert stage.pending_get_request is not old_get_request
+        assert isinstance(stage.pending_get_request, pipeline_ops_iothub.GetTwinOperation)
+
+    @pytest.mark.it(
+        "Does not send a `TwinDesiredPropertiesPatchEvent` if the op copmletes with an error"
+    )
+    def test_doesnt_send_patch_event_if_error(self, stage, get_twin_op, arbitrary_exception):
+        get_twin_op.complete(arbitrary_exception)
+
+        assert stage.send_event_up.call_count == 0
+
+    @pytest.mark.it(
+        "Sends a `TwinDesiredPropertiesPatchEvent` if the desired properties '$version' doesn't match the `last_version_seen`"
+    )
+    def test_sends_patch_event_if_different_version(
+        self, mocker, stage, get_twin_op, new_twin, new_version
+    ):
+        stage.last_version_seen = mocker.MagicMock()
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.send_event_up.call_count == 1
+        assert isinstance(
+            stage.send_event_up.call_args[0][0],
+            pipeline_events_iothub.TwinDesiredPropertiesPatchEvent,
+        )
+
+    @pytest.mark.it(
+        "Does not send a `TwinDesiredPropertiesPatchEvent` if the desired properties '$version'  matches the `last_version_seen`"
+    )
+    def test_doesnt_send_patch_event_if_same_version(
+        self, stage, get_twin_op, new_twin, new_version
+    ):
+        stage.last_version_seen = new_version
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.send_event_up.call_count == 0
+
+    @pytest.mark.it(
+        "Does not change the `last_version_seen` attribute if the op completes with an error"
+    )
+    def test_doesnt_change_last_version_seen_if_error(
+        self, mocker, stage, get_twin_op, arbitrary_exception
+    ):
+        old_version = mocker.MagicMock()
+        stage.last_version_seen = old_version
+
+        get_twin_op.complete(error=arbitrary_exception)
+
+        assert stage.last_version_seen == old_version
+
+    @pytest.mark.it(
+        "Sets the `last_version_seen` attribute to the new version if the desired properties '$version' doesn't match the `last_version_seen`"
+    )
+    def test_changes_last_version_seen_if_different_version(
+        self, mocker, stage, get_twin_op, new_twin, new_version
+    ):
+        stage.last_version_seen = mocker.MagicMock()
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.last_version_seen == new_version
+
+    @pytest.mark.it(
+        "Does not change the `last_version_seen` attribute if the desired properties '$version' matches the `last_version_seen`"
+    )
+    def test_does_not_change_last_version_seen_if_same_version(
+        self, stage, get_twin_op, new_twin, new_version
+    ):
+        stage.last_version_seen = new_version
+
+        get_twin_op.twin = new_twin
+        get_twin_op.complete()
+
+        assert stage.last_version_seen == new_version
 
 
 ###############################

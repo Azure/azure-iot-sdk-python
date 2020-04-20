@@ -115,6 +115,7 @@ class TestMQTTPipelineInstantiation(object):
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
             pipeline_stages_iothub.UseAuthProviderStage,
+            pipeline_stages_iothub.EnsureDesiredPropertiesStage,
             pipeline_stages_iothub.TwinRequestResponseStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,
             pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage,
@@ -519,13 +520,6 @@ class TestMQTTPipelinePatchTwinReportedProperties(object):
 
 @pytest.mark.describe("MQTTPipeline - .enable_feature()")
 class TestMQTTPipelineEnableFeature(object):
-    @pytest.mark.it("Marks the feature as enabled")
-    @pytest.mark.parametrize("feature", all_features)
-    def test_mark_feature_enabled(self, pipeline, feature, mocker):
-        assert not pipeline.feature_enabled[feature]
-        pipeline.enable_feature(feature, callback=mocker.MagicMock())
-        assert pipeline.feature_enabled[feature]
-
     @pytest.mark.it("Raises ValueError if the feature_name is invalid")
     def test_invalid_feature_name(self, pipeline, mocker):
         bad_feature = "not-a-feature-name"
@@ -545,6 +539,46 @@ class TestMQTTPipelineEnableFeature(object):
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
         assert op.feature_name == feature
+
+    @pytest.mark.it("Does not mark the feature as enabled before the callback is complete")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_not_enabled(self, pipeline, feature, mocker):
+        assert not pipeline.feature_enabled[feature]
+        callback = mocker.MagicMock()
+        pipeline.enable_feature(feature, callback=callback)
+
+        assert callback.call_count == 0
+        assert not pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Does not mark the feature as enabled if the EnableFeatureOperation fails")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_not_enabled_on_failure(
+        self, pipeline, feature, mocker, arbitrary_exception
+    ):
+        assert not pipeline.feature_enabled[feature]
+        callback = mocker.MagicMock()
+        pipeline.enable_feature(feature, callback=callback)
+
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
+        op.complete(arbitrary_exception)
+
+        assert callback.call_count == 1
+        assert not pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Marks the feature as enabled if the EnableFeatureOperation succeeds")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_enabled_on_success(self, pipeline, feature, mocker):
+        assert not pipeline.feature_enabled[feature]
+        callback = mocker.MagicMock()
+        pipeline.enable_feature(feature, callback=callback)
+
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.EnableFeatureOperation)
+        op.complete()
+
+        assert callback.call_count == 1
+        assert pipeline.feature_enabled[feature]
 
     @pytest.mark.it(
         "Triggers the callback upon successful completion of the EnableFeatureOperation"

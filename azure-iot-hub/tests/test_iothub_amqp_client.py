@@ -33,6 +33,7 @@ fake_sys_prop = {
     "correlationId": "value3",
     "expiryTimeUtc": 1584727659,
     "userId": "value4",
+    "messageId": 42,
 }
 fake_empty_prop = {}
 """----Shared fixtures----"""
