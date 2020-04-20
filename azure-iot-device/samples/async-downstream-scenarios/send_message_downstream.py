@@ -12,6 +12,7 @@ from azure.iot.device import Message
 
 messages_to_send = 10
 
+
 async def main():
     # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
     # NOTE:  connection string must contain ;GatewayHostName=<hostname of your iot edge device>
@@ -24,7 +25,7 @@ async def main():
     root_ca_cert = certfile.read()
 
     # The client object is used to interact with your Azure IoT Edge device.
-    device_client = IoTHubDeviceClient.create_from_connection_string(connection_string=conn_str,server_verification_cert=root_ca_cert)
+    device_client = IoTHubDeviceClient.create_from_connection_string(connection_string=conn_str, server_verification_cert=root_ca_cert)
     
     # Connect the client.
     await device_client.connect()
