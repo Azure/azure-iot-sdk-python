@@ -41,7 +41,7 @@ Now look at __pnp_environmental_monitor.py__ Notice how:
 
 * pnp_methods have been imported to enable utilization of their functions. 
 
-* The capability model is defined at the top. This must be known to the user and can be found from DTDL. 
+* The interface model is defined at the top. This must be known to the user and can be found from DTDL. 
 
 * Some command handlers are written. These are user written handlers and functionality can be changed according to what the user wants to do after receiving command requests. 
 
@@ -80,7 +80,7 @@ This will complete all the above-mentioned steps, and now the device is sending 
 
 For writing your own sample for a PNP enabled device what the user needs to know and edit in the already existing sample are:-
 
-1. capability model
+1. interface model
 2. interface name
 3. device name
 4. the commands that the device wants to listen to
