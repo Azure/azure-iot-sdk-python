@@ -12,7 +12,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 import pnp_methods
 
 logging.basicConfig(level=logging.ERROR)
-capability_model = "digital-twin-model-id=urn:contoso:sample_device:1"
+interface = "digital-twin-model-id=dtmi:contoso:com:EnvironmentalSensor;1"
 
 # User defined variables
 sample_device_interface = "sampleDeviceInfo"
@@ -76,7 +76,7 @@ async def main():
 
     # The client object is used to interact with your Azure IoT hub.
     device_client = IoTHubDeviceClient.create_from_connection_string(
-        conn_str, product_info=capability_model
+        conn_str, product_info=interface
     )
 
     # Connect the client.
