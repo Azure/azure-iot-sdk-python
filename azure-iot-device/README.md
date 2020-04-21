@@ -38,7 +38,7 @@ pip install azure-iot-device
 
 ## Device Samples
 
-Check out the [samples repository](../azure-iot-device/samples) for example code showing how the SDK can be used in a variety of scenarios, including:
+Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/samples) for example code showing how the SDK can be used in a variety of scenarios, including:
 
 * Sending multiple telemetry messages at once.
 * Receiving Cloud-to-Device messages.
