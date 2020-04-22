@@ -273,26 +273,25 @@ def create_intermediate(
         with open(in_cert_file_path, "w") as out_ca_pem:
             cert = str(base64.b64decode(ca_cert), "ascii")
             out_ca_pem.write(cert)
-            print(out_ca_pem)
 
             if os.path.exists(in_cert_file_path):
                 print("root cert decoded and created")
-                print_pem_file_content("root", "cert", in_cert_file_path)
             else:
                 print("root cert NOT decoded and created")
         with open(in_key_file_path, "w") as out_ca_key:
             key = str(base64.b64decode(ca_key), "ascii")
             out_ca_key.write(key)
-            print(out_ca_key)
 
             if os.path.exists(in_key_file_path):
                 print("root key decoded and created")
-                print_pem_file_content("root", "key", in_key_file_path)
             else:
                 print("root key NOT decoded and created")
     else:
         in_cert_file_path = "demoCA/newcerts/ca_cert.pem"
         in_key_file_path = "demoCA/private/ca_key.pem"
+
+    print_pem_file_content("root", "cert", in_cert_file_path)
+    print_pem_file_content("root", "key", in_key_file_path)
 
     command_intermediate_key = [
         "openssl",
