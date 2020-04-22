@@ -273,17 +273,21 @@ def create_intermediate(
         with open(in_cert_file_path, "w") as out_ca_pem:
             cert = str(base64.b64decode(ca_cert), "ascii")
             out_ca_pem.write(cert)
+            print(out_ca_pem)
 
             if os.path.exists(in_cert_file_path):
                 print("root cert decoded and created")
+                print_pem_file_content("root", "cert", in_cert_file_path)
             else:
                 print("root cert NOT decoded and created")
         with open(in_key_file_path, "w") as out_ca_key:
             key = str(base64.b64decode(ca_key), "ascii")
             out_ca_key.write(key)
+            print(out_ca_key)
 
             if os.path.exists(in_key_file_path):
                 print("root key decoded and created")
+                print_pem_file_content("root", "key", in_key_file_path)
             else:
                 print("root key NOT decoded and created")
     else:
@@ -312,6 +316,7 @@ def create_intermediate(
 
     if os.path.exists("demoCA/private/intermediate_key.pem"):
         print("Done generating intermediate key")
+        print_pem_file_content("intermediate", "key", "demoCA/private/intermediate_key.pem")
     else:
         print("intermediate key NOT generated")
 
@@ -343,6 +348,7 @@ def create_intermediate(
 
     if os.path.exists("demoCA/newcerts/intermediate_csr.pem"):
         print("Done generating intermediate CSR")
+        print_pem_file_content("intermediate", "csr", "demoCA/newcerts/intermediate_csr.pem")
     else:
         print("intermediate csr NOT generated")
 
@@ -381,6 +387,7 @@ def create_intermediate(
 
     if os.path.exists("demoCA/newcerts/intermediate_cert.pem"):
         print("Done generating intermediate certificate")
+        print_pem_file_content("intermediate", "cert", "demoCA/newcerts/intermediate_cert.pem")
     else:
         print("intermediate cert NOT generated")
 
@@ -649,6 +656,14 @@ def delete_directories_certs_created_from_pipeline():
         os.remove(".rnd")
     else:
         print("The file does not exist")
+
+
+def print_pem_file_content(level, type, filename):
+    log_line = "Printing {level} {type} pem".format(level=level, type=type)
+    print(log_line)
+    with open(filename, "r") as file:
+        content = file.read()
+        print(content)
 
 
 if __name__ == "__main__":
