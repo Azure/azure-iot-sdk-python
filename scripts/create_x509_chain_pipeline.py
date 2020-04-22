@@ -262,6 +262,9 @@ def create_intermediate(
     :param days: The number of days for which the certificate is valid. Default is 1 year (365 days)
     """
 
+    print("Root password from keyvault")
+    print(ca_password)
+
     if pipeline:
         ca_cert = os.getenv("PROVISIONING_ROOT_CERT")
         ca_key = os.getenv("PROVISIONING_ROOT_CERT_KEY")
