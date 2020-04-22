@@ -51,10 +51,17 @@ async def pnp_update_property(device_client, interface_name, **prop_kwargs):
     :param interface_name: The name of the interface. Like "sampleDeviceInfo".
     :param prop_kwargs: The user passed keyword arguments.
     """
+    print("Updating pnp properties")
     key = prefix + interface_name
     prop_object = PnpProperties(key, **prop_kwargs)
     prop_dict = prop_object._to_dict()
     await device_client.patch_twin_reported_properties(prop_dict)
+
+
+async def pnp_retrieve_properties(device_client):
+    print("Fetching properties that have been updated.")
+    twin = await device_client.get_twin()
+    print(twin)
 
 
 async def execute_listener(device_client, device_name, method_name=None, user_handler=None):

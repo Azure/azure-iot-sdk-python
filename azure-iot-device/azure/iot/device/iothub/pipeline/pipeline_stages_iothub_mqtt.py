@@ -58,17 +58,26 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # For example, the username may look like this without custom parameters:
             # yosephsandboxhub.azure-devices.net/alpha/?api-version=2018-06-30&DeviceClientType=py-azure-iot-device%2F2.0.0-preview.12
             # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
+
             query_param_seq = [
                 ("api-version", pkg_constant.IOTHUB_API_VERSION),
                 ("DeviceClientType", ProductInfo.get_iothub_user_agent()),
             ]
-            username = "{hostname}/{client_id}/?{query_params}{optional_product_info}".format(
+
+            # TODO For Digital Twin, there is a third query param.
+            # Should we check for value starting with "dtmi"
+            digital_twin_key = "digital-twin-model-id"
+            query_param_seq.append(
+                (digital_twin_key, str(self.pipeline_root.pipeline_configuration.product_info))
+            )
+
+            username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=op.hostname,
                 client_id=client_id,
                 query_params=urllib.parse.urlencode(query_param_seq),
-                optional_product_info=urllib.parse.quote(
-                    str(self.pipeline_root.pipeline_configuration.product_info)
-                ),
+                # optional_product_info=urllib.parse.quote(
+                #     str(self.pipeline_root.pipeline_configuration.product_info),
+                # ),
             )
 
             if op.gateway_hostname:

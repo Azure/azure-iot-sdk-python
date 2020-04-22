@@ -12,7 +12,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 import pnp_methods
 
 logging.basicConfig(level=logging.ERROR)
-interface = "digital-twin-model-id=dtmi:contoso:com:EnvironmentalSensor;1"
+interface = "dtmi:contoso:com:EnvironmentalSensor;1"
 
 # User defined variables
 sample_device_interface = "sampleDeviceInfo"
@@ -83,6 +83,21 @@ async def main():
     await device_client.connect()
 
     ################################################
+    # Update properties and retrieve them
+    await pnp_methods.pnp_update_property(
+        device_client,
+        sample_device_interface,
+        swVersion="4.5",
+        manufacturer="Contoso Device Corporation",
+        model="Contoso 4762B-turbo",
+        osName="Mac Os",
+        processorArchitecture="x86-64",
+        processorManufacturer="Intel",
+        totalStorage="1024 GB",
+        totalMemory="32 GB",
+    )
+
+    ################################################
     # Get all the listeners running
     print("Listening for command requests")
     listeners = asyncio.gather(
@@ -91,19 +106,6 @@ async def main():
         pnp_methods.execute_listener(device_client, device_name, "turnoff", turn_off_handler),
         pnp_methods.execute_listener(device_client, device_name, "check", check_handler),
         pnp_methods.execute_listener(device_client, device_name),
-    )
-
-    await pnp_methods.pnp_update_property(
-        device_client,
-        sample_device_interface,
-        # swVersion="4.3",
-        manufacturer="Contoso Device Corporation",
-        model="Contoso 4762B-turbo",
-        osName="Mac Os",
-        processorArchitecture="x86-64",
-        processorManufacturer="Intel",
-        totalStorage="1024 GB",
-        totalMemory="32 GB",
     )
 
     ################################################
