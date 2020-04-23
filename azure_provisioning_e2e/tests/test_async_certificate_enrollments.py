@@ -183,6 +183,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                 print("group enrollment combined device and intermediate cert printed")
                 print(filecontent)
 
+            print("group enrollment device id")
+            print(device_id)
+
             registration_result = await result_from_register(
                 registration_id=device_id,
                 device_cert_file=device_inter_cert_chain_file,

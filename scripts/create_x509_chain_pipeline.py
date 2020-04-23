@@ -557,6 +557,7 @@ def create_leaf_certificates(
         print(
             "Done generating device cert with filename {filename}".format(filename=cert_file_name)
         )
+        print_pem_file_content("device", "cert", "demoCA/newcerts/" + cert_file_name)
     else:
         print("device cert NOT generated")
 
