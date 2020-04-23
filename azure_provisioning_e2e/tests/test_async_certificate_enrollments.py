@@ -131,7 +131,6 @@ async def test_device_register_with_no_device_id_for_a_x509_individual_enrollmen
         service_client.delete_individual_enrollment_by_param(registration_id)
 
 
-@pytest.mark.skip(reason="Temporary for script change")
 @pytest.mark.it(
     "A group of devices get provisioned to the linked IoTHub with device_ids equal to the individual registration_ids inside a group enrollment that has been created with intermediate X509 authentication"
 )
