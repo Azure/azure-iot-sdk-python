@@ -5,6 +5,9 @@ import shutil
 import subprocess
 import argparse
 import getpass
+import logging
+
+logging.basicConfig(level=logging.ERROR)
 
 
 def create_custom_config():
@@ -661,8 +664,10 @@ def delete_directories_certs_created_from_pipeline():
 def print_pem_file_content(level, type, filename):
     log_line = "Printing {level} {type} pem".format(level=level, type=type)
     print(log_line)
+    logging.error(log_line)
     with open(filename, "r") as file:
         content = file.read()
+        logging.error(content)
         print(content)
 
 

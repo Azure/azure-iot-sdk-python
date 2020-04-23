@@ -183,6 +183,11 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
                 print("group enrollment combined device and intermediate cert printed")
                 print(filecontent)
 
+            with open(device_key_input_file, "r") as readfile:
+                filecontent = readfile.read()
+                print("group enrollment combined device key printed")
+                print(filecontent)
+
             print("group enrollment device id")
             print(device_id)
 
