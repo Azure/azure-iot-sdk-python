@@ -37,7 +37,7 @@ Below is a generic bug report format. We recommend you use it as a template and 
 
 # Context
 
-- **OS and version used:** <VERSION> (Windows 10, Ubuntu 15.04, etc. )
+- **OS and version used:** <VERSION> (Windows 10, Ubuntu 18.04, etc. )
 - **Python version:** <VERSION> (in a command prompt: python --version )
 - **pip version:** <VERSION> (in a command prompt: pip --version )
 - **list of installed packages:** <VERSION> ( in a command prompt, from the directory containing your code: pip list )
