@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: How to get support for Azure IoT
+    url: https://azure.microsoft.com/en-us/blog/how-to-get-support-for-azure-iot-sdk/
+    about: The main landing page for all Azure IoT support options.
