@@ -9,7 +9,7 @@ assignees: ''
 
 ------------------------------- delete below -------------------------------
 
-Thank you for asking a technical question! If your question is "why doesn't my code work?", please see [submitting a bug report](link to the bug report md) instead.
+Thank you for asking a technical question! If your question is "why doesn't my code work?", please see [submit a bug report](https://github.com/Azure/azure-iot-sdk-python/issues/new?assignees=&labels=bug&template=bug-report.md&title=) instead.
 
 We encourage you to submit technical questions related to the SDK on Stack Overflow. We actively monitor all questions tagged wtih "azure-iot-sdk".
 
