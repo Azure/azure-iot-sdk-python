@@ -160,6 +160,9 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
 
         service_client.create_or_update(enrollment_group_provisioning_model)
 
+        print("group enrollment name")
+        print(group_id)
+
         count = 0
         common_device_key_input_file = "demoCA/private/device_key"
         common_device_cert_input_file = "demoCA/newcerts/device_cert"
