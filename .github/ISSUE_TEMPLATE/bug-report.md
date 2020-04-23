@@ -22,7 +22,6 @@ Please follow the instructions and template below to save us time requesting add
 
 3. Do not share information from your Azure subscription here (connection strings, service names (IoT Hub name, Device Provisioning Service scope ID), etc...). If you need to share any of this information, you can create a ticket and [get assistance from Microsoft Support](https://docs.microsoft.com/en-us/azure/azure-supportability/how-to-create-azure-support-request).
 
-
 4. Include enough information for us to address the bug:
 
    -  A detailed description.
