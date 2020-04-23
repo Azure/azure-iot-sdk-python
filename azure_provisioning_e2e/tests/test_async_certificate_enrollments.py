@@ -148,6 +148,8 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         intermediate_cert_filename = "demoCA/newcerts/intermediate_cert.pem"
         with open(intermediate_cert_filename, "r") as intermediate_pem:
             intermediate_cert_content = intermediate_pem.read()
+            print("group enrollment intermediate cert printed")
+            print(intermediate_cert_content)
 
         attestation_mechanism = AttestationMechanism.create_with_x509_signing_certs(
             intermediate_cert_content
@@ -188,7 +190,8 @@ async def test_group_of_devices_register_with_no_device_id_for_a_x509_intermedia
         assert count == device_count_in_group
 
     finally:
-        service_client.delete_enrollment_group_by_param(group_id)
+        pass
+        # service_client.delete_enrollment_group_by_param(group_id)
 
 
 @pytest.mark.skip(
