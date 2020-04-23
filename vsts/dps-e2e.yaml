@@ -16,6 +16,9 @@ jobs:
   - script: 'python env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
+  - script: 'openssl version'
+    displayName: 'check openssl version'
+
   - script: |
       cd $(Agent.WorkFolder)
       cd ..
