@@ -16,6 +16,8 @@ import logging
 import socket
 import socks
 import threading
+import gc
+import weakref
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -947,6 +949,24 @@ class TestDisconnect(object):
 
 @pytest.mark.describe("MQTTTransport - OCCURANCE: Disconnect Completed")
 class TestEventDisconnectCompleted(object):
+    @pytest.fixture
+    def collected_transport_weakref(self, mock_mqtt_client):
+        # return a weak reference to an MQTTTransport that has already been collected
+        transport = MQTTTransport(
+            client_id=fake_device_id, hostname=fake_hostname, username=fake_username
+        )
+        transport_weakref = weakref.ref(transport)
+        transport = None
+        gc.collect(2)  # 2 == collect as much as possible
+        assert transport_weakref() is None
+        return transport_weakref
+
+    @pytest.fixture(
+        params=[fake_success_rc, fake_failed_rc], ids=["success rc code", "failed rc code"]
+    )
+    def rc_success_or_failure(self, request):
+        return request.param
+
     @pytest.mark.it(
         "Triggers on_mqtt_disconnected_handler event handler upon disconnect completion"
     )
@@ -1131,6 +1151,55 @@ class TestEventDisconnectCompleted(object):
                 client=mock_mqtt_client, userdata=None, rc=fake_failed_rc
             )
         assert e_info.value is arbitrary_base_exception
+
+    @pytest.mark.it(
+        "Does not raise any exceptions if the MQTTTransport object was garbage collected before the disconnect completed"
+    )
+    def test_no_exception_after_gc(
+        self, mock_mqtt_client, collected_transport_weakref, rc_success_or_failure
+    ):
+        assert mock_mqtt_client.on_disconnect
+        mock_mqtt_client.on_disconnect(mock_mqtt_client, None, rc_success_or_failure)
+        # lack of exception is success
+
+    @pytest.mark.it(
+        "Calls Paho's loop_stop() if the MQTTTransport object was garbage collected before the disconnect completed"
+    )
+    def test_calls_loop_stop_after_gc(
+        self, collected_transport_weakref, mock_mqtt_client, rc_success_or_failure, mocker
+    ):
+        assert mock_mqtt_client.loop_stop.call_count == 0
+        mock_mqtt_client.on_disconnect(mock_mqtt_client, None, rc_success_or_failure)
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it(
+        "Allows any Exception raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconnect completed"
+    )
+    def test_raises_exception_after_gc(
+        self,
+        collected_transport_weakref,
+        mock_mqtt_client,
+        rc_success_or_failure,
+        arbitrary_exception,
+    ):
+        mock_mqtt_client.loop_stop.side_effect = arbitrary_exception
+        with pytest.raises(type(arbitrary_exception)):
+            mock_mqtt_client.on_disconnect(mock_mqtt_client, None, rc_success_or_failure)
+
+    @pytest.mark.it(
+        "Allows any BaseException raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconnect completed"
+    )
+    def test_raises_base_exception_after_gc(
+        self,
+        collected_transport_weakref,
+        mock_mqtt_client,
+        rc_success_or_failure,
+        arbitrary_base_exception,
+    ):
+        mock_mqtt_client.loop_stop.side_effect = arbitrary_base_exception
+        with pytest.raises(type(arbitrary_base_exception)):
+            mock_mqtt_client.on_disconnect(mock_mqtt_client, None, rc_success_or_failure)
 
 
 @pytest.mark.describe("MQTTTransport - .subscribe()")

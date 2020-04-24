@@ -99,4 +99,4 @@ class IoTHubAmqpClient:
         self.amqp_client.queue_message(message)
         results = self.amqp_client.send_all_messages(close_on_done=False)
         if uamqp.constants.MessageState.SendFailed in results:
-            raise Exception("C2D message sned failure")
+            raise Exception("C2D message send failure")
