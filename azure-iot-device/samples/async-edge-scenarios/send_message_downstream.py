@@ -15,6 +15,7 @@ messages_to_send = 10
 async def main():
     # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
     # NOTE:  connection string must contain ;GatewayHostName=<hostname of your iot edge device>
+    # make sure your IoT Edge box is setup as a 'transparent gateway' per the IOT Edge documentation
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
     # path to the root ca cert used on your iot edge device (must copy the pem file to this downstream device)
     # example:   /home/azureuser/edge_certs/azure-iot-test-only.root.ca.cert.pem

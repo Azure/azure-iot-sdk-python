@@ -106,14 +106,11 @@ Further samples with more complex IoT Hub scenarios are contained in the [advanc
 * Send and receive updates to device twin
 * Receive direct method invocations
 
-Further samples with more complex IoT Edge scenarios involving IoT Edge modules are contained in the [advanced-edge-scenarios](async-edge-scenarios) directory, including:
+Further samples with more complex IoT Edge scenarios involving IoT Edge modules and downstream devices are contained in the [advanced-edge-scenarios](async-edge-scenarios) directory, including:
 
 * Send multiple telemetry messages from a Module
 * Receive input messages on a Module
 * Send messages to a Module Output
-
-Additional samples that show connecting downstream or 'leaf' devices to IoT Edge are contained in the [advanced-downstream-scenarios](async-downstream-scenarios) directory, including:
-
-* Send multiple telemetry messages from a 'leaf' device to IoT Hub through IoT Edge
+* Send messages to IoT Edge from a downstream or 'leaf' device
 
 Samples for the synchronous clients, intended for use with Python 2.7 or compatibility scenarios for Python 3.5+ are contained in the [sync-samples](sync-samples) directory.
