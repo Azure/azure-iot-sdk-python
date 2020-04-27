@@ -90,6 +90,8 @@ class IoTHubAmqpClient:
                 msg_props.absolute_expiry_time = prop_value
             elif prop_key == "messageId":
                 msg_props.message_id = prop_value
+            elif prop_key == "userId":
+                msg_props.user_id = prop_value
             else:
                 app_properties[prop_key] = prop_value
 
