@@ -99,17 +99,18 @@ This directory contains samples showing how to use the various features of the M
 
 ## Additional Samples
 
-Further samples with more complex IoT Hub scenarios are contained in the [advanced-hub-scenarios](advanced-hub-scenarios) directory, including:
+Further samples with more complex IoT Hub scenarios are contained in the [async-hub-scenarios](async-hub-scenarios) directory, including:
 
 * Send multiple telemetry messages from a Device
 * Receive Cloud-to-Device (C2D) messages on a Device
 * Send and receive updates to device twin
 * Receive direct method invocations
 
-Further samples with more complex IoT Edge scenarios are contained in the [advanced-edge-scenarios](advanced-edge-scenarios) directory, including:
+Further samples with more complex IoT Edge scenarios involving IoT Edge modules and downstream devices are contained in the [async-edge-scenarios](async-edge-scenarios) directory, including:
 
 * Send multiple telemetry messages from a Module
 * Receive input messages on a Module
 * Send messages to a Module Output
+* Send messages to IoT Edge from a downstream or 'leaf' device
 
 Samples for the synchronous clients, intended for use with Python 2.7 or compatibility scenarios for Python 3.5+ are contained in the [sync-samples](sync-samples) directory.
