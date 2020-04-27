@@ -686,6 +686,12 @@ class IoTHubRegistryManager(object):
 
     def send_c2d_message(self, device_id, message, properties={}):
         """Send a C2D mesage to a IoTHub Device.
+           The following system properties are supported
+
+           correlationId - String property that contains the MessageId of the request
+           messageId - Identifier for the message used for request-reply patterns.
+           userId - An ID used to specify the origin of messages
+           For more information see https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-construct
 
         :param str device_id: The name (Id) of the device.
         :param str message: The message that is to be delievered to the device.
