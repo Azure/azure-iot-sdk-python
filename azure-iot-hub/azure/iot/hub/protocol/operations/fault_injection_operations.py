@@ -18,7 +18,7 @@ class FaultInjectionOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,10 +30,18 @@ class FaultInjectionOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-13"
+        self.api_version = "2020-05-31-preview"
 
     def get(self, custom_headers=None, raw=False, **operation_config):
         """Get FaultInjection entity.
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
@@ -83,6 +91,14 @@ class FaultInjectionOperations(object):
 
     def set(self, value, custom_headers=None, raw=False, **operation_config):
         """Create or update FaultInjection entity.
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param value:
         :type value: ~protocol.models.FaultInjectionProperties

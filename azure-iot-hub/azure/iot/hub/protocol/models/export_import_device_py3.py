@@ -43,6 +43,8 @@ class ExportImportDevice(Model):
     :type capabilities: ~protocol.models.DeviceCapabilities
     :param device_scope:
     :type device_scope: str
+    :param parent_scopes:
+    :type parent_scopes: list[str]
     """
 
     _attribute_map = {
@@ -58,6 +60,7 @@ class ExportImportDevice(Model):
         "properties": {"key": "properties", "type": "PropertyContainer"},
         "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
         "device_scope": {"key": "deviceScope", "type": "str"},
+        "parent_scopes": {"key": "parentScopes", "type": "[str]"},
     }
 
     def __init__(
@@ -75,6 +78,7 @@ class ExportImportDevice(Model):
         properties=None,
         capabilities=None,
         device_scope: str = None,
+        parent_scopes=None,
         **kwargs
     ) -> None:
         super(ExportImportDevice, self).__init__(**kwargs)
@@ -90,3 +94,4 @@ class ExportImportDevice(Model):
         self.properties = properties
         self.capabilities = capabilities
         self.device_scope = device_scope
+        self.parent_scopes = parent_scopes

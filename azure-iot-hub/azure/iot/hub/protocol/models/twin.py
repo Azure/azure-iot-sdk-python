@@ -60,6 +60,8 @@ class Twin(Model):
     :type capabilities: ~protocol.models.DeviceCapabilities
     :param device_scope:
     :type device_scope: str
+    :param parent_scopes:
+    :type parent_scopes: list[str]
     """
 
     _attribute_map = {
@@ -80,6 +82,7 @@ class Twin(Model):
         "x509_thumbprint": {"key": "x509Thumbprint", "type": "X509Thumbprint"},
         "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
         "device_scope": {"key": "deviceScope", "type": "str"},
+        "parent_scopes": {"key": "parentScopes", "type": "[str]"},
     }
 
     def __init__(self, **kwargs):
@@ -101,3 +104,4 @@ class Twin(Model):
         self.x509_thumbprint = kwargs.get("x509_thumbprint", None)
         self.capabilities = kwargs.get("capabilities", None)
         self.device_scope = kwargs.get("device_scope", None)
+        self.parent_scopes = kwargs.get("parent_scopes", None)

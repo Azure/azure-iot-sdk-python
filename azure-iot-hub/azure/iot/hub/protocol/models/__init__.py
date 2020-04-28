@@ -6,13 +6,9 @@
 # --------------------------------------------------------------------------
 
 try:
-    from .configuration_metrics_py3 import ConfigurationMetrics
     from .configuration_content_py3 import ConfigurationContent
+    from .configuration_metrics_py3 import ConfigurationMetrics
     from .configuration_py3 import Configuration
-    from .configuration_queries_test_input_py3 import ConfigurationQueriesTestInput
-    from .configuration_queries_test_response_py3 import ConfigurationQueriesTestResponse
-    from .registry_statistics_py3 import RegistryStatistics
-    from .service_statistics_py3 import ServiceStatistics
     from .symmetric_key_py3 import SymmetricKey
     from .x509_thumbprint_py3 import X509Thumbprint
     from .authentication_mechanism_py3 import AuthenticationMechanism
@@ -20,13 +16,18 @@ try:
     from .device_py3 import Device
     from .property_container_py3 import PropertyContainer
     from .export_import_device_py3 import ExportImportDevice
+    from .twin_properties_py3 import TwinProperties
+    from .twin_py3 import Twin
+    from .job_properties_py3 import JobProperties
+    from .module_py3 import Module
+    from .configuration_queries_test_input_py3 import ConfigurationQueriesTestInput
+    from .configuration_queries_test_response_py3 import ConfigurationQueriesTestResponse
+    from .registry_statistics_py3 import RegistryStatistics
+    from .service_statistics_py3 import ServiceStatistics
     from .device_registry_operation_error_py3 import DeviceRegistryOperationError
     from .device_registry_operation_warning_py3 import DeviceRegistryOperationWarning
     from .bulk_registry_operation_result_py3 import BulkRegistryOperationResult
     from .query_specification_py3 import QuerySpecification
-    from .twin_properties_py3 import TwinProperties
-    from .twin_py3 import Twin
-    from .job_properties_py3 import JobProperties
     from .purge_message_queue_result_py3 import PurgeMessageQueueResult
     from .fault_injection_connection_properties_py3 import FaultInjectionConnectionProperties
     from .fault_injection_properties_py3 import FaultInjectionProperties
@@ -41,26 +42,21 @@ try:
     from .device_job_statistics_py3 import DeviceJobStatistics
     from .job_response_py3 import JobResponse
     from .query_result_py3 import QueryResult
-    from .module_py3 import Module
     from .cloud_to_device_method_result_py3 import CloudToDeviceMethodResult
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired_py3 import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired,
+    from .digital_twin_interfaces_patch_interfaces_properties_additional_properties_desired_py3 import (
+        DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired,
     )
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value_py3 import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValue,
+    from .components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties_py3 import (
+        Components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties,
     )
-    from .digital_twin_interfaces_patch_interfaces_value_py3 import (
-        DigitalTwinInterfacesPatchInterfacesValue,
+    from .components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties_py3 import (
+        Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties,
     )
     from .digital_twin_interfaces_patch_py3 import DigitalTwinInterfacesPatch
 except (SyntaxError, ImportError):
-    from .configuration_metrics import ConfigurationMetrics
     from .configuration_content import ConfigurationContent
+    from .configuration_metrics import ConfigurationMetrics
     from .configuration import Configuration
-    from .configuration_queries_test_input import ConfigurationQueriesTestInput
-    from .configuration_queries_test_response import ConfigurationQueriesTestResponse
-    from .registry_statistics import RegistryStatistics
-    from .service_statistics import ServiceStatistics
     from .symmetric_key import SymmetricKey
     from .x509_thumbprint import X509Thumbprint
     from .authentication_mechanism import AuthenticationMechanism
@@ -68,13 +64,18 @@ except (SyntaxError, ImportError):
     from .device import Device
     from .property_container import PropertyContainer
     from .export_import_device import ExportImportDevice
+    from .twin_properties import TwinProperties
+    from .twin import Twin
+    from .job_properties import JobProperties
+    from .module import Module
+    from .configuration_queries_test_input import ConfigurationQueriesTestInput
+    from .configuration_queries_test_response import ConfigurationQueriesTestResponse
+    from .registry_statistics import RegistryStatistics
+    from .service_statistics import ServiceStatistics
     from .device_registry_operation_error import DeviceRegistryOperationError
     from .device_registry_operation_warning import DeviceRegistryOperationWarning
     from .bulk_registry_operation_result import BulkRegistryOperationResult
     from .query_specification import QuerySpecification
-    from .twin_properties import TwinProperties
-    from .twin import Twin
-    from .job_properties import JobProperties
     from .purge_message_queue_result import PurgeMessageQueueResult
     from .fault_injection_connection_properties import FaultInjectionConnectionProperties
     from .fault_injection_properties import FaultInjectionProperties
@@ -89,27 +90,22 @@ except (SyntaxError, ImportError):
     from .device_job_statistics import DeviceJobStatistics
     from .job_response import JobResponse
     from .query_result import QueryResult
-    from .module import Module
     from .cloud_to_device_method_result import CloudToDeviceMethodResult
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value_desired import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired,
+    from .digital_twin_interfaces_patch_interfaces_properties_additional_properties_desired import (
+        DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired,
     )
-    from .digital_twin_interfaces_patch_interfaces_value_properties_value import (
-        DigitalTwinInterfacesPatchInterfacesValuePropertiesValue,
+    from .components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties import (
+        Components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties,
     )
-    from .digital_twin_interfaces_patch_interfaces_value import (
-        DigitalTwinInterfacesPatchInterfacesValue,
+    from .components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties import (
+        Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties,
     )
     from .digital_twin_interfaces_patch import DigitalTwinInterfacesPatch
 
 __all__ = [
-    "ConfigurationMetrics",
     "ConfigurationContent",
+    "ConfigurationMetrics",
     "Configuration",
-    "ConfigurationQueriesTestInput",
-    "ConfigurationQueriesTestResponse",
-    "RegistryStatistics",
-    "ServiceStatistics",
     "SymmetricKey",
     "X509Thumbprint",
     "AuthenticationMechanism",
@@ -117,13 +113,18 @@ __all__ = [
     "Device",
     "PropertyContainer",
     "ExportImportDevice",
+    "TwinProperties",
+    "Twin",
+    "JobProperties",
+    "Module",
+    "ConfigurationQueriesTestInput",
+    "ConfigurationQueriesTestResponse",
+    "RegistryStatistics",
+    "ServiceStatistics",
     "DeviceRegistryOperationError",
     "DeviceRegistryOperationWarning",
     "BulkRegistryOperationResult",
     "QuerySpecification",
-    "TwinProperties",
-    "Twin",
-    "JobProperties",
     "PurgeMessageQueueResult",
     "FaultInjectionConnectionProperties",
     "FaultInjectionProperties",
@@ -138,10 +139,9 @@ __all__ = [
     "DeviceJobStatistics",
     "JobResponse",
     "QueryResult",
-    "Module",
     "CloudToDeviceMethodResult",
-    "DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired",
-    "DigitalTwinInterfacesPatchInterfacesValuePropertiesValue",
-    "DigitalTwinInterfacesPatchInterfacesValue",
+    "DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired",
+    "Components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties",
+    "Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties",
     "DigitalTwinInterfacesPatch",
 ]
