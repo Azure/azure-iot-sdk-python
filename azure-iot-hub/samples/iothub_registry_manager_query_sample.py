@@ -45,7 +45,7 @@ def print_query_result(title, query_result):
     if query_result.items:
         x = 1
         for d in query_result.items:
-            print_twin("{0}: {1}".format(title, x), d)
+            print_twin("{0}: {0}".format(title, x), d)
             x += 1
     else:
         print("No item found")

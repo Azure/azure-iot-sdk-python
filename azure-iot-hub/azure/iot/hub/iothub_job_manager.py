@@ -6,7 +6,6 @@
 
 from .auth import ConnectionStringAuthentication
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
-from .protocol.models import Configuration, ConfigurationContent, ConfigurationQueriesTestInput
 
 
 class IoTHubJobManager(object):
@@ -33,12 +32,14 @@ class IoTHubJobManager(object):
     def create_import_export_job(self, job_properties):
         """Creates a new import/export job on an IoT hub.
 
-        :param job_properties job_properties: Specifies the job specification.
+        :param job_properties: Specifies the job specification.
+        :type job_properties: :class:`azure.iot.hub.models.JobProperties`
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: JobProperties object containing the created job.
+        :rtype: :class:`azure.iot.hub.models.JobProperties`
         """
         return self.protocol.job_client.create_import_export_job(job_properties)
 
@@ -48,7 +49,8 @@ class IoTHubJobManager(object):
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
-        :returns: The list[JobProperties] object.
+        :returns: The list[job_properties] object.
+        :rtype: :class:`list[azure.iot.hub.models.JobProperties]`
         """
         return self.protocol.job_client.get_import_export_jobs()
 
@@ -61,6 +63,7 @@ class IoTHubJobManager(object):
             if the HTTP response status is not in [200].
 
         :returns: The JobProperties object containing the requested job.
+        :rtype: :class:`azure.iot.hub.models.JobProperties`
         """
         return self.protocol.job_client.get_import_export_job(job_id)
 
@@ -80,12 +83,14 @@ class IoTHubJobManager(object):
         """Creates a new job to schedule update twins or device direct methods on an IoT hub.
 
         :param str job_id: The ID of the job.
-        :param job_request job_request: Specifies the job.
+        :param job_request: Specifies the job.
+        :type job_request: :class:`azure.iot.hub.models.JobRequest`
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: JobResponse object containing the created job.
+        :rtype: :class:`azure.iot.hub.models.JobResponse`
         """
         return self.protocol.job_client.create_job(job_id, job_request)
 
@@ -98,6 +103,7 @@ class IoTHubJobManager(object):
             if the HTTP response status is not in [200].
 
         :returns: The JobResponse object containing the requested details.
+        :rtype: :class:`azure.iot.hub.models.JobResponse`
         """
         return self.protocol.job_client.get_job(job_id)
 
@@ -110,6 +116,7 @@ class IoTHubJobManager(object):
             if the HTTP response status is not in [200].
 
         :returns: JobResponse object containing the cancelled job.
+        :rtype: :class:`azure.iot.hub.models.JobResponse`
         """
         return self.protocol.job_client.cancel_job(job_id)
 
@@ -123,5 +130,6 @@ class IoTHubJobManager(object):
             if the HTTP response status is not in [200].
 
         :returns: QueryResult object containing the jobs.
+        :rtype: :class:`azure.iot.hub.models.QueryResult`
         """
         return self.protocol.job_client.query_jobs(job_type, job_status)
