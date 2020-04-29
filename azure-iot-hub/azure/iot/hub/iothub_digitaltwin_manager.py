@@ -61,7 +61,7 @@ class IoTHubDigitalTwinManager(object):
         :param str digital_twin__id: The digital twin Id of the given device.
         :param str component_path: The component's name.
         :param str command_name: The command's name.
-        :param str The argument of a command.
+        :param str payload: The argument of a command.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
