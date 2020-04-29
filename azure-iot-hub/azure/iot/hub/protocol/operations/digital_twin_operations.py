@@ -18,7 +18,7 @@ class DigitalTwinOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2019-07-01-preview".
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,10 +30,152 @@ class DigitalTwinOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2019-07-01-preview"
+        self.api_version = "2020-05-31-preview"
 
-    def get_interfaces(self, digital_twin_id, custom_headers=None, raw=False, **operation_config):
+    def get_digital_twin(self, id, custom_headers=None, raw=False, **operation_config):
+        """Gets a digital twin.
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
+
+        :param id: Digital Twin ID.
+        :type id: str
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: object or ClientRawResponse if raw=true
+        :rtype: object or ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.get_digital_twin.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self._client.format_url(url, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+
+        # Construct and send request
+        request = self._client.get(url, query_parameters, header_parameters)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise HttpOperationError(self._deserialize, response)
+
+        deserialized = None
+        header_dict = {}
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("object", response)
+            header_dict = {"ETag": "str"}
+
+        if raw:
+            client_raw_response = ClientRawResponse(deserialized, response)
+            client_raw_response.add_headers(header_dict)
+            return client_raw_response
+
+        return deserialized
+
+    get_digital_twin.metadata = {"url": "/digitaltwins/{id}"}
+
+    def update_digital_twin(
+        self,
+        id,
+        digital_twin_patch,
+        if_match=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
+        """Updates a digital twin.
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
+
+        :param id: Digital Twin ID.
+        :type id: str
+        :param digital_twin_patch: json-patch contents to update.
+        :type digital_twin_patch: list[object]
+        :param if_match:
+        :type if_match: str
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: None or ClientRawResponse if raw=true
+        :rtype: None or ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.update_digital_twin.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self._client.format_url(url, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+        if if_match is not None:
+            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
+
+        # Construct body
+        body_content = self._serialize.body(digital_twin_patch, "[object]")
+
+        # Construct and send request
+        request = self._client.patch(url, query_parameters, header_parameters, body_content)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [202]:
+            raise HttpOperationError(self._deserialize, response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(None, response)
+            client_raw_response.add_headers({"ETag": "str", "Location": "str"})
+            return client_raw_response
+
+    update_digital_twin.metadata = {"url": "/digitaltwins/{id}"}
+
+    def get_components(self, digital_twin_id, custom_headers=None, raw=False, **operation_config):
         """Gets the list of interfaces.
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param digital_twin_id: Digital Twin ID. Format of digitalTwinId is
          DeviceId[~ModuleId]. ModuleId is optional.
@@ -50,7 +192,7 @@ class DigitalTwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get_interfaces.metadata["url"]
+        url = self.get_components.metadata["url"]
         path_format_arguments = {
             "digitalTwinId": self._serialize.url("digital_twin_id", digital_twin_id, "str")
         }
@@ -89,9 +231,9 @@ class DigitalTwinOperations(object):
 
         return deserialized
 
-    get_interfaces.metadata = {"url": "/digitalTwins/{digitalTwinId}/interfaces"}
+    get_components.metadata = {"url": "/digitalTwins/{digitalTwinId}/interfaces"}
 
-    def update_interfaces(
+    def update_component(
         self,
         digital_twin_id,
         interfaces_patch_info,
@@ -102,6 +244,14 @@ class DigitalTwinOperations(object):
     ):
         """Updates desired properties of multiple interfaces.
         Example URI: "digitalTwins/{digitalTwinId}/interfaces".
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param digital_twin_id: Digital Twin ID. Format of digitalTwinId is
          DeviceId[~ModuleId]. ModuleId is optional.
@@ -124,7 +274,7 @@ class DigitalTwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.update_interfaces.metadata["url"]
+        url = self.update_component.metadata["url"]
         path_format_arguments = {
             "digitalTwinId": self._serialize.url("digital_twin_id", digital_twin_id, "str")
         }
@@ -169,13 +319,21 @@ class DigitalTwinOperations(object):
 
         return deserialized
 
-    update_interfaces.metadata = {"url": "/digitalTwins/{digitalTwinId}/interfaces"}
+    update_component.metadata = {"url": "/digitalTwins/{digitalTwinId}/interfaces"}
 
-    def get_interface(
+    def get_component(
         self, digital_twin_id, interface_name, custom_headers=None, raw=False, **operation_config
     ):
         """Gets the interface of given interfaceId.
         Example URI: "digitalTwins/{digitalTwinId}/interfaces/{interfaceName}".
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param digital_twin_id: Digital Twin ID. Format of digitalTwinId is
          DeviceId[~ModuleId]. ModuleId is optional.
@@ -194,7 +352,7 @@ class DigitalTwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get_interface.metadata["url"]
+        url = self.get_component.metadata["url"]
         path_format_arguments = {
             "digitalTwinId": self._serialize.url("digital_twin_id", digital_twin_id, "str"),
             "interfaceName": self._serialize.url("interface_name", interface_name, "str"),
@@ -234,7 +392,7 @@ class DigitalTwinOperations(object):
 
         return deserialized
 
-    get_interface.metadata = {"url": "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}"}
+    get_component.metadata = {"url": "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}"}
 
     def get_digital_twin_model(
         self, model_id, expand=None, custom_headers=None, raw=False, **operation_config
@@ -243,6 +401,14 @@ class DigitalTwinOperations(object):
         If "expand" is present in the query parameters and id is for a device
         capability model then it returns
         the capability metamodel with expanded interface definitions.
+
+        For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param model_id: Model id Ex:
          <example>urn:contoso:TemperatureSensor:1</example>
@@ -284,7 +450,7 @@ class DigitalTwinOperations(object):
         request = self._client.get(url, query_parameters, header_parameters)
         response = self._client.send(request, stream=False, **operation_config)
 
-        if response.status_code not in [200]:
+        if response.status_code not in [200, 204]:
             raise HttpOperationError(self._deserialize, response)
 
         deserialized = None
@@ -292,7 +458,12 @@ class DigitalTwinOperations(object):
 
         if response.status_code == 200:
             deserialized = self._deserialize("object", response)
-            header_dict = {"ETag": "str", "x-ms-model-id": "str"}
+            header_dict = {
+                "ETag": "str",
+                "x-ms-model-id": "str",
+                "x-ms-model-resolution-status": "str",
+                "x-ms-model-resolution-description": "str",
+            }
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -303,7 +474,7 @@ class DigitalTwinOperations(object):
 
     get_digital_twin_model.metadata = {"url": "/digitalTwins/models/{modelId}"}
 
-    def invoke_interface_command(
+    def invoke_component_command(
         self,
         digital_twin_id,
         interface_name,
@@ -342,7 +513,7 @@ class DigitalTwinOperations(object):
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.invoke_interface_command.metadata["url"]
+        url = self.invoke_component_command.metadata["url"]
         path_format_arguments = {
             "digitalTwinId": self._serialize.url("digital_twin_id", digital_twin_id, "str"),
             "interfaceName": self._serialize.url("interface_name", interface_name, "str"),
@@ -395,6 +566,104 @@ class DigitalTwinOperations(object):
 
         return deserialized
 
-    invoke_interface_command.metadata = {
+    invoke_component_command.metadata = {
         "url": "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}/commands/{commandName}"
+    }
+
+    def invoke_component_command_v2(
+        self,
+        id,
+        component_path,
+        command_name,
+        payload,
+        connect_timeout_in_seconds=None,
+        response_timeout_in_seconds=None,
+        custom_headers=None,
+        raw=False,
+        **operation_config
+    ):
+        """Invoke a digital twin command.
+
+        Invoke a digital twin command.
+
+        :param id:
+        :type id: str
+        :param component_path:
+        :type component_path: str
+        :param command_name:
+        :type command_name: str
+        :param payload:
+        :type payload: object
+        :param connect_timeout_in_seconds: Maximum interval of time, in
+         seconds, that the digital twin command will wait for the answer.
+        :type connect_timeout_in_seconds: int
+        :param response_timeout_in_seconds: Maximum interval of time, in
+         seconds, that the digital twin command will wait for the answer.
+        :type response_timeout_in_seconds: int
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: object or ClientRawResponse if raw=true
+        :rtype: object or ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.invoke_component_command_v2.metadata["url"]
+        path_format_arguments = {
+            "id": self._serialize.url("id", id, "str"),
+            "componentPath": self._serialize.url("component_path", component_path, "str"),
+            "commandName": self._serialize.url("command_name", command_name, "str"),
+        }
+        url = self._client.format_url(url, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+        if connect_timeout_in_seconds is not None:
+            query_parameters["connectTimeoutInSeconds"] = self._serialize.query(
+                "connect_timeout_in_seconds", connect_timeout_in_seconds, "int"
+            )
+        if response_timeout_in_seconds is not None:
+            query_parameters["responseTimeoutInSeconds"] = self._serialize.query(
+                "response_timeout_in_seconds", response_timeout_in_seconds, "int"
+            )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+
+        # Construct body
+        body_content = self._serialize.body(payload, "object")
+
+        # Construct and send request
+        request = self._client.post(url, query_parameters, header_parameters, body_content)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise HttpOperationError(self._deserialize, response)
+
+        deserialized = None
+        header_dict = {}
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("object", response)
+            header_dict = {"x-ms-command-statuscode": "int", "x-ms-request-id": "str"}
+
+        if raw:
+            client_raw_response = ClientRawResponse(deserialized, response)
+            client_raw_response.add_headers(header_dict)
+            return client_raw_response
+
+        return deserialized
+
+    invoke_component_command_v2.metadata = {
+        "url": "/digitaltwins/{id}/components/{componentPath}/commands/{commandName}"
     }

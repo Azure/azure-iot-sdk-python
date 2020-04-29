@@ -38,6 +38,8 @@ class Device(Model):
     :type capabilities: ~protocol.models.DeviceCapabilities
     :param device_scope:
     :type device_scope: str
+    :param parent_scopes:
+    :type parent_scopes: list[str]
     """
 
     _attribute_map = {
@@ -54,6 +56,7 @@ class Device(Model):
         "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
         "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
         "device_scope": {"key": "deviceScope", "type": "str"},
+        "parent_scopes": {"key": "parentScopes", "type": "[str]"},
     }
 
     def __init__(self, **kwargs):
@@ -71,3 +74,4 @@ class Device(Model):
         self.authentication = kwargs.get("authentication", None)
         self.capabilities = kwargs.get("capabilities", None)
         self.device_scope = kwargs.get("device_scope", None)
+        self.parent_scopes = kwargs.get("parent_scopes", None)

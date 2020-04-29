@@ -18,7 +18,7 @@ class HttpRuntimeOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,7 +30,7 @@ class HttpRuntimeOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-13"
+        self.api_version = "2020-05-31-preview"
 
     def receive_feedback_notification(self, custom_headers=None, raw=False, **operation_config):
         """This method is used to retrieve feedback of a cloud-to-device message.
@@ -39,7 +39,13 @@ class HttpRuntimeOperations(object):
         See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging
         for more information. This capability is only available in the standard
         tier IoT Hub. For more information, see [Choose the right IoT Hub
-        tier](https://aka.ms/scaleyouriotsolution).
+        tier](https://aka.ms/scaleyouriotsolution). For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
@@ -88,7 +94,13 @@ class HttpRuntimeOperations(object):
         when completing, a feedback message. A completed message is deleted
         from the feedback queue. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for
-        more information.
+        more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param lock_token: Lock token.
         :type lock_token: str
@@ -141,7 +153,13 @@ class HttpRuntimeOperations(object):
         when abandoning, a feedback message. A abandoned message is deleted
         from the feedback queue. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for
-        more information.
+        more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param lock_token: Lock Token.
         :type lock_token: str

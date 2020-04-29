@@ -13,11 +13,14 @@ class DigitalTwinInterfacesPatch(Model):
 
     :param interfaces: Interface(s) data to patch in the digital twin.
     :type interfaces: dict[str,
-     ~protocol.models.DigitalTwinInterfacesPatchInterfacesValue]
+     ~protocol.models.Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties]
     """
 
     _attribute_map = {
-        "interfaces": {"key": "interfaces", "type": "{DigitalTwinInterfacesPatchInterfacesValue}"}
+        "interfaces": {
+            "key": "interfaces",
+            "type": "{Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties}",
+        }
     }
 
     def __init__(self, *, interfaces=None, **kwargs) -> None:

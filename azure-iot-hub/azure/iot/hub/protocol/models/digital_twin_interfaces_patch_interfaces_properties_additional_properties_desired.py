@@ -8,8 +8,8 @@
 from msrest.serialization import Model
 
 
-class DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired(Model):
-    """DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired.
+class DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired(Model):
+    """DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired.
 
     :param value: The desired value of the interface property to set in a
      digitalTwin.
@@ -18,8 +18,8 @@ class DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired(Model):
 
     _attribute_map = {"value": {"key": "value", "type": "object"}}
 
-    def __init__(self, *, value=None, **kwargs) -> None:
-        super(DigitalTwinInterfacesPatchInterfacesValuePropertiesValueDesired, self).__init__(
-            **kwargs
-        )
-        self.value = value
+    def __init__(self, **kwargs):
+        super(
+            DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired, self
+        ).__init__(**kwargs)
+        self.value = kwargs.get("value", None)

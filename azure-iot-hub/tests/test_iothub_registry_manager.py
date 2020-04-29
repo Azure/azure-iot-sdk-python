@@ -40,7 +40,22 @@ fake_job_status = "fake_status"
 fake_job_properties = "fake_job_properties"
 fake_device_twin = "fake_device_twin"
 fake_module_twin = "fake_module_twin"
-fake_direct_method_request = "fake_direct_method_request"
+fake_direct_method_request_with_payload_none = "fake_direct_method_request"
+fake_properties = {"fake_key": "fake_value"}
+
+
+class Fake_direct_method_request_with_payload:
+    payload = ""
+
+
+fake_direct_method_request_with_payload = Fake_direct_method_request_with_payload()
+
+
+class Fake_direct_method_request_with_payload_none:
+    payload = None
+
+
+fake_direct_method_request_with_payload_none = Fake_direct_method_request_with_payload_none()
 fake_message_to_send = "fake_message_to_send"
 
 """----Shared fixtures----"""
@@ -1146,31 +1161,63 @@ class TestUpdateModuleTwin(object):
         )
 
 
-@pytest.mark.describe("IoTHubRegistryManager - .invoke_device_method()")
-class TestInvokeDeviceMethod(object):
-    @pytest.mark.it("Test invoke device method")
-    def test_invoke_device_method(
+@pytest.mark.describe("IoTHubRegistryManager - .invoke_device_method() with payload")
+class TestInvokeDeviceMethodWithPayload(object):
+    @pytest.mark.it("Test invoke device method with payload")
+    def test_invoke_device_method_with_payload(
         self, mocker, mock_device_method_operations, iothub_registry_manager
     ):
-        iothub_registry_manager.invoke_device_method(fake_device_id, fake_direct_method_request)
+        iothub_registry_manager.invoke_device_method(
+            fake_device_id, fake_direct_method_request_with_payload
+        )
         assert mock_device_method_operations.invoke_device_method.call_count == 1
         assert mock_device_method_operations.invoke_device_method.call_args == mocker.call(
-            fake_device_id, fake_direct_method_request
+            fake_device_id, fake_direct_method_request_with_payload
         )
 
 
-@pytest.mark.describe("IoTHubRegistryManager - .invoke_device_module_method()")
-class TestInvokeDeviceModuleMethod(object):
-    @pytest.mark.it("Test invoke device module method")
-    def test_invoke_device_module_method(
+@pytest.mark.describe("IoTHubRegistryManager - .invoke_device_method() with payload none")
+class TestInvokeDeviceMethodWithPayloadNone(object):
+    @pytest.mark.it("Test invoke device method with payload None")
+    def test_invoke_device_method_payload_none(
+        self, mocker, mock_device_method_operations, iothub_registry_manager
+    ):
+        iothub_registry_manager.invoke_device_method(
+            fake_device_id, fake_direct_method_request_with_payload_none
+        )
+        assert mock_device_method_operations.invoke_device_method.call_count == 1
+        assert mock_device_method_operations.invoke_device_method.call_args == mocker.call(
+            fake_device_id, fake_direct_method_request_with_payload_none
+        )
+
+
+@pytest.mark.describe("IoTHubRegistryManager - .invoke_device_module_method() with payload")
+class TestInvokeDeviceModuleMethodWithPayload(object):
+    @pytest.mark.it("Test invoke device module method with payload")
+    def test_invoke_device_module_method_with_payload(
         self, mocker, mock_device_method_operations, iothub_registry_manager
     ):
         iothub_registry_manager.invoke_device_module_method(
-            fake_device_id, fake_module_id, fake_direct_method_request
+            fake_device_id, fake_module_id, fake_direct_method_request_with_payload
         )
         assert mock_device_method_operations.invoke_module_method.call_count == 1
         assert mock_device_method_operations.invoke_module_method.call_args == mocker.call(
-            fake_device_id, fake_module_id, fake_direct_method_request
+            fake_device_id, fake_module_id, fake_direct_method_request_with_payload
+        )
+
+
+@pytest.mark.describe("IoTHubRegistryManager - .invoke_device_module_method() with payload none")
+class TestInvokeDeviceModuleMethodWithPayloadNone(object):
+    @pytest.mark.it("Test invoke device module method with payload None")
+    def test_invoke_device_module_method_payload_none(
+        self, mocker, mock_device_method_operations, iothub_registry_manager
+    ):
+        iothub_registry_manager.invoke_device_module_method(
+            fake_device_id, fake_module_id, fake_direct_method_request_with_payload_none
+        )
+        assert mock_device_method_operations.invoke_module_method.call_count == 1
+        assert mock_device_method_operations.invoke_module_method.call_args == mocker.call(
+            fake_device_id, fake_module_id, fake_direct_method_request_with_payload_none
         )
 
 
@@ -1185,5 +1232,22 @@ class TestSendC2dMessage(object):
 
         assert mock_uamqp_send_message_to_device.call_count == 1
         assert mock_uamqp_send_message_to_device.call_args == mocker.call(
-            fake_device_id, fake_message_to_send
+            fake_device_id, fake_message_to_send, {}
+        )
+
+
+@pytest.mark.describe("IoTHubRegistryManager - .send_c2d_message() with properties")
+class TestSendC2dMessageWithProperties(object):
+    @pytest.mark.it("Test send c2d message with properties")
+    def test_send_c2d_message_with_properties(
+        self, mocker, mock_uamqp_send_message_to_device, iothub_registry_manager
+    ):
+
+        iothub_registry_manager.send_c2d_message(
+            fake_device_id, fake_message_to_send, fake_properties
+        )
+
+        assert mock_uamqp_send_message_to_device.call_count == 1
+        assert mock_uamqp_send_message_to_device.call_args == mocker.call(
+            fake_device_id, fake_message_to_send, fake_properties
         )

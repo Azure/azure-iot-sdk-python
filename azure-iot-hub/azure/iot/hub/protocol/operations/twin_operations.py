@@ -18,7 +18,7 @@ class TwinOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: '2020-03-13'.
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,14 +30,20 @@ class TwinOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-13"
+        self.api_version = "2020-05-31-preview"
 
     def get_device_twin(self, id, custom_headers=None, raw=False, **operation_config):
         """Gets a device twin.
 
         Gets a device twin. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
+        for more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -101,7 +107,13 @@ class TwinOperations(object):
 
         Replaces a device twin. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
+        for more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -175,7 +187,13 @@ class TwinOperations(object):
 
         Updates a device twin. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
+        for more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -241,7 +259,13 @@ class TwinOperations(object):
 
         Gets a module twin. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
+        for more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -311,7 +335,13 @@ class TwinOperations(object):
 
         Replaces a module twin. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
+        for more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -391,7 +421,13 @@ class TwinOperations(object):
 
         Updates a module twin. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
+        for more information. For IoT Hub VNET related
+        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
+        please use API version '2020-03-13'.These features are currently in
+        general availability in the East US, West US 2, and Southcentral US
+        regions only. We are actively working to expand the availability of
+        these features to all regions by end of month May. For rest of the APIs
+        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str

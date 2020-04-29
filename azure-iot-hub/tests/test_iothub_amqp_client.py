@@ -26,7 +26,15 @@ fake_shared_access_key_name = "test_key_name"
 fake_hostname = "hostname.mytest-net"
 fake_device_id = "device_id"
 fake_message = "fake_message"
-
+fake_app_prop = {"fake_prop1": "fake_value1"}
+fake_sys_prop = {
+    "contentType": "value1",
+    "contentEncoding": "value2",
+    "correlationId": "value3",
+    "expiryTimeUtc": 1584727659,
+    "messageId": 42,
+}
+fake_empty_prop = {}
 """----Shared fixtures----"""
 
 
@@ -43,7 +51,18 @@ class TestIoTHubAmqpClient(object):
         iothub_amqp_client = IoTHubAmqpClient(
             fake_hostname, fake_shared_access_key_name, fake_shared_access_key
         )
-        iothub_amqp_client.send_message_to_device(fake_device_id, fake_message)
+        iothub_amqp_client.send_message_to_device(fake_device_id, fake_message, fake_app_prop)
+        amqp_client_obj = mock_uamqp_SendClient.return_value
+
+        assert amqp_client_obj.queue_message.call_count == 1
+        assert amqp_client_obj.send_all_messages.call_count == 1
+
+    @pytest.mark.it("Send Message To Device system prop")
+    def test_send_message_to_device_sys_props(self, mocker, mock_uamqp_SendClient):
+        iothub_amqp_client = IoTHubAmqpClient(
+            fake_hostname, fake_shared_access_key_name, fake_shared_access_key
+        )
+        iothub_amqp_client.send_message_to_device(fake_device_id, fake_message, fake_sys_prop)
         amqp_client_obj = mock_uamqp_SendClient.return_value
 
         assert amqp_client_obj.queue_message.call_count == 1
@@ -59,7 +78,7 @@ class TestIoTHubAmqpClient(object):
             amqp_client_obj, "send_all_messages", {uamqp.constants.MessageState.SendFailed}
         )
         with pytest.raises(Exception):
-            iothub_amqp_client.send_message_to_device(fake_device_id, fake_message)
+            iothub_amqp_client.send_message_to_device(fake_device_id, fake_message, fake_app_prop)
 
     @pytest.mark.it("Disconnect a Device")
     def test_disconnect_sync(self, mocker, mock_uamqp_SendClient):
