@@ -67,6 +67,13 @@ async def check_handler(values):
     print("Done checking")
 
 
+# END COMMAND HANDLERS
+#####################################################
+
+#####################################################
+# CREATE RESPONSES TO COMMANDS
+
+
 def create_blink_response(values):
     """
     An example function that can create a response to the "blink" command request the way the user wants it.
@@ -95,9 +102,8 @@ def create_blink_response(values):
     return response_payload
 
 
-# END COMMAND HANDLERS
+# END CREATE RESPONSES TO COMMANDS
 #####################################################
-
 
 #####################################################
 # An # END KEYBOARD INPUT LISTENER to quit application
