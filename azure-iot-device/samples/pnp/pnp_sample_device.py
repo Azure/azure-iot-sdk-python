@@ -28,13 +28,16 @@ sdk_information_digital_twin_model_identifier = "dtmi:azure:Client:SDKInformatio
 model_id = "dtmi:my_company:com:sample_device;1"
 
 # retrieve component names from the interfaces
-sensor_component_name = sensor_digital_twin_model_identifier.split(":")[3].split(";")[0].lower()
 device_information_component_name = (
     device_information_digital_twin_model_identifier.split(":")[3].split(";")[0].lower()
 )
 sdk_information_component_name = (
     sdk_information_digital_twin_model_identifier.split(":")[3].split(";")[0].lower()
 )
+
+# This is the only name that is not retrieved as the user can have multiple environmental sensors
+# in the sample device and it is the user's choice to name this component.
+sensor_component_name = "sensor"
 
 #####################################################
 # COMMAND HANDLERS : User will define these handlers
