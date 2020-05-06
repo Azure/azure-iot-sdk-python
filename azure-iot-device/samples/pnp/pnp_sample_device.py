@@ -60,13 +60,6 @@ async def turn_off_handler(values):
     print("Switched Off device")
 
 
-async def check_handler(values):
-    if values and "after" in values:
-        after = values["after"]
-        print("After is: " + str(after))
-    print("Done checking")
-
-
 # END COMMAND HANDLERS
 #####################################################
 
@@ -188,7 +181,6 @@ async def main():
         pnp_methods.execute_listener(
             device_client, sensor_component_name, "turnoff", turn_off_handler
         ),
-        pnp_methods.execute_listener(device_client, sensor_component_name, "check", check_handler),
         pnp_methods.execute_listener(device_client, sensor_component_name),
     )
 
