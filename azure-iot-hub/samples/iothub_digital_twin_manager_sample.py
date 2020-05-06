@@ -6,6 +6,7 @@
 
 import sys
 import os
+import jsonpatch
 from azure.iot.hub import IoTHubDigitalTwinManager
 
 
@@ -23,8 +24,15 @@ try:
     else:
         print("No digital_twin found")
 
-    # Update digital twin
-    patch = []  # json-patch for digital twin
+    # Update digital twin desired properties
+    # jsonpatch example:
+    # patch = jsonpatch.JsonPatch([
+    #     {'op': 'add', 'path': '/newThermostat', 'value': {'tempSetpoint': 100, '$metadata': {}}},
+    #     {'op': 'remove', 'path': '/baz/1'},
+    #     {'op': 'replace', 'path': '/baz/0', 'value': 42},
+    # ])
+    patch = jsonpatch.JsonPatch([{'op': 'add', 'path': '/newThermostat', 'value': {'tempSetpoint': 300, '$metadata': {}}},])
+
     updated_digital_twin = iothub_digital_twin_manager.update_digital_twin(device_id, patch)
     if updated_digital_twin:
         print(updated_digital_twin)
@@ -33,10 +41,10 @@ try:
 
     # Invoke component command
     component_name = (
-        "environmentalSensor"
+        "sensor"
     )  # for the environmental sensor, try "environmentalSensor"
     command_name = (
-        "turnOff"
+        "blink"
     )  # for the environmental sensor, you can try "blink", "turnOff" or "turnOn"
     payload = "hello"  # for the environmental sensor, it really doesn't matter. any string will do.
     invoke_component_command_result = iothub_digital_twin_manager.invoke_component_command(
