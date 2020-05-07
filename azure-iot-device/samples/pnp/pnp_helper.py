@@ -26,12 +26,13 @@ def retrieve_values_dict_from_payload(command_request):
     return values
 
 
-# TODO : Ask if any other response payload needs to be constructed.
 def create_command_response_payload(method_name):
     """
     Helper method to create the payload for responding to a command request.
+    This method is used for all methid responses unless the user provides another
+     method to construct responses to specific command requests.
     :param method_name: The method name for which we are responding to.
-    :return: The rersponse payload.
+    :return: The response payload.
     """
     result = True if method_name else False
     data = "executed " + method_name if method_name else "unknown method"
