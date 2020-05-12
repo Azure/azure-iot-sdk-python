@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.ERROR)
 # The interfaces that are pulled in to implement the device.
 # User has to know these values as these may change and user can
 # choose to implement different interfaces.
-sensor_digital_twin_model_identifier = "dtmi:contoso:com:EnvironmentalSensor;1"
+sensor_digital_twin_model_identifier = "dtmi:com:example:EnvironmentalSensor;1"
 device_information_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceInformation;1"
 sdk_information_digital_twin_model_identifier = "dtmi:azure:Client:SDKInformation;1"
 
