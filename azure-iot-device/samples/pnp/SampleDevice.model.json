@@ -1,5 +1,5 @@
 {
-  "@id": "dtmi:com:example:SampleDevice;1",
+  "@id": "dtmi:my_company:com:SampleDevice;1",
   "@type": "Interface",
   "displayName": "My Sample Model",
   "contents": [

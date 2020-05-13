@@ -169,10 +169,10 @@ async def main():
             device_client, sensor_component_name, "blink", blink_handler, create_blink_response
         ),
         pnp_methods.execute_listener(
-            device_client, sensor_component_name, "turnon", turn_on_handler
+            device_client, sensor_component_name, "turnOn", turn_on_handler
         ),
         pnp_methods.execute_listener(
-            device_client, sensor_component_name, "turnoff", turn_off_handler
+            device_client, sensor_component_name, "turnOff", turn_off_handler
         ),
         pnp_methods.execute_listener(device_client, sensor_component_name),
     )
@@ -183,7 +183,7 @@ async def main():
         print("Sending telemetry from {component}".format(component=sensor_component_name))
         while True:
             # Temperature are supposed to be in Fahrenheit, so choose range appropriately
-            telemetry_msg = {"temp": random.randrange(50, 80), "humid": random.randrange(30, 60)}
+            telemetry_msg = {"temp": random.randrange(50, 80), "humidity": random.randrange(30, 60)}
             await pnp_methods.pnp_send_telemetry(
                 device_client, sensor_component_name, telemetry_msg
             )  # only sends telemetry values that have changed
