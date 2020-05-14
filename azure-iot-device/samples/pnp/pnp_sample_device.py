@@ -138,8 +138,8 @@ async def main():
             osName="Mac Os",
             processorArchitecture="x86-64",
             processorManufacturer="Intel",
-            totalStorage="1024",
-            totalMemory="32",
+            totalStorage=1024,
+            totalMemory=32,
         )
     )
 
