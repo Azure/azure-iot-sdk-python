@@ -49,14 +49,14 @@
       "@type": "Property",
       "name": "totalStorage",
       "displayName": "Total storage",
-      "schema": "long",
+      "schema": "double",
       "description": "Total available storage on the device in kilobytes. Ex. 2048000 kilobytes."
     },
     {
       "@type": "Property",
       "name": "totalMemory",
       "displayName": "Total memory",
-      "schema": "long",
+      "schema": "double",
       "description": "Total available memory on the device in kilobytes. Ex. 256000 kilobytes."
     }
   ],

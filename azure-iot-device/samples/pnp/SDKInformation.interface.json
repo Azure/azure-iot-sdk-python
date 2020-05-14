@@ -1,29 +1,29 @@
 {
-   "@id":"dtmi:azure:Client:SDKInformation;1",
-   "@type":"Interface",
-   "displayName":"Digital Twin Client SDK Information",
-   "contents":[
-      {
-         "@type":"Property",
-         "name":"language",
-         "displayName":"SDK Language",
-         "schema":"string",
-         "description":"The language for the Digital Twin client SDK. For example, Java."
-      },
-      {
-         "@type":"Property",
-         "name":"version",
-         "displayName":"SDK Version",
-         "schema":"string",
-         "description":"Version of the Digital Twin client SDK. For example, 1.3.45."
-      },
-      {
-         "@type":"Property",
-         "name":"vendor",
-         "displayName":"SDK Vendor",
-         "schema":"string",
-         "description":"Name of the vendor who authored the SDK.  For example, Microsoft."
-      }
-   ],
-   "@context":"dtmi:dtdl:context;2"
+  "@id": "dtmi:azure:Client:SDKInformation;1",
+  "@type": "Interface",
+  "displayName": "Digital Twin Client SDK Information",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "language",
+      "displayName": "SDK Language",
+      "schema": "string",
+      "description": "The language for the Digital Twin client SDK. For example, Java."
+    },
+    {
+      "@type": "Property",
+      "name": "version",
+      "displayName": "SDK Version",
+      "schema": "string",
+      "description": "Version of the Digital Twin client SDK. For example, 1.3.45."
+    },
+    {
+      "@type": "Property",
+      "name": "vendor",
+      "displayName": "SDK Vendor",
+      "schema": "string",
+      "description": "Name of the vendor who authored the SDK.  For example, Microsoft."
+    }
+  ],
+  "@context": "dtmi:dtdl:context;2"
 }
