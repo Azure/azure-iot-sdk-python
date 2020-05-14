@@ -18,14 +18,14 @@ logging.basicConfig(level=logging.ERROR)
 # The interfaces that are pulled in to implement the device.
 # User has to know these values as these may change and user can
 # choose to implement different interfaces.
-sensor_digital_twin_model_identifier = "dtmi:com:examples:EnvironmentalSensor;1"
+sensor_digital_twin_model_identifier = "dtmi:com:example:EnvironmentalSensor;1"
 device_information_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceInformation;1"
 sdk_information_digital_twin_model_identifier = "dtmi:azure:Client:SDKInformation;1"
 
 # The device that is getting implemented using the above 3 interfaces.
 # This id can change according to the company the user is from
 # and the name user wants to call the pnp device
-model_id = "dtmi:com:examples:SampleDevice;1"
+model_id = "dtmi:com:example:SampleDevice;1"
 
 # defined component names according to interfaces following pascal case.
 device_information_component_name = "deviceInformation"
@@ -138,8 +138,8 @@ async def main():
             osName="Mac Os",
             processorArchitecture="x86-64",
             processorManufacturer="Intel",
-            totalStorage="1024 GB",
-            totalMemory="32 GB",
+            totalStorage=1024,
+            totalMemory=32,
         )
     )
 
