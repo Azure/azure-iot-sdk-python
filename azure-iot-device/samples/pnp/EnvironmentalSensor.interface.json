@@ -1,5 +1,5 @@
 {
-  "@id": "dtmi:com:example:EnvironmentalSensor;1",
+  "@id": "dtmi:com:examples:EnvironmentalSensor;1",
   "@type": "Interface",
   "displayName": "Environmental Sensor",
   "description": "Provides functionality to report temperature, humidity. Provides telemetry, commands and read-write properties",
