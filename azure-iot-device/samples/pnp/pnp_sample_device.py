@@ -160,7 +160,8 @@ async def main():
 
     ################################################
     # Get all the listeners running
-    print("Listening for command requests")
+    print("Listening for command requests and property updates")
+
     listeners = asyncio.gather(
         pnp_methods.execute_listener(
             device_client, sensor_component_name, "blink", blink_handler, create_blink_response

@@ -99,8 +99,8 @@ async def execute_listener(
             command_name = None
 
         command_request = await device_client.receive_method_request(command_name)
-        # print("Command request received with payload")
-        # print(command_request.payload)
+        print("Command request received with payload")
+        print(command_request.payload)
 
         values = pnp_helper.retrieve_values_dict_from_payload(command_request)
 
@@ -128,14 +128,13 @@ async def execute_listener(
 
 
 async def execute_property_listener(device_client):
-    # TODO make generic
-    sensor_prefix = "$iotin:sensor"
-
     while True:
         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
         print("the data in the desired properties patch was: {}".format(patch))
 
-        values = patch[sensor_prefix]
+        component_prefix = list(patch.keys())[0]
+        # print(component_prefix)
+        values = patch[component_prefix]
         version = patch["$version"]
         output_dict = {}
         inner_dict = {}
@@ -152,7 +151,7 @@ async def execute_property_listener(device_client):
         # print(output_dict)
 
         iotin_dict = dict()
-        iotin_dict[sensor_prefix] = output_dict
+        iotin_dict[component_prefix] = output_dict
         # string_props = json.dumps(iotin_dict, default=lambda o: o.__dict__, sort_keys=True)
         # string_props = json.dumps(iotin_dict)
         # print(string_props)
