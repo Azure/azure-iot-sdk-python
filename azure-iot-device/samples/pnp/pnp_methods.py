@@ -56,6 +56,7 @@ async def pnp_update_property(device_client, component_name, **prop_kwargs):
     key = prefix + component_name
     prop_object = PnpProperties(key, **prop_kwargs)
     prop_dict = prop_object._to_dict()
+    # print(prop_dict)
     await device_client.patch_twin_reported_properties(prop_dict)
 
 
@@ -98,6 +99,8 @@ async def execute_listener(
             command_name = None
 
         command_request = await device_client.receive_method_request(command_name)
+        # print("Command request received with payload")
+        # print(command_request.payload)
 
         values = pnp_helper.retrieve_values_dict_from_payload(command_request)
 
@@ -122,3 +125,38 @@ async def execute_listener(
             await device_client.send_method_response(command_response)
         except Exception:
             print("responding to the {command} command failed".format(command=method_name))
+
+
+async def execute_property_listener(device_client):
+    # TODO make generic
+    sensor_prefix = "$iotin:sensor"
+
+    while True:
+        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+        print("the data in the desired properties patch was: {}".format(patch))
+
+        values = patch[sensor_prefix]
+        version = patch["$version"]
+        output_dict = {}
+        inner_dict = {}
+
+        for prop_name, prop_value in values.items():
+            # print(prop_name)
+            # print(prop_value)
+            inner_dict["ac"] = 200
+            inner_dict["ad"] = "Successfully executed patch"
+            inner_dict["av"] = version
+            inner_dict.update(prop_value)
+            output_dict[prop_name] = inner_dict
+
+        # print(output_dict)
+
+        iotin_dict = dict()
+        iotin_dict[sensor_prefix] = output_dict
+        # string_props = json.dumps(iotin_dict, default=lambda o: o.__dict__, sort_keys=True)
+        # string_props = json.dumps(iotin_dict)
+        # print(string_props)
+
+        await device_client.patch_twin_reported_properties(iotin_dict)
+
+        # print(iotin_dict)

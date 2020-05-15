@@ -38,10 +38,8 @@ sensor_component_name = "sensor"
 
 
 async def blink_handler(values):
-    if values and "interval" in values:
-        interval = values["interval"]
-        print("Interval is: " + str(interval))
-        print("Setting blinking interval to {interval}".format(interval=interval))
+    if values:
+        print("Setting blinking interval to {interval}".format(interval=values))
     print("Done blinking")
 
 
@@ -70,11 +68,10 @@ def create_blink_response(values):
     print(values)
     response_dict = {}
 
-    if values and "interval" in values:
-        interval = values["interval"]
+    if values:
         result = True
         blink_response = {
-            "description": "blinking interval was set to {interval}".format(interval=str(interval))
+            "description": "blinking interval was set to {interval}".format(interval=str(values))
         }
     else:
         result = False
@@ -175,6 +172,7 @@ async def main():
             device_client, sensor_component_name, "turnOff", turn_off_handler
         ),
         pnp_methods.execute_listener(device_client, sensor_component_name),
+        pnp_methods.execute_property_listener(device_client),
     )
 
     ################################################
