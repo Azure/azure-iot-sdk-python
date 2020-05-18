@@ -61,7 +61,7 @@ function warn_certs_not_for_production()
 function generate_root_ca()
 {
     if [ $# -ne 1 ]; then
-        echo "Usage: <password>"
+        echo "Usage: <root ca password>"
         exit 1
     fi
 
@@ -117,6 +117,13 @@ function generate_root_ca()
 ###############################################################################
 function generate_intermediate_ca()
 {
+    if [ $# -ne 1 ]; then
+        echo "Usage: <root ca password>"
+        exit 1
+    fi
+
+    root_ca_password="${1}"
+
     local common_name="Azure IoT Hub Intermediate Cert Test Only"
 
     local password_cmd=" -aes256 -passout pass:${intermediate_ca_password} "
@@ -324,7 +331,7 @@ function initial_cert_generation()
 {
     prepare_filesystem
     generate_root_ca "${1}"
-    generate_intermediate_ca
+    generate_intermediate_ca "${1}"
 }
 
 ###############################################################################
@@ -332,10 +339,13 @@ function initial_cert_generation()
 ###############################################################################
 function generate_verification_certificate()
 {
-    if [ $# -ne 1 ]; then
+    if [ $# -ne 2 ]; then
         echo "Usage: <subjectName>"
+        echo "Usage: <root ca password>"
         exit 1
     fi
+
+    root_ca_password="${2}"
 
     rm -f ./private/verification-code.key.pem
     rm -f ./certs/verification-code.cert.pem
@@ -349,10 +359,13 @@ function generate_verification_certificate()
 ###############################################################################
 function generate_device_certificate()
 {
-    if [ $# -ne 1 ]; then
+    if [ $# -ne 2 ]; then
         echo "Usage: <subjectName>"
+        echo "Usage: <root password>"
         exit 1
     fi
+
+    root_ca_password="${2}"
 
     rm -f ./private/new-device.key.pem
     rm -f ./certs/new-device.key.pem
@@ -392,9 +405,9 @@ function generate_edge_device_certificate()
 if [ "${1}" == "create_root_and_intermediate" ]; then
     initial_cert_generation "${2}"
 elif [ "${1}" == "create_verification_certificate" ]; then
-    generate_verification_certificate "${2}"
+    generate_verification_certificate "${2}" "${3}"
 elif [ "${1}" == "create_device_certificate" ]; then
-    generate_device_certificate "${2}"
+    generate_device_certificate "${2}" "${3}"
 elif [ "${1}" == "create_edge_device_certificate" ]; then
     generate_edge_device_certificate "${2}"
 else
