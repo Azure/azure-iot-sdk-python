@@ -231,7 +231,7 @@ class MQTTPipeline(object):
             pipeline_ops_iothub.SendD2CMessageOperation(message=message, callback=on_complete)
         )
 
-    def send_output_event(self, message, callback):
+    def send_output_message(self, message, callback):
         """
         Send an output message to the service.
 
@@ -251,7 +251,7 @@ class MQTTPipeline(object):
             callback(error=error)
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendOutputEventOperation(message=message, callback=on_complete)
+            pipeline_ops_iothub.SendOutputMessageOperation(message=message, callback=on_complete)
         )
 
     def send_method_response(self, method_response, callback):

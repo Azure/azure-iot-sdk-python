@@ -40,10 +40,10 @@ pipeline_ops_test.add_operation_tests(
 )
 
 
-class SendOutputEventOperationTestConfig(object):
+class SendOutputMessageOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_ops_iothub.SendOutputEventOperation
+        return pipeline_ops_iothub.SendOutputMessageOperation
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -51,7 +51,7 @@ class SendOutputEventOperationTestConfig(object):
         return kwargs
 
 
-class SendOutputEventOperationInstantiationTests(SendOutputEventOperationTestConfig):
+class SendOutputMessageOperationInstantiationTests(SendOutputMessageOperationTestConfig):
     @pytest.mark.it("Initializes 'message' attribute with the provided 'message' parameter")
     def test_message(self, cls_type, init_kwargs):
         op = cls_type(**init_kwargs)
@@ -60,9 +60,9 @@ class SendOutputEventOperationInstantiationTests(SendOutputEventOperationTestCon
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_iothub.SendOutputEventOperation,
-    op_test_config_class=SendOutputEventOperationTestConfig,
-    extended_op_instantiation_test_class=SendOutputEventOperationInstantiationTests,
+    op_class_under_test=pipeline_ops_iothub.SendOutputMessageOperation,
+    op_test_config_class=SendOutputMessageOperationTestConfig,
+    extended_op_instantiation_test_class=SendOutputMessageOperationInstantiationTests,
 )
 
 

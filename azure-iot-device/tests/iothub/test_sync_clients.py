@@ -1310,22 +1310,22 @@ class TestIoTHubNModuleClientSendD2CMessage(
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_message_to_output()")
 class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsForEventCompletion):
-    @pytest.mark.it("Begins a 'send_output_event' pipeline operation")
+    @pytest.mark.it("Begins a 'send_output_message' pipeline operation")
     def test_calls_pipeline_send_message_to_output(self, client, mqtt_pipeline, message):
         output_name = "some_output"
         client.send_message_to_output(message, output_name)
-        assert mqtt_pipeline.send_output_event.call_count == 1
-        assert mqtt_pipeline.send_output_event.call_args[0][0] is message
+        assert mqtt_pipeline.send_output_message.call_count == 1
+        assert mqtt_pipeline.send_output_message.call_args[0][0] is message
         assert message.output_name == output_name
 
     @pytest.mark.it(
-        "Waits for the completion of the 'send_output_event' pipeline operation before returning"
+        "Waits for the completion of the 'send_output_message' pipeline operation before returning"
     )
     def test_waits_for_pipeline_op_completion(
         self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, message
     ):
         self.add_event_completion_checks(
-            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_output_event
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_output_message
         )
         output_name = "some_output"
         client_manual_cb.send_message_to_output(message, output_name)
@@ -1371,7 +1371,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         my_pipeline_error = pipeline_error()
         self.add_event_completion_checks(
             mocker=mocker,
-            pipeline_function=mqtt_pipeline_manual_cb.send_output_event,
+            pipeline_function=mqtt_pipeline_manual_cb.send_output_message,
             kwargs={"error": my_pipeline_error},
         )
         output_name = "some_output"
@@ -1398,8 +1398,8 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
     ):
         output_name = "some_output"
         client.send_message_to_output(message_input, output_name)
-        assert mqtt_pipeline.send_output_event.call_count == 1
-        sent_message = mqtt_pipeline.send_output_event.call_args[0][0]
+        assert mqtt_pipeline.send_output_message.call_count == 1
+        sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
@@ -1411,7 +1411,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         with pytest.raises(ValueError) as e_info:
             client.send_message_to_output(message, output_name)
         assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_output_event.call_count == 0
+        assert mqtt_pipeline.send_output_message.call_count == 0
 
     @pytest.mark.it("Raises error when message size is greater than 256 KB")
     def test_raises_error_when_message_to_output_size_greater_than_256(self, client, mqtt_pipeline):
@@ -1422,7 +1422,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         with pytest.raises(ValueError) as e_info:
             client.send_message_to_output(message, output_name)
         assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_output_event.call_count == 0
+        assert mqtt_pipeline.send_output_message.call_count == 0
 
     @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
     def test_raises_error_when_message_to_output_data_equal_to_256(self, client, mqtt_pipeline):
@@ -1437,8 +1437,8 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
 
         client.send_message_to_output(message, output_name)
 
-        assert mqtt_pipeline.send_output_event.call_count == 1
-        sent_message = mqtt_pipeline.send_output_event.call_args[0][0]
+        assert mqtt_pipeline.send_output_message.call_count == 1
+        sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == data_input
 

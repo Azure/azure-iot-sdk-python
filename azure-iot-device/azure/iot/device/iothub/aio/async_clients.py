@@ -437,10 +437,12 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         message.output_name = output_name
 
         logger.info("Sending message to output:" + output_name + "...")
-        send_output_event_async = async_adapter.emulate_async(self._mqtt_pipeline.send_output_event)
+        send_output_message_async = async_adapter.emulate_async(
+            self._mqtt_pipeline.send_output_message
+        )
 
         callback = async_adapter.AwaitableCallback()
-        await send_output_event_async(message, callback=callback)
+        await send_output_message_async(message, callback=callback)
         await handle_result(callback)
 
         logger.info("Successfully sent message to output: " + output_name)

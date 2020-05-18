@@ -26,7 +26,7 @@ class SendD2CMessageOperation(PipelineOperation):
         self.message = message
 
 
-class SendOutputEventOperation(PipelineOperation):
+class SendOutputMessageOperation(PipelineOperation):
     """
     A PipelineOperation object which contains arguments used to send an output message to an EdgeHub server.
 
@@ -35,7 +35,7 @@ class SendOutputEventOperation(PipelineOperation):
 
     def __init__(self, message, callback):
         """
-        Initializer for SendOutputEventOperation objects.
+        Initializer for SendOutputMessageOperation objects.
 
         :param Message message: The output message that we're sending to the service. The name of the output is
           expected to be stored in the output_name attribute of this object
@@ -43,7 +43,7 @@ class SendOutputEventOperation(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(SendOutputEventOperation, self).__init__(callback=callback)
+        super(SendOutputMessageOperation, self).__init__(callback=callback)
         self.message = message
 
 

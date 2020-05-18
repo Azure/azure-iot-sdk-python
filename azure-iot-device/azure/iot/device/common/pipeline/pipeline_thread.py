@@ -191,7 +191,7 @@ def _assert_executor_thread(func, thread_name):
             It should be. You should use invoke_on_{thread_name}_thread(_nowait) to enter the
             {thread_name} thread before calling this function.  If you're hitting this from
             inside a test function, you may need to add the fake_pipeline_thread fixture to
-            your test.  (grep for apply_fake_pipeline_thread) """.format(
+            your test.  (generally applied on the global pytestmark in a module) """.format(
             function_name=func.__name__, thread_name=thread_name
         )
 

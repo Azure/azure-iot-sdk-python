@@ -1106,16 +1106,16 @@ class TestIoTHubNModuleClientSendD2CMessage(
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message_to_output()")
 class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
-    @pytest.mark.it("Begins a 'send_output_event' pipeline operation")
+    @pytest.mark.it("Begins a 'send_output_message' pipeline operation")
     async def test_calls_pipeline_send_message_to_output(self, client, mqtt_pipeline, message):
         output_name = "some_output"
         await client.send_message_to_output(message, output_name)
-        assert mqtt_pipeline.send_output_event.call_count == 1
-        assert mqtt_pipeline.send_output_event.call_args[0][0] is message
+        assert mqtt_pipeline.send_output_message.call_count == 1
+        assert mqtt_pipeline.send_output_message.call_args[0][0] is message
         assert message.output_name == output_name
 
     @pytest.mark.it(
-        "Waits for the completion of the 'send_output_event' pipeline operation before returning"
+        "Waits for the completion of the 'send_output_message' pipeline operation before returning"
     )
     async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline, message):
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
@@ -1125,12 +1125,12 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         await client.send_message_to_output(message, output_name)
 
         # Assert callback is sent to pipeline
-        assert mqtt_pipeline.send_output_event.call_args[1]["callback"] is cb_mock
+        assert mqtt_pipeline.send_output_message.call_args[1]["callback"] is cb_mock
         # Assert callback completion is waited upon
         assert cb_mock.completion.call_count == 1
 
     @pytest.mark.it(
-        "Raises a client error if the `send_output_event` pipeline operation calls back with a pipeline error"
+        "Raises a client error if the `send_output_message` pipeline operation calls back with a pipeline error"
     )
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
@@ -1163,15 +1163,15 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
     ):
         my_pipeline_error = pipeline_error()
 
-        def fail_send_output_event(message, callback):
+        def fail_send_output_message(message, callback):
             callback(error=my_pipeline_error)
 
-        mqtt_pipeline.send_output_event = mocker.MagicMock(side_effect=fail_send_output_event)
+        mqtt_pipeline.send_output_message = mocker.MagicMock(side_effect=fail_send_output_message)
         with pytest.raises(client_error) as e_info:
             output_name = "some_output"
             await client.send_message_to_output(message, output_name)
         assert e_info.value.__cause__ is my_pipeline_error
-        assert mqtt_pipeline.send_output_event.call_count == 1
+        assert mqtt_pipeline.send_output_message.call_count == 1
 
     @pytest.mark.it(
         "Wraps 'message' input parameter in Message object if it is not a Message object"
@@ -1192,8 +1192,8 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
     ):
         output_name = "some_output"
         await client.send_message_to_output(message_input, output_name)
-        assert mqtt_pipeline.send_output_event.call_count == 1
-        sent_message = mqtt_pipeline.send_output_event.call_args[0][0]
+        assert mqtt_pipeline.send_output_message.call_count == 1
+        sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == message_input
 
@@ -1207,7 +1207,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         with pytest.raises(ValueError) as e_info:
             await client.send_message_to_output(message, output_name)
         assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_output_event.call_count == 0
+        assert mqtt_pipeline.send_output_message.call_count == 0
 
     @pytest.mark.it("Raises error when message size is greater than 256 KB")
     async def test_raises_error_when_message_to_output_size_greater_than_256(
@@ -1220,7 +1220,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
         with pytest.raises(ValueError) as e_info:
             await client.send_message_to_output(message, output_name)
         assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_output_event.call_count == 0
+        assert mqtt_pipeline.send_output_message.call_count == 0
 
     @pytest.mark.it("Does not raises error when message data size is equal to 256 KB")
     async def test_raises_error_when_message_to_output_data_equal_to_256(
@@ -1236,8 +1236,8 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
 
         await client.send_message_to_output(message, output_name)
 
-        assert mqtt_pipeline.send_output_event.call_count == 1
-        sent_message = mqtt_pipeline.send_output_event.call_args[0][0]
+        assert mqtt_pipeline.send_output_message.call_count == 1
+        sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
         assert isinstance(sent_message, Message)
         assert sent_message.data == data_input
 

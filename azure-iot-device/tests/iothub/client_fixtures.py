@@ -202,7 +202,7 @@ class FakeIoTHubPipeline:
     def send_message(self, event, callback):
         callback()
 
-    def send_output_event(self, event, callback):
+    def send_output_message(self, event, callback):
         callback()
 
     def send_method_response(self, method_response, callback):

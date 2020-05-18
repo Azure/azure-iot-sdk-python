@@ -26,14 +26,8 @@ from azure.iot.device.provisioning.pipeline import constant
 import threading
 
 logging.basicConfig(level=logging.DEBUG)
-
 this_module = sys.modules[__name__]
-
-
-# Make it look like we're always running inside pipeline threads
-@pytest.fixture(autouse=True)
-def apply_fake_pipeline_thread(fake_pipeline_thread):
-    pass
+pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 
 fake_device_id = "elder_wand"

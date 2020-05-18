@@ -331,14 +331,14 @@ class TestIoTHubMQTTTranslationStageRunOpWithSendD2CMessageOperation(
 
 
 @pytest.mark.describe(
-    "IoTHubMQTTTranslationStage - .run_op() -- Called with SendOutputEventOperation"
+    "IoTHubMQTTTranslationStage - .run_op() -- Called with SendOutputMessageOperation"
 )
-class TestIoTHubMQTTTranslationStageRunOpWithSendOutputEventOperation(
+class TestIoTHubMQTTTranslationStageRunOpWithSendOutputMessageOperation(
     StageRunOpTestBase, IoTHubMQTTTranslationStageTestConfig
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_iothub.SendOutputEventOperation(
+        return pipeline_ops_iothub.SendOutputMessageOperation(
             message=Message("my message"), callback=mocker.MagicMock()
         )
 

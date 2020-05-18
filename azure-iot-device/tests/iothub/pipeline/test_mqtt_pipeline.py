@@ -277,31 +277,31 @@ class TestMQTTPipelineSendD2CMessage(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.describe("MQTTPipeline - .send_output_event()")
-class TestMQTTPipelineSendOutputEvent(object):
+@pytest.mark.describe("MQTTPipeline - .send_output_message()")
+class TestMQTTPipelineSendOutputMessage(object):
     @pytest.fixture
     def message(self, message):
         """Modify message fixture to have an output"""
         message.output_name = "some output"
         return message
 
-    @pytest.mark.it("Runs a SendOutputEventOperation with the provided Message on the pipeline")
+    @pytest.mark.it("Runs a SendOutputMessageOperation with the provided Message on the pipeline")
     def test_runs_op(self, pipeline, message, mocker):
-        pipeline.send_output_event(message, callback=mocker.MagicMock())
+        pipeline.send_output_message(message, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, pipeline_ops_iothub.SendOutputEventOperation)
+        assert isinstance(op, pipeline_ops_iothub.SendOutputMessageOperation)
         assert op.message == message
 
     @pytest.mark.it(
-        "Triggers the callback upon successful completion of the SendOutputEventOperation"
+        "Triggers the callback upon successful completion of the SendOutputMessageOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
 
         # Begin operation
-        pipeline.send_output_event(message, callback=cb)
+        pipeline.send_output_message(message, callback=cb)
         assert cb.call_count == 0
 
         # Trigger op completion callback
@@ -312,11 +312,11 @@ class TestMQTTPipelineSendOutputEvent(object):
         assert cb.call_args == mocker.call(error=None)
 
     @pytest.mark.it(
-        "Calls the callback with the error upon unsuccessful completion of the SendOutputEventOperation"
+        "Calls the callback with the error upon unsuccessful completion of the SendOutputMessageOperation"
     )
     def test_op_fail(self, mocker, pipeline, message, arbitrary_exception):
         cb = mocker.MagicMock()
-        pipeline.send_output_event(message, callback=cb)
+        pipeline.send_output_message(message, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.complete(error=arbitrary_exception)

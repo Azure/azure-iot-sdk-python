@@ -75,9 +75,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
-            op, pipeline_ops_iothub.SendOutputEventOperation
+            op, pipeline_ops_iothub.SendOutputMessageOperation
         ):
-            # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
+            # Convert SendTelementry and SendOutputMessageOperation operations into MQTT Publish operations
             telemetry_topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(
                 device_id=self.pipeline_root.pipeline_configuration.device_id,
                 module_id=self.pipeline_root.pipeline_configuration.module_id,
