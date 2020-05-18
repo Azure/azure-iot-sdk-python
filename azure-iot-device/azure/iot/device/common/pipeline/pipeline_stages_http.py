@@ -38,23 +38,35 @@ class HTTPTransportStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_http.SetHTTPConnectionArgsOperation):
-            # pipeline_ops_http.SetHTTPConenctionArgsOperation is used to create the HTTPTransport object and set all of it's properties.
+        if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
+
+            # If there is a gateway hostname, use that as the hostname for connection,
+            # rather than the hostname itself
+            if self.pipeline_root.pipeline_configuration.gateway_hostname:
+                logger.debug(
+                    "Gateway Hostname Present. Setting Hostname to: {}".format(
+                        self.pipeline_root.pipeline_configuration.gateway_hostname
+                    )
+                )
+                hostname = self.pipeline_root.pipeline_configuration.gateway_hostname
+            else:
+                logger.debug(
+                    "Gateway Hostname not present. Setting Hostname to: {}".format(
+                        self.pipeline_root.pipeline_configuration.hostname
+                    )
+                )
+                hostname = self.pipeline_root.pipeline_configuration.hostname
+
+            # Create HTTP Transport
             logger.debug("{}({}): got connection args".format(self.name, op.name))
-            self.sas_token = op.sas_token
             self.transport = HTTPTransport(
-                hostname=op.hostname,
-                server_verification_cert=op.server_verification_cert,
-                x509_cert=op.client_cert,
+                hostname=hostname,
+                server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
+                x509_cert=self.pipeline_root.pipeline_configuration.x509,
                 cipher=self.pipeline_root.pipeline_configuration.cipher,
             )
 
             self.pipeline_root.transport = self.transport
-            op.complete()
-
-        elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-            logger.debug("{}({}): saving sas token and completing".format(self.name, op.name))
-            self.sas_token = op.sas_token
             op.complete()
 
         elif isinstance(op, pipeline_ops_http.HTTPRequestAndResponseOperation):
@@ -86,9 +98,12 @@ class HTTPTransportStage(PipelineStage):
                     op.complete()
 
             # A deepcopy is necessary here since otherwise the manipulation happening to http_headers will affect the op.headers, which would be an unintended side effect and not a good practice.
+            # TODO: We could probably do this somewhere else than here now that sastoken is a static value
             http_headers = copy.deepcopy(op.headers)
-            if self.sas_token:
-                http_headers["Authorization"] = self.sas_token
+            if self.pipeline_root.pipeline_configuration.sastoken:
+                http_headers["Authorization"] = str(
+                    self.pipeline_root.pipeline_configuration.sastoken
+                )
 
             self.transport.request(
                 method=op.method,

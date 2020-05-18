@@ -11,8 +11,14 @@ import abc
 import logging
 import os
 import io
-from . import auth
 from . import pipeline
+
+# TODO: different package?
+from azure.iot.device.common.auth import connection_string as cs
+from azure.iot.device.common.auth import sastoken as st
+
+from azure.iot.device.common import auth
+from . import edge_hsm
 
 logger = logging.getLogger(__name__)
 
@@ -43,18 +49,13 @@ def _validate_kwargs(**kwargs):
             raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg))
 
 
-def _get_pipeline_config_kwargs(**kwargs):
-    """Helper function to get a subset of user provided kwargs relevant to IoTHubPipelineConfig"""
-    new_kwargs = {}
-    if "product_info" in kwargs:
-        new_kwargs["product_info"] = kwargs["product_info"]
-    if "websockets" in kwargs:
-        new_kwargs["websockets"] = kwargs["websockets"]
-    if "cipher" in kwargs:
-        new_kwargs["cipher"] = kwargs["cipher"]
-    if "proxy_options" in kwargs:
-        new_kwargs["proxy_options"] = kwargs["proxy_options"]
-    return new_kwargs
+def _form_sas_uri(hostname, device_id, module_id=None):
+    if module_id:
+        return "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
+    else:
+        return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -98,24 +99,41 @@ class AbstractIoTHubClient(object):
         :returns: An instance of an IoTHub client that uses a connection string for authentication.
         """
         # TODO: Make this device/module specific and reject non-matching connection strings.
-        # This will require refactoring of the auth package to use common objects (e.g. ConnectionString)
-        # in order to differentiate types of connection strings.
 
+        # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
 
+        # Create SasToken
+        connection_string = cs.ConnectionString(connection_string)
+        uri = _form_sas_uri(
+            hostname=connection_string[cs.HOST_NAME],
+            device_id=connection_string[cs.DEVICE_ID],
+            module_id=connection_string.get(cs.MODULE_ID),
+        )
+        signing_mechanism = auth.SymmetricKeySigningMechanism(
+            key=connection_string[cs.SHARED_ACCESS_KEY]
+        )
+        try:
+            sastoken = st.SasToken(uri, signing_mechanism)
+        except st.SasTokenError as e:
+            new_err = ValueError("Could not create a SasToken using provided connection string")
+            new_err.__cause__ = e
+            raise new_err
         # Pipeline Config setup
-        pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=connection_string[cs.DEVICE_ID],
+            module_id=connection_string.get(cs.MODULE_ID),
+            hostname=connection_string[cs.HOST_NAME],
+            gateway_hostname=connection_string.get(cs.GATEWAY_HOST_NAME),
+            sastoken=sastoken,
+            **kwargs
+        )
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
 
-        # Auth Provider setup
-        authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(connection_string)
-        authentication_provider.server_verification_cert = kwargs.get("server_verification_cert")
-
         # Pipeline setup
-        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
         return cls(mqtt_pipeline, http_pipeline)
 
@@ -192,22 +210,18 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
+        # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
 
         # Pipeline Config setup
-        pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id, hostname=hostname, x509=x509, **kwargs
+        )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
-        # Auth Provider setup
-        authentication_provider = auth.X509AuthenticationProvider(
-            x509=x509, hostname=hostname, device_id=device_id
-        )
-        authentication_provider.server_verification_cert = kwargs.get("server_verification_cert")
-
         # Pipeline setup
-        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
         return cls(mqtt_pipeline, http_pipeline)
 
@@ -238,22 +252,28 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
         :return: An instance of an IoTHub client that uses a symmetric key for authentication.
         """
+        # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
 
+        # Create SasToken
+        uri = _form_sas_uri(hostname=hostname, device_id=device_id)
+        signing_mechanism = auth.SymmetricKeySigningMechanism(key=symmetric_key)
+        try:
+            sastoken = st.SasToken(uri, signing_mechanism)
+        except st.SasTokenError as e:
+            new_err = ValueError("Could not create a SasToken using provided values")
+            new_err.__cause__ = e
+            raise new_err
+
         # Pipeline Config setup
-        pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id, hostname=hostname, sastoken=sastoken, **kwargs
+        )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
-        # Auth Provider setup
-        authentication_provider = auth.SymmetricKeyAuthenticationProvider(
-            hostname=hostname, device_id=device_id, module_id=None, shared_access_key=symmetric_key
-        )
-        authentication_provider.server_verification_cert = kwargs.get("server_verification_cert")
-
         # Pipeline setup
-        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
         return cls(mqtt_pipeline, http_pipeline)
 
@@ -296,6 +316,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :returns: An instance of an IoTHub client that uses the IoT Edge environment for
             authentication.
         """
+        # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
         if kwargs.get("server_verification_cert"):
             raise TypeError(
@@ -322,8 +343,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err = OSError("IoT Edge environment not configured correctly")
                 new_err.__cause__ = e
                 raise new_err
-            # TODO: variant server_verification_cert file vs data object that would remove the need for this fopen
+
             # Read the certificate file to pass it on as a string
+            # TODO: variant server_verification_cert file vs data object that would remove the need for this fopen
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
                     server_verification_cert = ca_cert_file.read()
@@ -338,41 +360,66 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 new_err = ValueError("Invalid CA certificate file")
                 new_err.__cause__ = e
                 raise new_err
-            # Use Symmetric Key authentication for local dev experience.
+
+            # Extract config values from connection string
+            connection_string = cs.ConnectionString(connection_string)
             try:
-                authentication_provider = auth.SymmetricKeyAuthenticationProvider.parse(
-                    connection_string
-                )
-            except ValueError:
-                raise
-            authentication_provider.server_verification_cert = server_verification_cert
+                device_id = connection_string[cs.DEVICE_ID]
+                module_id = connection_string[cs.MODULE_ID]
+                hostname = connection_string[cs.HOST_NAME]
+                gateway_hostname = connection_string[cs.GATEWAY_HOST_NAME]
+            except KeyError:
+                raise ValueError("Invalid Connection String")
+
+            # Use Symmetric Key authentication for local dev experience.
+            signing_mechanism = auth.SymmetricKeySigningMechanism(
+                key=connection_string[cs.SHARED_ACCESS_KEY]
+            )
+
         else:
             # Use an HSM for authentication in the general case
+            hsm = edge_hsm.IoTEdgeHsm(
+                module_id=module_id,
+                generation_id=module_generation_id,
+                workload_uri=workload_uri,
+                api_version=api_version,
+            )
             try:
-                authentication_provider = auth.IoTEdgeAuthenticationProvider(
-                    hostname=hostname,
-                    device_id=device_id,
-                    module_id=module_id,
-                    gateway_hostname=gateway_hostname,
-                    module_generation_id=module_generation_id,
-                    workload_uri=workload_uri,
-                    api_version=api_version,
-                )
-            except auth.IoTEdgeError as e:
+                server_verification_cert = hsm.get_certificate()
+            except edge_hsm.IoTEdgeError as e:
                 new_err = OSError("Unexpected failure in IoTEdge")
                 new_err.__cause__ = e
                 raise new_err
+            signing_mechanism = hsm
+
+        # Create SasToken
+        uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+        try:
+            sastoken = st.SasToken(uri, signing_mechanism)
+        except st.SasTokenError as e:
+            new_err = ValueError(
+                "Could not create a SasToken using the values in the Edge environment"
+            )
+            new_err.__cause__ = e
+            raise new_err
 
         # Pipeline Config setup
-        pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id,
+            module_id=module_id,
+            hostname=hostname,
+            gateway_hostname=gateway_hostname,
+            sastoken=sastoken,
+            server_verification_cert=server_verification_cert,
+            **kwargs
+        )
         pipeline_configuration.method_invoke = (
             True
         )  # Method Invoke is allowed on modules created from edge environment
 
         # Pipeline setup
-        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
         return cls(mqtt_pipeline, http_pipeline)
 
@@ -408,21 +455,17 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
+        # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
 
         # Pipeline Config setup
-        pipeline_config_kwargs = _get_pipeline_config_kwargs(**kwargs)
-        pipeline_configuration = pipeline.IoTHubPipelineConfig(**pipeline_config_kwargs)
-
-        # Auth Provider setup
-        authentication_provider = auth.X509AuthenticationProvider(
-            x509=x509, hostname=hostname, device_id=device_id, module_id=module_id
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id, module_id=module_id, hostname=hostname, x509=x509, **kwargs
         )
-        authentication_provider.server_verification_cert = kwargs.get("server_verification_cert")
 
         # Pipeline setup
-        http_pipeline = pipeline.HTTPPipeline(authentication_provider, pipeline_configuration)
-        mqtt_pipeline = pipeline.MQTTPipeline(authentication_provider, pipeline_configuration)
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod

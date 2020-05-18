@@ -155,6 +155,7 @@ class MQTTTransport(object):
             )
 
         if self._proxy_options:
+            logger.info("Setting custom proxy options on mqtt client")
             mqtt_client.proxy_set(
                 proxy_type=self._proxy_options.proxy_type,
                 proxy_addr=self._proxy_options.proxy_address,
@@ -325,12 +326,15 @@ class MQTTTransport(object):
         ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
 
         if self._server_verification_cert:
+            logger.debug("configuring SSL context with custom server verification cert")
             ssl_context.load_verify_locations(cadata=self._server_verification_cert)
         else:
+            logger.debug("configuring SSL context with default certs")
             ssl_context.load_default_certs()
 
         if self._cipher:
             try:
+                logger.debug("configuring SSL context with cipher suites")
                 ssl_context.set_ciphers(self._cipher)
             except ssl.SSLError as e:
                 # TODO: custom error with more detail?

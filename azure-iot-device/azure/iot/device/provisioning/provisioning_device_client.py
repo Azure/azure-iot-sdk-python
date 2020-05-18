@@ -65,14 +65,12 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Registering with Provisioning Service...")
 
-        if not self._provisioning_pipeline.responses_enabled[dps_constant.REGISTER]:
+        if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
             self._enable_responses()
 
         register_complete = EventedCallback(return_arg_name="result")
 
-        self._provisioning_pipeline.register(
-            payload=self._provisioning_payload, callback=register_complete
-        )
+        self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
 
         result = handle_result(register_complete)
 
@@ -89,7 +87,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         logger.info("Enabling reception of response from Device Provisioning Service...")
 
         subscription_complete = EventedCallback()
-        self._provisioning_pipeline.enable_responses(callback=subscription_complete)
+        self._pipeline.enable_responses(callback=subscription_complete)
 
         handle_result(subscription_complete)
 

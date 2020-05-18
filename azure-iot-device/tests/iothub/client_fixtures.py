@@ -8,12 +8,7 @@ import pytest
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest
 from azure.iot.device.common.models.x509 import X509
-from azure.iot.device.iothub.auth import (
-    SymmetricKeyAuthenticationProvider,
-    SharedAccessSignatureAuthenticationProvider,
-    IoTEdgeAuthenticationProvider,
-    X509AuthenticationProvider,
-)
+
 
 """---Constants---"""
 
@@ -58,6 +53,11 @@ def twin_patch_desired():
 @pytest.fixture
 def twin_patch_reported():
     return {"properties": {"reported": {"bar": 2}}}
+
+
+@pytest.fixture
+def fake_twin():
+    return {"fake_twin": True}
 
 
 """----Shared connection string fixtures----"""
@@ -107,7 +107,7 @@ def module_connection_string(request):
         )
 
 
-"""----Shared sas token fixtures---"""
+"""----Shared SAS fixtures---"""
 
 sas_token_format = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}"
 # when to use the skn format?
@@ -168,6 +168,16 @@ def edge_local_debug_environment():
         "EdgeHubConnectionString": cs,
         "EdgeModuleCACertificateFile": "__FAKE_SERVER_VERIFICATION_CERTIFICATE__",
     }
+
+
+@pytest.fixture
+def mock_edge_hsm(mocker):
+    mock_edge_hsm = mocker.patch("azure.iot.device.iothub.edge_hsm.IoTEdgeHsm")
+    mock_edge_hsm.return_value.sign.return_value = "8NJRMT83CcplGrAGaUVIUM/md5914KpWVNngSVoF9/M="
+    mock_edge_hsm.return_value.get_certificate.return_value = (
+        "__FAKE_SERVER_VERIFICATION_CERTIFICATE__"
+    )
+    return mock_edge_hsm
 
 
 """----Shared mock pipeline fixture----"""
@@ -254,23 +264,10 @@ def http_pipeline_manual_cb(mocker):
 
 
 @pytest.fixture
-def fake_twin():
-    return {"fake_twin": True}
-
-
-"""----Shared symmetric key fixtures----"""
+def mock_mqtt_pipeline_init(mocker):
+    return mocker.patch("azure.iot.device.iothub.pipeline.MQTTPipeline")
 
 
 @pytest.fixture
-def symmetric_key():
-    return shared_access_key
-
-
-@pytest.fixture
-def hostname_fixture():
-    return hostname
-
-
-@pytest.fixture
-def device_id_fixture():
-    return device_id
+def mock_http_pipeline_init(mocker):
+    return mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")

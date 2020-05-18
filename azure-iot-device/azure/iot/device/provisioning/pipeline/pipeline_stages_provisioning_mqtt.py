@@ -13,13 +13,14 @@ from azure.iot.device.common.pipeline import (
     pipeline_events_mqtt,
     pipeline_thread,
     pipeline_events_base,
+    pipeline_exceptions,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
 from azure.iot.device.provisioning.pipeline import mqtt_topic_provisioning
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device import constant as pkg_constant
 from . import constant as pipeline_constant
-from azure.iot.device.product_info import ProductInfo
+from azure.iot.device import product_info
 
 logger = logging.getLogger(__name__)
 
@@ -37,34 +38,27 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
-        if isinstance(op, pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation):
-            # get security client args from above, save some, use some to build topic names,
-            # always pass it down because MQTT protocol stage will also want to receive these args.
+        if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
-            client_id = op.registration_id
+            client_id = self.pipeline_root.pipeline_configuration.registration_id
             query_param_seq = [
                 ("api-version", pkg_constant.PROVISIONING_API_VERSION),
-                ("ClientVersion", ProductInfo.get_provisioning_user_agent()),
+                ("ClientVersion", product_info.get_provisioning_user_agent()),
             ]
             username = "{id_scope}/registrations/{registration_id}/{query_params}".format(
-                id_scope=op.id_scope,
-                registration_id=op.registration_id,
+                id_scope=self.pipeline_root.pipeline_configuration.id_scope,
+                registration_id=self.pipeline_root.pipeline_configuration.registration_id,
                 query_params=version_compat.urlencode(
                     query_param_seq, quote_via=urllib.parse.quote
                 ),
             )
 
-            hostname = op.provisioning_host
+            # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
+            # to be used later down the pipeline
+            op.username = username
+            op.client_id = client_id
 
-            worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
-                client_id=client_id,
-                hostname=hostname,
-                username=username,
-                client_cert=op.client_cert,
-                sas_token=op.sas_token,
-            )
-            self.send_op_down(worker_op)
+            self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_base.RequestOperation):
             if op.request_type == pipeline_constant.REGISTER:
@@ -77,7 +71,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                     payload=op.request_body,
                 )
                 self.send_op_down(worker_op)
-            else:
+            elif op.request_type == pipeline_constant.QUERY:
                 topic = mqtt_topic_provisioning.get_query_topic_for_publish(
                     request_id=op.request_id, operation_id=op.query_params["operation_id"]
                 )
@@ -87,8 +81,17 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                     payload=op.request_body,
                 )
                 self.send_op_down(worker_op)
+            else:
+                raise pipeline_exceptions.OperationError(
+                    "RequestOperation request_type {} not supported".format(op.request_type)
+                )
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
+            # The only supported feature is REGISTER
+            if not op.feature_name == pipeline_constant.REGISTER:
+                raise pipeline_exceptions.OperationError(
+                    "Trying to enable/disable invalid feature - {}".format(op.feature_name)
+                )
             # Enabling for register gets translated into an MQTT subscribe operation
             topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
             worker_op = op.spawn_worker_op(
@@ -97,6 +100,11 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
             self.send_op_down(worker_op)
 
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
+            # The only supported feature is REGISTER
+            if not op.feature_name == pipeline_constant.REGISTER:
+                raise pipeline_exceptions.OperationError(
+                    "Trying to enable/disable invalid feature - {}".format(op.feature_name)
+                )
             # Disabling a register response gets turned into an MQTT unsubscribe operation
             topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
             worker_op = op.spawn_worker_op(
@@ -146,4 +154,4 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         else:
             # all other messages get passed up
-            super(ProvisioningMQTTTranslationStage, self)._handle_pipeline_event(event)
+            self.send_event_up(event)

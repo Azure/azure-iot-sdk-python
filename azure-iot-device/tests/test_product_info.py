@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 import pytest
-from azure.iot.device.product_info import ProductInfo
+from azure.iot.device import product_info
 import platform
 from azure.iot.device.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER
 
@@ -14,13 +14,13 @@ check_agent_format = (
 )
 
 
-@pytest.mark.describe("ProductInfo")
-class TestProductInfo(object):
+@pytest.mark.describe(".get_iothub_user_agent()")
+class TestGetIothubUserAgent(object):
     @pytest.mark.it(
-        "Contains python version, operating system and architecture of the system in the iothub agent string"
+        "Returns a user agent string formatted for IoTHub, containing python version, operating system and architecture of the system"
     )
     def test_get_iothub_user_agent(self):
-        user_agent = ProductInfo.get_iothub_user_agent()
+        user_agent = product_info.get_iothub_user_agent()
 
         assert IOTHUB_IDENTIFIER in user_agent
         assert VERSION in user_agent
@@ -28,9 +28,6 @@ class TestProductInfo(object):
         assert platform.system() in user_agent
         assert platform.version() in user_agent
         assert platform.machine() in user_agent
-
-    @pytest.mark.it("Checks if the format of the agent string is as expected")
-    def test_checks_format_iothub_agent(self):
         expected_part_agent = check_agent_format.format(
             identifier=IOTHUB_IDENTIFIER,
             version=VERSION,
@@ -39,14 +36,16 @@ class TestProductInfo(object):
             os_release=platform.version(),
             architecture=platform.machine(),
         )
-        user_agent = ProductInfo.get_iothub_user_agent()
-        assert expected_part_agent in user_agent
+        assert expected_part_agent == user_agent
 
+
+@pytest.mark.describe(".get_provisioning_user_agent()")
+class TestGetProvisioningUserAgent(object):
     @pytest.mark.it(
-        "Contains python version, operating system and architecture of the system in the provisioning agent string"
+        "Returns a user agent string formatted for the Provisioning Service, containing python version, operating system and architecture of the system"
     )
     def test_get_provisioning_user_agent(self):
-        user_agent = ProductInfo.get_provisioning_user_agent()
+        user_agent = product_info.get_provisioning_user_agent()
 
         assert PROVISIONING_IDENTIFIER in user_agent
         assert VERSION in user_agent
@@ -55,8 +54,6 @@ class TestProductInfo(object):
         assert platform.version() in user_agent
         assert platform.machine() in user_agent
 
-    @pytest.mark.it("Checks if the format of the agent string is as expected")
-    def test_checks_format_provisioning_agent(self):
         expected_part_agent = check_agent_format.format(
             identifier=PROVISIONING_IDENTIFIER,
             version=VERSION,
@@ -65,5 +62,4 @@ class TestProductInfo(object):
             os_release=platform.version(),
             architecture=platform.machine(),
         )
-        user_agent = ProductInfo.get_provisioning_user_agent()
-        assert expected_part_agent in user_agent
+        assert expected_part_agent == user_agent

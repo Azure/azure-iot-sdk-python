@@ -32,8 +32,17 @@ _valid_keys = [
 def _parse_connection_string(connection_string):
     """Return a dictionary of values contained in a given connection string
     """
-    cs_args = connection_string.split(CS_DELIMITER)
-    d = dict(arg.split(CS_VAL_SEPARATOR, 1) for arg in cs_args)
+    try:
+        cs_args = connection_string.split(CS_DELIMITER)
+    except (AttributeError, TypeError):
+        # NOTE: in Python 2.7, bytes will not raise an error here as they do in all other versions
+        raise TypeError("Connection String must be of type str")
+    try:
+        d = dict(arg.split(CS_VAL_SEPARATOR, 1) for arg in cs_args)
+    except ValueError:
+        # This occurs in an extreme edge case where a dictionary cannot be formed because there
+        # is only 1 token after the split (dict requires two in order to make a key/value pair)
+        raise ValueError("Invalid Connection String - Unable to parse")
     if len(cs_args) != len(d):
         # various errors related to incorrect parsing - duplicate args, bad syntax, etc.
         raise ValueError("Invalid Connection String - Unable to parse")

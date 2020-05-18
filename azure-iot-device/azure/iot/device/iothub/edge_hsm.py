@@ -1,22 +1,20 @@
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
 
-import os
-import base64
+import logging
 import json
-import six.moves.urllib as urllib
+import base64
 import requests
 import requests_unixsocket
-import logging
-from .base_renewable_token_authentication_provider import BaseRenewableTokenAuthenticationProvider
+from six.moves import urllib, http_client
 from azure.iot.device.common.chainable_exception import ChainableException
-from azure.iot.device.product_info import ProductInfo
+from azure.iot.device.common.auth.signing_mechanism import SigningMechanism
+from azure.iot.device import product_info
 
 requests_unixsocket.monkeypatch()
-
 logger = logging.getLogger(__name__)
 
 
@@ -24,57 +22,7 @@ class IoTEdgeError(ChainableException):
     pass
 
 
-class IoTEdgeAuthenticationProvider(BaseRenewableTokenAuthenticationProvider):
-    """An Azure IoT Edge Authentication Provider.
-
-    This provider creates the Shared Access Signature that would be needed to connenct to the IoT Edge runtime
-    """
-
-    def __init__(
-        self,
-        hostname,
-        device_id,
-        module_id,
-        gateway_hostname,
-        module_generation_id,
-        workload_uri,
-        api_version,
-    ):
-        """
-        Constructor for IoT Edge Authentication Provider
-        """
-
-        logger.info("Using IoTEdge authentication for {%s, %s, %s}", hostname, device_id, module_id)
-
-        super(IoTEdgeAuthenticationProvider, self).__init__(
-            hostname=hostname, device_id=device_id, module_id=module_id
-        )
-
-        self.hsm = IoTEdgeHsm(
-            module_id=module_id,
-            api_version=api_version,
-            module_generation_id=module_generation_id,
-            workload_uri=workload_uri,
-        )
-        self.gateway_hostname = gateway_hostname
-        self.server_verification_cert = self.hsm.get_trust_bundle()
-
-    # TODO: reconsider this design when refactoring the BaseRenewableToken auth parent
-    # TODO: Consider handling the quoting within this function, and renaming quoted_resource_uri to resource_uri
-    def _sign(self, quoted_resource_uri, expiry):
-        """
-        Creates the signature to be inserted in the SAS token
-        :param resource_uri: the resource URI to encode into the token
-        :param expiry: an integer value representing the number of seconds since the epoch 00:00:00 UTC on 1 January 1970 at which the token will expire.
-        :return: The signature portion of the Sas Token.
-
-        :raises: IoTEdgeError if data cannot be signed
-        """
-        string_to_sign = quoted_resource_uri + "\n" + str(expiry)
-        return self.hsm.sign(string_to_sign)
-
-
-class IoTEdgeHsm(object):
+class IoTEdgeHsm(SigningMechanism):
     """
     Constructor for instantiating a iot hsm object.  This is an object that
     communicates with the Azure IoT Edge HSM in order to get connection credentials
@@ -87,26 +35,24 @@ class IoTEdgeHsm(object):
        SharedAccessSignature string which can be used to authenticate with Iot Edge
     """
 
-    def __init__(self, module_id, module_generation_id, workload_uri, api_version):
+    def __init__(self, module_id, generation_id, workload_uri, api_version):
         """
         Constructor for instantiating a Azure IoT Edge HSM object
 
         :param str module_id: The module id
         :param str api_version: The API version
-        :param str module_generation_id: The module generation id
+        :param str generation_id: The module generation id
         :param str workload_uri: The workload uri
         """
-        self.module_id = urllib.parse.quote(module_id)
+        self.module_id = urllib.parse.quote(module_id, safe="")
         self.api_version = api_version
-        self.module_generation_id = module_generation_id
+        self.generation_id = generation_id
         self.workload_uri = _format_socket_uri(workload_uri)
 
-    # TODO: Is this really the right name? It returns a certificate FROM the trust bundle,
-    # not the trust bundle itself
-    def get_trust_bundle(self):
+    def get_certificate(self):
         """
-        Return the trust bundle that can be used to validate the server-side SSL
-        TLS connection that we use to talk to edgeHub.
+        Return the server verification certificate from the trust bundle that can be used to
+        validate the server-side SSL TLS connection that we use to talk to Edge
 
         :return: The server verification certificate to use for connections to the Azure IoT Edge
         instance, as a PEM certificate in string form.
@@ -116,13 +62,13 @@ class IoTEdgeHsm(object):
         r = requests.get(
             self.workload_uri + "trust-bundle",
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())},
+            headers={"User-Agent": urllib.parse.quote_plus(product_info.get_iothub_user_agent())},
         )
         # Validate that the request was successful
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            raise IoTEdgeError(message="Unable to get trust bundle from EdgeHub", cause=e)
+            raise IoTEdgeError(message="Unable to get trust bundle from Edge", cause=e)
         # Decode the trust bundle
         try:
             bundle = r.json()
@@ -149,20 +95,17 @@ class IoTEdgeHsm(object):
         """
         encoded_data_str = base64.b64encode(data_str.encode("utf-8")).decode()
 
-        path = (
-            self.workload_uri
-            + "modules/"
-            + self.module_id
-            + "/genid/"
-            + self.module_generation_id
-            + "/sign"
+        path = "{workload_uri}modules/{module_id}/genid/{gen_id}/sign".format(
+            workload_uri=self.workload_uri, module_id=self.module_id, gen_id=self.generation_id
         )
         sign_request = {"keyId": "primary", "algo": "HMACSHA256", "data": encoded_data_str}
 
-        r = requests.post(  # TODO: can we use json field instead of data?
+        r = requests.post(  # can we use json field instead of data?
             url=path,
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(ProductInfo.get_iothub_user_agent())},
+            headers={
+                "User-Agent": urllib.parse.quote(product_info.get_iothub_user_agent(), safe="")
+            },
             data=json.dumps(sign_request),
         )
         try:
@@ -178,7 +121,7 @@ class IoTEdgeHsm(object):
         except KeyError as e:
             raise IoTEdgeError(message="No signed data received", cause=e)
 
-        return urllib.parse.quote(signed_data_str)
+        return signed_data_str  # what format is this? string? bytes?
 
 
 def _format_socket_uri(old_uri):

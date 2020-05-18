@@ -14,10 +14,13 @@ from .client_fixtures import (
     method_request,
     twin_patch_desired,
     twin_patch_reported,
+    fake_twin,
     mqtt_pipeline,
     mqtt_pipeline_manual_cb,
     http_pipeline,
     http_pipeline_manual_cb,
+    mock_mqtt_pipeline_init,
+    mock_http_pipeline_init,
     device_connection_string,
     module_connection_string,
     device_sas_token_string,
@@ -25,10 +28,7 @@ from .client_fixtures import (
     edge_container_environment,
     edge_local_debug_environment,
     x509,
-    fake_twin,
-    symmetric_key,
-    device_id_fixture,
-    hostname_fixture,
+    mock_edge_hsm,
 )
 
 collect_ignore = []
