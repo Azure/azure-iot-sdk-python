@@ -19,7 +19,7 @@ from azure.iot.device.exceptions import ServiceError
 from tests.common.pipeline.helpers import StageRunOpTestBase
 from tests.common.pipeline import pipeline_stage_test
 from azure.iot.device import constant as pkg_constant
-from azure.iot.device import product_info
+from azure.iot.device import user_agent
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
@@ -180,7 +180,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
 
         # Validate headers
         expected_user_agent = urllib.parse.quote_plus(
-            product_info.get_iothub_user_agent() + str(custom_user_agent)
+            user_agent.get_iothub_user_agent() + str(custom_user_agent)
         )
         expected_edge_string = "{}/{}".format(pipeline_config.device_id, pipeline_config.module_id)
 
@@ -410,7 +410,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
 
         # Validate headers
         expected_user_agent = urllib.parse.quote_plus(
-            product_info.get_iothub_user_agent() + str(custom_user_agent)
+            user_agent.get_iothub_user_agent() + str(custom_user_agent)
         )
 
         assert new_op.headers["Host"] == pipeline_config.hostname
@@ -640,7 +640,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
 
         # Validate headers
         expected_user_agent = urllib.parse.quote_plus(
-            product_info.get_iothub_user_agent() + str(custom_user_agent)
+            user_agent.get_iothub_user_agent() + str(custom_user_agent)
         )
 
         assert new_op.headers["Host"] == pipeline_config.hostname

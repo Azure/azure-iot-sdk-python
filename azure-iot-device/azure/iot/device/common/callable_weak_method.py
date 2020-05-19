@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import weakref
-import inspect
 
 
 class CallableWeakMethod(object):
@@ -71,11 +70,6 @@ class CallableWeakMethod(object):
 
     def __eq__(self, other):
         return self._get_method() == other
-        # if inspect.isfunction(other):
-        #     return self._get_method() == other
-        # else:
-        #     #return self == other
-        #     return super(CallableWeakMethod, self).__eq__(other)
 
     def __repr__(self):
         if self.object_weakref():

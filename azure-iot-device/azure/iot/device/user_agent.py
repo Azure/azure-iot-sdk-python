@@ -3,9 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module is for creating product identifiers or agent strings for IotHub as well as Provisioning."""
-
-# TODO: Should this be renamed to user_agent.py?
+"""This module is for creating agent strings for all clients"""
 
 import platform
 from azure.iot.device.constant import VERSION, IOTHUB_IDENTIFIER, PROVISIONING_IDENTIFIER

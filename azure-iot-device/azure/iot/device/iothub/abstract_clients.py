@@ -12,8 +12,6 @@ import logging
 import os
 import io
 from . import pipeline
-
-# TODO: different package?
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
 
@@ -21,16 +19,6 @@ from azure.iot.device.common import auth
 from . import edge_hsm
 
 logger = logging.getLogger(__name__)
-
-# A note on implementation:
-# The intializer methods accept pipeline(s) instead of an auth provider in order to protect
-# the client from logic related to authentication providers. This reduces edge cases, and allows
-# pipeline configuration to be specifically tailored to the method of instantiation.
-# For instance, .create_from_connection_string and .create_from_edge_envrionment both can use
-# SymmetricKeyAuthenticationProviders to instantiate pipeline(s), but only .create_from_edge_environment
-# should use it to instantiate an HTTPPipeline. If the initializer accepted an auth provider, and then
-# used it to create pipelines, this detail would be lost, as there would be no way to tell if a
-# SymmetricKeyAuthenticationProvider was intended to be part of an Edge scenario or not.
 
 
 def _validate_kwargs(**kwargs):

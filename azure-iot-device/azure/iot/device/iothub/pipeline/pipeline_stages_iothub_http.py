@@ -17,7 +17,7 @@ from azure.iot.device.common.pipeline import (
 from . import pipeline_ops_iothub, pipeline_ops_iothub_http, http_path_iothub, http_map_error
 from azure.iot.device import exceptions
 from azure.iot.device import constant as pkg_constant
-from azure.iot.device import product_info
+from azure.iot.device import user_agent
 
 
 logger = logging.getLogger(__name__)
@@ -59,8 +59,8 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 deviceId=self.pipeline_root.pipeline_configuration.device_id,
                 moduleId=self.pipeline_root.pipeline_configuration.module_id,
             )  # these are the identifiers of the current module
-            user_agent = urllib.parse.quote_plus(
-                product_info.get_iothub_user_agent()
+            user_agent_string = urllib.parse.quote_plus(
+                user_agent.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
             # Method Invoke must be addressed to the gateway hostname because it is an Edge op
@@ -69,7 +69,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
                 "x-ms-edge-moduleId": x_ms_edge_string,
-                "User-Agent": user_agent,
+                "User-Agent": user_agent_string,
             }
             op_waiting_for_response = op
 
@@ -106,8 +106,8 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 self.pipeline_root.pipeline_configuration.device_id
             )
             body = json.dumps({"blobName": op.blob_name})
-            user_agent = urllib.parse.quote_plus(
-                product_info.get_iothub_user_agent()
+            user_agent_string = urllib.parse.quote_plus(
+                user_agent.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
             headers = {
@@ -115,7 +115,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
-                "User-Agent": user_agent,
+                "User-Agent": user_agent_string,
             }
 
             op_waiting_for_response = op
@@ -160,8 +160,8 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                     "statusDescription": op.status_description,
                 }
             )
-            user_agent = urllib.parse.quote_plus(
-                product_info.get_iothub_user_agent()
+            user_agent_string = urllib.parse.quote_plus(
+                user_agent.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
 
@@ -171,7 +171,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Content-Type": "application/json; charset=utf-8",
                 "Content-Length": len(str(body)),
-                "User-Agent": user_agent,
+                "User-Agent": user_agent_string,
             }
             op_waiting_for_response = op
 

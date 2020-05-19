@@ -11,7 +11,7 @@ import json
 import base64
 from six.moves import urllib
 from azure.iot.device.iothub.edge_hsm import IoTEdgeHsm, IoTEdgeError
-from azure.iot.device import product_info
+from azure.iot.device import user_agent
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -114,7 +114,7 @@ class TestIoTEdgeHsmGetCertificate(object):
         expected_url = edge_hsm.workload_uri + "trust-bundle"
         expected_params = {"api-version": edge_hsm.api_version}
         expected_headers = {
-            "User-Agent": urllib.parse.quote_plus(product_info.get_iothub_user_agent())
+            "User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())
         }
 
         edge_hsm.get_certificate()
@@ -185,7 +185,7 @@ class TestIoTEdgeHsmSign(object):
         )
         expected_params = {"api-version": edge_hsm.api_version}
         expected_headers = {
-            "User-Agent": urllib.parse.quote(product_info.get_iothub_user_agent(), safe="")
+            "User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")
         }
         expected_json = json.dumps({"keyId": "primary", "algo": "HMACSHA256", "data": data_str_b64})
 

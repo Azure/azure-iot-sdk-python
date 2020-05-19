@@ -23,7 +23,7 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning_mqtt,
 )
 from azure.iot.device.provisioning.pipeline import constant as pipeline_constant
-from azure.iot.device import product_info
+from azure.iot.device import user_agent
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from tests.common.pipeline import pipeline_stage_test
 
@@ -110,7 +110,7 @@ class TestProvisioningMQTTTranslationStageRunOpWithInitializePipelineOperation(
             id_scope=pipeline_config.id_scope,
             registration_id=pipeline_config.registration_id,
             api_version=pkg_constant.PROVISIONING_API_VERSION,
-            user_agent=urllib.parse.quote(product_info.get_provisioning_user_agent(), safe=""),
+            user_agent=urllib.parse.quote(user_agent.get_provisioning_user_agent(), safe=""),
         )
         assert op.username == expected_username
 

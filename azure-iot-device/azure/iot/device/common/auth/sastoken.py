@@ -92,5 +92,5 @@ class SasToken(object):
 
     @property
     def expiry_time(self):
-        "Expiry Time is READ ONLY"
+        """Expiry Time is READ ONLY"""
         return self._expiry_time

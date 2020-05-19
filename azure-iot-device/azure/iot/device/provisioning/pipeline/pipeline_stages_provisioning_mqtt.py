@@ -20,7 +20,7 @@ from azure.iot.device.provisioning.pipeline import mqtt_topic_provisioning
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 from azure.iot.device import constant as pkg_constant
 from . import constant as pipeline_constant
-from azure.iot.device import product_info
+from azure.iot.device import user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
             client_id = self.pipeline_root.pipeline_configuration.registration_id
             query_param_seq = [
                 ("api-version", pkg_constant.PROVISIONING_API_VERSION),
-                ("ClientVersion", product_info.get_provisioning_user_agent()),
+                ("ClientVersion", user_agent.get_provisioning_user_agent()),
             ]
             username = "{id_scope}/registrations/{registration_id}/{query_params}".format(
                 id_scope=self.pipeline_root.pipeline_configuration.id_scope,

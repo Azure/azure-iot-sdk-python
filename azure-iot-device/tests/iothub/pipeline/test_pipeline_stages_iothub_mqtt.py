@@ -28,7 +28,7 @@ from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from tests.common.pipeline import pipeline_stage_test
-from azure.iot.device import constant as pkg_constant, product_info
+from azure.iot.device import constant as pkg_constant, user_agent
 
 logging.basicConfig(level=logging.DEBUG)
 this_module = sys.modules[__name__]
@@ -168,7 +168,7 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
             hostname=pipeline_config.hostname,
             client_id=pipeline_config.device_id,
             api_version=pkg_constant.IOTHUB_API_VERSION,
-            user_agent=urllib.parse.quote(product_info.get_iothub_user_agent(), safe=""),
+            user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
             custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
         )
         assert op.username == expected_username
@@ -244,7 +244,7 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
             hostname=pipeline_config.hostname,
             client_id=expected_client_id,
             api_version=pkg_constant.IOTHUB_API_VERSION,
-            user_agent=urllib.parse.quote(product_info.get_iothub_user_agent(), safe=""),
+            user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
             custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
         )
         assert op.username == expected_username

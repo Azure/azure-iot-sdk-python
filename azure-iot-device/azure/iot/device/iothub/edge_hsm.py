@@ -12,7 +12,7 @@ import requests_unixsocket
 from six.moves import urllib, http_client
 from azure.iot.device.common.chainable_exception import ChainableException
 from azure.iot.device.common.auth.signing_mechanism import SigningMechanism
-from azure.iot.device import product_info
+from azure.iot.device import user_agent
 
 requests_unixsocket.monkeypatch()
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class IoTEdgeHsm(SigningMechanism):
         r = requests.get(
             self.workload_uri + "trust-bundle",
             params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(product_info.get_iothub_user_agent())},
+            headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
         )
         # Validate that the request was successful
         try:
@@ -103,9 +103,7 @@ class IoTEdgeHsm(SigningMechanism):
         r = requests.post(  # can we use json field instead of data?
             url=path,
             params={"api-version": self.api_version},
-            headers={
-                "User-Agent": urllib.parse.quote(product_info.get_iothub_user_agent(), safe="")
-            },
+            headers={"User-Agent": urllib.parse.quote(user_agent.get_iothub_user_agent(), safe="")},
             data=json.dumps(sign_request),
         )
         try:
