@@ -59,27 +59,50 @@ class IoTEdgeHsm(SigningMechanism):
 
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
-        r = requests.get(
-            self.workload_uri + "trust-bundle",
-            params={"api-version": self.api_version},
-            headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
+        connection = http_client.HTTPSConnection(self.workload_uri)
+        connection.connect()
+
+        # Derive the URL
+        query_params = "api-version={api_version}".format(
+            api_version=urllib.parse.quote_plus(user_agent.get_iothub_user_agent())
         )
-        # Validate that the request was successful
-        try:
-            r.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            raise IoTEdgeError(message="Unable to get trust bundle from Edge", cause=e)
-        # Decode the trust bundle
-        try:
-            bundle = r.json()
-        except ValueError as e:
-            raise IoTEdgeError(message="Unable to decode trust bundle", cause=e)
-        # Retrieve the certificate
-        try:
-            cert = bundle["certificate"]
-        except KeyError as e:
-            raise IoTEdgeError(message="No certificate in trust bundle", cause=e)
-        return cert
+        url = "{workload_uri}trust-bundle?{query_params}".format(
+            workload_uri=self.workload_uri, query_params=query_params
+        )
+
+        # Derive the headers
+        headers = {"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())}
+
+        # Make the request and get response
+        connection.request("GET", url, headers=headers)
+        response = connection.getresponse()
+        # check status here?
+
+        # Extract the certificate from response
+        bundle = json.loads(response.read().decode("utf-8"))
+        return bundle["certificate"]
+
+        # r = requests.get(
+        #     self.workload_uri + "trust-bundle",
+        #     params={"api-version": self.api_version},
+        #     headers={"User-Agent": urllib.parse.quote_plus(user_agent.get_iothub_user_agent())},
+        # )
+        # # Validate that the request was successful
+        # try:
+        #     r.raise_for_status()
+        # except requests.exceptions.HTTPError as e:
+        #     raise IoTEdgeError(message="Unable to get trust bundle from Edge", cause=e)
+        # # Decode the trust bundle
+        # try:
+        #     bundle = r.json()
+        # except ValueError as e:
+        #     raise IoTEdgeError(message="Unable to decode trust bundle", cause=e)
+        # # Retrieve the certificate
+        # try:
+        #     cert = bundle["certificate"]
+        # except KeyError as e:
+        #     raise IoTEdgeError(message="No certificate in trust bundle", cause=e)
+        # return cert
 
     def sign(self, data_str):
         """
