@@ -109,8 +109,9 @@ class IoTHubMQTTTranslationStageTestConfig(object):
 
     @pytest.fixture
     def pipeline_config(self, mocker):
-        # auth type shouldn't matter for this stage, so just give it a fake sastoken for now.
-        # can manually add extra fields (e.g. module id) as necessary
+        # NOTE 1: auth type shouldn't matter for this stage, so just give it a fake sastoken for now.
+        # NOTE 2: This config is configured for a device, not a module. Where relevant, override this
+        # fixture or dynamically add a module_id
         cfg = config.IoTHubPipelineConfig(
             hostname="http://my.hostname", device_id="my_device", sastoken=mocker.MagicMock()
         )
@@ -119,8 +120,7 @@ class IoTHubMQTTTranslationStageTestConfig(object):
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
         stage = cls_type(**init_kwargs)
-        stage.pipeline_root = mocker.MagicMock()
-        stage.pipeline_root.pipeline_configuration = pipeline_config
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         return stage
@@ -270,7 +270,21 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
-# CT-TODO: parametrize all of these run op tests to pivot on device/module configs
+# NOTE: All of the following run op tests are tested against a pipeline_config that has been
+# configured for a Device Client, not a Module Client. It's worth considering parametrizing
+# that fixture so that these tests all run twice - once for a Device, and once for a Module.
+# HOWEVER, it's not stricly necessary, due to knowledge of implementation - we are testing that
+# the expected values (including module id, which just happens to be set to None when configured
+# for a device) are passed where they are expected to be passed. If they're being passed
+# correctly, we know it would work no matter what the values are set to.
+#
+# This also avoids us having module specific tests for device-only features, and vice versa.
+#
+# In conclusion, while the pipeline_config fixture is technically configured for a device,
+# all of the .run_op() tests are written as if it's completely generic. Perhaps this will
+# need to change later on.
+
+
 @pytest.mark.describe(
     "IoTHubMQTTTranslationStage - .run_op() -- Called with SendD2CMessageOperation"
 )

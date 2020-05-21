@@ -97,8 +97,9 @@ class HTTPTransportStage(PipelineStage):
                     op.reason = response["reason"]
                     op.complete()
 
-            # A deepcopy is necessary here since otherwise the manipulation happening to http_headers will affect the op.headers, which would be an unintended side effect and not a good practice.
-            # TODO: We could probably do this somewhere else than here now that sastoken is a static value
+            # A deepcopy is necessary here since otherwise the manipulation happening to
+            # http_headers will affect the op.headers, which would be an unintended side effect
+            # and not a good practice.
             http_headers = copy.deepcopy(op.headers)
             if self.pipeline_root.pipeline_configuration.sastoken:
                 http_headers["Authorization"] = str(

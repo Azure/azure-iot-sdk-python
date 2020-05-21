@@ -37,7 +37,7 @@ class SymmetricKeySigningMechanism(SigningMechanism):
             pass
 
         # Derives the signing key
-        # TODO: is "signing key" the right term?
+        # CT-TODO: is "signing key" the right term?
         try:
             self._signing_key = base64.b64decode(key)
         except (base64.binascii.Error, TypeError):

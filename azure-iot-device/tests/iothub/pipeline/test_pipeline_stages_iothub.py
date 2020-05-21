@@ -472,10 +472,16 @@ class TestTwinRequestResponseStageRunOpWithGetTwinOperation(
 class TestTwinRequestResponseStageRunOpWithPatchTwinReportedPropertiesOperation(
     StageRunOpTestBase, TwinRequestResponseStageTestConfig
 ):
-    # CT-TODO: parametrize this with realistic json objects
-    @pytest.fixture
-    def json_patch(self):
-        return {"json_key": "json_val"}
+    @pytest.fixture(params=["Dictionary Patch", "String Patch", "Integer Patch", "None Patch"])
+    def json_patch(self, request):
+        if request.param == "Dictionary Patch":
+            return {"json_key": "json_val"}
+        elif request.param == "String Patch":
+            return "some_json"
+        elif request.param == "Integer Patch":
+            return 1234
+        elif request.param == "None Patch":
+            return None
 
     @pytest.fixture
     def op(self, mocker, json_patch):
