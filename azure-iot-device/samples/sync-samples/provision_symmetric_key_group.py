@@ -8,6 +8,10 @@ import base64
 import hmac
 import hashlib
 from azure.iot.device import ProvisioningDeviceClient
+from azure.iot.device import IoTHubDeviceClient
+from azure.iot.device import Message
+import uuid
+import time
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
@@ -17,6 +21,7 @@ id_scope = os.getenv("PROVISIONING_IDSCOPE")
 device_id_1 = os.getenv("PROVISIONING_DEVICE_ID_1")
 device_id_2 = os.getenv("PROVISIONING_DEVICE_ID_2")
 device_id_3 = os.getenv("PROVISIONING_DEVICE_ID_3")
+
 
 # For computation of device keys
 device_ids_to_keys = {}
@@ -84,3 +89,27 @@ for device_id in device_ids_to_keys:
     print("The etag is :-")
     print(registration_result.registration_state.etag)
     print("\n")
+    if registration_result.status == "assigned":
+        print("Will send telemetry from the provisioned device with id {id}".format(id=device_id))
+        device_client = IoTHubDeviceClient.create_from_symmetric_key(
+            symmetric_key=device_ids_to_keys[device_id],
+            hostname=registration_result.registration_state.assigned_hub,
+            device_id=registration_result.registration_state.device_id,
+        )
+
+        # Connect the client.
+        device_client.connect()
+
+        # Send 5 messages
+        for i in range(1, 6):
+            print("sending message #" + str(i))
+            device_client.send_message("test payload message " + str(i))
+            time.sleep(0.5)
+
+        # finally, disconnect
+        device_client.disconnect()
+
+    else:
+        print(
+            "Can not send telemetry from the provisioned device with id {id}".format(id=device_id)
+        )
