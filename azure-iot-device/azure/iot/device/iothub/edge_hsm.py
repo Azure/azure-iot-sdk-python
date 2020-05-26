@@ -36,7 +36,7 @@ class IoTEdgeHsm(SigningMechanism):
        SharedAccessSignature string which can be used to authenticate with Iot Edge
     """
 
-    def __init__(self, module_id, generation_id, workload_uri, api_version):
+    def __init__(self, module_id, generation_id, workload_uri, api_version, hostname):
         """
         Constructor for instantiating a Azure IoT Edge HSM object
 
@@ -49,6 +49,7 @@ class IoTEdgeHsm(SigningMechanism):
         self.api_version = api_version
         self.generation_id = generation_id
         self.workload_uri = workload_uri
+        self.hostname = hostname
         # self.workload_uri = _format_socket_uri(workload_uri)
 
     def get_certificate(self):
@@ -62,9 +63,7 @@ class IoTEdgeHsm(SigningMechanism):
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
         ssl_context = ssl.create_default_context()
-        connection = http_client.HTTPSConnection(
-            "var/run/iotedge/workload.sock", context=ssl_context
-        )
+        connection = http_client.HTTPSConnection(self.hostname, context=ssl_context)
         connection.connect()
 
         # Derive the URL
