@@ -48,7 +48,8 @@ class IoTEdgeHsm(SigningMechanism):
         self.module_id = urllib.parse.quote(module_id, safe="")
         self.api_version = api_version
         self.generation_id = generation_id
-        self.workload_uri = _format_socket_uri(workload_uri)
+        self.workload_uri = workload_uri
+        # self.workload_uri = _format_socket_uri(workload_uri)
 
     def get_certificate(self):
         """
