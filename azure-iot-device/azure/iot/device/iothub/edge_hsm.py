@@ -7,6 +7,7 @@
 import logging
 import json
 import base64
+import ssl
 import requests
 import requests_unixsocket
 from six.moves import urllib, http_client
@@ -59,7 +60,8 @@ class IoTEdgeHsm(SigningMechanism):
 
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
-        connection = http_client.HTTPSConnection(self.workload_uri)
+        ssl_context = ssl.create_default_context()
+        connection = http_client.HTTPSConnection(self.workload_uri, context=ssl_context)
         connection.connect()
 
         # Derive the URL
@@ -82,7 +84,7 @@ class IoTEdgeHsm(SigningMechanism):
         logger.debug("EDGE RESPONSE:\n{}".format(response.read()))
 
         # Extract the certificate from response
-        response = urllib.parse.unquote(response.read().decode("utf-8"))
+        response = response.read().decode("utf-8")
         bundle = json.loads(response)
 
         # TODO: REMOVE THIS
