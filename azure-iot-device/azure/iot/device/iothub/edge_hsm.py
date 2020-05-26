@@ -62,7 +62,9 @@ class IoTEdgeHsm(SigningMechanism):
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
         ssl_context = ssl.create_default_context()
-        connection = http_client.HTTPSConnection(self.workload_uri, context=ssl_context)
+        connection = http_client.HTTPSConnection(
+            "var/run/iotedge/workload.sock", context=ssl_context
+        )
         connection.connect()
 
         # Derive the URL
