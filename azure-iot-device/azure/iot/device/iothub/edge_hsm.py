@@ -78,8 +78,12 @@ class IoTEdgeHsm(SigningMechanism):
         response = connection.getresponse()
         # check status here?
 
+        logger.debug("EDGE RESPONSE:\n{}".format(response.read()))
+
         # Extract the certificate from response
         bundle = json.loads(response.read().decode("utf-8"))
+
+        logger.debug("TRUST BUNDLE:\n{}".format(bundle))
         return bundle["certificate"]
 
         # r = requests.get(
