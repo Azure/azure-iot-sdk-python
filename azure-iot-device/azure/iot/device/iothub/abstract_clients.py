@@ -371,7 +371,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
                 generation_id=module_generation_id,
                 workload_uri=workload_uri,
                 api_version=api_version,
-                hostname=gateway_hostname,
+                hostname=hostname,
             )
             try:
                 server_verification_cert = hsm.get_certificate()
