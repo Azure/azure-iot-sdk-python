@@ -6,9 +6,11 @@
 
 import sys
 import pytest
-from azure.iot.device.provisioning.models.registration_result import (
-    RegistrationResult,
-    RegistrationState,
+from .shared_client_fixtures import (
+    mock_pipeline_init,
+    provisioning_pipeline,
+    registration_result,
+    x509,
 )
 
 collect_ignore = []

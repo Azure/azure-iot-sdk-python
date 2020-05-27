@@ -8,7 +8,7 @@ import inspect
 
 fake_count = 0
 
-# CT-TODO: refactor this module
+# CT-TODO: refactor this module in order to be more like pipeline_ops_test.py
 
 
 def get_next_fake_value():

@@ -61,16 +61,12 @@ class HTTPTransportStageTestConfig(object):
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
         )
+        stage.pipeline_root.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
         return stage
 
 
 class HTTPTransportInstantiationTests(HTTPTransportStageTestConfig):
-    @pytest.mark.it("Initializes 'sas_token' attribute as None")
-    def test_sas_token(self, cls_type, init_kwargs):
-        stage = cls_type(**init_kwargs)
-        assert stage.sas_token is None
-
     @pytest.mark.it("Initializes 'transport' attribute as None")
     def test_transport(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
@@ -85,26 +81,14 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe(
-    "HTTPTransportStage - .run_op() -- Called with SetHTTPConnectionArgsOperation"
-)
-class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
+@pytest.mark.describe("HTTPTransportStage - .run_op() -- Called with InitializePipelineOperation")
+class TestHTTPTransportStageRunOpCalledWithInitializePipelineOperation(
     HTTPTransportStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_http.SetHTTPConnectionArgsOperation(
-            hostname="fake_hostname",
-            server_verification_cert="fake_server_verification_cert",
-            client_cert="fake_client_cert",
-            sas_token="fake_sas_token",
-            callback=mocker.MagicMock(),
-        )
-
-    @pytest.mark.it("Stores the sas_token operation in the 'sas_token' attribute of the stage")
-    def test_stores_data(self, stage, op, mocker, mock_transport):
-        stage.run_op(op)
-        assert stage.sas_token == op.sas_token
+        op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
+        return op
 
     @pytest.mark.it(
         "Creates an HTTPTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
@@ -120,9 +104,23 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
             pytest.param("", id="Pipeline NOT configured for custom cipher(s)"),
         ],
     )
-    def test_creates_transport(self, mocker, stage, op, mock_transport, cipher):
+    @pytest.mark.parametrize(
+        "gateway_hostname",
+        [
+            pytest.param("fake.gateway.hostname.com", id="Using Gateway Hostname"),
+            pytest.param(None, id="Not using Gateway Hostname"),
+        ],
+    )
+    def test_creates_transport(self, mocker, stage, op, mock_transport, cipher, gateway_hostname):
         # Setup pipeline config
         stage.pipeline_root.pipeline_configuration.cipher = cipher
+        stage.pipeline_root.pipeline_configuration.gateway_hostname = gateway_hostname
+
+        # NOTE: if more of this type of logic crops up, consider splitting this test up
+        if stage.pipeline_root.pipeline_configuration.gateway_hostname:
+            expected_hostname = stage.pipeline_root.pipeline_configuration.gateway_hostname
+        else:
+            expected_hostname = stage.pipeline_root.pipeline_configuration.hostname
 
         assert stage.transport is None
 
@@ -130,9 +128,9 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
 
         assert mock_transport.call_count == 1
         assert mock_transport.call_args == mocker.call(
-            hostname=op.hostname,
-            server_verification_cert=op.server_verification_cert,
-            x509_cert=op.client_cert,
+            hostname=expected_hostname,
+            server_verification_cert=stage.pipeline_root.pipeline_configuration.server_verification_cert,
+            x509_cert=stage.pipeline_root.pipeline_configuration.x509,
             cipher=cipher,
         )
         assert stage.transport is mock_transport.return_value
@@ -145,79 +143,31 @@ class TestHTTPTransportStageRunOpCalledWithSetHTTPConnectionArgsOperation(
 
 
 # NOTE: The HTTPTransport object is not instantiated upon instantiation of the HTTPTransportStage.
-# It is only added once the SetHTTPConnectionArgsOperation runs.
+# It is only added once the InitializePipelineOperation runs.
 # The lifecycle of the HTTPTransportStage is as follows:
 #   1. Instantiate the stage
-#   2. Configure the stage with a SetHTTPConnectionArgsOperation
+#   2. Configure the stage with an InitializePipelineOperation
 #   3. Run any other desired operations.
 #
-# This is to say, no operation should be running before SetHTTPConnectionArgsOperation.
+# This is to say, no operation should be running before InitializePipelineOperation.
 # Thus, for the following tests, we will assume that the HTTPTransport has already been created,
 # and as such, the stage fixture used will have already have one.
 class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
-    # We add a pytest fixture parametrization between SAS an X509 since depending on the version of authentication, the op will be formatted differently.
-    @pytest.fixture(params=["SAS", "X509"])
-    def stage(self, mocker, request, cls_type, init_kwargs):
-        mock_transport = mocker.patch(
-            "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport", autospec=True
-        )
+    @pytest.fixture
+    def stage(self, mocker, request, cls_type, init_kwargs, mock_transport):
         stage = cls_type(**init_kwargs)
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+
         # Set up the Transport on the stage
-        if request.param == "SAS":
-            op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
-                hostname="fake_hostname",
-                server_verification_cert="fake_server_verification_cert",
-                sas_token="fake_sas_token",
-                callback=mocker.MagicMock(),
-            )
-        else:
-            op = pipeline_ops_http.SetHTTPConnectionArgsOperation(
-                hostname="fake_hostname",
-                server_verification_cert="fake_server_verification_cert",
-                client_cert="fake_client_cert",
-                callback=mocker.MagicMock(),
-            )
+        op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
         stage.run_op(op)
+
         assert stage.transport is mock_transport.return_value
 
         return stage
-
-
-@pytest.mark.describe("HTTPTransportStage - .run_op() -- Called with UpdateSasTokenOperation")
-class TestHTTPTransportStageRunOpCalledWithUpdateSasTokenOperation(
-    HTTPTransportStageTestConfigComplex, StageRunOpTestBase
-):
-    @pytest.fixture
-    def op(self, mocker):
-        return pipeline_ops_base.UpdateSasTokenOperation(
-            sas_token="new_fake_sas_token", callback=mocker.MagicMock()
-        )
-
-    @pytest.mark.it(
-        "Updates the 'sas_token' attribute to be the new value contained in the operation"
-    )
-    def test_updates_token(self, stage, op):
-        assert stage.sas_token != op.sas_token
-        stage.run_op(op)
-        assert stage.sas_token == op.sas_token
-
-    @pytest.mark.it("Completes the operation with success, upon successful execution")
-    def test_completes_op(self, stage, op):
-        assert not op.completed
-        stage.run_op(op)
-        assert op.completed
-
-
-fake_method = "__fake_method__"
-fake_path = "__fake_path__"
-fake_headers = {"__fake_key__": "__fake_value__"}
-fake_body = "__fake_body__"
-fake_query_params = "__fake_query_params__"
-fake_sas_token = "fake_sas_token"
 
 
 @pytest.mark.describe(
@@ -229,45 +179,58 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_http.HTTPRequestAndResponseOperation(
-            method=fake_method,
-            path=fake_path,
-            headers=fake_headers,
-            body=fake_body,
-            query_params=fake_query_params,
+            method="SOME_METHOD",
+            path="fake/path",
+            headers={"fake_key": "fake_val"},
+            body="fake_body",
+            query_params="arg1=val1;arg2=val2",
             callback=mocker.MagicMock(),
         )
 
     @pytest.mark.it("Sends an HTTP request via the HTTPTransport")
     def test_http_request(self, mocker, stage, op):
         stage.run_op(op)
-        # We add this because the default stage here contains a SAS Token.
-        fake_headers["Authorization"] = fake_sas_token
+
         assert stage.transport.request.call_count == 1
         assert stage.transport.request.call_args == mocker.call(
-            method=fake_method,
-            path=fake_path,
-            headers=fake_headers,
-            body=fake_body,
-            query_params=fake_query_params,
+            method=op.method,
+            path=op.path,
+            # headers are tested in depth in the following two tests
+            headers=mocker.ANY,
+            body=op.body,
+            query_params=op.query_params,
             callback=mocker.ANY,
         )
 
     @pytest.mark.it(
-        "Does not provide an Authorization header if the SAS Token is not set in the stage"
+        "Adds the SasToken in the request's 'Authorization' header if using SAS-based authentication"
     )
-    def test_header_with_no_sas(self, mocker, stage, op):
-        # Manually overwriting stage with no SAS Token.
-        stage.sas_token = None
+    def test_headers_with_sas_auth(self, mocker, stage, op):
+        # A SasToken is set on the pipeline, but Authorization headers have not yet been set
+        assert stage.pipeline_root.pipeline_configuration.sastoken is not None
+        assert op.headers.get("Authorization") is None
+
         stage.run_op(op)
-        assert stage.transport.request.call_count == 1
-        assert stage.transport.request.call_args == mocker.call(
-            method=fake_method,
-            path=fake_path,
-            headers=fake_headers,
-            body=fake_body,
-            query_params=fake_query_params,
-            callback=mocker.ANY,
-        )
+
+        # Need to get the headers sent to the transport, not provided by the op, due to a
+        # deep copy that occurs
+        headers = stage.transport.request.call_args[1]["headers"]
+        assert headers["Authorization"] == str(stage.pipeline_root.pipeline_configuration.sastoken)
+
+    @pytest.mark.it(
+        "Does NOT add the 'Authorization' header to the request if NOT using SAS-based authentication"
+    )
+    def test_headers_with_no_sas(self, mocker, stage, op):
+        # NO SasToken is set on the pipeline, and Authorization headers have not yet been set
+        stage.pipeline_root.pipeline_configuration.sastoken = None
+        assert op.headers.get("Authorization") is None
+
+        stage.run_op(op)
+
+        # Need to get the headers sent to the transport, not provided by the op, due to a
+        # deep copy that occurs
+        headers = stage.transport.request.call_args[1]["headers"]
+        assert headers.get("Authorization") is None
 
     @pytest.mark.it(
         "Completes the operation unsucessfully if there is a failure requesting via the HTTPTransport, using the error raised by the HTTPTransport"

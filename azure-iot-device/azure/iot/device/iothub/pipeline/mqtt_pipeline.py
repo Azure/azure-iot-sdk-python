@@ -19,13 +19,12 @@ from . import (
     pipeline_ops_iothub,
     pipeline_stages_iothub_mqtt,
 )
-from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
 logger = logging.getLogger(__name__)
 
 
 class MQTTPipeline(object):
-    def __init__(self, auth_provider, pipeline_configuration):
+    def __init__(self, pipeline_configuration):
         """
         Constructor for instantiating a pipeline adapter object
         :param auth_provider: The authentication provider
@@ -54,12 +53,12 @@ class MQTTPipeline(object):
             #
             # The root is always the root.  By definition, it's the first stage in the pipeline.
             #
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
             #
-            # UseAuthProviderStage comes near the root by default because it doesn't need to be after
-            # anything, but it does need to be before IoTHubMQTTTranslationStage.
+            # SasTokenRenewalStage comes near the root by default because it should be as close
+            # to the top of the pipeline as possible, and does not need to be after anything.
             #
-            .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
+            .append_stage(pipeline_stages_base.SasTokenRenewalStage())
             #
             # EnsureDesiredPropertiesStage needs to be above TwinRequestResponseStage because it
             # sends GetTwinOperation ops and that stage handles those ops.
@@ -162,14 +161,10 @@ class MQTTPipeline(object):
 
         callback = EventedCallback()
 
-        if isinstance(auth_provider, X509AuthenticationProvider):
-            op = pipeline_ops_iothub.SetX509AuthProviderOperation(
-                auth_provider=auth_provider, callback=callback
-            )
-        else:  # Currently everything else goes via this block.
-            op = pipeline_ops_iothub.SetAuthProviderOperation(
-                auth_provider=auth_provider, callback=callback
-            )
+        # NOTE: It would be nice if this didn't have to go down as a dynamic operation.
+        # At this time we haven't been able to figure out a better way to make it work though.
+
+        op = pipeline_ops_base.InitializePipelineOperation(callback=callback)
 
         self._pipeline.run_op(op)
         callback.wait_for_completion()
@@ -236,7 +231,7 @@ class MQTTPipeline(object):
             pipeline_ops_iothub.SendD2CMessageOperation(message=message, callback=on_complete)
         )
 
-    def send_output_event(self, message, callback):
+    def send_output_message(self, message, callback):
         """
         Send an output message to the service.
 
@@ -256,7 +251,7 @@ class MQTTPipeline(object):
             callback(error=error)
 
         self._pipeline.run_op(
-            pipeline_ops_iothub.SendOutputEventOperation(message=message, callback=on_complete)
+            pipeline_ops_iothub.SendOutputMessageOperation(message=message, callback=on_complete)
         )
 
     def send_method_response(self, method_response, callback):

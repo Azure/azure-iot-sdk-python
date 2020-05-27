@@ -68,10 +68,10 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """
         logger.info("Registering with Provisioning Service...")
 
-        if not self._provisioning_pipeline.responses_enabled[dps_constant.REGISTER]:
+        if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
             await self._enable_responses()
 
-        register_async = async_adapter.emulate_async(self._provisioning_pipeline.register)
+        register_async = async_adapter.emulate_async(self._pipeline.register)
 
         register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
         await register_async(payload=self._provisioning_payload, callback=register_complete)
@@ -84,7 +84,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         """Enable to receive responses from Device Provisioning Service.
         """
         logger.info("Enabling reception of response from Device Provisioning Service...")
-        subscribe_async = async_adapter.emulate_async(self._provisioning_pipeline.enable_responses)
+        subscribe_async = async_adapter.emulate_async(self._pipeline.enable_responses)
 
         subscription_complete = async_adapter.AwaitableCallback()
         await subscribe_async(callback=subscription_complete)

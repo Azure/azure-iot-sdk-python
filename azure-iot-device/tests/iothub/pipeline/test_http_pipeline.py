@@ -20,10 +20,6 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub_http,
 )
 from azure.iot.device.iothub.pipeline import HTTPPipeline, constant
-from azure.iot.device.iothub.auth import (
-    SymmetricKeyAuthenticationProvider,
-    X509AuthenticationProvider,
-)
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
@@ -34,21 +30,17 @@ fake_blob_name = "__fake_blob_name__"
 
 
 @pytest.fixture
-def auth_provider(mocker):
-    return mocker.MagicMock()
-
-
-@pytest.fixture
 def pipeline_configuration(mocker):
     mocked_configuration = mocker.MagicMock()
     mocked_configuration.blob_upload = True
     mocked_configuration.method_invoke = True
+    mocked_configuration.sastoken.ttl = 1232  # set for compat
     return mocked_configuration
 
 
 @pytest.fixture
-def pipeline(mocker, auth_provider, pipeline_configuration):
-    pipeline = HTTPPipeline(auth_provider, pipeline_configuration)
+def pipeline(mocker, pipeline_configuration):
+    pipeline = HTTPPipeline(pipeline_configuration)
     mocker.patch.object(pipeline._pipeline, "run_op")
     return pipeline
 
@@ -61,7 +53,6 @@ def twin_patch():
 # automatically mock the transport for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_transport(mocker):
-    print("mocking transport")
     mocker.patch(
         "azure.iot.device.common.pipeline.pipeline_stages_http.HTTPTransport", autospec=True
     )
@@ -70,13 +61,13 @@ def mock_transport(mocker):
 @pytest.mark.describe("HTTPPipeline - Instantiation")
 class TestHTTPPipelineInstantiation(object):
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
-    def test_pipeline_configuration(self, auth_provider, pipeline_configuration):
-        pipeline = HTTPPipeline(auth_provider, pipeline_configuration)
+    def test_pipeline_configuration(self, pipeline_configuration):
+        pipeline = HTTPPipeline(pipeline_configuration)
         curr_stage = pipeline._pipeline
 
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
-            pipeline_stages_iothub.UseAuthProviderStage,
+            pipeline_stages_base.SasTokenRenewalStage,
             pipeline_stages_iothub_http.IoTHubHTTPTranslationStage,
             pipeline_stages_http.HTTPTransportStage,
         ]
@@ -90,33 +81,24 @@ class TestHTTPPipelineInstantiation(object):
         # Assert there are no more additional stages
         assert curr_stage is None
 
-    # TODO: revist these tests after auth revision
-    # They are too tied to auth types (and there's too much variance in auths to effectively test)
-    # Ideally HTTPPipeline is entirely insulated from any auth differential logic (and module/device distinctions)
-    # In the meantime, we are using a device auth with connection string to stand in for generic SAS auth
-    # and device auth with X509 certs to stand in for generic X509 auth
-    @pytest.mark.it(
-        "Runs a SetAuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
-    )
-    def test_sas_auth(self, mocker, device_connection_string, pipeline_configuration):
+    @pytest.mark.it("Runs an InitializePipelineOperation on the pipeline")
+    def test_sas_auth(self, mocker, pipeline_configuration):
         mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
-        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
-        pipeline = HTTPPipeline(auth_provider, pipeline_configuration)
+
+        pipeline = HTTPPipeline(pipeline_configuration)
+
         op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation)
-        assert op.auth_provider is auth_provider
+        assert isinstance(op, pipeline_ops_base.InitializePipelineOperation)
 
     @pytest.mark.it(
-        "Raises exceptions that occurred in execution upon unsuccessful completion of the SetAuthProviderOperation"
+        "Raises exceptions that occurred in execution upon unsuccessful completion of the InitializePipelineOperation"
     )
-    def test_sas_auth_op_fail(
-        self, mocker, device_connection_string, arbitrary_exception, pipeline_configuration
-    ):
+    def test_sas_auth_op_fail(self, mocker, arbitrary_exception, pipeline_configuration):
         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
-        def fail_set_auth_provider(self, op):
-            if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
+        def fail_initialize(self, op):
+            if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
                 op.complete(error=arbitrary_exception)
             else:
                 old_run_op(self, op)
@@ -124,53 +106,13 @@ class TestHTTPPipelineInstantiation(object):
         mocker.patch.object(
             pipeline_stages_base.PipelineRootStage,
             "_run_op",
-            side_effect=fail_set_auth_provider,
+            side_effect=fail_initialize,
             autospec=True,
         )
 
-        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            HTTPPipeline(auth_provider, pipeline_configuration)
+            HTTPPipeline(pipeline_configuration)
         assert e_info.value is arbitrary_exception
-
-    @pytest.mark.it(
-        "Runs a SetX509AuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
-    )
-    def test_cert_auth(self, mocker, x509, pipeline_configuration):
-        mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
-        auth_provider = X509AuthenticationProvider(
-            hostname="somehostname", device_id=fake_device_id, x509=x509
-        )
-        pipeline = HTTPPipeline(auth_provider, pipeline_configuration)
-        op = pipeline._pipeline.run_op.call_args[0][1]
-        assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation)
-        assert op.auth_provider is auth_provider
-
-    @pytest.mark.it(
-        "Raises exceptions that occurred in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
-    )
-    def test_cert_auth_op_fail(self, mocker, x509, arbitrary_exception, pipeline_configuration):
-        old_run_op = pipeline_stages_base.PipelineRootStage._run_op
-
-        def fail_set_auth_provider(self, op):
-            if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
-                op.complete(error=arbitrary_exception)
-            else:
-                old_run_op(self, op)
-
-        mocker.patch.object(
-            pipeline_stages_base.PipelineRootStage,
-            "_run_op",
-            side_effect=fail_set_auth_provider,
-            autospec=True,
-        )
-
-        auth_provider = X509AuthenticationProvider(
-            hostname="somehostname", device_id=fake_device_id, x509=x509
-        )
-        with pytest.raises(arbitrary_exception.__class__):
-            HTTPPipeline(auth_provider, pipeline_configuration)
 
 
 @pytest.mark.describe("HTTPPipeline - .invoke_method()")
