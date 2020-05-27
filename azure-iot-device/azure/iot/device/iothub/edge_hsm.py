@@ -63,7 +63,7 @@ class IoTEdgeHsm(SigningMechanism):
         :raises: IoTEdgeError if unable to retrieve the certificate.
         """
         # TODO remove this
-        logger.debut("RETRIEVING CERT WITH HOSTNAME {}".format(self.hostname))
+        logger.debug("RETRIEVING CERT WITH HOSTNAME {}".format(self.hostname))
         ssl_context = ssl.create_default_context()
         connection = http_client.HTTPSConnection(self.hostname, context=ssl_context)
         connection.connect()
