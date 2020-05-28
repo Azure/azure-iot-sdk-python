@@ -21,7 +21,7 @@ from . import pipeline_ops_iothub, pipeline_events_iothub, mqtt_topic_iothub
 from . import constant as pipeline_constant
 from . import exceptions as pipeline_exceptions
 from azure.iot.device import constant as pkg_constant
-from azure.iot.device.product_info import ProductInfo
+from azure.iot.device import user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -32,108 +32,55 @@ class IoTHubMQTTTranslationStage(PipelineStage):
     converts mqtt pipeline events into Iot and IoTHub pipeline events.
     """
 
-    def __init__(self):
-        super(IoTHubMQTTTranslationStage, self).__init__()
-        self.feature_to_topic = {}
-        self.device_id = None
-        self.module_id = None
-
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
 
-        if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
-            self.device_id = op.device_id
-            self.module_id = op.module_id
+        if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
-            # if we get auth provider args from above, we save some, use some to build topic names,
-            # and always pass it down because we know that the MQTT protocol stage will also want
-            # to receive these args.
-            self._set_topic_names(device_id=op.device_id, module_id=op.module_id)
-
-            if op.module_id:
-                client_id = "{}/{}".format(op.device_id, op.module_id)
+            if self.pipeline_root.pipeline_configuration.module_id:
+                # Module Format
+                client_id = "{}/{}".format(
+                    self.pipeline_root.pipeline_configuration.device_id,
+                    self.pipeline_root.pipeline_configuration.module_id,
+                )
             else:
-                client_id = op.device_id
+                # Device Format
+                client_id = self.pipeline_root.pipeline_configuration.device_id
 
-            # For MQTT, the entire user agent string should be appended to the username field in the connect packet
-            # For example, the username may look like this without custom parameters:
-            # yosephsandboxhub.azure-devices.net/alpha/?api-version=2018-06-30&DeviceClientType=py-azure-iot-device%2F2.0.0-preview.12
-            # The customer user agent string would simply be appended to the end of this username, in URL Encoded format.
+            # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
             query_param_seq = [
                 ("api-version", pkg_constant.IOTHUB_API_VERSION),
                 (
                     "DeviceClientType",
-                    ProductInfo.get_iothub_user_agent()
-                    + str(self.pipeline_root.pipeline_configuration.product_info),
+                    user_agent.get_iothub_user_agent()
+                    + self.pipeline_root.pipeline_configuration.product_info,
                 ),
             ]
             username = "{hostname}/{client_id}/?{query_params}".format(
-                hostname=op.hostname,
+                hostname=self.pipeline_root.pipeline_configuration.hostname,
                 client_id=client_id,
                 query_params=version_compat.urlencode(
                     query_param_seq, quote_via=urllib.parse.quote
                 ),
             )
 
-            if op.gateway_hostname:
-                hostname = op.gateway_hostname
-            else:
-                hostname = op.hostname
+            # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
+            # to be used later down the pipeline
+            op.username = username
+            op.client_id = client_id
 
-            # TODO: test to make sure client_cert and sas_token travel down correctly
-            worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_mqtt.SetMQTTConnectionArgsOperation,
-                client_id=client_id,
-                hostname=hostname,
-                username=username,
-                server_verification_cert=op.server_verification_cert,
-                client_cert=op.client_cert,
-                sas_token=op.sas_token,
-            )
-            self.send_op_down(worker_op)
-
-        elif (
-            isinstance(op, pipeline_ops_base.UpdateSasTokenOperation)
-            and self.pipeline_root.connected
-        ):
-            logger.debug(
-                "{}({}): Connected.  Passing op down and reauthorizing after token is updated.".format(
-                    self.name, op.name
-                )
-            )
-
-            # make a callback that either fails the UpdateSasTokenOperation (if the lower level failed it),
-            # or issues a ReauthorizeConnectionOperation (if the lower level returned success for the UpdateSasTokenOperation)
-            def on_token_update_complete(op, error):
-                if error:
-                    logger.error(
-                        "{}({}) token update failed.  returning failure {}".format(
-                            self.name, op.name, error
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "{}({}) token update succeeded.  reauthorizing".format(self.name, op.name)
-                    )
-
-                    # Stop completion of Token Update op, and only continue upon completion of ReauthorizeConnectionOperation
-                    op.halt_completion()
-                    worker_op = op.spawn_worker_op(
-                        worker_op_type=pipeline_ops_base.ReauthorizeConnectionOperation
-                    )
-
-                    self.send_op_down(worker_op)
-
-            # now, pass the UpdateSasTokenOperation down with our new callback.
-            op.add_callback(on_token_update_complete)
             self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_iothub.SendD2CMessageOperation) or isinstance(
-            op, pipeline_ops_iothub.SendOutputEventOperation
+            op, pipeline_ops_iothub.SendOutputMessageOperation
         ):
-            # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
+            # Convert SendTelementry and SendOutputMessageOperation operations into MQTT Publish operations
+            telemetry_topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(
+                device_id=self.pipeline_root.pipeline_configuration.device_id,
+                module_id=self.pipeline_root.pipeline_configuration.module_id,
+            )
             topic = mqtt_topic_iothub.encode_message_properties_in_topic(
-                op.message, self.telemetry_topic
+                op.message, telemetry_topic
             )
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
@@ -145,7 +92,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         elif isinstance(op, pipeline_ops_iothub.SendMethodResponseOperation):
             # Sending a Method Response gets translated into an MQTT Publish operation
             topic = mqtt_topic_iothub.get_method_topic_for_publish(
-                op.method_response.request_id, str(op.method_response.status)
+                op.method_response.request_id, op.method_response.status
             )
             payload = json.dumps(op.method_response.payload)
             worker_op = op.spawn_worker_op(
@@ -155,7 +102,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling a feature gets translated into an MQTT subscribe operation
-            topic = self.feature_to_topic[op.feature_name]
+            topic = self._get_feature_subscription_topic(op.feature_name)
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTSubscribeOperation, topic=topic
             )
@@ -163,7 +110,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a feature gets turned into an MQTT unsubscribe operation
-            topic = self.feature_to_topic[op.feature_name]
+            topic = self._get_feature_subscription_topic(op.feature_name)
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTUnsubscribeOperation, topic=topic
             )
@@ -192,24 +139,27 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             super(IoTHubMQTTTranslationStage, self)._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _set_topic_names(self, device_id, module_id):
-        """
-        Build topic names based on the device_id and module_id passed.
-        """
-        self.telemetry_topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(
-            device_id, module_id
-        )
-        self.feature_to_topic = {
-            pipeline_constant.C2D_MSG: (mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id)),
-            pipeline_constant.INPUT_MSG: (
-                mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
-            ),
-            pipeline_constant.METHODS: (mqtt_topic_iothub.get_method_topic_for_subscribe()),
-            pipeline_constant.TWIN: (mqtt_topic_iothub.get_twin_response_topic_for_subscribe()),
-            pipeline_constant.TWIN_PATCHES: (
-                mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()
-            ),
-        }
+    def _get_feature_subscription_topic(self, feature):
+        if feature == pipeline_constant.C2D_MSG:
+            return mqtt_topic_iothub.get_c2d_topic_for_subscribe(
+                self.pipeline_root.pipeline_configuration.device_id
+            )
+        elif feature == pipeline_constant.INPUT_MSG:
+            return mqtt_topic_iothub.get_input_topic_for_subscribe(
+                self.pipeline_root.pipeline_configuration.device_id,
+                self.pipeline_root.pipeline_configuration.module_id,
+            )
+        elif feature == pipeline_constant.METHODS:
+            return mqtt_topic_iothub.get_method_topic_for_subscribe()
+        elif feature == pipeline_constant.TWIN:
+            return mqtt_topic_iothub.get_twin_response_topic_for_subscribe()
+        elif feature == pipeline_constant.TWIN_PATCHES:
+            return mqtt_topic_iothub.get_twin_patch_topic_for_subscribe()
+        else:
+            logger.error("Cannot retrieve MQTT topic for subscription to invalid feature")
+            raise pipeline_exceptions.OperationError(
+                "Trying to enable/disable invalid feature - {}".format(feature)
+            )
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -217,15 +167,19 @@ class IoTHubMQTTTranslationStage(PipelineStage):
         Pipeline Event handler function to convert incoming MQTT messages into the appropriate IoTHub
         events, based on the topic of the message
         """
+        # TODO: should we always be decoding the payload? Seems strange to only sometimes do it.
+        # Is there value to the user getting the original bytestring from the wire?
         if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
             topic = event.topic
+            device_id = self.pipeline_root.pipeline_configuration.device_id
+            module_id = self.pipeline_root.pipeline_configuration.module_id
 
-            if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
+            if mqtt_topic_iothub.is_c2d_topic(topic, device_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
                 self.send_event_up(pipeline_events_iothub.C2DMessageEvent(message))
 
-            elif mqtt_topic_iothub.is_input_topic(topic, self.device_id, self.module_id):
+            elif mqtt_topic_iothub.is_input_topic(topic, device_id, module_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
                 input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
@@ -263,4 +217,4 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         else:
             # all other messages get passed up
-            super(IoTHubMQTTTranslationStage, self)._handle_pipeline_event(event)
+            self.send_event_up(event)

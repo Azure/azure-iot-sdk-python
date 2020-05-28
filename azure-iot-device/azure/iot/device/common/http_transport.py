@@ -88,6 +88,11 @@ class HTTPTransport(object):
             logger.debug("connecting to host tcp socket")
             connection.connect()
             logger.debug("connection succeeded")
+            # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
+            # depending on the operation this could have a different hostname, due to different
+            # destinations. For now this isn't a problem yet, because no possible client can
+            # support more than one HTTP operation
+            # (Device can do File Upload but NOT Method Invoke, Module can do Method Inovke and NOT file upload)
             url = "https://{hostname}/{path}{query_params}".format(
                 hostname=self._hostname,
                 path=path,

@@ -70,17 +70,13 @@ class MQTTTransportStageTestConfig(object):
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
         )
+        stage.pipeline_root.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
         return stage
 
 
 class MQTTTransportInstantiationTests(MQTTTransportStageTestConfig):
-    @pytest.mark.it("Initializes 'sas_token' attribute as None")
-    def test_sas_token(self, cls_type, init_kwargs):
-        stage = cls_type(**init_kwargs)
-        assert stage.sas_token is None
-
     @pytest.mark.it("Initializes 'transport' attribute as None")
     def test_transport(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
@@ -100,28 +96,17 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 )
 
 
-@pytest.mark.describe(
-    "MQTTTransportStage - .run_op() -- Called with SetMQTTConnectionArgsOperation"
-)
-class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
+@pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with InitializePipelineOperation")
+class TestMQTTTransportStageRunOpCalledWithInitializePipelineOperation(
     MQTTTransportStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
-        return pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
-            client_id="fake_client_id",
-            hostname="fake_hostname",
-            username="fake_username",
-            server_verification_cert="fake_server_verification_cert",
-            client_cert="fake_client_cert",
-            sas_token="fake_sas_token",
-            callback=mocker.MagicMock(),
-        )
-
-    @pytest.mark.it("Stores the sas_token operation in the 'sas_token' attribute of the stage")
-    def test_stores_data(self, stage, op, mocker, mock_transport):
-        stage.run_op(op)
-        assert stage.sas_token == op.sas_token
+        op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
+        # These values are patched onto the op in a previous stage
+        op.client_id = "fake_client_id"
+        op.username = "fake_username"
+        return op
 
     @pytest.mark.it(
         "Creates an MQTTTransport object and sets it as the 'transport' attribute of the stage"
@@ -152,13 +137,27 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
             pytest.param("", id="Proxy Absent"),
         ],
     )
+    @pytest.mark.parametrize(
+        "gateway_hostname",
+        [
+            pytest.param("fake.gateway.hostname.com", id="Using Gateway Hostname"),
+            pytest.param(None, id="Not using Gateway Hostname"),
+        ],
+    )
     def test_creates_transport(
-        self, mocker, stage, op, mock_transport, websockets, cipher, proxy_options
+        self, mocker, stage, op, mock_transport, websockets, cipher, proxy_options, gateway_hostname
     ):
         # Configure websockets & cipher
         stage.pipeline_root.pipeline_configuration.websockets = websockets
         stage.pipeline_root.pipeline_configuration.cipher = cipher
         stage.pipeline_root.pipeline_configuration.proxy_options = proxy_options
+        stage.pipeline_root.pipeline_configuration.gateway_hostname = gateway_hostname
+
+        # NOTE: if more of this type of logic crops up, consider splitting this test up
+        if stage.pipeline_root.pipeline_configuration.gateway_hostname:
+            expected_hostname = stage.pipeline_root.pipeline_configuration.gateway_hostname
+        else:
+            expected_hostname = stage.pipeline_root.pipeline_configuration.hostname
 
         assert stage.transport is None
 
@@ -167,10 +166,10 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         assert mock_transport.call_count == 1
         assert mock_transport.call_args == mocker.call(
             client_id=op.client_id,
-            hostname=op.hostname,
+            hostname=expected_hostname,
             username=op.username,
-            server_verification_cert=op.server_verification_cert,
-            x509_cert=op.client_cert,
+            server_verification_cert=stage.pipeline_root.pipeline_configuration.server_verification_cert,
+            x509_cert=stage.pipeline_root.pipeline_configuration.x509,
             websockets=websockets,
             cipher=cipher,
             proxy_options=proxy_options,
@@ -188,9 +187,11 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
         )
         assert stage.transport.on_mqtt_message_received_handler == stage._on_mqtt_message_received
 
-    # CT-TODO: does this even need to be happening in this stage? Shouldn't this be part of init?
     @pytest.mark.it("Sets the stage's pending connection operation to None")
-    def test_pending_conn_op(self, stage, op, mock_transport):
+    def test_pending_conn_op(self, mocker, stage, op, mock_transport):
+        # NOTE: The pending connection operation ALREADY should be None, but we set it to None
+        # again for safety here just in case. So this test is for an edge case.
+        stage._pending_connection_op = mocker.MagicMock()
         stage.run_op(op)
         assert stage._pending_connection_op is None
 
@@ -202,13 +203,13 @@ class TestMQTTTransportStageRunOpCalledWithSetMQTTConnectionArgsOperation(
 
 
 # NOTE: The MQTTTransport object is not instantiated upon instantiation of the MQTTTransportStage.
-# It is only added once the SetMQTTConnectionArgsOperation runs.
+# It is only added once the InitializePipelineOperation runs.
 # The lifecycle of the MQTTTransportStage is as follows:
 #   1. Instantiate the stage
-#   2. Configure the stage with a SetMQTTConnectionArgsOperation
+#   2. Configure the stage with an InitializePipelineOperation
 #   3. Run any other desired operations.
 #
-# This is to say, no operation should be running before SetMQTTConnectionArgsOperation.
+# This is to say, no operation should be running before InitializePipelineOperation.
 # Thus, for the following tests, we will assume that the MQTTTransport has already been created,
 # and as such, the stage fixture used will have already have one.
 class MQTTTransportStageTestConfigComplex(MQTTTransportStageTestConfig):
@@ -222,44 +223,14 @@ class MQTTTransportStageTestConfigComplex(MQTTTransportStageTestConfig):
         stage.send_event_up = mocker.MagicMock()
 
         # Set up the Transport on the stage
-        op = pipeline_ops_mqtt.SetMQTTConnectionArgsOperation(
-            client_id="fake_client_id",
-            hostname="fake_hostname",
-            username="fake_username",
-            server_verification_cert="fake_server_verification_cert",
-            client_cert="fake_client_cert",
-            sas_token="fake_sas_token",
-            callback=mocker.MagicMock(),
-        )
+        op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
+        op.client_id = "fake_client_id"
+        op.username = "fake_username"
         stage.run_op(op)
+
         assert stage.transport is mock_transport.return_value
 
         return stage
-
-
-@pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with UpdateSasTokenOperation")
-class TestMQTTTransportStageRunOpCalledWithUpdateSasTokenOperation(
-    MQTTTransportStageTestConfigComplex, StageRunOpTestBase
-):
-    @pytest.fixture
-    def op(self, mocker):
-        return pipeline_ops_base.UpdateSasTokenOperation(
-            sas_token="new_fake_sas_token", callback=mocker.MagicMock()
-        )
-
-    @pytest.mark.it(
-        "Updates the 'sas_token' attribute to be the new value contained in the operation"
-    )
-    def test_updates_token(self, stage, op):
-        assert stage.sas_token != op.sas_token
-        stage.run_op(op)
-        assert stage.sas_token == op.sas_token
-
-    @pytest.mark.it("Completes the operation with success, upon successful execution")
-    def test_complets_op(self, stage, op):
-        assert not op.completed
-        stage.run_op(op)
-        assert op.completed
 
 
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with ConnectOperation")
@@ -317,11 +288,26 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
         assert mock_timer.return_value.daemon is True
         assert mock_timer.return_value.start.call_count == 1
 
-    @pytest.mark.it("Performs an MQTT connect via the MQTTTransport")
-    def test_mqtt_connect(self, mocker, stage, op):
+    @pytest.mark.it(
+        "Performs an MQTT connect via the MQTTTransport, using the root's SasToken as a password, if using SAS-based authentication"
+    )
+    def test_mqtt_connect_sastoken(self, mocker, stage, op):
+        assert stage.pipeline_root.pipeline_configuration.sastoken is not None
         stage.run_op(op)
         assert stage.transport.connect.call_count == 1
-        assert stage.transport.connect.call_args == mocker.call(password=stage.sas_token)
+        assert stage.transport.connect.call_args == mocker.call(
+            password=str(stage.pipeline_root.pipeline_configuration.sastoken)
+        )
+
+    @pytest.mark.it(
+        "Performs an MQTT connect via the MQTTTransport, with no password, if NOT using SAS-based authentication"
+    )
+    def test_mqtt_connect_no_sastoken(self, mocker, stage, op):
+        # no token
+        stage.pipeline_root.pipeline_configuration.sastoken = None
+        stage.run_op(op)
+        assert stage.transport.connect.call_count == 1
+        assert stage.transport.connect.call_args == mocker.call(password=None)
 
     @pytest.mark.it(
         "Completes the operation unsucessfully if there is a failure connecting via the MQTTTransport, using the error raised by the MQTTTransport"
@@ -415,12 +401,14 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
         assert mock_timer.return_value.daemon is True
         assert mock_timer.return_value.start.call_count == 1
 
-    @pytest.mark.it("Performs an MQTT reconnect via the MQTTTransport")
+    @pytest.mark.it(
+        "Performs an MQTT reconnect via the MQTTTransport, using the pipeline root's SasToken as a password"
+    )
     def test_mqtt_connect(self, mocker, stage, op):
         stage.run_op(op)
         assert stage.transport.reauthorize_connection.call_count == 1
         assert stage.transport.reauthorize_connection.call_args == mocker.call(
-            password=stage.sas_token
+            password=str(stage.pipeline_root.pipeline_configuration.sastoken)
         )
 
     @pytest.mark.it(

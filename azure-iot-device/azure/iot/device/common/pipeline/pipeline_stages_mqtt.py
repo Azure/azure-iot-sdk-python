@@ -38,9 +38,6 @@ class MQTTTransportStage(PipelineStage):
     def __init__(self):
         super(MQTTTransportStage, self).__init__()
 
-        # The sas_token will be set when Connetion Args are received
-        self.sas_token = None
-
         # The transport will be instantiated when Connection Args are received
         self.transport = None
 
@@ -111,17 +108,33 @@ class MQTTTransportStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation):
-            # pipeline_ops_mqtt.SetMQTTConnectionArgsOperation is where we create our MQTTTransport object and set
-            # all of its properties.
+        if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
+
+            # If there is a gateway hostname, use that as the hostname for connection,
+            # rather than the hostname itself
+            if self.pipeline_root.pipeline_configuration.gateway_hostname:
+                logger.debug(
+                    "Gateway Hostname Present. Setting Hostname to: {}".format(
+                        self.pipeline_root.pipeline_configuration.gateway_hostname
+                    )
+                )
+                hostname = self.pipeline_root.pipeline_configuration.gateway_hostname
+            else:
+                logger.debug(
+                    "Gateway Hostname not present. Setting Hostname to: {}".format(
+                        self.pipeline_root.pipeline_configuration.hostname
+                    )
+                )
+                hostname = self.pipeline_root.pipeline_configuration.hostname
+
+            # Create the Transport object, set it's handlers
             logger.debug("{}({}): got connection args".format(self.name, op.name))
-            self.sas_token = op.sas_token
             self.transport = MQTTTransport(
                 client_id=op.client_id,
-                hostname=op.hostname,
+                hostname=hostname,
                 username=op.username,
-                server_verification_cert=op.server_verification_cert,
-                x509_cert=op.client_cert,
+                server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
+                x509_cert=self.pipeline_root.pipeline_configuration.x509,
                 websockets=self.pipeline_root.pipeline_configuration.websockets,
                 cipher=self.pipeline_root.pipeline_configuration.cipher,
                 proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
@@ -153,19 +166,20 @@ class MQTTTransportStage(PipelineStage):
 
             op.complete()
 
-        elif isinstance(op, pipeline_ops_base.UpdateSasTokenOperation):
-            logger.debug("{}({}): saving sas token and completing".format(self.name, op.name))
-            self.sas_token = op.sas_token
-            op.complete()
-
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
             logger.info("{}({}): connecting".format(self.name, op.name))
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
             self._start_connection_watchdog(op)
+            # Use SasToken as password if present. If not present (e.g. using X509),
+            # then no password is required because auth is handled via other means.
+            if self.pipeline_root.pipeline_configuration.sastoken:
+                password = str(self.pipeline_root.pipeline_configuration.sastoken)
+            else:
+                password = None
             try:
-                self.transport.connect(password=self.sas_token)
+                self.transport.connect(password=password)
             except Exception as e:
                 logger.error("transport.connect raised error")
                 logger.error(traceback.format_exc())
@@ -181,7 +195,9 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = op
             self._start_connection_watchdog(op)
             try:
-                self.transport.reauthorize_connection(password=self.sas_token)
+                self.transport.reauthorize_connection(
+                    password=str(self.pipeline_root.pipeline_configuration.sastoken)
+                )
             except Exception as e:
                 logger.error("transport.reauthorize_connection raised error")
                 logger.error(traceback.format_exc())

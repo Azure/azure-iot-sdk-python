@@ -6,440 +6,475 @@
 import logging
 import pytest
 import sys
+import json
 import six.moves.urllib as urllib
-from azure.iot.device import constant
+from azure.iot.device import constant as pkg_constant
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
     pipeline_ops_mqtt,
     pipeline_events_mqtt,
     pipeline_events_base,
+    pipeline_exceptions,
 )
 from azure.iot.device.provisioning.pipeline import (
+    config,
     pipeline_ops_provisioning,
     pipeline_stages_provisioning_mqtt,
 )
-from tests.common.pipeline.helpers import (
-    assert_callback_failed,
-    assert_callback_succeeded,
-    all_common_ops,
-    all_common_events,
-    all_except,
-    StageTestBase,
-)
-from tests.provisioning.pipeline.helpers import all_provisioning_ops
-from tests.common.pipeline import pipeline_stage_test
-import json
 from azure.iot.device.provisioning.pipeline import constant as pipeline_constant
-from azure.iot.device.product_info import ProductInfo
+from azure.iot.device import user_agent
+from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
+from tests.common.pipeline import pipeline_stage_test
 
 logging.basicConfig(level=logging.DEBUG)
-
 this_module = sys.modules[__name__]
+pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 
-# This fixture makes it look like all test in this file  tests are running
-# inside the pipeline thread.  Because this is an autouse fixture, we
-# manually add it to the individual test.py files that need it.  If,
-# instead, we had added it to some conftest.py, it would be applied to
-# every tests in every file and we don't want that.
-@pytest.fixture(autouse=True)
-def apply_fake_pipeline_thread(fake_pipeline_thread):
-    pass
-
-
-fake_device_id = "elder_wand"
-fake_registration_id = "registered_remembrall"
-fake_provisioning_host = "hogwarts.com"
-fake_id_scope = "weasley_wizard_wheezes"
-fake_sas_token = "horcrux_token"
-fake_security_client = "secure_via_muffliato"
-fake_request_id = "fake_request_1234"
-fake_mqtt_payload = "hello hogwarts"
-fake_operation_id = "fake_operation_9876"
-fake_client_cert = "fake_client_cert"
-
-invalid_feature_name = "__invalid_feature_name__"
-unmatched_mqtt_topic = "__unmatched_mqtt_topic__"
-
-fake_response_topic = "$dps/registrations/res/200/?$rid={}".format(fake_request_id)
-
-ops_handled_by_this_stage = [
-    pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
-    pipeline_ops_base.RequestOperation,
-    pipeline_ops_base.EnableFeatureOperation,
-    pipeline_ops_base.DisableFeatureOperation,
-]
-
-events_handled_by_this_stage = [pipeline_events_mqtt.IncomingMQTTMessageEvent]
-
-pipeline_stage_test.add_base_pipeline_stage_tests_old(
-    cls=pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
-    module=this_module,
-    all_ops=all_common_ops + all_provisioning_ops,
-    handled_ops=ops_handled_by_this_stage,
-    all_events=all_common_events,
-    handled_events=events_handled_by_this_stage,
-    extra_initializer_defaults={"action_to_topic": dict},
-)
+@pytest.fixture(params=[True, False], ids=["With error", "No error"])
+def op_error(request, arbitrary_exception):
+    if request.param:
+        return arbitrary_exception
+    else:
+        return None
 
 
 @pytest.fixture
-def set_security_client_args(mocker):
-    op = pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation(
-        provisioning_host=fake_provisioning_host,
-        registration_id=fake_registration_id,
-        id_scope=fake_id_scope,
-        sas_token=fake_sas_token,
-        client_cert=fake_client_cert,
-        callback=mocker.MagicMock(),
+def mock_mqtt_topic(mocker):
+    m = mocker.patch(
+        "azure.iot.device.provisioning.pipeline.pipeline_stages_provisioning_mqtt.mqtt_topic_provisioning"
     )
-    mocker.spy(op, "complete")
-    return op
+    return m
 
 
-class ProvisioningMQTTTranslationStageTestBase(StageTestBase):
+class ProvisioningMQTTTranslationStageTestConfig(object):
     @pytest.fixture
-    def stage(self):
-        return pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage()
+    def cls_type(self):
+        return pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage
 
     @pytest.fixture
-    def stages_configured(self, stage, stage_base_configuration, set_security_client_args, mocker):
-        mocker.spy(stage.pipeline_root, "handle_pipeline_event")
+    def init_kwargs(self):
+        return {}
 
-        stage.run_op(set_security_client_args)
-        mocker.resetall()
+    @pytest.fixture
+    def pipeline_config(self, mocker):
+        # auth type shouldn't matter for this stage, so just give it a fake sastoken for now.
+        cfg = config.ProvisioningPipelineConfig(
+            hostname="http://my.hostname",
+            registration_id="fake_reg_id",
+            id_scope="fake_id_scope",
+            sastoken=mocker.MagicMock(),
+        )
+        return cfg
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, init_kwargs, pipeline_config):
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(pipeline_config)
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+
+pipeline_stage_test.add_base_pipeline_stage_tests(
+    test_module=this_module,
+    stage_class_under_test=pipeline_stages_provisioning_mqtt.ProvisioningMQTTTranslationStage,
+    stage_test_config_class=ProvisioningMQTTTranslationStageTestConfig,
+)
 
 
 @pytest.mark.describe(
-    "ProvisioningMQTTTranslationStage run_op function with SetProvisioningClientConnectionArgsOperation"
+    "ProvisioningMQTTTranslationStage - .run_op() -- Called with InitializePipelineOperation"
 )
-class TestProvisioningMQTTTranslationStageWithSetProvisioningClientConnectionArgsOperation(
-    ProvisioningMQTTTranslationStageTestBase
+class TestProvisioningMQTTTranslationStageRunOpWithInitializePipelineOperation(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
 ):
-    @pytest.mark.it(
-        "Runs a pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation on the next stage"
-    )
-    def test_runs_set_connection_args(self, stage, set_security_client_args):
-        stage.run_op(set_security_client_args)
-        assert stage.next._run_op.call_count == 1
-        new_op = stage.next._run_op.call_args[0][0]
-        assert isinstance(new_op, pipeline_ops_mqtt.SetMQTTConnectionArgsOperation)
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
 
-    @pytest.mark.it(
-        "Sets SetMQTTConnectionArgsOperation.client_id = SetProvisioningClientConnectionArgsOperation.registration_id"
-    )
-    def test_sets_client_id(self, stage, set_security_client_args):
-        stage.run_op(set_security_client_args)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.client_id == fake_registration_id
+    @pytest.mark.it("Derives the MQTT client id, and sets it on the op")
+    def test_client_id(self, stage, op, pipeline_config):
+        assert not hasattr(op, "client_id")
+        stage.run_op(op)
 
-    @pytest.mark.it(
-        "Sets SetMQTTConnectionArgsOperation.hostname = SetProvisioningClientConnectionArgsOperation.provisioning_host"
-    )
-    def test_sets_hostname(self, stage, set_security_client_args):
-        stage.run_op(set_security_client_args)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.hostname == fake_provisioning_host
+        assert op.client_id == pipeline_config.registration_id
 
-    @pytest.mark.it(
-        "Sets SetMQTTConnectionArgsOperation.client_cert = SetProvisioningClientConnectionArgsOperation.client_cert"
-    )
-    def test_sets_client_cert(self, stage, set_security_client_args):
-        stage.run_op(set_security_client_args)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.client_cert == fake_client_cert
+    @pytest.mark.it("Derives the MQTT username, and sets it on the op")
+    def test_username(self, stage, op, pipeline_config):
+        assert not hasattr(op, "username")
+        stage.run_op(op)
 
-    @pytest.mark.it(
-        "Sets SetMQTTConnectionArgsOperation.sas_token = SetProvisioningClientConnectionArgsOperation.sas_token"
-    )
-    def test_sets_sas_token(self, stage, set_security_client_args):
-        stage.run_op(set_security_client_args)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.sas_token == fake_sas_token
-
-    @pytest.mark.it(
-        "Sets MqttConnectionArgsOperation.username = SetProvisioningClientConnectionArgsOperation.{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}"
-    )
-    def test_sets_username(self, stage, set_security_client_args):
-        stage.run_op(set_security_client_args)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert (
-            new_op.username
-            == "{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={client_version}".format(
-                id_scope=fake_id_scope,
-                registration_id=fake_registration_id,
-                api_version=constant.PROVISIONING_API_VERSION,
-                client_version=urllib.parse.quote(
-                    ProductInfo.get_provisioning_user_agent(), safe=""
-                ),
-            )
+        expected_username = "{id_scope}/registrations/{registration_id}/api-version={api_version}&ClientVersion={user_agent}".format(
+            id_scope=pipeline_config.id_scope,
+            registration_id=pipeline_config.registration_id,
+            api_version=pkg_constant.PROVISIONING_API_VERSION,
+            user_agent=urllib.parse.quote(user_agent.get_provisioning_user_agent(), safe=""),
         )
+        assert op.username == expected_username
 
-    @pytest.mark.it(
-        "Completes the SetSymmetricKeySecurityClientArgs op  with error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation raises an Exception"
-    )
-    def test_set_connection_args_raises_exception(
-        self, stage, mocker, arbitrary_exception, set_security_client_args
-    ):
-        stage.next._run_op = mocker.Mock(side_effect=arbitrary_exception)
-        stage.run_op(set_security_client_args)
-        assert set_security_client_args.complete.call_count == 1
-        assert set_security_client_args.complete.call_args == mocker.call(error=arbitrary_exception)
-
-    @pytest.mark.it(
-        "Calls the SetSymmetricKeySecurityClientArgs callback with no error if the pipeline_ops_mqtt.SetMQTTConnectionArgsOperation operation succeeds"
-    )
-    def test_returns_success_if_set_connection_args_succeeds(
-        self, stage, mocker, set_security_client_args, next_stage_succeeds
-    ):
-        stage.run_op(set_security_client_args)
-        assert set_security_client_args.complete.call_count == 1
-        assert set_security_client_args.complete.call_args == mocker.call(error=None)
-
-
-basic_ops = [
-    {
-        "op_class": pipeline_ops_base.RequestOperation,
-        "op_init_kwargs": {
-            "request_id": fake_request_id,
-            "request_type": pipeline_constant.REGISTER,
-            "method": "PUT",
-            "resource_location": "/",
-            "request_body": "test payload",
-        },
-        "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
-    },
-    {
-        "op_class": pipeline_ops_base.RequestOperation,
-        "op_init_kwargs": {
-            "request_id": fake_request_id,
-            "request_type": pipeline_constant.QUERY,
-            "method": "GET",
-            "resource_location": "/",
-            "query_params": {"operation_id": fake_operation_id},
-            "request_body": "test payload",
-        },
-        "new_op_class": pipeline_ops_mqtt.MQTTPublishOperation,
-    },
-    {
-        "op_class": pipeline_ops_base.EnableFeatureOperation,
-        "op_init_kwargs": {"feature_name": None},
-        "new_op_class": pipeline_ops_mqtt.MQTTSubscribeOperation,
-    },
-    {
-        "op_class": pipeline_ops_base.DisableFeatureOperation,
-        "op_init_kwargs": {"feature_name": None},
-        "new_op_class": pipeline_ops_mqtt.MQTTUnsubscribeOperation,
-    },
-]
-
-
-@pytest.fixture
-def op(params, mocker):
-    op = params["op_class"](callback=mocker.MagicMock(), **params["op_init_kwargs"])
-    mocker.spy(op, "complete")
-    return op
-
-
-@pytest.mark.parametrize(
-    "params",
-    basic_ops,
-    ids=["{}->{}".format(x["op_class"].__name__, x["new_op_class"].__name__) for x in basic_ops],
-)
-@pytest.mark.describe("ProvisioningMQTTTranslationStage basic operation tests")
-class TestProvisioningMQTTTranslationStageBasicOperations(ProvisioningMQTTTranslationStageTestBase):
-    @pytest.mark.it("Runs an operation on the next stage")
-    def test_runs_publish(self, params, stage, stages_configured, op):
+    @pytest.mark.it("Sends the op down the pipeline")
+    def test_sends_down(self, mocker, stage, op):
         stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert isinstance(new_op, params["new_op_class"])
-
-    @pytest.mark.it("Completes the original op with error if the new_op raises an Exception")
-    def test_new_op_raises_exception(
-        self, params, mocker, stage, stages_configured, op, arbitrary_exception
-    ):
-        stage.next._run_op = mocker.Mock(side_effect=arbitrary_exception)
-        stage.run_op(op)
-        assert op.complete.call_count == 1
-        assert op.complete.call_args == mocker.call(error=arbitrary_exception)
-
-    @pytest.mark.it("Allows any BaseExceptions raised from inside new_op to propagate")
-    def test_new_op_raises_base_exception(
-        self, params, mocker, stage, stages_configured, op, arbitrary_base_exception
-    ):
-        stage.next._run_op = mocker.Mock(side_effect=arbitrary_base_exception)
-        with pytest.raises(arbitrary_base_exception.__class__) as e_info:
-            stage.run_op(op)
-        e_info.value is arbitrary_base_exception
-
-    @pytest.mark.it("Completes the original op with no error if the new_op operation succeeds")
-    def test_returns_success_if_publish_succeeds(
-        self, mocker, params, stage, stages_configured, op, next_stage_succeeds
-    ):
-        stage.run_op(op)
-        assert op.complete.call_count == 1
-        assert op.complete.call_args == mocker.call(error=None)
-
-
-publish_ops = [
-    {
-        "name": "send register request with no payload",
-        "op_class": pipeline_ops_base.RequestOperation,
-        "op_init_kwargs": {
-            "request_id": fake_request_id,
-            "request_type": pipeline_constant.REGISTER,
-            "method": "PUT",
-            "resource_location": "/",
-            "request_body": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
-                reg_id=fake_registration_id, json_payload=json.dumps(None)
-            ),
-        },
-        "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
-            request_id=fake_request_id
-        ),
-        "publish_payload": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
-            reg_id=fake_registration_id, json_payload=json.dumps(None)
-        ),
-    },
-    {
-        "name": "send register request with payload",
-        "op_class": pipeline_ops_base.RequestOperation,
-        "op_init_kwargs": {
-            "request_id": fake_request_id,
-            "request_type": pipeline_constant.REGISTER,
-            "method": "PUT",
-            "resource_location": "/",
-            "request_body": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
-                reg_id=fake_registration_id, json_payload=json.dumps(fake_mqtt_payload)
-            ),
-        },
-        "topic": "$dps/registrations/PUT/iotdps-register/?$rid={request_id}".format(
-            request_id=fake_request_id
-        ),
-        "publish_payload": '{{"payload": {json_payload}, "registrationId": "{reg_id}"}}'.format(
-            reg_id=fake_registration_id, json_payload=json.dumps(fake_mqtt_payload)
-        ),
-    },
-    {
-        "name": "send query request",
-        "op_class": pipeline_ops_base.RequestOperation,
-        "op_init_kwargs": {
-            "request_id": fake_request_id,
-            "query_params": {"operation_id": fake_operation_id},
-            "request_type": pipeline_constant.QUERY,
-            "method": "GET",
-            "resource_location": "/",
-            "request_body": fake_mqtt_payload,
-        },
-        "topic": "$dps/registrations/GET/iotdps-get-operationstatus/?$rid={request_id}&operationId={operation_id}".format(
-            request_id=fake_request_id, operation_id=fake_operation_id
-        ),
-        "publish_payload": fake_mqtt_payload,
-    },
-]
-
-
-@pytest.mark.parametrize("params", publish_ops, ids=[x["name"] for x in publish_ops])
-@pytest.mark.describe("ProvisioningMQTTTranslationStage run_op function for publish operations")
-class TestProvisioningMQTTTranslationStageForPublishOps(ProvisioningMQTTTranslationStageTestBase):
-    @pytest.mark.it("Uses correct registration topic string when publishing")
-    def test_uses_topic_for(self, stage, stages_configured, params, op):
-        stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.topic == params["topic"]
-
-    @pytest.mark.it("Sends correct payload when publishing")
-    def test_sends_correct_body(self, stage, stages_configured, params, op):
-        stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert new_op.payload == params["publish_payload"]
-
-
-sub_unsub_operations = [
-    {
-        "op_class": pipeline_ops_base.EnableFeatureOperation,
-        "new_op": pipeline_ops_mqtt.MQTTSubscribeOperation,
-    },
-    {
-        "op_class": pipeline_ops_base.DisableFeatureOperation,
-        "new_op": pipeline_ops_mqtt.MQTTUnsubscribeOperation,
-    },
-]
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
 
 
 @pytest.mark.describe(
-    "ProvisioningMQTTTranslationStage run_op function with EnableFeature operation"
+    "ProvisioningMQTTTranslationStage - .run_op() -- Called with RequestOperation (Register Request)"
 )
-class TestProvisioningMQTTTranslationStageWithEnable(ProvisioningMQTTTranslationStageTestBase):
-    @pytest.mark.parametrize(
-        "op_parameters",
-        sub_unsub_operations,
-        ids=[x["op_class"].__name__ for x in sub_unsub_operations],
-    )
-    @pytest.mark.it("Gets the correct topic")
-    def test_converts_feature_name_to_topic(self, mocker, stage, stages_configured, op_parameters):
-        topic = "$dps/registrations/res/#"
-        stage.next._run_op = mocker.Mock()
-
-        op = op_parameters["op_class"](feature_name=None, callback=mocker.MagicMock())
-        stage.run_op(op)
-        new_op = stage.next._run_op.call_args[0][0]
-        assert isinstance(new_op, op_parameters["new_op"])
-        assert new_op.topic == topic
-
-
-@pytest.mark.describe("ProvisioningMQTTTranslationStage _handle_pipeline_event")
-class TestProvisioningMQTTTranslationStageHandlePipelineEvent(
-    ProvisioningMQTTTranslationStageTestBase
+class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationRegister(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
 ):
-    @pytest.mark.it("Passes up any mqtt messages with topics that aren't matched by this stage")
-    def test_passes_up_mqtt_message_with_unknown_topic(self, stage, stages_configured, mocker):
-        event = pipeline_events_mqtt.IncomingMQTTMessageEvent(
-            topic=unmatched_mqtt_topic, payload=fake_mqtt_payload
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.RequestOperation(
+            request_type=pipeline_constant.REGISTER,
+            method="PUT",
+            resource_location="/",
+            request_body='{"json": "payload"}',
+            request_id="fake_request_id",
+            callback=mocker.MagicMock(),
         )
+
+    @pytest.mark.it("Derives the Provisioning Register Request topic using the op's details")
+    def test_register_request_topic(self, mocker, stage, op, mock_mqtt_topic):
+        stage.run_op(op)
+
+        assert mock_mqtt_topic.get_register_topic_for_publish.call_count == 1
+        assert mock_mqtt_topic.get_register_topic_for_publish.call_args == mocker.call(
+            request_id=op.request_id
+        )
+
+    @pytest.mark.it(
+        "Sends a new MQTTPublishOperation down the pipeline with the original op's request body and the derived topic string"
+    )
+    def test_sends_mqtt_publish_down(self, mocker, stage, op, mock_mqtt_topic):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
+        assert new_op.topic == mock_mqtt_topic.get_register_topic_for_publish.return_value
+        assert new_op.payload == op.request_body
+
+    @pytest.mark.it("Completes the original op upon completion of the new MQTTPbulishOperation")
+    def test_complete_resulting_op(self, stage, op, op_error):
+        stage.run_op(op)
+        assert not op.completed
+        assert op.error is None
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
+
+        new_op.complete(error=op_error)
+
+        assert new_op.completed
+        assert new_op.error is op_error
+        assert op.completed
+        assert op.error is op_error
+
+
+@pytest.mark.describe(
+    "ProvisioningMQTTTranslationStage - .run_op() -- Called with RequestOperation (Query Request)"
+)
+class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationQuery(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.RequestOperation(
+            request_type=pipeline_constant.QUERY,
+            method="GET",
+            resource_location="/",
+            query_params={"operation_id": "fake_op_id"},
+            request_body="some body",
+            request_id="fake_request_id",
+            callback=mocker.MagicMock(),
+        )
+
+    @pytest.mark.it("Derives the Provisioning Query Request topic using the op's details")
+    def test_register_request_topic(self, mocker, stage, op, mock_mqtt_topic):
+        stage.run_op(op)
+
+        assert mock_mqtt_topic.get_query_topic_for_publish.call_count == 1
+        assert mock_mqtt_topic.get_query_topic_for_publish.call_args == mocker.call(
+            request_id=op.request_id, operation_id=op.query_params["operation_id"]
+        )
+
+    @pytest.mark.it(
+        "Sends a new MQTTPublishOperation down the pipeline with the original op's request body and the derived topic string"
+    )
+    def test_sends_mqtt_publish_down(self, mocker, stage, op, mock_mqtt_topic):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
+        assert new_op.topic == mock_mqtt_topic.get_query_topic_for_publish.return_value
+        assert new_op.payload == op.request_body
+
+    @pytest.mark.it("Completes the original op upon completion of the new MQTTPbulishOperation")
+    def test_complete_resulting_op(self, stage, op, op_error):
+        stage.run_op(op)
+        assert not op.completed
+        assert op.error is None
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTPublishOperation)
+
+        new_op.complete(error=op_error)
+
+        assert new_op.completed
+        assert new_op.error is op_error
+        assert op.completed
+        assert op.error is op_error
+
+
+@pytest.mark.describe(
+    "ProvisioningMQTTTranslationStage - .run_op() -- Called with RequestOperation (Unsupported Request Type)"
+)
+class TestProvisioningMQTTTranslationStageRunOpWithRequestOperationUnsupportedType(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.RequestOperation(
+            request_type="FAKE_REQUEST_TYPE",
+            method="GET",
+            resource_location="/",
+            request_body="some body",
+            request_id="fake_request_id",
+            callback=mocker.MagicMock(),
+        )
+
+    @pytest.mark.it("Completes the operation with an OperationError failure")
+    def test_fail(self, mocker, stage, op):
+        assert not op.completed
+        assert op.error is None
+
+        stage.run_op(op)
+
+        assert op.completed
+        assert isinstance(op.error, pipeline_exceptions.OperationError)
+
+
+@pytest.mark.describe(
+    "ProvisioningMQTTTranslationStage - .run_op() -- Called with EnableFeatureOperation"
+)
+class TestProvisioningMQTTTranslationStageRunOpWithEnableFeatureOperation(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.EnableFeatureOperation(
+            feature_name=pipeline_constant.REGISTER, callback=mocker.MagicMock()
+        )
+
+    @pytest.mark.it(
+        "Sends a new MQTTSubscribeOperation down the pipeline, containing the subscription topic for Register, if Register is the feature being enabled"
+    )
+    def test_mqtt_subscribe_sent_down(self, mocker, op, stage, mock_mqtt_topic):
+        stage.run_op(op)
+
+        # Topic was derived as expected
+        assert mock_mqtt_topic.get_register_topic_for_subscribe.call_count == 1
+        assert mock_mqtt_topic.get_register_topic_for_subscribe.call_args == mocker.call()
+
+        # New op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTSubscribeOperation)
+
+        # New op has the expected topic
+        assert new_op.topic == mock_mqtt_topic.get_register_topic_for_subscribe.return_value
+
+    @pytest.mark.it("Completes the original op upon completion of the new MQTTSubscribeOperation")
+    def test_complete_resulting_op(self, stage, op, op_error):
+        stage.run_op(op)
+        assert not op.completed
+        assert op.error is None
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+
+        new_op.complete(error=op_error)
+
+        assert new_op.completed
+        assert new_op.error is op_error
+        assert op.completed
+        assert op.error is op_error
+
+    @pytest.mark.it(
+        "Completes the operation with an OperationError failure if the feature being enabled is of any type other than Register"
+    )
+    def test_unsupported_feature(self, stage, op):
+        op.feature_name = "invalid feature"
+        assert not op.completed
+        assert op.error is None
+
+        stage.run_op(op)
+
+        assert op.completed
+        assert isinstance(op.error, pipeline_exceptions.OperationError)
+
+
+@pytest.mark.describe(
+    "ProvisioningMQTTTranslationStage - .run_op() -- Called with DisableFeatureOperation"
+)
+class TestProvisioningMQTTTranslationStageRunOpWithDisableFeatureOperation(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.DisableFeatureOperation(
+            feature_name=pipeline_constant.REGISTER, callback=mocker.MagicMock()
+        )
+
+    @pytest.mark.it(
+        "Sends a new MQTTUnsubscribeOperation down the pipeline, containing the subscription topic for Register, if Register is the feature being disabled"
+    )
+    def test_mqtt_unsubscribe_sent_down(self, mocker, op, stage, mock_mqtt_topic):
+        stage.run_op(op)
+
+        # Topic was derived as expected
+        assert mock_mqtt_topic.get_register_topic_for_subscribe.call_count == 1
+        assert mock_mqtt_topic.get_register_topic_for_subscribe.call_args == mocker.call()
+
+        # New op was sent down
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+        assert isinstance(new_op, pipeline_ops_mqtt.MQTTUnsubscribeOperation)
+
+        # New op has the expected topic
+        assert new_op.topic == mock_mqtt_topic.get_register_topic_for_subscribe.return_value
+
+    @pytest.mark.it("Completes the original op upon completion of the new MQTTUnsubscribeOperation")
+    def test_complete_resulting_op(self, stage, op, op_error):
+        stage.run_op(op)
+        assert not op.completed
+        assert op.error is None
+
+        assert stage.send_op_down.call_count == 1
+        new_op = stage.send_op_down.call_args[0][0]
+
+        new_op.complete(error=op_error)
+
+        assert new_op.completed
+        assert new_op.error is op_error
+        assert op.completed
+        assert op.error is op_error
+
+    @pytest.mark.it(
+        "Completes the operation with an OperationError failure if the feature being disabled is of any type other than Register"
+    )
+    def test_unsupported_feature(self, stage, op):
+        op.feature_name = "invalid feature"
+        assert not op.completed
+        assert op.error is None
+
+        stage.run_op(op)
+
+        assert op.completed
+        assert isinstance(op.error, pipeline_exceptions.OperationError)
+
+
+@pytest.mark.describe(
+    "IoTHubMQTTTranslationStage - .run_op() -- Called with other arbitrary operation"
+)
+class TestProvisioningMQTTTranslationStageRunOpWithArbitraryOperation(
+    StageRunOpTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def op(self, arbitrary_op):
+        return arbitrary_op
+
+    @pytest.mark.it("Sends the operation down the pipeline")
+    def test_sends_op_down(self, mocker, stage, op):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+
+@pytest.mark.it(
+    "IoTHubMQTTTranslationStage - .handle_pipeline_event() -- Called with IncomingMQTTMessageEvent (DPS Response Topic)"
+)
+class TestProvisioningMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEventDPSResponseTopic(
+    StageHandlePipelineEventTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def status(self):
+        return 200
+
+    @pytest.fixture
+    def rid(self):
+        return "3226c2f7-3d30-425c-b83b-0c34335f8220"
+
+    @pytest.fixture(params=["With retry-after", "No retry-after"])
+    def retry_after(self, request):
+        if request.param == "With retry-after":
+            return "1234"
+        else:
+            return None
+
+    @pytest.fixture
+    def event(self, status, rid, retry_after):
+        topic = "$dps/registrations/res/{status}/?$rid={rid}".format(status=status, rid=rid)
+        if retry_after:
+            topic = topic + "&retry-after={}".format(retry_after)
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=b"some payload")
+
+    @pytest.mark.it(
+        "Sends a ResponseEvent up the pipeline containing the original event's payload and values extracted from the topic string"
+    )
+    def test_response_event(self, event, stage, status, rid, retry_after):
         stage.handle_pipeline_event(event)
-        assert stage.previous.handle_pipeline_event.call_count == 1
-        assert stage.previous.handle_pipeline_event.call_args == mocker.call(event)
 
-
-@pytest.fixture
-def dps_response_event():
-    return pipeline_events_mqtt.IncomingMQTTMessageEvent(
-        topic=fake_response_topic, payload=fake_mqtt_payload
-    )
-
-
-@pytest.mark.describe("ProvisioningMQTTTranslationStage _handle_pipeline_event for response")
-class TestProvisioningMQTTConverterHandlePipelineEventRegistrationResponse(
-    ProvisioningMQTTTranslationStageTestBase
-):
-    @pytest.mark.it(
-        "Converts mqtt message with topic $dps/registrations/res/#/ to registration response event"
-    )
-    def test_converts_response_topic_to_registration_response_event(
-        self, mocker, stage, stages_configured, dps_response_event
-    ):
-        stage.handle_pipeline_event(dps_response_event)
-        assert stage.previous.handle_pipeline_event.call_count == 1
-        new_event = stage.previous.handle_pipeline_event.call_args[0][0]
+        assert stage.send_event_up.call_count == 1
+        new_event = stage.send_event_up.call_args[0][0]
         assert isinstance(new_event, pipeline_events_base.ResponseEvent)
+        assert new_event.status_code == status
+        assert new_event.request_id == rid
+        assert new_event.retry_after == retry_after
+        assert new_event.response_body == event.payload
 
-    @pytest.mark.it("Extracts message properties from the mqtt topic for c2d messages")
-    def test_extracts_some_properties_from_topic(
-        self, mocker, stage, stages_configured, dps_response_event
-    ):
-        stage.handle_pipeline_event(dps_response_event)
-        new_event = stage.previous.handle_pipeline_event.call_args[0][0]
-        assert new_event.request_id == fake_request_id
-        assert new_event.status_code == 200
 
-    @pytest.mark.it("Passes up other messages")
-    def test_if_topic_is_not_response(self, mocker, stage, stages_configured):
-        fake_some_other_topic = "devices/{}/messages/devicebound/".format(fake_device_id)
-        event = pipeline_events_mqtt.IncomingMQTTMessageEvent(
-            topic=fake_some_other_topic, payload=fake_mqtt_payload
-        )
+@pytest.mark.describe(
+    "ProvisioningMQTTTranslationStage - .handle_pipeline_event() -- Called with IncomingMQTTMessaveEvent (Unrecognized topic string)"
+)
+class TestProvisioningMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEventUnknownTopicString(
+    StageHandlePipelineEventTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def event(self):
+        topic = "not a real topic"
+        return pipeline_events_mqtt.IncomingMQTTMessageEvent(topic=topic, payload=b"some payload")
+
+    @pytest.mark.it("Sends the event up the pipeline")
+    def test_sends_up(self, event, stage):
         stage.handle_pipeline_event(event)
-        assert stage.previous.handle_pipeline_event.call_count == 1
-        assert stage.previous.handle_pipeline_event.call_args == mocker.call(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args[0][0] == event
+
+
+@pytest.mark.describe(
+    "ProvisioningMQTTTranslationStage - .handle_pipeline_event() -- Called with other arbitrary event"
+)
+class TestProvisioningMQTTTranslationStageHandlePipelineEventWithArbitraryEvent(
+    StageHandlePipelineEventTestBase, ProvisioningMQTTTranslationStageTestConfig
+):
+    @pytest.fixture
+    def event(self, arbitrary_event):
+        return arbitrary_event
+
+    @pytest.mark.it("Sends the event up the pipeline")
+    def test_sends_up(self, event, stage):
+        stage.handle_pipeline_event(event)
+
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args[0][0] == event

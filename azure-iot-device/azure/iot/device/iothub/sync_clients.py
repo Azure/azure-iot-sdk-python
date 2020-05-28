@@ -478,7 +478,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Sending message to output:" + output_name + "...")
 
         callback = EventedCallback()
-        self._mqtt_pipeline.send_output_event(message, callback=callback)
+        self._mqtt_pipeline.send_output_message(message, callback=callback)
         handle_result(callback)
 
         logger.info("Successfully sent message to output: " + output_name)

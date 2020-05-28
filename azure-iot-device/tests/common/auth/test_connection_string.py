@@ -6,7 +6,8 @@
 
 import pytest
 import logging
-from azure.iot.device.common.connection_string import ConnectionString
+import six
+from azure.iot.device.common.auth.connection_string import ConnectionString
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -43,7 +44,7 @@ class TestConnectionString(object):
         cs = ConnectionString(input_string)
         assert isinstance(cs, ConnectionString)
 
-    @pytest.mark.it("Raises ValueError on bad input")
+    @pytest.mark.it("Raises ValueError on invalid string input during instantiation")
     @pytest.mark.parametrize(
         "input_string",
         [
@@ -60,9 +61,29 @@ class TestConnectionString(object):
             ),
         ],
     )
-    def test_raises_value_error_on_bad_input(self, input_string):
+    def test_raises_value_error_on_invalid_input(self, input_string):
         with pytest.raises(ValueError):
             ConnectionString(input_string)
+
+    @pytest.mark.it("Raises TypeError on non-string input during instantiation")
+    @pytest.mark.parametrize(
+        "input_val",
+        [
+            pytest.param(2123, id="Integer"),
+            pytest.param(23.098, id="Float"),
+            pytest.param(
+                b"bytes",
+                id="Bytes",
+                marks=pytest.mark.xfail(six.PY2, reason="Bytes are valid in Python 2.7"),
+            ),
+            pytest.param(object(), id="Complex object"),
+            pytest.param(["a", "b"], id="List"),
+            pytest.param({"a": "b"}, id="Dictionary"),
+        ],
+    )
+    def test_raises_type_error_on_non_string_input(self, input_val):
+        with pytest.raises(TypeError):
+            ConnectionString(input_val)
 
     @pytest.mark.it("Uses the input connection string as a string representation")
     def test_string_representation_of_object_is_the_input_string(self):

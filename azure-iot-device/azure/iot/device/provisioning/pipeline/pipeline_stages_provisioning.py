@@ -22,43 +22,6 @@ import time
 logger = logging.getLogger(__name__)
 
 
-class UseSecurityClientStage(PipelineStage):
-    """
-    PipelineStage which extracts relevant SecurityClient values for a new
-    SetProvisioningClientConnectionArgsOperation.
-
-    All other operations are passed down.
-    """
-
-    @pipeline_thread.runs_on_pipeline_thread
-    def _run_op(self, op):
-        if isinstance(op, pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation):
-
-            security_client = op.security_client
-            worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
-                provisioning_host=security_client.provisioning_host,
-                registration_id=security_client.registration_id,
-                id_scope=security_client.id_scope,
-                sas_token=security_client.get_current_sas_token(),
-            )
-            self.send_op_down(worker_op)
-
-        elif isinstance(op, pipeline_ops_provisioning.SetX509SecurityClientOperation):
-            security_client = op.security_client
-            worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
-                provisioning_host=security_client.provisioning_host,
-                registration_id=security_client.registration_id,
-                id_scope=security_client.id_scope,
-                client_cert=security_client.get_x509_certificate(),
-            )
-            self.send_op_down(worker_op)
-
-        else:
-            super(UseSecurityClientStage, self)._run_op(op)
-
-
 class CommonProvisioningStage(PipelineStage):
     """
     This is a super stage that the RegistrationStage and PollingStatusStage of
@@ -180,7 +143,7 @@ class CommonProvisioningStage(PipelineStage):
         original_provisioning_op.registration_result = complete_registration_result
         if registration_status == "failed":
             error = exceptions.ServiceError(
-                "Query Status operation returned a failed registration status  with a status code of {status_code}".format(
+                "Query Status operation returned a failed registration status with a status code of {status_code}".format(
                     status_code=request_response_op.status_code
                 )
             )
