@@ -253,6 +253,39 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         sastoken_mock = mocker.patch.object(st, "SasToken")
         cs_obj = cs.ConnectionString(connection_string)
 
+        custom_ttl = 1000
+        client_class.create_from_connection_string(connection_string, sastoken_ttl=custom_ttl)
+
+        # Determine expected URI based on class under test
+        if client_class.__name__ == "IoTHubDeviceClient":
+            expected_uri = "{hostname}/devices/{device_id}".format(
+                hostname=cs_obj[cs.HOST_NAME], device_id=cs_obj[cs.DEVICE_ID]
+            )
+        else:
+            expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+                hostname=cs_obj[cs.HOST_NAME],
+                device_id=cs_obj[cs.DEVICE_ID],
+                module_id=cs_obj[cs.MODULE_ID],
+            )
+
+        # SymmetricKeySigningMechanism created using the connection string's SharedAccessKey
+        assert sksm_mock.call_count == 1
+        assert sksm_mock.call_args == mocker.call(key=cs_obj[cs.SHARED_ACCESS_KEY])
+
+        # Token was created with a SymmetricKeySigningMechanism, the expected URI, and custom ttl
+        assert sastoken_mock.call_count == 1
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=custom_ttl
+        )
+
+    @pytest.mark.it(
+        "Uses 3600 seconds (1 hour) as the default SasToken TTL if no custom TTL is provided"
+    )
+    def test_sastoken_default(self, mocker, client_class, connection_string):
+        sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
+        sastoken_mock = mocker.patch.object(st, "SasToken")
+        cs_obj = cs.ConnectionString(connection_string)
+
         client_class.create_from_connection_string(connection_string)
 
         # Determine expected URI based on class under test
@@ -271,9 +304,11 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=cs_obj[cs.SHARED_ACCESS_KEY])
 
-        # Token was created with a SymmetricKeySigningMechanism and the expected URI
+        # Token was created with a SymmetricKeySigningMechanism, the expected URI, and custom ttl
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(expected_uri, sksm_mock.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Creates MQTT and HTTP Pipelines with an IoTHubPipelineConfig object containing the SasToken and values from the connection string"
@@ -410,6 +445,34 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
             hostname=self.hostname, device_id=self.device_id
         )
 
+        custom_ttl = 1000
+        client_class.create_from_symmetric_key(
+            symmetric_key=self.symmetric_key,
+            hostname=self.hostname,
+            device_id=self.device_id,
+            sastoken_ttl=custom_ttl,
+        )
+
+        # SymmetricKeySigningMechanism created using the provided symmetric key
+        assert sksm_mock.call_count == 1
+        assert sksm_mock.call_args == mocker.call(key=self.symmetric_key)
+
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the ttl
+        assert sastoken_mock.call_count == 1
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=custom_ttl
+        )
+
+    @pytest.mark.it(
+        "Uses 3600 seconds (1 hour) as the default SasToken TTL if no custom TTL is provided"
+    )
+    def test_sastoken_default(self, mocker, client_class):
+        sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
+        sastoken_mock = mocker.patch.object(st, "SasToken")
+        expected_uri = "{hostname}/devices/{device_id}".format(
+            hostname=self.hostname, device_id=self.device_id
+        )
+
         client_class.create_from_symmetric_key(
             symmetric_key=self.symmetric_key, hostname=self.hostname, device_id=self.device_id
         )
@@ -418,9 +481,11 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=self.symmetric_key)
 
-        # SasToken created with the SymmetricKeySigningMechanism and the expected URI
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the ttl
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(expected_uri, sksm_mock.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Creates MQTT and HTTP pipelines with an IoTHubPipelineConfig object containing the SasToken and values provided in parameters"
@@ -530,6 +595,13 @@ class SharedIoTHubDeviceClientCreateFromX509CertificateTests(
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
 
+    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    def test_sastoken_ttl(self, client_class, x509):
+        with pytest.raises(TypeError):
+            client_class.create_from_x509_certificate(
+                x509=x509, hostname=self.hostname, device_id=self.device_id, sastoken_ttl=1000
+            )
+
 
 ##############################
 # SHARED MODULE CLIENT TESTS #
@@ -591,6 +663,13 @@ class SharedIoTHubModuleClientCreateFromX509CertificateTests(
         assert isinstance(client, client_class)
         assert client._mqtt_pipeline is mock_mqtt_pipeline_init.return_value
         assert client._http_pipeline is mock_http_pipeline_init.return_value
+
+    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    def test_sastoken_ttl(self, client_class, x509):
+        with pytest.raises(TypeError):
+            client_class.create_from_x509_certificate(
+                x509=x509, hostname=self.hostname, device_id=self.device_id, sastoken_ttl=1000
+            )
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -674,9 +753,42 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
 
     @pytest.mark.it(
-        "Creates a SasToken that uses an IoTEdgeHsm, from the values extracted from the Edge environment"
+        "Creates a SasToken that uses an IoTEdgeHsm, from the values extracted from the Edge environment and the user-provided TTL"
     )
     def test_sastoken(self, mocker, client_class, mock_edge_hsm, edge_container_environment):
+        mocker.patch.dict(os.environ, edge_container_environment, clear=True)
+        sastoken_mock = mocker.patch.object(st, "SasToken")
+
+        expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=edge_container_environment["IOTEDGE_IOTHUBHOSTNAME"],
+            device_id=edge_container_environment["IOTEDGE_DEVICEID"],
+            module_id=edge_container_environment["IOTEDGE_MODULEID"],
+        )
+
+        custom_ttl = 1000
+        client_class.create_from_edge_environment(sastoken_ttl=custom_ttl)
+
+        # IoTEdgeHsm created using the extracted values
+        assert mock_edge_hsm.call_count == 1
+        assert mock_edge_hsm.call_args == mocker.call(
+            module_id=edge_container_environment["IOTEDGE_MODULEID"],
+            generation_id=edge_container_environment["IOTEDGE_MODULEGENERATIONID"],
+            workload_uri=edge_container_environment["IOTEDGE_WORKLOADURI"],
+            api_version=edge_container_environment["IOTEDGE_APIVERSION"],
+        )
+
+        # SasToken created with the IoTEdgeHsm and the expected URI
+        assert sastoken_mock.call_count == 1
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, mock_edge_hsm.return_value, ttl=custom_ttl
+        )
+
+    @pytest.mark.it(
+        "Uses 3600 seconds (1 hour) as the default SasToken TTL if no custom TTL is provided"
+    )
+    def test_sastoken_default(
+        self, mocker, client_class, mock_edge_hsm, edge_container_environment
+    ):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
         sastoken_mock = mocker.patch.object(st, "SasToken")
 
@@ -699,7 +811,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
 
         # SasToken created with the IoTEdgeHsm and the expected URI
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(expected_uri, mock_edge_hsm.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, mock_edge_hsm.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Uses an IoTEdgeHsm as the SasToken signing mechanism even if any Edge local debug environment variables may also be present"
@@ -728,7 +842,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
             api_version=edge_container_environment["IOTEDGE_APIVERSION"],
         )
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(mocker.ANY, mock_edge_hsm.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            mocker.ANY, mock_edge_hsm.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Creates MQTT and HTTP pipelines with an IoTHubPipelineConfig object containing the SasToken and values extracted from the Edge environment"
@@ -849,9 +965,36 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         return mocker.patch.object(io, "open")
 
     @pytest.mark.it(
-        "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values in the connection string extracted from the Edge local debug environment"
+        "Creates a SasToken that uses a SymmetricKeySigningMechanism, from the values in the connection string extracted from the Edge local debug environment, as well as the user-provided TTL"
     )
     def test_sastoken(self, mocker, client_class, mock_open, edge_local_debug_environment):
+        mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
+        sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
+        sastoken_mock = mocker.patch.object(st, "SasToken")
+        cs_obj = cs.ConnectionString(edge_local_debug_environment["EdgeHubConnectionString"])
+        expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=cs_obj[cs.HOST_NAME],
+            device_id=cs_obj[cs.DEVICE_ID],
+            module_id=cs_obj[cs.MODULE_ID],
+        )
+
+        custom_ttl = 1000
+        client_class.create_from_edge_environment(sastoken_ttl=custom_ttl)
+
+        # SymmetricKeySigningMechanism created using the connection string's Shared Access Key
+        assert sksm_mock.call_count == 1
+        assert sksm_mock.call_args == mocker.call(key=cs_obj[cs.SHARED_ACCESS_KEY])
+
+        # SasToken created with the SymmetricKeySigningMechanism and the expected URI
+        assert sastoken_mock.call_count == 1
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=custom_ttl
+        )
+
+    @pytest.mark.it(
+        "Uses 3600 seconds (1 hour) as the default SasToken TTL if no custom TTL is provided"
+    )
+    def test_sastoken_default(self, mocker, client_class, mock_open, edge_local_debug_environment):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
         sastoken_mock = mocker.patch.object(st, "SasToken")
@@ -870,7 +1013,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
 
         # SasToken created with the SymmetricKeySigningMechanism and the expected URI
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(expected_uri, sksm_mock.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Only uses Edge local debug variables if no Edge container variables are present in the environment"
@@ -903,7 +1048,9 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
             api_version=edge_container_environment["IOTEDGE_APIVERSION"],
         )
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(mocker.ANY, mock_edge_hsm.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            mocker.ANY, mock_edge_hsm.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Extracts the server verification certificate from the file indicated by the filepath extracted from the Edge local debug environment"
