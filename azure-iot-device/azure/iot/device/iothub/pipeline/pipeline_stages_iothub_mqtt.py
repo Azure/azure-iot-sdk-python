@@ -47,15 +47,24 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 # Device Format
                 client_id = self.pipeline_root.pipeline_configuration.device_id
 
+            query_param_seq = []
+
             # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
-            query_param_seq = [
-                ("api-version", pkg_constant.IOTHUB_API_VERSION),
-                (
-                    "DeviceClientType",
-                    user_agent.get_iothub_user_agent()
-                    + self.pipeline_root.pipeline_configuration.product_info,
-                ),
-            ]
+            custom_product_info = str(self.pipeline_root.pipeline_configuration.product_info)
+            if custom_product_info.startswith(
+                    pkg_constant.DIGITAL_TWIN_PREFIX
+            ):  # Digital Twin Stuff
+                query_param_seq.append(("api-version", pkg_constant.DIGITAL_TWIN_API_VERSION))
+                query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
+                query_param_seq.append(
+                    (pkg_constant.DIGITAL_TWIN_QUERY_HEADER, custom_product_info)
+                )
+            else:
+                query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
+                query_param_seq.append(
+                    ("DeviceClientType", user_agent.get_iothub_user_agent() + custom_product_info)
+                )
+
             username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=self.pipeline_root.pipeline_configuration.hostname,
                 client_id=client_id,
