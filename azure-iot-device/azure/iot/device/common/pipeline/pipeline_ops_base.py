@@ -217,6 +217,17 @@ class PipelineOperation(object):
         return worker_op
 
 
+class InitializePipelineOperation(PipelineOperation):
+    """
+    A PipelineOperation for doing initial setup of the pipeline
+
+    Attributes can be dynamically added to this operation for use in other stages if necessary
+    (e.g. initialization requires a derived value)
+    """
+
+    pass
+
+
 class ConnectOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to connect to whatever service it needs to connect to.
@@ -316,31 +327,6 @@ class DisableFeatureOperation(PipelineOperation):
         """
         super(DisableFeatureOperation, self).__init__(callback=callback)
         self.feature_name = feature_name
-
-
-class UpdateSasTokenOperation(PipelineOperation):
-    """
-    A PipelineOperation object which contains a SAS token used for connecting.  This operation was likely initiated
-    by a pipeline stage that knows how to generate SAS tokens.
-
-    This operation is in the group of base operations because many different clients use the concept of a SAS token.
-
-    Even though this is an base operation, it will most likely be generated and also handled by more specifics stages
-    (such as IoTHub or MQTT stages).
-    """
-
-    def __init__(self, sas_token, callback):
-        """
-        Initializer for UpdateSasTokenOperation objects.
-
-        :param str sas_token: The token string which will be used to authenticate with whatever
-            service this pipeline connects with.
-        :param Function callback: The function that gets called when this operation is complete or has
-            failed.  The callback function must accept A PipelineOperation object which indicates
-            the specific operation which has completed or failed.
-        """
-        super(UpdateSasTokenOperation, self).__init__(callback=callback)
-        self.sas_token = sas_token
 
 
 class RequestAndResponseOperation(PipelineOperation):

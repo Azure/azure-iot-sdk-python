@@ -14,6 +14,24 @@ logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 
+class InitializePipelineOperationTestConfig(object):
+    @pytest.fixture
+    def cls_type(self):
+        return pipeline_ops_base.InitializePipelineOperation
+
+    @pytest.fixture
+    def init_kwargs(self, mocker):
+        kwargs = {"callback": mocker.MagicMock()}
+        return kwargs
+
+
+pipeline_ops_test.add_operation_tests(
+    test_module=this_module,
+    op_class_under_test=pipeline_ops_base.InitializePipelineOperation,
+    op_test_config_class=InitializePipelineOperationTestConfig,
+)
+
+
 class ConnectOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
@@ -137,32 +155,6 @@ pipeline_ops_test.add_operation_tests(
     op_class_under_test=pipeline_ops_base.DisableFeatureOperation,
     op_test_config_class=DisableFeatureOperationTestConfig,
     extended_op_instantiation_test_class=DisableFeatureInstantiationTests,
-)
-
-
-class UpdateSasTokenOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_base.UpdateSasTokenOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {"sas_token": "some_token", "callback": mocker.MagicMock()}
-        return kwargs
-
-
-class UpdateSasTokenOperationInstantiationTests(UpdateSasTokenOperationTestConfig):
-    @pytest.mark.it("Initializes 'sas_token' attribute with the provided 'sas_token' parameter")
-    def test_sas_token(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.sas_token == init_kwargs["sas_token"]
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_base.UpdateSasTokenOperation,
-    op_test_config_class=UpdateSasTokenOperationTestConfig,
-    extended_op_instantiation_test_class=UpdateSasTokenOperationInstantiationTests,
 )
 
 

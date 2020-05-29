@@ -6,9 +6,6 @@
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
 
 all_provisioning_ops = [
-    pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation,
-    pipeline_ops_provisioning.SetX509SecurityClientOperation,
-    pipeline_ops_provisioning.SetProvisioningClientConnectionArgsOperation,
     pipeline_ops_provisioning.RegisterOperation,
     pipeline_ops_provisioning.PollStatusOperation,
 ]
