@@ -304,7 +304,7 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=cs_obj[cs.SHARED_ACCESS_KEY])
 
-        # Token was created with a SymmetricKeySigningMechanism, the expected URI, and custom ttl
+        # Token was created with a SymmetricKeySigningMechanism, the expected URI, and default ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, sksm_mock.return_value, ttl=3600
@@ -457,7 +457,7 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=self.symmetric_key)
 
-        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the ttl
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the custom ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, sksm_mock.return_value, ttl=custom_ttl
@@ -481,7 +481,7 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=self.symmetric_key)
 
-        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the ttl
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the default ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, sksm_mock.return_value, ttl=3600
@@ -777,7 +777,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
             api_version=edge_container_environment["IOTEDGE_APIVERSION"],
         )
 
-        # SasToken created with the IoTEdgeHsm and the expected URI
+        # SasToken created with the IoTEdgeHsm, the expected URI and the custom ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, mock_edge_hsm.return_value, ttl=custom_ttl
@@ -809,7 +809,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
             api_version=edge_container_environment["IOTEDGE_APIVERSION"],
         )
 
-        # SasToken created with the IoTEdgeHsm and the expected URI
+        # SasToken created with the IoTEdgeHsm, the expected URI, and the default ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, mock_edge_hsm.return_value, ttl=3600
@@ -985,7 +985,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=cs_obj[cs.SHARED_ACCESS_KEY])
 
-        # SasToken created with the SymmetricKeySigningMechanism and the expected URI
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the custom ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, sksm_mock.return_value, ttl=custom_ttl
@@ -1011,7 +1011,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=cs_obj[cs.SHARED_ACCESS_KEY])
 
-        # SasToken created with the SymmetricKeySigningMechanism and the expected URI
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI and default ttl
         assert sastoken_mock.call_count == 1
         assert sastoken_mock.call_args == mocker.call(
             expected_uri, sksm_mock.return_value, ttl=3600
