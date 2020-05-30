@@ -38,9 +38,21 @@ class HTTPPipeline(object):
         :param auth_provider: The authentication provider
         :param pipeline_configuration: The configuration generated based on user inputs
         """
+        # NOTE: This pipeline DOES NOT handle SasToken management!
+        # (i.e. using a SasTokenRenewalStage)
+        # It instead relies on the parallel MQTT pipeline to handle that.
+        #
+        # Because they share a pipeline configuration, and MQTT has renewal logic we can be sure
+        # that the SasToken in the pipeline configuration is valid.
+        #
+        # Furthermore, because HTTP doesn't require constant connections or long running tokens,
+        # there's no need to reauthorize connections, so we can just pass the token from the config
+        # when needed for auth.
+        #
+        # This is not an ideal solution, but it's the simplest one for the time being.
+
         self._pipeline = (
             pipeline_stages_base.PipelineRootStage(pipeline_configuration)
-            .append_stage(pipeline_stages_base.SasTokenRenewalStage())
             .append_stage(pipeline_stages_iothub_http.IoTHubHTTPTranslationStage())
             .append_stage(pipeline_stages_http.HTTPTransportStage())
         )

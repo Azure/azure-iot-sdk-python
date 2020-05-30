@@ -67,7 +67,6 @@ class TestHTTPPipelineInstantiation(object):
 
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
-            pipeline_stages_base.SasTokenRenewalStage,
             pipeline_stages_iothub_http.IoTHubHTTPTranslationStage,
             pipeline_stages_http.HTTPTransportStage,
         ]
