@@ -21,7 +21,7 @@ from . import edge_hsm
 logger = logging.getLogger(__name__)
 
 
-def _validate_kwargs(**kwargs):
+def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
@@ -30,11 +30,29 @@ def _validate_kwargs(**kwargs):
         "cipher",
         "server_verification_cert",
         "proxy_options",
+        "sastoken_ttl",
     ]
 
     for kwarg in kwargs:
-        if kwarg not in valid_kwargs:
-            raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg))
+        if (kwarg not in valid_kwargs) or (kwarg in exclude):
+            raise TypeError("Unsupported keyword argument: '{}'".format(kwarg))
+
+
+def _get_config_kwargs(**kwargs):
+    """Get the subset of kwargs which pertain the config object"""
+    valid_config_kwargs = [
+        "product_info",
+        "websockets",
+        "cipher",
+        "server_verification_cert",
+        "proxy_options",
+    ]
+
+    config_kwargs = {}
+    for kwarg in kwargs:
+        if kwarg in valid_config_kwargs:
+            config_kwargs[kwarg] = kwargs[kwarg]
+    return config_kwargs
 
 
 def _form_sas_uri(hostname, device_id, module_id=None):
@@ -80,9 +98,11 @@ class AbstractIoTHubClient(object):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
+            authentication. Default is 3600 seconds (1 hour)
 
         :raises: ValueError if given an invalid connection_string.
-        :raises: TypeError if given an unrecognized parameter.
+        :raises: TypeError if given an unsupported parameter.
 
         :returns: An instance of an IoTHub client that uses a connection string for authentication.
         """
@@ -101,20 +121,22 @@ class AbstractIoTHubClient(object):
         signing_mechanism = auth.SymmetricKeySigningMechanism(
             key=connection_string[cs.SHARED_ACCESS_KEY]
         )
+        token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism)
+            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
-            new_err = ValueError("Could not create a SasToken using provided connection string")
+            new_err = ValueError("Could not create a SasToken using provided values")
             new_err.__cause__ = e
             raise new_err
         # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
             device_id=connection_string[cs.DEVICE_ID],
             module_id=connection_string.get(cs.MODULE_ID),
             hostname=connection_string[cs.HOST_NAME],
             gateway_hostname=connection_string.get(cs.GATEWAY_HOST_NAME),
             sastoken=sastoken,
-            **kwargs
+            **config_kwargs
         )
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
@@ -194,16 +216,18 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
 
-        :raises: TypeError if given an unrecognized parameter.
+        :raises: TypeError if given an unsupported parameter.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
         # Ensure no invalid kwargs were passed by the user
-        _validate_kwargs(**kwargs)
+        excluded_kwargs = ["sastoken_ttl"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
-            device_id=device_id, hostname=hostname, x509=x509, **kwargs
+            device_id=device_id, hostname=hostname, x509=x509, **config_kwargs
         )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
@@ -235,8 +259,10 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
+            authentication. Default is 3600 seconds (1 hour)
 
-        :raises: TypeError if given an unrecognized parameter.
+        :raises: TypeError if given an unsupported parameter.
 
         :return: An instance of an IoTHub client that uses a symmetric key for authentication.
         """
@@ -246,16 +272,18 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         # Create SasToken
         uri = _form_sas_uri(hostname=hostname, device_id=device_id)
         signing_mechanism = auth.SymmetricKeySigningMechanism(key=symmetric_key)
+        token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism)
+            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError("Could not create a SasToken using provided values")
             new_err.__cause__ = e
             raise new_err
 
         # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
-            device_id=device_id, hostname=hostname, sastoken=sastoken, **kwargs
+            device_id=device_id, hostname=hostname, sastoken=sastoken, **config_kwargs
         )
         pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
@@ -297,19 +325,19 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
+            authentication. Default is 3600 seconds (1 hour)
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
+        :raises: TypeError if given an unsupported parameter.
 
         :returns: An instance of an IoTHub client that uses the IoT Edge environment for
             authentication.
         """
         # Ensure no invalid kwargs were passed by the user
-        _validate_kwargs(**kwargs)
-        if kwargs.get("server_verification_cert"):
-            raise TypeError(
-                "'server_verification_cert' is not supported by clients using an IoT Edge environment"
-            )
+        excluded_kwargs = ["server_verification_cert"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # First try the regular Edge container variables
         try:
@@ -382,16 +410,18 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
         # Create SasToken
         uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
+        token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism)
+            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError(
-                "Could not create a SasToken using the values in the Edge environment"
+                "Could not create a SasToken using the values provided, or in the Edge environment"
             )
             new_err.__cause__ = e
             raise new_err
 
         # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
             device_id=device_id,
             module_id=module_id,
@@ -399,7 +429,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             gateway_hostname=gateway_hostname,
             sastoken=sastoken,
             server_verification_cert=server_verification_cert,
-            **kwargs
+            **config_kwargs
         )
         pipeline_configuration.method_invoke = (
             True
@@ -439,16 +469,18 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
 
-        :raises: TypeError if given an unrecognized parameter.
+        :raises: TypeError if given an unsupported parameter.
 
         :returns: An instance of an IoTHub client that uses an X509 certificate for authentication.
         """
         # Ensure no invalid kwargs were passed by the user
-        _validate_kwargs(**kwargs)
+        excluded_kwargs = ["sastoken_ttl"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
         # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
         pipeline_configuration = pipeline.IoTHubPipelineConfig(
-            device_id=device_id, module_id=module_id, hostname=hostname, x509=x509, **kwargs
+            device_id=device_id, module_id=module_id, hostname=hostname, x509=x509, **config_kwargs
         )
 
         # Pipeline setup

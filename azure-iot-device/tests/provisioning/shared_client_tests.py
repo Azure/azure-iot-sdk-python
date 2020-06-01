@@ -132,6 +132,35 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
             id_scope=fake_id_scope, registration_id=fake_registration_id
         )
 
+        custom_ttl = 1000
+        client_class.create_from_symmetric_key(
+            provisioning_host=fake_provisioning_host,
+            registration_id=fake_registration_id,
+            id_scope=fake_id_scope,
+            symmetric_key=fake_symmetric_key,
+            sastoken_ttl=custom_ttl,
+        )
+
+        # SymmetricKeySigningMechanism created using the provided symmetric key
+        assert sksm_mock.call_count == 1
+        assert sksm_mock.call_args == mocker.call(key=fake_symmetric_key)
+
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the custom ttl
+        assert sastoken_mock.call_count == 1
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=custom_ttl
+        )
+
+    @pytest.mark.it(
+        "Uses 3600 seconds (1 hour) as the default SasToken TTL if no custom TTL is provided"
+    )
+    def test_sastoken_default(self, mocker, client_class):
+        sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
+        sastoken_mock = mocker.patch.object(st, "SasToken")
+        expected_uri = "{id_scope}/registrations/{registration_id}".format(
+            id_scope=fake_id_scope, registration_id=fake_registration_id
+        )
+
         client_class.create_from_symmetric_key(
             provisioning_host=fake_provisioning_host,
             registration_id=fake_registration_id,
@@ -143,9 +172,11 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
         assert sksm_mock.call_count == 1
         assert sksm_mock.call_args == mocker.call(key=fake_symmetric_key)
 
-        # SasToken created with the SymmetricKeySigningMechanism and the expected URI
+        # SasToken created with the SymmetricKeySigningMechanism, the expected URI, and the default ttl
         assert sastoken_mock.call_count == 1
-        assert sastoken_mock.call_args == mocker.call(expected_uri, sksm_mock.return_value)
+        assert sastoken_mock.call_args == mocker.call(
+            expected_uri, sksm_mock.return_value, ttl=3600
+        )
 
     @pytest.mark.it(
         "Creates an MQTT pipeline with a ProvisioningPipelineConfig object containing the SasToken and values provided in the parameters"
@@ -249,3 +280,14 @@ class SharedProvisioningClientCreateFromX509CertificateTests(
 
         assert isinstance(client, client_class)
         assert client._pipeline is mock_pipeline_init.return_value
+
+    @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
+    def test_sastoken_ttl(self, client_class, x509):
+        with pytest.raises(TypeError):
+            client_class.create_from_x509_certificate(
+                provisioning_host=fake_provisioning_host,
+                registration_id=fake_registration_id,
+                id_scope=fake_id_scope,
+                x509=x509,
+                sastoken_ttl=1000,
+            )
