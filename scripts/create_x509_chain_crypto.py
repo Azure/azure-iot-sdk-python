@@ -58,15 +58,15 @@ def create_certificate_chain(
     device_password,
     device_count=1,
     key_size=4096,
-    days=3650,
+    days=365,
 ):
     """
     This method will create a basic 3 layered chain certificate containing a root, t
     hen an intermediate and then some number of leaf certificates.
     This function is only used when the certificates are created from script.
-    When certificates are created using the script , the root certificate is created for 1 year.
-    The intermediate certificate is created for almost a month or 36 days
-    and the device certificate is created for 3 days.
+    When certificates are created using the script , the root certificate is created for almost about 1 year.
+    The intermediate certificate is created for almost a month or 35 days
+    and the device certificate is created for 2 days.
 
     :param common_name: The common name to be used in the subject. This is a single common name which would be applied to all certs created.
     Since this common name is meant for all, this common name will be prepended by the
@@ -351,11 +351,6 @@ def create_directories_and_prereq_files(pipeline):
     This function creates the necessary directories and files. This needs to be called as the first step before doing anything.
     :param pipeline: The boolean representing if function has been called from pipeline or not. True for pipeline, False for calling like a script.
     """
-    dirPath = "demoCA"
-    if os.path.exists(dirPath):
-        print("demoCA exists, so will delete first")
-        shutil.rmtree(dirPath)
-
     os.system("mkdir demoCA")
     if pipeline:
         # This command does not work when we run locally. So we have to pass in the pipeline variable
@@ -402,6 +397,13 @@ def before_cert_creation_from_pipeline():
     NOTE : This function is only applicable when called from the pipeline via E2E tests
     and need not be used when it is called as a script.
     """
+
+    # Only needed for pipeline tests
+    dirPath = "demoCA"
+    if os.path.exists(dirPath):
+        print("demoCA exists, so will delete first")
+        shutil.rmtree(dirPath)
+
     create_directories_and_prereq_files(True)
 
 
@@ -599,8 +601,8 @@ if __name__ == "__main__":
                 root_verify = True
                 print("Root verify is True. So will be verifying root certificate")
         else:
-            print("Root verify will be by default False.")
-            root_verify = False
+            print("Root verify will be by default True.")
+            root_verify = True
 
         if args.issuer_password:
             issuer_password = args.issuer_password
@@ -609,7 +611,12 @@ if __name__ == "__main__":
                 "Enter pass phrase for issuer certificate verification: "
             )
 
-    create_directories_and_prereq_files(False)
+    if (
+        not os.path.exists("demoCA")
+        and not os.path.exists("demoCA/private")
+        and not os.path.exists("demoCA/newcerts")
+    ):
+        create_directories_and_prereq_files(False)
 
     if mode == "verification":
         create_verification_cert(nonce, issuer_password, root_verify, key_size=4096)
