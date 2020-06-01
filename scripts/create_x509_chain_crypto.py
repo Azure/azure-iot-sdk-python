@@ -22,7 +22,14 @@ COMMON_DEVICE_CSR_FILE = "demoCA/newcerts/device_csr"
 COMMON_DEVICE_CERT_FILE = "demoCA/newcerts/device_cert"
 
 
-def create_private_key(password_file, password=None, key_size=4096):
+def create_private_key(key_file, password=None, key_size=4096):
+    """
+    Crate encrypted key for certificates.
+    :param key_file: The file to store the key.
+    :param password: Password for the key.
+    :param key_size: The key size to use for encryption. The default is 4096.
+    :return: The private key.
+    """
     if password:
         encrypt_algo = serialization.BestAvailableEncryption(str.encode(password))
     else:
@@ -32,7 +39,7 @@ def create_private_key(password_file, password=None, key_size=4096):
         public_exponent=PUBLIC_EXPONENT, key_size=key_size, backend=default_backend()
     )
     # Write our key to file
-    with open(password_file, "wb") as f:
+    with open(key_file, "wb") as f:
         f.write(
             private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
@@ -54,11 +61,16 @@ def create_certificate_chain(
     days=3650,
 ):
     """
-    This method will create a basic 3 layered chain certificate containing a root, then an intermediate and then some number of leaf certificates.
+    This method will create a basic 3 layered chain certificate containing a root, t
+    hen an intermediate and then some number of leaf certificates.
     This function is only used when the certificates are created from script.
+    When certificates are created using the script , the root certificate is created for 1 year.
+    The intermediate certificate is created for almost a month or 36 days
+    and the device certificate is created for 3 days.
 
-    :param common_name: The common name to be used in the subject. This is a single common name which would be applied to all certs created. Since this common name is meant for all,
-    this common name will be prepended by the words "root", "inter" and "device" for root, intermediate and device certificates.
+    :param common_name: The common name to be used in the subject. This is a single common name which would be applied to all certs created.
+    Since this common name is meant for all, this common name will be prepended by the
+    words "root", "inter" and "device" for root, intermediate and device certificates.
     For device certificates the common name will be further appended with the index of the device.
     :param ca_password: The password for the root certificate which is going to be referenced by the intermediate.
     :param intermediate_password: The password for the intermediate certificate
@@ -66,11 +78,10 @@ def create_certificate_chain(
     :param device_count: The number of leaf devices for which that many number of certificates will be generated.
     :param key_size: The key size to use for encryption. The default is 4096.
     :param days: The number of days for which the certificate is valid. The default is 1 year or 365 days.
-    For the root cert this value is multiplied by 10. For the device certificates this number will be divided by 10.
     """
     root_password_file = "demoCA/private/ca_key.pem"
     root_private_key = create_private_key(
-        password_file=root_password_file, password=ca_password, key_size=key_size
+        key_file=root_password_file, password=ca_password, key_size=key_size
     )
     root_cert = create_root_ca_cert(
         root_common_name="root" + common_name, root_private_key=root_private_key, days=days
@@ -79,12 +90,12 @@ def create_certificate_chain(
     intermediate_password_file = "demoCA/private/intermediate_key.pem"
 
     intermediate_private_key = create_private_key(
-        password_file=intermediate_password_file, password=intermediate_password, key_size=key_size
+        key_file=intermediate_password_file, password=intermediate_password, key_size=key_size
     )
 
     intermediate_cert = create_intermediate_ca_cert(
-        root_cert_subject=root_cert.subject,
-        root_key=root_private_key,
+        issuer_cert_subject=root_cert.subject,
+        issuer_key=root_private_key,
         intermediate_common_name="inter" + common_name,
         intermediate_private_key=intermediate_private_key,
         days=days,
@@ -92,8 +103,8 @@ def create_certificate_chain(
 
     create_multiple_device_keys_and_certs(
         number_of_devices=device_count,
-        inter_cert_subject=intermediate_cert.subject,
-        inter_key=intermediate_private_key,
+        issuer_cert_subject=intermediate_cert.subject,
+        issuer_key=intermediate_private_key,
         device_common_name="device" + common_name,
         password=device_password,
         key_size=key_size,
@@ -101,7 +112,15 @@ def create_certificate_chain(
     )
 
 
-def create_root_ca_cert(root_common_name, root_private_key, days=3650):
+def create_root_ca_cert(root_common_name, root_private_key, days=365):
+    """
+    This method will create a root ca certificate.
+    :param root_common_name: The common name for the certificate.
+    :param root_private_key: The private key for the certificate.
+    :param days: The number of days for which the certificate is valid. The default is 1 year or 365 days.
+    :return: The root certificate.
+    :rtype: :class:`x509.Certificate`
+    """
     file_root_certificate = "demoCA/newcerts/ca_cert.pem"
 
     root_public_key = root_private_key.public_key()
@@ -124,8 +143,18 @@ def create_root_ca_cert(root_common_name, root_private_key, days=3650):
 
 
 def create_intermediate_ca_cert(
-    root_cert_subject, root_key, intermediate_common_name, intermediate_private_key, days=3650
+    issuer_cert_subject, issuer_key, intermediate_common_name, intermediate_private_key, days=365
 ):
+    """
+    This method will create a intermediate ca certificate valid for a duration of 36 days.
+    :param issuer_cert_subject: The subject for the issuer certificate cert that is issuing this one.
+    :param issuer_key: The key for the issuer certificate.
+    :param intermediate_common_name: The common name for the certificate.
+    :param intermediate_private_key: The private key for the certificate.
+    :param days: The number of days for which the certificate is valid. The default is 1 year or 365 days.
+    :return: The intermediate certificate.
+    :rtype: :class:`x509.Certificate`
+    """
     file_intermediate_certificate = "demoCA/newcerts/intermediate_cert.pem"
     file_intermediate_csr = "demoCA/newcerts/intermediate_csr.pem"
 
@@ -138,14 +167,14 @@ def create_intermediate_ca_cert(
 
     builder = create_cert_builder(
         subject=intermediate_csr.subject,
-        issuer_name=root_cert_subject,
+        issuer_name=issuer_cert_subject,
         public_key=intermediate_csr.public_key(),
         days=int(days / 10),
         is_ca=True,
     )
 
     intermediate_cert = builder.sign(
-        private_key=root_key, algorithm=hashes.SHA256(), backend=default_backend()
+        private_key=issuer_key, algorithm=hashes.SHA256(), backend=default_backend()
     )
     with open(file_intermediate_certificate, "wb") as f:
         f.write(intermediate_cert.public_bytes(serialization.Encoding.PEM))
@@ -155,20 +184,29 @@ def create_intermediate_ca_cert(
 
 def create_multiple_device_keys_and_certs(
     number_of_devices,
-    inter_cert_subject,
-    inter_key,
+    issuer_cert_subject,
+    issuer_key,
     device_common_name,
     password,
     key_size=4096,
-    days=3650,
+    days=365,
 ):
-
+    """
+    This method will create multiple device private keys and multiple device certificates valid for 3 days.
+    :param number_of_devices: The number of devices for which the certificates are created.
+    :param issuer_cert_subject: The subject for the issuer certificate cert that is issuing this one.
+    :param issuer_key: The key for the issuer certificate.
+    :param device_common_name: The common name for the certificate.
+    :param password: The password for creating the key for the certificate.
+    :param key_size: The key size to use for encryption. The default is 4096.
+    :param days: The number of days for which the certificate is valid. The default is 1 year or 365 days.
+    """
     for i in range(1, number_of_devices + 1):
         device_password_file = COMMON_DEVICE_PASSWORD_FILE + str(i) + EXTENSION_NAME
         device_csr_file = COMMON_DEVICE_CSR_FILE + str(i) + EXTENSION_NAME
         device_cert_file = COMMON_DEVICE_CERT_FILE + str(i) + EXTENSION_NAME
         device_private_key = create_private_key(
-            password_file=device_password_file, password=password, key_size=key_size
+            key_file=device_password_file, password=password, key_size=key_size
         )
         device_csr = create_csr(
             private_key=device_private_key,
@@ -179,20 +217,28 @@ def create_multiple_device_keys_and_certs(
 
         builder = create_cert_builder(
             subject=device_csr.subject,
-            issuer_name=inter_cert_subject,
+            issuer_name=issuer_cert_subject,
             public_key=device_csr.public_key(),
             days=int(days / 100),
             is_ca=False,
         )
 
         device_cert = builder.sign(
-            private_key=inter_key, algorithm=hashes.SHA256(), backend=default_backend()
+            private_key=issuer_key, algorithm=hashes.SHA256(), backend=default_backend()
         )
         with open(device_cert_file, "wb") as f:
             f.write(device_cert.public_bytes(serialization.Encoding.PEM))
 
 
 def create_verification_cert(nonce, issuer_password, root_verify=False, key_size=4096):
+    """
+    This method will create verification certificate for providing proof of possession.
+    In this example the certificate getting verified that has already been uploaded to the Azure IoT Hub.
+    :param nonce: The thumbprint generated for the certificate already in possession.
+    :param issuer_password: The password for private key of the certificate already in possession.
+    :param root_verify: A boolean variable to indicate whether we are verifying the root certificate or intermediate certificate.
+    :param key_size: The key size to use for encryption. The default is 4096.
+    """
     encoded_issuer_password = str.encode(issuer_password)
 
     if root_verify:
@@ -219,7 +265,7 @@ def create_verification_cert(nonce, issuer_password, root_verify=False, key_size
         )
 
     verification_private_key = create_private_key(
-        password_file=verification_password_file, password=None, key_size=key_size
+        key_file=verification_password_file, password=None, key_size=key_size
     )
     verification_csr = create_csr(
         private_key=verification_private_key,
@@ -241,7 +287,17 @@ def create_verification_cert(nonce, issuer_password, root_verify=False, key_size
         f.write(verification_cert.public_bytes(serialization.Encoding.PEM))
 
 
-def create_cert_builder(subject, issuer_name, public_key, days=30, is_ca=False):
+def create_cert_builder(subject, issuer_name, public_key, days=365, is_ca=False):
+    """
+    The method to create a builder for all types of certificates.
+    :param subject: The subject of the certificate.
+    :param issuer_name: The name of the issuer.
+    :param public_key: The public key of the certificate.
+    :param days: The number of days for which the certificate is valid. The default is 1 year or 365 days.
+    :param is_ca: Boolean to indicate if a cert is ca or non ca.
+    :return: The certificate builder.
+    :rtype: :class `x509.CertificateBuilder`
+    """
     builder = x509.CertificateBuilder()
 
     builder = builder.subject_name(subject)
@@ -258,6 +314,15 @@ def create_cert_builder(subject, issuer_name, public_key, days=30, is_ca=False):
 
 
 def create_csr(private_key, csr_file, subject, is_ca=False):
+    """
+    Method to create a certificate signing request.
+    :param private_key: The private key to the certificate.
+    :param csr_file: The file name of the certificate signing request.
+    :param subject: The subject fo the certificate signing request.
+    :param is_ca: Boolean to indicate if a cert is ca or non ca.
+    :return: The certificate signing request.
+    :rtype: :class `x509.CertificateSigningRequest`
+    """
     builder = (
         x509.CertificateSigningRequestBuilder()
         .subject_name(
@@ -308,6 +373,9 @@ def create_directories_and_prereq_files(pipeline):
 
 
 def delete_directories_certs_created_from_pipeline():
+    """
+    Function deletes all the directories and files which were created for the certificates.
+    """
     dirPath = "demoCA"
     try:
         shutil.rmtree(dirPath)
@@ -330,7 +398,7 @@ def delete_directories_certs_created_from_pipeline():
 def before_cert_creation_from_pipeline():
     """
     This function creates the required folder and files before creating certificates.
-    This also copies an openssl configurtaion file to be used for the generation of this certificates.
+    This also copies an openssl configurations file to be used for the generation of this certificates.
     NOTE : This function is only applicable when called from the pipeline via E2E tests
     and need not be used when it is called as a script.
     """
@@ -350,17 +418,14 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
     """
     This function creates an intermediate certificate by getting called from the pipeline.
     This method will create an intermediate key, then an intermediate certificate request and finally an intermediate certificate.
-    :param common_name: The common name to be used in the subject.
+    :param intermediate_common_name: The common name to be used in the subject for the intermediate certificate.
+    :param device_common_name: The common name to be used in the subject for the device certificate.
     :param ca_password: The password for the root certificate which is going to be referenced by the intermediate.
     :param intermediate_password: The password for the intermediate certificate
+    :param device_password: The password for the device certificate
+    :param device_count: The number of devices for which the certificates are created.
     :param key_size: The key size to use for encryption. Default is 4096.
     :param days: The number of days for which the certificate is valid. Default is 1 year (365 days)
-    :param common_name: The common name of the intermediate certificate.
-    :param ca_password: The password for the root ca certificate from which the intermediate certificate will be created.
-    :param intermediate_password: The password for the intermediate certificate.
-    :param key_size: The key size for the intermediate key. Default is 4096.
-    :param days: The number of days for hich
-    :return:
     """
 
     ca_cert = os.getenv("PROVISIONING_ROOT_CERT")
@@ -394,12 +459,12 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
     intermediate_password_file = "demoCA/private/intermediate_key.pem"
 
     intermediate_private_key = create_private_key(
-        password_file=intermediate_password_file, password=intermediate_password, key_size=key_size
+        key_file=intermediate_password_file, password=intermediate_password, key_size=key_size
     )
 
     intermediate_cert = create_intermediate_ca_cert(
-        root_cert_subject=root_cert.subject,
-        root_key=root_private_key,
+        issuer_cert_subject=root_cert.subject,
+        issuer_key=root_private_key,
         intermediate_common_name=intermediate_common_name,
         intermediate_private_key=intermediate_private_key,
         days=days,
@@ -407,8 +472,8 @@ def call_intermediate_cert_and_device_cert_creation_from_pipeline(
 
     create_multiple_device_keys_and_certs(
         number_of_devices=device_count,
-        inter_cert_subject=intermediate_cert.subject,
-        inter_key=intermediate_private_key,
+        issuer_cert_subject=intermediate_cert.subject,
+        issuer_key=intermediate_private_key,
         device_common_name=device_common_name,
         password=device_password,
         key_size=key_size,
@@ -485,7 +550,7 @@ if __name__ == "__main__":
     if args.days:
         days = args.days
     else:
-        days = 30
+        days = 365
 
     ca_password = None
     intermediate_password = None
