@@ -14,79 +14,6 @@ this_module = sys.modules[__name__]
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 
-class SetHTTPConnectionArgsOperationTestConfig(object):
-    @pytest.fixture
-    def cls_type(self):
-        return pipeline_ops_http.SetHTTPConnectionArgsOperation
-
-    @pytest.fixture
-    def init_kwargs(self, mocker):
-        kwargs = {
-            "hostname": "some_hostname",
-            "callback": mocker.MagicMock(),
-            "server_verification_cert": "some_server_verification_cert",
-            "client_cert": "some_client_cert",
-            "sas_token": "some_sas_token",
-        }
-        return kwargs
-
-
-class SetHTTPConnectionArgsOperationInstantiationTests(SetHTTPConnectionArgsOperationTestConfig):
-    @pytest.mark.it("Initializes 'hostname' attribute with the provided 'hostname' parameter")
-    def test_hostname(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.hostname == init_kwargs["hostname"]
-
-    @pytest.mark.it(
-        "Initializes 'server_verification_cert' attribute with the provided 'server_verification_cert' parameter"
-    )
-    def test_server_verification_cert(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.server_verification_cert == init_kwargs["server_verification_cert"]
-
-    @pytest.mark.it(
-        "Initializes 'server_verification_cert' attribute to None if no 'server_verification_cert' parameter is provided"
-    )
-    def test_server_verification_cert_default(self, cls_type, init_kwargs):
-        del init_kwargs["server_verification_cert"]
-        op = cls_type(**init_kwargs)
-        assert op.server_verification_cert is None
-
-    @pytest.mark.it("Initializes 'client_cert' attribute with the provided 'client_cert' parameter")
-    def test_client_cert(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.client_cert == init_kwargs["client_cert"]
-
-    @pytest.mark.it(
-        "Initializes 'client_cert' attribute to None if no 'client_cert' parameter is provided"
-    )
-    def test_client_cert_default(self, cls_type, init_kwargs):
-        del init_kwargs["client_cert"]
-        op = cls_type(**init_kwargs)
-        assert op.client_cert is None
-
-    @pytest.mark.it("Initializes 'sas_token' attribute with the provided 'sas_token' parameter")
-    def test_sas_token(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.sas_token == init_kwargs["sas_token"]
-
-    @pytest.mark.it(
-        "Initializes 'sas_token' attribute to None if no 'sas_token' parameter is provided"
-    )
-    def test_sas_token_default(self, cls_type, init_kwargs):
-        del init_kwargs["sas_token"]
-        op = cls_type(**init_kwargs)
-        assert op.sas_token is None
-
-
-pipeline_ops_test.add_operation_tests(
-    test_module=this_module,
-    op_class_under_test=pipeline_ops_http.SetHTTPConnectionArgsOperation,
-    op_test_config_class=SetHTTPConnectionArgsOperationTestConfig,
-    extended_op_instantiation_test_class=SetHTTPConnectionArgsOperationInstantiationTests,
-)
-
-
 class HTTPRequestAndResponseOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):
@@ -151,7 +78,7 @@ class HTTPRequestAndResponseOperationInstantiationTests(HTTPRequestAndResponseOp
 
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
-    op_class_under_test=pipeline_ops_http.SetHTTPConnectionArgsOperation,
+    op_class_under_test=pipeline_ops_http.HTTPRequestAndResponseOperation,
     op_test_config_class=HTTPRequestAndResponseOperationTestConfig,
     extended_op_instantiation_test_class=HTTPRequestAndResponseOperationInstantiationTests,
 )

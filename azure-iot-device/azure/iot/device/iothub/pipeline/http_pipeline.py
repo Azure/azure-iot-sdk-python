@@ -22,7 +22,6 @@ from . import (
     pipeline_ops_iothub_http,
     pipeline_stages_iothub_http,
 )
-from azure.iot.device.iothub.auth.x509_authentication_provider import X509AuthenticationProvider
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class HTTPPipeline(object):
     Uses HTTP.
     """
 
-    def __init__(self, auth_provider, pipeline_configuration):
+    def __init__(self, pipeline_configuration):
         """
         Constructor for instantiating a pipeline adapter object.
 
@@ -40,22 +39,15 @@ class HTTPPipeline(object):
         :param pipeline_configuration: The configuration generated based on user inputs
         """
         self._pipeline = (
-            pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
-            .append_stage(pipeline_stages_iothub.UseAuthProviderStage())
+            pipeline_stages_base.PipelineRootStage(pipeline_configuration)
+            .append_stage(pipeline_stages_base.SasTokenRenewalStage())
             .append_stage(pipeline_stages_iothub_http.IoTHubHTTPTranslationStage())
             .append_stage(pipeline_stages_http.HTTPTransportStage())
         )
 
         callback = EventedCallback()
 
-        if isinstance(auth_provider, X509AuthenticationProvider):
-            op = pipeline_ops_iothub.SetX509AuthProviderOperation(
-                auth_provider=auth_provider, callback=callback
-            )
-        else:  # Currently everything else goes via this block.
-            op = pipeline_ops_iothub.SetAuthProviderOperation(
-                auth_provider=auth_provider, callback=callback
-            )
+        op = pipeline_ops_base.InitializePipelineOperation(callback=callback)
 
         self._pipeline.run_op(op)
         callback.wait_for_completion()
