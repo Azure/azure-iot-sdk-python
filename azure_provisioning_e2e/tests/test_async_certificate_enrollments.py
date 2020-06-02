@@ -19,10 +19,9 @@ import logging
 import os
 import uuid
 
-from scripts.create_x509_chain_pipeline import (
+from scripts.create_x509_chain_crypto import (
     before_cert_creation_from_pipeline,
-    call_intermediate_cert_creation_from_pipeline,
-    create_device_certs,
+    call_intermediate_cert_and_device_cert_creation_from_pipeline,
     delete_directories_certs_created_from_pipeline,
 )
 
@@ -58,13 +57,10 @@ type_to_device_indices = {
 def before_all_tests(request):
     logging.info("set up certificates before cert related tests")
     before_cert_creation_from_pipeline()
-    call_intermediate_cert_creation_from_pipeline(
-        common_name=intermediate_common_name,
+    call_intermediate_cert_and_device_cert_creation_from_pipeline(
+        intermediate_common_name=intermediate_common_name,
+        device_common_name=device_common_name,
         ca_password=os.getenv("PROVISIONING_ROOT_PASSWORD"),
-        intermediate_password=intermediate_password,
-    )
-    create_device_certs(
-        common_name=device_common_name,
         intermediate_password=intermediate_password,
         device_password=device_password,
         device_count=8,
