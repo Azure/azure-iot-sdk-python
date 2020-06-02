@@ -57,7 +57,7 @@ In order to use these samples, you **must** set your Device Connection String in
 
 ### DPS Samples
 
-#### Individual
+#### Individual Enrollment
 
 In order to use these samples, you **must** have the following environment variables :-
 
@@ -65,19 +65,19 @@ In order to use these samples, you **must** have the following environment varia
 * PROVISIONING_IDSCOPE
 * PROVISIONING_REGISTRATION_ID
 
-There are 2 ways that your device can get registered to the provisioning service differing in authentication mechanisms and another additional environment variable is needed to for the samples:-
+There are 2 ways that your device can get registered to the provisioning service differing in authentication mechanisms. Depending on the mechanism used additional environment variables are needed for the samples:-
 
-* [provision_symmetric_key.py](provision_symmetric_key.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
-* [provision_symmetric_key_and_send_telemetry.py](provision_symmetric_key_and_send_telemetry.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key, then send a telemetry message to IoTHub. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
-* [provision_symmetric_key_with_payload.py](provision_symmetric_key_with_payload.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key while supplying a custom payload. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
-* [provision_x509.py](provision_x509.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
-* [provision_x509_and_send_telemetry.py](provision_x509_and_send_telemetry.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key, then send a telemetry message to IoTHub. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
+* [provision_symmetric_key.py](provision_symmetric_key.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key, then send telemetry messages to IoTHub. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [provision_symmetric_key_with_payload.py](provision_symmetric_key_with_payload.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key while supplying a custom payload, then send telemetry messages to IoTHub. For this you must have the environment variable PROVISIONING_SYMMETRIC_KEY.
+* [provision_x509.py](provision_x509.py) - Provision a device to IoTHub by registering to the Device Provisioning Service using a symmetric key, then send a telemetry message to IoTHub. For this you must have the environment variable X509_CERT_FILE, X509_KEY_FILE, PASS_PHRASE.
 
-#### Group
+
+#### Group Enrollment
 
 In order to use these samples, you **must** have the following environment variables :-
 
 * PROVISIONING_HOST
 * PROVISIONING_IDSCOPE
 
-* [provision_symmetric_key_group.py](provision_symmetric_key_group.py) - Provision multiple devices to IoTHub by registering them to the Device Provisioning Service using derived symmetric keys. For this you must have the environment variables PROVISIONING_MASTER_SYMMETRIC_KEY, PROVISIONING_DEVICE_ID_1, PROVISIONING_DEVICE_ID_2, PROVISIONING_DEVICE_ID_3.
+* [provision_symmetric_key_group.py](provision_symmetric_key_group.py) - Provision multiple devices to IoTHub by registering them to the Device Provisioning Service using derived symmetric keys, then send telemetry to IoTHub from these devices. For this you must have knowledge of the group symmetric key and must have the environment variables PROVISIONING_DEVICE_ID_1, PROVISIONING_DEVICE_ID_2, PROVISIONING_DEVICE_ID_3.
+  * NOTE : Group symmetric key must NEVER be stored and all the device keys must be computationally derived prior to using this sample.
