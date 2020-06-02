@@ -65,9 +65,6 @@ async def send_test_message(i, client):
     print("sending message # {index} for client with id {id}".format(index=i, id=client.id))
     msg = Message("test wind speed " + str(i))
     msg.message_id = uuid.uuid4()
-    msg.correlation_id = "correlation-1234"
-    msg.custom_properties["count"] = i
-    msg.custom_properties["tornado-warning"] = "yes"
     await client.send_message(msg)
     print("done sending message # {index} for client with id {id}".format(index=i, id=client.id))
 

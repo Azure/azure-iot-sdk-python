@@ -65,7 +65,6 @@ if registration_result.status == "assigned":
         print("sending message #" + str(i))
         msg = Message("test wind speed " + str(i))
         msg.message_id = uuid.uuid4()
-        msg.custom_properties["tornado-warning"] = "yes"
         device_client.send_message(msg)
         time.sleep(1)
 

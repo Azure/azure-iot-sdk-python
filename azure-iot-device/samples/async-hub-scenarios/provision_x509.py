@@ -52,9 +52,6 @@ async def main():
             print("sending message #" + str(i))
             msg = Message("test wind speed " + str(i))
             msg.message_id = uuid.uuid4()
-            msg.correlation_id = "correlation-1234"
-            msg.custom_properties["count"] = i
-            msg.custom_properties["tornado-warning"] = "yes"
             await device_client.send_message(msg)
             print("done sending message #" + str(i))
 
