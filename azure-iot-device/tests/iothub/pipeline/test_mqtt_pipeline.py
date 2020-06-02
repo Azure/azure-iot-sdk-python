@@ -14,6 +14,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
 )
 from azure.iot.device.iothub.pipeline import (
+    config,
     pipeline_stages_iothub,
     pipeline_stages_iothub_mqtt,
     pipeline_ops_iothub,
@@ -21,42 +22,28 @@ from azure.iot.device.iothub.pipeline import (
 )
 from azure.iot.device.iothub import Message
 from azure.iot.device.iothub.pipeline import MQTTPipeline, constant
-from azure.iot.device.iothub.auth import (
-    SymmetricKeyAuthenticationProvider,
-    X509AuthenticationProvider,
-)
+from .conftest import all_features
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
-# Update this list with features as they are added to the SDK
-all_features = [
-    constant.C2D_MSG,
-    constant.INPUT_MSG,
-    constant.METHODS,
-    constant.TWIN,
-    constant.TWIN_PATCHES,
-]
-
-
-@pytest.fixture
-def auth_provider(mocker):
-    auth = mocker.MagicMock()
-    # Add values so that it doesn't break down the pipeline.
-    # This will no longer be needed after auth revisions.
-    auth.device_id = "fake_device"
-    auth.module_id = None
-    return auth
-
 
 @pytest.fixture
 def pipeline_configuration(mocker):
-    return mocker.MagicMock()
+    # NOTE: Consider parametrizing this to serve as both a device and module configuration.
+    # The reason this isn't currently done is that it's not strictly necessary, but it might be
+    # more correct and complete to do so. Certainly this must be done if any device/module
+    # specific logic is added to the code under test.
+    mock_config = config.IoTHubPipelineConfig(
+        device_id="my_device", hostname="my.host.name", sastoken=mocker.MagicMock()
+    )
+    mock_config.sastoken.ttl = 1232  # set for compat
+    return mock_config
 
 
 @pytest.fixture
-def pipeline(mocker, auth_provider, pipeline_configuration):
-    pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+def pipeline(mocker, pipeline_configuration):
+    pipeline = MQTTPipeline(pipeline_configuration)
     mocker.patch.object(pipeline._pipeline, "run_op")
     return pipeline
 
@@ -69,8 +56,7 @@ def twin_patch():
 # automatically mock the transport for all tests in this file.
 @pytest.fixture(autouse=True)
 def mock_transport(mocker):
-    print("mocking transport")
-    mocker.patch(
+    return mocker.patch(
         "azure.iot.device.common.pipeline.pipeline_stages_mqtt.MQTTTransport", autospec=True
     )
 
@@ -79,20 +65,20 @@ def mock_transport(mocker):
 class TestMQTTPipelineInstantiation(object):
     @pytest.mark.it("Begins tracking the enabled/disabled status of features")
     @pytest.mark.parametrize("feature", all_features)
-    def test_features(self, auth_provider, pipeline_configuration, feature):
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+    def test_features(self, pipeline_configuration, feature):
+        pipeline = MQTTPipeline(pipeline_configuration)
         pipeline.feature_enabled[feature]
         # No assertion required - if this doesn't raise a KeyError, it is a success
 
     @pytest.mark.it("Marks all features as disabled")
-    def test_features_disabled(self, auth_provider, pipeline_configuration):
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+    def test_features_disabled(self, pipeline_configuration):
+        pipeline = MQTTPipeline(pipeline_configuration)
         for key in pipeline.feature_enabled:
             assert not pipeline.feature_enabled[key]
 
     @pytest.mark.it("Sets all handlers to an initial value of None")
-    def test_handlers_set_to_none(self, auth_provider, pipeline_configuration):
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+    def test_handlers_set_to_none(self, pipeline_configuration):
+        pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline.on_connected is None
         assert pipeline.on_disconnected is None
         assert pipeline.on_c2d_message_received is None
@@ -101,20 +87,20 @@ class TestMQTTPipelineInstantiation(object):
         assert pipeline.on_twin_patch_received is None
 
     @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
-    def test_handlers_configured(self, auth_provider, pipeline_configuration):
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+    def test_handlers_configured(self, pipeline_configuration):
+        pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline._pipeline.on_pipeline_event_handler is not None
         assert pipeline._pipeline.on_connected_handler is not None
         assert pipeline._pipeline.on_disconnected_handler is not None
 
     @pytest.mark.it("Configures the pipeline with a series of PipelineStages")
-    def test_pipeline_configuration(self, auth_provider, pipeline_configuration):
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+    def test_pipeline_configuration(self, pipeline_configuration):
+        pipeline = MQTTPipeline(pipeline_configuration)
         curr_stage = pipeline._pipeline
 
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
-            pipeline_stages_iothub.UseAuthProviderStage,
+            pipeline_stages_base.SasTokenRenewalStage,
             pipeline_stages_iothub.EnsureDesiredPropertiesStage,
             pipeline_stages_iothub.TwinRequestResponseStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,
@@ -136,33 +122,24 @@ class TestMQTTPipelineInstantiation(object):
         # Assert there are no more additional stages
         assert curr_stage is None
 
-    # TODO: revist these tests after auth revision
-    # They are too tied to auth types (and there's too much variance in auths to effectively test)
-    # Ideally MQTTPipeline is entirely insulated from any auth differential logic (and module/device distinctions)
-    # In the meantime, we are using a device auth with connection string to stand in for generic SAS auth
-    # and device auth with X509 certs to stand in for generic X509 auth
-    @pytest.mark.it(
-        "Runs a SetAuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
-    )
-    def test_sas_auth(self, mocker, device_connection_string, pipeline_configuration):
+    @pytest.mark.it("Runs an InitializePipelineOperation on the pipeline")
+    def test_init_pipeline(self, mocker, pipeline_configuration):
         mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
-        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
+
+        pipeline = MQTTPipeline(pipeline_configuration)
+
         op = pipeline._pipeline.run_op.call_args[0][1]
         assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation)
-        assert op.auth_provider is auth_provider
+        assert isinstance(op, pipeline_ops_base.InitializePipelineOperation)
 
     @pytest.mark.it(
-        "Raises exceptions that occurred in execution upon unsuccessful completion of the SetAuthProviderOperation"
+        "Raises exceptions that occurred in execution upon unsuccessful completion of the InitializePipelineOperation"
     )
-    def test_sas_auth_op_fail(
-        self, mocker, device_connection_string, arbitrary_exception, pipeline_configuration
-    ):
+    def test_init_pipeline_fail(self, mocker, arbitrary_exception, pipeline_configuration):
         old_run_op = pipeline_stages_base.PipelineRootStage._run_op
 
-        def fail_set_auth_provider(self, op):
-            if isinstance(op, pipeline_ops_iothub.SetAuthProviderOperation):
+        def fail_initialize(self, op):
+            if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
                 op.complete(error=arbitrary_exception)
             else:
                 old_run_op(self, op)
@@ -170,53 +147,13 @@ class TestMQTTPipelineInstantiation(object):
         mocker.patch.object(
             pipeline_stages_base.PipelineRootStage,
             "_run_op",
-            side_effect=fail_set_auth_provider,
+            side_effect=fail_initialize,
             autospec=True,
         )
 
-        auth_provider = SymmetricKeyAuthenticationProvider.parse(device_connection_string)
         with pytest.raises(arbitrary_exception.__class__) as e_info:
-            MQTTPipeline(auth_provider, pipeline_configuration)
+            MQTTPipeline(pipeline_configuration)
         assert e_info.value is arbitrary_exception
-
-    @pytest.mark.it(
-        "Runs a SetX509AuthProviderOperation with the provided AuthenticationProvider on the pipeline, if using SAS based authentication"
-    )
-    def test_cert_auth(self, mocker, x509, pipeline_configuration):
-        mocker.spy(pipeline_stages_base.PipelineRootStage, "run_op")
-        auth_provider = X509AuthenticationProvider(
-            hostname="somehostname", device_id="somedevice", x509=x509
-        )
-        pipeline = MQTTPipeline(auth_provider, pipeline_configuration)
-        op = pipeline._pipeline.run_op.call_args[0][1]
-        assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation)
-        assert op.auth_provider is auth_provider
-
-    @pytest.mark.it(
-        "Raises exceptions that occurred in execution upon unsuccessful completion of the SetX509AuthProviderOperation"
-    )
-    def test_cert_auth_op_fail(self, mocker, x509, arbitrary_exception, pipeline_configuration):
-        old_run_op = pipeline_stages_base.PipelineRootStage._run_op
-
-        def fail_set_auth_provider(self, op):
-            if isinstance(op, pipeline_ops_iothub.SetX509AuthProviderOperation):
-                op.complete(error=arbitrary_exception)
-            else:
-                old_run_op(self, op)
-
-        mocker.patch.object(
-            pipeline_stages_base.PipelineRootStage,
-            "_run_op",
-            side_effect=fail_set_auth_provider,
-            autospec=True,
-        )
-
-        auth_provider = X509AuthenticationProvider(
-            hostname="somehostname", device_id="somedevice", x509=x509
-        )
-        with pytest.raises(arbitrary_exception.__class__):
-            MQTTPipeline(auth_provider, pipeline_configuration)
 
 
 @pytest.mark.describe("MQTTPipeline - .connect()")
@@ -340,31 +277,31 @@ class TestMQTTPipelineSendD2CMessage(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.describe("MQTTPipeline - .send_output_event()")
-class TestMQTTPipelineSendOutputEvent(object):
+@pytest.mark.describe("MQTTPipeline - .send_output_message()")
+class TestMQTTPipelineSendOutputMessage(object):
     @pytest.fixture
     def message(self, message):
         """Modify message fixture to have an output"""
         message.output_name = "some output"
         return message
 
-    @pytest.mark.it("Runs a SendOutputEventOperation with the provided Message on the pipeline")
+    @pytest.mark.it("Runs a SendOutputMessageOperation with the provided Message on the pipeline")
     def test_runs_op(self, pipeline, message, mocker):
-        pipeline.send_output_event(message, callback=mocker.MagicMock())
+        pipeline.send_output_message(message, callback=mocker.MagicMock())
         op = pipeline._pipeline.run_op.call_args[0][0]
 
         assert pipeline._pipeline.run_op.call_count == 1
-        assert isinstance(op, pipeline_ops_iothub.SendOutputEventOperation)
+        assert isinstance(op, pipeline_ops_iothub.SendOutputMessageOperation)
         assert op.message == message
 
     @pytest.mark.it(
-        "Triggers the callback upon successful completion of the SendOutputEventOperation"
+        "Triggers the callback upon successful completion of the SendOutputMessageOperation"
     )
     def test_op_success_with_callback(self, mocker, pipeline, message):
         cb = mocker.MagicMock()
 
         # Begin operation
-        pipeline.send_output_event(message, callback=cb)
+        pipeline.send_output_message(message, callback=cb)
         assert cb.call_count == 0
 
         # Trigger op completion callback
@@ -375,11 +312,11 @@ class TestMQTTPipelineSendOutputEvent(object):
         assert cb.call_args == mocker.call(error=None)
 
     @pytest.mark.it(
-        "Calls the callback with the error upon unsuccessful completion of the SendOutputEventOperation"
+        "Calls the callback with the error upon unsuccessful completion of the SendOutputMessageOperation"
     )
     def test_op_fail(self, mocker, pipeline, message, arbitrary_exception):
         cb = mocker.MagicMock()
-        pipeline.send_output_event(message, callback=cb)
+        pipeline.send_output_message(message, callback=cb)
 
         op = pipeline._pipeline.run_op.call_args[0][0]
         op.complete(error=arbitrary_exception)

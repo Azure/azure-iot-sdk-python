@@ -11,20 +11,40 @@ Device Provisioning Service.
 import abc
 import six
 import logging
-from azure.iot.device.provisioning import pipeline, security
+from azure.iot.device.provisioning import pipeline
+
+from azure.iot.device.common.auth import sastoken as st
+from azure.iot.device.common import auth
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_kwargs(**kwargs):
+def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     # TODO: add support for server_verification_cert
-    valid_kwargs = ["websockets", "cipher"]
+    valid_kwargs = ["websockets", "cipher", "proxy_options", "sastoken_ttl"]
 
     for kwarg in kwargs:
-        if kwarg not in valid_kwargs:
-            raise TypeError("Got an unexpected keyword argument '{}'".format(kwarg))
+        if (kwarg not in valid_kwargs) or (kwarg in exclude):
+            raise TypeError("Unsupported keyword argument '{}'".format(kwarg))
+
+
+def _get_config_kwargs(**kwargs):
+    """Get the subset of kwargs which pertain the config object"""
+    valid_config_kwargs = ["websockets", "cipher", "proxy_options"]
+
+    config_kwargs = {}
+    for kwarg in kwargs:
+        if kwarg in valid_config_kwargs:
+            config_kwargs[kwarg] = kwargs[kwarg]
+    return config_kwargs
+
+
+def _form_sas_uri(id_scope, registration_id):
+    return "{id_scope}/registrations/{registration_id}".format(
+        id_scope=id_scope, registration_id=registration_id
+    )
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -33,7 +53,7 @@ class AbstractProvisioningDeviceClient(object):
     Super class for any client that can be used to register devices to Device Provisioning Service.
     """
 
-    def __init__(self, provisioning_pipeline):
+    def __init__(self, pipeline):
         """
         Initializes the provisioning client.
 
@@ -41,10 +61,10 @@ class AbstractProvisioningDeviceClient(object):
         Instead, the class methods that start with `create_from_` should be used to create a
         client object.
 
-        :param provisioning_pipeline: Instance of the provisioning pipeline object.
-        :type provisioning_pipeline: :class:`azure.iot.device.provisioning.pipeline.ProvisioningPipeline`
+        :param pipeline: Instance of the provisioning pipeline object.
+        :type pipeline: :class:`azure.iot.device.provisioning.pipeline.MQTTPipeline`
         """
-        self._provisioning_pipeline = provisioning_pipeline
+        self._pipeline = pipeline
         self._provisioning_payload = None
 
     @classmethod
@@ -83,18 +103,33 @@ class AbstractProvisioningDeviceClient(object):
 
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
+        # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
 
-        security_client = security.SymmetricKeySecurityClient(
-            provisioning_host=provisioning_host,
+        # Create SasToken
+        uri = _form_sas_uri(id_scope=id_scope, registration_id=registration_id)
+        signing_mechanism = auth.SymmetricKeySigningMechanism(key=symmetric_key)
+        token_ttl = kwargs.get("sastoken_ttl", 3600)
+        try:
+            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+        except st.SasTokenError as e:
+            new_err = ValueError("Could not create a SasToken using the provided values")
+            new_err.__cause__ = e
+            raise new_err
+
+        # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
+        pipeline_configuration = pipeline.ProvisioningPipelineConfig(
+            hostname=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
-            symmetric_key=symmetric_key,
+            sastoken=sastoken,
+            **config_kwargs
         )
-        pipeline_configuration = pipeline.ProvisioningPipelineConfig(**kwargs)
-        mqtt_provisioning_pipeline = pipeline.ProvisioningPipeline(
-            security_client, pipeline_configuration
-        )
+
+        # Pipeline setup
+        mqtt_provisioning_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+
         return cls(mqtt_provisioning_pipeline)
 
     @classmethod
@@ -131,18 +166,23 @@ class AbstractProvisioningDeviceClient(object):
 
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
-        _validate_kwargs(**kwargs)
+        # Ensure no invalid kwargs were passed by the user
+        excluded_kwargs = ["sastoken_ttl"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
 
-        security_client = security.X509SecurityClient(
-            provisioning_host=provisioning_host,
+        # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
+        pipeline_configuration = pipeline.ProvisioningPipelineConfig(
+            hostname=provisioning_host,
             registration_id=registration_id,
             id_scope=id_scope,
             x509=x509,
+            **config_kwargs
         )
-        pipeline_configuration = pipeline.ProvisioningPipelineConfig(**kwargs)
-        mqtt_provisioning_pipeline = pipeline.ProvisioningPipeline(
-            security_client, pipeline_configuration
-        )
+
+        # Pipeline setup
+        mqtt_provisioning_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+
         return cls(mqtt_provisioning_pipeline)
 
     @abc.abstractmethod

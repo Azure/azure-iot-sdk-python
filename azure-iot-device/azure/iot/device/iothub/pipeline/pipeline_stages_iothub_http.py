@@ -17,7 +17,7 @@ from azure.iot.device.common.pipeline import (
 from . import pipeline_ops_iothub, pipeline_ops_iothub_http, http_path_iothub, http_map_error
 from azure.iot.device import exceptions
 from azure.iot.device import constant as pkg_constant
-from azure.iot.device.product_info import ProductInfo
+from azure.iot.device import user_agent
 
 
 logger = logging.getLogger(__name__)
@@ -40,40 +40,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
     converts http pipeline events into Iot and EdgeHub pipeline events.
     """
 
-    def __init__(self):
-        super(IoTHubHTTPTranslationStage, self).__init__()
-        self.device_id = None
-        self.module_id = None
-        self.hostname = None
-
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if isinstance(op, pipeline_ops_iothub.SetIoTHubConnectionArgsOperation):
-            self.device_id = op.device_id
-            self.module_id = op.module_id
-
-            if op.gateway_hostname:
-                logger.debug(
-                    "Gateway Hostname Present. Setting Hostname to: {}".format(op.gateway_hostname)
-                )
-                self.hostname = op.gateway_hostname
-            else:
-                logger.debug(
-                    "Gateway Hostname not present. Setting Hostname to: {}".format(
-                        op.gateway_hostname
-                    )
-                )
-                self.hostname = op.hostname
-            worker_op = op.spawn_worker_op(
-                worker_op_type=pipeline_ops_http.SetHTTPConnectionArgsOperation,
-                hostname=self.hostname,
-                server_verification_cert=op.server_verification_cert,
-                client_cert=op.client_cert,
-                sas_token=op.sas_token,
-            )
-            self.send_op_down(worker_op)
-
-        elif isinstance(op, pipeline_ops_iothub_http.MethodInvokeOperation):
+        if isinstance(op, pipeline_ops_iothub_http.MethodInvokeOperation):
             logger.debug(
                 "{}({}): Translating Method Invoke Operation for HTTP.".format(self.name, op.name)
             )
@@ -84,22 +53,23 @@ class IoTHubHTTPTranslationStage(PipelineStage):
 
             body = json.dumps(op.method_params)
             path = http_path_iothub.get_method_invoke_path(op.target_device_id, op.target_module_id)
-            # Note we do not add the sas Authorization header here. Instead we add it later on in the stage above
-            # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
-            # being used.
+            # NOTE: we do not add the sas Authorization header here. Instead we add it later on in
+            # the HTTPTransportStage
             x_ms_edge_string = "{deviceId}/{moduleId}".format(
-                deviceId=self.device_id, moduleId=self.module_id
+                deviceId=self.pipeline_root.pipeline_configuration.device_id,
+                moduleId=self.pipeline_root.pipeline_configuration.module_id,
             )  # these are the identifiers of the current module
-            user_agent = urllib.parse.quote_plus(
-                ProductInfo.get_iothub_user_agent()
+            user_agent_string = urllib.parse.quote_plus(
+                user_agent.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
+            # Method Invoke must be addressed to the gateway hostname because it is an Edge op
             headers = {
-                "Host": self.hostname,
+                "Host": self.pipeline_root.pipeline_configuration.gateway_hostname,
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
                 "x-ms-edge-moduleId": x_ms_edge_string,
-                "User-Agent": user_agent,
+                "User-Agent": user_agent_string,
             }
             op_waiting_for_response = op
 
@@ -132,18 +102,20 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
-            path = http_path_iothub.get_storage_info_for_blob_path(self.device_id)
+            path = http_path_iothub.get_storage_info_for_blob_path(
+                self.pipeline_root.pipeline_configuration.device_id
+            )
             body = json.dumps({"blobName": op.blob_name})
-            user_agent = urllib.parse.quote_plus(
-                ProductInfo.get_iothub_user_agent()
+            user_agent_string = urllib.parse.quote_plus(
+                user_agent.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
             headers = {
-                "Host": self.hostname,
+                "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Content-Length": len(str(body)),
-                "User-Agent": user_agent,
+                "User-Agent": user_agent_string,
             }
 
             op_waiting_for_response = op
@@ -177,7 +149,9 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             query_params = "api-version={apiVersion}".format(
                 apiVersion=pkg_constant.IOTHUB_API_VERSION
             )
-            path = http_path_iothub.get_notify_blob_upload_status_path(self.device_id)
+            path = http_path_iothub.get_notify_blob_upload_status_path(
+                self.pipeline_root.pipeline_configuration.device_id
+            )
             body = json.dumps(
                 {
                     "correlationId": op.correlation_id,
@@ -186,19 +160,18 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                     "statusDescription": op.status_description,
                 }
             )
-            user_agent = urllib.parse.quote_plus(
-                ProductInfo.get_iothub_user_agent()
+            user_agent_string = urllib.parse.quote_plus(
+                user_agent.get_iothub_user_agent()
                 + str(self.pipeline_root.pipeline_configuration.product_info)
             )
 
-            # Note we do not add the sas Authorization header here. Instead we add it later on in the stage above
-            # the transport layer, since that stage stores the updated SAS and also X509 certs if that is what is
-            # being used.
+            # NOTE we do not add the sas Authorization header here. Instead we add it later on in
+            # the HTTPTransportStage
             headers = {
-                "Host": self.hostname,
+                "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Content-Type": "application/json; charset=utf-8",
                 "Content-Length": len(str(body)),
-                "User-Agent": user_agent,
+                "User-Agent": user_agent_string,
             }
             op_waiting_for_response = op
 

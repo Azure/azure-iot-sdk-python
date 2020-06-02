@@ -14,14 +14,13 @@ from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning_mqtt,
 )
 from azure.iot.device.provisioning.pipeline import pipeline_ops_provisioning
-from azure.iot.device.provisioning.security import SymmetricKeySecurityClient, X509SecurityClient
 from azure.iot.device.provisioning.pipeline import constant as provisioning_constants
 
 logger = logging.getLogger(__name__)
 
 
-class ProvisioningPipeline(object):
-    def __init__(self, security_client, pipeline_configuration):
+class MQTTPipeline(object):
+    def __init__(self, pipeline_configuration):
         """
         Constructor for instantiating a pipeline
         :param security_client: The security client which stores credentials
@@ -32,7 +31,7 @@ class ProvisioningPipeline(object):
         self.on_connected = None
         self.on_disconnected = None
         self.on_message_received = None
-        self._registration_id = security_client.registration_id
+        self._registration_id = pipeline_configuration.registration_id
 
         self._pipeline = (
             #
@@ -40,10 +39,10 @@ class ProvisioningPipeline(object):
             #
             pipeline_stages_base.PipelineRootStage(pipeline_configuration=pipeline_configuration)
             #
-            # UseSecurityClientStager comes near the root by default because it doesn't need to be after
-            # anything, but it does need to be before ProvisoningMQTTTranslationStage.
+            # SasTokenRenewalStage comes near the root by default because it should be as close
+            # to the top of the pipeline as possible, and does not need to be after anything.
             #
-            .append_stage(pipeline_stages_provisioning.UseSecurityClientStage())
+            .append_stage(pipeline_stages_base.SasTokenRenewalStage())
             #
             # RegistrationStage needs to come early because this is the stage that converts registration
             # or query requests into request and response objects which are used by later stages
@@ -116,17 +115,7 @@ class ProvisioningPipeline(object):
         self._pipeline.on_disconnected_handler = _on_disconnected
 
         callback = EventedCallback()
-
-        if isinstance(security_client, X509SecurityClient):
-            op = pipeline_ops_provisioning.SetX509SecurityClientOperation(
-                security_client=security_client, callback=callback
-            )
-        elif isinstance(security_client, SymmetricKeySecurityClient):
-            op = pipeline_ops_provisioning.SetSymmetricKeySecurityClientOperation(
-                security_client=security_client, callback=callback
-            )
-        else:
-            logger.error("Provisioning not equipped to handle other security client.")
+        op = pipeline_ops_base.InitializePipelineOperation(callback=callback)
 
         self._pipeline.run_op(op)
         callback.wait_for_completion()
