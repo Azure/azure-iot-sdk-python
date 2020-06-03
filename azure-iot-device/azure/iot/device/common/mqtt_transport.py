@@ -217,7 +217,9 @@ class MQTTTransport(object):
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
                 # stop the loop to make sure the Paho thread shuts down.
-                logger.info("disconnected after garbage collection. stopping loop")
+                logger.info(
+                    "on_disconnect called with this=None. Transport must have been garbage collected. stopping loop"
+                )
                 client.loop_stop()
             else:
                 if this.on_mqtt_disconnected_handler:
@@ -427,37 +429,6 @@ class MQTTTransport(object):
         if rc:
             raise _create_error_from_rc_code(rc)
         self._mqtt_client.loop_start()
-
-    def reauthorize_connection(self, password=None):
-        """
-        Reauthorize with the MQTT broker, using username set at instantiation.
-
-        Connect should have previously been called in order to use this function.
-
-        The password is not required if the transport was instantiated with an x509 certificate.
-
-        :param str password: The password for reauthorizing with the MQTT broker (Optional).
-
-        :raises: ConnectionFailedError if connection could not be established.
-        :raises: ConnectionDroppedError if connection is dropped during execution.
-        :raises: UnauthorizedError if there is an error authenticating.
-        :raises: ProtocolClientError if there is some other client error.
-        """
-        logger.info("reauthorizing MQTT client")
-        self._mqtt_client.username_pw_set(username=self._username, password=password)
-        try:
-            rc = self._mqtt_client.reconnect()
-        except Exception as e:
-            logger.info("reconnect raised {}".format(e))
-            self._cleanup_transport_on_error()
-            raise exceptions.ConnectionDroppedError(
-                message="Unexpected Paho failure during reconnect", cause=e
-            )
-        logger.debug("_mqtt_client.reconnect returned rc={}".format(rc))
-        if rc:
-            # This could result in ConnectionFailedError, ConnectionDroppedError, UnauthorizedError
-            # or ProtocolClientError
-            raise _create_error_from_rc_code(rc)
 
     def disconnect(self):
         """

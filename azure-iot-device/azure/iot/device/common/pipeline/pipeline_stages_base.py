@@ -897,28 +897,33 @@ class ReconnectState(object):
     """
     Class which holds reconenct states as class variables.  Created to make code that reads like an enum without using an enum.
 
-    NEVER_CONNECTED: Ttransport has never been conencted.  This state is necessary because some errors might be fatal or transient,
-    depending on wether the transport has been connceted.  For example, a failed conenction is a transient error if we've connected
-    before, but it's fatal if we've never conencted.
+    WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.  This state implies
+    that the user wants the pipeline to be connected.  ie. After a successful connection, the
+    state will change to LOGICALLY_CONNECED
 
-    WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.
+    LOGICALLY_CONNECTED: The client wants the pipeline to be connected.  This state is independent
+    of the actual connection state since the pipeline could be logically connected but
+    physically disconnected.
 
-    CONNECTED_OR_DISCONNECTED: The transport is either connected or disconencted.  This stage doesn't really care which one, so
-    it doesn't keep track.
+    LOGICALLY_DISCONNECTED: The client does not want the pipeline to be connected or the pipeline had
+    a fatal error and was forced to disconnect.  If the state is LOGICALLY_DISCONNECTED, then the pipeline
+    should be physically disconnected since there is no reason to leave the pipeline connected in this state.
     """
 
-    NEVER_CONNECTED = "NEVER_CONNECTED"
     WAITING_TO_RECONNECT = "WAITING_TO_RECONNECT"
-    CONNECTED_OR_DISCONNECTED = "CONNECTED_OR_DISCONNECTED"
+    LOGICALLY_CONNECTED = "LOGICALLY_CONNECTED"
+    LOGICALLY_DISCONNECTED = "LOGICALLY_DISCONNECTED"
 
 
 class ReconnectStage(PipelineStage):
     def __init__(self):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
-        self.state = ReconnectState.NEVER_CONNECTED
+        self.state = ReconnectState.LOGICALLY_DISCONNECTED
+        self.never_connected = True
         # connect delay is hardcoded for now.  Later, this comes from a retry policy
-        self.reconnect_delay = 10
+        self.delayed_reconnect_delay = 10
+        self.immediate_reconnect_delay = 0.01
         self.waiting_connect_ops = []
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -937,6 +942,14 @@ class ReconnectStage(PipelineStage):
                         self.name, op.name, self.state
                     )
                 )
+                self.state = ReconnectState.LOGICALLY_CONNECTED
+                # We don't send this op down.  Instead, we send a new connect op down.  This way,
+                # we can distinguish between connect ops that we're handling (they go into the
+                # queue) and connect ops that we are sending down.
+                #
+                # Once we finally connect, we only have to complete the ops in the queue and we
+                # never have to worry about completing the op that we sent down.  The code is much
+                # cleaner this way, especially when you take retries into account, trust me.
                 self.waiting_connect_ops.append(op)
                 self._send_new_connect_op_down()
 
@@ -947,17 +960,18 @@ class ReconnectStage(PipelineStage):
                         self.name, op.name, self.state
                     )
                 )
+                self.state = ReconnectState.LOGICALLY_DISCONNECTED
                 self._clear_reconnect_timer()
                 self._complete_waiting_connect_ops(
                     pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
                 )
-                self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
                 op.complete()
 
             else:
                 logger.info(
                     "{}({}): State is {}.  Sending op down.".format(self.name, op.name, self.state)
                 )
+                self.state = ReconnectState.LOGICALLY_DISCONNECTED
                 self.send_op_down(op)
 
         else:
@@ -966,18 +980,27 @@ class ReconnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         if isinstance(event, pipeline_events_base.DisconnectedEvent):
-            if self.pipeline_root.connected:
-                logger.info(
-                    "{}({}): State is {}.  Triggering reconnect timer".format(
-                        self.name, event.name, self.state
-                    )
+            logger.debug(
+                "{}({}): State is {} Connected is {}.".format(
+                    self.name, event.name, self.state, self.pipeline_root.connected
                 )
+            )
+
+            if self.pipeline_root.connected and self.state == ReconnectState.LOGICALLY_CONNECTED:
+                # when we get disconnected, we try to immediatly reconnect.  If that fails,
+                # then we wait a while before retrying.
+                #
+                # For now, we use immediate_reconnect_delay to mean "close enough to immediate"
+                # because it saves us from refactoring this code when we know that another change
+                # is coming.  Specifically, we know that this stage is broken in cases where the
+                # user calls disconnect().  In that case, this stage doesn't currently know that
+                # it shouldn't reconnect automatically.
                 self.state = ReconnectState.WAITING_TO_RECONNECT
-                self._start_reconnect_timer()
+                self._start_reconnect_timer(self.immediate_reconnect_delay)
+
             else:
-                logger.info(
-                    "{}({}): State is {}.  Doing nothing".format(self.name, event.name, self.state)
-                )
+                # do nothing
+                pass
 
             self.send_event_up(event)
 
@@ -992,60 +1015,52 @@ class ReconnectStage(PipelineStage):
         def on_connect_complete(op, error):
             this = self_weakref()
             if this:
+                logger.debug(
+                    "{}({}): on_connect_complete error={} state={} never_conencted={} connected={} ".format(
+                        this.name,
+                        op.name,
+                        error,
+                        this.state,
+                        this.never_connected,
+                        this.pipeline_root.connected,
+                    )
+                )
                 if error:
-                    if this.state == ReconnectState.NEVER_CONNECTED:
-                        logger.info(
-                            "{}({}): error on first connection.  Not triggering reconnection".format(
-                                this.name, op.name
-                            )
-                        )
+                    if this.never_connected:
+                        # any error on a first connection is fatal
+                        this.state = ReconnectState.LOGICALLY_DISCONNECTED
+                        this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)
                     elif type(error) in transient_connect_errors:
-                        logger.info(
-                            "{}({}): State is {}.  Connect failed with transient error. Triggering reconnect timer".format(
-                                self.name, op.name, self.state
-                            )
-                        )
+                        # transient errors cause a reconnect attempt
                         self.state = ReconnectState.WAITING_TO_RECONNECT
-                        self._start_reconnect_timer()
-
-                    elif this.state == ReconnectState.WAITING_TO_RECONNECT:
-                        logger.info(
-                            "{}({}): non-tranient error.  Failing all waiting ops.n".format(
-                                this.name, op.name
-                            )
-                        )
-                        self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
-                        self._clear_reconnect_timer()
-                        this._complete_waiting_connect_ops(error)
-
+                        self._start_reconnect_timer(self.delayed_reconnect_delay)
                     else:
-                        logger.info(
-                            "{}({}): State is {}.  Connection failed. Not triggering reconnection".format(
-                                this.name, op.name, this.state
-                            )
-                        )
+                        # all others are fatal
+                        this.state = ReconnectState.LOGICALLY_DISCONNECTED
+                        this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)
                 else:
-                    logger.info(
-                        "{}({}): State is {}.  Connection succeeded".format(
-                            this.name, op.name, this.state
-                        )
-                    )
-                    self.state = ReconnectState.CONNECTED_OR_DISCONNECTED
-                    self._clear_reconnect_timer()
-                    self._complete_waiting_connect_ops()
+                    # successfully connected
+                    this.never_connected = False
+                    this.state = ReconnectState.LOGICALLY_CONNECTED
+                    this._clear_reconnect_timer()
+                    this._complete_waiting_connect_ops()
 
-        logger.info("{}: sending new connect op down".format(self.name))
+        logger.debug("{}: sending new connect op down".format(self.name))
         op = pipeline_ops_base.ConnectOperation(callback=on_connect_complete)
         self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _start_reconnect_timer(self):
+    def _start_reconnect_timer(self, delay):
         """
         Set a timer to reconnect after some period of time
         """
-        logger.info("{}: State is {}. Starting reconnect timer".format(self.name, self.state))
+        logger.debug(
+            "{}: State is {}. Connected={} Starting reconnect timer".format(
+                self.name, self.state, self.pipeline_root.connected
+            )
+        )
 
         self._clear_reconnect_timer()
 
@@ -1054,23 +1069,22 @@ class ReconnectStage(PipelineStage):
         @pipeline_thread.invoke_on_pipeline_thread_nowait
         def on_reconnect_timer_expired():
             this = self_weakref()
-            this.reconnect_timer = None
-            if this.state == ReconnectState.WAITING_TO_RECONNECT:
-                logger.info(
-                    "{}: State is {}. Reconnect timer expired.  Sending connect op down".format(
-                        this.name, this.state
-                    )
+            logger.debug(
+                "{}: Reconnect timer expired. State is {} Connected is {}.".format(
+                    self.name, self.state, self.pipeline_root.connected
                 )
-                this.state = ReconnectState.CONNECTED_OR_DISCONNECTED
-                this._send_new_connect_op_down()
-            else:
-                logger.info(
-                    "{}: State is {}.  Reconnect timer expired.  Doing nothing".format(
-                        this.name, this.state
-                    )
-                )
+            )
 
-        self.reconnect_timer = threading.Timer(self.reconnect_delay, on_reconnect_timer_expired)
+            this.reconnect_timer = None
+            if (
+                this.state == ReconnectState.WAITING_TO_RECONNECT
+                and not self.pipeline_root.connected
+            ):
+                # if we're waiting to reconnect and not connected, we try again
+                this.state = ReconnectState.LOGICALLY_CONNECTED
+                this._send_new_connect_op_down()
+
+        self.reconnect_timer = threading.Timer(delay, on_reconnect_timer_expired)
         self.reconnect_timer.start()
 
     @pipeline_thread.runs_on_pipeline_thread
