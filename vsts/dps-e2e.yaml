@@ -16,6 +16,9 @@ jobs:
   - script: 'python env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
 
+  - script: 'python -m pip install cryptography'
+    displayName: 'Install pyca/cryptography for X509 functionality'
+
   - script: |
       cd $(Agent.WorkFolder)
       cd ..
