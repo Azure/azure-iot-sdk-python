@@ -899,14 +899,15 @@ class ReconnectState(object):
 
     WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.  This state implies
     that the user wants the pipeline to be connected.  ie. After a successful connection, the
-    state will change to LOGICALLY_CONNECED
+    state will change to LOGICALLY_CONNECTED
 
     LOGICALLY_CONNECTED: The client wants the pipeline to be connected.  This state is independent
     of the actual connection state since the pipeline could be logically connected but
-    physically disconnected.
+    physically disconnected (this is a temporary condition though.  If we're logically connected
+    and physically disconnected, then we should be waiting to reconnect.
 
     LOGICALLY_DISCONNECTED: The client does not want the pipeline to be connected or the pipeline had
-    a fatal error and was forced to disconnect.  If the state is LOGICALLY_DISCONNECTED, then the pipeline
+    a permanent errors error and was forced to disconnect.  If the state is LOGICALLY_DISCONNECTED, then the pipeline
     should be physically disconnected since there is no reason to leave the pipeline connected in this state.
     """
 
@@ -920,10 +921,24 @@ class ReconnectStage(PipelineStage):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
         self.state = ReconnectState.LOGICALLY_DISCONNECTED
+        # never_connected is important because some errors are handled differently the frist time
+        # that we're connecting versus later connections.
+        #
+        # For example, if we get a "host not found" the first time we connect, it might mean:
+        # 1. The connection string is wrong, in which case we don't want to retry
+        # or it might mean:
+        # 2. The connection string is correct and the host is just not available (network glitch?)
+        #
+        # If never_connected=True, we don't know if it's a permanent error (#1) or if it's
+        # temporary (#2), so we take the conservative approach and assume it's a permanent error.
+        #
+        # If never_connected=False, we know that we've connected before, so the credentials were
+        # valid at some point in the recent past.  We still don't know with certainty if it's
+        # a temporary error or if it's permanent (the hub may have been deallocated), but it has
+        # worked in the past, so we assume it's a temporary error.
         self.never_connected = True
         # connect delay is hardcoded for now.  Later, this comes from a retry policy
-        self.delayed_reconnect_delay = 10
-        self.immediate_reconnect_delay = 0.01
+        self.reconnect_delay = 10
         self.waiting_connect_ops = []
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -938,7 +953,7 @@ class ReconnectStage(PipelineStage):
                 self.waiting_connect_ops.append(op)
             else:
                 logger.info(
-                    "{}({}): State is {}.  Adding to wait list and sending new connect op down".format(
+                    "{}({}): State changes {}->LOGICALLY_CONNECTED.  Adding to wait list and sending new connect op down".format(
                         self.name, op.name, self.state
                     )
                 )
@@ -956,7 +971,7 @@ class ReconnectStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):
             if self.state == ReconnectState.WAITING_TO_RECONNECT:
                 logger.info(
-                    "{}({}): State is {}.  Canceling waiting ops and sending disconnect down.".format(
+                    "{}({}): State changes {}->LOGICALLY_DISCONNECTED.  Canceling waiting ops and sending disconnect down.".format(
                         self.name, op.name, self.state
                     )
                 )
@@ -969,7 +984,9 @@ class ReconnectStage(PipelineStage):
 
             else:
                 logger.info(
-                    "{}({}): State is {}.  Sending op down.".format(self.name, op.name, self.state)
+                    "{}({}): State changes {}->LOGICALLY_DISCONNECTED.  Sending op down.".format(
+                        self.name, op.name, self.state
+                    )
                 )
                 self.state = ReconnectState.LOGICALLY_DISCONNECTED
                 self.send_op_down(op)
@@ -987,19 +1004,23 @@ class ReconnectStage(PipelineStage):
             )
 
             if self.pipeline_root.connected and self.state == ReconnectState.LOGICALLY_CONNECTED:
-                # when we get disconnected, we try to immediatly reconnect.  If that fails,
-                # then we wait a while before retrying.
+                # When we get disconnected, we try to reconnect as soon as we can.  We don't want
+                # to reconnect right here bcause we're in a callback in the middle of being
+                # disconnected and we want things to "settle down" a bit before reconnecting.
                 #
-                # For now, we use immediate_reconnect_delay to mean "close enough to immediate"
-                # because it saves us from refactoring this code when we know that another change
-                # is coming.  Specifically, we know that this stage is broken in cases where the
-                # user calls disconnect().  In that case, this stage doesn't currently know that
-                # it shouldn't reconnect automatically.
+                # We also use a timer to reconnect here because the "reconnect timer expired"
+                # code path is well tested.  If we tried to immediately reconnect here, there
+                # would be an entire set of scenarios that would need to be tested for
+                # this case, and these tests would be idential to the "reconnect timer expired"
+                # tests. Likewise, if there were 2 reconnect code paths (one immediate and one
+                # delayed), then both those paths would need to be maintained as separate
+                # flows
                 self.state = ReconnectState.WAITING_TO_RECONNECT
-                self._start_reconnect_timer(self.immediate_reconnect_delay)
+                self._start_reconnect_timer(0.01)
 
             else:
-                # do nothing
+                # If user manually disconnected, ReconnectState will be LOGICALLY_DISCONNECTED, and
+                # no reconnect timer will be created.
                 pass
 
             self.send_event_up(event)
@@ -1016,7 +1037,7 @@ class ReconnectStage(PipelineStage):
             this = self_weakref()
             if this:
                 logger.debug(
-                    "{}({}): on_connect_complete error={} state={} never_conencted={} connected={} ".format(
+                    "{}({}): on_connect_complete error={} state={} never_connected={} connected={} ".format(
                         this.name,
                         op.name,
                         error,
@@ -1027,16 +1048,16 @@ class ReconnectStage(PipelineStage):
                 )
                 if error:
                     if this.never_connected:
-                        # any error on a first connection is fatal
+                        # any error on a first connection is assumed to e permanent error
                         this.state = ReconnectState.LOGICALLY_DISCONNECTED
                         this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)
                     elif type(error) in transient_connect_errors:
                         # transient errors cause a reconnect attempt
                         self.state = ReconnectState.WAITING_TO_RECONNECT
-                        self._start_reconnect_timer(self.delayed_reconnect_delay)
+                        self._start_reconnect_timer(self.reconnect_delay)
                     else:
-                        # all others are fatal
+                        # all others are permanent errors
                         this.state = ReconnectState.LOGICALLY_DISCONNECTED
                         this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)

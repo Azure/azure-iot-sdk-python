@@ -2679,15 +2679,15 @@ class ReconnectStageInstantiationTests(ReconnectStageTestConfig):
         stage = cls_type(**init_kwargs)
         assert stage.waiting_connect_ops == []
 
-    @pytest.mark.it("Initializes the 'delayed_reconnect_delay' attribute/setting to 10 seconds")
+    @pytest.mark.it("Initializes the 'reconnect_delay' attribute/setting to 10 seconds")
     def test_reconnect_delay(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
-        assert stage.delayed_reconnect_delay == 10
+        assert stage.reconnect_delay == 10
 
-    @pytest.mark.it("Initializes the 'immediate_reconnect_delay' attribute/setting to .01 seconds")
-    def test_immediate_reconnect_delay(self, cls_type, init_kwargs):
+    @pytest.mark.it("Initializes the 'never_connected' attribute/setting to True")
+    def test_never_connected(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
-        assert stage.immediate_reconnect_delay == 0.01
+        assert stage.never_connected is True
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
@@ -3262,11 +3262,11 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
         if currently_connected and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED:
             if old_timer:
                 assert old_timer.cancel.call_count == 1
-            assert stage.reconnect_timer != old_timer
+            assert stage.reconnect_timer is not old_timer
         else:
             if old_timer:
                 assert old_timer.cancel.call_count == 0
-            assert stage.reconnect_timer == old_timer
+            assert stage.reconnect_timer is old_timer
 
     @pytest.mark.it(
         "If and only if connected and logically connected, sets a new reconnect timer for .01 seconds"
@@ -3278,11 +3278,11 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
         if currently_connected and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED:
             assert mock_timer.call_count == 1
             assert mock_timer.call_args[0][0] == 0.01
-            assert stage.reconnect_timer == mock_timer.return_value
+            assert stage.reconnect_timer is mock_timer.return_value
             assert stage.reconnect_timer.start.call_count == 1
         else:
             assert mock_timer.call_count == 0
-            assert stage.reconnect_timer == old_reconnect_timer
+            assert stage.reconnect_timer is old_reconnect_timer
             if stage.reconnect_timer:
                 assert stage.reconnect_timer.start.call_count == 0
 
@@ -3606,7 +3606,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
             assert op.original_callback.call_args == mocker.call(op=op, error=None)
 
     @pytest.mark.it(
-        "Changes the state to LOGICALLY_DISCONNECTED if the connection fails with an arbitrary error"
+        "Changes the state to LOGICALLY_DISCONNECTED if the connection fails with an arbitrary (permanent) error"
     )
     def test_does_not_change_state_on_arbitrary_exception(
         self, stage, connect_op, state, arbitrary_exception, never_connected
@@ -3617,7 +3617,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED
 
     @pytest.mark.it(
-        "Does not create a new reconnect timer if the connection fails with an arbitrary error"
+        "Does not create a new reconnect timer if the connection fails with an arbitrary (permanent) error"
     )
     def test_does_not_create_new_reconnect_timer_on_arbitrary_exception(
         self, stage, connect_op, state, mock_timer, arbitrary_exception, never_connected
@@ -3629,7 +3629,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert mock_timer.call_count == 0
 
     @pytest.mark.it(
-        "Clears and sets reconnect_timer to None if the connection fails with an arbitrary error"
+        "Clears and sets reconnect_timer to None if the connection fails with an arbitrary (permanent) error"
     )
     def test_clears_reconnect_timer_on_arbitrary_exception(
         self, stage, connect_op, state, mocker, arbitrary_exception, never_connected
@@ -3644,7 +3644,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
 
     @pytest.mark.parametrize("state", [pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT])
     @pytest.mark.it(
-        "Changes the state to LOGICALLY_DISCONNECTED if the connection fails with an arbitrary error"
+        "Changes the state to LOGICALLY_DISCONNECTED if the connection fails with an arbitrary (permanent) error"
     )
     def test_changes_state_on_arbitrary_exception(
         self, stage, connect_op, state, arbitrary_exception, never_connected
@@ -3655,7 +3655,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED
 
     @pytest.mark.it(
-        "Completes all waiting ops with the arbitrary failure if the connection fails with an arbitrary error"
+        "Completes all waiting ops with the arbitrary failure if the connection fails with an arbitrary (permanent) error"
     )
     def test_completes_waiting_connect_ops_on_arbitrary_exception(
         self,

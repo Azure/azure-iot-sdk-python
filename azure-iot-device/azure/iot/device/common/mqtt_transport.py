@@ -218,7 +218,7 @@ class MQTTTransport(object):
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
                 # stop the loop to make sure the Paho thread shuts down.
                 logger.info(
-                    "on_disconnect called with this=None. Transport must have been garbage collected. stopping loop"
+                    "on_disconnect called with transport==None. Transport must have been garbage collected. stopping loop"
                 )
                 client.loop_stop()
             else:
