@@ -4,7 +4,7 @@ The Longhaul tests are to ensure the SDK can handle the rigors of in-field life.
 
 ## Delivery scheduled
 
-* Longhaul tests will follow a crawl->walk->run approach.  
+* Longhaul tests will follow a crawl-\>walk-\>run approach.  
 
 * onghaul tests will sim-ship tests for both node and python using the Horton framework.
 
@@ -85,6 +85,7 @@ Operations will be phased in as follows.  These operation names are also used in
 
 ## Sample D2C message
 
+```
 "longhaulInfo": {
     "progress": {
         "status": "running",
@@ -96,10 +97,11 @@ Operations will be phased in as follows.  These operation names are also used in
         "slowOperations": 15,
     },
 }
+```
 
 ## Sample reported properties
 
-```json
+```
 "longhaulInfo": {
     "platform: {
         "os": "linux",
