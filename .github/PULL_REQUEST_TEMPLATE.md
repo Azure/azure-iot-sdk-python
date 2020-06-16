@@ -3,7 +3,7 @@
 ## Need Support
 
 - **Have a feature request for SDKs?** Please post it on [User Voice](https://feedback.azure.com/forums/321918-azure-iot) to help us prioritize
-- **Have a technical question?** Ask on [Stack Overflow with tag "azure-iot-hub"](https://stackoverflow.com/questions/tagged/azure-iot-hub)
+- **Have a technical question?** Please see [IoT support options](aka.ms/IoTHelp) for information on posting questions on Microsoft Q&A and Stack overflow using the "azure-iot-sdk" tag.
 - **Need Support?** Every customer with an active Azure subscription has access to [support](https://docs.microsoft.com/en-us/azure/azure-supportability/how-to-create-azure-support-request) with guaranteed response time.  Consider submitting a ticket and get assistance from Microsoft support team
 - **Found a bug?** Please help us fix it by thoroughly documenting it and filing an issue on GitHub (See below).
 
