@@ -19,6 +19,6 @@ Additionally, if your technical question requires submitting service logs, you c
 
 If you have a question specifically on a Microsoft page you've read, please open an issue on the document itself. This ensures you get the fastest targeted response, and you can do this by scrolling to the bottom of the page to the **Feedback** section. 
 
-For more information on the support options available to you, please see [Azure IoT support and help options](https://docs.microsoft.com/en-us/azure/iot-fundamentals/iot-support-help).
+For more information on the support options available to you, please see [Azure IoT support and help options](aka.ms/IoTHelp).
 
 ------------------------------- delete above -------------------------------
