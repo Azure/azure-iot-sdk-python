@@ -12,7 +12,7 @@ assignees: ''
 INSTRUCTIONS
 ==========
 
-Please follow the instructions and template below to save us time requesting additional information from you. For more information on all of your support options, please see [Azure IoT support and help options](aka.ms/IoTHelp).
+Please follow the instructions and template below to save us time requesting additional information from you. For more information on all of your support options, please see [Azure IoT support and help options](https://aka.ms/IoTHelp).
 
 *If this is an issue encountered by following a Microsoft document, please open an issue on that page itself. This ensures the fastest targeted response, and you can do this by scrolling all the way down to the bottom of the page to the **Feedback** section to report the issue.*
 
