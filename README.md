@@ -29,6 +29,14 @@ Pip installs are provided for all of the SDK libraries in this repo:
 
 [IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md#installation)
 
+## Using the libraries
+Want to start off on the right foot? Be sure to learn about [**common pitfalls**](https://github.com/Azure/azure-iot-sdk-python/wiki/pitfalls) of using this Python SDK before starting a project.  
+
+You can also view samples in each library:
+- [Device Samples](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/samples) cover device and Edge module scenarios.
+- [IoT Hub Samples](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub/samples) cover IoT Hub service side scenarios.
+
+
 ## Features
 
 :heavy_check_mark: feature available  :heavy_multiplication_x: feature planned but not yet supported  :heavy_minus_sign: no support planned*
