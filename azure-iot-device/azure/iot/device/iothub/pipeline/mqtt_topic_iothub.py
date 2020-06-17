@@ -288,7 +288,10 @@ def extract_message_properties_from_topic(topic, message_received):
         for entry in key_value_pairs:
             pair = entry.split("=")
             key = urllib.parse.unquote(pair[0])
-            value = urllib.parse.unquote(pair[1])
+            if len(pair) > 1:
+                value = urllib.parse.unquote(pair[1])
+            else:
+                value = None
 
             if key in ignored_extraction_values:
                 continue
