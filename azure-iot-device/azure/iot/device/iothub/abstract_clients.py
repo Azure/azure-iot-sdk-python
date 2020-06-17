@@ -300,14 +300,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
-    def __init__(self, mqtt_pipeline, http_pipeline):
-        """Initializer for a module client.
-
-        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
-        """
-        super(AbstractIoTHubModuleClient, self).__init__(mqtt_pipeline, http_pipeline)
-
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
         """
@@ -432,8 +424,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             **config_kwargs
         )
         pipeline_configuration.method_invoke = (
-            True
-        )  # Method Invoke is allowed on modules created from edge environment
+            True  # Method Invoke is allowed on modules created from edge environment
+        )
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)

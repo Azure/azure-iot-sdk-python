@@ -8,7 +8,8 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-from azure.iot.device.common import async_adapter
+import asyncio
+from azure.iot.device.common import async_adapter, asyncio_compat
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -20,6 +21,7 @@ from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
+from . import async_handler_manger
 from azure.iot.device import constant as device_constant
 
 logger = logging.getLogger(__name__)
@@ -70,10 +72,17 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
+        self._handler_manager = async_handler_manger.AsyncHandlerManager(self._inbox_manager)
+
+        # Set pipeline handlers
         self._mqtt_pipeline.on_connected = self._on_connected
         self._mqtt_pipeline.on_disconnected = self._on_disconnected
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
+
+        # Client handlers
+        self._on_method_request_received = None
+        self._on_twin_desired_properties_patch_received = None
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -84,6 +93,46 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Connection State - Disconnected")
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
+
+    async def _enable_feature(self, feature_name):
+        """Enable an Azure IoT Hub feature
+
+        :param feature_name: The name of the feature to enable.
+            See azure.iot.device.common.pipeline.constant for possible values.
+        """
+        logger.info("Enabling feature:" + feature_name + "...")
+        if not self._mqtt_pipeline.feature_enabled[feature_name]:
+            # Enable the feature if not already enabled
+            enable_feature_async = async_adapter.emulate_async(self._mqtt_pipeline.enable_feature)
+
+            callback = async_adapter.AwaitableCallback()
+            await enable_feature_async(feature_name, callback=callback)
+            await handle_result(callback)
+
+            logger.info("Successfully enabled feature:" + feature_name)
+        else:
+            # This branch shouldn't be reached, but in case it is, log it
+            logger.info("Feature ({}) already enabled - skipping".format(feature_name))
+
+    async def _disable_feature(self, feature_name):
+        """Disable an Azure IoT Hub feature
+
+        :param feature_name: The name of the feature to enable.
+            See azure.iot.device.common.pipeline.constant for possible values.
+        """
+        logger.info("Disabling feature: {}...".format(feature_name))
+        if self._mqtt_pipeline.feature_enabled[feature_name]:
+            # Disable the feature if not already disabled
+            disable_feature_async = async_adapter.emulate_async(self._mqtt_pipeline.disable_feature)
+
+            callback = async_adapter.AwaitableCallback()
+            await disable_feature_async(feature_name, callback=callback)
+            await handle_result(callback)
+
+            logger.info("Successfully disabled feature: {}".format(feature_name))
+        else:
+            # This branch shouldn't be reached, but in case it is, log it
+            logger.info("Feature ({}) already enabled - skipping".format(feature_name))
 
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -212,21 +261,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent method response to Hub")
 
-    async def _enable_feature(self, feature_name):
-        """Enable an Azure IoT Hub feature
-
-        :param feature_name: The name of the feature to enable.
-            See azure.iot.device.common.pipeline.constant for possible values.
-        """
-        logger.info("Enabling feature:" + feature_name + "...")
-        enable_feature_async = async_adapter.emulate_async(self._mqtt_pipeline.enable_feature)
-
-        callback = async_adapter.AwaitableCallback()
-        await enable_feature_async(feature_name, callback=callback)
-        await handle_result(callback)
-
-        logger.info("Successfully enabled feature:" + feature_name)
-
     async def get_twin(self):
         """
         Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
@@ -292,6 +326,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def receive_twin_desired_properties_patch(self):
         """
+        --- THIS METHOD IS DEPRECATED ---
+        Usage of handler properties is recommended instead
+        ---------------------------------
+
         Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
 
         If no method request is yet available, will wait until it is available.
@@ -349,6 +387,33 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         )
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
+
+    @property
+    def on_method_request_received(self):
+        return self._on_method_request_received
+
+    @on_method_request_received.setter
+    def on_method_request_received(self, value):
+        # Enable the feature if necessary
+        if value is not None and not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
+            loop = asyncio.get_event_loop()
+            asyncio.ensure_future(self._enable_feature(constant.METHODS), loop=loop)
+
+        # Disable the feature if necessary
+        elif value is None and self._mqtt_pipeline.feature_enabled[constant.METHODS]:
+            loop = asyncio.get_event_loop()
+            asyncio.ensure_future(self._disable_feature(constant.METHODS), loop=loop)
+
+        # Set the handler on the handler manager
+        self._handler_manager.on_method_request_received = value
+
+    @property
+    def on_background_exception(self):
+        return self._handler_manager.on_background_exception
+
+    @on_background_exception.setter
+    def on_background_exception(self, value):
+        self._handler_manager.on_background_exception = value
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
