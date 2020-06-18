@@ -13,6 +13,7 @@ import traceback
 import uuid
 import weakref
 import threading
+import socket
 from six.moves import queue
 from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
@@ -1028,6 +1029,17 @@ class ReconnectStage(PipelineStage):
         else:
             self.send_event_up(event)
 
+    def _always_try_reconnecting(self, error):
+        try:
+            return (
+                type(error) == transport_exceptions.ConnectionFailedError
+                and error.__cause__
+                and type(error.__cause__) == socket.gaierror
+                and str(error.__cause__) == "Temporary failure in name resolution"
+            )
+        except AttributeError:
+            return False
+
     @pipeline_thread.runs_on_pipeline_thread
     def _send_new_connect_op_down(self):
         self_weakref = weakref.ref(self)
@@ -1047,7 +1059,7 @@ class ReconnectStage(PipelineStage):
                     )
                 )
                 if error:
-                    if this.never_connected:
+                    if this.never_connected and not this._always_try_reconnecting(error):
                         # any error on a first connection is assumed to e permanent error
                         this.state = ReconnectState.LOGICALLY_DISCONNECTED
                         this._clear_reconnect_timer()
