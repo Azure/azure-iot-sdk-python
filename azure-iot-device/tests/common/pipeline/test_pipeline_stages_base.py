@@ -12,6 +12,7 @@ import six
 import threading
 import random
 import uuid
+import socket
 from six.moves import queue
 from azure.iot.device.common import transport_exceptions, handle_exceptions
 from azure.iot.device.common.pipeline import (
@@ -3491,6 +3492,17 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
     def transient_connect_exception(self, request):
         return request.param()
 
+    @pytest.fixture
+    def temporary_dns_error(self):
+        return transport_exceptions.ConnectionFailedError(
+            cause=socket.gaierror("Temporary failure in name resolution")
+        )
+
+    @pytest.fixture
+    def error_without_cause(self):
+        # tested on py27 which doesn't have a __cause__ attribute.  On py35+ it does.
+        return Exception()
+
     @pytest.fixture()
     def stage(self, mocker, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
@@ -3713,7 +3725,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert mock_timer.call_count == 0
 
     @pytest.mark.it(
-        "Changes the state to WAITING_TO_RECONNECT if the connection fails with a transient error"
+        "Changes the state to WAITING_TO_RECONNECT if the connection fails with a transient error on a non-first-time connection"
     )
     def test_changes_state_on_transient_connect_exception(
         self, stage, connect_op, state, transient_connect_exception
@@ -3724,7 +3736,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert stage.state == pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT
 
     @pytest.mark.it(
-        "Starts a new reconnect timer for 10 seconds if the connection fails with a transient error"
+        "Starts a new reconnect timer for 10 seconds if the connection fails with a transient error on a non-first-time-connection"
     )
     def test_starts_reconnect_timer_on_transient_connect_exception(
         self, stage, connect_op, state, transient_connect_exception, mock_timer
@@ -3735,3 +3747,54 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert mock_timer.call_count == 1
         assert mock_timer.call_args[0][0] == 10
         assert mock_timer.return_value.start.call_count == 1
+
+    @pytest.mark.it(
+        "Changes the state to WAITING_TO_RECONNECT if the connection fails with a temporary DNS error on a first-time connection"
+    )
+    def test_changes_state_on_first_time_temporary_dns_error(
+        self, stage, connect_op, state, temporary_dns_error
+    ):
+        stage.state = state
+        stage.never_connected = True
+        connect_op.complete(error=temporary_dns_error)
+        assert stage.state == pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT
+
+    @pytest.mark.it(
+        "Starts a new reconnect timer for 10 seconds if the connection fails with a temporary DMS error on a first time connection"
+    )
+    def test_starts_reconnect_timer_on_first_time_temporary_dns_error(
+        self, stage, connect_op, state, temporary_dns_error, mock_timer
+    ):
+        stage.state = state
+        stage.never_connected = True
+        connect_op.complete(error=temporary_dns_error)
+        assert mock_timer.call_count == 1
+        assert mock_timer.call_args[0][0] == 10
+        assert mock_timer.return_value.start.call_count == 1
+
+    @pytest.mark.it(
+        "Completes all waiting ops with the correct error if a first-time connection fails with an error that doesn't have a __cause__ attribute"
+    )
+    def test_completes_all_waiting_connect_ops_on_error_without_cause(
+        self, stage, connect_op, state, fake_waiting_connect_ops, error_without_cause, mocker
+    ):
+        stage.state = state
+        stage.never_connected = True
+        stage.waiting_connect_ops = list(fake_waiting_connect_ops)
+        connect_op.complete(error=error_without_cause)
+        assert stage.waiting_connect_ops == []
+        for op in fake_waiting_connect_ops:
+            assert op.callback_stack == []
+            assert op.original_callback.call_count == 1
+            assert op.original_callback.call_args == mocker.call(op=op, error=error_without_cause)
+
+    @pytest.mark.it(
+        "Does not create a reconnect timer if the connection fails with an error that doesn't have a __cause__ attribute"
+    )
+    def test_does_not_create_reconnect_timer_on_error_without_cause(
+        self, stage, connect_op, state, mock_timer, error_without_cause
+    ):
+        stage.state = state
+        stage.never_connected = True
+        connect_op.complete(error=error_without_cause)
+        assert mock_timer.call_count == 0
