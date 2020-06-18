@@ -6,7 +6,7 @@ The Longhaul tests are to ensure the SDK can handle the rigors of in-field life.
 
 * Longhaul tests will follow a crawl-\>walk-\>run approach.  
 
-* onghaul tests will sim-ship tests for both node and python using the Horton framework.
+* Longhaul tests will sim-ship tests for both node and python using the Horton framework.
 
 ## Parameters for Longhaul Testing
 
@@ -43,7 +43,7 @@ The Longhaul tests are to ensure the SDK can handle the rigors of in-field life.
 
 * More test scenarios will be supported, hopefully with the same test core running with different options.
 
-* Tests can be controlled via desired properties and C2D messages.  This includes operation cadence, failure properties, fault rates, and operation choices.
+* Tests can be configured and controlled via desired properties and C2D messages.  This includes operation cadence, failure properties, fault rates, and operation choices.
 
 * Maximum chaos is supported.  
 
@@ -132,16 +132,18 @@ Operations will be phased in as follows.  These operation names are also used in
         "processUptime": "00:01:07",
         "memoryUsed": 12.83,
         "activeObjects": 5184,
-        "completeOpertions": 5001,
+        "completeOperations": 1321
         "outstandingOperations": 5,
-        "slowOperations": 15,
+        "failedOperations": 2,
+        "slowSends": 10,
+        "slowReceives": 25,
     },
     "stats": {
         "D2C": {
-            "totalComplete": 10766,
-            "totalOutstanding": 5,
-            "slowness_threshold": 1.5,
-            "totalSlow": 12,
+            "outstandingOperations": 5,
+            "failedOperations": 2,
+            "slowSends": 10,
+            "slowReceives": 25,
         }
     }
 }
@@ -155,7 +157,7 @@ The data in the platform object describes the hardware and OS that the test is r
 |------------------|---------|----------|-------------|
 | os               | String  | yes      | The OS type being run on ie Linux, iOS, Win ...
 | frameworkVersion | String  | yes      | The version of the system running the application ie node version, python version, ...
-| heapSize         | double  | yes      | Total amount of heap available in the process in MB
+| heapSize         | float   | yes      | Total amount of heap available in the process in MB
 
 ## Fields (sdk)
 
@@ -183,11 +185,17 @@ Fields in this structure can be reported (R), desired (D), or both.
 
 Also, for each operation, there is a sub-object which contains configuration for that operation:
 
-| Field Name     | type    | required | Desired or Reported | Description |
-|----------------|---------|----------|---------------------|-------------|
-| enabled        | bool    | yes      | Both                | Is this op inclued in the test run?
-| interval       | integer | yes      | Both                | interval (in seconds) to run this test operation
-| opsPerInterval | integer | yes      | Both                | How many test operations to run per interval
+| Field Name            | type    | required | Desired or Reported | Default value | Description |
+|-----------------------|---------|----------|---------------------|---------------|-------------|
+| enabled               | bool    | yes      | Both                |               | Is this op inclued in the test run?
+| interval              | integer | yes      | Both                |               | interval (in seconds) to run this test operation
+| opsPerInterval        | integer | yes      | Both                |               |  How many test operations to run per interval
+| timeoutThreshold      | float   | yes      | Both                | 600           | Maximum time in seconds before an operatoin is considered failed
+| allowedFailures       | integer | no       | Both                | 0             | Number of failures allowed before a test run fails
+| slowSendThreshold     | float   | yes      | Both                | 10            | Maximum time to send before an operatoin is considered "slow"
+| slowReceiveThreshold  | float   | yes      | Both                | 30            | Maximum time to receive before an operation is considered "slow"
+| allowedSlowSends      | integer | no       | Both                | 0             | Number of slow ops allowed before the test run fails
+| allowedSlowReceives   | integer | no       | Both                | 0             | Number of slow ops allowed before the test run fails
 
 ## Fields (progress)
 
@@ -203,19 +211,22 @@ telemetry that can be used to graph the progression of the test
 | activeObjects         | integer | no       | Number of active objects being used (if available)
 | completeOperations    | integer | yes      | Number of discrete opersations run so far
 | outstandingOperations | integer | yes      | Number of operations started but not yet completed
-| slowOperations        | integer | yes      | Number of operations that completed "slowly" (defined by the slowness threshold for that operation type)
+| failedOperations      | integer | yes      | Number of operations that have failed
+| slowSends             | integer | yes      | Number of operations that have sent "slowly" (defined by the slowness threshold for that operation type)
+| slowReceives          | integer | yes      | Number of operations that have received "slowly" (defined by the slowness threshold for that operation type)
+
 
 ## Fields (stats)
 
 The data in the stats object describes performance statistics on different groups of operations.
 The stats object is composed of a number of sub objects, each named for the test operation they apply to.
 
-| Field Name        | type    | required | Description |
-|-------------------|---------|----------|-------------|
-| totalComplete     | integer | yes      | Total number of operations of this type completed so far
-| totalOutstanding  | integer | yes      | Total number of operations of this type started but not completed
-| slownessThreshold | doule   | yes      | Minimum duration, in seconds, that causes an operation to be considered slow
-| totalSlow         | integer | yes      | Total number of operations that are considered "slow"
+| Field Name            | type    | required | Description |
+|-----------------------|---------|----------|-------------|
+| totalFailed           | integer | yes      | Total number of operations of this type failed so far
+| totalComplete         | integer | yes      | Total number of operations of this type completed so far
+| totalOutstanding      | integer | yes      | Total number of operations of this type started but not completed
+| totalSlow             | integer | yes      | Total number of operations that are considered "slow"
 
 
 ## Longhaul Operations
