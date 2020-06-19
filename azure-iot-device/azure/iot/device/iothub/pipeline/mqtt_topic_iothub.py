@@ -290,8 +290,8 @@ def extract_message_properties_from_topic(topic, message_received):
             key = urllib.parse.unquote(pair[0])
             if len(pair) > 1:
                 value = urllib.parse.unquote(pair[1])
-            else:
-                value = None
+            else:  # skip the key
+                continue
 
             if key in ignored_extraction_values:
                 continue
