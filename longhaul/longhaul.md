@@ -85,7 +85,7 @@ Operations will be phased in as follows.  These operation names are also used in
 
 ## Sample D2C message
 
-```
+```json
 "longhaulInfo": {
     "progress": {
         "status": "running",
@@ -101,7 +101,7 @@ Operations will be phased in as follows.  These operation names are also used in
 
 ## Sample reported properties
 
-```
+```json
 "longhaulInfo": {
     "platform: {
         "os": "linux",
@@ -117,10 +117,10 @@ Operations will be phased in as follows.  These operation names are also used in
         "sourePr": "512",
         "sourceCommit": "a489ab11e53b9c0cfe5c8da9f048c98ae91e9d98",
     },
-    testConfig: {
+    "testConfig": {
         "scenario": "telemetry 5 mps",
         "total_duration": "3:00",
-        "D2C"": {
+        "D2C": {
             "enabled": true,
             "interval": 1,
             "opsPerInterval": 5,
