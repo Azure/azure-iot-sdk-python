@@ -7,6 +7,8 @@
 
 from azure.iot.device.common import asyncio_compat
 from azure.iot.device.common.chainable_exception import ChainableException
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 import logging
 import inspect
 
@@ -14,6 +16,10 @@ logger = logging.getLogger(__name__)
 
 METHOD = "method"
 BACKGROUND_EXCEPTION = "background_exception"
+
+# method1_thread = threading.Thread(target=method1_listener, args=(device_client,))
+# method1_thread.daemon = True
+# method1_thread.start()
 
 
 class AsyncHandlerManagerException(ChainableException):
@@ -24,7 +30,10 @@ class AsyncHandlerManager(object):
     def __init__(self, inbox_manager):
         self._inbox_manager = inbox_manager
 
-        # loop = asyncio_compat.get_running_loop()
+        self.loop = asyncio.new_event_loop()
+        # self.loop.run_forever()
+
+        # self._handler_thread = ThreadPoolExecutor(max_workers=1)
 
         self._handler_tasks = {METHOD: None, BACKGROUND_EXCEPTION: None}
 
@@ -35,8 +44,8 @@ class AsyncHandlerManager(object):
         # TODO: how are we going to handle different inputs anyway?
 
         # Other handlers
-        # TODO: connection state change or unique connect/disconnect handlers?
         self._on_background_exception = None
+        self._on_connect = None
         # self._on_sastoken_needs_renew = None
 
     async def _run_inbox_handler(self, inbox, handler_name):
@@ -44,9 +53,13 @@ class AsyncHandlerManager(object):
             retval = await inbox.get()
             handler = getattr(self, handler_name)
             if inspect.iscoroutinefunction(handler):
-                # TODO: should this await or just schedule?
-                await handler(retval)
+                # Do NOT await this - we want to schedule it and keep going so multiple handlers
+                # could potentially be running in parallel
+                # asyncio_compat.create_task(handler(retval))
+
+                self.loop.call_soon_threadsafe(handler, retval)
             else:
+                # Can we increase performance here? Thread perhaps?
                 handler(retval)
 
     async def _run_event_handler(self, handler_name):
@@ -86,6 +99,7 @@ class AsyncHandlerManager(object):
         else:
             coro = self._run_event_handler(handler_name)
         task = asyncio_compat.create_task(coro)
+        # task = asyncio.ensure_future(coro, loop=self.loop)
         self._handler_tasks[handler_type] = task
 
     def _remove_handler_task(self, handler_type):
