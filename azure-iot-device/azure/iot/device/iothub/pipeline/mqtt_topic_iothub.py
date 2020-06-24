@@ -256,6 +256,10 @@ def get_twin_status_code_from_topic(topic):
 def extract_message_properties_from_topic(topic, message_received):
     """
     Extract key=value pairs from custom properties and set the properties on the received message.
+    For extracting values corresponding to keys the following rules are followed:-
+    If there is NO "=", the value is None
+    If there is "=" with no value, the value is an empty string
+    For anything else the value after "=" and before `&` is considered as the proper value
     :param topic: The topic string
     :param message_received: The message received with the payload in bytes
     """
@@ -290,8 +294,8 @@ def extract_message_properties_from_topic(topic, message_received):
             key = urllib.parse.unquote(pair[0])
             if len(pair) > 1:
                 value = urllib.parse.unquote(pair[1])
-            else:  # skip the key
-                continue
+            else:  # Don't skip the key
+                value = None
 
             if key in ignored_extraction_values:
                 continue

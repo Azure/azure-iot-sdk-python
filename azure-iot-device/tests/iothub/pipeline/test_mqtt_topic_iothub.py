@@ -1063,6 +1063,8 @@ class TestExtractMessagePropertiesFromTopic(object):
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
                     "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
                 },
                 id="C2D topic with some custom properties not having values",
             ),
@@ -1077,6 +1079,8 @@ class TestExtractMessagePropertiesFromTopic(object):
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
                     "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
                 },
                 id="Input message topic with some custom properties not having values",
             ),
@@ -1087,6 +1091,8 @@ class TestExtractMessagePropertiesFromTopic(object):
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
                     "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
                 },
                 id="C2D topic with some system properties and some custom not having values",
             ),
@@ -1097,12 +1103,14 @@ class TestExtractMessagePropertiesFromTopic(object):
                     "topic": "/subscriptions/resourceGroups",
                     "subject": "/graphInstances",
                     "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
                 },
                 id="Input message topic with some system properties and some custom not having values",
             ),
         ],
     )
-    def test_topic_without_values(
+    def test_receive_topic_without_values(
         self, topic, extracted_system_properties, extracted_custom_properties
     ):
         msg = Message("fake message")
@@ -1205,7 +1213,7 @@ class TestExtractMessagePropertiesFromTopic(object):
             ),
         ],
     )
-    def test_topic_with_values_as_none(
+    def test_receive_topic_with_empty_values(
         self, topic, extracted_system_properties, extracted_custom_properties
     ):
         msg = Message("fake message")
