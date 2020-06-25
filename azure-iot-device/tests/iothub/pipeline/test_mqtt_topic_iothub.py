@@ -1026,7 +1026,7 @@ class TestExtractMessagePropertiesFromTopic(object):
         with pytest.raises(ValueError):
             mqtt_topic_iothub.extract_message_properties_from_topic(topic, msg)
 
-    @pytest.mark.it("Extracts system and custom properties not having any values")
+    @pytest.mark.it("Extracts system and custom properties without values")
     @pytest.mark.parametrize(
         "topic, extracted_system_properties, extracted_custom_properties",
         [
@@ -1129,7 +1129,7 @@ class TestExtractMessagePropertiesFromTopic(object):
         # Validate custom properties
         assert msg.custom_properties == extracted_custom_properties
 
-    @pytest.mark.it("Extracts system and custom properties having none,null or empty values")
+    @pytest.mark.it("Extracts system and custom properties with empty string values")
     @pytest.mark.parametrize(
         "topic, extracted_system_properties, extracted_custom_properties",
         [
