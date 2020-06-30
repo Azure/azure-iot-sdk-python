@@ -14,12 +14,9 @@ import inspect
 
 logger = logging.getLogger(__name__)
 
-METHOD = "method"
+METHOD = "_on_method_request_received"
+TWIN_DP_PATCH = "_on_twin_desired_properties_patch_received"
 BACKGROUND_EXCEPTION = "background_exception"
-
-# method1_thread = threading.Thread(target=method1_listener, args=(device_client,))
-# method1_thread.daemon = True
-# method1_thread.start()
 
 
 class AsyncHandlerManagerException(ChainableException):
@@ -30,12 +27,13 @@ class AsyncHandlerManager(object):
     def __init__(self, inbox_manager):
         self._inbox_manager = inbox_manager
 
-        self.loop = asyncio.new_event_loop()
-        # self.loop.run_forever()
-
-        # self._handler_thread = ThreadPoolExecutor(max_workers=1)
-
-        self._handler_tasks = {METHOD: None, BACKGROUND_EXCEPTION: None}
+        self._handler_tasks = {
+            # Inbox handler tasks
+            METHOD: None,
+            TWIN_DP_PATCH: None,
+            # Other handler tasks
+            BACKGROUND_EXCEPTION: None,
+        }
 
         # Inbox handlers
         self._on_method_request_received = None
@@ -45,105 +43,91 @@ class AsyncHandlerManager(object):
 
         # Other handlers
         self._on_background_exception = None
-        self._on_connect = None
-        # self._on_sastoken_needs_renew = None
 
     async def _run_inbox_handler(self, inbox, handler_name):
+        """Run infinite loop that waits for an inbox to receive an object from it, then calls
+        the handler with that object
+        """
+        # Run the handler in a threadpool, so that it cannot block other handlers (from a different task),
+        # or the main client thread. The number of worker threads forms an upper bound on how many instances
+        # of the same handler can be running simultaneously.
+        tp = ThreadPoolExecutor(max_workers=4)
         while True:
             retval = await inbox.get()
+            # NOTE: we MUST use getattr here using the handler name, as opposed to directly passing
+            # the handler in order for the handler to be able to be updated without cancelling
+            # the running task created for this coroutine
             handler = getattr(self, handler_name)
             if inspect.iscoroutinefunction(handler):
-                # Do NOT await this - we want to schedule it and keep going so multiple handlers
-                # could potentially be running in parallel
-                # asyncio_compat.create_task(handler(retval))
+                # Wrap the coroutine in a function so it can be run in ThreadPool
+                def coro_wrapper(coro, arg):
+                    asyncio.run(coro(arg))
 
-                self.loop.call_soon_threadsafe(handler, retval)
+                tp.submit(coro_wrapper, handler, retval)
             else:
-                # Can we increase performance here? Thread perhaps?
-                handler(retval)
+                # Run function directly in ThreadPool
+                tp.submit(handler, retval)
 
     async def _run_event_handler(self, handler_name):
-        # TODO: how does this work?
-        pass
+        # TODO: implement
+        logger.error("._run_event_handler() not yet implemented")
 
-    def _get_inbox_for_handler(self, handler_type):
-        if handler_type == METHOD:
+    def _get_inbox_for_handler(self, handler_name):
+        """Retrieve the inbox relevant to the handler"""
+        if handler_name == METHOD:
             return self._inbox_manager.get_method_request_inbox()
         else:
             return None
 
-    def _get_handler_name(self, handler_type):
-        # TODO: this is weird
-        if handler_type == METHOD:
-            return "on_method_request_received"
-        else:
-            # This code block should never be reached
-            raise AsyncHandlerManagerException(
-                "Cannot retrieve handler for type: {}. Handler type does not exist".format(
-                    handler_type
-                )
-            )
-
-    def _add_handler_task(self, handler_type):
+    def _add_handler_task(self, handler_name):
+        """Create, and store a task for running a handler
+        """
         # First check if the handler task already exists
-        if self._handler_tasks[handler_type] is not None:
+        if self._handler_tasks[handler_name] is not None:
             raise AsyncHandlerManagerException(
-                "Cannot create task for handler type: {}. Task already exists".format(handler_type)
+                "Cannot create task for handler: {}. Task already exists".format(handler_name)
             )
 
-        handler_name = self._get_handler_name(handler_type)
-        inbox = self._get_inbox_for_handler(handler_type)
+        inbox = self._get_inbox_for_handler(handler_name)
 
         if inbox:
             coro = self._run_inbox_handler(inbox, handler_name)
         else:
             coro = self._run_event_handler(handler_name)
         task = asyncio_compat.create_task(coro)
-        # task = asyncio.ensure_future(coro, loop=self.loop)
-        self._handler_tasks[handler_type] = task
+        self._handler_tasks[handler_name] = task
 
-    def _remove_handler_task(self, handler_type):
-        task = self._handler_tasks[handler_type]
+    def _remove_handler_task(self, handler_name):
+        """Cancel and remove a task for running a handler"""
+        task = self._handler_tasks[handler_name]
         task.cancel()
-        self._handler_tasks[handler_type] = None
+        self._handler_tasks[handler_name] = None
 
-    # def _handler_setter(self, handler_type):
-    #     if value is not None and self._on_method_request_received is None:
-    #         # Create task, set handler
-    #         logger.debug("Creating new handler task for handler type: {}".format(handler_type))
-    #         self._on_method_request_received = value
-    #         self._add_handler_task(handler_type)
-    #     elif value is None and self._on_method_request_received is not None:
-    #         # Cancel task, remove handler
-    #         logger.debug("Removing handler task for handler type: {}".format(handler_type))
-    #         self._remove_handler_task(handler_type)
-    #         self._on_method_request_received = value
-    #     else:
-    #         # Update handler, no need to change tasks
-    #         logger.debug("Updating handler for handler type: {}".format(handler_type))
-    #         self._on_method_request_received = value
+    def _generic_handler_setter(self, handler_name, new_handler):
+        """Set a handler"""
+        curr_handler = getattr(self, handler_name)
+        if new_handler is not None and curr_handler is None:
+            # Create task, set handler
+            logger.debug("Creating new handler task for handler: {}".format(handler_name))
+            setattr(self, handler_name, new_handler)
+            self._add_handler_task(handler_name)
+        elif new_handler is None and curr_handler is not None:
+            # Cancel task, remove handler
+            logger.debug("Removing handler task for handler: {}".format(handler_name))
+            self._remove_handler_task(handler_name)
+            setattr(self, handler_name, new_handler)
+        else:
+            # Update handler, no need to change tasks
+            logger.debug("Updating handler for handler: {}".format(handler_name))
+            setattr(self, handler_name, new_handler)
 
     @property
     def on_method_request_received(self):
         return self._on_method_request_received
 
-    # TODO: make this more generic
     @on_method_request_received.setter
     def on_method_request_received(self, value):
-        if value is not None and self._on_method_request_received is None:
-            # Create task, set handler
-            logger.debug("Creating new handler task for handler type: {}".format(METHOD))
-            self._on_method_request_received = value
-            self._add_handler_task(METHOD)
-        elif value is None and self._on_method_request_received is not None:
-            # Cancel task, remove handler
-            logger.debug("Removing handler task for handler type: {}".format(METHOD))
-            self._remove_handler_task(METHOD)
-            self._on_method_request_received = value
-        else:
-            # Update handler, no need to change tasks
-            logger.debug("Updating handler for handler type: {}".format(METHOD))
-            self._on_method_request_received = value
+        self._generic_handler_setter(METHOD, value)
 
     @property
     def on_twin_desired_properties_patch_received(self):
@@ -151,12 +135,12 @@ class AsyncHandlerManager(object):
 
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
-        pass
+        self._generic_handler_setter(TWIN_DP_PATCH, value)
 
-    @property
-    def on_background_exception(self):
-        return self._on_background_exception
+    # @property
+    # def on_background_exception(self):
+    #     return self._on_background_exception
 
-    @on_background_exception.setter
-    def on_background_exception(self, value):
-        pass
+    # @on_background_exception.setter
+    # def on_background_exception(self, value):
+    #     pass

@@ -33,7 +33,7 @@ async def main():
                 method_request, status, payload
             )
             await device_client.send_method_response(method_response)  # send response
-            device_client.on_method_request_received = handler_2
+            # device_client.on_method_request_received = handler_2
         else:
             print("executed " + method_request.name)
 
