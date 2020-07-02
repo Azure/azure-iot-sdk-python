@@ -17,4 +17,4 @@ TELEMETRY_MESSAGE_SIZE_LIMIT = 262144
 # as things are extremely dynamic and subject to sudden changes
 DIGITAL_TWIN_PREFIX = "dtmi"
 DIGITAL_TWIN_API_VERSION = "2020-05-31-preview"
-DIGITAL_TWIN_QUERY_HEADER = "modelId"
+DIGITAL_TWIN_QUERY_HEADER = "model-id"
