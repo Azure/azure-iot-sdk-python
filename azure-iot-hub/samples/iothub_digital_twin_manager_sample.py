@@ -30,13 +30,28 @@ try:
     #     {'op': 'remove', 'path': '/baz/1'},
     #     {'op': 'replace', 'path': '/baz/0', 'value': 42},
     # ])
-    patch = [{'op': 'add', 'path': '/newThermostat1', 'value': {'tempSetpoint': 100, '$metadata': {}}},]
+    patch = [
+        {"op": "add", "path": "/newThermostat1", "value": {"tempSetpoint": 100, "$metadata": {}}}
+    ]
     iothub_digital_twin_manager.update_digital_twin(device_id, patch)
 
+    # Get components
+    components = iothub_digital_twin_manager.get_components(device_id)
+    if digital_twin:
+        print(components)
+    else:
+        print("No component found")
+
+    # Get component
+    component_name = "sensor"  # for the environmental sensor, try "environmentalSensor"
+    component = iothub_digital_twin_manager.get_component(device_id, component_name)
+    if digital_twin:
+        print(component)
+    else:
+        print("Component did not found")
+
     # Invoke component command
-    component_name = (
-        "sensor"
-    )  # for the environmental sensor, try "environmentalSensor"
+    component_name = "sensor"  # for the environmental sensor, try "environmentalSensor"
     command_name = (
         "blink"
     )  # for the environmental sensor, you can try "blink", "turnOff" or "turnOn"

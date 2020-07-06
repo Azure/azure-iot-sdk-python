@@ -1093,11 +1093,46 @@
         }
       }
     },
-    "/digitaltwins/{id}/components/{componentPath}/commands/{commandName}": {
-      "post": {
-        "summary": "Invoke a digital twin command.",
-        "description": "Invoke a digital twin command.",
-        "operationId": "DigitalTwin_InvokeComponentCommand",
+    "/digitalTwins/{digitalTwinId}/interfaces": {
+      "get": {
+        "summary": "Gets the list of interfaces.",
+        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "operationId": "DigitalTwin_GetComponents",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "digitalTwinId",
+            "in": "path",
+            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "$ref": "#/parameters/api-version"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a collection of interface objects",
+            "schema": {
+              "$ref": "#/definitions/DigitalTwinInterfaces"
+            },
+            "headers": {
+              "ETag": {
+                "description": "ETag of the digital twin.",
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Updates desired properties of multiple interfaces.\r\n            Example URI: \"digitalTwins/{digitalTwinId}/interfaces\"",
+        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "operationId": "DigitalTwin_UpdateComponent",
         "consumes": [
           "application/json"
         ],
@@ -1106,67 +1141,84 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "digitalTwinId",
             "in": "path",
+            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
             "required": true,
             "type": "string"
           },
           {
-            "name": "componentPath",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "commandName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "payload",
+            "name": "interfacesPatchInfo",
             "in": "body",
+            "description": "Multiple interfaces desired properties to update.",
             "required": true,
             "schema": {
-              "description": "The Request Payload",
-              "type": "object"
+              "$ref": "#/definitions/DigitalTwinInterfacesPatch"
             }
           },
           {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "type": "string"
+          },
+          {
             "$ref": "#/parameters/api-version"
-          },
-          {
-            "name": "connectTimeoutInSeconds",
-            "in": "query",
-            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "responseTimeoutInSeconds",
-            "in": "query",
-            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
           }
         ],
         "responses": {
           "200": {
-            "description": "Returns the digital twin command response payload",
+            "description": "Returns multiple interfaces",
             "schema": {
-              "description": "The Response Payload",
-              "type": "object"
+              "$ref": "#/definitions/DigitalTwinInterfaces"
             },
             "headers": {
-              "x-ms-command-statuscode": {
-                "description": "Device Generated Status Code for this Operation",
-                "type": "integer",
-                "format": "int32"
-              },
-              "x-ms-request-id": {
-                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
+              "ETag": {
+                "description": "ETag of the digital twin.",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}": {
+      "get": {
+        "summary": "Gets the interface of given interfaceId.\r\n            Example URI: \"digitalTwins/{digitalTwinId}/interfaces/{interfaceName}\"",
+        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "operationId": "DigitalTwin_GetComponent",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "digitalTwinId",
+            "in": "path",
+            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "interfaceName",
+            "in": "path",
+            "description": "The interface name.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "$ref": "#/parameters/api-version"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns interface object of given id",
+            "schema": {
+              "$ref": "#/definitions/DigitalTwinInterfaces"
+            },
+            "headers": {
+              "ETag": {
+                "description": "ETag of the digital twin.",
                 "type": "string"
               }
             }
@@ -1720,6 +1772,243 @@
             "description": "Returns the method response payload",
             "schema": {
               "$ref": "#/definitions/CloudToDeviceMethodResult"
+            }
+          }
+        }
+      }
+    },
+    "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}/commands/{commandName}": {
+      "post": {
+        "summary": "Invoke a digital twin interface command.",
+        "description": "Invoke a digital twin interface command.",
+        "operationId": "DigitalTwin_InvokeComponentCommand",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "digitalTwinId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "interfaceName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "commandName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "payload",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "description": "The Request Payload",
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/api-version"
+          },
+          {
+            "name": "connectTimeoutInSeconds",
+            "in": "query",
+            "description": "Connect timeout in seconds.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "responseTimeoutInSeconds",
+            "in": "query",
+            "description": "Response timeout in seconds.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the digital twin command response payload",
+            "schema": {
+              "description": "The Response Payload",
+              "type": "object"
+            },
+            "headers": {
+              "x-ms-command-statuscode": {
+                "description": "Device Generated Status Code for this Operation",
+                "type": "integer",
+                "format": "int32"
+              },
+              "x-ms-request-id": {
+                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/digitaltwins/{id}/components/{componentPath}/commands/{commandName}": {
+      "post": {
+        "summary": "Invoke a digital twin command.",
+        "description": "Invoke a digital twin command.",
+        "operationId": "DigitalTwin_InvokeComponentCommand",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "componentPath",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "commandName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "payload",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "description": "The Request Payload",
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/api-version"
+          },
+          {
+            "name": "connectTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "responseTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the digital twin command response payload",
+            "schema": {
+              "description": "The Response Payload",
+              "type": "object"
+            },
+            "headers": {
+              "x-ms-command-statuscode": {
+                "description": "Device Generated Status Code for this Operation",
+                "type": "integer",
+                "format": "int32"
+              },
+              "x-ms-request-id": {
+                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/digitaltwins/{id}/commands/{commandName}": {
+      "post": {
+        "summary": "Invoke a digital twin root level command.",
+        "description": "Invoke a digital twin root level command.",
+        "operationId": "DigitalTwin_InvokeRootLevelCommand",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "commandName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "payload",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "description": "The Request Payload",
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/api-version"
+          },
+          {
+            "name": "connectTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "responseTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the digital twin command response payload",
+            "schema": {
+              "description": "The Response Payload",
+              "type": "object"
+            },
+            "headers": {
+              "x-ms-command-statuscode": {
+                "description": "Device Generated Status Code for this Operation",
+                "type": "integer",
+                "format": "int32"
+              },
+              "x-ms-request-id": {
+                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
+                "type": "string"
+              }
             }
           }
         }
@@ -2322,8 +2611,9 @@
             "UnableToShareIdentity",
             "UnableToExpandDiscoveryInfo",
             "UnableToExpandComponentInfo",
-            "UnableToCompressDiscoveryInfo",
             "UnableToCompressComponentInfo",
+            "UnableToCompressDiscoveryInfo",
+            "OrphanDiscoveryDocument",
             "GenericBadGateway",
             "InvalidResponseWhileProxying",
             "GenericServiceUnavailable",
@@ -2645,6 +2935,90 @@
         }
       }
     },
+    "DigitalTwinInterfaces": {
+      "type": "object",
+      "properties": {
+        "interfaces": {
+          "description": "Interface(s) data on the digital twin.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Interface"
+          }
+        },
+        "version": {
+          "format": "int64",
+          "description": "Version of digital twin.",
+          "type": "integer"
+        }
+      }
+    },
+    "Interface": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Full name of digital twin interface.",
+          "type": "string"
+        },
+        "properties": {
+          "description": "List of all properties in an interface.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Property"
+          }
+        }
+      }
+    },
+    "Property": {
+      "type": "object",
+      "properties": {
+        "reported": {
+          "$ref": "#/definitions/Reported"
+        },
+        "desired": {
+          "$ref": "#/definitions/Desired"
+        }
+      }
+    },
+    "Reported": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "description": "The current interface property value in a digitalTwin.",
+          "type": "object"
+        },
+        "desiredState": {
+          "$ref": "#/definitions/DesiredState"
+        }
+      }
+    },
+    "Desired": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "description": "The desired value of the interface property to set in a digitalTwin.",
+          "type": "object"
+        }
+      }
+    },
+    "DesiredState": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "format": "int32",
+          "description": "Status code for the operation.",
+          "type": "integer"
+        },
+        "version": {
+          "format": "int64",
+          "description": "Version of the desired value received.",
+          "type": "integer"
+        },
+        "description": {
+          "description": "Description of the status.",
+          "type": "string"
+        }
+      }
+    },
     "JobRequest": {
       "type": "object",
       "properties": {
@@ -2920,6 +3294,38 @@
         "payload": {
           "description": "Method invocation result payload.",
           "type": "object"
+        }
+      }
+    },
+    "DigitalTwinInterfacesPatch": {
+      "type": "object",
+      "properties": {
+        "interfaces": {
+          "description": "Interface(s) data to patch in the digital twin.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "properties": {
+                "description": "List of properties to update in an interface.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "desired": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "description": "The desired value of the interface property to set in a digitalTwin.",
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
