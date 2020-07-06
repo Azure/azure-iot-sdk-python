@@ -14,9 +14,10 @@ import inspect
 
 logger = logging.getLogger(__name__)
 
+MESSAGE = "_on_message_received"
 METHOD = "_on_method_request_received"
 TWIN_DP_PATCH = "_on_twin_desired_properties_patch_received"
-BACKGROUND_EXCEPTION = "background_exception"
+# TODO: add more for "event"
 
 
 class AsyncHandlerManagerException(ChainableException):
@@ -29,20 +30,22 @@ class AsyncHandlerManager(object):
 
         self._handler_tasks = {
             # Inbox handler tasks
+            MESSAGE: None,
             METHOD: None,
             TWIN_DP_PATCH: None,
             # Other handler tasks
-            BACKGROUND_EXCEPTION: None,
+            # TODO: add
         }
 
         # Inbox handlers
+        self._on_message_received = None
         self._on_method_request_received = None
         self._on_twin_desired_properties_patch_received = None
         # TODO: message. Should it be unique for input/C2D?
         # TODO: how are we going to handle different inputs anyway?
 
         # Other handlers
-        self._on_background_exception = None
+        # TODO: add
 
     async def _run_inbox_handler(self, inbox, handler_name):
         """Run infinite loop that waits for an inbox to receive an object from it, then calls
@@ -76,6 +79,10 @@ class AsyncHandlerManager(object):
         """Retrieve the inbox relevant to the handler"""
         if handler_name == METHOD:
             return self._inbox_manager.get_method_request_inbox()
+        elif handler_name == TWIN_DP_PATCH:
+            return self._inbox_manager.get_twin_patch_inbox()
+        elif handler_name == MESSAGE:
+            return self._inbox_manager.get_unified_message_inbox()
         else:
             return None
 
@@ -122,6 +129,14 @@ class AsyncHandlerManager(object):
             setattr(self, handler_name, new_handler)
 
     @property
+    def on_message_received(self):
+        return self._on_message_received
+
+    @on_message_received.setter
+    def on_c2d_message_received(self, value):
+        self._generic_handler_setter(MESSAGE, value)
+
+    @property
     def on_method_request_received(self):
         return self._on_method_request_received
 
@@ -136,11 +151,3 @@ class AsyncHandlerManager(object):
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
         self._generic_handler_setter(TWIN_DP_PATCH, value)
-
-    # @property
-    # def on_background_exception(self):
-    #     return self._on_background_exception
-
-    # @on_background_exception.setter
-    # def on_background_exception(self, value):
-    #     pass

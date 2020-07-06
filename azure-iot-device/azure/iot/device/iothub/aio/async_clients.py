@@ -21,7 +21,7 @@ from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
-from . import async_handler_manger
+from . import async_handler_manager
 from azure.iot.device import constant as device_constant
 
 logger = logging.getLogger(__name__)
@@ -72,17 +72,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
-        self._handler_manager = async_handler_manger.AsyncHandlerManager(self._inbox_manager)
+        self._handler_manager = async_handler_manager.AsyncHandlerManager(self._inbox_manager)
 
         # Set pipeline handlers
         self._mqtt_pipeline.on_connected = self._on_connected
         self._mqtt_pipeline.on_disconnected = self._on_disconnected
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
-
-        # Client handlers
-        self._on_method_request_received = None
-        self._on_twin_desired_properties_patch_received = None
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -220,6 +216,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: MethodRequest object representing the received method request.
         :rtype: `azure.iot.device.MethodRequest`
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
             await self._enable_feature(constant.METHODS)
 
@@ -326,10 +324,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     async def receive_twin_desired_properties_patch(self):
         """
-        --- THIS METHOD IS DEPRECATED ---
-        Usage of handler properties is recommended instead
-        ---------------------------------
-
         Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
 
         If no method request is yet available, will wait until it is available.
@@ -337,6 +331,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: Twin Desired Properties patch as a JSON dict
         :rtype: dict
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[constant.TWIN_PATCHES]:
             await self._enable_feature(constant.TWIN_PATCHES)
         twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
@@ -394,6 +390,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_method_request_received.setter
     def on_method_request_received(self, value):
+        self._validate_receive_handler_setter()
         # Enable the feature if necessary
         if value is not None and not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
             loop = asyncio.get_event_loop()
@@ -406,14 +403,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         # Set the handler on the handler manager
         self._handler_manager.on_method_request_received = value
-
-    @property
-    def on_background_exception(self):
-        return self._handler_manager.on_background_exception
-
-    @on_background_exception.setter
-    def on_background_exception(self, value):
-        self._handler_manager.on_background_exception = value
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -442,6 +431,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :returns: Message that was sent from the Azure IoT Hub.
         :rtype: :class:`azure.iot.device.Message`
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[constant.C2D_MSG]:
             await self._enable_feature(constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
@@ -522,6 +513,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :returns: Message that was sent to the specified input.
         :rtype: :class:`azure.iot.device.Message`
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[constant.INPUT_MSG]:
             await self._enable_feature(constant.INPUT_MSG)
         inbox = self._inbox_manager.get_input_message_inbox(input_name)

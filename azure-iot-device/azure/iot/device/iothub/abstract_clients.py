@@ -14,7 +14,7 @@ import io
 from . import pipeline
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
-
+from azure.iot.device import exceptions
 from azure.iot.device.common import auth
 from . import edge_hsm
 
@@ -64,6 +64,12 @@ def _form_sas_uri(hostname, device_id, module_id=None):
         return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
 
 
+# Receive Type constant defs
+RECEIVE_TYPE_NONE_SET = "none_set"  # Type of receiving has not been set
+RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
+RECEIVE_TYPE_API = "api"  # Only use APIs for receive
+
+
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubClient(object):
     """ A superclass representing a generic IoTHub client.
@@ -78,6 +84,40 @@ class AbstractIoTHubClient(object):
         """
         self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
+
+        self._inbox_manager = None  # this will be overriden in child class
+        self._receive_type = RECEIVE_TYPE_NONE_SET
+
+        # Generic Client handlers
+        self._on_method_request_received = None
+        self._on_twin_desired_properties_patch_received = None
+        self._on_message_received = None
+
+    def _validate_receive_api_invoke(self):
+        """Call this function first in EVERY receive API"""
+        if self._receive_type is RECEIVE_TYPE_NONE_SET:
+            # Lock the client to ONLY use receive APIs (no handlers)
+            self._receive_type = RECEIVE_TYPE_API
+        elif self._receive_type is RECEIVE_TYPE_HANDLER:
+            raise exceptions.ClientError(
+                "Cannot use receive APIs - receive handler(s) have already been set"
+            )
+        else:
+            pass
+
+    def _validate_receive_handler_setter(self):
+        """Call this function first in EVERY handler setter"""
+        if self._receive_type is RECEIVE_TYPE_NONE_SET:
+            # Lock the client to ONLY use receive handlers (no APIs)
+            self._receive_type = RECEIVE_TYPE_HANDLER
+            # Set the inbox manager to use simplified receives
+            self._inbox_manager.use_simplified = True
+        elif self._receive_type is RECEIVE_TYPE_API:
+            raise exceptions.ClientError(
+                "Cannot set receive handlers - receive APIs have already been used"
+            )
+        else:
+            pass
 
     @classmethod
     def create_from_connection_string(cls, connection_string, **kwargs):
