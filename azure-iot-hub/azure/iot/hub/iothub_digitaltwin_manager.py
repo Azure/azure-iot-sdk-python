@@ -55,6 +55,57 @@ class IoTHubDigitalTwinManager(object):
             digital_twin_id, digital_twin_patch, etag
         )
 
+    def get_components(self, digital_twin_id):
+        """Retrieve all component of the Digital Twin of a given device.
+        :param str digital_twin_id: The digital twin Id of the given device.
+
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
+
+        :returns: The return object containing the Model.
+        """
+
+        return self.protocol.digital_twin.get_components(digital_twin_id)
+
+    def update_component(self, digital_twin_id, component_patch, etag=None):
+        """Updates desired properties of multiple copmonents.
+        :param str digital_twin_id: Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.
+        :param str component_patch: Desired properties to update.
+        :param str etag: The etag (if_match) value to use for the update operation.
+
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
+
+        :returns: The return object containing the Model.
+        """
+
+        return self.protocol.digital_twin.update_component(digital_twin_id, component_patch, etag)
+
+    def get_component(self, digital_twin_id, component_name):
+        """Retrieve a component of the Digital Twin of a given device.
+        :param str digital_twin_id: The digital twin Id of the given device.
+        :param str component_name: The name of the requested component.
+
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
+
+        :returns: The return object containing the Model.
+        """
+
+        return self.protocol.digital_twin.get_component(digital_twin_id, component_name)
+
+    def get_model(self, model_id):
+        """Retrieve a Digital Twin model.
+        :param str model_id: The model twin Id of the requested model.
+
+        :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
+            if the HTTP response status is not in [200].
+
+        :returns: The return object containing the Model.
+        """
+
+        return self.protocol.digital_twin.get_digital_twin_model(model_id)
+
     def invoke_component_command(self, digital_twin_id, component_path, command_name, payload):
 
         """Invoke a command on an component of a particular device and get the result of it.
@@ -68,6 +119,6 @@ class IoTHubDigitalTwinManager(object):
 
         :returns: The result of the invoked command.
         """
-        return self.protocol.digital_twin.invoke_component_command(
+        return self.protocol.digital_twin.invoke_component_command1(
             digital_twin_id, component_path, command_name, payload
         )
