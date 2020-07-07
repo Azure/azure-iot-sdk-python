@@ -11,7 +11,7 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import constant, Message, MethodResponse
-from datetime import date
+from datetime import date, timedelta, datetime
 
 
 logging.basicConfig(level=logging.ERROR)
@@ -48,6 +48,7 @@ async def reboot_handler(values):
     for idx in range(len(avgTempList)):
         avgTempList[idx] = 0
     targetTemperature = None
+    print("maxTemp {}, minTemp {}".format(maxTemp, minTemp))
     print("Done rebooting")
 
 
@@ -80,8 +81,10 @@ def create_max_min_report_response(values):
             "maxTemp": maxTemp,
             "minTemp": minTemp,
             "avgTemp": sum(avgTempList) / sizeOfMovingWindow,
-            "startTime": date.fromisoformat("2020-05-04").__str__(),
-            "endTime": date.fromisoformat("2020-06-04").__str__(),
+            "startTime": (datetime.now() - timedelta(0, sizeOfMovingWindow * 8)).strftime(
+                "%d/%m/%Y %H:%M:%S"
+            ),
+            "endTime": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
         }
     }
     # serialize response dictionary into a JSON formatted str
