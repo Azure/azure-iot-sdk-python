@@ -36,8 +36,18 @@ targetTemperature = None
 
 
 async def reboot_handler(values):
-    if values:
+    global maxTemp
+    global minTemp
+    global avgTempList
+    global targetTemperature
+    if values and type(values) == int:
         print("Rebooting after delay of {delay} secs".format(delay=values))
+        asyncio.sleep(values)
+    maxTemp = None
+    minTemp = None
+    for idx in range(len(avgTempList)):
+        avgTempList[idx] = 0
+    targetTemperature = None
     print("Done rebooting")
 
 
