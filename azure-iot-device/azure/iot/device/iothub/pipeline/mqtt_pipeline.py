@@ -128,7 +128,7 @@ class MQTTPipeline(object):
 
             elif isinstance(event, pipeline_events_iothub.InputMessageEvent):
                 if self.on_input_message_received:
-                    self.on_input_message_received(event.input_name, event.message)
+                    self.on_input_message_received(event.message)
                 else:
                     logger.warning("input message event received with no handler.  dropping.")
 

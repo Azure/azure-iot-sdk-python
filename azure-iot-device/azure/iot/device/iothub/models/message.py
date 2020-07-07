@@ -24,7 +24,13 @@ class Message(object):
     """
 
     def __init__(
-        self, data, message_id=None, content_encoding=None, content_type=None, output_name=None
+        self,
+        data,
+        message_id=None,
+        content_encoding=None,
+        content_type=None,
+        output_name=None,
+        input_name=None,
     ):
         """
         Initializer for Message
@@ -44,6 +50,7 @@ class Message(object):
         self.content_encoding = content_encoding
         self.content_type = content_type
         self.output_name = output_name
+        self.input_name = input_name  # TODO: could these two fields be combined?
         self._iothub_interface_id = None
 
     @property
