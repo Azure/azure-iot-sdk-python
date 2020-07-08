@@ -178,49 +178,38 @@ async def execute_command_listener(
             print("responding to the {command} command failed".format(command=method_name))
 
 
-async def pnp_update_property(device_client, **prop_kwargs):
-    """
-    Coroutine that updates properties for a PNP device. This method will take in the user properties passed as
-    key word arguments and then patches twin with a object constructed internally.
-    :param device_client: The device client
-    :param prop_kwargs: The user passed keyword arguments which are the properties that the user wants to update.
-    """
-    print(prop_kwargs)
-    await device_client.patch_twin_reported_properties(prop_kwargs)
+# async def execute_property_listener(device_client):
+#     ignore_keys = ["__t", "$version"]
+#     while True:
+#         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+#         print("the data in the desired properties patch was: {}".format(patch))
 
+#         component_prefix = list(patch.keys())[0]
+#         values = patch[component_prefix]
+#         print("previous values")
+#         print(values)
 
-async def execute_property_listener(device_client):
-    ignore_keys = ["__t", "$version"]
-    while True:
-        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-        print("the data in the desired properties patch was: {}".format(patch))
+#         version = patch["$version"]
+#         inner_dict = {}
 
-        component_prefix = list(patch.keys())[0]
-        values = patch[component_prefix]
-        print("previous values")
-        print(values)
+#         for prop_name, prop_value in values.items():
+#             if prop_name in ignore_keys:
+#                 continue
+#             else:
+#                 inner_dict["ac"] = 200
+#                 inner_dict["ad"] = "Successfully executed patch"
+#                 inner_dict["av"] = version
+#                 inner_dict["value"] = prop_value
+#                 values[prop_name] = inner_dict
 
-        version = patch["$version"]
-        inner_dict = {}
+#         iotin_dict = dict()
+#         if component_prefix:
+#             iotin_dict[component_prefix] = values
+#             # print(iotin_dict)
+#         else:
+#             iotin_dict = values
 
-        for prop_name, prop_value in values.items():
-            if prop_name in ignore_keys:
-                continue
-            else:
-                inner_dict["ac"] = 200
-                inner_dict["ad"] = "Successfully executed patch"
-                inner_dict["av"] = version
-                inner_dict["value"] = prop_value
-                values[prop_name] = inner_dict
-
-        iotin_dict = dict()
-        if component_prefix:
-            iotin_dict[component_prefix] = values
-            # print(iotin_dict)
-        else:
-            iotin_dict = values
-
-        await device_client.patch_twin_reported_properties(iotin_dict)
+#         await device_client.patch_twin_reported_properties(iotin_dict)
 
 
 # END COMMAND LISTENERS
@@ -281,6 +270,39 @@ async def main():
     # Register callback and Handle command (reboot)
     print("Listening for command requests and property updates")
 
+    async def execute_property_listener():
+        ignore_keys = ["__t", "$version"]
+        while True:
+            patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+            print("the data in the desired properties patch was: {}".format(patch))
+
+            component_prefix = list(patch.keys())[0]
+            values = patch[component_prefix]
+            print("previous values")
+            print(values)
+
+            version = patch["$version"]
+            inner_dict = {}
+
+            for prop_name, prop_value in values.items():
+                if prop_name in ignore_keys:
+                    continue
+                else:
+                    inner_dict["ac"] = 200
+                    inner_dict["ad"] = "Successfully executed patch"
+                    inner_dict["av"] = version
+                    inner_dict["value"] = prop_value
+                    values[prop_name] = inner_dict
+
+            iotin_dict = dict()
+            if component_prefix:
+                iotin_dict[component_prefix] = values
+                # print(iotin_dict)
+            else:
+                iotin_dict = values
+
+            await device_client.patch_twin_reported_properties(iotin_dict)
+
     listeners = asyncio.gather(
         execute_command_listener(
             device_client,
@@ -294,7 +316,7 @@ async def main():
             user_command_handler=max_min_handler,
             create_user_response_handler=create_max_min_report_response,
         ),
-        execute_property_listener(device_client),
+        execute_property_listener(),
     )
 
     ################################################
