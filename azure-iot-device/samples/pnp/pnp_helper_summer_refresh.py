@@ -72,22 +72,22 @@ def create_reported_properties(component_name=None, **prop_kwargs):
     return prop_dict
 
 
-def retrieve_values_from_command_request(command_request):
-    """
-    Helper method to retrieve the values portion of the response payload.
-    :param command_request: The full dictionary of the command request which contains the payload.
-    :return: The values dictionary from the payload.
-    """
-    pnp_key = "commandRequest"
-    values = {}
-    if not command_request.payload:
-        print("Payload was empty.")
-    elif pnp_key not in command_request.payload:
-        print("There was no payload for {key}.".format(key=pnp_key))
-    else:
-        command_request_payload = command_request.payload
-        values = command_request_payload[pnp_key]["value"]
-    return values
+# def retrieve_values_from_command_request(command_request):
+#     """
+#     Helper method to retrieve the values portion of the response payload.
+#     :param command_request: The full dictionary of the command request which contains the payload.
+#     :return: The values dictionary from the payload.
+#     """
+#     pnp_key = "commandRequest"
+#     values = {}
+#     if not command_request.payload:
+#         print("Payload was empty.")
+#     elif pnp_key not in command_request.payload:
+#         print("There was no payload for {key}.".format(key=pnp_key))
+#     else:
+#         command_request_payload = command_request.payload
+#         values = command_request_payload[pnp_key]["value"]
+#     return values
 
 
 def create_response_payload_with_status(command_request, method_name, create_user_response=None):
@@ -108,9 +108,7 @@ def create_response_payload_with_status(command_request, method_name, create_use
         data = "executed " + method_name if method_name else "unknown method"
         response_payload = {"result": result, "data": data}
     else:
-        # TODO should npt need this once the command request envelope is removed.
-        request_values = retrieve_values_from_command_request(command_request)
-        response_payload = create_user_response(request_values)
+        response_payload = create_user_response(command_request.payload)
 
     return (response_status, response_payload)
 

@@ -35,7 +35,7 @@ model_id = "dtmi:com:example:TemperatureController;1"
 device_information_component_name = "deviceInformation"
 thermostat_1_component_name = "thermostat1"
 thermostat_2_component_name = "thermostat2"
-
+serial_number = "alohomora"
 #####################################################
 # COMMAND HANDLERS : User will define these handlers
 # depending on what commands the component defines
@@ -134,10 +134,8 @@ async def execute_command_listener(
 
         command_request = await device_client.receive_method_request(command_name)
         print("Command request received with payload")
-        print(command_request.payload)
-
-        # TODO should npt need this once the command request envelope is removed.
-        values = pnp_helper_summer_refresh.retrieve_values_from_command_request(command_request)
+        values = command_request.payload
+        print(values)
 
         if user_command_handler:
             await user_command_handler(values)
@@ -201,7 +199,6 @@ def stdin_listener():
 async def main():
     # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-
     print("Connecting using Connection String " + conn_str)
 
     # The client object is used to interact with your Azure IoT hub.
@@ -216,7 +213,7 @@ async def main():
     # Update readable properties from various components
 
     pnp_properties_root = pnp_helper_summer_refresh.create_reported_properties(
-        serialNumber="alohomora"
+        serialNumber=serial_number
     )
     pnp_properties_thermostat1 = pnp_helper_summer_refresh.create_reported_properties(
         thermostat_1_component_name, maxTempSinceLastReboot=98.34
