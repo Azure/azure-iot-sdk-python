@@ -12,18 +12,24 @@ from azure.iot.hub import IoTHubDigitalTwinManager
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
+component_name = os.getenv(
+    "IOTHUB_COMPONENT_NAME"
+)  # for the TemperatureController, try thermostat1
+command_name = os.getenv("IOTHUB_COMMAND_NAME")  # for the thermostat you can try getMaxMinReport
+payload = os.getenv("IOTHUB_COMMAND_PAYLOAD")  # it really doesn't matter, any string will do.
 
 try:
     # Create IoTHubDigitalTwinManager
     iothub_digital_twin_manager = IoTHubDigitalTwinManager(iothub_connection_str)
 
-    # Get digital twin and retrieve the modelId from it
-    digital_twin = iothub_digital_twin_manager.get_digital_twin(device_id)
-    if digital_twin:
-        print(digital_twin)
-        print("Model Id: " + digital_twin["$metadata"]["$model"])
+    # Invoke component command
+    invoke_component_command_result = iothub_digital_twin_manager.invoke_component_command(
+        device_id, component_name, command_name, payload
+    )
+    if invoke_component_command_result:
+        print(invoke_component_command_result)
     else:
-        print("No digital_twin found")
+        print("No invoke_component_command_result found")
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))
