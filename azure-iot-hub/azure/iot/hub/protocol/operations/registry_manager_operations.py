@@ -36,14 +36,6 @@ class RegistryManagerOperations(object):
         """Retrieves statistics about device identities in the IoT hub’s identity
         registry.
 
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
-
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
@@ -92,14 +84,6 @@ class RegistryManagerOperations(object):
 
     def get_service_statistics(self, custom_headers=None, raw=False, **operation_config):
         """Retrieves service statistics for this IoT hub’s identity registry.
-
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
 
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
@@ -151,18 +135,10 @@ class RegistryManagerOperations(object):
         """Get the identities of multiple devices from the IoT hub identity
         registry. Not recommended. Use the IoT Hub query language to retrieve
         device twin and device identity information. See
-        https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub
+        https://docs.microsoft.com/rest/api/iothub/service/registrymanager/queryiothub
         and
-        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language
+        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
         for more information.
-
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
 
         :param top: This parameter when specified, defines the maximum number
          of device identities that are returned. Any value outside the range of
@@ -227,13 +203,6 @@ class RegistryManagerOperations(object):
         invocation. For large scale operations, consider using the import
         feature using blob
         storage(https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities).
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
 
         :param devices:
         :type devices: list[~protocol.models.ExportImportDevice]
@@ -305,13 +274,7 @@ class RegistryManagerOperations(object):
         SQL-like language. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
         for more information. Pagination of results is supported. This returns
-        information about device twins only. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        information about device twins only.
 
         :param query_specification:
         :type query_specification: ~protocol.models.QuerySpecification
@@ -383,14 +346,7 @@ class RegistryManagerOperations(object):
     def get_device(self, id, custom_headers=None, raw=False, **operation_config):
         """Retrieve a device from the identity registry of an IoT hub.
 
-        Retrieve a device from the identity registry of an IoT hub. For IoT Hub
-        VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        Retrieve a device from the identity registry of an IoT hub.
 
         :param id: Device ID.
         :type id: str
@@ -450,13 +406,7 @@ class RegistryManagerOperations(object):
         Create or update the identity of a device in the identity registry of
         an IoT hub. An ETag must not be specified for the create operation. An
         ETag must be specified for the update operation. Note that generationId
-        and deviceId cannot be updated by the user. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        and deviceId cannot be updated by the user.
 
         :param id: Device ID.
         :type id: str
@@ -529,13 +479,7 @@ class RegistryManagerOperations(object):
         the client matches the value maintained by the server, indicating that
         the device identity has not been modified since it was retrieved by the
         client. To force an unconditional delete, set If-Match to the wildcard
-        character (*). For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        character (*).
 
         :param id: Device ID.
         :type id: str
@@ -585,14 +529,7 @@ class RegistryManagerOperations(object):
     def purge_command_queue(self, id, custom_headers=None, raw=False, **operation_config):
         """Deletes all the pending commands for this device from the IoT hub.
 
-        Deletes all the pending commands for this device from the IoT hub For
-        IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        Deletes all the pending commands for this device from the IoT hub.
 
         :param id: Device ID.
         :type id: str
@@ -647,14 +584,6 @@ class RegistryManagerOperations(object):
     def get_modules_on_device(self, id, custom_headers=None, raw=False, **operation_config):
         """Retrieve all the module identities on the device.
 
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
-
         :param id: Device ID.
         :type id: str
         :param dict custom_headers: headers that will be added to the request
@@ -707,14 +636,6 @@ class RegistryManagerOperations(object):
 
     def get_module(self, id, mid, custom_headers=None, raw=False, **operation_config):
         """Retrieve the specified module identity on the device.
-
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -777,14 +698,6 @@ class RegistryManagerOperations(object):
         must not be specified for the create operation. An ETag must be
         specified for the update operation. Note that moduleId and generation
         cannot be updated by the user.
-
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str
@@ -864,14 +777,6 @@ class RegistryManagerOperations(object):
         identity has not been modified since it was retrieved by the client. To
         force an unconditional delete, set If-Match to the wildcard character
         (*).
-
-        For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
 
         :param id: Device ID.
         :type id: str

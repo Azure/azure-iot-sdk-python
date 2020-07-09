@@ -31,28 +31,12 @@ try:
     from .purge_message_queue_result_py3 import PurgeMessageQueueResult
     from .fault_injection_connection_properties_py3 import FaultInjectionConnectionProperties
     from .fault_injection_properties_py3 import FaultInjectionProperties
-    from .desired_state_py3 import DesiredState
-    from .reported_py3 import Reported
-    from .desired_py3 import Desired
-    from .property_py3 import Property
-    from .interface_py3 import Interface
-    from .digital_twin_interfaces_py3 import DigitalTwinInterfaces
     from .cloud_to_device_method_py3 import CloudToDeviceMethod
     from .job_request_py3 import JobRequest
     from .device_job_statistics_py3 import DeviceJobStatistics
     from .job_response_py3 import JobResponse
     from .query_result_py3 import QueryResult
     from .cloud_to_device_method_result_py3 import CloudToDeviceMethodResult
-    from .digital_twin_interfaces_patch_interfaces_properties_additional_properties_desired_py3 import (
-        DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired,
-    )
-    from .components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties_py3 import (
-        Components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties,
-    )
-    from .components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties_py3 import (
-        Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties,
-    )
-    from .digital_twin_interfaces_patch_py3 import DigitalTwinInterfacesPatch
 except (SyntaxError, ImportError):
     from .configuration_content import ConfigurationContent
     from .configuration_metrics import ConfigurationMetrics
@@ -79,28 +63,12 @@ except (SyntaxError, ImportError):
     from .purge_message_queue_result import PurgeMessageQueueResult
     from .fault_injection_connection_properties import FaultInjectionConnectionProperties
     from .fault_injection_properties import FaultInjectionProperties
-    from .desired_state import DesiredState
-    from .reported import Reported
-    from .desired import Desired
-    from .property import Property
-    from .interface import Interface
-    from .digital_twin_interfaces import DigitalTwinInterfaces
     from .cloud_to_device_method import CloudToDeviceMethod
     from .job_request import JobRequest
     from .device_job_statistics import DeviceJobStatistics
     from .job_response import JobResponse
     from .query_result import QueryResult
     from .cloud_to_device_method_result import CloudToDeviceMethodResult
-    from .digital_twin_interfaces_patch_interfaces_properties_additional_properties_desired import (
-        DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired,
-    )
-    from .components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties import (
-        Components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties,
-    )
-    from .components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties import (
-        Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties,
-    )
-    from .digital_twin_interfaces_patch import DigitalTwinInterfacesPatch
 
 __all__ = [
     "ConfigurationContent",
@@ -128,20 +96,10 @@ __all__ = [
     "PurgeMessageQueueResult",
     "FaultInjectionConnectionProperties",
     "FaultInjectionProperties",
-    "DesiredState",
-    "Reported",
-    "Desired",
-    "Property",
-    "Interface",
-    "DigitalTwinInterfaces",
     "CloudToDeviceMethod",
     "JobRequest",
     "DeviceJobStatistics",
     "JobResponse",
     "QueryResult",
     "CloudToDeviceMethodResult",
-    "DigitalTwinInterfacesPatchInterfacesPropertiesAdditionalPropertiesDesired",
-    "Components17cpi2fschemasdigitaltwininterfacespatchpropertiesinterfacesadditionalpropertiespropertiespropertiesadditionalproperties",
-    "Components10jnwi5schemasdigitaltwininterfacespatchpropertiesinterfacesadditionalproperties",
-    "DigitalTwinInterfacesPatch",
 ]

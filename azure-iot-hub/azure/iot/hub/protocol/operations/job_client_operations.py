@@ -39,13 +39,7 @@ class JobClientOperations(object):
 
         Create a new import/export job on an IoT hub. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param job_properties: Specifies the job specification.
         :type job_properties: ~protocol.models.JobProperties
@@ -104,13 +98,7 @@ class JobClientOperations(object):
 
         Gets the status of all import/export jobs in an iot hub. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
@@ -163,13 +151,7 @@ class JobClientOperations(object):
 
         Gets the status of an import or export job in an iot hub. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param id: Job ID.
         :type id: str
@@ -226,13 +208,7 @@ class JobClientOperations(object):
 
         Cancels an import or export job in an IoT hub. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param id: Job ID.
         :type id: str
@@ -288,13 +264,7 @@ class JobClientOperations(object):
 
         Retrieves details of a scheduled job from an IoT hub. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param id: Job ID.
         :type id: str
@@ -353,13 +323,7 @@ class JobClientOperations(object):
         Creates a new job to schedule update twins or device direct methods on
         an IoT hub at a scheduled time. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param id: Job ID.
         :type id: str
@@ -422,13 +386,7 @@ class JobClientOperations(object):
 
         Cancels a scheduled job on an IoT hub. See
         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs
-        for more information. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        for more information.
 
         :param id: Job ID.
         :type id: str
@@ -490,13 +448,7 @@ class JobClientOperations(object):
         Hub query language. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
         for more information. Pagination of results is supported. This returns
-        information about jobs only. For IoT Hub VNET related
-        features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support)
-        please use API version '2020-03-13'.These features are currently in
-        general availability in the East US, West US 2, and Southcentral US
-        regions only. We are actively working to expand the availability of
-        these features to all regions by end of month May. For rest of the APIs
-        please continue using API version '2019-10-01'.
+        information about jobs only.
 
         :param job_type: Job Type.
         :type job_type: str

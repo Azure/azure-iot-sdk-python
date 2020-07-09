@@ -56,6 +56,10 @@ class JobProperties(Model):
     :param failure_reason: System genereated.  Ignored at creation.
      If status == failure, this represents a string containing the reason.
     :type failure_reason: str
+    :param include_configurations:
+    :type include_configurations: bool
+    :param configurations_blob_name:
+    :type configurations_blob_name: str
     """
 
     _attribute_map = {
@@ -72,6 +76,8 @@ class JobProperties(Model):
         "exclude_keys_in_export": {"key": "excludeKeysInExport", "type": "bool"},
         "storage_authentication_type": {"key": "storageAuthenticationType", "type": "str"},
         "failure_reason": {"key": "failureReason", "type": "str"},
+        "include_configurations": {"key": "includeConfigurations", "type": "bool"},
+        "configurations_blob_name": {"key": "configurationsBlobName", "type": "str"},
     }
 
     def __init__(self, **kwargs):
@@ -89,3 +95,5 @@ class JobProperties(Model):
         self.exclude_keys_in_export = kwargs.get("exclude_keys_in_export", None)
         self.storage_authentication_type = kwargs.get("storage_authentication_type", None)
         self.failure_reason = kwargs.get("failure_reason", None)
+        self.include_configurations = kwargs.get("include_configurations", None)
+        self.configurations_blob_name = kwargs.get("configurations_blob_name", None)
