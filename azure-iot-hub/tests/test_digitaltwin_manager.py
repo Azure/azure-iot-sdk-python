@@ -147,78 +147,6 @@ class TestUpdateDigitalTwinNoEtag(object):
         assert ret_val == mock_digital_twin_operations.update_digital_twin()
 
 
-@pytest.mark.describe("IoTHubDigitalTwinManager - .get_components()")
-class TestGetComponents(object):
-    @pytest.mark.it("Uses protocol layer DigitalTwin Client runtime to get components")
-    def test_get_components(self, mocker, mock_digital_twin_operations, iothub_digitaltwin_manager):
-        ret_val = iothub_digitaltwin_manager.get_components(fake_digital_twin_id)
-        assert mock_digital_twin_operations.get_components.call_count == 1
-        assert mock_digital_twin_operations.get_components.call_args == mocker.call(
-            fake_digital_twin_id
-        )
-        assert ret_val == mock_digital_twin_operations.get_components()
-
-
-@pytest.mark.describe("IoTHubDigitalTwinManager - .update_component()")
-class TestUpdateComponent(object):
-    @pytest.mark.it("Uses protocol layer DigitalTwin Client runtime to update component")
-    def test_update_component(
-        self, mocker, mock_digital_twin_operations, iothub_digitaltwin_manager
-    ):
-        ret_val = iothub_digitaltwin_manager.update_component(
-            fake_digital_twin_id, fake_digital_twin_patch, fake_etag
-        )
-        assert mock_digital_twin_operations.update_component.call_count == 1
-        assert mock_digital_twin_operations.update_component.call_args == mocker.call(
-            fake_digital_twin_id, fake_digital_twin_patch, fake_etag
-        )
-        assert ret_val == mock_digital_twin_operations.update_component()
-
-
-@pytest.mark.describe("IoTHubDigitalTwinManager - .update_component()")
-class TestUpdateComponentNoEtag(object):
-    @pytest.mark.it(
-        "Uses protocol layer DigitalTwin Client runtime to update cmoponent without etag"
-    )
-    def test_update_component(
-        self, mocker, mock_digital_twin_operations, iothub_digitaltwin_manager
-    ):
-        ret_val = iothub_digitaltwin_manager.update_component(
-            fake_digital_twin_id, fake_digital_twin_patch
-        )
-        assert mock_digital_twin_operations.update_component.call_count == 1
-        assert mock_digital_twin_operations.update_component.call_args == mocker.call(
-            fake_digital_twin_id, fake_digital_twin_patch, None
-        )
-        assert ret_val == mock_digital_twin_operations.update_component()
-
-
-@pytest.mark.describe("IoTHubDigitalTwinManager - .get_component()")
-class TestGetComponent(object):
-    @pytest.mark.it("Uses protocol layer DigitalTwin Client runtime to get a component")
-    def test_get_component(self, mocker, mock_digital_twin_operations, iothub_digitaltwin_manager):
-        ret_val = iothub_digitaltwin_manager.get_component(
-            fake_digital_twin_id, fake_component_name
-        )
-        assert mock_digital_twin_operations.get_component.call_count == 1
-        assert mock_digital_twin_operations.get_component.call_args == mocker.call(
-            fake_digital_twin_id, fake_component_name
-        )
-        assert ret_val == mock_digital_twin_operations.get_component()
-
-
-@pytest.mark.describe("IoTHubDigitalTwinManager - .get_model()")
-class TestGetModel(object):
-    @pytest.mark.it("Uses protocol layer DigitalTwin Client runtime to get a component")
-    def test_get_model(self, mocker, mock_digital_twin_operations, iothub_digitaltwin_manager):
-        ret_val = iothub_digitaltwin_manager.get_model(fake_model_id)
-        assert mock_digital_twin_operations.get_digital_twin_model.call_count == 1
-        assert mock_digital_twin_operations.get_digital_twin_model.call_args == mocker.call(
-            fake_model_id
-        )
-        assert ret_val == mock_digital_twin_operations.get_digital_twin_model()
-
-
 @pytest.mark.describe("IoTHubDigitalTwinManager - .invoke_component_command()")
 class TestInvokeComponentCommand(object):
     @pytest.mark.it("Uses protocol layer DigitalTwin Client runtime to invoke a component command")
@@ -233,3 +161,17 @@ class TestInvokeComponentCommand(object):
             fake_digital_twin_id, fake_component_path, fake_component_name, fake_payload
         )
         assert ret_val == mock_digital_twin_operations.invoke_component_command1()
+
+
+@pytest.mark.describe("IoTHubDigitalTwinManager - .invoke_command()")
+class TestInvokeCommand(object):
+    @pytest.mark.it("Uses protocol layer DigitalTwin Client runtime to invoke a component command")
+    def test_invoke_command(self, mocker, mock_digital_twin_operations, iothub_digitaltwin_manager):
+        ret_val = iothub_digitaltwin_manager.invoke_command(
+            fake_digital_twin_id, fake_component_name, fake_payload
+        )
+        assert mock_digital_twin_operations.invoke_root_level_command.call_count == 1
+        assert mock_digital_twin_operations.invoke_root_level_command.call_args == mocker.call(
+            fake_digital_twin_id, fake_component_name, fake_payload
+        )
+        assert ret_val == mock_digital_twin_operations.invoke_root_level_command()

@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubDigitalTwinManager
 
 
@@ -16,30 +17,13 @@ try:
     # Create IoTHubDigitalTwinManager
     iothub_digital_twin_manager = IoTHubDigitalTwinManager(iothub_connection_str)
 
-    # Get digital twin
-    digital_twin = iothub_digital_twin_manager.get_digital_twin(device_id)
-    if digital_twin:
-        print(digital_twin)
-    else:
-        print("No digital_twin found")
+    patch = [{"op": "replace", "path": "/thermostat1/targetTemperature", "value": 42}]
+    iothub_digital_twin_manager.update_digital_twin(device_id, patch)
+    print("Patch has been succesfully applied")
 
-    # Update digital twin desired properties
-    # jsonpatch example:
-    # patch = [
-    #     {'op': 'add', 'path': '/newThermostat', 'value': {'tempSetpoint': 100, '$metadata': {}}},
-    #     {'op': 'remove', 'path': '/baz/1'},
-    #     {'op': 'replace', 'path': '/baz/0', 'value': 42},
-    # ])
-    patch = [
-        {"op": "add", "path": "/newThermostat1", "value": {"tempSetpoint": 100, "$metadata": {}}}
-    ]
-    response = iothub_digital_twin_manager.update_digital_twin(device_id, patch)
-    if response:
-        print(response)
-    else:
-        print("No response found")
-
-except Exception as ex:
-    print("Unexpected error {0}".format(ex))
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
+except Exception as exc:
+    print("Unexpected error {0}".format(exc))
 except KeyboardInterrupt:
     print("Sample stopped")
