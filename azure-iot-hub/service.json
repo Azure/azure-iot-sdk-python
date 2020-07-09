@@ -12,7 +12,6 @@
     "/configurations/{id}": {
       "get": {
         "summary": "Retrieve a configuration for Iot Hub devices and modules by it identifier.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "Configuration_Get",
         "consumes": [],
         "produces": [
@@ -40,7 +39,6 @@
       },
       "put": {
         "summary": "Create or update the configuration for devices or modules of an IoT hub. An ETag must not be specified for the create operation. An ETag must be specified for the update operation. Note that configuration Id and Content cannot be updated by the user.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "Configuration_CreateOrUpdate",
         "consumes": [
           "application/json"
@@ -90,7 +88,6 @@
       },
       "delete": {
         "summary": "Delete the configuration for devices or modules of an IoT hub. This request requires the If-Match header. The client may specify the ETag for the device identity on the request in order to compare to the ETag maintained by the service for the purpose of optimistic concurrency. The delete operation is performed only if the ETag sent by the client matches the value maintained by the server, indicating that the device identity has not been modified since it was retrieved by the client. To force an unconditional delete, set If-Match to the wildcard character (*).",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "Configuration_Delete",
         "consumes": [],
         "produces": [
@@ -123,7 +120,6 @@
     "/configurations": {
       "get": {
         "summary": "Get multiple configurations for devices or modules of an IoT Hub. Returns the specified number of configurations for Iot Hub. Pagination is not supported.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "Configuration_GetConfigurations",
         "consumes": [],
         "produces": [
@@ -157,7 +153,7 @@
     "/configurations/testQueries": {
       "post": {
         "summary": "Validates the target condition query and custom metric queries for a configuration.",
-        "description": "Validates the target condition query and custom metric queries for a configuration. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Validates the target condition query and custom metric queries for a configuration.",
         "operationId": "Configuration_TestQueries",
         "consumes": [
           "application/json"
@@ -191,7 +187,6 @@
     "/statistics/devices": {
       "get": {
         "summary": "Retrieves statistics about device identities in the IoT hub’s identity registry.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "RegistryManager_GetDeviceStatistics",
         "consumes": [],
         "produces": [
@@ -215,7 +210,6 @@
     "/statistics/service": {
       "get": {
         "summary": "Retrieves service statistics for this IoT hub’s identity registry.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "RegistryManager_GetServiceStatistics",
         "consumes": [],
         "produces": [
@@ -238,8 +232,7 @@
     },
     "/devices": {
       "get": {
-        "summary": "Get the identities of multiple devices from the IoT hub identity registry. Not recommended. Use the IoT Hub query language to retrieve device twin and device identity information. See https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub and https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language for more information.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "summary": "Get the identities of multiple devices from the IoT hub identity registry. Not recommended. Use the IoT Hub query language to retrieve device twin and device identity information. See  https://docs.microsoft.com/rest/api/iothub/service/registrymanager/queryiothub and https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language for more information.",
         "operationId": "RegistryManager_GetDevices",
         "consumes": [],
         "produces": [
@@ -272,7 +265,7 @@
       },
       "post": {
         "summary": "Create, update, or delete the identities of multiple devices from the IoT hub identity registry.",
-        "description": "Create, update, or delete the identiies of multiple devices from the IoT hub identity registry. A device identity can be specified only once in the list. Different operations (create, update, delete) on different devices are allowed. A maximum of 100 devices can be specified per invocation. For large scale operations, consider using the import feature using blob storage(https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities). For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Create, update, or delete the identiies of multiple devices from the IoT hub identity registry. A device identity can be specified only once in the list. Different operations (create, update, delete) on different devices are allowed. A maximum of 100 devices can be specified per invocation. For large scale operations, consider using the import feature using blob storage(https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities).",
         "operationId": "RegistryManager_BulkDeviceCRUD",
         "consumes": [
           "application/json"
@@ -315,7 +308,7 @@
     "/devices/query": {
       "post": {
         "summary": "Query an IoT hub to retrieve information regarding device twins using a SQL-like language.",
-        "description": "Query an IoT hub to retrieve information regarding device twins using a SQL-like language. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language for more information. Pagination of results is supported. This returns information about device twins only. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Query an IoT hub to retrieve information regarding device twins using a SQL-like language. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language for more information. Pagination of results is supported. This returns information about device twins only.",
         "operationId": "RegistryManager_QueryIotHub",
         "consumes": [
           "application/json"
@@ -374,7 +367,7 @@
     "/devices/{id}": {
       "get": {
         "summary": "Retrieve a device from the identity registry of an IoT hub.",
-        "description": "Retrieve a device from the identity registry of an IoT hub. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Retrieve a device from the identity registry of an IoT hub.",
         "operationId": "RegistryManager_GetDevice",
         "consumes": [],
         "produces": [
@@ -403,7 +396,7 @@
       },
       "put": {
         "summary": "Create or update the identity of a device in the identity registry of an IoT hub.",
-        "description": "Create or update the identity of a device in the identity registry of an IoT hub. An ETag must not be specified for the create operation. An ETag must be specified for the update operation. Note that generationId and deviceId cannot be updated by the user. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Create or update the identity of a device in the identity registry of an IoT hub. An ETag must not be specified for the create operation. An ETag must be specified for the update operation. Note that generationId and deviceId cannot be updated by the user.",
         "operationId": "RegistryManager_CreateOrUpdateDevice",
         "consumes": [
           "application/json"
@@ -448,7 +441,7 @@
       },
       "delete": {
         "summary": "Delete the identity of a device from the identity registry of an IoT hub.",
-        "description": "Delete the identity of a device from the identity registry of an IoT hub. This request requires the If-Match header. The client may specify the ETag for the device identity on the request in order to compare to the ETag maintained by the service for the purpose of optimistic concurrency. The delete operation is performed only if the ETag sent by the client matches the value maintained by the server, indicating that the device identity has not been modified since it was retrieved by the client. To force an unconditional delete, set If-Match to the wildcard character (*). For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Delete the identity of a device from the identity registry of an IoT hub. This request requires the If-Match header. The client may specify the ETag for the device identity on the request in order to compare to the ETag maintained by the service for the purpose of optimistic concurrency. The delete operation is performed only if the ETag sent by the client matches the value maintained by the server, indicating that the device identity has not been modified since it was retrieved by the client. To force an unconditional delete, set If-Match to the wildcard character (*).",
         "operationId": "RegistryManager_DeleteDevice",
         "consumes": [],
         "produces": [
@@ -482,7 +475,7 @@
     "/devices/{id}/applyConfigurationContent": {
       "post": {
         "summary": "Applies the provided configuration content to the specified edge device.",
-        "description": "Applies the provided configuration content to the specified edge device. Configuration content must have modules content For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Applies the provided configuration content to the specified edge device. Configuration content must have modules content",
         "operationId": "Configuration_ApplyOnEdgeDevice",
         "consumes": [
           "application/json"
@@ -527,7 +520,7 @@
     "/jobs/create": {
       "post": {
         "summary": "Create a new import/export job on an IoT hub.",
-        "description": "Create a new import/export job on an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Create a new import/export job on an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information.",
         "operationId": "JobClient_CreateImportExportJob",
         "consumes": [
           "application/json"
@@ -562,7 +555,7 @@
     "/jobs": {
       "get": {
         "summary": "Gets the status of all import/export jobs in an iot hub",
-        "description": "Gets the status of all import/export jobs in an iot hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Gets the status of all import/export jobs in an iot hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information.",
         "operationId": "JobClient_GetImportExportJobs",
         "consumes": [],
         "produces": [
@@ -589,7 +582,7 @@
     "/jobs/{id}": {
       "get": {
         "summary": "Gets the status of an import or export job in an iot hub",
-        "description": "Gets the status of an import or export job in an iot hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Gets the status of an import or export job in an iot hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information.",
         "operationId": "JobClient_GetImportExportJob",
         "consumes": [],
         "produces": [
@@ -618,7 +611,7 @@
       },
       "delete": {
         "summary": "Cancels an import or export job in an IoT hub.",
-        "description": "Cancels an import or export job in an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Cancels an import or export job in an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities for more information.",
         "operationId": "JobClient_CancelImportExportJob",
         "consumes": [],
         "produces": [
@@ -652,7 +645,7 @@
     "/devices/{id}/commands": {
       "delete": {
         "summary": "Deletes all the pending commands for this device from the IoT hub.",
-        "description": "Deletes all the pending commands for this device from the IoT hub For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Deletes all the pending commands for this device from the IoT hub",
         "operationId": "RegistryManager_PurgeCommandQueue",
         "consumes": [],
         "produces": [
@@ -683,7 +676,6 @@
     "/faultInjection": {
       "get": {
         "summary": "Get FaultInjection entity",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "FaultInjection_Get",
         "consumes": [],
         "produces": [
@@ -705,7 +697,6 @@
       },
       "put": {
         "summary": "Create or update FaultInjection entity",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "FaultInjection_Set",
         "consumes": [
           "application/json"
@@ -736,7 +727,7 @@
     "/twins/{id}": {
       "get": {
         "summary": "Gets a device twin.",
-        "description": "Gets a device twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Gets a device twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information.",
         "operationId": "Twin_GetDeviceTwin",
         "consumes": [],
         "produces": [
@@ -765,7 +756,7 @@
       },
       "put": {
         "summary": "Replaces tags and desired properties of a device twin.",
-        "description": "Replaces a device twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Replaces a device twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information.",
         "operationId": "Twin_ReplaceDeviceTwin",
         "consumes": [
           "application/json"
@@ -811,7 +802,7 @@
       },
       "patch": {
         "summary": "Updates tags and desired properties of a device twin.",
-        "description": "Updates a device twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Updates a device twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information.",
         "operationId": "Twin_UpdateDeviceTwin",
         "consumes": [
           "application/json"
@@ -859,7 +850,7 @@
     "/twins/{id}/modules/{mid}": {
       "get": {
         "summary": "Gets a module twin.",
-        "description": "Gets a module twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Gets a module twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information.",
         "operationId": "Twin_GetModuleTwin",
         "consumes": [],
         "produces": [
@@ -895,7 +886,7 @@
       },
       "put": {
         "summary": "Replaces tags and desired properties of a module twin.",
-        "description": "Replaces a module twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Replaces a module twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information.",
         "operationId": "Twin_ReplaceModuleTwin",
         "consumes": [
           "application/json"
@@ -948,7 +939,7 @@
       },
       "patch": {
         "summary": "Updates tags and desired properties of a module twin.",
-        "description": "Updates a module twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Updates a module twin. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins for more information.",
         "operationId": "Twin_UpdateModuleTwin",
         "consumes": [
           "application/json"
@@ -1003,7 +994,6 @@
     "/digitaltwins/{id}": {
       "get": {
         "summary": "Gets a digital twin.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "DigitalTwin_GetDigitalTwin",
         "consumes": [],
         "produces": [
@@ -1038,7 +1028,6 @@
       },
       "patch": {
         "summary": "Updates a digital twin.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "DigitalTwin_UpdateDigitalTwin",
         "consumes": [
           "application/json"
@@ -1093,46 +1082,11 @@
         }
       }
     },
-    "/digitalTwins/{digitalTwinId}/interfaces": {
-      "get": {
-        "summary": "Gets the list of interfaces.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
-        "operationId": "DigitalTwin_GetComponents",
-        "consumes": [],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "digitalTwinId",
-            "in": "path",
-            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns a collection of interface objects",
-            "schema": {
-              "$ref": "#/definitions/DigitalTwinInterfaces"
-            },
-            "headers": {
-              "ETag": {
-                "description": "ETag of the digital twin.",
-                "type": "string"
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "summary": "Updates desired properties of multiple interfaces.\r\n            Example URI: \"digitalTwins/{digitalTwinId}/interfaces\"",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
-        "operationId": "DigitalTwin_UpdateComponent",
+    "/digitaltwins/{id}/commands/{commandName}": {
+      "post": {
+        "summary": "Invoke a digital twin root level command.",
+        "description": "Invoke a digital twin root level command.",
+        "operationId": "DigitalTwin_InvokeRootLevelCommand",
         "consumes": [
           "application/json"
         ],
@@ -1141,84 +1095,61 @@
         ],
         "parameters": [
           {
-            "name": "digitalTwinId",
+            "name": "id",
             "in": "path",
-            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
             "required": true,
             "type": "string"
           },
           {
-            "name": "interfacesPatchInfo",
+            "name": "commandName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "payload",
             "in": "body",
-            "description": "Multiple interfaces desired properties to update.",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/DigitalTwinInterfacesPatch"
+              "description": "The Request Payload",
+              "type": "object"
             }
           },
           {
-            "name": "If-Match",
-            "in": "header",
+            "$ref": "#/parameters/api-version"
+          },
+          {
+            "name": "connectTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
             "required": false,
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
           },
           {
-            "$ref": "#/parameters/api-version"
+            "name": "responseTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
           }
         ],
         "responses": {
           "200": {
-            "description": "Returns multiple interfaces",
+            "description": "Returns the digital twin command response payload",
             "schema": {
-              "$ref": "#/definitions/DigitalTwinInterfaces"
+              "description": "The Response Payload",
+              "type": "object"
             },
             "headers": {
-              "ETag": {
-                "description": "ETag of the digital twin.",
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}": {
-      "get": {
-        "summary": "Gets the interface of given interfaceId.\r\n            Example URI: \"digitalTwins/{digitalTwinId}/interfaces/{interfaceName}\"",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
-        "operationId": "DigitalTwin_GetComponent",
-        "consumes": [],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "digitalTwinId",
-            "in": "path",
-            "description": "Digital Twin ID. Format of digitalTwinId is DeviceId[~ModuleId]. ModuleId is optional.",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "interfaceName",
-            "in": "path",
-            "description": "The interface name.",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns interface object of given id",
-            "schema": {
-              "$ref": "#/definitions/DigitalTwinInterfaces"
-            },
-            "headers": {
-              "ETag": {
-                "description": "ETag of the digital twin.",
+              "x-ms-command-statuscode": {
+                "description": "Device Generated Status Code for this Operation",
+                "type": "integer",
+                "format": "int32"
+              },
+              "x-ms-request-id": {
+                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
                 "type": "string"
               }
             }
@@ -1229,7 +1160,7 @@
     "/messages/serviceBound/feedback": {
       "get": {
         "summary": "This method is used to retrieve feedback of a cloud-to-device message.",
-        "description": "This method is used to retrieve feedback of a cloud-to-device message See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for more information. This capability is only available in the standard tier IoT Hub. For more information, see [Choose the right IoT Hub tier](https://aka.ms/scaleyouriotsolution). For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "This method is used to retrieve feedback of a cloud-to-device message See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for more information. This capability is only available in the standard tier IoT Hub. For more information, see [Choose the right IoT Hub tier](https://aka.ms/scaleyouriotsolution).",
         "operationId": "HttpRuntime_ReceiveFeedbackNotification",
         "consumes": [],
         "produces": [
@@ -1253,7 +1184,7 @@
     "/messages/serviceBound/feedback/{lockToken}": {
       "delete": {
         "summary": "This method completes a feedback message.",
-        "description": "This method completes a feedback message. The lockToken obtained when the message was received must be provided to resolve race conditions when completing, a feedback message. A completed message is deleted from the feedback queue. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "This method completes a feedback message. The lockToken obtained when the message was received must be provided to resolve race conditions when completing, a feedback message. A completed message is deleted from the feedback queue. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for more information.",
         "operationId": "HttpRuntime_CompleteFeedbackNotification",
         "consumes": [],
         "produces": [
@@ -1281,7 +1212,7 @@
     "/messages/serviceBound/feedback/{lockToken}/abandon": {
       "post": {
         "summary": "This method abandons a feedback message.",
-        "description": "This method abandons a feedback message. The lockToken obtained when the message was received must be provided to resolve race conditions when abandoning, a feedback message. A abandoned message is deleted from the feedback queue. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "This method abandons a feedback message. The lockToken obtained when the message was received must be provided to resolve race conditions when abandoning, a feedback message. A abandoned message is deleted from the feedback queue. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for more information.",
         "operationId": "HttpRuntime_AbandonFeedbackNotification",
         "consumes": [],
         "produces": [
@@ -1309,7 +1240,7 @@
     "/jobs/v2/{id}": {
       "get": {
         "summary": "Retrieves details of a scheduled job from an IoT hub.",
-        "description": "Retrieves details of a scheduled job from an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Retrieves details of a scheduled job from an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs for more information.",
         "operationId": "JobClient_GetJob",
         "consumes": [],
         "produces": [
@@ -1338,7 +1269,7 @@
       },
       "put": {
         "summary": "Creates a new job to schedule update twins or device direct methods on an IoT hub at a scheduled time.",
-        "description": "Creates a new job to schedule update twins or device direct methods on an IoT hub at a scheduled time. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Creates a new job to schedule update twins or device direct methods on an IoT hub at a scheduled time. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs for more information.",
         "operationId": "JobClient_CreateJob",
         "consumes": [
           "application/json"
@@ -1379,7 +1310,7 @@
     "/jobs/v2/{id}/cancel": {
       "post": {
         "summary": "Cancels a scheduled job on an IoT hub.",
-        "description": "Cancels a scheduled job on an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs for more information. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Cancels a scheduled job on an IoT hub. See https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs for more information.",
         "operationId": "JobClient_CancelJob",
         "consumes": [],
         "produces": [
@@ -1410,7 +1341,7 @@
     "/jobs/v2/query": {
       "get": {
         "summary": "Query an IoT hub to retrieve information regarding jobs using the IoT Hub query language",
-        "description": "Query an IoT hub to retrieve information regarding jobs using the IoT Hub query language. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language for more information. Pagination of results is supported. This returns information about jobs only. For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
+        "description": "Query an IoT hub to retrieve information regarding jobs using the IoT Hub query language. See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language for more information. Pagination of results is supported. This returns information about jobs only.",
         "operationId": "JobClient_QueryJobs",
         "consumes": [],
         "produces": [
@@ -1448,7 +1379,6 @@
     "/devices/{id}/modules": {
       "get": {
         "summary": "Retrieve all the module identities on the device.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "RegistryManager_GetModulesOnDevice",
         "consumes": [],
         "produces": [
@@ -1482,7 +1412,6 @@
     "/devices/{id}/modules/{mid}": {
       "get": {
         "summary": "Retrieve the specified module identity on the device.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "RegistryManager_GetModule",
         "consumes": [],
         "produces": [
@@ -1518,7 +1447,6 @@
       },
       "put": {
         "summary": "Create or update the module identity for device in IoT hub. An ETag must not be specified for the create operation. An ETag must be specified for the update operation. Note that moduleId and generation cannot be updated by the user.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "RegistryManager_CreateOrUpdateModule",
         "consumes": [
           "application/json"
@@ -1576,7 +1504,6 @@
       },
       "delete": {
         "summary": "Delete the module identity for device of an IoT hub. This request requires the If-Match header. The client may specify the ETag for the device identity on the request in order to compare to the ETag maintained by the service for the purpose of optimistic concurrency. The delete operation is performed only if the ETag sent by the client matches the value maintained by the server, indicating that the device identity has not been modified since it was retrieved by the client. To force an unconditional delete, set If-Match to the wildcard character (*).",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
         "operationId": "RegistryManager_DeleteModule",
         "consumes": [],
         "produces": [
@@ -1614,76 +1541,80 @@
         }
       }
     },
-    "/digitalTwins/models/{modelId}": {
-      "get": {
-        "summary": "Returns a DigitalTwin model definition for the given id.\r\nIf \"expand\" is present in the query parameters and id is for a device capability model then it returns\r\nthe capability metamodel with expanded interface definitions.",
-        "description": " For IoT Hub VNET related features(https://docs.microsoft.com/en-us/azure/iot-hub/virtual-network-support) please use API version '2020-03-13'.These features are currently in general availability in the East US, West US 2, and Southcentral US regions only. We are actively working to expand the availability of these features to all regions by end of month May. For rest of the APIs please continue using API version '2019-10-01'",
-        "operationId": "DigitalTwin_GetDigitalTwinModel",
-        "consumes": [],
+    "/digitaltwins/{id}/components/{componentPath}/commands/{commandName}": {
+      "post": {
+        "summary": "Invoke a digital twin command.",
+        "description": "Invoke a digital twin command.",
+        "operationId": "DigitalTwin_InvokeComponentCommand",
+        "consumes": [
+          "application/json"
+        ],
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "modelId",
+            "name": "id",
             "in": "path",
-            "description": "Model id Ex: <example>urn:contoso:TemperatureSensor:1</example>",
             "required": true,
             "type": "string"
           },
           {
-            "name": "expand",
-            "in": "query",
-            "description": "Indicates whether to expand the device capability model's interface definitions inline or not.\r\nThis query parameter ONLY applies to Capability model.",
-            "required": false,
-            "type": "boolean"
+            "name": "componentPath",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "commandName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "payload",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "description": "The Request Payload",
+              "type": "object"
+            }
           },
           {
             "$ref": "#/parameters/api-version"
+          },
+          {
+            "name": "connectTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "responseTimeoutInSeconds",
+            "in": "query",
+            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
           }
         ],
         "responses": {
           "200": {
-            "description": "Returns the digital twin model",
+            "description": "Returns the digital twin command response payload",
             "schema": {
+              "description": "The Response Payload",
               "type": "object"
             },
             "headers": {
-              "ETag": {
-                "description": "ETag of the digital twin.",
-                "type": "string"
+              "x-ms-command-statuscode": {
+                "description": "Device Generated Status Code for this Operation",
+                "type": "integer",
+                "format": "int32"
               },
-              "x-ms-model-id": {
-                "description": "Digital twin model id.",
-                "type": "string"
-              },
-              "x-ms-model-resolution-status": {
-                "description": "Digital twin model resolution status: enum [Pending, Success, NotFound, Failed, Resolved, Deleted]",
-                "type": "string"
-              },
-              "x-ms-model-resolution-description": {
-                "description": "Digital twin model resolution status description.",
-                "type": "string"
-              }
-            }
-          },
-          "204": {
-            "description": "Model is not resolved, See the 'x-ms-model-resolution-description' and 'x-ms-model-resolution-status' for the resolution status code and description.",
-            "headers": {
-              "ETag": {
-                "description": "ETag of the digital twin.",
-                "type": "string"
-              },
-              "x-ms-model-id": {
-                "description": "Digital twin model id.",
-                "type": "string"
-              },
-              "x-ms-model-resolution-status": {
-                "description": "Digital twin model resolution status: enum [Pending, Success, NotFound, Failed, Resolved, Deleted]",
-                "type": "string"
-              },
-              "x-ms-model-resolution-description": {
-                "description": "Digital twin model resolution status description.",
+              "x-ms-request-id": {
+                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
                 "type": "string"
               }
             }
@@ -1772,243 +1703,6 @@
             "description": "Returns the method response payload",
             "schema": {
               "$ref": "#/definitions/CloudToDeviceMethodResult"
-            }
-          }
-        }
-      }
-    },
-    "/digitalTwins/{digitalTwinId}/interfaces/{interfaceName}/commands/{commandName}": {
-      "post": {
-        "summary": "Invoke a digital twin interface command.",
-        "description": "Invoke a digital twin interface command.",
-        "operationId": "DigitalTwin_InvokeComponentCommand",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "digitalTwinId",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "interfaceName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "commandName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "payload",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "description": "The Request Payload",
-              "type": "object"
-            }
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          },
-          {
-            "name": "connectTimeoutInSeconds",
-            "in": "query",
-            "description": "Connect timeout in seconds.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "responseTimeoutInSeconds",
-            "in": "query",
-            "description": "Response timeout in seconds.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns the digital twin command response payload",
-            "schema": {
-              "description": "The Response Payload",
-              "type": "object"
-            },
-            "headers": {
-              "x-ms-command-statuscode": {
-                "description": "Device Generated Status Code for this Operation",
-                "type": "integer",
-                "format": "int32"
-              },
-              "x-ms-request-id": {
-                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/digitaltwins/{id}/components/{componentPath}/commands/{commandName}": {
-      "post": {
-        "summary": "Invoke a digital twin command.",
-        "description": "Invoke a digital twin command.",
-        "operationId": "DigitalTwin_InvokeComponentCommand",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "componentPath",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "commandName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "payload",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "description": "The Request Payload",
-              "type": "object"
-            }
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          },
-          {
-            "name": "connectTimeoutInSeconds",
-            "in": "query",
-            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "responseTimeoutInSeconds",
-            "in": "query",
-            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns the digital twin command response payload",
-            "schema": {
-              "description": "The Response Payload",
-              "type": "object"
-            },
-            "headers": {
-              "x-ms-command-statuscode": {
-                "description": "Device Generated Status Code for this Operation",
-                "type": "integer",
-                "format": "int32"
-              },
-              "x-ms-request-id": {
-                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/digitaltwins/{id}/commands/{commandName}": {
-      "post": {
-        "summary": "Invoke a digital twin root level command.",
-        "description": "Invoke a digital twin root level command.",
-        "operationId": "DigitalTwin_InvokeRootLevelCommand",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "commandName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "payload",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "description": "The Request Payload",
-              "type": "object"
-            }
-          },
-          {
-            "$ref": "#/parameters/api-version"
-          },
-          {
-            "name": "connectTimeoutInSeconds",
-            "in": "query",
-            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "responseTimeoutInSeconds",
-            "in": "query",
-            "description": "Maximum interval of time, in seconds, that the digital twin command will wait for the answer.",
-            "required": false,
-            "type": "integer",
-            "format": "int32"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Returns the digital twin command response payload",
-            "schema": {
-              "description": "The Response Payload",
-              "type": "object"
-            },
-            "headers": {
-              "x-ms-command-statuscode": {
-                "description": "Device Generated Status Code for this Operation",
-                "type": "integer",
-                "format": "int32"
-              },
-              "x-ms-request-id": {
-                "description": "Server Generated Request Id (GUID), to uniquely identify this request in the service",
-                "type": "string"
-              }
             }
           }
         }
@@ -2881,6 +2575,12 @@
         "failureReason": {
           "description": "System genereated.  Ignored at creation.\r\nIf status == failure, this represents a string containing the reason.",
           "type": "string"
+        },
+        "includeConfigurations": {
+          "type": "boolean"
+        },
+        "configurationsBlobName": {
+          "type": "string"
         }
       }
     },
@@ -2932,90 +2632,6 @@
         "blockDurationInMinutes": {
           "format": "int32",
           "type": "integer"
-        }
-      }
-    },
-    "DigitalTwinInterfaces": {
-      "type": "object",
-      "properties": {
-        "interfaces": {
-          "description": "Interface(s) data on the digital twin.",
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/Interface"
-          }
-        },
-        "version": {
-          "format": "int64",
-          "description": "Version of digital twin.",
-          "type": "integer"
-        }
-      }
-    },
-    "Interface": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "description": "Full name of digital twin interface.",
-          "type": "string"
-        },
-        "properties": {
-          "description": "List of all properties in an interface.",
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/Property"
-          }
-        }
-      }
-    },
-    "Property": {
-      "type": "object",
-      "properties": {
-        "reported": {
-          "$ref": "#/definitions/Reported"
-        },
-        "desired": {
-          "$ref": "#/definitions/Desired"
-        }
-      }
-    },
-    "Reported": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "description": "The current interface property value in a digitalTwin.",
-          "type": "object"
-        },
-        "desiredState": {
-          "$ref": "#/definitions/DesiredState"
-        }
-      }
-    },
-    "Desired": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "description": "The desired value of the interface property to set in a digitalTwin.",
-          "type": "object"
-        }
-      }
-    },
-    "DesiredState": {
-      "type": "object",
-      "properties": {
-        "code": {
-          "format": "int32",
-          "description": "Status code for the operation.",
-          "type": "integer"
-        },
-        "version": {
-          "format": "int64",
-          "description": "Version of the desired value received.",
-          "type": "integer"
-        },
-        "description": {
-          "description": "Description of the status.",
-          "type": "string"
         }
       }
     },
@@ -3294,38 +2910,6 @@
         "payload": {
           "description": "Method invocation result payload.",
           "type": "object"
-        }
-      }
-    },
-    "DigitalTwinInterfacesPatch": {
-      "type": "object",
-      "properties": {
-        "interfaces": {
-          "description": "Interface(s) data to patch in the digital twin.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "properties": {
-                "description": "List of properties to update in an interface.",
-                "type": "object",
-                "additionalProperties": {
-                  "type": "object",
-                  "properties": {
-                    "desired": {
-                      "type": "object",
-                      "properties": {
-                        "value": {
-                          "description": "The desired value of the interface property to set in a digitalTwin.",
-                          "type": "object"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
         }
       }
     }

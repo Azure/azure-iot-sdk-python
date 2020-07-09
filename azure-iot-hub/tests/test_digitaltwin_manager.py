@@ -156,11 +156,11 @@ class TestInvokeComponentCommand(object):
         ret_val = iothub_digitaltwin_manager.invoke_component_command(
             fake_digital_twin_id, fake_component_path, fake_component_name, fake_payload
         )
-        assert mock_digital_twin_operations.invoke_component_command1.call_count == 1
-        assert mock_digital_twin_operations.invoke_component_command1.call_args == mocker.call(
+        assert mock_digital_twin_operations.invoke_component_command.call_count == 1
+        assert mock_digital_twin_operations.invoke_component_command.call_args == mocker.call(
             fake_digital_twin_id, fake_component_path, fake_component_name, fake_payload
         )
-        assert ret_val == mock_digital_twin_operations.invoke_component_command1()
+        assert ret_val == mock_digital_twin_operations.invoke_component_command()
 
 
 @pytest.mark.describe("IoTHubDigitalTwinManager - .invoke_command()")

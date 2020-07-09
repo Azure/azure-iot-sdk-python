@@ -68,7 +68,7 @@ class IoTHubDigitalTwinManager(object):
 
         :returns: The result of the invoked command.
         """
-        return self.protocol.digital_twin.invoke_component_command1(
+        return self.protocol.digital_twin.invoke_component_command(
             digital_twin_id, component_path, command_name, payload
         )
 
