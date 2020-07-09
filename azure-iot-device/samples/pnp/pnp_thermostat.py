@@ -121,24 +121,6 @@ async def send_telemetry_from_thermostat(device_client, telemetry_msg):
 # CREATE COMMAND LISTENERS
 
 
-def retrieve_values_dict_from_payload(command_request):
-    """
-    Helper method to retrieve the values portion of the response payload.
-    :param command_request: The full dictionary of the command request which contains the payload.
-    :return: The values dictionary from the payload.
-    """
-    pnp_key = "commandRequest"
-    values = {}
-    if not command_request.payload:
-        print("Payload was empty.")
-    elif pnp_key not in command_request.payload:
-        print("There was no payload for {key}.".format(key=pnp_key))
-    else:
-        command_request_payload = command_request.payload
-        values = command_request_payload[pnp_key]["value"]
-    return values
-
-
 async def execute_command_listener(
     device_client, method_name, user_command_handler, create_user_response_handler
 ):
@@ -152,16 +134,11 @@ async def execute_command_listener(
         print("Command request received with payload")
         print(command_request.payload)
 
-        # TODO: In the PnP Spec, the "values" seems vague. What is the purpose of it for Command Requests? What for example would it be for 'reboot'?
-        pnp_key = "commandRequest"
         values = {}
         if not command_request.payload:
             print("Payload was empty.")
-        elif pnp_key not in command_request.payload:
-            print("There was no payload for {key}.".format(key=pnp_key))
         else:
-            command_request_payload = command_request.payload
-            values = command_request_payload[pnp_key]["value"]
+            values = command_request.payload
 
         await user_command_handler(values)
 
@@ -176,40 +153,6 @@ async def execute_command_listener(
             await device_client.send_method_response(command_response)
         except Exception:
             print("responding to the {command} command failed".format(command=method_name))
-
-
-# async def execute_property_listener(device_client):
-#     ignore_keys = ["__t", "$version"]
-#     while True:
-#         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-#         print("the data in the desired properties patch was: {}".format(patch))
-
-#         component_prefix = list(patch.keys())[0]
-#         values = patch[component_prefix]
-#         print("previous values")
-#         print(values)
-
-#         version = patch["$version"]
-#         inner_dict = {}
-
-#         for prop_name, prop_value in values.items():
-#             if prop_name in ignore_keys:
-#                 continue
-#             else:
-#                 inner_dict["ac"] = 200
-#                 inner_dict["ad"] = "Successfully executed patch"
-#                 inner_dict["av"] = version
-#                 inner_dict["value"] = prop_value
-#                 values[prop_name] = inner_dict
-
-#         iotin_dict = dict()
-#         if component_prefix:
-#             iotin_dict[component_prefix] = values
-#             # print(iotin_dict)
-#         else:
-#             iotin_dict = values
-
-#         await device_client.patch_twin_reported_properties(iotin_dict)
 
 
 # END COMMAND LISTENERS
@@ -253,17 +196,7 @@ async def main():
     # Set and read desired property (target temperature)
 
     asyncio.create_task(
-        device_client.patch_twin_reported_properties(
-            {
-                "targetTemperature": {
-                    "value": targetTemperature,
-                    "ac": 200,
-                    "ad": "demonstrating Valid P&P property with embedded value",
-                    "av": 1,
-                },
-                "maxTempSinceLastReboot": maxTemp,
-            }
-        )
+        device_client.patch_twin_reported_properties({"maxTempSinceLastReboot": maxTemp})
     )
 
     ################################################
@@ -322,7 +255,6 @@ async def main():
     ################################################
     # Send telemetry (current temperature)
 
-    # TODO: Concern for the python team. It looks like the call stack keeps growing indefinitely when running send telemetry?
     async def send_telemetry():
         print("Sending telemetry for temperature")
         global maxTemp
@@ -348,7 +280,7 @@ async def main():
             await send_telemetry_from_thermostat(device_client, temperature_msg1)
             await asyncio.sleep(8)
 
-    send_telemetry_task = asyncio.ensure_future(send_telemetry())
+    send_telemetry_task = asyncio.create_task(send_telemetry())
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
