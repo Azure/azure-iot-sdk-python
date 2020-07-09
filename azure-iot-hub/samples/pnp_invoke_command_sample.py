@@ -12,14 +12,14 @@ from azure.iot.hub import IoTHubDigitalTwinManager
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
+command_name = os.getenv("IOTHUB_COMMAND_NAME")  # for the thermostat you can try getMaxMinReport
+payload = os.getenv("IOTHUB_COMMAND_PAYLOAD")  # it really doesn't matter, any string will do.
 
 try:
     # Create IoTHubDigitalTwinManager
     iothub_digital_twin_manager = IoTHubDigitalTwinManager(iothub_connection_str)
 
     # Invoke command
-    command_name = "GetMaxMinReport"  # for the thermostat you can try GetMaxMinReport
-    payload = "hello"  # it really doesn't matter, any string will do.
     invoke_command_result = iothub_digital_twin_manager.invoke_command(
         device_id, command_name, payload
     )

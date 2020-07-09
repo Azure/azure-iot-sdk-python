@@ -17,7 +17,9 @@ try:
     # Create IoTHubDigitalTwinManager
     iothub_digital_twin_manager = IoTHubDigitalTwinManager(iothub_connection_str)
 
-    patch = [{"op": "replace", "path": "/thermostat1/targetTemperature", "value": 42}]
+    # If you already have a component thermostat1:
+    # patch = [{"op": "replace", "path": "/thermostat1/targetTemperature", "value": 42}]
+    patch = [{"op": "add", "path": "/targetTemperature", "value": 42}]
     iothub_digital_twin_manager.update_digital_twin(device_id, patch)
     print("Patch has been succesfully applied")
 
