@@ -689,7 +689,7 @@ class TestMQTTPipelineEVENTRecieveC2DMessage(object):
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: Input Message Received")
 class TestMQTTPipelineEVENTReceiveInputMessage(object):
     @pytest.mark.it(
-        "Triggers the 'on_input_message_received' handler, passing the received message and input name as arguments"
+        "Triggers the 'on_input_message_received' handler, passing the received message as an argument"
     )
     def test_with_handler(self, mocker, pipeline, message):
         # Set the handler
@@ -699,17 +699,19 @@ class TestMQTTPipelineEVENTReceiveInputMessage(object):
 
         # Create the event
         input_name = "some_input"
+        message.input_name = input_name
         input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
 
         # Trigger the event
         pipeline._pipeline.on_pipeline_event_handler(input_message_event)
 
         assert mock_handler.call_count == 1
-        assert mock_handler.call_args == mocker.call(input_name, message)
+        assert mock_handler.call_args == mocker.call(message)
 
     @pytest.mark.it("Drops the message if the 'on_input_message_received' handler is not set")
     def test_no_handler(self, pipeline, message):
         input_name = "some_input"
+        message.input_name = input_name
         input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
         pipeline._pipeline.on_pipeline_event_handler(input_message_event)
 

@@ -41,8 +41,6 @@ class AsyncHandlerManager(object):
         self._on_message_received = None
         self._on_method_request_received = None
         self._on_twin_desired_properties_patch_received = None
-        # TODO: message. Should it be unique for input/C2D?
-        # TODO: how are we going to handle different inputs anyway?
 
         # Other handlers
         # TODO: add
@@ -133,7 +131,7 @@ class AsyncHandlerManager(object):
         return self._on_message_received
 
     @on_message_received.setter
-    def on_c2d_message_received(self, value):
+    def on_message_received(self, value):
         self._generic_handler_setter(MESSAGE, value)
 
     @property

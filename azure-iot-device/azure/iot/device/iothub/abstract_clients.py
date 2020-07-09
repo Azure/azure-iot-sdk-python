@@ -110,8 +110,8 @@ class AbstractIoTHubClient(object):
         if self._receive_type is RECEIVE_TYPE_NONE_SET:
             # Lock the client to ONLY use receive handlers (no APIs)
             self._receive_type = RECEIVE_TYPE_HANDLER
-            # Set the inbox manager to use simplified receives
-            self._inbox_manager.use_simplified = True
+            # Set the inbox manager to use unified msg receives
+            self._inbox_manager.use_unified_msg_mode = True
         elif self._receive_type is RECEIVE_TYPE_API:
             raise exceptions.ClientError(
                 "Cannot set receive handlers - receive APIs have already been used"

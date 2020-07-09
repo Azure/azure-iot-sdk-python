@@ -21,6 +21,8 @@ class C2DMessageEvent(PipelineEvent):
         self.message = message
 
 
+# TODO: refactor to not need separate input name
+# The message already contains the input name, it's not necessary to maintain here as well
 class InputMessageEvent(PipelineEvent):
     """
     A PipelineEvent object which represents an incoming input message event.  This object is probably
