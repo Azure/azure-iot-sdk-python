@@ -10,9 +10,10 @@ import logging
 import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
-import pnp_methods
-from azure.iot.device import constant
+from azure.iot.device import Message, MethodResponse
 from datetime import date
+
+import pnp_helper_summer_refresh
 
 
 logging.basicConfig(level=logging.ERROR)
@@ -34,7 +35,7 @@ model_id = "dtmi:com:example:TemperatureController;1"
 device_information_component_name = "deviceInformation"
 thermostat_1_component_name = "thermostat1"
 thermostat_2_component_name = "thermostat2"
-
+serial_number = "alohomora"
 #####################################################
 # COMMAND HANDLERS : User will define these handlers
 # depending on what commands the component defines
@@ -92,16 +93,90 @@ def create_max_min_report_response(values):
 
 
 async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
-    await pnp_methods.pnp_send_telemetry(
-        device_client, telemetry_msg, component_name
-    )  # only sends telemetry values that have changed
+    pnp_msg = pnp_helper_summer_refresh.create_telemetry(telemetry_msg, component_name)
+    await device_client.send_message(pnp_msg)
+    print("Sent message")
     await asyncio.sleep(8)
 
 
 #####################################################
+# COMMAND TASKS
+
+
+async def execute_command_listener(
+    device_client,
+    component_name=None,
+    method_name=None,
+    user_command_handler=None,
+    create_user_response_handler=None,
+):
+    """
+    Coroutine for executing listeners. These will listen for command requests.
+    They will take in a user provided handler and call the user provided handler
+    according to the command request received.
+    :param device_client: The device client
+    :param component_name: The name of the device like "sensor"
+    :param method_name: (optional) The specific method name to listen for. Eg could be "blink", "turnon" etc.
+    If not provided the listener will listen for all methods.
+    :param user_command_handler: (optional) The user provided handler that needs to be executed after receiving "command requests".
+    If not provided nothing will be executed on receiving command.
+    :param create_user_response_handler: (optional) The user provided handler that will create a response.
+    If not provided a generic response will be created.
+    :return:
+    """
+    while True:
+        if component_name and method_name:
+            command_name = component_name + "*" + method_name
+        elif method_name:
+            command_name = method_name
+        else:
+            command_name = None
+
+        command_request = await device_client.receive_method_request(command_name)
+        print("Command request received with payload")
+        values = command_request.payload
+        print(values)
+
+        if user_command_handler:
+            await user_command_handler(values)
+        else:
+            print("No handler provided to execute")
+
+        (
+            response_status,
+            response_payload,
+        ) = pnp_helper_summer_refresh.create_response_payload_with_status(
+            command_request, method_name, create_user_response=create_user_response_handler
+        )
+
+        pnp_command_response = MethodResponse.create_from_method_request(
+            command_request, response_status, response_payload
+        )
+
+        try:
+            await device_client.send_method_response(pnp_command_response)
+        except Exception:
+            print("responding to the {command} command failed".format(command=method_name))
+
+
+#####################################################
+# PROPERTY TASKS
+
+
+async def execute_property_listener(device_client):
+    while True:
+        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+        pnp_properties_dict = pnp_helper_summer_refresh.create_reported_properties_from_desired(
+            patch
+        )
+
+        await device_client.patch_twin_reported_properties(pnp_properties_dict)
+
 
 #####################################################
 # An # END KEYBOARD INPUT LISTENER to quit application
+
+
 def stdin_listener():
     """
     Listener for quitting the sample
@@ -135,41 +210,34 @@ async def main():
     await device_client.connect()
 
     ################################################
-    # Update properties from various components
+    # Update readable properties from various components
 
-    asyncio.create_task(pnp_methods.pnp_update_property(device_client, serialNumber="alohomora"))
-
-    asyncio.create_task(
-        pnp_methods.pnp_update_property(
-            device_client,
-            thermostat_1_component_name,
-            targetTemperature={"value": 56.78, "ac": 200, "ad": "wingardium leviosa", "av": 1},
-            maxTempSinceLastReboot=67.89,
-        )
+    pnp_properties_root = pnp_helper_summer_refresh.create_reported_properties(
+        serialNumber=serial_number
+    )
+    pnp_properties_thermostat1 = pnp_helper_summer_refresh.create_reported_properties(
+        thermostat_1_component_name, maxTempSinceLastReboot=98.34
+    )
+    pnp_properties_thermostat2 = pnp_helper_summer_refresh.create_reported_properties(
+        thermostat_2_component_name, maxTempSinceLastReboot=48.92
+    )
+    pnp_properties_device_info = pnp_helper_summer_refresh.create_reported_properties(
+        device_information_component_name,
+        swVersion="5.5",
+        manufacturer="Contoso Device Corporation",
+        model="Contoso 4762B-turbo",
+        osName="Mac Os",
+        processorArchitecture="x86-64",
+        processorManufacturer="Intel",
+        totalStorage=1024,
+        totalMemory=32,
     )
 
-    asyncio.create_task(
-        pnp_methods.pnp_update_property(
-            device_client,
-            thermostat_2_component_name,
-            targetTemperature={"value": 35.67, "ac": 200, "ad": "expecto patronum", "av": 1},
-            maxTempSinceLastReboot=78.90,
-        )
-    )
-
-    asyncio.create_task(
-        pnp_methods.pnp_update_property(
-            device_client,
-            device_information_component_name,
-            swVersion="4.5",
-            manufacturer="Contoso Device Corporation",
-            model="Contoso 4762B-turbo",
-            osName="Mac Os",
-            processorArchitecture="x86-64",
-            processorManufacturer="Intel",
-            totalStorage=1024,
-            totalMemory=32,
-        )
+    property_updates = asyncio.gather(
+        device_client.patch_twin_reported_properties(pnp_properties_root),
+        device_client.patch_twin_reported_properties(pnp_properties_thermostat1),
+        device_client.patch_twin_reported_properties(pnp_properties_thermostat2),
+        device_client.patch_twin_reported_properties(pnp_properties_device_info),
     )
 
     ################################################
@@ -177,24 +245,24 @@ async def main():
     print("Listening for command requests and property updates")
 
     listeners = asyncio.gather(
-        pnp_methods.execute_listener(
+        execute_command_listener(
             device_client, method_name="reboot", user_command_handler=reboot_handler
         ),
-        pnp_methods.execute_listener(
+        execute_command_listener(
             device_client,
             thermostat_1_component_name,
             method_name="getMaxMinReport",
             user_command_handler=max_min_handler,
             create_user_response_handler=create_max_min_report_response,
         ),
-        pnp_methods.execute_listener(
+        execute_command_listener(
             device_client,
             thermostat_2_component_name,
             method_name="getMaxMinReport",
             user_command_handler=max_min_handler,
             create_user_response_handler=create_max_min_report_response,
         ),
-        pnp_methods.execute_property_listener(device_client),
+        execute_property_listener(device_client),
     )
 
     ################################################
@@ -225,7 +293,11 @@ async def main():
     if not listeners.done():
         listeners.set_result("DONE")
 
+    if not property_updates.done():
+        property_updates.set_result("DONE")
+
     listeners.cancel()
+    property_updates.cancel()
 
     send_telemetry_task.cancel()
 
