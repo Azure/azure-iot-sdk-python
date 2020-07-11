@@ -17,8 +17,8 @@ async def main():
     # The client object is used to interact with your Azure IoT hub.
     device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
-    # connect the client.
-    await device_client.connect()
+    # # connect the client.
+    # await device_client.connect()
 
     # define behavior for receiving a message
     async def message_listener(device_client):
