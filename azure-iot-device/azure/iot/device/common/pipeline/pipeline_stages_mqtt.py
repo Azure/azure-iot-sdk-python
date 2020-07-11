@@ -24,7 +24,7 @@ from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
-# Maximum amount of time we wait for ConnectOperation or ReauthorizeConnectionOperation to complete
+# Maximum amount of time we wait for ConnectOperation to complete
 WATCHDOG_INTERVAL = 10
 
 
@@ -187,34 +187,10 @@ class MQTTTransportStage(PipelineStage):
                 self._pending_connection_op = None
                 op.complete(error=e)
 
-        elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
-            logger.info("{}({}): reauthorizing".format(self.name, op.name))
-
-            # We set _active_connect_op here because reauthorizing the connection is the same as a connect for "active operation" tracking purposes.
-            self._cancel_pending_connection_op()
-            self._pending_connection_op = op
-            self._start_connection_watchdog(op)
-            try:
-                self.transport.reauthorize_connection(
-                    password=str(self.pipeline_root.pipeline_configuration.sastoken)
-                )
-            except Exception as e:
-                logger.error("transport.reauthorize_connection raised error")
-                logger.error(traceback.format_exc())
-                self._cancel_connection_watchdog(op)
-                self._pending_connection_op = None
-                # Send up a DisconenctedEvent.  If we ran a ReauthorizeConnectionOperatoin,
-                # some code must think we're still connected.  If we got an exception here,
-                # we're not conencted, and we need to notify upper layers. (Paho should do this,
-                # but it only causes a DisconnectedEvent on manual disconnect or if a PINGRESP
-                # failed, and it's possible to hit this code without either of those things
-                # happening.
-                if isinstance(e, transport_exceptions.ConnectionDroppedError):
-                    self.send_event_up(pipeline_events_base.DisconnectedEvent())
-                op.complete(error=e)
-
-        elif isinstance(op, pipeline_ops_base.DisconnectOperation):
-            logger.info("{}({}): disconnecting".format(self.name, op.name))
+        elif isinstance(op, pipeline_ops_base.DisconnectOperation) or isinstance(
+            op, pipeline_ops_base.ReauthorizeConnectionOperation
+        ):
+            logger.info("{}({}): disconnecting or reauthorizing".format(self.name, op.name))
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
@@ -300,11 +276,7 @@ class MQTTTransportStage(PipelineStage):
         # we do anything else (in case upper stages have any "are we connected" logic.
         self.send_event_up(pipeline_events_base.ConnectedEvent())
 
-        if isinstance(
-            self._pending_connection_op, pipeline_ops_base.ConnectOperation
-        ) or isinstance(
-            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
-        ):
+        if isinstance(self._pending_connection_op, pipeline_ops_base.ConnectOperation):
             logger.debug("completing connect op")
             op = self._pending_connection_op
             self._cancel_connection_watchdog(op)
@@ -326,11 +298,7 @@ class MQTTTransportStage(PipelineStage):
 
         logger.info("{}: _on_mqtt_connection_failure called: {}".format(self.name, cause))
 
-        if isinstance(
-            self._pending_connection_op, pipeline_ops_base.ConnectOperation
-        ) or isinstance(
-            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
-        ):
+        if isinstance(self._pending_connection_op, pipeline_ops_base.ConnectOperation):
             logger.debug("{}: failing connect op".format(self.name))
             op = self._pending_connection_op
             self._cancel_connection_watchdog(op)
@@ -369,7 +337,9 @@ class MQTTTransportStage(PipelineStage):
             self._cancel_connection_watchdog(op)
             self._pending_connection_op = None
 
-            if isinstance(op, pipeline_ops_base.DisconnectOperation):
+            if isinstance(op, pipeline_ops_base.DisconnectOperation) or isinstance(
+                op, pipeline_ops_base.ReauthorizeConnectionOperation
+            ):
                 # Swallow any errors if we intended to disconnect - even if something went wrong, we
                 # got to the state we wanted to be in!
                 if cause:
