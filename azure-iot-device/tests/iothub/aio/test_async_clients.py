@@ -49,8 +49,6 @@ async def create_completed_future(result=None):
 #######################
 # SHARED CLIENT TESTS #
 #######################
-
-
 class SharedClientConnectTests(object):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
     async def test_calls_pipeline_connect(self, client, mqtt_pipeline):

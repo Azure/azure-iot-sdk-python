@@ -24,13 +24,7 @@ class Message(object):
     """
 
     def __init__(
-        self,
-        data,
-        message_id=None,
-        content_encoding=None,
-        content_type=None,
-        output_name=None,
-        input_name=None,
+        self, data, message_id=None, content_encoding=None, content_type=None, output_name=None
     ):
         """
         Initializer for Message
@@ -49,8 +43,9 @@ class Message(object):
         self.user_id = None
         self.content_encoding = content_encoding
         self.content_type = content_type
+        # Open Question: could input_name and output_name fields be combined somehow (destination?)
         self.output_name = output_name
-        self.input_name = input_name  # TODO: could these two fields be combined?
+        self.input_name = None
         self._iothub_interface_id = None
 
     @property

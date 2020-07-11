@@ -17,6 +17,7 @@ from azure.iot.device.common import auth
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
+from azure.iot.device.iothub.abstract_clients import RECEIVE_TYPE_NONE_SET
 from azure.iot.device.iothub import edge_hsm
 from azure.iot.device import ProxyOptions
 
@@ -74,6 +75,12 @@ class SharedIoTHubClientInstantiationTests(object):
             client._mqtt_pipeline.on_method_request_received
             == client._inbox_manager.route_method_request
         )
+
+    @pytest.mark.it("Sets the Receive Mode/Type for the client as yet-unchosen")
+    def test_initial_receive_mode(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
+
+        assert client._receive_type == RECEIVE_TYPE_NONE_SET
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
