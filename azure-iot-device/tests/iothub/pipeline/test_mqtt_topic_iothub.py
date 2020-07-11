@@ -1026,6 +1026,212 @@ class TestExtractMessagePropertiesFromTopic(object):
         with pytest.raises(ValueError):
             mqtt_topic_iothub.extract_message_properties_from_topic(topic, msg)
 
+    @pytest.mark.it("Extracts system and custom properties without values")
+    @pytest.mark.parametrize(
+        "topic, extracted_system_properties, extracted_custom_properties",
+        [
+            pytest.param(
+                "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=1.0&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "dataVersion": "1.0",
+                    "$.cdid": "fakecdid",
+                },
+                id="C2D topic with some system properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=1.0&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "dataVersion": "1.0",
+                    "$.cdid": "fakecdid",
+                },
+                id="Input message topic with some system properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=fakecorrid&%24.uid=harrypotter&classname",
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": "fakecorrid",
+                    "uid": "harrypotter",
+                },
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
+                },
+                id="C2D topic with some custom properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=fakecorrid&%24.uid=harrypotter&classname",
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": "fakecorrid",
+                    "uid": "harrypotter",
+                },
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
+                },
+                id="Input message topic with some custom properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid&classname",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
+                },
+                id="C2D topic with some system properties and some custom not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid&%24.uid&classname",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": None, "uid": None},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "classname": None,
+                    "dataVersion": None,
+                },
+                id="Input message topic with some system properties and some custom not having values",
+            ),
+        ],
+    )
+    def test_receive_topic_without_values(
+        self, topic, extracted_system_properties, extracted_custom_properties
+    ):
+        msg = Message("fake message")
+        mqtt_topic_iothub.extract_message_properties_from_topic(topic, msg)
+
+        # Validate system properties received
+        assert msg.message_id == extracted_system_properties["mid"]
+        assert msg.correlation_id == extracted_system_properties["cid"]
+        assert msg.user_id == extracted_system_properties["uid"]
+
+        # Validate system properties NOT received
+        assert msg.content_type == extracted_system_properties.get("ct", None)
+        assert msg.content_encoding == extracted_system_properties.get("ce", None)
+        assert msg.expiry_time_utc == extracted_system_properties.get("exp", None)
+
+        # Validate custom properties
+        assert msg.custom_properties == extracted_custom_properties
+
+    @pytest.mark.it("Extracts system and custom properties with empty string values")
+    @pytest.mark.parametrize(
+        "topic, extracted_system_properties, extracted_custom_properties",
+        [
+            pytest.param(
+                "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=1.0&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=&%24.uid=",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": "", "uid": ""},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "dataVersion": "1.0",
+                    "$.cdid": "fakecdid",
+                },
+                id="C2D topic with some system properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=1.0&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=&%24.uid=",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": "", "uid": ""},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "dataVersion": "1.0",
+                    "$.cdid": "fakecdid",
+                },
+                id="Input message topic with some system properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=fakecorrid&%24.uid=harrypotter&classname=",
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": "fakecorrid",
+                    "uid": "harrypotter",
+                },
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "dataVersion": "",
+                    "classname": "",
+                },
+                id="C2D topic with some custom properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=fakecorrid&%24.uid=harrypotter&classname=",
+                {
+                    "mid": "e32c2285-668e-4161-a236-9f5f6b90362c",
+                    "cid": "fakecorrid",
+                    "uid": "harrypotter",
+                },
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "dataVersion": "",
+                    "classname": "",
+                },
+                id="Input message topic with some custom properties not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/messages/devicebound/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=&%24.uid=&classname=",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": "", "uid": ""},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "dataVersion": "",
+                    "classname": "",
+                },
+                id="C2D topic with some system properties and some custom not having values",
+            ),
+            pytest.param(
+                "devices/fakedevice/modules/fakemodule/inputs/fakeinput/topic=%2Fsubscriptions%2FresourceGroups&subject=%2FgraphInstances&dataVersion=&%24.cdid=fakecdid&%24.mid=e32c2285-668e-4161-a236-9f5f6b90362c&%24.cid=&%24.uid=&classname=",
+                {"mid": "e32c2285-668e-4161-a236-9f5f6b90362c", "cid": "", "uid": ""},
+                {
+                    "topic": "/subscriptions/resourceGroups",
+                    "subject": "/graphInstances",
+                    "$.cdid": "fakecdid",
+                    "dataVersion": "",
+                    "classname": "",
+                },
+                id="Input message topic with some system properties and some custom not having values",
+            ),
+        ],
+    )
+    def test_receive_topic_with_empty_values(
+        self, topic, extracted_system_properties, extracted_custom_properties
+    ):
+        msg = Message("fake message")
+        mqtt_topic_iothub.extract_message_properties_from_topic(topic, msg)
+
+        # Validate system properties received
+        assert msg.message_id == extracted_system_properties["mid"]
+        assert msg.correlation_id == extracted_system_properties["cid"]
+        assert msg.user_id == extracted_system_properties["uid"]
+
+        # Validate system properties NOT received
+        assert msg.content_type == extracted_system_properties.get("ct", None)
+        assert msg.content_encoding == extracted_system_properties.get("ce", None)
+        assert msg.expiry_time_utc == extracted_system_properties.get("exp", None)
+
+        # Validate custom properties
+        assert msg.custom_properties == extracted_custom_properties
+
 
 @pytest.mark.describe(".encode_message_properties_in_topic()")
 class TestEncodeMessagePropertiesInTopic(object):
