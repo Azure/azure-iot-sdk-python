@@ -54,3 +54,24 @@ def create_future(loop):
     except AttributeError:
         future = asyncio.Future(loop=loop)
     return future
+
+
+def run(coro):
+    """Execute the coroutine coro and return the result.
+
+    It creates a new event loop and closes it at the end.
+    Cannot be called when another asyncio event loop is running in the same thread.
+
+    If available (Python 3.7+) use asyncio.run. If not available, use a custom implementation
+    that achieves the same thing
+    """
+    try:
+        return asyncio.run(coro)
+    except AttributeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)

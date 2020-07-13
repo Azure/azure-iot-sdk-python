@@ -167,7 +167,7 @@ class SharedHandlerPropertyTests(object):
         assert not task.cancelled()
 
     @pytest.mark.it(
-        "Is invoked from by the task when the Inbox corresponding to the handler receives an object, passing that object to the handler"
+        "Is invoked by the task when the Inbox corresponding to the handler receives an object, passing that object to the handler"
     )
     async def test_handler_invoked(
         self, mocker, handler_name, handler_manager, handler, handler_checker, inbox

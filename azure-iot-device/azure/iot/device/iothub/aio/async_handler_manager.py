@@ -62,7 +62,7 @@ class AsyncHandlerManager(object):
             if inspect.iscoroutinefunction(handler):
                 # Wrap the coroutine in a function so it can be run in ThreadPool
                 def coro_wrapper(coro, arg):
-                    asyncio.run(coro(arg))
+                    asyncio_compat.run(coro(arg))
 
                 tp.submit(coro_wrapper, handler, retval)
             else:
