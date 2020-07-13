@@ -13,8 +13,6 @@ import json
 import pnp_helper
 import asyncio
 
-prefix = "$iotin:"
-
 
 class PnpProperties(object):
     def __init__(self, top_key, **kwargs):
@@ -22,13 +20,18 @@ class PnpProperties(object):
         for name in kwargs:
             setattr(self, name, kwargs[name])
 
-    def _to_dict(self):
-        all_attrs = list((x for x in self.__dict__ if not x.startswith("_")))
+    def _to_value_dict(self):
+        all_attrs = list((x for x in self.__dict__ if x != "_top_key"))
         inner = {key: {"value": getattr(self, key)} for key in all_attrs}
-        return {self._top_key: inner}
+        return inner
+
+    def _to_simple_dict(self):
+        all_simple_attrs = list((x for x in self.__dict__ if x != "_top_key"))
+        inner = {key: getattr(self, key) for key in all_simple_attrs}
+        return inner
 
 
-async def pnp_send_telemetry(device_client, component_name, telemetry_msg):
+async def pnp_send_telemetry(device_client, telemetry_msg, component_name=None):
     """
     Coroutine to send telemetry from a PNP device. This method will take the raw telemetry message
     in the form of a dictionary from the user and then send message after creating a message object.
@@ -39,12 +42,13 @@ async def pnp_send_telemetry(device_client, component_name, telemetry_msg):
     msg = Message(json.dumps(telemetry_msg))
     msg.content_encoding = "utf-8"
     msg.content_type = "application/json"
-    msg.custom_properties["$.sub"] = component_name
+    if component_name:
+        msg.custom_properties["$.sub"] = component_name
     print("Sent message")
     await device_client.send_message(msg)
 
 
-async def pnp_update_property(device_client, component_name, **prop_kwargs):
+async def pnp_update_property_with_values(device_client, component_name=None, **prop_kwargs):
     """
     Coroutine that updates properties for a PNP device. This method will take in the user properties passed as
     key word arguments and then patches twin with a object constructed internally.
@@ -52,11 +56,43 @@ async def pnp_update_property(device_client, component_name, **prop_kwargs):
     :param component_name: The name of the component. Like "deviceinformation" or "sdkinformation"
     :param prop_kwargs: The user passed keyword arguments which are the properties that the user wants to update.
     """
-    print("Updating pnp properties for {component_name}".format(component_name=component_name))
-    key = prefix + component_name
-    prop_object = PnpProperties(key, **prop_kwargs)
-    prop_dict = prop_object._to_dict()
+    if component_name:
+        print("Updating pnp properties for {component_name}".format(component_name=component_name))
+    else:
+        print("Updating pnp properties for root interface")
+    prop_object = PnpProperties(component_name, **prop_kwargs)
+    inner_dict = prop_object._to_value_dict()
+    if component_name:
+        inner_dict["__t"] = "c"
+        prop_dict = {}
+        prop_dict[component_name] = inner_dict
+    else:
+        prop_dict = inner_dict
     # print(prop_dict)
+    await device_client.patch_twin_reported_properties(prop_dict)
+
+
+async def pnp_update_property(device_client, component_name=None, **prop_kwargs):
+    """
+    Coroutine that updates properties for a PNP device. This method will take in the user properties passed as
+    key word arguments and then patches twin with a object constructed internally.
+    :param device_client: The device client
+    :param component_name: The name of the component. Like "deviceinformation" or "sdkinformation"
+    :param prop_kwargs: The user passed keyword arguments which are the properties that the user wants to update.
+    """
+    if component_name:
+        print("Updating pnp properties for {component_name}".format(component_name=component_name))
+    else:
+        print("Updating pnp properties for root interface")
+    prop_object = PnpProperties(component_name, **prop_kwargs)
+    inner_dict = prop_object._to_simple_dict()
+    if component_name:
+        inner_dict["__t"] = "c"
+        prop_dict = {}
+        prop_dict[component_name] = inner_dict
+    else:
+        prop_dict = inner_dict
+    print(prop_dict)
     await device_client.patch_twin_reported_properties(prop_dict)
 
 
@@ -73,7 +109,7 @@ async def pnp_retrieve_properties(device_client):
 
 async def execute_listener(
     device_client,
-    component_name,
+    component_name=None,
     method_name=None,
     user_command_handler=None,
     create_user_response_handler=None,
@@ -93,8 +129,10 @@ async def execute_listener(
     :return:
     """
     while True:
-        if method_name:
-            command_name = prefix + component_name + "*" + method_name
+        if component_name and method_name:
+            command_name = component_name + "*" + method_name
+        elif method_name:
+            command_name = method_name
         else:
             command_name = None
 
@@ -128,34 +166,34 @@ async def execute_listener(
 
 
 async def execute_property_listener(device_client):
+    ignore_keys = ["__t", "$version"]
     while True:
         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
         print("the data in the desired properties patch was: {}".format(patch))
 
         component_prefix = list(patch.keys())[0]
-        # print(component_prefix)
         values = patch[component_prefix]
+        print("previous values")
+        print(values)
+
         version = patch["$version"]
-        output_dict = {}
         inner_dict = {}
 
         for prop_name, prop_value in values.items():
-            # print(prop_name)
-            # print(prop_value)
-            inner_dict["ac"] = 200
-            inner_dict["ad"] = "Successfully executed patch"
-            inner_dict["av"] = version
-            inner_dict.update(prop_value)
-            output_dict[prop_name] = inner_dict
-
-        # print(output_dict)
+            if prop_name in ignore_keys:
+                continue
+            else:
+                inner_dict["ac"] = 200
+                inner_dict["ad"] = "Successfully executed patch"
+                inner_dict["av"] = version
+                inner_dict["value"] = prop_value
+                values[prop_name] = inner_dict
 
         iotin_dict = dict()
-        iotin_dict[component_prefix] = output_dict
-        # string_props = json.dumps(iotin_dict, default=lambda o: o.__dict__, sort_keys=True)
-        # string_props = json.dumps(iotin_dict)
-        # print(string_props)
+        if component_prefix:
+            iotin_dict[component_prefix] = values
+            # print(iotin_dict)
+        else:
+            iotin_dict = values
 
         await device_client.patch_twin_reported_properties(iotin_dict)
-
-        # print(iotin_dict)
