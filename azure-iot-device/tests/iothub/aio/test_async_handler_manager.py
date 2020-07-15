@@ -49,7 +49,7 @@ def handler_checker():
 
 
 @pytest.fixture(params=["Handler function", "Handler coroutine"])
-def handler(mocker, request, handler_checker):
+def handler(request, handler_checker):
     if request.param == "Handler function":
 
         def some_handler_fn(arg):

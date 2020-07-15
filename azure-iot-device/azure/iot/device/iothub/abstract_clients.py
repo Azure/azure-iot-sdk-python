@@ -9,6 +9,7 @@
 import six
 import abc
 import logging
+import threading
 import os
 import io
 from . import pipeline
@@ -87,6 +88,7 @@ class AbstractIoTHubClient(object):
 
         self._inbox_manager = None  # this will be overriden in child class
         self._receive_type = RECEIVE_TYPE_NONE_SET
+        self._client_lock = threading.Lock()
 
         # Generic Client handlers
         self._on_method_request_received = None
@@ -95,6 +97,7 @@ class AbstractIoTHubClient(object):
 
     def _validate_receive_api_invoke(self):
         """Call this function first in EVERY receive API"""
+        self._client_lock.acquire()
         if self._receive_type is RECEIVE_TYPE_NONE_SET:
             # Lock the client to ONLY use receive APIs (no handlers)
             self._receive_type = RECEIVE_TYPE_API
@@ -104,9 +107,11 @@ class AbstractIoTHubClient(object):
             )
         else:
             pass
+        self._client_lock.release()
 
     def _validate_receive_handler_setter(self):
         """Call this function first in EVERY handler setter"""
+        self._client_lock.acquire()
         if self._receive_type is RECEIVE_TYPE_NONE_SET:
             # Lock the client to ONLY use receive handlers (no APIs)
             self._receive_type = RECEIVE_TYPE_HANDLER
@@ -118,6 +123,7 @@ class AbstractIoTHubClient(object):
             )
         else:
             pass
+        self._client_lock.release()
 
     @classmethod
     def create_from_connection_string(cls, connection_string, **kwargs):

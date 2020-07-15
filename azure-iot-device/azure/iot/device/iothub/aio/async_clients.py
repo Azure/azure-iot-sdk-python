@@ -384,25 +384,25 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
 
-    @property
-    def on_method_request_received(self):
-        return self._on_method_request_received
+    # @property
+    # def on_method_request_received(self):
+    #     return self._on_method_request_received
 
-    @on_method_request_received.setter
-    def on_method_request_received(self, value):
-        self._validate_receive_handler_setter()
-        # Enable the feature if necessary
-        if value is not None and not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
-            loop = asyncio.get_event_loop()
-            asyncio.ensure_future(self._enable_feature(constant.METHODS), loop=loop)
+    # @on_method_request_received.setter
+    # def on_method_request_received(self, value):
+    #     self._validate_receive_handler_setter()
+    #     # Enable the feature if necessary
+    #     if value is not None and not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
+    #         loop = asyncio.get_event_loop()
+    #         asyncio.ensure_future(self._enable_feature(constant.METHODS), loop=loop)
 
-        # Disable the feature if necessary
-        elif value is None and self._mqtt_pipeline.feature_enabled[constant.METHODS]:
-            loop = asyncio.get_event_loop()
-            asyncio.ensure_future(self._disable_feature(constant.METHODS), loop=loop)
+    #     # Disable the feature if necessary
+    #     elif value is None and self._mqtt_pipeline.feature_enabled[constant.METHODS]:
+    #         loop = asyncio.get_event_loop()
+    #         asyncio.ensure_future(self._disable_feature(constant.METHODS), loop=loop)
 
-        # Set the handler on the handler manager
-        self._handler_manager.on_method_request_received = value
+    #     # Set the handler on the handler manager
+    #     self._handler_manager.on_method_request_received = value
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):

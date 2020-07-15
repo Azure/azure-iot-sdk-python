@@ -21,24 +21,20 @@ class C2DMessageEvent(PipelineEvent):
         self.message = message
 
 
-# TODO: refactor to not need separate input name
-# The message already contains the input name, it's not necessary to maintain here as well
 class InputMessageEvent(PipelineEvent):
     """
     A PipelineEvent object which represents an incoming input message event.  This object is probably
     created by some converter stage based on a protocol-specific event
     """
 
-    def __init__(self, input_name, message):
+    def __init__(self, message):
         """
         Initializer for InputMessageEvent objects.
 
-        :param str input_name: The name of the input that this message arrived on.  This string is
-          also stored in the input_name attribute on the message object
-        :param Message message: The Message object for the message that was received.
+        :param Message message: The Message object for the message that was received. This message
+            is expected to have had the .input_name attribute set
         """
         super(InputMessageEvent, self).__init__()
-        self.input_name = input_name
         self.message = message
 
 
