@@ -144,14 +144,31 @@ class TestMQTTTransportStageRunOpCalledWithInitializePipelineOperation(
             pytest.param(None, id="Not using Gateway Hostname"),
         ],
     )
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param(900, id="Pipeline configured for custom keep alive"),
+            pytest.param(None, id="Pipeline NOT configured for custom keep alive"),
+        ],
+    )
     def test_creates_transport(
-        self, mocker, stage, op, mock_transport, websockets, cipher, proxy_options, gateway_hostname
+        self,
+        mocker,
+        stage,
+        op,
+        mock_transport,
+        websockets,
+        cipher,
+        proxy_options,
+        gateway_hostname,
+        keep_alive,
     ):
-        # Configure websockets & cipher
+        # Configure websockets & cipher & keep alive
         stage.pipeline_root.pipeline_configuration.websockets = websockets
         stage.pipeline_root.pipeline_configuration.cipher = cipher
         stage.pipeline_root.pipeline_configuration.proxy_options = proxy_options
         stage.pipeline_root.pipeline_configuration.gateway_hostname = gateway_hostname
+        stage.pipeline_root.pipeline_configuration.keep_alive = keep_alive
 
         # NOTE: if more of this type of logic crops up, consider splitting this test up
         if stage.pipeline_root.pipeline_configuration.gateway_hostname:
@@ -173,6 +190,7 @@ class TestMQTTTransportStageRunOpCalledWithInitializePipelineOperation(
             websockets=websockets,
             cipher=cipher,
             proxy_options=proxy_options,
+            keep_alive=keep_alive,
         )
         assert stage.transport is mock_transport.return_value
 

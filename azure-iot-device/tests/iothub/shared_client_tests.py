@@ -202,6 +202,28 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
 
         assert config.proxy_options is proxy_options
 
+    @pytest.mark.it(
+        "Sets the 'keep_alive' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_keep_alive_options(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        keepalive_value = 60
+        client_create_method(*create_method_args, keep_alive=keepalive_value)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.keep_alive is keepalive_value
+
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(
         self, option_test_required_patching, client_create_method, create_method_args
@@ -234,6 +256,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.cipher == ""
         assert config.proxy_options is None
         assert config.server_verification_cert is None
+        assert config.keep_alive is None
 
 
 # TODO: consider splitting this test class up into device/module specific test classes to avoid
@@ -748,6 +771,7 @@ class SharedIoTHubModuleClientClientCreateFromEdgeEnvironmentUserOptionTests(
         assert config.websockets is False
         assert config.cipher == ""
         assert config.proxy_options is None
+        assert config.keep_alive is None
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")

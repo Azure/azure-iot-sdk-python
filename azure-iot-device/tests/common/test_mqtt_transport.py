@@ -400,7 +400,7 @@ class TestConnect(object):
             host=fake_hostname, port=port, keepalive=mocker.ANY
         )
 
-    @pytest.mark.it("Passes DEFAULT_KEEPALIVE to paho connect function")
+    @pytest.mark.it("Passes keep alive to paho connect function")
     @pytest.mark.parametrize(
         "password",
         [
@@ -408,16 +408,41 @@ class TestConnect(object):
             pytest.param(None, id="No password provided"),
         ],
     )
-    def test_calls_paho_connect_with_keepalive(self, mocker, mock_mqtt_client, transport, password):
-
+    @pytest.mark.parametrize(
+        "websockets,port",
+        [
+            pytest.param(False, 8883, id="Not using websockets"),
+            pytest.param(True, 443, id="Using websockets"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param(900, id="Custom user keep alive"),
+            pytest.param(None, id="No custom user keep alive"),
+        ],
+    )
+    def test_calls_paho_connect_with_keepalive(
+        self, mocker, mock_mqtt_client, transport, password, websockets, port, keep_alive
+    ):
+        # set the default value which will be used if no custom
         mqtt_transport.DEFAULT_KEEPALIVE = fake_keepalive
+        transport._websockets = websockets
+
+        # avoiding to create another fixture
+        transport._keep_alive = keep_alive
 
         transport.connect(password)
 
         assert mock_mqtt_client.connect.call_count == 1
-        assert mock_mqtt_client.connect.call_args == mocker.call(
-            host=fake_hostname, port=8883, keepalive=fake_keepalive
-        )
+        if keep_alive:
+            assert mock_mqtt_client.connect.call_args == mocker.call(
+                host=fake_hostname, port=port, keepalive=keep_alive
+            )
+        else:
+            assert mock_mqtt_client.connect.call_args == mocker.call(
+                host=fake_hostname, port=port, keepalive=fake_keepalive
+            )
 
     @pytest.mark.it("Starts MQTT Network Loop")
     @pytest.mark.parametrize(

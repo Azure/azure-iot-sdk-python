@@ -7,7 +7,10 @@
 import logging
 import six
 import abc
-from azure.iot.device.common import models
+from azure.iot.device import constant
+
+# For making long work in python 2 and 3
+from builtins import int
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ class BasePipelineConfig(object):
         websockets=False,
         cipher="",
         proxy_options=None,
+        keep_alive=None,
     ):
         """Initializer for BasePipelineConfig
 
@@ -62,6 +66,7 @@ class BasePipelineConfig(object):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
         self.proxy_options = proxy_options
+        self.keep_alive = self._rectify_keep_alive(keep_alive)
 
     @staticmethod
     def _sanitize_cipher(cipher):
@@ -77,3 +82,23 @@ class BasePipelineConfig(object):
             raise TypeError("Invalid type for 'cipher'")
 
         return cipher
+
+    @staticmethod
+    def _rectify_keep_alive(keep_alive):
+        if keep_alive and not isinstance(keep_alive, (int, float)):
+            raise TypeError("Invalid type for 'keep alive'. Permissible types are number.")
+
+        if keep_alive is not None and keep_alive <= 0:
+            # Not allowing a keep alive of 0 as this would mean frequent ping exchanges.
+            logger.error(
+                "'keep alive' can not be zero or negative. A default value of 'keep alive' will be used by the protocol."
+            )
+            keep_alive = None
+        elif keep_alive and keep_alive > constant.LOAD_BALANCER_LIMIT_SECS:
+            # This is Hub's maximum Load Balancer Limit before
+            logger.error(
+                "'keep alive' can not be more than 29 minutes. 'keep alive' will be set to max value of 29 minutes to continue."
+            )
+            keep_alive = constant.LOAD_BALANCER_LIMIT_SECS
+
+        return keep_alive

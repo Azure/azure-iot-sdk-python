@@ -7,6 +7,7 @@ import pytest
 import abc
 import six
 from azure.iot.device import ProxyOptions
+from azure.iot.device import constant
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -228,3 +229,68 @@ class PipelineConfigInstantiationTestBase(object):
     def test_proxy_options_default(self, config_cls, required_kwargs, sastoken):
         config = config_cls(sastoken=sastoken, **required_kwargs)
         assert config.proxy_options is None
+
+    @pytest.mark.it(
+        "Raises TypeError if the provided 'keep_alive' attribute is not a type of integer or float or long"
+    )
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param("sectumsempra", id="string"),
+            pytest.param((1, 2), id="tuple"),
+            pytest.param(object(), id="object"),
+        ],
+    )
+    def test_invalid_keep_alive_param(self, config_cls, required_kwargs, sastoken, keep_alive):
+        with pytest.raises(TypeError):
+            config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute to 'None' if no 'keep_alive' parameter is provided"
+    )
+    def test_keep_alive_default(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, **required_kwargs)
+        assert config.keep_alive is None
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute set to the provided 'keep_alive' parameter"
+    )
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param(1, id="int"),
+            pytest.param(35.90, id="float"),
+            pytest.param(0b1010, id="binary"),
+            pytest.param(0x9, id="hexadecimal"),
+        ],
+    )
+    def test_keep_alive_valid(self, mocker, required_kwargs, config_cls, sastoken, keep_alive):
+        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+        assert config.keep_alive == keep_alive
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute to a max value in case provided 'keep_alive' parameter is more than max value"
+    )
+    def test_keep_alive_greater_than_max(self, mocker, required_kwargs, config_cls, sastoken):
+        keep_alive = 9876543210987654321098765432109876543210
+
+        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+        assert config.keep_alive == constant.LOAD_BALANCER_LIMIT_SECS
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute to None in case provided 'keep_alive' parameter is less than 0"
+    )
+    def test_keep_alive_negative(self, mocker, required_kwargs, config_cls, sastoken):
+        keep_alive = -2001
+
+        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+        assert config.keep_alive is None
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute to None in case provided 'keep_alive' parameter is 0"
+    )
+    def test_keep_alive_zero(self, mocker, required_kwargs, config_cls, sastoken):
+        keep_alive = 0
+
+        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+        assert config.keep_alive is None
