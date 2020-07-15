@@ -13,7 +13,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message, MethodResponse
 from datetime import date
 
-import pnp_helper_summer_refresh
+import pnp_helper_preview_refresh
 
 
 logging.basicConfig(level=logging.ERROR)
@@ -93,7 +93,7 @@ def create_max_min_report_response(values):
 
 
 async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
-    pnp_msg = pnp_helper_summer_refresh.create_telemetry(telemetry_msg, component_name)
+    pnp_msg = pnp_helper_preview_refresh.create_telemetry(telemetry_msg, component_name)
     await device_client.send_message(pnp_msg)
     print("Sent message")
     await asyncio.sleep(8)
@@ -145,7 +145,7 @@ async def execute_command_listener(
         (
             response_status,
             response_payload,
-        ) = pnp_helper_summer_refresh.create_response_payload_with_status(
+        ) = pnp_helper_preview_refresh.create_response_payload_with_status(
             command_request, method_name, create_user_response=create_user_response_handler
         )
 
@@ -166,7 +166,7 @@ async def execute_command_listener(
 async def execute_property_listener(device_client):
     while True:
         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-        pnp_properties_dict = pnp_helper_summer_refresh.create_reported_properties_from_desired(
+        pnp_properties_dict = pnp_helper_preview_refresh.create_reported_properties_from_desired(
             patch
         )
 
@@ -212,16 +212,16 @@ async def main():
     ################################################
     # Update readable properties from various components
 
-    pnp_properties_root = pnp_helper_summer_refresh.create_reported_properties(
+    pnp_properties_root = pnp_helper_preview_refresh.create_reported_properties(
         serialNumber=serial_number
     )
-    pnp_properties_thermostat1 = pnp_helper_summer_refresh.create_reported_properties(
+    pnp_properties_thermostat1 = pnp_helper_preview_refresh.create_reported_properties(
         thermostat_1_component_name, maxTempSinceLastReboot=98.34
     )
-    pnp_properties_thermostat2 = pnp_helper_summer_refresh.create_reported_properties(
+    pnp_properties_thermostat2 = pnp_helper_preview_refresh.create_reported_properties(
         thermostat_2_component_name, maxTempSinceLastReboot=48.92
     )
-    pnp_properties_device_info = pnp_helper_summer_refresh.create_reported_properties(
+    pnp_properties_device_info = pnp_helper_preview_refresh.create_reported_properties(
         device_information_component_name,
         swVersion="5.5",
         manufacturer="Contoso Device Corporation",
