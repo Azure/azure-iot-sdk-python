@@ -700,7 +700,7 @@ class TestMQTTPipelineEVENTReceiveInputMessage(object):
         # Create the event
         input_name = "some_input"
         message.input_name = input_name
-        input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
+        input_message_event = pipeline_events_iothub.InputMessageEvent(message)
 
         # Trigger the event
         pipeline._pipeline.on_pipeline_event_handler(input_message_event)
@@ -712,7 +712,7 @@ class TestMQTTPipelineEVENTReceiveInputMessage(object):
     def test_no_handler(self, pipeline, message):
         input_name = "some_input"
         message.input_name = input_name
-        input_message_event = pipeline_events_iothub.InputMessageEvent(input_name, message)
+        input_message_event = pipeline_events_iothub.InputMessageEvent(message)
         pipeline._pipeline.on_pipeline_event_handler(input_message_event)
 
         # No assertions required - not throwing an exception means the test passed
