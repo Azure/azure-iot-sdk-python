@@ -55,13 +55,24 @@ class IoTHubDigitalTwinManager(object):
             digital_twin_id, digital_twin_patch, etag
         )
 
-    def invoke_component_command(self, digital_twin_id, component_path, command_name, payload):
+    def invoke_component_command(
+        self,
+        digital_twin_id,
+        component_path,
+        command_name,
+        payload,
+        connect_timeout_in_seconds=None,
+        response_timeout_in_seconds=None,
+    ):
 
         """Invoke a command on an component of a particular device and get the result of it.
         :param str digital_twin__id: The digital twin Id of the given device.
         :param str component_path: The component's name.
         :param str command_name: The command's name.
         :param str payload: The argument of a command.
+        :param int connect_timeout_in_seconds: Maximum interval of time, in seconds, that the digital twin command will wait for the answer.
+        :param int response_timeout_in_seconds: Maximum interval of time, in seconds, that the digital twin command will wait for the response. The value must be within 5-300.
+        :type response_timeout_in_seconds: int
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -69,15 +80,29 @@ class IoTHubDigitalTwinManager(object):
         :returns: The result of the invoked command.
         """
         return self.protocol.digital_twin.invoke_component_command(
-            digital_twin_id, component_path, command_name, payload
+            digital_twin_id,
+            component_path,
+            command_name,
+            payload,
+            connect_timeout_in_seconds,
+            response_timeout_in_seconds,
         )
 
-    def invoke_command(self, digital_twin_id, command_name, payload):
+    def invoke_command(
+        self,
+        digital_twin_id,
+        command_name,
+        payload,
+        connect_timeout_in_seconds=None,
+        response_timeout_in_seconds=None,
+    ):
 
         """Invoke a command on a particular device and get the result of it.
         :param str digital_twin__id: The digital twin Id of the given device.
         :param str command_name: The command's name.
         :param str payload: The argument of a command.
+        :param int connect_timeout_in_seconds: Maximum interval of time, in seconds, that the digital twin command will wait for the answer.
+        :param int response_timeout_in_seconds: Maximum interval of time, in seconds, that the digital twin command will wait for the response. The value must be within 5-300.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -85,5 +110,9 @@ class IoTHubDigitalTwinManager(object):
         :returns: The result of the invoked command.
         """
         return self.protocol.digital_twin.invoke_root_level_command(
-            digital_twin_id, command_name, payload
+            digital_twin_id,
+            command_name,
+            payload,
+            connect_timeout_in_seconds,
+            response_timeout_in_seconds,
         )

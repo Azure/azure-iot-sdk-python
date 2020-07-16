@@ -14,6 +14,9 @@ iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 device_id = os.getenv("IOTHUB_DEVICE_ID")
 command_name = os.getenv("IOTHUB_COMMAND_NAME")  # for the thermostat you can try getMaxMinReport
 payload = os.getenv("IOTHUB_COMMAND_PAYLOAD")  # it really doesn't matter, any string will do.
+# Optional parameters
+connect_timeout_in_seconds = 3
+response_timeout_in_seconds = 7  # Must be within 5-300
 
 try:
     # Create IoTHubDigitalTwinManager
@@ -21,7 +24,7 @@ try:
 
     # Invoke command
     invoke_command_result = iothub_digital_twin_manager.invoke_command(
-        device_id, command_name, payload
+        device_id, command_name, payload, connect_timeout_in_seconds, response_timeout_in_seconds
     )
     if invoke_command_result:
         print(invoke_command_result)

@@ -17,6 +17,9 @@ component_name = os.getenv(
 )  # for the TemperatureController, try thermostat1
 command_name = os.getenv("IOTHUB_COMMAND_NAME")  # for the thermostat you can try getMaxMinReport
 payload = os.getenv("IOTHUB_COMMAND_PAYLOAD")  # it really doesn't matter, any string will do.
+# Optional parameters
+connect_timeout_in_seconds = 3
+response_timeout_in_seconds = 7  # Must be within 5-300
 
 try:
     # Create IoTHubDigitalTwinManager
@@ -24,7 +27,12 @@ try:
 
     # Invoke component command
     invoke_component_command_result = iothub_digital_twin_manager.invoke_component_command(
-        device_id, component_name, command_name, payload
+        device_id,
+        component_name,
+        command_name,
+        payload,
+        connect_timeout_in_seconds,
+        response_timeout_in_seconds,
     )
     if invoke_component_command_result:
         print(invoke_component_command_result)
