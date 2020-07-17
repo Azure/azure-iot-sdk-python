@@ -214,7 +214,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device)
+        return self.protocol.registry_manager.create_or_update_device(device_id, device, "*")
 
     def update_device_with_certificate_authority(self, device_id, etag, status):
         """Updates a device identity on IoTHub using certificate authority.
@@ -237,7 +237,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device)
+        return self.protocol.registry_manager.create_or_update_device(device_id, device, "*")
 
     def get_device(self, device_id):
         """Retrieves a device identity from IoTHub.
@@ -411,7 +411,9 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(device_id, module_id, module)
+        return self.protocol.registry_manager.create_or_update_module(
+            device_id, module_id, module, "*"
+        )
 
     def update_module_with_certificate_authority(self, device_id, module_id, managed_by, etag):
         """Updates a module identity for a device on IoTHub using certificate authority.
@@ -435,7 +437,9 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(device_id, module_id, module)
+        return self.protocol.registry_manager.create_or_update_module(
+            device_id, module_id, module, "*"
+        )
 
     def get_module(self, device_id, module_id):
         """Retrieves a module identity for a device from IoTHub.
