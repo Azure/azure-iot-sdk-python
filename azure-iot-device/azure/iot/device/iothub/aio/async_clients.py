@@ -128,7 +128,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             logger.info("Successfully disabled feature: {}".format(feature_name))
         else:
             # This branch shouldn't be reached, but in case it is, log it
-            logger.info("Feature ({}) already enabled - skipping".format(feature_name))
+            logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.

@@ -8,12 +8,21 @@ import pytest
 import asyncio
 import inspect
 from azure.iot.device.iothub.aio.async_handler_manager import AsyncHandlerManager
-from azure.iot.device.iothub.aio.async_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
+from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 
 pytestmark = pytest.mark.asyncio
 logging.basicConfig(level=logging.DEBUG)
+
+# NOTE ON TEST IMPLEMENTATION:
+# Despite having significant shared implementation between the sync and async handler managers,
+# there are not shared tests. This is because while both have the same set of requirements and
+# APIs, the internal implementation is different to an extent that it simply isn't really possible
+# to test them to an appropriate degree of correctness with a shared set of tests.
+# This means we must be very careful to always change both test modules when a change is made to
+# shared behavior, or when shared features are added.
+
 
 all_internal_handlers = [MESSAGE, METHOD, TWIN_DP_PATCH]
 all_handlers = [s.lstrip("_") for s in all_internal_handlers]
@@ -80,21 +89,21 @@ class TestInstantiation(object):
         hm = AsyncHandlerManager(inbox_manager)
         assert getattr(hm, handler_name) is None
 
-    @pytest.mark.it("Initializes handler task references to None")
+    @pytest.mark.it("Initializes handler runner task references to None")
     @pytest.mark.parametrize("handler_name", all_internal_handlers, ids=all_handlers)
-    def test_handler_tasks(self, inbox_manager, handler_name):
+    def test_handler_runners(self, inbox_manager, handler_name):
         hm = AsyncHandlerManager(inbox_manager)
-        assert hm._handler_tasks[handler_name] is None
+        assert hm._handler_runners[handler_name] is None
 
 
 class SharedHandlerPropertyTests(object):
     @pytest.fixture(autouse=True)
-    def teardown_tasks(self, handler_manager):
+    def teardown_runners(self, handler_manager):
         """This fixture removes all running async tasks when a test is finished"""
         yield
-        for k in handler_manager._handler_tasks.keys():
-            if handler_manager._handler_tasks[k] is not None:
-                handler_manager._remove_handler_task(k)
+        for k in handler_manager._handler_runners.keys():
+            if handler_manager._handler_runners[k] is not None:
+                handler_manager._stop_handler_runner(k)
 
     # NOTE: If there is ever any deviation in the convention of what the internal names of handlers
     # are other than just a prefixed "_", we'll have to move this fixture to the child classes so
@@ -116,17 +125,17 @@ class SharedHandlerPropertyTests(object):
         assert getattr(handler_manager, handler_name) is None
 
     @pytest.mark.it(
-        "Creates and stores an asyncio Task, when value is set to a function or coroutine handler, used for invoking the handler"
+        "Creates and stores an asyncio Task for the corresponding handler runner, when value is set to a function or coroutine handler, used for invoking the handler"
     )
     async def test_task_created(
         self, handler_name, handler_name_internal, handler_manager, handler
     ):
-        assert handler_manager._handler_tasks[handler_name_internal] is None
+        assert handler_manager._handler_runners[handler_name_internal] is None
         setattr(handler_manager, handler_name, handler)
-        assert isinstance(handler_manager._handler_tasks[handler_name_internal], asyncio.Task)
+        assert isinstance(handler_manager._handler_runners[handler_name_internal], asyncio.Task)
 
     @pytest.mark.it(
-        "Deletes any existing stored asyncio Task for the handler when the value is set back to None"
+        "Deletes any existing stored asyncio Task for the handler runner when the value is set back to None"
     )
     async def test_task_removed(
         self, handler_name, handler_name_internal, handler_manager, handler
@@ -134,7 +143,7 @@ class SharedHandlerPropertyTests(object):
         # Set handler
         setattr(handler_manager, handler_name, handler)
         # Task has been created and is active
-        task = handler_manager._handler_tasks[handler_name_internal]
+        task = handler_manager._handler_runners[handler_name_internal]
         assert isinstance(task, asyncio.Task)
         assert not task.cancelled()
         # Set the handler back to None
@@ -142,7 +151,7 @@ class SharedHandlerPropertyTests(object):
         await asyncio.sleep(0.1)
         # Task has been cancelled, and the manager no longer has a reference to it
         assert task.cancelled()
-        assert handler_manager._handler_tasks[handler_name_internal] is None
+        assert handler_manager._handler_runners[handler_name_internal] is None
 
     @pytest.mark.it(
         "Does not delete, remove, or replace the asyncio Task associated with the handler, when the handler is updated with a new function or coroutine value"
@@ -153,7 +162,7 @@ class SharedHandlerPropertyTests(object):
         # Set the handler
         setattr(handler_manager, handler_name, handler)
         # Task has been created and is active
-        task = handler_manager._handler_tasks[handler_name_internal]
+        task = handler_manager._handler_runners[handler_name_internal]
         assert isinstance(task, asyncio.Task)
         assert not task.cancelled()
 
@@ -163,7 +172,7 @@ class SharedHandlerPropertyTests(object):
 
         setattr(handler_manager, handler_name, new_handler)
         # Task has not been cancelled, and is still maintained by the manager
-        assert handler_manager._handler_tasks[handler_name_internal] is task
+        assert handler_manager._handler_runners[handler_name_internal] is task
         assert not task.cancelled()
 
     @pytest.mark.it(
@@ -232,7 +241,7 @@ class SharedHandlerPropertyTests(object):
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_message_received")
-class TestHandlerPropertyOnMessageReceived(SharedHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnMessageReceived(SharedHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
         return "on_message_received"
@@ -243,7 +252,7 @@ class TestHandlerPropertyOnMessageReceived(SharedHandlerPropertyTests):
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_method_request_received")
-class TestHandlerPropertyOnMethodRequestReceived(SharedHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnMethodRequestReceived(SharedHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
         return "on_method_request_received"
@@ -254,7 +263,9 @@ class TestHandlerPropertyOnMethodRequestReceived(SharedHandlerPropertyTests):
 
 
 @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_twin_desired_properties_patch_received")
-class TestHandlerPropertyOnTwinDesiredPropertiesPatchReceived(SharedHandlerPropertyTests):
+class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
+    SharedHandlerPropertyTests
+):
     @pytest.fixture
     def handler_name(self):
         return "on_twin_desired_properties_patch_received"

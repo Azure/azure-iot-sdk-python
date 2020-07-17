@@ -16,6 +16,7 @@ from .abstract_clients import (
 from .models import Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
+from . import sync_handler_manager
 from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
@@ -72,6 +73,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super(GenericIoTHubClient, self).__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
+        self._handler_manager = sync_handler_manager.SyncHandlerManager(self._inbox_manager)
+
+        # Set pipeline handlers
         self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
         self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
         self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(
@@ -90,6 +94,47 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Connection State - Disconnected")
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
+
+    def _enable_feature(self, feature_name):
+        """Enable an Azure IoT Hub feature.
+
+        This is a synchronous call, meaning that this function will not return until the feature
+        has been enabled.
+
+        :param feature_name: The name of the feature to enable.
+            See azure.iot.device.common.pipeline.constant for possible values
+        """
+        logger.info("Enabling feature:" + feature_name + "...")
+        if not self._mqtt_pipeline.feature_enabled[feature_name]:
+            callback = EventedCallback()
+            self._mqtt_pipeline.enable_feature(feature_name, callback=callback)
+            callback.wait_for_completion()
+
+            logger.info("Successfully enabled feature:" + feature_name)
+        else:
+            # This branch shouldn't be reached, but in case it is, log it
+            logger.info("Feature ({}) already disabled - skipping".format(feature_name))
+
+    def _disable_feature(self, feature_name):
+        """Disable an Azure IoT Hub feature
+
+        This is a synchronous call, meaning that this function will not return until the feature
+        has been disabled.
+
+        :param feature_name: The name of the feature to disable.
+            See azure.iot.device.common.pipeline.constant for possible values
+        """
+        logger.info("Disabling feature: {}...".format(feature_name))
+        if self._mqtt_pipeline.feature_enabled[feature_name]:
+            # Disable the feature if not already disabled
+            callback = EventedCallback()
+            self._mqtt_pipeline.disable_feature(feature_name, callback=callback)
+            callback.wait_for_completion()
+
+            logger.info("Successfully disabled feature: {}".format(feature_name))
+        else:
+            # This branch shouldn't be reached, but in case it is, log it
+            logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
     def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -227,23 +272,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent method response to Hub")
 
-    def _enable_feature(self, feature_name):
-        """Enable an Azure IoT Hub feature.
-
-        This is a synchronous call, meaning that this function will not return until the feature
-        has been enabled.
-
-        :param feature_name: The name of the feature to enable.
-            See azure.iot.device.common.pipeline.constant for possible values
-        """
-        logger.info("Enabling feature:" + feature_name + "...")
-
-        callback = EventedCallback()
-        self._mqtt_pipeline.enable_feature(feature_name, callback=callback)
-        callback.wait_for_completion()
-
-        logger.info("Successfully enabled feature:" + feature_name)
-
     def get_twin(self):
         """
         Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
@@ -340,6 +368,24 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             return None
         logger.info("twin patch received")
         return patch
+
+    @property
+    def on_method_request_received(self):
+        return self._on_method_request_received
+
+    @on_method_request_received.setter
+    def on_method_request_received(self, value):
+        self._validate_receive_handler_setter()
+        # Enable the feature if necessary
+        if value is not None and not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
+            self._enable_feature(pipeline_constant.METHODS)
+
+        # Disable the feature if necessary
+        elif value is None and self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
+            self._disable_feature(pipeline_constant.METHODS)
+
+        # Set the handler on the handler manager
+        self._handler_manager.on_method_request_received = value
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
