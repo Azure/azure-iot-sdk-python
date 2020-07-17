@@ -97,33 +97,31 @@ class AbstractIoTHubClient(object):
 
     def _validate_receive_api_invoke(self):
         """Call this function first in EVERY receive API"""
-        self._client_lock.acquire()
-        if self._receive_type is RECEIVE_TYPE_NONE_SET:
-            # Lock the client to ONLY use receive APIs (no handlers)
-            self._receive_type = RECEIVE_TYPE_API
-        elif self._receive_type is RECEIVE_TYPE_HANDLER:
-            raise exceptions.ClientError(
-                "Cannot use receive APIs - receive handler(s) have already been set"
-            )
-        else:
-            pass
-        self._client_lock.release()
+        with self._client_lock:
+            if self._receive_type is RECEIVE_TYPE_NONE_SET:
+                # Lock the client to ONLY use receive APIs (no handlers)
+                self._receive_type = RECEIVE_TYPE_API
+            elif self._receive_type is RECEIVE_TYPE_HANDLER:
+                raise exceptions.ClientError(
+                    "Cannot use receive APIs - receive handler(s) have already been set"
+                )
+            else:
+                pass
 
     def _validate_receive_handler_setter(self):
         """Call this function first in EVERY handler setter"""
-        self._client_lock.acquire()
-        if self._receive_type is RECEIVE_TYPE_NONE_SET:
-            # Lock the client to ONLY use receive handlers (no APIs)
-            self._receive_type = RECEIVE_TYPE_HANDLER
-            # Set the inbox manager to use unified msg receives
-            self._inbox_manager.use_unified_msg_mode = True
-        elif self._receive_type is RECEIVE_TYPE_API:
-            raise exceptions.ClientError(
-                "Cannot set receive handlers - receive APIs have already been used"
-            )
-        else:
-            pass
-        self._client_lock.release()
+        with self._client_lock:
+            if self._receive_type is RECEIVE_TYPE_NONE_SET:
+                # Lock the client to ONLY use receive handlers (no APIs)
+                self._receive_type = RECEIVE_TYPE_HANDLER
+                # Set the inbox manager to use unified msg receives
+                self._inbox_manager.use_unified_msg_mode = True
+            elif self._receive_type is RECEIVE_TYPE_API:
+                raise exceptions.ClientError(
+                    "Cannot set receive handlers - receive APIs have already been used"
+                )
+            else:
+                pass
 
     @classmethod
     def create_from_connection_string(cls, connection_string, **kwargs):
