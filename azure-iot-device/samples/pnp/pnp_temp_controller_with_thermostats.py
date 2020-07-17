@@ -78,9 +78,7 @@ def create_max_min_report_response(values):
     response_dict["startTime"] = date.fromisoformat("2020-05-04").__str__()
     response_dict["endTime"] = date.fromisoformat("2020-06-04").__str__()
 
-    final_dict = {"tempReport": response_dict}
-
-    response_payload = json.dumps(final_dict, default=lambda o: o.__dict__, sort_keys=True)
+    response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
     # print(response_payload)
     return response_payload
 
