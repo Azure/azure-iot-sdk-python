@@ -44,6 +44,7 @@ class Message(object):
         self.content_encoding = content_encoding
         self.content_type = content_type
         self.output_name = output_name
+        self.input_name = None
         self._iothub_interface_id = None
 
     @property

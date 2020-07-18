@@ -52,7 +52,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
             custom_product_info = str(self.pipeline_root.pipeline_configuration.product_info)
             if custom_product_info.startswith(
-                    pkg_constant.DIGITAL_TWIN_PREFIX
+                pkg_constant.DIGITAL_TWIN_PREFIX
             ):  # Digital Twin Stuff
                 query_param_seq.append(("api-version", pkg_constant.DIGITAL_TWIN_API_VERSION))
                 query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
@@ -191,8 +191,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             elif mqtt_topic_iothub.is_input_topic(topic, device_id, module_id):
                 message = Message(event.payload)
                 mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
-                input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
-                self.send_event_up(pipeline_events_iothub.InputMessageEvent(input_name, message))
+                message.input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
+                self.send_event_up(pipeline_events_iothub.InputMessageEvent(message))
 
             elif mqtt_topic_iothub.is_method_topic(topic):
                 request_id = mqtt_topic_iothub.get_method_request_id_from_topic(topic)

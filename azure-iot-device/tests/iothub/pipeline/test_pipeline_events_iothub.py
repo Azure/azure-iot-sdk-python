@@ -20,7 +20,7 @@ pipeline_event_test.add_event_test(
 pipeline_event_test.add_event_test(
     cls=pipeline_events_iothub.InputMessageEvent,
     module=this_module,
-    positional_arguments=["input_name", "message"],
+    positional_arguments=["message"],
     keyword_arguments={},
 )
 pipeline_event_test.add_event_test(

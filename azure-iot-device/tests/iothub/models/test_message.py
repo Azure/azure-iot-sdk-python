@@ -27,14 +27,14 @@ class TestMessage(object):
         msg = Message(data)
         assert msg.data == data
 
-    @pytest.mark.it("Instantiates with optional message id")
+    @pytest.mark.it("Instantiates with optional provided message id")
     def test_instantiates_with_optional_message_id(self):
         s = "After all this time? Always"
         message_id = "Postage12323"
         msg = Message(s, message_id)
         assert msg.message_id == message_id
 
-    @pytest.mark.it("Instantiates with optional content type encoding")
+    @pytest.mark.it("Instantiates with optional provided content type and content encoding")
     def test_instantiates_with_optional_contenttype_encoding(self):
         s = "After all this time? Always"
         ctype = "application/json"
@@ -43,15 +43,47 @@ class TestMessage(object):
         assert msg.content_encoding == encoding
         assert msg.content_type == ctype
 
-    @pytest.mark.it("Setting message as security message")
-    def test_setting_message_as_security_message(self):
-        s = "After all this time? Always"
-        ctype = "application/json"
-        encoding = "utf-16"
-        msg = Message(s, None, encoding, ctype)
+    @pytest.mark.it("Instantiates with optional provided output name")
+    def test_instantiates_with_optional_output_name(self):
+        output_name = "some_output"
+        msg = Message("some message", output_name=output_name)
+        assert msg.output_name == output_name
+
+    @pytest.mark.it("Instantiates with no custom properties set")
+    def test_default_custom_properties(self):
+        msg = Message("some message")
+        assert msg.custom_properties == {}
+
+    @pytest.mark.it("Instantiates with no set expiry time")
+    def test_default_expiry_time(self):
+        msg = Message("some message")
+        assert msg.expiry_time_utc is None
+
+    @pytest.mark.it("Instantiates with no set correlation id")
+    def test_default_corr_id(self):
+        msg = Message("some message")
+        assert msg.correlation_id is None
+
+    @pytest.mark.it("Instantiates with no set user id")
+    def test_default_user_id(self):
+        msg = Message("some message")
+        assert msg.user_id is None
+
+    @pytest.mark.it("Instantiates with no set input name")
+    def test_default_input_name(self):
+        msg = Message("some message")
+        assert msg.input_name is None
+
+    @pytest.mark.it("Instantiates with no set iothub_interface_id (i.e. not as a security message)")
+    def test_default_security_msg_status(self):
+        msg = Message("some message")
         assert msg.iothub_interface_id is None
-        msg.set_as_security_message()
-        assert msg.iothub_interface_id == constant.SECURITY_MESSAGE_INTERFACE_ID
+
+    @pytest.mark.it("Maintains iothub_interface_id (security message) as a read-only property")
+    def test_read_only_iothub_interface_id(self):
+        msg = Message("some message")
+        with pytest.raises(AttributeError):
+            msg.iothub_interface_id = "value"
 
     @pytest.mark.it(
         "Uses string representation of data/payload attribute as string representation of Message"
@@ -62,3 +94,13 @@ class TestMessage(object):
     def test_str_rep(self, data):
         msg = Message(data)
         assert str(msg) == str(data)
+
+    @pytest.mark.it("Can be set as a security message via API")
+    def test_setting_message_as_security_message(self):
+        s = "After all this time? Always"
+        ctype = "application/json"
+        encoding = "utf-16"
+        msg = Message(s, None, encoding, ctype)
+        assert msg.iothub_interface_id is None
+        msg.set_as_security_message()
+        assert msg.iothub_interface_id == constant.SECURITY_MESSAGE_INTERFACE_ID

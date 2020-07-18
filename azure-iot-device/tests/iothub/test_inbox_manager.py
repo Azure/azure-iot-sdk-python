@@ -45,12 +45,27 @@ def manager(inbox_type):
 
 
 @pytest.fixture
+def manager_unified_mode(inbox_type):
+    m = InboxManager(inbox_type=inbox_type)
+    m.use_unified_msg_mode = True
+    return m
+
+
+@pytest.fixture
 def method_request():
     return MethodRequest(request_id="1", name="some_method", payload="{'key': 'value'}")
 
 
 @pytest.mark.describe("InboxManager")
 class TestInboxManager(object):
+    @pytest.mark.it("Instantiates with 'Unified Message Mode' turned off")
+    def test_Unified_mode(self, manager):
+        assert manager.use_unified_msg_mode is False
+
+    @pytest.mark.it("Instantiates with an empty unified message inbox")
+    def test_instnatiates_with_empty_unified_msg_inbox(self, manager):
+        assert manager.unified_message_inbox.empty()
+
     @pytest.mark.it("Instantiates with an empty C2D inbox")
     def test_instantiates_with_empty_c2d_inbox(self, manager):
         assert manager.c2d_message_inbox.empty()
@@ -67,6 +82,10 @@ class TestInboxManager(object):
     def test_instantiates_with_no_specific_method_inboxes(self, manager):
         assert manager.named_method_request_inboxes == {}
 
+    @pytest.mark.it("Instantiates with an empty twin patch inbox")
+    def test_instantiates_with_empty_twin_patch_inbox(self, manager):
+        assert manager.twin_patch_inbox.empty()
+
 
 @pytest.mark.describe("InboxManager - .get_c2d_message_inbox()")
 class TestInboxManagerGetC2DMessageInbox(object):
@@ -80,6 +99,20 @@ class TestInboxManagerGetC2DMessageInbox(object):
         c2d_inbox_ref1 = manager.get_c2d_message_inbox()
         c2d_inbox_ref2 = manager.get_c2d_message_inbox()
         assert c2d_inbox_ref1 is c2d_inbox_ref2
+
+
+@pytest.mark.describe("InboxManager - .get_unified_message_inbox()")
+class TestInboxManagerGetUnifiedMessageInbox(object):
+    @pytest.mark.it("Returns an inbox")
+    def test_get_unified_message_inbox_returns_inbox(self, manager, inbox_type):
+        um_inbox = manager.get_unified_message_inbox()
+        assert isinstance(um_inbox, inbox_type)
+
+    @pytest.mark.it("Returns the same inbox when called multiple times")
+    def test_called_multiple_times_returns_same_inbox(self, manager, inbox_type):
+        um_inbox_ref1 = manager.get_unified_message_inbox()
+        um_inbox_ref2 = manager.get_unified_message_inbox()
+        assert um_inbox_ref1 is um_inbox_ref2
 
 
 @pytest.mark.describe("InboxManager - .get_input_message_inbox()")
@@ -201,7 +234,7 @@ class TestInboxManagerClearAllMethodRequests(object):
         assert method_request_inbox2.empty()
 
 
-@pytest.mark.describe("InboxManager - .route_c2d_message()")
+@pytest.mark.describe("InboxManager - .route_c2d_message() -- Standard Mode")
 class TestInboxManagerRouteC2DMessage(object):
     @pytest.mark.it("Adds Message to the C2D message inbox")
     def test_adds_message_to_c2d_message_inbox(self, manager, message):
@@ -212,17 +245,48 @@ class TestInboxManagerRouteC2DMessage(object):
         assert not c2d_inbox.empty()
         assert message in c2d_inbox
 
+    @pytest.mark.it("Does NOT add Message to the unified message inbox")
+    def test_DOES_NOT_add_message_to_unified_inbox(self, manager, message):
+        um_inbox = manager.get_unified_message_inbox()
+        assert um_inbox.empty()
+        delivered = manager.route_c2d_message(message)
+        assert delivered
+        assert um_inbox.empty()
 
-@pytest.mark.describe("InboxManager - .route_input_message()")
+
+@pytest.mark.describe("InboxManager - .route_c2d_message() -- Unified Message Mode")
+class TestInboxManagerRouteC2DMessageUnified(object):
+    @pytest.mark.it("Adds Message to the unified message inbox")
+    def test_adds_message_to_unified_message_inbox(self, manager_unified_mode, message):
+        manager = manager_unified_mode
+        um_inbox = manager.get_unified_message_inbox()
+        assert um_inbox.empty()
+        delivered = manager.route_c2d_message(message)
+        assert delivered
+        assert not um_inbox.empty()
+        assert message in um_inbox
+
+    @pytest.mark.it("Does NOT add Message to the C2D message inbox")
+    def test_DOES_NOT_add_message_to_c2d_inbox(self, manager_unified_mode, message):
+        manager = manager_unified_mode
+        c2d_inbox = manager.get_c2d_message_inbox()
+        assert c2d_inbox.empty()
+        delivered = manager.route_c2d_message(message)
+        assert delivered
+        assert c2d_inbox.empty()
+
+
+@pytest.mark.describe("InboxManager - .route_input_message() -- Standard Mode")
 class TestInboxManagerRouteInputMessage(object):
     @pytest.mark.it(
         "Adds Message to the input message inbox that corresponds to the input name, if it exists"
     )
     def test_adds_message_to_input_message_inbox(self, manager, message):
         input_name = "some_input"
+        message.input_name = input_name
         input_inbox = manager.get_input_message_inbox(input_name)
         assert input_inbox.empty()
-        delivered = manager.route_input_message(input_name, message)
+        delivered = manager.route_input_message(message)
         assert delivered
         assert not input_inbox.empty()
         assert message in input_inbox
@@ -231,8 +295,46 @@ class TestInboxManagerRouteInputMessage(object):
         "Drops a Message if the input name does not correspond to an input message inbox"
     )
     def test_drops_message_to_unknown_input(self, manager, message):
-        delivered = manager.route_input_message("not_a_real_input", message)
+        message.input_name = "not_a_real_input"
+        delivered = manager.route_input_message(message)
         assert not delivered
+
+    @pytest.mark.it("Does NOT add Message to the unified message inbox")
+    def test_DOES_NOT_add_message_to_unified_inbox(self, manager, message):
+        message.input_name = "some_input"
+        manager.get_input_message_inbox(
+            message.input_name
+        )  # create a input inbox to be delivered to
+        um_inbox = manager.get_unified_message_inbox()
+        assert um_inbox.empty()
+        delivered = manager.route_input_message(message)
+        assert delivered
+        assert um_inbox.empty()
+
+
+@pytest.mark.describe("InboxManager - .route_input_message() -- Unified Message Mode")
+class TestInboxManagerRouteInputMessageUnified(object):
+    @pytest.mark.it("Adds Message to the unified message inbox")
+    def test_adds_message_to_unified_message_inbox(self, manager_unified_mode, message):
+        manager = manager_unified_mode
+        message.input_name = "some_input"
+        um_inbox = manager.get_unified_message_inbox()
+        assert um_inbox.empty()
+        delivered = manager.route_input_message(message)
+        assert delivered
+        assert not um_inbox.empty()
+        assert message in um_inbox
+
+    @pytest.mark.it("Does NOT add Message to a specific input message inbox, even if one exists")
+    def test_DOES_NOT_add_message_to_input_inbox(self, manager_unified_mode, message):
+        manager = manager_unified_mode
+        input_name = "some_input"
+        message.input_name = input_name
+        input_inbox = manager.get_input_message_inbox(input_name)
+        assert input_inbox.empty()
+        delivered = manager.route_input_message(message)
+        assert delivered
+        assert input_inbox.empty()
 
 
 @pytest.mark.describe("InboxManager - .route_method_request()")

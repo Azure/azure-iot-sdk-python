@@ -813,7 +813,7 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         assert message.data == event.payload
 
     @pytest.mark.it(
-        "Sends a new InputMessageEvent up the pipeline, containing the newly created Message and the input name extracted from the topic"
+        "Sends a new InputMessageEvent up the pipeline, containing the newly created Message with the input name extracted from the topic"
     )
     def test_input_message_event(self, event, stage, mock_mqtt_topic, input_name):
         stage.handle_pipeline_event(event)
@@ -826,8 +826,8 @@ class TestIoTHubMQTTTranslationStageHandlePipelineEventWithIncomingMQTTMessageEv
         assert mock_mqtt_topic.extract_message_properties_from_topic.call_count == 1
         message = mock_mqtt_topic.extract_message_properties_from_topic.call_args[0][1]
         assert new_event.message is message
-        # The InputMessageEvent contains the same input name from the topic
-        assert new_event.input_name == input_name
+        # The Message contains the same input name from the topic
+        assert new_event.message.input_name == input_name
 
     @pytest.mark.it(
         "Sends the original event up the pipeline instead, if the the topic string does not match the client details"

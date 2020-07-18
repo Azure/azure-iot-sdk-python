@@ -17,6 +17,11 @@ from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
+from azure.iot.device.iothub.abstract_clients import (
+    RECEIVE_TYPE_NONE_SET,
+    RECEIVE_TYPE_HANDLER,
+    RECEIVE_TYPE_API,
+)
 from azure.iot.device import constant as device_constant
 from .shared_client_tests import (
     SharedIoTHubClientInstantiationTests,
@@ -472,6 +477,88 @@ class SharedClientReceiveMethodRequestTests(object):
         result = client.receive_method_request(method_name, block=False)
         assert result is None
 
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_not_set(self, mocker, client, method_name, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_method_request_inbox", return_value=inbox_mock
+        )
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        client.receive_method_request(method_name=method_name, block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_api(self, mocker, client, method_name, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_method_request_inbox", return_value=inbox_mock
+        )
+
+        client._receive_type = RECEIVE_TYPE_API
+        client.receive_method_request(method_name=method_name, block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_handler(
+        self, mocker, client, mqtt_pipeline, method_name, block, timeout
+    ):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_method_request_inbox", return_value=inbox_mock
+        )
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            client.receive_method_request(method_name=method_name, block=block, timeout=timeout)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_mock.get.call_count == 0
+
 
 class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'send_method_response' pipeline operation")
@@ -831,6 +918,68 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         result = client.receive_twin_desired_properties_patch(block=False)
         assert result is None
 
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_not_set(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_twin_patch_inbox", return_value=inbox_mock)
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        client.receive_twin_desired_properties_patch(block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_api(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_twin_patch_inbox", return_value=inbox_mock)
+
+        client._receive_type = RECEIVE_TYPE_API
+        client.receive_twin_desired_properties_patch(block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_handler(self, mocker, client, mqtt_pipeline, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_twin_patch_inbox", return_value=inbox_mock)
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            client.receive_twin_desired_properties_patch(block=block, timeout=timeout)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_mock.get.call_count == 0
+
 
 ################
 # DEVICE TESTS #
@@ -1015,6 +1164,68 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
     def test_no_message_in_inbox_nonblocking_mode(self, client):
         result = client.receive_message(block=False)
         assert result is None
+
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_not_set(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock)
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        client.receive_message(block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_api(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock)
+
+        client._receive_type = RECEIVE_TYPE_API
+        client.receive_message(block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_handler(self, mocker, client, mqtt_pipeline, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(client._inbox_manager, "get_c2d_message_inbox", return_value=inbox_mock)
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            client.receive_message(block=block, timeout=timeout)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_mock.get.call_count == 0
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .receive_method_request()")
@@ -1552,6 +1763,74 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         input_name = "some_input"
         result = client.receive_message_on_input(input_name, block=False)
         assert result is None
+
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_not_set(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_input_message_inbox", return_value=inbox_mock
+        )
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        client.receive_message_on_input(input_name="some_input", block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_api(self, mocker, client, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_input_message_inbox", return_value=inbox_mock
+        )
+
+        client._receive_type = RECEIVE_TYPE_API
+        client.receive_message_on_input(input_name="some_input", block=block, timeout=timeout)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "block,timeout",
+        [
+            pytest.param(True, None, id="Blocking, no timeout"),
+            pytest.param(True, 10, id="Blocking with timeout"),
+            pytest.param(False, None, id="Nonblocking"),
+        ],
+    )
+    def test_receive_mode_set_handler(self, mocker, client, mqtt_pipeline, block, timeout):
+        inbox_mock = mocker.MagicMock(autospec=SyncClientInbox)
+        mocker.patch.object(
+            client._inbox_manager, "get_input_message_inbox", return_value=inbox_mock
+        )
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            client.receive_message_on_input(input_name="some_input", block=block, timeout=timeout)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_mock.get.call_count == 0
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .receive_method_request()")

@@ -17,6 +17,11 @@ from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.models import Message, MethodRequest
+from azure.iot.device.iothub.abstract_clients import (
+    RECEIVE_TYPE_NONE_SET,
+    RECEIVE_TYPE_HANDLER,
+    RECEIVE_TYPE_API,
+)
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
 from azure.iot.device import constant as device_constant
@@ -44,8 +49,6 @@ async def create_completed_future(result=None):
 #######################
 # SHARED CLIENT TESTS #
 #######################
-
-
 class SharedClientConnectTests(object):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
     async def test_calls_pipeline_connect(self, client, mqtt_pipeline):
@@ -374,6 +377,62 @@ class SharedClientReceiveMethodRequestTests(object):
         assert inbox_mock.get.call_count == 1
         assert received_request is received_request
 
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    async def test_receive_mode_not_set(self, mocker, client, method_name):
+        # patch this so receive_method_request won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        await client.receive_method_request(method_name)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    async def test_receive_mode_set_api(self, mocker, client, method_name):
+        # patch this so receive_method_request won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        client._receive_type = RECEIVE_TYPE_API
+        await client.receive_method_request(method_name)
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    async def test_receive_mode_set_handler(self, mocker, client, method_name, mqtt_pipeline):
+        # patch this so receive_method_request won't block
+        inbox_get_mock = mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            await client.receive_method_request(method_name)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_get_mock.call_count == 0
+
 
 class SharedClientSendMethodResponseTests(object):
     @pytest.mark.it("Begins a 'send_method_response' pipeline operation")
@@ -688,6 +747,50 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert inbox_mock.get.call_count == 1
         assert received_patch is twin_patch_desired
 
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    async def test_receive_mode_not_set(self, mocker, client):
+        # patch this so API won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        await client.receive_twin_desired_properties_patch()
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    async def test_receive_mode_set_api(self, mocker, client):
+        # patch this so API won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        client._receive_type = RECEIVE_TYPE_API
+        await client.receive_twin_desired_properties_patch()
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    async def test_receive_mode_set_handler(self, mocker, client, mqtt_pipeline):
+        # patch this so API won't block
+        inbox_get_mock = mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            await client.receive_twin_desired_properties_patch()
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_get_mock.call_count == 0
+
 
 ################
 # DEVICE TESTS #
@@ -813,6 +916,50 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         assert manager_get_inbox_mock.call_count == 1
         assert inbox_mock.get.call_count == 1
         assert received_message is message
+
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    async def test_receive_mode_not_set(self, mocker, client):
+        # patch this so API won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        await client.receive_message()
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    async def test_receive_mode_set_api(self, mocker, client):
+        # patch this so API won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        client._receive_type = RECEIVE_TYPE_API
+        await client.receive_message()
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    async def test_receive_mode_set_handler(self, mocker, client, mqtt_pipeline):
+        # patch this so API won't block
+        inbox_get_mock = mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            await client.receive_message()
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_get_mock.call_count == 0
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .receive_method_request()")
@@ -1285,6 +1432,50 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         assert manager_get_inbox_mock.call_args == mocker.call(input_name)
         assert inbox_mock.get.call_count == 1
         assert received_message is message
+
+    @pytest.mark.it("Locks the client to API Receive Mode if the receive mode has not yet been set")
+    async def test_receive_mode_not_set(self, mocker, client):
+        # patch this so API won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        await client.receive_message_on_input("some_input")
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to API Receive Mode"
+    )
+    async def test_receive_mode_set_api(self, mocker, client):
+        # patch this so API won't block
+        mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+
+        client._receive_type = RECEIVE_TYPE_API
+        await client.receive_message_on_input("some_input")
+        assert client._receive_type is RECEIVE_TYPE_API
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has been set to Handler Receive Mode"
+    )
+    async def test_receive_mode_set_handler(self, mocker, client, mqtt_pipeline):
+        # patch this so API won't block
+        inbox_get_mock = mocker.patch.object(
+            AsyncClientInbox, "get", return_value=(await create_completed_future(None))
+        )
+        # patch this so we can make sure feature enabled isn't modified
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            await client.receive_message_on_input("some_input")
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Inbox get was not called
+        assert inbox_get_mock.call_count == 0
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .receive_method_request()")

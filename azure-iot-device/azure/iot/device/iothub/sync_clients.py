@@ -183,6 +183,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: MethodRequest object representing the received method request, or None if
             no method request has been received by the end of the blocking period.
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._enable_feature(pipeline_constant.METHODS)
 
@@ -325,6 +327,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             received by the end of the blocking period
         :rtype: dict or None
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
         twin_patch_inbox = self._inbox_manager.get_twin_patch_inbox()
@@ -370,6 +374,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             no method request has been received by the end of the blocking period.
         :rtype: :class:`azure.iot.device.Message` or None
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
         c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
@@ -493,6 +499,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :returns: Message that was sent to the specified input, or None if
             no method request has been received by the end of the blocking period.
         """
+        self._validate_receive_api_invoke()
+
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
         input_inbox = self._inbox_manager.get_input_message_inbox(input_name)

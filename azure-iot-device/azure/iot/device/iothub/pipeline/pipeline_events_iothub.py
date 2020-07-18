@@ -27,16 +27,14 @@ class InputMessageEvent(PipelineEvent):
     created by some converter stage based on a protocol-specific event
     """
 
-    def __init__(self, input_name, message):
+    def __init__(self, message):
         """
         Initializer for InputMessageEvent objects.
 
-        :param str input_name: The name of the input that this message arrived on.  This string is
-          also stored in the input_name attribute on the message object
-        :param Message message: The Message object for the message that was received.
+        :param Message message: The Message object for the message that was received. This message
+            is expected to have had the .input_name attribute set
         """
         super(InputMessageEvent, self).__init__()
-        self.input_name = input_name
         self.message = message
 
 
