@@ -30,7 +30,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
         # of the same handler can be running simultaneously.
         tp = ThreadPoolExecutor(max_workers=4)
         while True:
-            retval = await inbox.get()
+            handler_arg = await inbox.get()
             # NOTE: we MUST use getattr here using the handler name, as opposed to directly passing
             # the handler in order for the handler to be able to be updated without cancelling
             # the running task created for this coroutine
@@ -40,10 +40,12 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 def coro_wrapper(coro, arg):
                     asyncio_compat.run(coro(arg))
 
-                tp.submit(coro_wrapper, handler, retval)
+                # TODO: get exceptions to propogate
+                tp.submit(coro_wrapper, handler, handler_arg)
             else:
                 # Run function directly in ThreadPool
-                tp.submit(handler, retval)
+                # TODO: get exceptions to propogate
+                tp.submit(handler, handler_arg)
 
     async def _event_handler_runner(self, handler_name):
         # TODO: implement
@@ -67,6 +69,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
         else:
             coro = self._event_handler_runner(handler_name)
         task = asyncio_compat.create_task(coro)
+        # TODO: what happens if an exception is raised?
         self._handler_runners[handler_name] = task
 
     def _stop_handler_runner(self, handler_name):

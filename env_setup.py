@@ -69,4 +69,4 @@ if __name__ == "__main__":
         # These are not compatible on all platforms.
         pip_command("install -U -r requirements_dev.txt")
         print("Installing pre-commit")
-        check_call("pre-commit install")
+        check_call("pre-commit install", shell=True)

@@ -15,9 +15,11 @@ connection to the Azure IoTHub ecosystem.
 
 This repository contains the following libraries:
 
-* [Azure IoT Device library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-device/README.md)
+* [Azure IoT Device library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-device/README.md). 
+    * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-device)
 
 * [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md)
+     * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-hub)
 
 * Coming Soon: Azure IoT Device Provisioning Service Library
 
