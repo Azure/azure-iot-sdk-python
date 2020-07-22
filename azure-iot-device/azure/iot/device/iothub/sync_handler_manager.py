@@ -9,9 +9,10 @@ import logging
 import threading
 import abc
 import six
-from azure.iot.device.common import asyncio_compat
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.chainable_exception import ChainableException
-from concurrent.futures import ThreadPoolExecutor
+from azure.iot.device.iothub.sync_inbox import InboxEmpty
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -132,12 +133,41 @@ class SyncHandlerManager(AbstractHandlerManager):
         """Run infinite loop that waits for an inbox to receive an object from it, then calls
         the handler with that object
         """
+        # Define a callback that can handle errors in the ThreadPoolExecutor
+        def _handler_callback(future):
+            try:
+                e = future.exception()
+            except concurrent.futures.CancelledError as raised_e:
+                new_err = HandlerManagerException(
+                    message="Handler for {} unexpectedly ended with cancellation".format(
+                        handler_name
+                    ),
+                    cause=raised_e,
+                )
+                handle_exceptions.handle_background_exception(new_err)
+            else:
+                new_err = HandlerManagerException(
+                    message="Error in handler for {}".format(handler_name), cause=e
+                )
+                handle_exceptions.handle_background_exception(new_err)
+
+        # Run the handler in a threadpool, so that it cannot block other handlers (from a different task),
+        # or the main client thread. The number of worker threads forms an upper bound on how many instances
+        # of the same handler can be running simultaneously.
+        tpe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         curr_thread = threading.current_thread()
-        tp = ThreadPoolExecutor(max_workers=4)
         while curr_thread.keep_running:
-            retval = inbox.get()
+            # Because inbox.get() is a blocking call, we have to provide a timeout, otherwise
+            # it will block forever on an empty inbox, and prevent the while condition from being
+            # checked, thus preventing the loop exit, thus meaning the thread this function runs in
+            # will be kept alive forever, and never completed.
+            try:
+                handler_arg = inbox.get(timeout=10)
+            except InboxEmpty:
+                continue
             handler = getattr(self, handler_name)
-            tp.submit(handler, retval)
+            fut = tpe.submit(handler, handler_arg)
+            fut.add_done_callback(_handler_callback)
 
     def _event_handler_runner(self, handler_name):
         # TODO: implement
@@ -168,3 +198,4 @@ class SyncHandlerManager(AbstractHandlerManager):
         thread = self._handler_runners[handler_name]
         thread.keep_running = False
         thread.join()
+        self._handler_runners[handler_name] = None
