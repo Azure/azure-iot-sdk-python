@@ -24,9 +24,7 @@ from .protocol.models import (
 
 class QueryResult(object):
     """The query result.
-    :param type: The query result type. Possible values include: 'unknown',
-     'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment',
-     'enrollmentGroup', 'deviceRegistration'
+    :param type: The query result type. Possible values include: 'unknown', 'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment', 'enrollmentGroup', 'deviceRegistration'
     :type type: str or ~protocol.models.enum
     :param items: The query result items, as a collection.
     :type items: list[object]
