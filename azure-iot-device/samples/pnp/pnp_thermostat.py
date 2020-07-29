@@ -193,9 +193,8 @@ async def provision_device(provisioning_host, id_scope, registration_id, symmetr
 
 async def main():
     switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
-    if switch == "dps":
-        # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-        provisioning_host = os.getenv("IOTHUB_DEVICE_DPS_HOST")
+    if switch == "DPS":
+        provisioning_host = os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
         id_scope = os.getenv("IOTHUB_DEVICE_DPS_ID_SCOPE")
         registration_id = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_ID")
         symmetric_key = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_KEY")
