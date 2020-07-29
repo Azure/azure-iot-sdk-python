@@ -13,7 +13,8 @@ IOTHUB_API_VERSION = "2019-10-01"
 PROVISIONING_API_VERSION = "2019-03-31"
 SECURITY_MESSAGE_INTERFACE_ID = "urn:azureiot:Security:SecurityAgent:1"
 TELEMETRY_MESSAGE_SIZE_LIMIT = 262144
-LOAD_BALANCER_LIMIT_SECS = 1740
+# The max keep alive is determined by the load balancer currently.
+MAX_KEEP_ALIVE_SECS = 1740
 # Everything in digital twin is defined here
 # as things are extremely dynamic and subject to sudden changes
 DIGITAL_TWIN_PREFIX = "dtmi"

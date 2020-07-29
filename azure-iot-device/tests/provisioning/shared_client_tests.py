@@ -14,6 +14,7 @@ from azure.iot.device.common import auth
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.provisioning.pipeline import ProvisioningPipelineConfig
 from azure.iot.device import ProxyOptions
+from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -122,7 +123,7 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         assert config.websockets is False
         assert config.cipher == ""
         assert config.proxy_options is None
-        assert config.keep_alive is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE
 
 
 @pytest.mark.usefixtures("mock_pipeline_init")

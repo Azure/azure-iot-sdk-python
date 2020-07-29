@@ -8,6 +8,7 @@ import abc
 import six
 from azure.iot.device import ProxyOptions
 from azure.iot.device import constant
+from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -250,7 +251,7 @@ class PipelineConfigInstantiationTestBase(object):
     )
     def test_keep_alive_default(self, config_cls, required_kwargs, sastoken):
         config = config_cls(sastoken=sastoken, **required_kwargs)
-        assert config.keep_alive is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE
 
     @pytest.mark.it(
         "Instantiates with the 'keep_alive' attribute set to the provided 'keep_alive' parameter"
@@ -275,7 +276,7 @@ class PipelineConfigInstantiationTestBase(object):
         keep_alive = 9876543210987654321098765432109876543210
 
         config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive == constant.LOAD_BALANCER_LIMIT_SECS
+        assert config.keep_alive == constant.MAX_KEEP_ALIVE_SECS
 
     @pytest.mark.it(
         "Instantiates with the 'keep_alive' attribute to None in case provided 'keep_alive' parameter is less than 0"
@@ -284,7 +285,7 @@ class PipelineConfigInstantiationTestBase(object):
         keep_alive = -2001
 
         config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE
 
     @pytest.mark.it(
         "Instantiates with the 'keep_alive' attribute to None in case provided 'keep_alive' parameter is 0"
@@ -293,4 +294,4 @@ class PipelineConfigInstantiationTestBase(object):
         keep_alive = 0
 
         config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE

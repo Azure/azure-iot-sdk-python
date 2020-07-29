@@ -14,6 +14,8 @@ from builtins import int
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_KEEPALIVE = 180
+
 
 @six.add_metaclass(abc.ABCMeta)
 class BasePipelineConfig(object):
@@ -32,7 +34,7 @@ class BasePipelineConfig(object):
         websockets=False,
         cipher="",
         proxy_options=None,
-        keep_alive=None,
+        keep_alive=DEFAULT_KEEPALIVE,
     ):
         """Initializer for BasePipelineConfig
 
@@ -93,12 +95,12 @@ class BasePipelineConfig(object):
             logger.error(
                 "'keep alive' can not be zero or negative. A default value of 'keep alive' will be used by the protocol."
             )
-            keep_alive = None
-        elif keep_alive and keep_alive > constant.LOAD_BALANCER_LIMIT_SECS:
+            keep_alive = DEFAULT_KEEPALIVE
+        elif keep_alive and keep_alive > constant.MAX_KEEP_ALIVE_SECS:
             # This is Hub's maximum Load Balancer Limit before
             logger.error(
                 "'keep alive' can not be more than 29 minutes. 'keep alive' will be set to max value of 29 minutes to continue."
             )
-            keep_alive = constant.LOAD_BALANCER_LIMIT_SECS
+            keep_alive = constant.MAX_KEEP_ALIVE_SECS
 
         return keep_alive
