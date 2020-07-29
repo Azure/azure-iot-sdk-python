@@ -26,6 +26,10 @@ class HandlerManagerException(ChainableException):
     pass
 
 
+class HandlerRunnerKillerSentinel(object):
+    pass
+
+
 @six.add_metaclass(abc.ABCMeta)
 class AbstractHandlerManager(object):
     """Partial class that defines handler manager functionality shared between sync/async"""
@@ -88,17 +92,17 @@ class AbstractHandlerManager(object):
         curr_handler = getattr(self, handler_name)
         if new_handler is not None and curr_handler is None:
             # Create runner, set handler
-            logger.debug("Creating new handler task for handler: {}".format(handler_name))
+            logger.debug("Creating new handler runner for handler: {}".format(handler_name))
             setattr(self, handler_name, new_handler)
             self._start_handler_runner(handler_name)
         elif new_handler is None and curr_handler is not None:
             # Cancel runner, remove handler
-            logger.debug("Removing handler task for handler: {}".format(handler_name))
+            logger.debug("Removing handler runner for handler: {}".format(handler_name))
             self._stop_handler_runner(handler_name)
             setattr(self, handler_name, new_handler)
         else:
             # Update handler, no need to change runner
-            logger.debug("Updating handler for handler: {}".format(handler_name))
+            logger.debug("Updating set handler: {}".format(handler_name))
             setattr(self, handler_name, new_handler)
 
     @property
@@ -139,33 +143,44 @@ class SyncHandlerManager(AbstractHandlerManager):
                 e = future.exception()
             except concurrent.futures.CancelledError as raised_e:
                 new_err = HandlerManagerException(
-                    message="Handler for {} unexpectedly ended with cancellation".format(
+                    message="HANDLER ({}): Invocation unexpectedly ended with cancellation".format(
                         handler_name
                     ),
                     cause=raised_e,
                 )
                 handle_exceptions.handle_background_exception(new_err)
             else:
-                new_err = HandlerManagerException(
-                    message="Error in handler for {}".format(handler_name), cause=e
-                )
-                handle_exceptions.handle_background_exception(new_err)
+                if e:
+                    new_err = HandlerManagerException(
+                        message="HANDLER ({}): Error during invocation".format(handler_name),
+                        cause=e,
+                    )
+                    handle_exceptions.handle_background_exception(new_err)
+                else:
+                    logger.debug(
+                        "HANDLER ({}): Successfully completed invocation".format(handler_name)
+                    )
 
         # Run the handler in a threadpool, so that it cannot block other handlers (from a different task),
         # or the main client thread. The number of worker threads forms an upper bound on how many instances
         # of the same handler can be running simultaneously.
         tpe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
-        curr_thread = threading.current_thread()
-        while curr_thread.keep_running:
-            # Because inbox.get() is a blocking call, we have to provide a timeout, otherwise
-            # it will block forever on an empty inbox, and prevent the while condition from being
-            # checked, thus preventing the loop exit, thus meaning the thread this function runs in
-            # will be kept alive forever, and never completed.
-            try:
-                handler_arg = inbox.get(timeout=10)
-            except InboxEmpty:
-                continue
+        while True:
+            handler_arg = inbox.get()
+            if isinstance(handler_arg, HandlerRunnerKillerSentinel):
+                # Exit the runner when a HandlerRunnerKillerSentinel is found
+                logger.debug(
+                    "HANDLER RUNNER ({}): HandlerRunnerKillerSentinel found in inbox. Exiting.".format(
+                        handler_name
+                    )
+                )
+                tpe.shutdown()
+                break
+            # NOTE: we MUST use getattr here using the handler name, as opposed to directly passing
+            # the handler in order for the handler to be able to be updated without cancelling
+            # the running task created for this coroutine
             handler = getattr(self, handler_name)
+            logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             fut = tpe.submit(handler, handler_arg)
             fut.add_done_callback(_handler_callback)
 
@@ -189,13 +204,26 @@ class SyncHandlerManager(AbstractHandlerManager):
         else:
             thread = threading.Thread(target=self._event_handler_runner, args=[handler_name])
 
-        thread.keep_running = True
+        # Store the thread
         self._handler_runners[handler_name] = thread
         thread.start()
 
     def _stop_handler_runner(self, handler_name):
-        """Cancel and remove a handler runner thread"""
+        """Stop and remove a handler runner thread.
+        All pending items in the corresponding inbox will be handled by the handler before stoppage.
+        """
+        # Add a Handler Runner Killer Sentinel to the relevant inbox
+        logger.debug(
+            "Adding HandlerRunnerKillerSentinel to inbox corresponding to {} handler runner".format(
+                handler_name
+            )
+        )
+        inbox = self._get_inbox_for_handler(handler_name)
+        inbox._put(HandlerRunnerKillerSentinel())
+
+        # Wait for Handler Runner to end due to the sentinel
+        logger.debug("Waiting for {} handler runner to exit...".format(handler_name))
         thread = self._handler_runners[handler_name]
-        thread.keep_running = False
         thread.join()
+        logger.debug("Handler runner for {} has been stopped".format(handler_name))
         self._handler_runners[handler_name] = None
