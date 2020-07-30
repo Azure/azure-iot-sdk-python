@@ -9,9 +9,6 @@ import six
 import abc
 from azure.iot.device import constant
 
-# For making long work in python 2 and 3
-from builtins import int
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_KEEPALIVE = 180
@@ -68,7 +65,7 @@ class BasePipelineConfig(object):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
         self.proxy_options = proxy_options
-        self.keep_alive = self._rectify_keep_alive(keep_alive)
+        self.keep_alive = self._validate_keep_alive(keep_alive)
 
     @staticmethod
     def _sanitize_cipher(cipher):
@@ -86,21 +83,17 @@ class BasePipelineConfig(object):
         return cipher
 
     @staticmethod
-    def _rectify_keep_alive(keep_alive):
-        if keep_alive and not isinstance(keep_alive, (int, float)):
-            raise TypeError("Invalid type for 'keep alive'. Permissible types are number.")
+    def _validate_keep_alive(keep_alive):
+        try:
+            keep_alive = float(keep_alive)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid type for 'keep alive'. Permissible types are number.")
 
-        if keep_alive is not None and keep_alive <= 0:
+        if keep_alive <= 0 or keep_alive > constant.MAX_KEEP_ALIVE_SECS:
             # Not allowing a keep alive of 0 as this would mean frequent ping exchanges.
-            logger.error(
-                "'keep alive' can not be zero or negative. A default value of 'keep alive' will be used by the protocol."
+            raise ValueError(
+                "'keep alive' can not be zero OR negative AND can not be more than 29 minutes. "
+                "It is recommended to choose 'keep alive' greater than 180 secs."
             )
-            keep_alive = DEFAULT_KEEPALIVE
-        elif keep_alive and keep_alive > constant.MAX_KEEP_ALIVE_SECS:
-            # This is Hub's maximum Load Balancer Limit before
-            logger.error(
-                "'keep alive' can not be more than 29 minutes. 'keep alive' will be set to max value of 29 minutes to continue."
-            )
-            keep_alive = constant.MAX_KEEP_ALIVE_SECS
 
         return keep_alive

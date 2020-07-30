@@ -99,7 +99,7 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         config = mock_pipeline_init.call_args[0][0]
         assert isinstance(config, ProvisioningPipelineConfig)
 
-        assert config.keep_alive is keepalive_value
+        assert config.keep_alive == keepalive_value
 
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(

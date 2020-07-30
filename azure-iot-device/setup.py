@@ -90,7 +90,6 @@ setup(
         "futures;python_version == '2.7'",
         "PySocks",
         "win-inet-pton;python_version == '2.7'",
-        "future",
     ],
     extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",

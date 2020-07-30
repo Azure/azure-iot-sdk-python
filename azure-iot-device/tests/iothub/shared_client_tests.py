@@ -223,7 +223,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert isinstance(config, IoTHubPipelineConfig)
         assert config == mock_http_pipeline_init.call_args[0][0]
 
-        assert config.keep_alive is keepalive_value
+        assert config.keep_alive == keepalive_value
 
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(

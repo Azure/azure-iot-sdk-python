@@ -243,7 +243,7 @@ class PipelineConfigInstantiationTestBase(object):
         ],
     )
     def test_invalid_keep_alive_param(self, config_cls, required_kwargs, sastoken, keep_alive):
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
 
     @pytest.mark.it(
@@ -269,29 +269,15 @@ class PipelineConfigInstantiationTestBase(object):
         config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
         assert config.keep_alive == keep_alive
 
-    @pytest.mark.it(
-        "Instantiates with the 'keep_alive' attribute to a max value in case provided 'keep_alive' parameter is more than max value"
+    @pytest.mark.it("Raises ValueError if the provided 'keep_alive' attribute has an invalid value")
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param(9876543210987654321098765432109876543210, id="> than max"),
+            pytest.param(-2001, id="negative"),
+            pytest.param(0, id="zero"),
+        ],
     )
-    def test_keep_alive_greater_than_max(self, mocker, required_kwargs, config_cls, sastoken):
-        keep_alive = 9876543210987654321098765432109876543210
-
-        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive == constant.MAX_KEEP_ALIVE_SECS
-
-    @pytest.mark.it(
-        "Instantiates with the 'keep_alive' attribute to None in case provided 'keep_alive' parameter is less than 0"
-    )
-    def test_keep_alive_negative(self, mocker, required_kwargs, config_cls, sastoken):
-        keep_alive = -2001
-
-        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive == DEFAULT_KEEPALIVE
-
-    @pytest.mark.it(
-        "Instantiates with the 'keep_alive' attribute to None in case provided 'keep_alive' parameter is 0"
-    )
-    def test_keep_alive_zero(self, mocker, required_kwargs, config_cls, sastoken):
-        keep_alive = 0
-
-        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive == DEFAULT_KEEPALIVE
+    def test_keep_alive_invalid(self, mocker, required_kwargs, config_cls, sastoken, keep_alive):
+        with pytest.raises(ValueError):
+            config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
