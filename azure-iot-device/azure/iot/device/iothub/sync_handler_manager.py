@@ -137,7 +137,9 @@ class SyncHandlerManager(AbstractHandlerManager):
         """Run infinite loop that waits for an inbox to receive an object from it, then calls
         the handler with that object
         """
+        logger.debug("HANDLER RUNNER ({}): Starting runner".format(handler_name))
         # Define a callback that can handle errors in the ThreadPoolExecutor
+
         def _handler_callback(future):
             try:
                 e = future.exception()

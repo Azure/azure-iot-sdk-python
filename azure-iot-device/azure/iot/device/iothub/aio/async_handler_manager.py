@@ -27,6 +27,8 @@ class AsyncHandlerManager(AbstractHandlerManager):
         """Run infinite loop that waits for an inbox to receive an object from it, then calls
         the handler with that object
         """
+        logger.debug("HANDLER RUNNER ({}): Starting runner".format(handler_name))
+
         # Define a callback that can handle errors in the ThreadPoolExecutor
         def _handler_callback(future):
             try:
@@ -117,7 +119,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 e = completed_task.exception()
             except asyncio.CancelledError:
                 new_err = HandlerManagerException(
-                    message="Handler Runner task for {} unexpectedly ended in cancellation".format(
+                    message="HANDLER RUNNER ({}): Task unexpectedly ended in cancellation".format(
                         handler_name
                     )
                 )
@@ -125,12 +127,15 @@ class AsyncHandlerManager(AbstractHandlerManager):
             else:
                 if e:
                     new_err = HandlerManagerException(
-                        message="Error in handler runner task for {}".format(handler_name), cause=e
+                        message="HANDLER RUNNER ({}): Unexpected error during task".format(
+                            handler_name
+                        ),
+                        cause=e,
                     )
                     handle_exceptions.handle_background_exception(new_err)
                 else:
                     logger.debug(
-                        "Handler Runner task for {} completed without exception".format(
+                        "HANDLER RUNNER ({}): Task successfully completed without exception".format(
                             handler_name
                         )
                     )
