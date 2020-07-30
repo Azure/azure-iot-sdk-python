@@ -85,9 +85,9 @@ class BasePipelineConfig(object):
     @staticmethod
     def _validate_keep_alive(keep_alive):
         try:
-            keep_alive = float(keep_alive)
+            keep_alive = int(keep_alive)
         except (ValueError, TypeError):
-            raise ValueError("Invalid type for 'keep alive'. Permissible types are number.")
+            raise ValueError("Invalid type for 'keep alive'. Permissible types are integer.")
 
         if keep_alive <= 0 or keep_alive > constant.MAX_KEEP_ALIVE_SECS:
             # Not allowing a keep alive of 0 as this would mean frequent ping exchanges.

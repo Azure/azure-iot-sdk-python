@@ -254,7 +254,7 @@ class PipelineConfigInstantiationTestBase(object):
         assert config.keep_alive == DEFAULT_KEEPALIVE
 
     @pytest.mark.it(
-        "Instantiates with the 'keep_alive' attribute set to the provided 'keep_alive' parameter"
+        "Instantiates with the 'keep_alive' attribute set to the provided 'keep_alive' parameter converting the value to an integer"
     )
     @pytest.mark.parametrize(
         "keep_alive",
@@ -265,9 +265,11 @@ class PipelineConfigInstantiationTestBase(object):
             pytest.param(0x9, id="hexadecimal"),
         ],
     )
-    def test_keep_alive_valid(self, mocker, required_kwargs, config_cls, sastoken, keep_alive):
+    def test_keep_alive_valid_with_conversion(
+        self, mocker, required_kwargs, config_cls, sastoken, keep_alive
+    ):
         config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
-        assert config.keep_alive == keep_alive
+        assert config.keep_alive == int(keep_alive)
 
     @pytest.mark.it("Raises ValueError if the provided 'keep_alive' attribute has an invalid value")
     @pytest.mark.parametrize(
