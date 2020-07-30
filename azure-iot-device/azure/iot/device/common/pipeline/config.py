@@ -11,7 +11,7 @@ from azure.iot.device import constant
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_KEEPALIVE = 180
+DEFAULT_KEEPALIVE = 60
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -93,7 +93,7 @@ class BasePipelineConfig(object):
             # Not allowing a keep alive of 0 as this would mean frequent ping exchanges.
             raise ValueError(
                 "'keep alive' can not be zero OR negative AND can not be more than 29 minutes. "
-                "It is recommended to choose 'keep alive' greater than 180 secs."
+                "It is recommended to choose 'keep alive' around 60 secs."
             )
 
         return keep_alive

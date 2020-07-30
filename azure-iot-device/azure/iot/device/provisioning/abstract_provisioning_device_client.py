@@ -101,7 +101,7 @@ class AbstractProvisioningDeviceClient(object):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
         :raises: TypeError if given an unrecognized parameter.
 
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
@@ -167,7 +167,7 @@ class AbstractProvisioningDeviceClient(object):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
         :raises: TypeError if given an unrecognized parameter.
 
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.

@@ -149,7 +149,7 @@ class AbstractIoTHubClient(object):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -268,7 +268,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -318,7 +318,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -380,7 +380,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -525,7 +525,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param int keepalive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
-        If not provided default value of 180 secs will be used.
+        If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
