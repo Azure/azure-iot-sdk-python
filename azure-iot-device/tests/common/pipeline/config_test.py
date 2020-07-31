@@ -7,6 +7,8 @@ import pytest
 import abc
 import six
 from azure.iot.device import ProxyOptions
+from azure.iot.device import constant
+from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -228,3 +230,56 @@ class PipelineConfigInstantiationTestBase(object):
     def test_proxy_options_default(self, config_cls, required_kwargs, sastoken):
         config = config_cls(sastoken=sastoken, **required_kwargs)
         assert config.proxy_options is None
+
+    @pytest.mark.it(
+        "Raises TypeError if the provided 'keep_alive' attribute is not a type of integer or float or long"
+    )
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param("sectumsempra", id="string"),
+            pytest.param((1, 2), id="tuple"),
+            pytest.param(object(), id="object"),
+        ],
+    )
+    def test_invalid_keep_alive_param(self, config_cls, required_kwargs, sastoken, keep_alive):
+        with pytest.raises(ValueError):
+            config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute to 'None' if no 'keep_alive' parameter is provided"
+    )
+    def test_keep_alive_default(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, **required_kwargs)
+        assert config.keep_alive == DEFAULT_KEEPALIVE
+
+    @pytest.mark.it(
+        "Instantiates with the 'keep_alive' attribute set to the provided 'keep_alive' parameter converting the value to an integer"
+    )
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param(1, id="int"),
+            pytest.param(35.90, id="float"),
+            pytest.param(0b1010, id="binary"),
+            pytest.param(0x9, id="hexadecimal"),
+        ],
+    )
+    def test_keep_alive_valid_with_conversion(
+        self, mocker, required_kwargs, config_cls, sastoken, keep_alive
+    ):
+        config = config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+        assert config.keep_alive == int(keep_alive)
+
+    @pytest.mark.it("Raises ValueError if the provided 'keep_alive' attribute has an invalid value")
+    @pytest.mark.parametrize(
+        "keep_alive",
+        [
+            pytest.param(9876543210987654321098765432109876543210, id="> than max"),
+            pytest.param(-2001, id="negative"),
+            pytest.param(0, id="zero"),
+        ],
+    )
+    def test_keep_alive_invalid(self, mocker, required_kwargs, config_cls, sastoken, keep_alive):
+        with pytest.raises(ValueError):
+            config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)

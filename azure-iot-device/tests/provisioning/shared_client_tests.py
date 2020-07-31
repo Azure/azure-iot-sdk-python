@@ -14,6 +14,7 @@ from azure.iot.device.common import auth
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.provisioning.pipeline import ProvisioningPipelineConfig
 from azure.iot.device import ProxyOptions
+from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -86,6 +87,20 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
 
         assert config.proxy_options is proxy_options
 
+    @pytest.mark.it(
+        "Sets the 'keep_alive' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_keep_alive_options(self, client_create_method, create_method_args, mock_pipeline_init):
+        keepalive_value = 60
+        client_create_method(*create_method_args, keep_alive=keepalive_value)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][0]
+        assert isinstance(config, ProvisioningPipelineConfig)
+
+        assert config.keep_alive == keepalive_value
+
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(
         self, mocker, client_create_method, create_method_args, mock_pipeline_init
@@ -108,6 +123,7 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         assert config.websockets is False
         assert config.cipher == ""
         assert config.proxy_options is None
+        assert config.keep_alive == DEFAULT_KEEPALIVE
 
 
 @pytest.mark.usefixtures("mock_pipeline_init")

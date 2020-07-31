@@ -23,7 +23,7 @@ def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     # TODO: add support for server_verification_cert
-    valid_kwargs = ["websockets", "cipher", "proxy_options", "sastoken_ttl"]
+    valid_kwargs = ["websockets", "cipher", "proxy_options", "sastoken_ttl", "keep_alive"]
 
     for kwarg in kwargs:
         if (kwarg not in valid_kwargs) or (kwarg in exclude):
@@ -32,7 +32,7 @@ def _validate_kwargs(exclude=[], **kwargs):
 
 def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
-    valid_config_kwargs = ["websockets", "cipher", "proxy_options"]
+    valid_config_kwargs = ["websockets", "cipher", "proxy_options", "keep_alive"]
 
     config_kwargs = {}
     for kwarg in kwargs:
@@ -98,7 +98,10 @@ class AbstractProvisioningDeviceClient(object):
         :type cipher: str or list(str)
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
-
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
         :raises: TypeError if given an unrecognized parameter.
 
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
@@ -161,7 +164,10 @@ class AbstractProvisioningDeviceClient(object):
         :type cipher: str or list(str)
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
-
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
         :raises: TypeError if given an unrecognized parameter.
 
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
