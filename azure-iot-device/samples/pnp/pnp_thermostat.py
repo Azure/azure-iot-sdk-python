@@ -10,6 +10,7 @@ import logging
 import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
+from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import constant, Message, MethodResponse
 from datetime import date, timedelta, datetime
 
@@ -177,17 +178,43 @@ def stdin_listener():
 
 #####################################################
 # MAIN STARTS
+async def provision_device(provisioning_host, id_scope, registration_id, symmetric_key, model_id):
+    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+        provisioning_host=provisioning_host,
+        registration_id=registration_id,
+        id_scope=id_scope,
+        symmetric_key=symmetric_key,
+    )
+    provisioning_device_client.provisioning_payload = {"modelId": model_id}
+    return await provisioning_device_client.register()
 
 
 async def main():
-    # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-    print("Connecting using Connection String " + conn_str)
+    switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
+    if switch == "DPS":
+        provisioning_host = os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+        id_scope = os.getenv("IOTHUB_DEVICE_DPS_ID_SCOPE")
+        registration_id = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_ID")
+        symmetric_key = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_KEY")
 
-    # The client object is used to interact with your Azure IoT hub.
-    device_client = IoTHubDeviceClient.create_from_connection_string(
-        conn_str, product_info=model_id
-    )
+        registration_result = await provision_device(
+            provisioning_host, id_scope, registration_id, symmetric_key, model_id
+        )
+
+        if registration_result.status == "assigned":
+            device_client = IoTHubDeviceClient.create_from_symmetric_key(
+                symmetric_key=symmetric_key,
+                hostname=registration_result.registration_state.assigned_hub,
+                device_id=registration_result.registration_state.device_id,
+            )
+        else:
+            raise RuntimeError("Could not provision device. Aborting PNP device connection.")
+    else:
+        conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+        print("Connecting using Connection String " + conn_str)
+        device_client = IoTHubDeviceClient.create_from_connection_string(
+            conn_str, product_info=model_id
+        )
 
     # Connect the client.
     await device_client.connect()
