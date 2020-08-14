@@ -20,6 +20,12 @@ from azure.iot.device.iothub.sync_handler_manager import (
 logger = logging.getLogger(__name__)
 
 
+RUNNER_LOOP = asyncio.new_event_loop()
+RUNNER_THREAD = threading.Thread(target=RUNNER_LOOP.run_forever)
+RUNNER_THREAD.daemon = True
+RUNNER_THREAD.start()
+
+
 class AsyncHandlerManager(AbstractHandlerManager):
     """Handler manager for use with asynchronous clients"""
 
@@ -92,7 +98,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
     def _start_handler_runner(self, handler_name):
         """Create, and store a task for running a handler
         """
-        # First check if the handler task already exists
+        # First check if the handler runner already exists
         if self._handler_runners[handler_name] is not None:
             raise HandlerManagerException(
                 "Cannot create task for handler runner: {}. Task already exists".format(
@@ -100,24 +106,20 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 )
             )
 
-        # Schedule a task with the correct type of handler runner
+        # Schedule a coroutine with the correct type of handler runner
         inbox = self._get_inbox_for_handler(handler_name)
         if inbox:
             coro = self._inbox_handler_runner(inbox, handler_name)
         else:
             coro = self._event_handler_runner(handler_name)
-        task = asyncio_compat.create_task(coro)
+        future = asyncio.run_coroutine_threadsafe(coro, RUNNER_LOOP)
 
-        # Add a threading Event to the task dynamically (sorry) so that we can wait for it's
-        # completion from another thread, if necessary (e.g. operation being done in callback)
-        # NOTE: this may not be necessary when client level code all runs in it's own thread
-        task.completion_event = threading.Event()
-
-        # Define a callback for the task (in order to handle any errors)
-        def _handler_runner_callback(completed_task):
+        # Define a callback for the future (in order to handle any errors)
+        def _handler_runner_callback(completed_future):
             try:
-                e = completed_task.exception()
+                e = completed_future.exception()
             except asyncio.CancelledError:
+                # TODO: is this the right error?
                 new_err = HandlerManagerException(
                     message="HANDLER RUNNER ({}): Task unexpectedly ended in cancellation".format(
                         handler_name
@@ -139,15 +141,12 @@ class AsyncHandlerManager(AbstractHandlerManager):
                             handler_name
                         )
                     )
-            # Set the event linked to task completion across threads
-            # NOTE: this may not be necessary when client level code all runs in it's own thread
-            completed_task.completion_event.set()
 
-        task.add_done_callback(_handler_runner_callback)
+        future.add_done_callback(_handler_runner_callback)
 
-        # Store the task
-        self._handler_runners[handler_name] = task
-        logger.debug("Task for Handler Runner ({}) was stored".format(handler_name))
+        # Store the future
+        self._handler_runners[handler_name] = future
+        logger.debug("Future for Handler Runner ({}) was stored".format(handler_name))
 
     def _stop_handler_runner(self, handler_name):
         """Stop and remove a handler runner task.
@@ -162,7 +161,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
         inbox = self._get_inbox_for_handler(handler_name)
         inbox._put(HandlerRunnerKillerSentinel())
         # Wait for Handler Runner to end due to the sentinel
-        task = self._handler_runners[handler_name]
-        task.completion_event.wait()
+        future = self._handler_runners[handler_name]
+        future.result()
         # Stop tracking the task since it is now complete
         self._handler_runners[handler_name] = None

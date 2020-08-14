@@ -4,9 +4,15 @@
 # license information.
 # --------------------------------------------------------------------------
 """This module contains an Inbox class for use with an asynchronous client"""
-
+import asyncio
+import threading
 import janus
 from azure.iot.device.iothub.sync_inbox import AbstractInbox
+
+INBOX_LOOP = asyncio.new_event_loop()
+INBOX_THREAD = threading.Thread(target=INBOX_LOOP.run_forever)
+INBOX_THREAD.daemon = True
+INBOX_THREAD.start()
 
 
 class AsyncClientInbox(AbstractInbox):
@@ -17,7 +23,12 @@ class AsyncClientInbox(AbstractInbox):
 
     def __init__(self):
         """Initializer for AsyncClientInbox."""
-        self._queue = janus.Queue()
+
+        async def make_queue():
+            return janus.Queue()
+
+        fut = asyncio.run_coroutine_threadsafe(make_queue(), INBOX_LOOP)
+        self._queue = fut.result()
 
     def __contains__(self, item):
         """Return True if item is in Inbox, False otherwise"""
@@ -44,7 +55,8 @@ class AsyncClientInbox(AbstractInbox):
 
         :returns: An item from the Inbox.
         """
-        return await self._queue.async_q.get()
+        fut = asyncio.run_coroutine_threadsafe(self._queue.async_q.get(), INBOX_LOOP)
+        return await asyncio.wrap_future(fut)
 
     def empty(self):
         """Returns True if the inbox is empty, False otherwise
