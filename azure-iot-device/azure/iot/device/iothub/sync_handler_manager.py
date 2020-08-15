@@ -205,6 +205,7 @@ class SyncHandlerManager(AbstractHandlerManager):
             thread = threading.Thread(target=self._inbox_handler_runner, args=[inbox, handler_name])
         else:
             thread = threading.Thread(target=self._event_handler_runner, args=[handler_name])
+        thread.daemon = True  # Don't block program exit
 
         # Store the thread
         self._handler_runners[handler_name] = thread

@@ -7,6 +7,7 @@ import logging
 import pytest
 import asyncio
 import inspect
+import threading
 import concurrent.futures
 from azure.iot.device.iothub.aio.async_handler_manager import AsyncHandlerManager
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
@@ -98,6 +99,9 @@ class TestInstantiation(object):
 
 
 class SharedHandlerPropertyTests(object):
+    # NOTE: this fixture is necessary to clean up any hanging tasks that don't have time
+    # to complete cleanly within the testing framework. Unsure at this time if this presents
+    # problems in the actual production use-case for the package.
     @pytest.fixture(autouse=True)
     def teardown_runners(self, handler_manager):
         """This fixture removes all running async tasks when a test is finished"""
@@ -128,7 +132,7 @@ class SharedHandlerPropertyTests(object):
     @pytest.mark.it(
         "Creates and stores a Future for the corresponding handler runner, when value is set to a function or coroutine handler, used for invoking the handler"
     )
-    async def test_task_created(
+    async def test_future_created(
         self, handler_name, handler_name_internal, handler_manager, handler
     ):
         assert handler_manager._handler_runners[handler_name_internal] is None
@@ -138,9 +142,9 @@ class SharedHandlerPropertyTests(object):
         )
 
     @pytest.mark.it(
-        "Deletes any existing stored Future for the handler runner when the value is set back to None"
+        "Stops the corresponding handler runner and deletes any existing stored Future for it when the value is set back to None"
     )
-    async def test_task_removed(
+    async def test_future_removed(
         self, handler_name, handler_name_internal, handler_manager, handler
     ):
         # Set handler
@@ -156,9 +160,9 @@ class SharedHandlerPropertyTests(object):
         assert handler_manager._handler_runners[handler_name_internal] is None
 
     @pytest.mark.it(
-        "Does not delete, remove, or replace the Future for the handler runner, when the corresponding handler is updated with a new function or coroutine value"
+        "Does not delete, remove, or replace the Future for the corresponding handler runner, when updated with a new function or coroutine value"
     )
-    async def test_task_unchanged_by_handler_update(
+    async def test_future_unchanged_by_handler_update(
         self, handler_name, handler_name_internal, handler_manager, handler
     ):
         # Set the handler
@@ -178,7 +182,7 @@ class SharedHandlerPropertyTests(object):
         assert not future.done()
 
     @pytest.mark.it(
-        "Is invoked by the task when the Inbox corresponding to the handler receives an object, passing that object to the handler"
+        "Is invoked by the runner when the Inbox corresponding to the handler receives an object, passing that object to the handler"
     )
     async def test_handler_invoked(
         self, mocker, handler_name, handler_manager, handler, handler_checker, inbox
@@ -199,7 +203,7 @@ class SharedHandlerPropertyTests(object):
         assert handler_checker.handler_call_arg is mock_obj
 
     @pytest.mark.it(
-        "Is invoked by the task every time the Inbox corresponding to the handler receives an object"
+        "Is invoked by the runner every time the Inbox corresponding to the handler receives an object"
     )
     async def test_handler_invoked_multiple(
         self, mocker, handler_name, handler_manager, handler, handler_checker, inbox
@@ -218,23 +222,64 @@ class SharedHandlerPropertyTests(object):
         assert handler_checker.handler_call_count == 5
 
     @pytest.mark.it(
-        "Can be updated with a new value that the corresponding handler runner will immediately begin using instead"
+        "Will be invoked for every item already in the corresponding Inbox at the moment of handler removal"
+    )
+    async def test_handler_resolve_pending_items_before_handler_removal(
+        self, mocker, handler_name, handler_manager, handler, handler_checker, inbox
+    ):
+        # Set the handler
+        setattr(handler_manager, handler_name, handler)
+        # Add 100 items to the associated inbox (enough to build up a backlog)
+        for _ in range(100):
+            inbox._put(mocker.MagicMock())
+        # Inbox is not empty - i.e. the handler has not yet been called for every item in the inbox
+        assert not inbox.empty()
+        assert handler_checker.handler_call_count != 100
+        # Remove the handler
+        setattr(handler_manager, handler_name, None)
+        assert inbox.empty()
+        assert handler_checker.handler_call_count == 100
+
+        # NOTE: This doesn't account for the multithreaded case where the inbox is being continually added to,
+        # even after the handler has been removed. There isn't really a good way to test that because the adding is
+        # continuous, and unsetting the handler is not atomic, i.e. in the time it takes to remove the handler, many
+        # new things could be added to the inbox. We can never get a accurate number on inbox size to show that
+        # everything prior to the unsetting of the handler during the execution of the unsetting will get resolved.
+        # Just take my word for it + read the source code to see that this is true due to the sentinel pattern.
+        #
+        # NOTE 2: I know the above note probably doesn't make sense to anyone who hasn't tried to test this edge case.
+        # Go ahead and try to test the multithread edge case, come back, read that note again, and it'll
+        # probably make sense
+
+    @pytest.mark.it(
+        "Can be updated with a new value that the corresponding handler runner will immediately begin using for handler invocations instead"
     )
     async def test_handler_update_handler(self, mocker, handler_name, handler_manager, inbox):
-        # Ideally we would also test coroutines, but honestly, it's difficult to set up.
-        # Please add that test if you can think of a good way to do it.
+        # NOTE: this test tests both coroutines and functions without the need for parametrization
+
+        mock_handler = mocker.MagicMock()
+
+        async def handler2(arg):
+            # Invoking handler2 replaces the set handler with a mock
+            setattr(handler_manager, handler_name, mock_handler)
 
         def handler1(arg):
-            # Invoking handler 1 replaces the set handler with a mock
-            setattr(handler_manager, handler_name, mocker.MagicMock())
+            # Invoking handler1 replaces the set handler with handler2
+            setattr(handler_manager, handler_name, handler2)
 
         setattr(handler_manager, handler_name, handler1)
 
         inbox._put(mocker.MagicMock())
         await asyncio.sleep(0.1)
-        # Handler has been replaced with a mock, but the mock has not been invoked
+        # The set handler (handler1) has been replaced with a new handler (handler2)
         assert getattr(handler_manager, handler_name) is not handler1
-        assert getattr(handler_manager, handler_name).call_count == 0
+        assert getattr(handler_manager, handler_name) is handler2
+        # Add a new item to the inbox
+        inbox._put(mocker.MagicMock())
+        await asyncio.sleep(0.1)
+        # The set handler (handler2) has now been replaced by a mock handler
+        assert getattr(handler_manager, handler_name) is not handler2
+        assert getattr(handler_manager, handler_name) is mock_handler
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
         await asyncio.sleep(0.1)
@@ -253,25 +298,25 @@ class TestAsyncHandlerManagerPropertyOnMessageReceived(SharedHandlerPropertyTest
         return inbox_manager.get_unified_message_inbox()
 
 
-# @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_method_request_received")
-# class TestAsyncHandlerManagerPropertyOnMethodRequestReceived(SharedHandlerPropertyTests):
-#     @pytest.fixture
-#     def handler_name(self):
-#         return "on_method_request_received"
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_method_request_received")
+class TestAsyncHandlerManagerPropertyOnMethodRequestReceived(SharedHandlerPropertyTests):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_method_request_received"
 
-#     @pytest.fixture
-#     def inbox(self, inbox_manager):
-#         return inbox_manager.get_method_request_inbox()
+    @pytest.fixture
+    def inbox(self, inbox_manager):
+        return inbox_manager.get_method_request_inbox()
 
 
-# @pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_twin_desired_properties_patch_received")
-# class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
-#     SharedHandlerPropertyTests
-# ):
-#     @pytest.fixture
-#     def handler_name(self):
-#         return "on_twin_desired_properties_patch_received"
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_twin_desired_properties_patch_received")
+class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
+    SharedHandlerPropertyTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_twin_desired_properties_patch_received"
 
-#     @pytest.fixture
-#     def inbox(self, inbox_manager):
-#         return inbox_manager.get_twin_patch_inbox()
+    @pytest.fixture
+    def inbox(self, inbox_manager):
+        return inbox_manager.get_twin_patch_inbox()

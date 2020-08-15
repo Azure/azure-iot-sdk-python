@@ -6,6 +6,7 @@
 import logging
 import pytest
 import threading
+import time
 from azure.iot.device.iothub.sync_handler_manager import SyncHandlerManager
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
@@ -76,12 +77,139 @@ class SharedHandlerPropertyTests(object):
         assert getattr(handler_manager, handler_name) is None
 
     @pytest.mark.it(
-        "Creates and starts a Thread for the correpsonding handler runner when value is set to a function"
+        "Creates and starts a daemon Thread for the correpsonding handler runner when value is set to a function"
     )
     def test_thread_created(self, handler_name, handler_name_internal, handler_manager, handler):
         assert handler_manager._handler_runners[handler_name_internal] is None
         setattr(handler_manager, handler_name, handler)
         assert isinstance(handler_manager._handler_runners[handler_name_internal], threading.Thread)
+        assert handler_manager._handler_runners[handler_name_internal].daemon is True
+
+    @pytest.mark.it(
+        "Stops the corresponding handler runner and completes any existing daemon Thread for it when the value is set back to None"
+    )
+    def test_thread_removed(self, handler_name, handler_name_internal, handler_manager, handler):
+        # Set handler
+        setattr(handler_manager, handler_name, handler)
+        # Thread has been created and is alive
+        t = handler_manager._handler_runners[handler_name_internal]
+        assert isinstance(t, threading.Thread)
+        assert t.is_alive()
+        # Set the handler back to None
+        setattr(handler_manager, handler_name, None)
+        # Thread has finished and the manager no longer has a reference to it
+        assert not t.is_alive()
+        assert handler_manager._handler_runners[handler_name_internal] is None
+
+    @pytest.mark.it(
+        "Does not delete, remove, or replace the Thread for the corresponding handler runner, when the updated with a new function value"
+    )
+    def test_thread_unchanged_by_handler_update(
+        self, handler_name, handler_name_internal, handler_manager, handler
+    ):
+        # Set the handler
+        setattr(handler_manager, handler_name, handler)
+        # Thread has been crated and is alive
+        t = handler_manager._handler_runners[handler_name_internal]
+        assert isinstance(t, threading.Thread)
+        assert t.is_alive()
+
+        # Set new handler
+        def new_handler(arg):
+            pass
+
+        setattr(handler_manager, handler_name, new_handler)
+        assert handler_manager._handler_runners[handler_name_internal] is t
+        assert t.is_alive()
+
+    @pytest.mark.it(
+        "Is invoked by the runner when the Inbox corresponding to the handler receives an object, passing that object to the handler"
+    )
+    def test_handler_invoked(self, mocker, handler_name, handler_manager, handler, inbox):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        setattr(handler_manager, handler_name, mock_handler)
+        # Handler has not been called
+        assert mock_handler.call_count == 0
+
+        # Add an item to corresponding inbox, triggering the handler
+        mock_obj = mocker.MagicMock()
+        inbox._put(mock_obj)
+        time.sleep(0.1)
+
+        # Handler has been called with the item from the inbox
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(mock_obj)
+
+    @pytest.mark.it(
+        "Is invoked by the runner every time the Inbox corresponding to the handler receives an object"
+    )
+    def test_handler_invoked_multiple(self, mocker, handler_name, handler_manager, handler, inbox):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        setattr(handler_manager, handler_name, mock_handler)
+        # Handler has not been called
+        assert mock_handler.call_count == 0
+
+        # Add 5 items to the corresponding inbox, triggering the handler
+        for _ in range(5):
+            inbox._put(mocker.MagicMock())
+        time.sleep(0.1)
+
+        # Handler has been called 5 times
+        assert mock_handler.call_count == 5
+
+    @pytest.mark.it(
+        "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
+    )
+    def test_handler_resolve_pending_items_before_handler_removal(
+        self, mocker, handler_name, handler_manager, handler, inbox
+    ):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        setattr(handler_manager, handler_name, mock_handler)
+        # Add 100 items to the associated inbox (enough to build up a backlog)
+        for _ in range(100):
+            inbox._put(mocker.MagicMock())
+        # Inbox is not empty - i.e. the handler has not yet been called for every item in the inbox
+        assert not inbox.empty()
+        assert mock_handler.call_count != 100
+        # Remove the handler
+        setattr(handler_manager, handler_name, None)
+        assert inbox.empty()
+        assert mock_handler.call_count == 100
+
+        # NOTE: This doesn't account for the multithreaded case where the inbox is being continually added to,
+        # even after the handler has been removed. There isn't really a good way to test that because the adding is
+        # continuous, and unsetting the handler is not atomic, i.e. in the time it takes to remove the handler, many
+        # new things could be added to the inbox. We can never get a accurate number on inbox size to show that
+        # everything prior to the unsetting of the handler during the execution of the unsetting will get resolved.
+        # Just take my word for it + read the source code to see that this is true due to the sentinel pattern.
+        #
+        # NOTE 2: I know the above note probably doesn't make sense to anyone who hasn't tried to test this edge case.
+        # Go ahead and try to test the multithread edge case, come back, read that note again, and it'll
+        # probably make sense
+
+    @pytest.mark.it(
+        "Can be updated with a new value that the corresponding handler runner will immediately begin using for handler invocations instead"
+    )
+    def test_handler_update_handler(self, mocker, handler_name, handler_manager, inbox):
+        def handler(arg):
+            # Invoking handler replaces the set handler with a mock
+            setattr(handler_manager, handler_name, mocker.MagicMock())
+
+        setattr(handler_manager, handler_name, handler)
+
+        inbox._put(mocker.MagicMock())
+        time.sleep(0.1)
+        # Handler has been replaced with a mock, but the mock has not been invoked
+        assert getattr(handler_manager, handler_name) is not handler
+        assert getattr(handler_manager, handler_name).call_count == 0
+        # Add a new item to the inbox
+        inbox._put(mocker.MagicMock())
+        time.sleep(0.1)
+        # The mock was now called
+        assert getattr(handler_manager, handler_name).call_count == 1
 
 
 @pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_message_received")
