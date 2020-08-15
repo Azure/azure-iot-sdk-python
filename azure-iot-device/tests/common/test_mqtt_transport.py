@@ -18,6 +18,7 @@ import socks
 import threading
 import gc
 import weakref
+import azure.iot.device.common.pipeline.config as pipeline_config
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -392,31 +393,14 @@ class TestConnect(object):
         assert transport._websockets is False
 
         transport._websockets = websockets
+        fake_keepalive = 900
+        transport._keep_alive = fake_keepalive
 
         transport.connect(password)
 
         assert mock_mqtt_client.connect.call_count == 1
         assert mock_mqtt_client.connect.call_args == mocker.call(
-            host=fake_hostname, port=port, keepalive=mocker.ANY
-        )
-
-    @pytest.mark.it("Passes DEFAULT_KEEPALIVE to paho connect function")
-    @pytest.mark.parametrize(
-        "password",
-        [
-            pytest.param(fake_password, id="Password provided"),
-            pytest.param(None, id="No password provided"),
-        ],
-    )
-    def test_calls_paho_connect_with_keepalive(self, mocker, mock_mqtt_client, transport, password):
-
-        mqtt_transport.DEFAULT_KEEPALIVE = fake_keepalive
-
-        transport.connect(password)
-
-        assert mock_mqtt_client.connect.call_count == 1
-        assert mock_mqtt_client.connect.call_args == mocker.call(
-            host=fake_hostname, port=8883, keepalive=fake_keepalive
+            host=fake_hostname, port=port, keepalive=fake_keepalive
         )
 
     @pytest.mark.it("Starts MQTT Network Loop")

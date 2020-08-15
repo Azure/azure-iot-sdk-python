@@ -47,10 +47,6 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_QUEUE_SIZE: exceptions.ProtocolClientError,
 }
 
-# Default keepalive.  Paho sends a PINGREQ using this interval
-# to make sure the connection is still open.
-DEFAULT_KEEPALIVE = 60
-
 
 def _create_error_from_connack_rc_code(rc):
     """
@@ -101,6 +97,7 @@ class MQTTTransport(object):
         websockets=False,
         cipher=None,
         proxy_options=None,
+        keep_alive=None,
     ):
         """
         Constructor to instantiate an MQTT protocol wrapper.
@@ -122,6 +119,7 @@ class MQTTTransport(object):
         self._websockets = websockets
         self._cipher = cipher
         self._proxy_options = proxy_options
+        self._keep_alive = keep_alive
 
         self.on_mqtt_connected_handler = None
         self.on_mqtt_disconnected_handler = None
@@ -381,12 +379,12 @@ class MQTTTransport(object):
             if self._websockets:
                 logger.info("Connect using port 443 (websockets)")
                 rc = self._mqtt_client.connect(
-                    host=self._hostname, port=443, keepalive=DEFAULT_KEEPALIVE
+                    host=self._hostname, port=443, keepalive=self._keep_alive
                 )
             else:
                 logger.info("Connect using port 8883 (TCP)")
                 rc = self._mqtt_client.connect(
-                    host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
+                    host=self._hostname, port=8883, keepalive=self._keep_alive
                 )
         except socket.error as e:
             self._cleanup_transport_on_error()

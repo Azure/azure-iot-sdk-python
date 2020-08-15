@@ -7,9 +7,11 @@
 import logging
 import six
 import abc
-from azure.iot.device.common import models
+from azure.iot.device import constant
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_KEEPALIVE = 60
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -29,6 +31,7 @@ class BasePipelineConfig(object):
         websockets=False,
         cipher="",
         proxy_options=None,
+        keep_alive=DEFAULT_KEEPALIVE,
     ):
         """Initializer for BasePipelineConfig
 
@@ -62,6 +65,7 @@ class BasePipelineConfig(object):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
         self.proxy_options = proxy_options
+        self.keep_alive = self._validate_keep_alive(keep_alive)
 
     @staticmethod
     def _sanitize_cipher(cipher):
@@ -77,3 +81,19 @@ class BasePipelineConfig(object):
             raise TypeError("Invalid type for 'cipher'")
 
         return cipher
+
+    @staticmethod
+    def _validate_keep_alive(keep_alive):
+        try:
+            keep_alive = int(keep_alive)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid type for 'keep alive'. Permissible types are integer.")
+
+        if keep_alive <= 0 or keep_alive > constant.MAX_KEEP_ALIVE_SECS:
+            # Not allowing a keep alive of 0 as this would mean frequent ping exchanges.
+            raise ValueError(
+                "'keep alive' can not be zero OR negative AND can not be more than 29 minutes. "
+                "It is recommended to choose 'keep alive' around 60 secs."
+            )
+
+        return keep_alive

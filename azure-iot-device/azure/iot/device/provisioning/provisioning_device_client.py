@@ -24,13 +24,17 @@ def handle_result(callback):
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
-        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+        raise exceptions.ConnectionDroppedError(
+            message="Lost connection to the provisioning server", cause=e
+        )
     except pipeline_exceptions.ConnectionFailedError as e:
-        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+        raise exceptions.ConnectionFailedError(
+            message="Could not connect to the provisioning server", cause=e
+        )
     except pipeline_exceptions.UnauthorizedError as e:
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
-        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+        raise exceptions.ClientError(message="Error in the provisioning client", cause=e)
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 

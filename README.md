@@ -9,6 +9,8 @@
 This repository contains code for the Azure IoT SDKs for Python.  This enables python developers to easily create IoT device solutions that semealessly
 connection to the Azure IoTHub ecosystem.
 
+**Help us help you with our IoT SDKs!** We are running a survey through August 2020 to learn more about your IoT projects and support needs. Our team will use this information to help shape the future of our IoT SDKs, and, if you choose to provide your contact information, we'll include you in our circle of advisors for early feedback. Consider spending ~5 minutes completing **[this survey](https://aka.ms/iotsdksurvey)**-- we'd love to hear from you!
+
 *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
 
 ## Azure IoT SDK for Python

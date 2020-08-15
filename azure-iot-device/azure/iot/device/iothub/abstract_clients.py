@@ -32,6 +32,7 @@ def _validate_kwargs(exclude=[], **kwargs):
         "server_verification_cert",
         "proxy_options",
         "sastoken_ttl",
+        "keep_alive",
     ]
 
     for kwarg in kwargs:
@@ -47,6 +48,7 @@ def _get_config_kwargs(**kwargs):
         "cipher",
         "server_verification_cert",
         "proxy_options",
+        "keep_alive",
     ]
 
     config_kwargs = {}
@@ -144,6 +146,10 @@ class AbstractIoTHubClient(object):
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -259,6 +265,10 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -305,6 +315,10 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -363,6 +377,10 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -504,6 +522,10 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int keepalive: Maximum period in seconds between communications with the
+        broker. If no other messages are being exchanged, this controls the
+        rate at which the client will send ping messages to the broker.
+        If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
