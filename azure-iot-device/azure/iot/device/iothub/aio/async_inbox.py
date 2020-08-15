@@ -9,10 +9,18 @@ import threading
 import janus
 from azure.iot.device.iothub.sync_inbox import AbstractInbox
 
+# This logic could potentially be encapsulated in another module...
+# Say... some kind of... loop_manager.py?
 INBOX_LOOP = asyncio.new_event_loop()
 INBOX_THREAD = threading.Thread(target=INBOX_LOOP.run_forever)
 INBOX_THREAD.daemon = True
 INBOX_THREAD.start()
+
+# IMPLEMENTATION NOTE: The janus Queue exists entirely on the above mentioned INBOX_LOOP,
+# which runs on its own thread. Think of it kind of as a worker loop where async inbox access
+# operations are scheduled, with the results returned back to whatever thread/loop scheduled them.
+# We do this so that it is safe to use inboxes across different threads, in different places.
+# (e.g. customer thread, handler manager thread, callback thread, etc.)
 
 
 class AsyncClientInbox(AbstractInbox):
@@ -24,6 +32,10 @@ class AsyncClientInbox(AbstractInbox):
     def __init__(self):
         """Initializer for AsyncClientInbox."""
 
+        # The queue must be instantiated on the INBOX_LOOP, but there's no way to do that at
+        # instantiation from a different loop, so instead we make coroutine to do the task
+        # and run it on the INBOX_LOOP. It's not pretty, but it works (would be really nice
+        # if janus decided to allow it as an optional parameter though)
         async def make_queue():
             return janus.Queue()
 

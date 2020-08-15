@@ -19,7 +19,8 @@ from azure.iot.device.iothub.sync_handler_manager import (
 
 logger = logging.getLogger(__name__)
 
-
+# This logic could potentially be encapsulated in another module...
+# Say... some kind of... loop_manager.py?
 RUNNER_LOOP = asyncio.new_event_loop()
 RUNNER_THREAD = threading.Thread(target=RUNNER_LOOP.run_forever)
 RUNNER_THREAD.daemon = True
@@ -62,6 +63,8 @@ class AsyncHandlerManager(AbstractHandlerManager):
         # Run the handler in a threadpool, so that it cannot block other handlers (from a different task),
         # or the main client thread. The number of worker threads forms an upper bound on how many instances
         # of the same handler can be running simultaneously.
+        # NOTE: eventually we might want to do this in the customer's event loop (for coroutine handlers).
+        # However this will require more infrastructure that is not yet prepared.
         tpe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         while True:
             handler_arg = await inbox.get()
