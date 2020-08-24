@@ -369,23 +369,36 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    # @property
-    # def on_method_request_received(self):
-    #     return self._on_method_request_received
+    def _generic_handler_setter(self, handler_name, feature_name, new_handler):
+        self._validate_receive_handler_setter()
+        # Set the handler on the handler manager
+        setattr(self._handler_manager, handler_name, new_handler)
 
-    # @on_method_request_received.setter
-    # def on_method_request_received(self, value):
-    #     self._validate_receive_handler_setter()
-    #     # Enable the feature if necessary
-    #     if value is not None and not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
-    #         self._enable_feature(pipeline_constant.METHODS)
+        # Enable the feature if necessary
+        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+            self._enable_feature(feature_name)
 
-    #     # Disable the feature if necessary
-    #     elif value is None and self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
-    #         self._disable_feature(pipeline_constant.METHODS)
+        # Disable the feature if necessary
+        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
+            self._disable_feature(feature_name)
 
-    #     # Set the handler on the handler manager
-    #     self._handler_manager.on_method_request_received = value
+    @property
+    def on_twin_desired_properties_patch_received(self):
+        return self._handler_manager.on_twin_desired_properties_patch_received
+
+    @on_twin_desired_properties_patch_received.setter
+    def on_twin_desired_properties_patch_received(self, value):
+        self._generic_handler_setter(
+            "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
+        )
+
+    @property
+    def on_method_request_received(self):
+        return self._handler_manager.on_method_request_received
+
+    @on_method_request_received.setter
+    def on_method_request_received(self, value):
+        self._generic_handler_setter("on_method_request_received", pipeline_constant.METHODS, value)
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -467,6 +480,14 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         handle_result(callback)
         logger.info("Successfully notified blob upload status")
+
+    @property
+    def on_message_received(self):
+        return self._handler_manager.on_message_received
+
+    @on_message_received.setter
+    def on_message_received(self, value):
+        self._generic_handler_setter("on_message_received", pipeline_constant.C2D_MSG, value)
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -576,3 +597,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         invoke_method_response = handle_result(callback)
         logger.info("Successfully invoked method")
         return invoke_method_response
+
+    @property
+    def on_message_received(self):
+        return self._handler_manager.on_message_received
+
+    @on_message_received.setter
+    def on_message_received(self, value):
+        self._generic_handler_setter("on_message_received", pipeline_constant.INPUT_MSG, value)
