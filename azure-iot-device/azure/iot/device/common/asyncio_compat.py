@@ -6,6 +6,7 @@
 """This module contains compatibility tools for bridging different versions of asyncio"""
 
 import asyncio
+import sys
 
 
 def get_running_loop():
@@ -65,9 +66,9 @@ def run(coro):
     If available (Python 3.7+) use asyncio.run. If not available, use a custom implementation
     that achieves the same thing
     """
-    try:
+    if sys.version_info >= (3, 7):
         return asyncio.run(coro)
-    except AttributeError:
+    else:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:

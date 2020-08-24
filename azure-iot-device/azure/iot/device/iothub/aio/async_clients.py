@@ -128,7 +128,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             logger.info("Successfully disabled feature: {}".format(feature_name))
         else:
             # This branch shouldn't be reached, but in case it is, log it
-            logger.info("Feature ({}) already enabled - skipping".format(feature_name))
+            logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -384,25 +384,31 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
 
+    # def _generic_handler_setter(self, handler_name, feature_name, new_handler):
+    #     self._validate_receive_handler_setter()
+    #     # Set the handler on the handler manager
+    #     setattr(self._handler_manager, handler_name, new_handler)
+
+    #     # Enable the feature if necessary
+    #     if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+
+    #         # CT-TODO: fix this to work better
+    #         loop = asyncio.get_event_loop()
+    #         asyncio.ensure_future(self._enable_feature(feature_name), loop=loop)
+
+    #     # Disable the feature if necessary
+    #     elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
+    #         # this works in async context, but not in sync
+    #         loop = asyncio.get_event_loop()
+    #         asyncio.ensure_future(self._disable_feature(feature_name), loop=loop)
+
     # @property
     # def on_method_request_received(self):
     #     return self._on_method_request_received
 
     # @on_method_request_received.setter
     # def on_method_request_received(self, value):
-    #     self._validate_receive_handler_setter()
-    #     # Enable the feature if necessary
-    #     if value is not None and not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
-    #         loop = asyncio.get_event_loop()
-    #         asyncio.ensure_future(self._enable_feature(constant.METHODS), loop=loop)
-
-    #     # Disable the feature if necessary
-    #     elif value is None and self._mqtt_pipeline.feature_enabled[constant.METHODS]:
-    #         loop = asyncio.get_event_loop()
-    #         asyncio.ensure_future(self._disable_feature(constant.METHODS), loop=loop)
-
-    #     # Set the handler on the handler manager
-    #     self._handler_manager.on_method_request_received = value
+    #     self._generic_handler_setter("on_method_request_received", constant.METHODS, value)
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
