@@ -23,10 +23,18 @@ TWIN_DP_PATCH = "_on_twin_desired_properties_patch_received"
 
 
 class HandlerManagerException(ChainableException):
+    """An exception raised by a HandlerManager
+    """
+
     pass
 
 
 class HandlerRunnerKillerSentinel(object):
+    """An object that functions according to the sentinel design pattern.
+    Insert into an Inbox in order to indicate that the Handler Runner associated with that
+    Inbox should be stopped.
+    """
+
     pass
 
 
@@ -138,14 +146,16 @@ class SyncHandlerManager(AbstractHandlerManager):
         the handler with that object
         """
         logger.debug("HANDLER RUNNER ({}): Starting runner".format(handler_name))
-        # Define a callback that can handle errors in the ThreadPoolExecutor
 
+        # Define a callback that can handle errors in the ThreadPoolExecutor
         def _handler_callback(future):
             try:
-                e = future.exception()
-            except concurrent.futures.CancelledError as raised_e:
+                e = future.exception(timeout=0)
+            except Exception as raised_e:
+                # This shouldn't happen because cancellation or timeout shouldn't occur...
+                # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER ({}): Invocation unexpectedly ended with cancellation".format(
+                    message="HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
                         handler_name
                     ),
                     cause=raised_e,
@@ -194,6 +204,8 @@ class SyncHandlerManager(AbstractHandlerManager):
         """Start and store a handler runner thread
         """
         if self._handler_runners[handler_name] is not None:
+            # This branch of code should NOT be reachable due to checks prior to the invocation
+            # of this method. The branch exists for safety.
             raise HandlerManagerException(
                 "Cannot create thread for handler runner: {}. Runner thread already exists".format(
                     handler_name
@@ -201,6 +213,10 @@ class SyncHandlerManager(AbstractHandlerManager):
             )
         inbox = self._get_inbox_for_handler(handler_name)
 
+        # NOTE: It would be nice to have some kind of mechanism for making sure this thread
+        # doesn't crash or raise errors, but it would require significant extra infrastructure
+        # and an exception in here isn't supposed to happen anyway. Perhaps it could be added
+        # later if truly necessary
         if inbox:
             thread = threading.Thread(target=self._inbox_handler_runner, args=[inbox, handler_name])
         else:

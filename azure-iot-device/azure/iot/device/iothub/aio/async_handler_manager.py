@@ -39,10 +39,12 @@ class AsyncHandlerManager(AbstractHandlerManager):
         # Define a callback that can handle errors in the ThreadPoolExecutor
         def _handler_callback(future):
             try:
-                e = future.exception()
-            except concurrent.futures.CancelledError as raised_e:
+                e = future.exception(timeout=0)
+            except Exception as raised_e:
+                # This shouldn't happen because cancellation or timeout shouldn't occur...
+                # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER ({}): Invocation unexpectedly ended with cancellation".format(
+                    message="HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
                         handler_name
                     ),
                     cause=raised_e,
@@ -103,6 +105,8 @@ class AsyncHandlerManager(AbstractHandlerManager):
         """
         # First check if the handler runner already exists
         if self._handler_runners[handler_name] is not None:
+            # This branch of code should NOT be reachable due to checks prior to the invocation
+            # of this method. The branch exists for safety.
             raise HandlerManagerException(
                 "Cannot create task for handler runner: {}. Task already exists".format(
                     handler_name
@@ -120,17 +124,22 @@ class AsyncHandlerManager(AbstractHandlerManager):
         # Define a callback for the future (in order to handle any errors)
         def _handler_runner_callback(completed_future):
             try:
-                e = completed_future.exception()
-            except asyncio.CancelledError:
-                # TODO: is this the right error?
+                e = completed_future.exception(timeout=0)
+            except Exception as raised_e:
+                # This shouldn't happen because cancellation or timeout shouldn't occur...
+                # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER RUNNER ({}): Task unexpectedly ended in cancellation".format(
+                    message="HANDLER RUNNER ({}): Unable to retrieve exception data from incomplete task".format(
                         handler_name
-                    )
+                    ),
+                    cause=raised_e,
                 )
                 handle_exceptions.handle_background_exception(new_err)
             else:
                 if e:
+                    # If this branch is reached something has gone SERIOUSLY wrong.
+                    # We must log the error, and then restart the runner so that the program
+                    # does not enter an invalid state
                     new_err = HandlerManagerException(
                         message="HANDLER RUNNER ({}): Unexpected error during task".format(
                             handler_name
@@ -138,6 +147,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
                         cause=e,
                     )
                     handle_exceptions.handle_background_exception(new_err)
+                    # Clear the tracked runner, and start a new one
+                    self._handler_runners[handler_name] = None
+                    self._start_handler_runner(handler_name)
                 else:
                     logger.debug(
                         "HANDLER RUNNER ({}): Task successfully completed without exception".format(

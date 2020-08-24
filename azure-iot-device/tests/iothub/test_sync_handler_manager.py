@@ -7,7 +7,8 @@ import logging
 import pytest
 import threading
 import time
-from azure.iot.device.iothub.sync_handler_manager import SyncHandlerManager
+from azure.iot.device.common import handle_exceptions
+from azure.iot.device.iothub.sync_handler_manager import SyncHandlerManager, HandlerManagerException
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
@@ -125,7 +126,7 @@ class SharedHandlerPropertyTests(object):
     @pytest.mark.it(
         "Is invoked by the runner when the Inbox corresponding to the handler receives an object, passing that object to the handler"
     )
-    def test_handler_invoked(self, mocker, handler_name, handler_manager, handler, inbox):
+    def test_handler_invoked(self, mocker, handler_name, handler_manager, inbox):
         # Set the handler
         mock_handler = mocker.MagicMock()
         setattr(handler_manager, handler_name, mock_handler)
@@ -144,7 +145,7 @@ class SharedHandlerPropertyTests(object):
     @pytest.mark.it(
         "Is invoked by the runner every time the Inbox corresponding to the handler receives an object"
     )
-    def test_handler_invoked_multiple(self, mocker, handler_name, handler_manager, handler, inbox):
+    def test_handler_invoked_multiple(self, mocker, handler_name, handler_manager, inbox):
         # Set the handler
         mock_handler = mocker.MagicMock()
         setattr(handler_manager, handler_name, mock_handler)
@@ -163,7 +164,7 @@ class SharedHandlerPropertyTests(object):
         "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
     )
     def test_handler_resolve_pending_items_before_handler_removal(
-        self, mocker, handler_name, handler_manager, handler, inbox
+        self, mocker, handler_name, handler_manager, inbox
     ):
         # Set the handler
         mock_handler = mocker.MagicMock()
@@ -189,6 +190,33 @@ class SharedHandlerPropertyTests(object):
         # NOTE 2: I know the above note probably doesn't make sense to anyone who hasn't tried to test this edge case.
         # Go ahead and try to test the multithread edge case, come back, read that note again, and it'll
         # probably make sense
+
+    @pytest.mark.it(
+        "Sends a HandlerManagerException to the background exception handler if any exception is raised during its invocation"
+    )
+    def test_exception_in_handler(
+        self, mocker, handler_name, handler_manager, inbox, arbitrary_exception
+    ):
+        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+        # Handler will raise exception when called
+        mock_handler = mocker.MagicMock()
+        mock_handler.side_effect = arbitrary_exception
+        # Set handler
+        setattr(handler_manager, handler_name, mock_handler)
+        # Handler has not been called
+        assert mock_handler.call_count == 0
+        # Background exception handler has not been called
+        assert background_exc_spy.call_count == 0
+        # Add an item to corresponding inbox, triggering the handler
+        inbox._put(mocker.MagicMock())
+        time.sleep(0.1)
+        # Handler has now been called
+        assert mock_handler.call_count == 1
+        # Background exception handler was called
+        assert background_exc_spy.call_count == 1
+        e = background_exc_spy.call_args[0][0]
+        assert isinstance(e, HandlerManagerException)
+        assert e.__cause__ is arbitrary_exception
 
     @pytest.mark.it(
         "Can be updated with a new value that the corresponding handler runner will immediately begin using for handler invocations instead"

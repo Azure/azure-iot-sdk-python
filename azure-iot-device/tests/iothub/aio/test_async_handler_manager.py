@@ -9,7 +9,9 @@ import asyncio
 import inspect
 import threading
 import concurrent.futures
+from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub.aio.async_handler_manager import AsyncHandlerManager
+from azure.iot.device.iothub.sync_handler_manager import HandlerManagerException
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
@@ -222,7 +224,7 @@ class SharedHandlerPropertyTests(object):
         assert handler_checker.handler_call_count == 5
 
     @pytest.mark.it(
-        "Will be invoked for every item already in the corresponding Inbox at the moment of handler removal"
+        "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
     )
     async def test_handler_resolve_pending_items_before_handler_removal(
         self, mocker, handler_name, handler_manager, handler, handler_checker, inbox
@@ -250,6 +252,50 @@ class SharedHandlerPropertyTests(object):
         # NOTE 2: I know the above note probably doesn't make sense to anyone who hasn't tried to test this edge case.
         # Go ahead and try to test the multithread edge case, come back, read that note again, and it'll
         # probably make sense
+
+    @pytest.mark.it(
+        "Sends a HandlerManagerException to the background exception handler if any exception is raised during its invocation"
+    )
+    async def test_exception_in_handler(
+        self, mocker, handler_name, handler_manager, inbox, arbitrary_exception
+    ):
+        # NOTE: this test tests both coroutines and functions without the need for parametrization
+        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+
+        def function_handler(arg):
+            raise arbitrary_exception
+
+        async def coro_handler(arg):
+            raise arbitrary_exception
+
+        # Set function handler
+        setattr(handler_manager, handler_name, function_handler)
+        # Background exception handler has not been called
+        assert background_exc_spy.call_count == 0
+        # Add an item to corresponding inbox, triggering the handler
+        inbox._put(mocker.MagicMock())
+        await asyncio.sleep(0.1)
+        # Background exception handler was called
+        assert background_exc_spy.call_count == 1
+        e = background_exc_spy.call_args[0][0]
+        assert isinstance(e, HandlerManagerException)
+        assert e.__cause__ is arbitrary_exception
+
+        # Clear the spy
+        background_exc_spy.reset_mock()
+
+        # Set corotuine handler
+        setattr(handler_manager, handler_name, coro_handler)
+        # Background exception handler has not been called
+        assert background_exc_spy.call_count == 0
+        # Add an item to corresponding inbox, triggering the handler
+        inbox._put(mocker.MagicMock())
+        await asyncio.sleep(0.1)
+        # Background exception handler was called
+        assert background_exc_spy.call_count == 1
+        e = background_exc_spy.call_args[0][0]
+        assert isinstance(e, HandlerManagerException)
+        assert e.__cause__ is arbitrary_exception
 
     @pytest.mark.it(
         "Can be updated with a new value that the corresponding handler runner will immediately begin using for handler invocations instead"
