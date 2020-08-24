@@ -177,6 +177,7 @@ class SharedHandlerPropertyTests(object):
         assert mock_handler.call_count != 100
         # Remove the handler
         setattr(handler_manager, handler_name, None)
+        time.sleep(0.1)
         assert inbox.empty()
         assert mock_handler.call_count == 100
 
