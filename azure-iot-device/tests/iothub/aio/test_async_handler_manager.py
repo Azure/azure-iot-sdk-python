@@ -198,7 +198,7 @@ class SharedHandlerPropertyTests(object):
         # Add an item to the associated inbox, triggering the handler
         mock_obj = mocker.MagicMock()
         inbox._put(mock_obj)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
 
         # Handler has been called with the item from the inbox
         assert handler_checker.handler_called is True
@@ -218,7 +218,7 @@ class SharedHandlerPropertyTests(object):
         # Add 5 items to the associated inbox, triggering the handler
         for _ in range(5):
             inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
 
         # Handler has been called 5 times
         assert handler_checker.handler_call_count == 5
@@ -239,6 +239,7 @@ class SharedHandlerPropertyTests(object):
         assert handler_checker.handler_call_count != 100
         # Remove the handler
         setattr(handler_manager, handler_name, None)
+        await asyncio.sleep(0.2)
         assert inbox.empty()
         assert handler_checker.handler_call_count == 100
 
@@ -274,7 +275,7 @@ class SharedHandlerPropertyTests(object):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
         e = background_exc_spy.call_args[0][0]
@@ -290,7 +291,7 @@ class SharedHandlerPropertyTests(object):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
         e = background_exc_spy.call_args[0][0]
@@ -316,19 +317,19 @@ class SharedHandlerPropertyTests(object):
         setattr(handler_manager, handler_name, handler1)
 
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         # The set handler (handler1) has been replaced with a new handler (handler2)
         assert getattr(handler_manager, handler_name) is not handler1
         assert getattr(handler_manager, handler_name) is handler2
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         # The set handler (handler2) has now been replaced by a mock handler
         assert getattr(handler_manager, handler_name) is not handler2
         assert getattr(handler_manager, handler_name) is mock_handler
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
