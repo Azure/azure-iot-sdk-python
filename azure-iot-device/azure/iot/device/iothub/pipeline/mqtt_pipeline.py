@@ -346,9 +346,7 @@ class MQTTPipeline(object):
 
         def on_complete(op, error):
             if error:
-                logger.warning(
-                    "Subscribe for {} failed.  Not enabling feature".format(feature_name)
-                )
+                logger.error("Subscribe for {} failed.  Not enabling feature".format(feature_name))
             else:
                 self.feature_enabled[feature_name] = True
             callback(error=error)

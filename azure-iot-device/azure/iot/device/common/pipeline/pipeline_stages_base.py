@@ -346,14 +346,14 @@ class SasTokenRenewalStage(PipelineStage):
             def on_reauthorize_complete(op, error):
                 this = self_weakref()
                 if error:
-                    logger.debug(
+                    logger.info(
                         "{}({}): reauthorize connection operation failed.  Error={}".format(
                             this.name, op.name, error
                         )
                     )
                     handle_exceptions.handle_background_exception(error)
                 else:
-                    logger.debug(
+                    logger.info(
                         "{}({}): reauthorize connection operation is complete".format(
                             this.name, op.name
                         )
@@ -362,7 +362,7 @@ class SasTokenRenewalStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def renew_token():
                 this = self_weakref()
-                logger.debug("Renewing SAS Token")
+                logger.info("Renewing SAS Token")
                 # Renew the token
                 sastoken = this.pipeline_root.pipeline_configuration.sastoken
                 sastoken.refresh()
