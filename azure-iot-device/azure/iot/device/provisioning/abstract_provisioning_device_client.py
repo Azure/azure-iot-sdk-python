@@ -220,4 +220,4 @@ def log_on_register_complete(result=None):
         if result.status == "assigned":
             logger.info("Successfully registered with Provisioning Service")
         else:  # There be other statuses
-            logger.error("Failed registering with Provisioning Service")
+            logger.info("Failed registering with Provisioning Service")

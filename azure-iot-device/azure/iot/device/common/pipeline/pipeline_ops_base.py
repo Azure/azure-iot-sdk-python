@@ -104,12 +104,11 @@ class PipelineOperation(object):
             the completion. Providing an error indicates that the operation was unsucessful.
         """
         if error:
-            logger.error("{}: completing with error {}".format(self.name, error))
+            logger.debug("{}: completing with error {}".format(self.name, error))
         else:
             logger.debug("{}: completing without error".format(self.name))
 
         if self.completed or self.completing:
-            logger.error("{}: has already been completed!".format(self.name))
             e = pipeline_exceptions.OperationError(
                 "Attempting to complete an already-completed operation: {}".format(self.name)
             )
@@ -128,11 +127,6 @@ class PipelineOperation(object):
                 if self.completed:
                     # This block should never be reached - this is an invalid state.
                     # If this block is reached, there is a bug in the code.
-                    logger.error(
-                        "{}: Invalid State! Operation completed while resolving completion".format(
-                            self.name
-                        )
-                    )
                     e = pipeline_exceptions.OperationError(
                         "Operation reached fully completed state while still resolving completion: {}".format(
                             self.name
@@ -148,7 +142,6 @@ class PipelineOperation(object):
                     logger.error(
                         "Unhandled error while triggering callback for {}".format(self.name)
                     )
-                    logger.error(traceback.format_exc())
                     # This could happen in a foreground or background thread, so err on the side of caution
                     # and send it to the background handler.
                     handle_exceptions.handle_background_exception(e)
@@ -174,7 +167,6 @@ class PipelineOperation(object):
         from the Operation.
         """
         if not self.completing:
-            logger.error("{}: is not currently in the process of completion!".format(self.name))
             e = pipeline_exceptions.OperationError(
                 "Attempting to halt completion of an operation not in the process of completion: {}".format(
                     self.name

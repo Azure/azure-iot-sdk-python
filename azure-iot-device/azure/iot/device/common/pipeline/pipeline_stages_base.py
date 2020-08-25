@@ -102,11 +102,15 @@ class PipelineStage(object):
             self._run_op(op)
         except Exception as e:
             # This path is ONLY for unexpected errors. Expected errors should cause a fail completion
-            # within ._run_op()
+            # within ._run_op().
+            #
+            # We tag errors from here as logger.warning because, while we return them to the
+            # caller and rely on the caller to handle them, they're somewhat unexpected and might be
+            # worthy of investigation.
 
-            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
-            logger.error(msg="Unexpected error in {}._run_op() call".format(self))
-            logger.error(traceback.format_exc())
+            # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            logger.warning(msg="Unexpected error in {}._run_op() call".format(self))
+            logger.warning(traceback.format_exc())
             op.complete(error=e)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -135,9 +139,8 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
             logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
-            logger.error(traceback.format_exc())
             handle_exceptions.handle_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -162,6 +165,10 @@ class PipelineStage(object):
         :param PipelineOperation op: Operation which is being passed on
         """
         if not self.next:
+            # even though we technically "handle" this by returning it to the caller, this is
+            # still serious enough that it warrants a logger.error call because it should never
+            # happen if our pipeline was created correctly and we're only sending expected
+            # operations.
             logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
             error = pipeline_exceptions.PipelineError(
                 "{} not handled after {} stage with no next stage".format(op.name, self.name)
@@ -180,7 +187,6 @@ class PipelineStage(object):
         if self.previous:
             self.previous.handle_pipeline_event(event)
         else:
-            logger.error("{}({}): Error: unhandled event".format(self.name, event.name))
             error = pipeline_exceptions.PipelineError(
                 "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
             )
@@ -270,7 +276,8 @@ class PipelineRootStage(PipelineStage):
                     event
                 )
             else:
-                logger.warning("incoming pipeline event with no handler.  dropping.")
+                # unexpected condition: we should be handling all pipeline events
+                logger.error("incoming {} event with no handler.  dropping.".format(event.name))
 
 
 # NOTE: This stage could be a candidate for being refactored into some kind of other
@@ -324,7 +331,6 @@ class SasTokenRenewalStage(PipelineStage):
             # This shouldn't happen in correct flow, but it's possible I suppose, if something goes
             # horribly awry elsewhere in the stack, or if we start allowing for custom
             # SasToken TTLs or custom Renewal Margins in the future
-            logger.error("ERROR: SasToken TTL less than Renewal Margin")
             handle_exceptions.handle_background_exception(
                 pipeline_exceptions.PipelineError("SasToken TTL less than Renewal Margin!")
             )
@@ -340,7 +346,7 @@ class SasTokenRenewalStage(PipelineStage):
             def on_reauthorize_complete(op, error):
                 this = self_weakref()
                 if error:
-                    logger.error(
+                    logger.debug(
                         "{}({}): reauthorize connection operation failed.  Error={}".format(
                             this.name, op.name, error
                         )
@@ -399,7 +405,7 @@ class AutoConnectStage(PipelineStage):
                 @pipeline_thread.runs_on_pipeline_thread
                 def check_for_connection_failure(op, error):
                     if error and not self.pipeline_root.connected:
-                        logger.info(
+                        logger.debug(
                             "{}({}): op failed with {} and we're not conencted.  Re-submitting.".format(
                                 self.name, op.name, error
                             )
@@ -408,7 +414,7 @@ class AutoConnectStage(PipelineStage):
                         self.run_op(op)
 
                 op.add_callback(check_for_connection_failure)
-                logger.info(
+                logger.debug(
                     "{}({}): Connected.  Sending down and adding callback to check result".format(
                         self.name, op.name
                     )
@@ -441,7 +447,7 @@ class AutoConnectStage(PipelineStage):
         @pipeline_thread.runs_on_pipeline_thread
         def on_connect_op_complete(op, error):
             if error:
-                logger.info(
+                logger.debug(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
                         self.name, op_needs_complete.name, error
                     )
@@ -483,7 +489,7 @@ class ConnectionLockStage(PipelineStage):
         # If this stage is currently blocked (because we're waiting for a connection, etc,
         # to complete), we queue up all operations until after the connect completes.
         if self.blocked:
-            logger.info(
+            logger.debug(
                 "{}({}): pipeline is blocked waiting for a prior connect/disconnect/reauthorize to complete.  queueing.".format(
                     self.name, op.name
                 )
@@ -515,7 +521,7 @@ class ConnectionLockStage(PipelineStage):
             @pipeline_thread.runs_on_pipeline_thread
             def on_operation_complete(op, error):
                 if error:
-                    logger.error(
+                    logger.debug(
                         "{}({}): op failed.  Unblocking queue with error: {}".format(
                             self.name, op.name, error
                         )
@@ -549,8 +555,10 @@ class ConnectionLockStage(PipelineStage):
         """
         logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
         self.blocked = False
-        logger.info(
-            "{}({}): processing {} items in queue".format(self.name, op.name, self.queue.qsize())
+        logger.debug(
+            "{}({}): processing {} items in queue for error={}".format(
+                self.name, op.name, self.queue.qsize(), error
+            )
         )
         # Loop through our queue and release all the blocked operations
         # Put a new Queue in self.queue because releasing ops might put them back in the
@@ -562,7 +570,7 @@ class ConnectionLockStage(PipelineStage):
             if error:
                 # if we're unblocking the queue because something (like a connect operation) failed,
                 # then we fail all of the blocked operations with the same error.
-                logger.error(
+                logger.debug(
                     "{}({}): failing {} op because of error".format(
                         self.name, op.name, op_to_release.name
                     )
@@ -706,7 +714,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             self.send_event_up(event)
 
             for request_id in self.pending_responses:
-                logger.info(
+                logger.debug(
                     "{}: ConnectedEvent: re-publishing request {}".format(self.name, request_id)
                 )
                 self._send_request_down(request_id, self.pending_responses[request_id])
@@ -857,7 +865,7 @@ class RetryStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def do_retry():
                 this = self_weakref()
-                logger.info("{}({}): retrying".format(this.name, op.name))
+                logger.debug("{}({}): retrying".format(this.name, op.name))
                 op.retry_timer.cancel()
                 op.retry_timer = None
                 this.ops_waiting_to_retry.remove(op)
@@ -866,7 +874,7 @@ class RetryStage(PipelineStage):
                 this.run_op(op)
 
             interval = self.retry_intervals[type(op)]
-            logger.warning(
+            logger.info(
                 "{}({}): Op needs retry with interval {} because of {}.  Setting timer.".format(
                     self.name, op.name, interval, error
                 )
@@ -945,7 +953,7 @@ class ReconnectStage(PipelineStage):
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.ConnectOperation):
             if self.state == ReconnectState.WAITING_TO_RECONNECT:
-                logger.info(
+                logger.debug(
                     "{}({}): State is {}.  Adding to wait list".format(
                         self.name, op.name, self.state
                     )
@@ -1114,7 +1122,7 @@ class ReconnectStage(PipelineStage):
         Clear any previous reconnect timer
         """
         if self.reconnect_timer:
-            logger.info("{}: clearing reconnect timer".format(self.name))
+            logger.debug("{}: clearing reconnect timer".format(self.name))
             self.reconnect_timer.cancel()
             self.reconnect_timer = None
 
@@ -1138,7 +1146,7 @@ class ReconnectStage(PipelineStage):
         stages, but that's OK.  If they needed a connection, the AutoConnectStage before
         this stage should be taking care of that.
         """
-        logger.info("{}: completing waiting ops with error={}".format(self.name, error))
+        logger.debug("{}: completing waiting ops with error={}".format(self.name, error))
         list_copy = self.waiting_connect_ops
         self.waiting_connect_ops = []
         for op in list_copy:

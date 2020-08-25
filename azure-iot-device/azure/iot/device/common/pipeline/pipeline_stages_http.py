@@ -80,7 +80,7 @@ class HTTPTransportStage(PipelineStage):
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_request_completed(error=None, response=None):
                 if error:
-                    logger.error(
+                    logger.debug(
                         "{}({}): Error passed to on_request_completed. Error={}".format(
                             self.name, op.name, error
                         )

@@ -42,7 +42,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             # sees this -1, it will send a GetTwinOperation to refresh desired properties.
 
             if op.feature_name == constant.TWIN_PATCHES:
-                logger.info(
+                logger.debug(
                     "{}: enabling twin patches.  setting last_version_seen".format(self.name)
                 )
                 self.last_version_seen = -1
@@ -64,7 +64,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             )
             self.send_op_down(self.pending_get_request)
         else:
-            logger.info(
+            logger.debug(
                 "{}: Outstanding twin GET already exists.  Not sending anything".format(self.name)
             )
 
@@ -76,19 +76,18 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         TwinDesiredPropertiesPatchEvent or not.
         """
 
-        logger.info("{}: _on_twin_get_complete".format(self.name))
         self.pending_get_request = None
         if error:
             # If the GetTwinOperation failed, we blindly try again.  We run the risk of
             # repeating this forever and might need to add logic to "give up" after some
             # number of failures, but we don't have any real reason to add that just yet.
 
-            logger.info("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
+            logger.debug("{}: Twin GET failed with error {}.  Resubmitting.".format(self, error))
             self._ensure_get_op()
         else:
-            logger.info("{} Twin GET response received.  Checking versions".format(self))
+            logger.debug("{} Twin GET response received.  Checking versions".format(self))
             new_version = op.twin["desired"]["$version"]
-            logger.info(
+            logger.debug(
                 "{}: old version = {}, new version = {}".format(
                     self.name, self.last_version_seen, new_version
                 )
@@ -97,7 +96,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
                 # The twin we received has different (presumably newer) desired properties.
                 # Make an artificial patch and send it up
 
-                logger.info("{}: Version changed.  Sending up new patch event".format(self.name))
+                logger.debug("{}: Version changed.  Sending up new patch event".format(self.name))
                 self.last_version_seen = new_version
                 self.send_event_up(
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(op.twin["desired"])
@@ -108,7 +107,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
             # remember the $version when we get a patch.
             version = event.patch["$version"]
-            logger.info(
+            logger.debug(
                 "{}: Desired patch received.  Saving $version={}".format(self.name, version)
             )
             self.last_version_seen = version
@@ -117,7 +116,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
             # before (or we've enabled them at least).  If this is the case, get the twin to
             # see if the desired props have been updated.
             if self.last_version_seen:
-                logger.info("{}: Reconnected.  Getting twin")
+                logger.debug("{}: Reconnected.  Getting twin")
                 self._ensure_get_op()
         self.send_event_up(event)
 
@@ -139,8 +138,8 @@ class TwinRequestResponseStage(PipelineStage):
                 return error
             elif twin_op.status_code >= 300:
                 # TODO map error codes to correct exceptions
-                logger.error("Error {} received from twin operation".format(twin_op.status_code))
-                logger.error("response body: {}".format(twin_op.response_body))
+                logger.info("Error {} received from twin operation".format(twin_op.status_code))
+                logger.info("response body: {}".format(twin_op.response_body))
                 return exceptions.ServiceError(
                     "twin operation returned status {}".format(twin_op.status_code)
                 )

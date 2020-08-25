@@ -69,7 +69,7 @@ class CommonProvisioningStage(PipelineStage):
         return registration_result
 
     def _process_service_error_status_code(self, original_provisioning_op, request_response_op):
-        logger.error(
+        logger.info(
             "{stage_name}({op_name}): Received error with status code {status_code} for {prov_op_name} request operation".format(
                 stage_name=self.name,
                 op_name=request_response_op.name,
@@ -77,7 +77,7 @@ class CommonProvisioningStage(PipelineStage):
                 status_code=request_response_op.status_code,
             )
         )
-        logger.error(
+        logger.info(
             "{stage_name}({op_name}): Response body: {body}".format(
                 stage_name=self.name,
                 op_name=request_response_op.name,
@@ -115,7 +115,7 @@ class CommonProvisioningStage(PipelineStage):
             original_provisioning_op.completed = False
             this.run_op(original_provisioning_op)
 
-        logger.warning(
+        logger.debug(
             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
                 stage_name=self.name,
                 op_name=request_response_op.name,
@@ -211,7 +211,7 @@ class PollingStatusStage(CommonProvisioningStage):
                 )
 
                 if error:
-                    logger.error(
+                    logger.debug(
                         "{stage_name}({op_name}): Received error for {prov_op_name} operation".format(
                             stage_name=self.name, op_name=op.name, prov_op_name=op.request_type
                         )
@@ -250,7 +250,7 @@ class PollingStatusStage(CommonProvisioningStage):
                                 query_status_op.completed = False
                                 this.run_op(query_status_op)
 
-                            logger.info(
+                            logger.debug(
                                 "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
                                     stage_name=self.name,
                                     op_name=op.name,
@@ -345,7 +345,7 @@ class RegistrationStage(CommonProvisioningStage):
                     )
                 )
                 if error:
-                    logger.error(
+                    logger.info(
                         "{stage_name}({op_name}): Received error for {prov_op_name} operation".format(
                             stage_name=self.name, op_name=op.name, prov_op_name=op.request_type
                         )
@@ -396,7 +396,7 @@ class RegistrationStage(CommonProvisioningStage):
 
                                 self.send_op_down(query_worker_op)
 
-                            logger.warning(
+                            logger.debug(
                                 "{stage_name}({op_name}): Op will transition into polling after interval {interval}.  Setting timer.".format(
                                     stage_name=self.name,
                                     op_name=op.name,
