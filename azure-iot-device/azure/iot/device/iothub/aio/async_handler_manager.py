@@ -5,150 +5,178 @@
 # --------------------------------------------------------------------------
 """ This module contains the manager for handler methods used by the aio clients"""
 
-from azure.iot.device.common import asyncio_compat
-from azure.iot.device.common.chainable_exception import ChainableException
-from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import logging
 import inspect
+import threading
+import concurrent.futures
+from azure.iot.device.common import asyncio_compat, handle_exceptions
+from azure.iot.device.iothub.sync_handler_manager import (
+    AbstractHandlerManager,
+    HandlerManagerException,
+    HandlerRunnerKillerSentinel,
+)
 
 logger = logging.getLogger(__name__)
 
-MESSAGE = "_on_message_received"
-METHOD = "_on_method_request_received"
-TWIN_DP_PATCH = "_on_twin_desired_properties_patch_received"
-# TODO: add more for "event"
+# This logic could potentially be encapsulated in another module...
+# Say... some kind of... loop_manager.py?
+RUNNER_LOOP = asyncio.new_event_loop()
+RUNNER_THREAD = threading.Thread(target=RUNNER_LOOP.run_forever)
+RUNNER_THREAD.daemon = True
+RUNNER_THREAD.start()
 
 
-class AsyncHandlerManagerException(ChainableException):
-    pass
+class AsyncHandlerManager(AbstractHandlerManager):
+    """Handler manager for use with asynchronous clients"""
 
-
-class AsyncHandlerManager(object):
-    def __init__(self, inbox_manager):
-        self._inbox_manager = inbox_manager
-
-        self._handler_tasks = {
-            # Inbox handler tasks
-            MESSAGE: None,
-            METHOD: None,
-            TWIN_DP_PATCH: None,
-            # Other handler tasks
-            # TODO: add
-        }
-
-        # Inbox handlers
-        self._on_message_received = None
-        self._on_method_request_received = None
-        self._on_twin_desired_properties_patch_received = None
-
-        # Other handlers
-        # TODO: add
-
-    async def _run_inbox_handler(self, inbox, handler_name):
+    async def _inbox_handler_runner(self, inbox, handler_name):
         """Run infinite loop that waits for an inbox to receive an object from it, then calls
         the handler with that object
         """
+        logger.debug("HANDLER RUNNER ({}): Starting runner".format(handler_name))
+
+        # Define a callback that can handle errors in the ThreadPoolExecutor
+        def _handler_callback(future):
+            try:
+                e = future.exception(timeout=0)
+            except Exception as raised_e:
+                # This shouldn't happen because cancellation or timeout shouldn't occur...
+                # But just in case...
+                new_err = HandlerManagerException(
+                    message="HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
+                        handler_name
+                    ),
+                    cause=raised_e,
+                )
+                handle_exceptions.handle_background_exception(new_err)
+            else:
+                if e:
+                    new_err = HandlerManagerException(
+                        message="HANDLER ({}): Error during invocation".format(handler_name),
+                        cause=e,
+                    )
+                    handle_exceptions.handle_background_exception(new_err)
+                else:
+                    logger.debug(
+                        "HANDLER ({}): Successfully completed invocation".format(handler_name)
+                    )
+
         # Run the handler in a threadpool, so that it cannot block other handlers (from a different task),
         # or the main client thread. The number of worker threads forms an upper bound on how many instances
         # of the same handler can be running simultaneously.
-        tp = ThreadPoolExecutor(max_workers=4)
+        # NOTE: eventually we might want to do this in the customer's event loop (for coroutine handlers).
+        # However this will require more infrastructure that is not yet prepared.
+        tpe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         while True:
             handler_arg = await inbox.get()
+            if isinstance(handler_arg, HandlerRunnerKillerSentinel):
+                # Exit the runner when a HandlerRunnerKillerSentinel is found
+                logger.debug(
+                    "HANDLER RUNNER ({}): HandlerRunnerKillerSentinel found in inbox. Exiting.".format(
+                        handler_name
+                    )
+                )
+                tpe.shutdown()
+                break
             # NOTE: we MUST use getattr here using the handler name, as opposed to directly passing
             # the handler in order for the handler to be able to be updated without cancelling
             # the running task created for this coroutine
             handler = getattr(self, handler_name)
+            logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             if inspect.iscoroutinefunction(handler):
                 # Wrap the coroutine in a function so it can be run in ThreadPool
                 def coro_wrapper(coro, arg):
                     asyncio_compat.run(coro(arg))
 
-                # TODO: get exceptions to propogate
-                tp.submit(coro_wrapper, handler, handler_arg)
+                fut = tpe.submit(coro_wrapper, handler, handler_arg)
+                fut.add_done_callback(_handler_callback)
             else:
                 # Run function directly in ThreadPool
-                # TODO: get exceptions to propogate
-                tp.submit(handler, handler_arg)
+                fut = tpe.submit(handler, handler_arg)
+                fut.add_done_callback(_handler_callback)
 
-    async def _run_event_handler(self, handler_name):
+    async def _event_handler_runner(self, handler_name):
         # TODO: implement
-        logger.error("._run_event_handler() not yet implemented")
+        logger.error("._event_handler_runner() not yet implemented")
 
-    def _get_inbox_for_handler(self, handler_name):
-        """Retrieve the inbox relevant to the handler"""
-        if handler_name == METHOD:
-            return self._inbox_manager.get_method_request_inbox()
-        elif handler_name == TWIN_DP_PATCH:
-            return self._inbox_manager.get_twin_patch_inbox()
-        elif handler_name == MESSAGE:
-            return self._inbox_manager.get_unified_message_inbox()
-        else:
-            return None
-
-    def _add_handler_task(self, handler_name):
+    def _start_handler_runner(self, handler_name):
         """Create, and store a task for running a handler
         """
-        # First check if the handler task already exists
-        if self._handler_tasks[handler_name] is not None:
-            raise AsyncHandlerManagerException(
-                "Cannot create task for handler: {}. Task already exists".format(handler_name)
+        # First check if the handler runner already exists
+        if self._handler_runners[handler_name] is not None:
+            # This branch of code should NOT be reachable due to checks prior to the invocation
+            # of this method. The branch exists for safety.
+            raise HandlerManagerException(
+                "Cannot create task for handler runner: {}. Task already exists".format(
+                    handler_name
+                )
             )
 
+        # Schedule a coroutine with the correct type of handler runner
         inbox = self._get_inbox_for_handler(handler_name)
-
         if inbox:
-            coro = self._run_inbox_handler(inbox, handler_name)
+            coro = self._inbox_handler_runner(inbox, handler_name)
         else:
-            coro = self._run_event_handler(handler_name)
-        task = asyncio_compat.create_task(coro)
-        # TODO: what happens if an exception is raised?
-        self._handler_tasks[handler_name] = task
+            coro = self._event_handler_runner(handler_name)
+        future = asyncio.run_coroutine_threadsafe(coro, RUNNER_LOOP)
 
-    def _remove_handler_task(self, handler_name):
-        """Cancel and remove a task for running a handler"""
-        task = self._handler_tasks[handler_name]
-        task.cancel()
-        self._handler_tasks[handler_name] = None
+        # Define a callback for the future (in order to handle any errors)
+        def _handler_runner_callback(completed_future):
+            try:
+                e = completed_future.exception(timeout=0)
+            except Exception as raised_e:
+                # This shouldn't happen because cancellation or timeout shouldn't occur...
+                # But just in case...
+                new_err = HandlerManagerException(
+                    message="HANDLER RUNNER ({}): Unable to retrieve exception data from incomplete task".format(
+                        handler_name
+                    ),
+                    cause=raised_e,
+                )
+                handle_exceptions.handle_background_exception(new_err)
+            else:
+                if e:
+                    # If this branch is reached something has gone SERIOUSLY wrong.
+                    # We must log the error, and then restart the runner so that the program
+                    # does not enter an invalid state
+                    new_err = HandlerManagerException(
+                        message="HANDLER RUNNER ({}): Unexpected error during task".format(
+                            handler_name
+                        ),
+                        cause=e,
+                    )
+                    handle_exceptions.handle_background_exception(new_err)
+                    # Clear the tracked runner, and start a new one
+                    self._handler_runners[handler_name] = None
+                    self._start_handler_runner(handler_name)
+                else:
+                    logger.debug(
+                        "HANDLER RUNNER ({}): Task successfully completed without exception".format(
+                            handler_name
+                        )
+                    )
 
-    def _generic_handler_setter(self, handler_name, new_handler):
-        """Set a handler"""
-        curr_handler = getattr(self, handler_name)
-        if new_handler is not None and curr_handler is None:
-            # Create task, set handler
-            logger.debug("Creating new handler task for handler: {}".format(handler_name))
-            setattr(self, handler_name, new_handler)
-            self._add_handler_task(handler_name)
-        elif new_handler is None and curr_handler is not None:
-            # Cancel task, remove handler
-            logger.debug("Removing handler task for handler: {}".format(handler_name))
-            self._remove_handler_task(handler_name)
-            setattr(self, handler_name, new_handler)
-        else:
-            # Update handler, no need to change tasks
-            logger.debug("Updating handler for handler: {}".format(handler_name))
-            setattr(self, handler_name, new_handler)
+        future.add_done_callback(_handler_runner_callback)
 
-    @property
-    def on_message_received(self):
-        return self._on_message_received
+        # Store the future
+        self._handler_runners[handler_name] = future
+        logger.debug("Future for Handler Runner ({}) was stored".format(handler_name))
 
-    @on_message_received.setter
-    def on_message_received(self, value):
-        self._generic_handler_setter(MESSAGE, value)
-
-    @property
-    def on_method_request_received(self):
-        return self._on_method_request_received
-
-    @on_method_request_received.setter
-    def on_method_request_received(self, value):
-        self._generic_handler_setter(METHOD, value)
-
-    @property
-    def on_twin_desired_properties_patch_received(self):
-        return self._on_twin_desired_properties_patch_received
-
-    @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value):
-        self._generic_handler_setter(TWIN_DP_PATCH, value)
+    def _stop_handler_runner(self, handler_name):
+        """Stop and remove a handler runner task.
+        All pending items in the corresponding inbox will be handled by the handler before stoppage.
+        """
+        # Add a Handler Runner Killer Sentinel to the relevant inbox
+        logger.debug(
+            "Adding HandlerRunnerKillerSentinel to inbox corresponding to {} handler runner".format(
+                handler_name
+            )
+        )
+        inbox = self._get_inbox_for_handler(handler_name)
+        inbox._put(HandlerRunnerKillerSentinel())
+        # Wait for Handler Runner to end due to the sentinel
+        future = self._handler_runners[handler_name]
+        future.result()
+        # Stop tracking the task since it is now complete
+        self._handler_runners[handler_name] = None
