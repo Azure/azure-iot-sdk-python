@@ -541,7 +541,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :rtype: dict
         """
         logger.info(
-            "Invoking {} method on {}{}".format(method_params["method_name"], device_id, module_id)
+            "Invoking {} method on {}{}".format(method_params["methodName"], device_id, module_id)
         )
 
         invoke_method_async = async_adapter.emulate_async(self._http_pipeline.invoke_method)
