@@ -13,7 +13,7 @@ class Message(object):
     """Represents a message to or from IoTHub
 
     :ivar data: The data that constitutes the payload
-    :ivar custom_properties: Dictionary of custom message properties
+    :ivar custom_properties: Dictionary of custom message properties. The keys and values of these properties will always be string.
     :ivar message id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
     :ivar expiry_time_utc: Date and time of message expiration in UTC format
     :ivar correlation_id: A property in a response message that typically contains the message_id of the request, in request-reply patterns
