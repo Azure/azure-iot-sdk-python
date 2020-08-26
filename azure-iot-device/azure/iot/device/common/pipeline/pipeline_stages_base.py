@@ -683,7 +683,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                 )
                 op.complete()
             else:
-                logger.warning(
+                logger.info(
                     "{}({}): request_id {} not found in pending list.  Nothing to do.  Dropping".format(
                         self.name, event.name, event.request_id
                     )
@@ -707,7 +707,12 @@ class CoordinateRequestAndResponseStage(PipelineStage):
 
             for request_id in self.pending_responses:
                 logger.info(
-                    "{}: ConnectedEvent: re-publishing request {}".format(self.name, request_id)
+                    "{stage}: ConnectedEvent: re-publishing request {id} for {method} {type} ".format(
+                        stage=self.name,
+                        id=request_id,
+                        method=self.pending_responses[request_id].method,
+                        type=self.pending_responses[request_id].request_type,
+                    )
                 )
                 self._send_request_down(request_id, self.pending_responses[request_id])
 
