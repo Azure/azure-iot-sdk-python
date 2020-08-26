@@ -8,15 +8,9 @@ import asyncio
 import threading
 import janus
 from azure.iot.device.iothub.sync_inbox import AbstractInbox
+from . import loop_management
 
-# This logic could potentially be encapsulated in another module...
-# Say... some kind of... loop_manager.py?
-INBOX_LOOP = asyncio.new_event_loop()
-INBOX_THREAD = threading.Thread(target=INBOX_LOOP.run_forever)
-INBOX_THREAD.daemon = True
-INBOX_THREAD.start()
-
-# IMPLEMENTATION NOTE: The janus Queue exists entirely on the above mentioned INBOX_LOOP,
+# IMPLEMENTATION NOTE: The janus Queue exists entirely on the "client internal loop",
 # which runs on its own thread. Think of it kind of as a worker loop where async inbox access
 # operations are scheduled, with the results returned back to whatever thread/loop scheduled them.
 # We do this so that it is safe to use inboxes across different threads, in different places.
@@ -32,14 +26,16 @@ class AsyncClientInbox(AbstractInbox):
     def __init__(self):
         """Initializer for AsyncClientInbox."""
 
-        # The queue must be instantiated on the INBOX_LOOP, but there's no way to do that at
-        # instantiation from a different loop, so instead we make coroutine to do the task
-        # and run it on the INBOX_LOOP. It's not pretty, but it works (would be really nice
-        # if janus decided to allow it as an optional parameter though)
+        # The queue must be instantiated on the client internal loop, but there's no way to do
+        # that at instantiation from a different loop, so instead we make coroutine to do the
+        # task and run it on the client internal loop.
+        # It's not pretty, but it works (newer versions of janus have a loop parameter, but
+        # not the version we are currently locked at)
         async def make_queue():
             return janus.Queue()
 
-        fut = asyncio.run_coroutine_threadsafe(make_queue(), INBOX_LOOP)
+        loop = loop_management.get_client_internal_loop()
+        fut = asyncio.run_coroutine_threadsafe(make_queue(), loop)
         self._queue = fut.result()
 
     def __contains__(self, item):
@@ -67,7 +63,8 @@ class AsyncClientInbox(AbstractInbox):
 
         :returns: An item from the Inbox.
         """
-        fut = asyncio.run_coroutine_threadsafe(self._queue.async_q.get(), INBOX_LOOP)
+        loop = loop_management.get_client_internal_loop()
+        fut = asyncio.run_coroutine_threadsafe(self._queue.async_q.get(), loop)
         return await asyncio.wrap_future(fut)
 
     def empty(self):

@@ -9,7 +9,7 @@ Azure IoTHub Device SDK for Python.
 
 import logging
 import asyncio
-from azure.iot.device.common import async_adapter, asyncio_compat
+from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -21,7 +21,7 @@ from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox
-from . import async_handler_manager
+from . import async_handler_manager, loop_management
 from azure.iot.device import constant as device_constant
 
 logger = logging.getLogger(__name__)
@@ -391,15 +391,21 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         # Enable the feature if necessary
         if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
-            # CT-TODO: Make this callable outside coroutine by adding loop management
-            loop = asyncio.get_event_loop()
-            asyncio.ensure_future(self._enable_feature(feature_name), loop=loop)
+            # We have to call this on a loop running on a different thread in order to ensure
+            # the setter can be called both within a coroutine (with a running event loop) and
+            # outside of a coroutine (where no event loop is currently running)
+            loop = loop_management.get_client_internal_loop()
+            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
+            fut.result()
 
         # Disable the feature if necessary
         elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
-            # CT-TODO: Make this callable outside coroutine by adding loop management
-            loop = asyncio.get_event_loop()
-            asyncio.ensure_future(self._disable_feature(feature_name), loop=loop)
+            # We have to call this on a loop running on a different thread in order to ensure
+            # the setter can be called both within a coroutine (with a running event loop) and
+            # outside of a coroutine (where no event loop is currently running)
+            loop = loop_management.get_client_internal_loop()
+            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
+            fut.result()
 
     @property
     def on_twin_desired_properties_patch_received(self):
@@ -459,11 +465,11 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
     @property
     def on_message_received(self):
-        return self._handler_manager.on_method_request_received
+        return self._handler_manager.on_message_received
 
     @on_message_received.setter
     def on_message_received(self, value):
-        self._generic_handler_setter("on_method_request_received", constant.C2D_MSG, value)
+        self._generic_handler_setter("on_message_received", constant.C2D_MSG, value)
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -567,8 +573,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     @property
     def on_message_received(self):
-        return self._handler_manager.on_method_request_received
+        return self._handler_manager.on_message_received
 
     @on_message_received.setter
     def on_message_received(self, value):
-        self._generic_handler_setter("on_method_request_received", constant.INPUT_MSG, value)
+        self._generic_handler_setter("on_message_received", constant.INPUT_MSG, value)

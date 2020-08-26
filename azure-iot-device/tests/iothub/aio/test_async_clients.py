@@ -14,7 +14,7 @@ import io
 import sys
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
-from azure.iot.device.iothub.pipeline import constant
+from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.abstract_clients import (
@@ -27,6 +27,7 @@ from azure.iot.device.common import async_adapter
 from azure.iot.device import constant as device_constant
 from ..shared_client_tests import (
     SharedIoTHubClientInstantiationTests,
+    SharedIoTHubClientPROPERTYHandlerTests,
     SharedIoTHubClientPROPERTYConnectedTests,
     SharedIoTHubClientCreateFromConnectionStringTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
@@ -44,6 +45,26 @@ async def create_completed_future(result=None):
     f = asyncio.Future()
     f.set_result(result)
     return f
+
+
+##########################
+# SHARED CLIENT FIXTURES #
+##########################
+@pytest.fixture(params=["Handler Function", "Handler Coroutine"])
+def handler(request):
+    if request.param == "Handler Function":
+
+        def _handler_function(arg):
+            pass
+
+        return _handler_function
+
+    else:
+
+        async def _handler_coroutine(arg):
+            pass
+
+        return _handler_coroutine
 
 
 #######################
@@ -323,7 +344,7 @@ class SharedClientReceiveMethodRequestTests(object):
         )  # Method Requests will appear disabled
         await client.receive_method_request(method_name)
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.METHODS
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.METHODS
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -518,7 +539,7 @@ class SharedClientGetTwinTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
         await client.get_twin()
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.TWIN
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -624,7 +645,7 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
         await client.patch_twin_reported_properties(twin_patch_reported)
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.TWIN
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -723,7 +744,7 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         )  # twin patches will appear disabled
         await client.receive_twin_desired_properties_patch()
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.TWIN_PATCHES
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN_PATCHES
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -895,7 +916,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # C2D will appear disabled
         await client.receive_message()
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.C2D_MSG
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.C2D_MSG
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -1140,6 +1161,47 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
                 correlation_id, is_success, status_code, status_description
             )
             assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_message_received")
+class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_message_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.C2D_MSG
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_method_request_received")
+class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_method_request_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_twin_desired_properties_patch_received"
+)
+class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_twin_desired_properties_patch_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.TWIN_PATCHES
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .connected")
@@ -1407,7 +1469,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
         )  # Input Messages will appear disabled
         await client.receive_message_on_input(input_name)
         assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == constant.INPUT_MSG
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.INPUT_MSG
 
         mqtt_pipeline.enable_feature.reset_mock()
 
@@ -1586,6 +1648,47 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
             await client.invoke_method(method_params, device_id, module_id=module_id)
 
         assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_message_received")
+class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_message_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.INPUT_MSG
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_method_request_received")
+class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_method_request_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_twin_desired_properties_patch_received"
+)
+class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_twin_desired_properties_patch_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.TWIN_PATCHES
 
 
 @pytest.mark.describe("IoTHubModule (Asynchronous) - PROPERTY .connected")

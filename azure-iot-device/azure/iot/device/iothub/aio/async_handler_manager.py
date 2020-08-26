@@ -16,15 +16,9 @@ from azure.iot.device.iothub.sync_handler_manager import (
     HandlerManagerException,
     HandlerRunnerKillerSentinel,
 )
+from . import loop_management
 
 logger = logging.getLogger(__name__)
-
-# This logic could potentially be encapsulated in another module...
-# Say... some kind of... loop_manager.py?
-RUNNER_LOOP = asyncio.new_event_loop()
-RUNNER_THREAD = threading.Thread(target=RUNNER_LOOP.run_forever)
-RUNNER_THREAD.daemon = True
-RUNNER_THREAD.start()
 
 
 class AsyncHandlerManager(AbstractHandlerManager):
@@ -85,6 +79,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
             handler = getattr(self, handler_name)
             logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             if inspect.iscoroutinefunction(handler):
+                # TODO: call this on the user loop instead
                 # Wrap the coroutine in a function so it can be run in ThreadPool
                 def coro_wrapper(coro, arg):
                     asyncio_compat.run(coro(arg))
@@ -119,7 +114,10 @@ class AsyncHandlerManager(AbstractHandlerManager):
             coro = self._inbox_handler_runner(inbox, handler_name)
         else:
             coro = self._event_handler_runner(handler_name)
-        future = asyncio.run_coroutine_threadsafe(coro, RUNNER_LOOP)
+        # Run the handler runner on a dedicated event loop for handler runners so as to be
+        # isolated from all other client activities
+        runner_loop = loop_management.get_client_handler_runner_loop()
+        future = asyncio.run_coroutine_threadsafe(coro, runner_loop)
 
         # Define a callback for the future (in order to handle any errors)
         def _handler_runner_callback(completed_future):
