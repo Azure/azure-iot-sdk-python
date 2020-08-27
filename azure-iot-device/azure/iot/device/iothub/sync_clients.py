@@ -384,11 +384,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @property
     def on_twin_desired_properties_patch_received(self):
-        """The handler function or coroutine that will be called when a twin desired properties
-        patch is received.
+        """The handler function that will be called when a twin desired properties patch
+        is received.
 
-        The function or coroutine definition should take one positional argument (the twin patch
-        in the form of a JSON dictionary object)"""
+        The function definition should take one positional argument (the twin patch in the form
+        of a JSON dictionary object)"""
         return self._handler_manager.on_twin_desired_properties_patch_received
 
     @on_twin_desired_properties_patch_received.setter
@@ -399,9 +399,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @property
     def on_method_request_received(self):
-        """The handler function or coroutine that will be called when a method request is received.
+        """The handler function that will be called when a method request is received.
 
-        The function or coroutine definition should take one positional argument (the
+        The function definition should take one positional argument (the
         :class:`azure.iot.device.MethodRequest` object)"""
         return self._handler_manager.on_method_request_received
 
@@ -492,7 +492,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
     @property
     def on_message_received(self):
-        """The handler function or coroutine that will be called when a message is received.
+        """The handler function that will be called when a message is received.
 
         The function definition should take one positional argument (the
         :class:`azure.iot.device.Message` object)"""
@@ -613,7 +613,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     @property
     def on_message_received(self):
-        """The handler function or coroutine that will be called when a message is received.
+        """The handler function that will be called when a message is received.
 
         The function definition should take one positional argument (the
         :class:`azure.iot.device.Message` object)"""

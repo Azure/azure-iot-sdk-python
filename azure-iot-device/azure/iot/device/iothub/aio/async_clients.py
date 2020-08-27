@@ -476,7 +476,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     def on_message_received(self):
         """The handler function or coroutine that will be called when a message is received.
 
-        The function definition should take one positional argument (the
+        The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.Message` object)"""
         return self._handler_manager.on_message_received
 
@@ -588,7 +588,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     def on_message_received(self):
         """The handler function or coroutine that will be called when a message is received.
 
-        The function definition should take one positional argument (the
+        The function definitionor coroutine should take one positional argument (the
         :class:`azure.iot.device.Message` object)"""
         return self._handler_manager.on_message_received
 

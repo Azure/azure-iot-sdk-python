@@ -16,6 +16,8 @@ logging.basicConfig(level=logging.DEBUG)
 class SharedCustomLoopTests(object):
     @pytest.fixture(autouse=True)
     def setup_teardown(self):
+        # Run cleanup both before and after tests so that the changes made here do not
+        # impact other test modules when the tests are run as a complete suite
         loop_management._cleanup()
         yield
         loop_management._cleanup()
