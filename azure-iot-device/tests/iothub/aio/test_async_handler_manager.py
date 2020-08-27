@@ -229,30 +229,38 @@ class SharedHandlerPropertyTests(object):
     async def test_handler_resolve_pending_items_before_handler_removal(
         self, mocker, handler_name, handler_manager, handler, handler_checker, inbox
     ):
-        # Set the handler
-        setattr(handler_manager, handler_name, handler)
-        # Add 100 items to the associated inbox (enough to build up a backlog)
+        assert inbox.empty()
+        # Queue up a bunch of items in the inbox
         for _ in range(100):
             inbox._put(mocker.MagicMock())
-        # Inbox is not empty - i.e. the handler has not yet been called for every item in the inbox
+        # The handler has not yet been called
+        assert handler_checker.handler_call_count == 0
+        # Items are still in the inbox
         assert not inbox.empty()
-        assert handler_checker.handler_call_count != 100
-        # Remove the handler
+        # Set the handler
+        setattr(handler_manager, handler_name, handler)
+        # The handler has not yet been called for everything that was in the inbox
+        # (but it has started the process)
+        await asyncio.sleep(0.01)
+        assert not inbox.empty()
+        assert 0 < handler_checker.handler_call_count < 100
+        # Immediately remove the handler
         setattr(handler_manager, handler_name, None)
-        await asyncio.sleep(0.2)
+        # Wait to give a chance for the handler runner to finish calling everything
+        await asyncio.sleep(0.5)
+        # Despite removal, handler has been called for everything that was in the inbox at the
+        # time of the removal
         assert inbox.empty()
         assert handler_checker.handler_call_count == 100
 
-        # NOTE: This doesn't account for the multithreaded case where the inbox is being continually added to,
-        # even after the handler has been removed. There isn't really a good way to test that because the adding is
-        # continuous, and unsetting the handler is not atomic, i.e. in the time it takes to remove the handler, many
-        # new things could be added to the inbox. We can never get a accurate number on inbox size to show that
-        # everything prior to the unsetting of the handler during the execution of the unsetting will get resolved.
-        # Just take my word for it + read the source code to see that this is true due to the sentinel pattern.
-        #
-        # NOTE 2: I know the above note probably doesn't make sense to anyone who hasn't tried to test this edge case.
-        # Go ahead and try to test the multithread edge case, come back, read that note again, and it'll
-        # probably make sense
+        # Add some more items
+        for _ in range(100):
+            inbox._put(mocker.MagicMock())
+        # Wait to give a chance for the handler to be called (it won't)
+        await asyncio.sleep(0.5)
+        # Despite more items added to inbox, no further handler calls have been made beyond the
+        # initial calls that were made when the original items were added
+        assert handler_checker.handler_call_count == 100
 
     @pytest.mark.it(
         "Sends a HandlerManagerException to the background exception handler if any exception is raised during its invocation"
