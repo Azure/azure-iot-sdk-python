@@ -15,13 +15,14 @@ logging.basicConfig(level=logging.DEBUG)
 
 class SharedCustomLoopTests(object):
     @pytest.fixture(autouse=True)
-    def teardown(self):
+    def setup_teardown(self):
+        loop_management._cleanup()
         yield
         loop_management._cleanup()
 
     @pytest.mark.it("Returns a new event loop the first time it is called")
     def test_new_loop(self, mocker, fn_under_test):
-        new_event_loop_mock = mocker.patch("asyncio.new_event_loop")
+        new_event_loop_mock = mocker.patch.object(asyncio, "new_event_loop")
         loop = fn_under_test()
         assert loop is new_event_loop_mock.return_value
 
