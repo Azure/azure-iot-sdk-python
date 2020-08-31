@@ -139,7 +139,7 @@ class PipelineOperation(object):
                 try:
                     callback(op=self, error=error)
                 except Exception as e:
-                    logger.error(
+                    logger.warning(
                         "Unhandled error while triggering callback for {}".format(self.name)
                     )
                     # This could happen in a foreground or background thread, so err on the side of caution

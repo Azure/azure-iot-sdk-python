@@ -77,7 +77,7 @@ class CommonProvisioningStage(PipelineStage):
                 status_code=request_response_op.status_code,
             )
         )
-        logger.info(
+        logger.debug(
             "{stage_name}({op_name}): Response body: {body}".format(
                 stage_name=self.name,
                 op_name=request_response_op.name,
@@ -115,7 +115,7 @@ class CommonProvisioningStage(PipelineStage):
             original_provisioning_op.completed = False
             this.run_op(original_provisioning_op)
 
-        logger.debug(
+        logger.info(
             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
                 stage_name=self.name,
                 op_name=request_response_op.name,

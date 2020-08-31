@@ -602,7 +602,7 @@ class OperationManager(object):
                     logger.error(traceback.format_exc())
             else:
                 # Not entirely unexpected becuase of QOS=1
-                logger.info("No callback for MID: {}".format(mid))
+                logger.debug("No callback for MID: {}".format(mid))
 
     def complete_operation(self, mid):
         """Complete an operation identified by MID and trigger the associated completion callback.
