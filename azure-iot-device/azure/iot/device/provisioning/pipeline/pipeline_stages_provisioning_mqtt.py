@@ -126,7 +126,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
             topic = event.topic
 
             if mqtt_topic_provisioning.is_dps_response_topic(topic):
-                logger.info(
+                logger.debug(
                     "Received payload:{payload} on topic:{topic}".format(
                         payload=event.payload, topic=topic
                     )
@@ -149,7 +149,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
                     )
                 )
             else:
-                logger.warning("Unknown topic: {} passing up to next handler".format(topic))
+                logger.debug("Unknown topic: {} passing up to next handler".format(topic))
                 self.send_event_up(event)
 
         else:

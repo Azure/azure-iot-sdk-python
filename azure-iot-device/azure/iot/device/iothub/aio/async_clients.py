@@ -540,6 +540,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :returns: method_result should contain a status, and a payload
         :rtype: dict
         """
+        logger.info(
+            "Invoking {} method on {}{}".format(method_params["methodName"], device_id, module_id)
+        )
+
         invoke_method_async = async_adapter.emulate_async(self._http_pipeline.invoke_method)
         callback = async_adapter.AwaitableCallback(return_arg_name="invoke_method_response")
         await invoke_method_async(device_id, method_params, callback=callback, module_id=module_id)
