@@ -20,7 +20,8 @@ class Message(object):
     :ivar user_id: An ID to specify the origin of messages
     :ivar content_encoding: Content encoding of the message data. Can be 'utf-8', 'utf-16' or 'utf-32'
     :ivar content_type: Content type property used to route messages with the message-body. Can be 'application/json'
-    :ivar output_name: Name of the output that the is being sent to.
+    :ivar output_name: Name of the output that the message is being sent to.
+    :ivar input_name: Name of the input that the message was received on.
     """
 
     def __init__(

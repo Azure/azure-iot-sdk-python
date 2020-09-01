@@ -16,7 +16,8 @@ loops = {
     # Store whatever loop the user has on their thread the client was created in.
     # We can use this to schedule tasks for their handler/callback code so that any
     # poor performance in their provided code doesn't slow down the client.
-    "USER_LOOP": asyncio.get_event_loop(),
+    # TODO: store the user loop somehow
+    "USER_LOOP": None,
     "CLIENT_INTERNAL_LOOP": None,
     "CLIENT_HANDLER_RUNNER_LOOP": None,
 }
@@ -32,6 +33,7 @@ def _cleanup():
     for loop_name, loop in loops.items():
         if loop_name == "USER_LOOP":
             # Do not clean up the USER_LOOP since it wasn't made by us
+            # TODO: there may be something necessary here once user loops are in play
             continue
         elif loop is not None:
             loop.call_soon_threadsafe(loop.stop())
@@ -50,12 +52,6 @@ def _make_new_loop(loop_name):
     loop_thread.start()
     # Store the loop
     loops[loop_name] = new_loop
-
-
-# def get_user_loop():
-#     """Return the loop that was active during client instantiation"""
-#     # TODO: this is insufficient
-#     return loops["USER_LOOP"]
 
 
 def get_client_internal_loop():

@@ -228,7 +228,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :returns: MethodRequest object representing the received method request, or None if
             no method request has been received by the end of the blocking period.
         """
-        self._validate_receive_api_invoke()
+        self._check_receive_mode_is_api()
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._enable_feature(pipeline_constant.METHODS)
@@ -355,7 +355,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             received by the end of the blocking period
         :rtype: dict or None
         """
-        self._validate_receive_api_invoke()
+        self._check_receive_mode_is_api()
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
@@ -370,7 +370,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         return patch
 
     def _generic_handler_setter(self, handler_name, feature_name, new_handler):
-        self._validate_receive_handler_setter()
+        self._check_receive_mode_is_handler()
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)
 
@@ -442,7 +442,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             no method request has been received by the end of the blocking period.
         :rtype: :class:`azure.iot.device.Message` or None
         """
-        self._validate_receive_api_invoke()
+        self._check_receive_mode_is_api()
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.C2D_MSG]:
             self._enable_feature(pipeline_constant.C2D_MSG)
@@ -579,7 +579,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :returns: Message that was sent to the specified input, or None if
             no method request has been received by the end of the blocking period.
         """
-        self._validate_receive_api_invoke()
+        self._check_receive_mode_is_api()
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.INPUT_MSG]:
             self._enable_feature(pipeline_constant.INPUT_MSG)
@@ -613,7 +613,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     @property
     def on_message_received(self):
-        """The handler function that will be called when a message is received.
+        """The handler function that will be called when an input message is received.
 
         The function definition should take one positional argument (the
         :class:`azure.iot.device.Message` object)"""
