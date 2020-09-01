@@ -81,7 +81,7 @@ class HTTPTransport(object):
         :param str query_params: The optional query parameters to be appended at the end of the URL.
         """
         # Sends a complete request to the server
-        logger.info("sending https request.")
+        logger.info("sending https {} request to {} .".format(method, path))
         try:
             logger.debug("creating an https connection")
             connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
@@ -111,11 +111,15 @@ class HTTPTransport(object):
             logger.debug("closing connection to https host")
             connection.close()
             logger.debug("connection closed")
-            logger.info("https request sent, and response received.")
+            logger.info(
+                "https {} request sent to {}, and {} response received.".format(
+                    method, path, status_code
+                )
+            )
             response_obj = {"status_code": status_code, "reason": reason, "resp": response_string}
             callback(response=response_obj)
         except Exception as e:
-            logger.error("Error in HTTP Transport: {}".format(e))
+            logger.info("Error in HTTP Transport: {}".format(e))
             callback(
                 error=exceptions.ProtocolClientError(
                     message="Unexpected HTTPS failure during connect", cause=e
