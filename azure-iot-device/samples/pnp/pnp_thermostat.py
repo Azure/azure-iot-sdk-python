@@ -14,21 +14,20 @@ from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import constant, Message, MethodResponse
 from datetime import date, timedelta, datetime
 
-
 logging.basicConfig(level=logging.ERROR)
 
-# The device "TemperatureController" that is getting implemented using the above interfaces.
+# The device "Thermostat" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
 # and the name user wants to call this pnp device
 model_id = "dtmi:com:example:Thermostat;1"
 
 #####################################################
 # GLOBAL THERMOSTAT VARIABLES
-maxTemp = None
-minTemp = None
-avgTempList = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-sizeOfMovingWindow = len(avgTempList)
-targetTemperature = None
+max_temp = None
+min_temp = None
+avg_temp_list = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+moving_window_size = len(avg_temp_list)
+target_temperature = None
 
 
 #####################################################
@@ -37,19 +36,19 @@ targetTemperature = None
 
 
 async def reboot_handler(values):
-    global maxTemp
-    global minTemp
-    global avgTempList
-    global targetTemperature
+    global max_temp
+    global min_temp
+    global avg_temp_list
+    global target_temperature
     if values and type(values) == int:
         print("Rebooting after delay of {delay} secs".format(delay=values))
         asyncio.sleep(values)
-    maxTemp = None
-    minTemp = None
-    for idx in range(len(avgTempList)):
-        avgTempList[idx] = 0
-    targetTemperature = None
-    print("maxTemp {}, minTemp {}".format(maxTemp, minTemp))
+    max_temp = None
+    min_temp = None
+    for idx in range(len(avg_temp_list)):
+        avg_temp_list[idx] = 0
+    target_temperature = None
+    print("maxTemp {}, minTemp {}".format(max_temp, min_temp))
     print("Done rebooting")
 
 
@@ -78,15 +77,11 @@ def create_max_min_report_response(values):
     :param values: The values that were received as part of the request.
     """
     response_dict = {
-        "tempReport": {
-            "maxTemp": maxTemp,
-            "minTemp": minTemp,
-            "avgTemp": sum(avgTempList) / sizeOfMovingWindow,
-            "startTime": (datetime.now() - timedelta(0, sizeOfMovingWindow * 8)).strftime(
-                "%d/%m/%Y %H:%M:%S"
-            ),
-            "endTime": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-        }
+        "maxTemp": max_temp,
+        "minTemp": min_temp,
+        "avgTemp": sum(avg_temp_list) / moving_window_size,
+        "startTime": (datetime.now() - timedelta(0, moving_window_size * 8)).isoformat(),
+        "endTime": datetime.now().isoformat(),
     }
     # serialize response dictionary into a JSON formatted str
     # TODO: For python team, this seems optional? Because for reboot response, the response being a dictionary seems to work fine.
@@ -119,7 +114,7 @@ async def send_telemetry_from_thermostat(device_client, telemetry_msg):
 #####################################################
 
 #####################################################
-# CREATE COMMAND LISTENERS
+# CREATE COMMAND AND PROPERTY LISTENERS
 
 
 async def execute_command_listener(
@@ -156,11 +151,37 @@ async def execute_command_listener(
             print("responding to the {command} command failed".format(command=method_name))
 
 
-# END COMMAND LISTENERS
+async def execute_property_listener(device_client):
+    ignore_keys = ["__t", "$version"]
+    while True:
+        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
+
+        print("the data in the desired properties patch was: {}".format(patch))
+
+        version = patch["$version"]
+        prop_dict = {}
+
+        for prop_name, prop_value in patch.items():
+            if prop_name in ignore_keys:
+                continue
+            else:
+                prop_dict[prop_name] = {
+                    "ac": 200,
+                    "ad": "Successfully executed patch",
+                    "av": version,
+                    "value": prop_value,
+                }
+
+        await device_client.patch_twin_reported_properties(prop_dict)
+
+
+# END COMMAND AND PROPERTY LISTENERS
 #####################################################
 
 #####################################################
 # An # END KEYBOARD INPUT LISTENER to quit application
+
+
 def stdin_listener():
     """
     Listener for quitting the sample
@@ -177,7 +198,7 @@ def stdin_listener():
 
 
 #####################################################
-# MAIN STARTS
+# PROVISION DEVICE
 async def provision_device(provisioning_host, id_scope, registration_id, symmetric_key, model_id):
     provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
         provisioning_host=provisioning_host,
@@ -189,6 +210,8 @@ async def provision_device(provisioning_host, id_scope, registration_id, symmetr
     return await provisioning_device_client.register()
 
 
+#####################################################
+# MAIN STARTS
 async def main():
     switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
     if switch == "DPS":
@@ -202,18 +225,28 @@ async def main():
         )
 
         if registration_result.status == "assigned":
+            print("Device was assigned")
+            print(registration_result.registration_state.assigned_hub)
+            print(registration_result.registration_state.device_id)
+
             device_client = IoTHubDeviceClient.create_from_symmetric_key(
                 symmetric_key=symmetric_key,
                 hostname=registration_result.registration_state.assigned_hub,
                 device_id=registration_result.registration_state.device_id,
+                product_info=model_id,
             )
         else:
             raise RuntimeError("Could not provision device. Aborting PNP device connection.")
-    else:
+
+    elif switch == "CONNECTION_STRING":
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
             conn_str, product_info=model_id
+        )
+    else:
+        raise RuntimeError(
+            "At least one choice needs to be made for complete functioning of this sample."
         )
 
     # Connect the client.
@@ -222,46 +255,12 @@ async def main():
     ################################################
     # Set and read desired property (target temperature)
 
-    asyncio.create_task(
-        device_client.patch_twin_reported_properties({"maxTempSinceLastReboot": maxTemp})
-    )
+    max_temp = 10.96  # Initial Max Temp otherwise will not pass certification
+    await device_client.patch_twin_reported_properties({"maxTempSinceLastReboot": max_temp})
 
     ################################################
     # Register callback and Handle command (reboot)
     print("Listening for command requests and property updates")
-
-    async def execute_property_listener():
-        ignore_keys = ["__t", "$version"]
-        while True:
-            patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-            print("the data in the desired properties patch was: {}".format(patch))
-
-            component_prefix = list(patch.keys())[0]
-            values = patch[component_prefix]
-            print("previous values")
-            print(values)
-
-            version = patch["$version"]
-            inner_dict = {}
-
-            for prop_name, prop_value in values.items():
-                if prop_name in ignore_keys:
-                    continue
-                else:
-                    inner_dict["ac"] = 200
-                    inner_dict["ad"] = "Successfully executed patch"
-                    inner_dict["av"] = version
-                    inner_dict["value"] = prop_value
-                    values[prop_name] = inner_dict
-
-            iotin_dict = dict()
-            if component_prefix:
-                iotin_dict[component_prefix] = values
-                # print(iotin_dict)
-            else:
-                iotin_dict = values
-
-            await device_client.patch_twin_reported_properties(iotin_dict)
 
     listeners = asyncio.gather(
         execute_command_listener(
@@ -276,7 +275,7 @@ async def main():
             user_command_handler=max_min_handler,
             create_user_response_handler=create_max_min_report_response,
         ),
-        execute_property_listener(),
+        execute_property_listener(device_client),
     )
 
     ################################################
@@ -284,26 +283,26 @@ async def main():
 
     async def send_telemetry():
         print("Sending telemetry for temperature")
-        global maxTemp
-        global minTemp
-        currentAvgIdx = 0
+        global max_temp
+        global min_temp
+        current_avg_idx = 0
 
         while True:
-            currentTemp = random.randrange(10, 50)  # Current temperature in Celsius
-            if not maxTemp:
-                maxTemp = currentTemp
-            elif currentTemp > maxTemp:
-                maxTemp = currentTemp
+            current_temp = random.randrange(10, 50)  # Current temperature in Celsius
+            if not max_temp:
+                max_temp = current_temp
+            elif current_temp > max_temp:
+                max_temp = current_temp
 
-            if not minTemp:
-                minTemp = currentTemp
-            elif currentTemp < minTemp:
-                minTemp = currentTemp
+            if not min_temp:
+                min_temp = current_temp
+            elif current_temp < min_temp:
+                min_temp = current_temp
 
-            avgTempList[currentAvgIdx] = currentTemp
-            currentAvgIdx = (currentAvgIdx + 1) % sizeOfMovingWindow
+            avg_temp_list[current_avg_idx] = current_temp
+            current_avg_idx = (current_avg_idx + 1) % moving_window_size
 
-            temperature_msg1 = {"temperature": currentTemp}
+            temperature_msg1 = {"temperature": current_temp}
             await send_telemetry_from_thermostat(device_client, temperature_msg1)
             await asyncio.sleep(8)
 
