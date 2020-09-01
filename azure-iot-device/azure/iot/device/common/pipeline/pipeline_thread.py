@@ -118,8 +118,13 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
                         raise
                 except BaseException:
                     if not block:
-                        logger.error("Unhandled exception in background thread")
-                        logger.error(
+                        # This is truely a logger.critical condition.  Most exceptions in background threads should
+                        # be handled inside the thread and should result in call to handle_background_exception
+                        # if this code is hit, that means something happened which wasn't handled, therefore
+                        # handle_background_exception wasn't called, therefore we need to log this at the highest
+                        # level.
+                        logger.critical("Unhandled exception in background thread")
+                        logger.critical(
                             "This may cause the background thread to abort and may result in system instability."
                         )
                         traceback.print_exc()
