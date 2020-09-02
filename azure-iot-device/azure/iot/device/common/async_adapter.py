@@ -70,9 +70,9 @@ class AwaitableCallback(object):
                 result = None
 
             if exception:
-                # Do not use exc_info parameter on logger.error.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
-                logger.error("Callback completed with error {}".format(exception))
-                logger.error(traceback.format_exception_only(type(exception), exception))
+                # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+                logger.info("Callback completed with error {}".format(exception))
+                logger.info(traceback.format_exception_only(type(exception), exception))
                 loop.call_soon_threadsafe(self.future.set_exception, exception)
             else:
                 logger.debug("Callback completed with result {}".format(result))

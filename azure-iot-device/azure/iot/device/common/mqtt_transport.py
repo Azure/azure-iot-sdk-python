@@ -134,7 +134,7 @@ class MQTTTransport(object):
         """
         Create the MQTT client object and assign all necessary event handler callbacks.
         """
-        logger.info("creating mqtt client")
+        logger.debug("creating mqtt client")
 
         # Instaniate the client
         if self._websockets:
@@ -189,7 +189,7 @@ class MQTTTransport(object):
                         logger.error("Unexpected error calling on_mqtt_connection_failure_handler")
                         logger.error(traceback.format_exc())
                 else:
-                    logger.warning(
+                    logger.error(
                         "connection failed, but no on_mqtt_connection_failure_handler handler callback provided"
                     )
             elif this.on_mqtt_connected_handler:
@@ -199,7 +199,7 @@ class MQTTTransport(object):
                     logger.error("Unexpected error calling on_mqtt_connected_handler")
                     logger.error(traceback.format_exc())
             else:
-                logger.warning("No event handler callback set for on_mqtt_connected_handler")
+                logger.error("No event handler callback set for on_mqtt_connected_handler")
 
         def on_disconnect(client, userdata, rc):
             this = self_weakref()
@@ -227,7 +227,7 @@ class MQTTTransport(object):
                         logger.error("Unexpected error calling on_mqtt_disconnected_handler")
                         logger.error(traceback.format_exc())
                 else:
-                    logger.warning("No event handler callback set for on_mqtt_disconnected_handler")
+                    logger.error("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
             this = self_weakref()
@@ -261,7 +261,7 @@ class MQTTTransport(object):
                     logger.error("Unexpected error calling on_mqtt_message_received_handler")
                     logger.error(traceback.format_exc())
             else:
-                logger.warning(
+                logger.error(
                     "No event handler callback set for on_mqtt_message_received_handler - DROPPING MESSAGE"
                 )
 
@@ -371,7 +371,7 @@ class MQTTTransport(object):
         :raises: UnauthorizedError if there is an error authenticating.
         :raises: ProtocolClientError if there is some other client error.
         """
-        logger.info("connecting to mqtt broker")
+        logger.debug("connecting to mqtt broker")
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
@@ -601,7 +601,8 @@ class OperationManager(object):
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
-                logger.exception("No callback for MID: {}".format(mid))
+                # Not entirely unexpected becuase of QOS=1
+                logger.debug("No callback for MID: {}".format(mid))
 
     def complete_operation(self, mid):
         """Complete an operation identified by MID and trigger the associated completion callback.
@@ -625,7 +626,7 @@ class OperationManager(object):
 
             else:
                 # Otherwise, store the mid as an unknown response
-                logger.warning("Response received for unknown MID: {}".format(mid))
+                logger.debug("Response received for unknown MID: {}".format(mid))
                 self._unknown_operation_completions[
                     mid
                 ] = mid  # TODO: set something more useful here
@@ -643,4 +644,5 @@ class OperationManager(object):
                     logger.error("Unexpected error calling callback for MID: {}".format(mid))
                     logger.error(traceback.format_exc())
             else:
-                logger.warning("No callback set for MID: {}".format(mid))
+                # fully expected.  QOS=1 means we might get 2 PUBACKs
+                logger.debug("No callback set for MID: {}".format(mid))
