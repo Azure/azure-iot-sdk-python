@@ -56,11 +56,10 @@ class AsyncHandlerManager(AbstractHandlerManager):
                         "HANDLER ({}): Successfully completed invocation".format(handler_name)
                     )
 
-        # Run the handler in a threadpool, so that it cannot block other handlers (from a different task),
-        # or the main client thread. The number of worker threads forms an upper bound on how many instances
-        # of the same handler can be running simultaneously.
-        # NOTE: eventually we might want to do this in the customer's event loop (for coroutine handlers).
-        # However this will require more infrastructure that is not yet prepared.
+        # ThreadPool used for running handler functions. By invoking handlers in a separate thread
+        # we can be safe knowing that customer code that has performance issues does not block
+        # client code. Note that the ThreadPool is only used for handler FUNCTIONS (coroutines are
+        # invoked on a dedicated event loop + thread)
         tpe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         while True:
             handler_arg = await inbox.get()
@@ -79,6 +78,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
             handler = getattr(self, handler_name)
             logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             if inspect.iscoroutinefunction(handler):
+                # Run coroutine on a dedicated event loop for handler invocations
                 # TODO: Can we call this on the user loop instead?
                 handler_loop = loop_management.get_client_handler_loop()
                 fut = asyncio.run_coroutine_threadsafe(handler(handler_arg), handler_loop)
