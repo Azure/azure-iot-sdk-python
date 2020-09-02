@@ -63,3 +63,10 @@ class TestGetClientHandlerRunnerLoop(SharedCustomLoopTests):
     @pytest.fixture
     def fn_under_test(self):
         return loop_management.get_client_handler_runner_loop
+
+
+@pytest.mark.describe(".get_client_handler_loop()")
+class TestGetClientHandlerLoop(SharedCustomLoopTests):
+    @pytest.fixture
+    def fn_under_test(self):
+        return loop_management.get_client_handler_loop

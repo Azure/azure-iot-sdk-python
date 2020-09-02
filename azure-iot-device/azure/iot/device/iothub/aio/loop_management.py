@@ -13,11 +13,8 @@ from azure.iot.device.common import asyncio_compat
 logger = logging.getLogger(__name__)
 
 loops = {
-    # Store whatever loop the user has on their thread the client was created in.
-    # We can use this to schedule tasks for their handler/callback code so that any
-    # poor performance in their provided code doesn't slow down the client.
-    # TODO: store the user loop somehow
-    "USER_LOOP": None,
+    # TODO: Try and store the user loop somehow
+    "CLIENT_HANDLER_LOOP": None,
     "CLIENT_INTERNAL_LOOP": None,
     "CLIENT_HANDLER_RUNNER_LOOP": None,
 }
@@ -31,11 +28,7 @@ def _cleanup():
     DO NOT USE THIS IN PRODUCTION CODE
     """
     for loop_name, loop in loops.items():
-        if loop_name == "USER_LOOP":
-            # Do not clean up the USER_LOOP since it wasn't made by us
-            # TODO: there may be something necessary here once user loops are in play
-            continue
-        elif loop is not None:
+        if loop is not None:
             loop.call_soon_threadsafe(loop.stop())
             # NOTE: Stopping the loop will also end the thread, because the only thing keeping
             # the thread alive was the loop running
@@ -66,3 +59,10 @@ def get_client_handler_runner_loop():
     if loops["CLIENT_HANDLER_RUNNER_LOOP"] is None:
         _make_new_loop("CLIENT_HANDLER_RUNNER_LOOP")
     return loops["CLIENT_HANDLER_RUNNER_LOOP"]
+
+
+def get_client_handler_loop():
+    """Return the loop for invoking user-provided handlers on the client"""
+    if loops["CLIENT_HANDLER_LOOP"] is None:
+        _make_new_loop("CLIENT_HANDLER_LOOP")
+    return loops["CLIENT_HANDLER_LOOP"]

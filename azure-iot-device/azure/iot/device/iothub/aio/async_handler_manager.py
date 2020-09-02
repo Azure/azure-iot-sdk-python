@@ -79,12 +79,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
             handler = getattr(self, handler_name)
             logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             if inspect.iscoroutinefunction(handler):
-                # TODO: call this on the user loop instead
-                # Wrap the coroutine in a function so it can be run in ThreadPool
-                def coro_wrapper(coro, arg):
-                    asyncio_compat.run(coro(arg))
-
-                fut = tpe.submit(coro_wrapper, handler, handler_arg)
+                # TODO: Can we call this on the user loop instead?
+                handler_loop = loop_management.get_client_handler_loop()
+                fut = asyncio.run_coroutine_threadsafe(handler(handler_arg), handler_loop)
                 fut.add_done_callback(_handler_callback)
             else:
                 # Run function directly in ThreadPool
