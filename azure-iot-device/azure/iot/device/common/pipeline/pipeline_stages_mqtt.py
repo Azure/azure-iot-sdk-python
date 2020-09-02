@@ -168,7 +168,7 @@ class MQTTTransportStage(PipelineStage):
             op.complete()
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
-            logger.info("{}({}): connecting".format(self.name, op.name))
+            logger.debug("{}({}): connecting".format(self.name, op.name))
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
@@ -182,8 +182,8 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.connect(password=password)
             except Exception as e:
-                logger.error("transport.connect raised error")
-                logger.error(traceback.format_exc())
+                logger.info("transport.connect raised error")
+                logger.info(traceback.format_exc())
                 self._cancel_connection_watchdog(op)
                 self._pending_connection_op = None
                 op.complete(error=e)
@@ -191,7 +191,7 @@ class MQTTTransportStage(PipelineStage):
         elif isinstance(op, pipeline_ops_base.DisconnectOperation) or isinstance(
             op, pipeline_ops_base.ReauthorizeConnectionOperation
         ):
-            logger.info("{}({}): disconnecting or reauthorizing".format(self.name, op.name))
+            logger.debug("{}({}): disconnecting or reauthorizing".format(self.name, op.name))
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
@@ -202,13 +202,13 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.disconnect()
             except Exception as e:
-                logger.error("transport.disconnect raised error")
-                logger.error(traceback.format_exc())
+                logger.info("transport.disconnect raised error")
+                logger.info(traceback.format_exc())
                 self._pending_connection_op = None
                 op.complete(error=e)
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTPublishOperation):
-            logger.info("{}({}): publishing on {}".format(self.name, op.name, op.topic))
+            logger.debug("{}({}): publishing on {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_published():
@@ -222,7 +222,7 @@ class MQTTTransportStage(PipelineStage):
                 raise
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTSubscribeOperation):
-            logger.info("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
+            logger.debug("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_subscribed():
@@ -236,7 +236,7 @@ class MQTTTransportStage(PipelineStage):
                 raise
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTUnsubscribeOperation):
-            logger.info("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
+            logger.debug("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def on_unsubscribed():
