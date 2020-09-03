@@ -1517,7 +1517,7 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
 class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
     async def test_calls_pipeline_invoke_method_for_device(self, mocker, client, http_pipeline):
-        method_params = "__fake_method_params__"
+        method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         await client.invoke_method(method_params, device_id)
         assert http_pipeline.invoke_method.call_count == 1
@@ -1527,7 +1527,7 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
 
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a module")
     async def test_calls_pipeline_invoke_method_for_module(self, mocker, client, http_pipeline):
-        method_params = "__fake_method_params__"
+        method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         module_id = "__fake_module_id__"
         await client.invoke_method(method_params, device_id, module_id=module_id)
@@ -1542,7 +1542,7 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
         "Waits for the completion of the 'invoke_method' pipeline operation before returning"
     )
     async def test_waits_for_pipeline_op_completion(self, mocker, client, http_pipeline):
-        method_params = "__fake_method_params__"
+        method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         module_id = "__fake_module_id__"
         cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
@@ -1572,7 +1572,7 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
     async def test_raises_error_on_pipeline_op_error(
         self, mocker, client, http_pipeline, pipeline_error, client_error
     ):
-        method_params = "__fake_method_params__"
+        method_params = {"methodName": "__fake_method_name__"}
         device_id = "__fake_device_id__"
         module_id = "__fake_module_id__"
         my_pipeline_error = pipeline_error()
