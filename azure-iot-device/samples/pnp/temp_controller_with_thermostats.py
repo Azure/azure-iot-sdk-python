@@ -25,10 +25,10 @@ device_info_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceI
 
 # The device "TemperatureController" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
-# and the name user wants to call this pnp device
+# and the name user wants to call this Plug and Play device
 model_id = "dtmi:com:example:TemperatureController;1"
 
-# the components inside this pnp device.
+# the components inside this Plug and Play device.
 # there can be multiple components from 1 interface
 # component names according to interfaces following pascal case.
 device_information_component_name = "deviceInformation"
@@ -150,10 +150,10 @@ def create_max_min_report_response(thermostat_name):
 
 
 async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
-    pnp_msg = pnp_helper_preview_refresh.create_telemetry(telemetry_msg, component_name)
-    await device_client.send_message(pnp_msg)
+    msg = pnp_helper_preview_refresh.create_telemetry(telemetry_msg, component_name)
+    await device_client.send_message(msg)
     print("Sent message")
-    print(pnp_msg)
+    print(msg)
     await asyncio.sleep(5)
 
 
@@ -207,12 +207,12 @@ async def execute_command_listener(
             command_request, method_name, create_user_response=create_user_response_handler
         )
 
-        pnp_command_response = MethodResponse.create_from_method_request(
+        command_response = MethodResponse.create_from_method_request(
             command_request, response_status, response_payload
         )
 
         try:
-            await device_client.send_method_response(pnp_command_response)
+            await device_client.send_method_response(command_response)
         except Exception:
             print("responding to the {command} command failed".format(command=method_name))
 
@@ -225,11 +225,9 @@ async def execute_property_listener(device_client):
     while True:
         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
         print(patch)
-        pnp_properties_dict = pnp_helper_preview_refresh.create_reported_properties_from_desired(
-            patch
-        )
+        properties_dict = pnp_helper_preview_refresh.create_reported_properties_from_desired(patch)
 
-        await device_client.patch_twin_reported_properties(pnp_properties_dict)
+        await device_client.patch_twin_reported_properties(properties_dict)
 
 
 #####################################################
@@ -288,9 +286,11 @@ async def main():
                 product_info=model_id,
             )
         else:
-            raise RuntimeError("Could not provision device. Aborting PNP device connection.")
+            raise RuntimeError(
+                "Could not provision device. Aborting Plug and Play device connection."
+            )
 
-    elif switch == "CONNECTION_STRING":
+    elif switch == "connectionString":
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
@@ -307,16 +307,16 @@ async def main():
     ################################################
     # Update readable properties from various components
 
-    pnp_properties_root = pnp_helper_preview_refresh.create_reported_properties(
+    properties_root = pnp_helper_preview_refresh.create_reported_properties(
         serialNumber=serial_number
     )
-    pnp_properties_thermostat1 = pnp_helper_preview_refresh.create_reported_properties(
+    properties_thermostat1 = pnp_helper_preview_refresh.create_reported_properties(
         thermostat_1_component_name, maxTempSinceLastReboot=98.34
     )
-    pnp_properties_thermostat2 = pnp_helper_preview_refresh.create_reported_properties(
+    properties_thermostat2 = pnp_helper_preview_refresh.create_reported_properties(
         thermostat_2_component_name, maxTempSinceLastReboot=48.92
     )
-    pnp_properties_device_info = pnp_helper_preview_refresh.create_reported_properties(
+    properties_device_info = pnp_helper_preview_refresh.create_reported_properties(
         device_information_component_name,
         swVersion="5.5",
         manufacturer="Contoso Device Corporation",
@@ -329,10 +329,10 @@ async def main():
     )
 
     property_updates = asyncio.gather(
-        device_client.patch_twin_reported_properties(pnp_properties_root),
-        device_client.patch_twin_reported_properties(pnp_properties_thermostat1),
-        device_client.patch_twin_reported_properties(pnp_properties_thermostat2),
-        device_client.patch_twin_reported_properties(pnp_properties_device_info),
+        device_client.patch_twin_reported_properties(properties_root),
+        device_client.patch_twin_reported_properties(properties_thermostat1),
+        device_client.patch_twin_reported_properties(properties_thermostat2),
+        device_client.patch_twin_reported_properties(properties_device_info),
     )
 
     ################################################
