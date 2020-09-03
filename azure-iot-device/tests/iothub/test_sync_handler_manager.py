@@ -164,33 +164,43 @@ class SharedHandlerPropertyTests(object):
         "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
     )
     def test_handler_resolve_pending_items_before_handler_removal(
-        self, mocker, handler_name, handler_manager, inbox
+        self, mocker, handler_name, handler_manager, handler, inbox
     ):
-        # Set the handler
-        mock_handler = mocker.MagicMock()
-        setattr(handler_manager, handler_name, mock_handler)
-        # Add 100 items to the associated inbox (enough to build up a backlog)
+        mock_handler = mocker.MagicMock(wraps=handler)
+        assert inbox.empty()
+        # Queue up a bunch of items in the inbox
         for _ in range(100):
             inbox._put(mocker.MagicMock())
-        # Inbox is not empty - i.e. the handler has not yet been called for every item in the inbox
+        # The handler has not yet been called
+        assert mock_handler.call_count == 0
+        # Items are still in the inbox
         assert not inbox.empty()
-        assert mock_handler.call_count != 100
-        # Remove the handler
+        # Set the handler
+        setattr(handler_manager, handler_name, mock_handler)
+        # The handler has not yet been called for everything that was in the inbox
+        assert not inbox.empty()
+        # NOTE: I'd really like to show that the handler call count is also > 0 here, but
+        # unfortunately there are timing differences between Python 2 and Python 3 that
+        # result in an inability for me to write this test in a way that would work on both
+        # versions. So we'll just test that it's less than 100.
+        assert mock_handler.call_count < 100
+        # Immediately remove the handler
         setattr(handler_manager, handler_name, None)
-        time.sleep(0.2)
+        # Wait to give a chance for the handler runner to finish calling everything
+        time.sleep(0.5)
+        # Despite removal, handler has been called for everything that was in the inbox at the
+        # time of the removal
         assert inbox.empty()
         assert mock_handler.call_count == 100
 
-        # NOTE: This doesn't account for the multithreaded case where the inbox is being continually added to,
-        # even after the handler has been removed. There isn't really a good way to test that because the adding is
-        # continuous, and unsetting the handler is not atomic, i.e. in the time it takes to remove the handler, many
-        # new things could be added to the inbox. We can never get a accurate number on inbox size to show that
-        # everything prior to the unsetting of the handler during the execution of the unsetting will get resolved.
-        # Just take my word for it + read the source code to see that this is true due to the sentinel pattern.
-        #
-        # NOTE 2: I know the above note probably doesn't make sense to anyone who hasn't tried to test this edge case.
-        # Go ahead and try to test the multithread edge case, come back, read that note again, and it'll
-        # probably make sense
+        # Add some more items
+        for _ in range(100):
+            inbox._put(mocker.MagicMock())
+        # Wait to give a chance for the handler to be called (it won't)
+        time.sleep(0.5)
+        # Despite more items added to inbox, no further handler calls have been made beyond the
+        # initial calls that were made when the original items were added
+        assert mock_handler.call_count == 100
 
     @pytest.mark.it(
         "Sends a HandlerManagerException to the background exception handler if any exception is raised during its invocation"
