@@ -12,15 +12,19 @@ import os
 import io
 import six
 import socks
-
 from azure.iot.device.common import auth
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
 from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
-from azure.iot.device.iothub.abstract_clients import RECEIVE_TYPE_NONE_SET
+from azure.iot.device.iothub.abstract_clients import (
+    RECEIVE_TYPE_NONE_SET,
+    RECEIVE_TYPE_HANDLER,
+    RECEIVE_TYPE_API,
+)
 from azure.iot.device.iothub import edge_hsm
 from azure.iot.device import ProxyOptions
+from azure.iot.device import exceptions as client_exceptions
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -426,6 +430,108 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         with pytest.raises(ValueError) as e_info:
             client_class.create_from_connection_string(connection_string)
         assert e_info.value.__cause__ is token_err
+
+
+class SharedIoTHubClientPROPERTYHandlerTests(object):
+    @pytest.fixture(autouse=True)
+    def teardown(self, client, handler_name):
+        """In an async context this makes sure tasks are finished"""
+        yield
+        try:
+            setattr(client, handler_name, None)
+        except client_exceptions.ClientError:
+            # In some tests involving locked client receive modes, trying to set
+            # back to None will raise errors (because handlers are disallowed).
+            # Just catch the error and keep it moving - if the client mode was locked
+            # then there's no need for the cleanup anyway
+            pass
+
+    @pytest.mark.it("Can have its value set and retrieved")
+    def test_read_write(self, client, handler, handler_name):
+        assert getattr(client, handler_name) is None
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_name) is handler
+
+    @pytest.mark.it("Reflects the value of the handler manager property of the same name")
+    def test_set_on_handler_manager(self, client, handler, handler_name):
+        assert getattr(client, handler_name) is None
+        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_name) is handler
+        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+
+    @pytest.mark.it(
+        "Implicitly enables the corresponding feature if not already enabled, when a handler value is set"
+    )
+    def test_enables_feature_only_if_not_already_enabled(
+        self, mocker, client, handler, handler_name, feature_name, mqtt_pipeline
+    ):
+        # Feature will appear disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Set handler
+        setattr(client, handler_name, handler)
+        # Feature was enabled
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == feature_name
+
+        mqtt_pipeline.enable_feature.reset_mock()
+
+        # Feature will appear already enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Set handler
+        setattr(client, handler_name, handler)
+        # Feature was not enabled again
+        assert mqtt_pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it(
+        "Implicitly disables the corresponding feature if not already disabled, when handler value is set back to None"
+    )
+    def test_disables_feature_only_if_not_already_disabled(
+        self, mocker, client, handler_name, feature_name, mqtt_pipeline
+    ):
+        # Feature will appear enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True
+        # Set handler to None
+        setattr(client, handler_name, None)
+        # Feature was disabled
+        assert mqtt_pipeline.disable_feature.call_count == 1
+        assert mqtt_pipeline.disable_feature.call_args[0][0] == feature_name
+
+        mqtt_pipeline.disable_feature.reset_mock()
+
+        # Feature will appear already disabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False
+        # Set handler to None
+        setattr(client, handler_name, None)
+        # Feature was not disabled again
+        assert mqtt_pipeline.disable_feature.call_count == 0
+
+    @pytest.mark.it(
+        "Locks the client to Handler Receive Mode if the receive mode has not yet been set"
+    )
+    def test_receive_mode_not_set(self, client, handler, handler_name):
+        assert client._receive_type is RECEIVE_TYPE_NONE_SET
+        setattr(client, handler_name, handler)
+        assert client._receive_type is RECEIVE_TYPE_HANDLER
+
+    @pytest.mark.it(
+        "Does not modify the client receive mode if it has already been set to Handler Receive Mode"
+    )
+    def test_receive_mode_set_handler(self, client, handler, handler_name):
+        client._receive_type = RECEIVE_TYPE_HANDLER
+        setattr(client, handler_name, handler)
+        assert client._receive_type is RECEIVE_TYPE_HANDLER
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else if the client receive mode has already been set to  API Receive Mode"
+    )
+    def test_receive_mode_set_api(self, client, handler, handler_name, mqtt_pipeline):
+        client._receive_type = RECEIVE_TYPE_API
+        # Error was raised
+        with pytest.raises(client_exceptions.ClientError):
+            setattr(client, handler_name, handler)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
 
 
 # NOTE: If more properties are added, this class should become a general purpose properties testclass
