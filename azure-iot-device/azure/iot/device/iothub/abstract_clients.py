@@ -92,12 +92,7 @@ class AbstractIoTHubClient(object):
         self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_lock = threading.Lock()
 
-        # Generic Client handlers
-        self._on_method_request_received = None
-        self._on_twin_desired_properties_patch_received = None
-        self._on_message_received = None
-
-    def _validate_receive_api_invoke(self):
+    def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""
         with self._client_lock:
             if self._receive_type is RECEIVE_TYPE_NONE_SET:
@@ -110,7 +105,7 @@ class AbstractIoTHubClient(object):
             else:
                 pass
 
-    def _validate_receive_handler_setter(self):
+    def _check_receive_mode_is_handler(self):
         """Call this function first in EVERY handler setter"""
         with self._client_lock:
             if self._receive_type is RECEIVE_TYPE_NONE_SET:
@@ -235,6 +230,18 @@ class AbstractIoTHubClient(object):
         Read-only property to indicate if the transport is connected or not.
         """
         return self._mqtt_pipeline.connected
+
+    @abc.abstractproperty
+    def on_message_received(self):
+        pass
+
+    @abc.abstractproperty
+    def on_method_request_received(self):
+        pass
+
+    @abc.abstractproperty
+    def on_twin_desired_properties_patch_received(self):
+        pass
 
 
 @six.add_metaclass(abc.ABCMeta)
