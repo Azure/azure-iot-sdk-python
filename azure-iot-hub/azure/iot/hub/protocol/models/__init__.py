@@ -29,8 +29,6 @@ try:
     from .bulk_registry_operation_result_py3 import BulkRegistryOperationResult
     from .query_specification_py3 import QuerySpecification
     from .purge_message_queue_result_py3 import PurgeMessageQueueResult
-    from .fault_injection_connection_properties_py3 import FaultInjectionConnectionProperties
-    from .fault_injection_properties_py3 import FaultInjectionProperties
     from .cloud_to_device_method_py3 import CloudToDeviceMethod
     from .job_request_py3 import JobRequest
     from .device_job_statistics_py3 import DeviceJobStatistics
@@ -61,8 +59,6 @@ except (SyntaxError, ImportError):
     from .bulk_registry_operation_result import BulkRegistryOperationResult
     from .query_specification import QuerySpecification
     from .purge_message_queue_result import PurgeMessageQueueResult
-    from .fault_injection_connection_properties import FaultInjectionConnectionProperties
-    from .fault_injection_properties import FaultInjectionProperties
     from .cloud_to_device_method import CloudToDeviceMethod
     from .job_request import JobRequest
     from .device_job_statistics import DeviceJobStatistics
@@ -94,8 +90,6 @@ __all__ = [
     "BulkRegistryOperationResult",
     "QuerySpecification",
     "PurgeMessageQueueResult",
-    "FaultInjectionConnectionProperties",
-    "FaultInjectionProperties",
     "CloudToDeviceMethod",
     "JobRequest",
     "DeviceJobStatistics",

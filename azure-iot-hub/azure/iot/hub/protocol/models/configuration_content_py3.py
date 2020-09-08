@@ -9,13 +9,13 @@ from msrest.serialization import Model
 
 
 class ConfigurationContent(Model):
-    """Configuration Content for Devices or Modules on Edge Devices.
+    """The configuration content for devices or modules on edge devices.
 
-    :param device_content: Gets or sets device Configurations
+    :param device_content: The device configuration content.
     :type device_content: dict[str, object]
-    :param modules_content: Gets or sets Modules Configurations
+    :param modules_content: The modules configuration content.
     :type modules_content: dict[str, dict[str, object]]
-    :param module_content: Gets or sets Module Configurations
+    :param module_content: The module configuration content.
     :type module_content: dict[str, object]
     """
 

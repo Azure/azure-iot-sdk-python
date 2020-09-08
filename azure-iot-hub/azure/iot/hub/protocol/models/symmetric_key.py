@@ -11,9 +11,9 @@ from msrest.serialization import Model
 class SymmetricKey(Model):
     """SymmetricKey.
 
-    :param primary_key:
+    :param primary_key: The base64 encoded primary key of the device.
     :type primary_key: str
-    :param secondary_key:
+    :param secondary_key: The base64 encoded secondary key of the device.
     :type secondary_key: str
     """
 

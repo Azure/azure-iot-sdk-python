@@ -18,7 +18,7 @@ class DigitalTwinOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
+    :ivar api_version: The API version to use for the request. Constant value: "2020-09-30".
     """
 
     models = models
@@ -30,7 +30,7 @@ class DigitalTwinOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-05-31-preview"
+        self.api_version = "2020-09-30"
 
     def get_digital_twin(self, id, custom_headers=None, raw=False, **operation_config):
         """Gets a digital twin.

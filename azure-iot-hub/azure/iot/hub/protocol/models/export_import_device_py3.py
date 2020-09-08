@@ -11,39 +11,45 @@ from msrest.serialization import Model
 class ExportImportDevice(Model):
     """ExportImportDevice.
 
-    :param id: Device Id is always required
+    :param id: The unique identifier of the device.
     :type id: str
-    :param module_id: ModuleId is applicable to modules only
+    :param module_id: The unique identifier of the module, if applicable.
     :type module_id: str
-    :param e_tag: ETag parameter is only used for pre-conditioning the update
-     when importMode is updateIfMatchETag
+    :param e_tag: The string representing a weak ETag for the device RFC7232.
+     The value is only used if import mode is updateIfMatchETag, in that case
+     the import operation is performed only if this ETag matches the value
+     maintained by the server.
     :type e_tag: str
-    :param import_mode: Possible values include: 'create', 'update',
-     'updateIfMatchETag', 'delete', 'deleteIfMatchETag', 'updateTwin',
-     'updateTwinIfMatchETag'
+    :param import_mode: The type of registry operation and ETag preferences.
+     Possible values include: 'create', 'update', 'updateIfMatchETag',
+     'delete', 'deleteIfMatchETag', 'updateTwin', 'updateTwinIfMatchETag'
     :type import_mode: str or ~protocol.models.enum
-    :param status: Status is optional and defaults to enabled. Possible values
-     include: 'enabled', 'disabled'
+    :param status: The status of the module. If disabled, the module cannot
+     connect to the service. Possible values include: 'enabled', 'disabled'
     :type status: str or ~protocol.models.enum
-    :param status_reason:
+    :param status_reason: The 128 character-long string that stores the reason
+     for the device identity status. All UTF-8 characters are allowed.
     :type status_reason: str
-    :param authentication: Authentication parameter is optional and defaults
-     to SAS if not provided. In that case, we auto-generate primary/secondary
-     access keys
+    :param authentication: The authentication mechanism used by the module.
+     This parameter is optional and defaults to SAS if not provided. In that
+     case, primary/secondary access keys are auto-generated.
     :type authentication: ~protocol.models.AuthenticationMechanism
-    :param twin_etag: twinETag parameter is only used for pre-conditioning the
-     update when importMode is updateTwinIfMatchETag
+    :param twin_etag: The string representing a weak ETag for the device twin
+     RFC7232. The value is only used if import mode is updateIfMatchETag, in
+     that case the import operation is performed only if this ETag matches the
+     value maintained by the server.
     :type twin_etag: str
-    :param tags:
+    :param tags: The JSON document read and written by the solution back end.
+     The tags are not visible to device apps.
     :type tags: dict[str, object]
-    :param properties: Properties are optional and defaults to empty object
+    :param properties: The desired and reported properties for the device.
     :type properties: ~protocol.models.PropertyContainer
-    :param capabilities: Capabilities param is optional and defaults to no
-     capability
+    :param capabilities: The status of capabilities enabled on the device.
     :type capabilities: ~protocol.models.DeviceCapabilities
-    :param device_scope:
+    :param device_scope: The scope of the device.
     :type device_scope: str
-    :param parent_scopes:
+    :param parent_scopes: The scopes of the upper level edge devices if
+     applicable. Only available for edge devices.
     :type parent_scopes: list[str]
     """
 

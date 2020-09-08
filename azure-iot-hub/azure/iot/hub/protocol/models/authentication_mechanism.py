@@ -11,12 +11,15 @@ from msrest.serialization import Model
 class AuthenticationMechanism(Model):
     """AuthenticationMechanism.
 
-    :param symmetric_key:
+    :param symmetric_key: The primary and secondary keys used for SAS based
+     authentication.
     :type symmetric_key: ~protocol.models.SymmetricKey
-    :param x509_thumbprint:
+    :param x509_thumbprint: The primary and secondary x509 thumbprints used
+     for x509 based authentication.
     :type x509_thumbprint: ~protocol.models.X509Thumbprint
-    :param type: Possible values include: 'sas', 'selfSigned',
-     'certificateAuthority', 'none'
+    :param type: The type of authentication used to connect to the service.
+     Possible values include: 'sas', 'selfSigned', 'certificateAuthority',
+     'none'
     :type type: str or ~protocol.models.enum
     """
 

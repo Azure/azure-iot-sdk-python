@@ -9,58 +9,73 @@ from msrest.serialization import Model
 
 
 class Twin(Model):
-    """Twin Representation.
+    """The state information for a device or module. This is implicitly created
+    and deleted when the corresponding device/ module identity is created or
+    deleted in the IoT Hub.
 
-    :param device_id: The deviceId uniquely identifies the device in the IoT
-     hub's identity registry. A case-sensitive string (up to 128 char long) of
-     ASCII 7-bit alphanumeric chars + {'-', ':', '.', '+', '%', '_', '#', '*',
-     '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}.
+    :param device_id: The unique identifier of the device in the identity
+     registry of the IoT Hub. It is a case-sensitive string (up to 128 char
+     long) of ASCII 7-bit alphanumeric chars, and the following special
+     characters {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')',
+     ',', '=', '@', ';', '$', '''}.
     :type device_id: str
-    :param module_id: Gets and sets the Module Id.
+    :param module_id: The unique identifier of the module in the identity
+     registry of the IoT Hub. It is a case-sensitive string (up to 128 char
+     long) of ASCII 7-bit alphanumeric chars, and the following special
+     characters {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')',
+     ',', '=', '@', ';', '$', '''}.
     :type module_id: str
-    :param tags: A JSON document read and written by the solution back end.
-     Tags are not visible to device apps.
+    :param tags: The collection of key-value pairs read and written by the
+     solution back end. They are not visible to device apps. They keys are
+     UTF-8 encoded, case-sensitive and up-to 1KB in length. Allowed characters
+     exclude UNICODE control characters (segments C0 and C1), '.', '$' and
+     space. The values are JSON objects, up-to 4KB in length.
     :type tags: dict[str, object]
-    :param properties: Gets and sets the Twin properties.
+    :param properties: The desired and reported properties of the twin.
     :type properties: ~protocol.models.TwinProperties
-    :param etag: Twin's ETag
+    :param etag: The string representing a ETag for the device twin, as per
+     RFC7232.
     :type etag: str
-    :param version: Version for device twin, including tags and desired
+    :param version: The version for the device twin including tags and desired
      properties
     :type version: long
-    :param device_etag: Device's ETag
+    :param device_etag: The string representing a ETag for the device, as per
+     RFC7232.
     :type device_etag: str
-    :param status: Gets the corresponding Device's Status. Possible values
-     include: 'enabled', 'disabled'
+    :param status: The enabled status of the device. If disabled, the device
+     cannot connect to the service. Possible values include: 'enabled',
+     'disabled'
     :type status: str or ~protocol.models.enum
-    :param status_reason: Reason, if any, for the corresponding Device to be
-     in specified Status
+    :param status_reason: The reason for the current status of the device, if
+     any.
     :type status_reason: str
-    :param status_update_time: Time when the corresponding Device's Status was
-     last updated
+    :param status_update_time: The date and time when the status of the device
+     was last updated.
     :type status_update_time: datetime
-    :param connection_state: Corresponding Device's ConnectionState. Possible
+    :param connection_state: The connection state of the device. Possible
      values include: 'Disconnected', 'Connected'
     :type connection_state: str or ~protocol.models.enum
-    :param last_activity_time: The last time the device connected, received or
-     sent a message. In ISO8601 datetime format in UTC, for example,
-     2015-01-28T16:24:48.789Z. This does not update if the device uses the
-     HTTP/1 protocol to perform messaging operations.
+    :param last_activity_time: The date and time when the device last
+     connected or received or sent a message. The date and time is sepecified
+     in ISO8601 datetime format in UTC, for example, 2015-01-28T16:24:48.789Z.
+     This value is not updated if the device uses the HTTP/1 protocol to
+     perform messaging operations.
     :type last_activity_time: datetime
-    :param cloud_to_device_message_count: Number of messages sent to the
-     corresponding Device from the Cloud
+    :param cloud_to_device_message_count: The number of cloud-to-device
+     messages sent.
     :type cloud_to_device_message_count: int
-    :param authentication_type: Corresponding Device's authentication type.
+    :param authentication_type: The authentication type used by the device.
      Possible values include: 'sas', 'selfSigned', 'certificateAuthority',
      'none'
     :type authentication_type: str or ~protocol.models.enum
-    :param x509_thumbprint: Corresponding Device's X509 thumbprint
+    :param x509_thumbprint: The X509 thumbprint of the device.
     :type x509_thumbprint: ~protocol.models.X509Thumbprint
     :param capabilities:
     :type capabilities: ~protocol.models.DeviceCapabilities
-    :param device_scope:
+    :param device_scope: The scope of the device.
     :type device_scope: str
-    :param parent_scopes:
+    :param parent_scopes: The scopes of the upper level edge devices if
+     applicable. Only available for edge devices.
     :type parent_scopes: list[str]
     """
 

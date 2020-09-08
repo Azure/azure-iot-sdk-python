@@ -11,54 +11,57 @@ from msrest.serialization import Model
 class JobProperties(Model):
     """JobProperties.
 
-    :param job_id: System generated.  Ignored at creation.
+    :param job_id: The unique identifier of the job.
     :type job_id: str
-    :param start_time_utc: System generated.  Ignored at creation.
+    :param start_time_utc: System generated. Ignored at creation. The start
+     date and time of the job in UTC.
     :type start_time_utc: datetime
-    :param end_time_utc: System generated.  Ignored at creation.
-     Represents the time the job stopped processing.
+    :param end_time_utc: System generated. Ignored at creation. The end date
+     and time of the job in UTC.
     :type end_time_utc: datetime
-    :param type: Required.
-     The type of job to execute. Possible values include: 'unknown', 'export',
+    :param type: The job type. Possible values include: 'unknown', 'export',
      'import', 'backup', 'readDeviceProperties', 'writeDeviceProperties',
      'updateDeviceConfiguration', 'rebootDevice', 'factoryResetDevice',
      'firmwareUpdate', 'scheduleDeviceMethod', 'scheduleUpdateTwin',
      'restoreFromBackup', 'failoverDataCopy'
     :type type: str or ~protocol.models.enum
-    :param status: System generated.  Ignored at creation. Possible values
-     include: 'unknown', 'enqueued', 'running', 'completed', 'failed',
-     'cancelled', 'scheduled', 'queued'
+    :param status: System generated. Ignored at creation. The status of the
+     job. Possible values include: 'unknown', 'enqueued', 'running',
+     'completed', 'failed', 'cancelled', 'scheduled', 'queued'
     :type status: str or ~protocol.models.enum
-    :param progress: System generated.  Ignored at creation.
-     Represents the percentage of completion.
+    :param progress: System generated. Ignored at creation. The percentage of
+     job completion.
     :type progress: int
-    :param input_blob_container_uri: URI containing SAS token to a blob
+    :param input_blob_container_uri: The URI containing SAS token to a blob
      container that contains registry data to sync.
     :type input_blob_container_uri: str
-    :param input_blob_name: The blob name to be used when importing from the
-     provided input blob container.
+    :param input_blob_name: The blob name to use when importing from the input
+     blob container.
     :type input_blob_name: str
-    :param output_blob_container_uri: URI containing SAS token to a blob
-     container.  This is used to output the status of the job and the results.
+    :param output_blob_container_uri: The SAS token to access the blob
+     container. This is used to output the status and results of the job.
     :type output_blob_container_uri: str
-    :param output_blob_name: The name of the blob that will be created in the
-     provided output blob container.  This blob will contain
-     the exported device registry information for the IoT Hub.
+    :param output_blob_name: The blob name that will be created in the output
+     blob container. This blob will contain the exported device registry
+     information for the IoT Hub.
     :type output_blob_name: str
     :param exclude_keys_in_export: Optional for export jobs; ignored for other
-     jobs.  Default: false.  If false, authorization keys are included
-     in export output.  Keys are exported as null otherwise.
+     jobs. If not specified, the service defaults to false. If false,
+     authorization keys are included in export output. Keys are exported as
+     null otherwise.
     :type exclude_keys_in_export: bool
-    :param storage_authentication_type: Specifies authentication type being
-     used for connecting to storage account. Possible values include:
-     'keyBased', 'identityBased'
+    :param storage_authentication_type: The authentication type used for
+     connecting to the storage account. Possible values include: 'keyBased',
+     'identityBased'
     :type storage_authentication_type: str or ~protocol.models.enum
-    :param failure_reason: System genereated.  Ignored at creation.
-     If status == failure, this represents a string containing the reason.
+    :param failure_reason: System genereated.  Ignored at creation. The reason
+     for failure, if a failure occurred.
     :type failure_reason: str
-    :param include_configurations:
+    :param include_configurations: Defaults to false. If true, then
+     configurations are included in the data export/import.
     :type include_configurations: bool
-    :param configurations_blob_name:
+    :param configurations_blob_name: Defaults to configurations.txt. Specifies
+     the name of the blob to use when exporting/importing configurations.
     :type configurations_blob_name: str
     """
 
