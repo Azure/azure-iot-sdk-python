@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.ERROR)
 
 # The device "Thermostat" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
-# and the name user wants to call this pnp device
+# and the name user wants to call this Plug and Play device
 model_id = "dtmi:com:example:Thermostat;1"
 
 #####################################################
@@ -215,7 +215,11 @@ async def provision_device(provisioning_host, id_scope, registration_id, symmetr
 async def main():
     switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
     if switch == "DPS":
-        provisioning_host = os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+        provisioning_host = (
+            os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+            if os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+            else "global.azure-devices-provisioning.net"
+        )
         id_scope = os.getenv("IOTHUB_DEVICE_DPS_ID_SCOPE")
         registration_id = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_ID")
         symmetric_key = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_KEY")
@@ -236,9 +240,11 @@ async def main():
                 product_info=model_id,
             )
         else:
-            raise RuntimeError("Could not provision device. Aborting PNP device connection.")
+            raise RuntimeError(
+                "Could not provision device. Aborting Plug and Play device connection."
+            )
 
-    elif switch == "CONNECTION_STRING":
+    elif switch == "connectionString":
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
