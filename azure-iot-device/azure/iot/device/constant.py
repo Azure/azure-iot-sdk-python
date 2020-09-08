@@ -18,5 +18,5 @@ MAX_KEEP_ALIVE_SECS = 1740
 # Everything in digital twin is defined here
 # as things are extremely dynamic and subject to sudden changes
 DIGITAL_TWIN_PREFIX = "dtmi"
-DIGITAL_TWIN_API_VERSION = "2020-05-31-preview"
+DIGITAL_TWIN_API_VERSION = "2020-09-30"
 DIGITAL_TWIN_QUERY_HEADER = "model-id"
