@@ -18,7 +18,7 @@ class RegistryManagerOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: Version of the Api. Constant value: "2020-03-01".
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,7 +30,7 @@ class RegistryManagerOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-03-01"
+        self.api_version = "2020-05-31-preview"
 
     def get_device_statistics(self, custom_headers=None, raw=False, **operation_config):
         """Retrieves statistics about device identities in the IoT hub’s identity
@@ -135,9 +135,9 @@ class RegistryManagerOperations(object):
         """Get the identities of multiple devices from the IoT hub identity
         registry. Not recommended. Use the IoT Hub query language to retrieve
         device twin and device identity information. See
-        https://docs.microsoft.com/en-us/rest/api/iothub/service/queryiothub
+        https://docs.microsoft.com/rest/api/iothub/service/registrymanager/queryiothub
         and
-        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-query-language
+        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
         for more information.
 
         :param top: This parameter when specified, defines the maximum number

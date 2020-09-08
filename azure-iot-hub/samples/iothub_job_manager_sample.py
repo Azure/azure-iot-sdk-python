@@ -102,15 +102,15 @@ try:
 
     # Create  job
     job_request = create_job_request()
-    new_job_response = iothub_job_manager.create_job(job_request.job_id, job_request)
+    new_job_response = iothub_job_manager.create_scheduled_job(job_request.job_id, job_request)
     print_job_response("Create job response: ", new_job_response)
 
     # Get job
-    get_job_response = iothub_job_manager.get_job(new_job_response.job_id)
+    get_job_response = iothub_job_manager.get_scheduled_job(new_job_response.job_id)
     print_job_response("Get job response: ", get_job_response)
 
     # Cancel job
-    cancel_job_response = iothub_job_manager.cancel_job(get_job_response.job_id)
+    cancel_job_response = iothub_job_manager.cancel_scheduled_job(get_job_response.job_id)
     print_job_response("Cancel job response: ", cancel_job_response)
 
 except Exception as ex:

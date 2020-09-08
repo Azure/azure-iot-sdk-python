@@ -9,9 +9,9 @@ from msrest.serialization import Model
 
 
 class QuerySpecification(Model):
-    """A Json query request.
+    """The Json query request.
 
-    :param query: The query.
+    :param query: The query string.
     :type query: str
     """
 
