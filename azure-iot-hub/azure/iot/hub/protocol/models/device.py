@@ -11,34 +11,48 @@ from msrest.serialization import Model
 class Device(Model):
     """Device.
 
-    :param device_id:
+    :param device_id: The unique identifier of the device.
     :type device_id: str
-    :param generation_id:
+    :param generation_id: The IoT Hub-generated, case-sensitive string up to
+     128 characters long. This value is used to distinguish devices with the
+     same deviceId, when they have been deleted and re-created.
     :type generation_id: str
-    :param etag:
+    :param etag: The string representing a weak ETag for the device identity,
+     as per RFC7232.
     :type etag: str
-    :param connection_state: Possible values include: 'Disconnected',
-     'Connected'
+    :param connection_state: The state of the device. Possible values include:
+     'Disconnected', 'Connected'
     :type connection_state: str or ~protocol.models.enum
-    :param status: Possible values include: 'enabled', 'disabled'
+    :param status: The status of the device. If the status disabled, a device
+     cannot connect to the service. Possible values include: 'enabled',
+     'disabled'
     :type status: str or ~protocol.models.enum
-    :param status_reason:
+    :param status_reason: The 128 character-long string that stores the reason
+     for the device identity status. All UTF-8 characters are allowed.
     :type status_reason: str
-    :param connection_state_updated_time:
+    :param connection_state_updated_time: The date and time the connection
+     state was last updated.
     :type connection_state_updated_time: datetime
-    :param status_updated_time:
+    :param status_updated_time: The date and time when the status field was
+     last updated.
     :type status_updated_time: datetime
-    :param last_activity_time:
+    :param last_activity_time: The date and last time the device last
+     connected, received, or sent a message.
     :type last_activity_time: datetime
-    :param cloud_to_device_message_count:
+    :param cloud_to_device_message_count: The number of cloud-to-device
+     messages currently queued to be sent to the device.
     :type cloud_to_device_message_count: int
-    :param authentication:
+    :param authentication: The authentication mechanism used by the device.
     :type authentication: ~protocol.models.AuthenticationMechanism
-    :param capabilities:
+    :param capabilities: The set of capabilities of the device. For example,
+     if this device is an edge device or not.
     :type capabilities: ~protocol.models.DeviceCapabilities
-    :param device_scope:
+    :param device_scope: The scope of the device. Auto generated and immutable
+     for edge devices and modifiable in leaf devices to create child/parent
+     relationship.
     :type device_scope: str
-    :param parent_scopes:
+    :param parent_scopes: The scopes of the upper level edge devices if
+     applicable. Only available for edge devices.
     :type parent_scopes: list[str]
     """
 

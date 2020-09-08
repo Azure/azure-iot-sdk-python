@@ -9,17 +9,17 @@ from msrest.serialization import Model
 
 
 class DeviceJobStatistics(Model):
-    """The job counts, e.g., number of failed/succeeded devices.
+    """The job statistics regarding execution status.
 
-    :param device_count: Number of devices in the job
+    :param device_count: The number of devices targeted by the job.
     :type device_count: int
-    :param failed_count: The number of failed jobs
+    :param failed_count: The number of failed jobs.
     :type failed_count: int
-    :param succeeded_count: The number of Successed jobs
+    :param succeeded_count: The number of succeeded jobs.
     :type succeeded_count: int
-    :param running_count: The number of running jobs
+    :param running_count: The number of running jobs.
     :type running_count: int
-    :param pending_count: The number of pending (scheduled) jobs
+    :param pending_count: The number of pending (scheduled) jobs.
     :type pending_count: int
     """
 

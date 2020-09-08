@@ -10,13 +10,14 @@ from msrest import Configuration, Serializer, Deserializer
 from .version import VERSION
 from msrest.exceptions import HttpOperationError
 from .operations.configuration_operations import ConfigurationOperations
-from .operations.registry_manager_operations import RegistryManagerOperations
-from .operations.job_client_operations import JobClientOperations
-from .operations.fault_injection_operations import FaultInjectionOperations
-from .operations.twin_operations import TwinOperations
+from .operations.statistics_operations import StatisticsOperations
+from .operations.devices_operations import DevicesOperations
+from .operations.bulk_registry_operations import BulkRegistryOperations
+from .operations.query_operations import QueryOperations
+from .operations.jobs_operations import JobsOperations
+from .operations.cloud_to_device_messages_operations import CloudToDeviceMessagesOperations
+from .operations.modules_operations import ModulesOperations
 from .operations.digital_twin_operations import DigitalTwinOperations
-from .operations.http_runtime_operations import HttpRuntimeOperations
-from .operations.device_method_operations import DeviceMethodOperations
 from . import models
 
 
@@ -53,20 +54,22 @@ class IotHubGatewayServiceAPIs(SDKClient):
 
     :ivar configuration: Configuration operations
     :vartype configuration: protocol.operations.ConfigurationOperations
-    :ivar registry_manager: RegistryManager operations
-    :vartype registry_manager: protocol.operations.RegistryManagerOperations
-    :ivar job_client: JobClient operations
-    :vartype job_client: protocol.operations.JobClientOperations
-    :ivar fault_injection: FaultInjection operations
-    :vartype fault_injection: protocol.operations.FaultInjectionOperations
-    :ivar twin: Twin operations
-    :vartype twin: protocol.operations.TwinOperations
+    :ivar statistics: Statistics operations
+    :vartype statistics: protocol.operations.StatisticsOperations
+    :ivar devices: Devices operations
+    :vartype devices: protocol.operations.DevicesOperations
+    :ivar bulk_registry: BulkRegistry operations
+    :vartype bulk_registry: protocol.operations.BulkRegistryOperations
+    :ivar query: Query operations
+    :vartype query: protocol.operations.QueryOperations
+    :ivar jobs: Jobs operations
+    :vartype jobs: protocol.operations.JobsOperations
+    :ivar cloud_to_device_messages: CloudToDeviceMessages operations
+    :vartype cloud_to_device_messages: protocol.operations.CloudToDeviceMessagesOperations
+    :ivar modules: Modules operations
+    :vartype modules: protocol.operations.ModulesOperations
     :ivar digital_twin: DigitalTwin operations
     :vartype digital_twin: protocol.operations.DigitalTwinOperations
-    :ivar http_runtime: HttpRuntime operations
-    :vartype http_runtime: protocol.operations.HttpRuntimeOperations
-    :ivar device_method: DeviceMethod operations
-    :vartype device_method: protocol.operations.DeviceMethodOperations
 
     :param credentials: Subscription credentials which uniquely identify
      client subscription.
@@ -80,29 +83,30 @@ class IotHubGatewayServiceAPIs(SDKClient):
         super(IotHubGatewayServiceAPIs, self).__init__(self.config.credentials, self.config)
 
         client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
-        self.api_version = "2020-05-31-preview"
+        self.api_version = "2020-09-30"
         self._serialize = Serializer(client_models)
         self._deserialize = Deserializer(client_models)
 
         self.configuration = ConfigurationOperations(
             self._client, self.config, self._serialize, self._deserialize
         )
-        self.registry_manager = RegistryManagerOperations(
+        self.statistics = StatisticsOperations(
             self._client, self.config, self._serialize, self._deserialize
         )
-        self.job_client = JobClientOperations(
+        self.devices = DevicesOperations(
             self._client, self.config, self._serialize, self._deserialize
         )
-        self.fault_injection = FaultInjectionOperations(
+        self.bulk_registry = BulkRegistryOperations(
             self._client, self.config, self._serialize, self._deserialize
         )
-        self.twin = TwinOperations(self._client, self.config, self._serialize, self._deserialize)
+        self.query = QueryOperations(self._client, self.config, self._serialize, self._deserialize)
+        self.jobs = JobsOperations(self._client, self.config, self._serialize, self._deserialize)
+        self.cloud_to_device_messages = CloudToDeviceMessagesOperations(
+            self._client, self.config, self._serialize, self._deserialize
+        )
+        self.modules = ModulesOperations(
+            self._client, self.config, self._serialize, self._deserialize
+        )
         self.digital_twin = DigitalTwinOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
-        self.http_runtime = HttpRuntimeOperations(
-            self._client, self.config, self._serialize, self._deserialize
-        )
-        self.device_method = DeviceMethodOperations(
             self._client, self.config, self._serialize, self._deserialize
         )

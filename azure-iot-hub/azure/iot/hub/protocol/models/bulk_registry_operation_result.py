@@ -9,15 +9,13 @@ from msrest.serialization import Model
 
 
 class BulkRegistryOperationResult(Model):
-    """Encapsulates the result of a bulk registry operation.
+    """The result of the bulk registry operation.
 
-    :param is_successful: Whether or not the operation was successful.
+    :param is_successful: The operation result.
     :type is_successful: bool
-    :param errors: If the operation was not successful, this contains an array
-     of DeviceRegistryOperationError objects.
+    :param errors: The device registry operation errors.
     :type errors: list[~protocol.models.DeviceRegistryOperationError]
-    :param warnings: If the operation was partially successful, this contains
-     an array of DeviceRegistryOperationWarning objects.
+    :param warnings: The device registry operation warnings.
     :type warnings: list[~protocol.models.DeviceRegistryOperationWarning]
     """
 

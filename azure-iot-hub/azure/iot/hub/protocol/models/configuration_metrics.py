@@ -9,11 +9,11 @@ from msrest.serialization import Model
 
 
 class ConfigurationMetrics(Model):
-    """Configuration Metrics.
+    """The configuration metrics for Iot Hub devices and modules.
 
-    :param results:
+    :param results: The results of the metrics collection queries.
     :type results: dict[str, long]
-    :param queries:
+    :param queries: The key-value pairs with queries and their identifier.
     :type queries: dict[str, str]
     """
 

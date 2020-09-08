@@ -9,18 +9,20 @@ from msrest.serialization import Model
 
 
 class PropertyContainer(Model):
-    """Represents Twin properties.
+    """The desired and reported properties of the twin. The maximum depth of the
+    object is 10.
 
-    :param desired: Used in conjunction with reported properties to
-     synchronize device configuration or condition. Desired properties can only
-     be set by the solution back end and can be read by the device app. The
-     device app can also be notified in real time of changes on the desired
-     properties.
+    :param desired: The collection of desired property key-value pairs. The
+     keys are UTF-8 encoded, case-sensitive and up-to 1KB in length. Allowed
+     characters exclude UNICODE control characters (segments C0 and C1), '.',
+     '$' and space. The desired porperty values are JSON objects, up-to 4KB in
+     length.
     :type desired: dict[str, object]
-    :param reported: Used in conjunction with desired properties to
-     synchronize device configuration or condition. Reported properties can
-     only be set by the device app and can be read and queried by the solution
-     back end.
+    :param reported: The collection of reported property key-value pairs. The
+     keys are UTF-8 encoded, case-sensitive and up-to 1KB in length. Allowed
+     characters exclude UNICODE control characters (segments C0 and C1), '.',
+     '$' and space. The reported property values are JSON objects, up-to 4KB in
+     length.
     :type reported: dict[str, object]
     """
 
