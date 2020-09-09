@@ -11,9 +11,11 @@ from msrest.serialization import Model
 class ConfigurationQueriesTestInput(Model):
     """ConfigurationQueriesTestInput.
 
-    :param target_condition:
+    :param target_condition: The query used to define targeted devices or
+     modules. The query is based on twin tags and/or reported properties.
     :type target_condition: str
-    :param custom_metric_queries:
+    :param custom_metric_queries: The key-value pairs with queries and their
+     identifier.
     :type custom_metric_queries: dict[str, str]
     """
 

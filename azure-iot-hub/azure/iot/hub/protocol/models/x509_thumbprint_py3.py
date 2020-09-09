@@ -11,9 +11,10 @@ from msrest.serialization import Model
 class X509Thumbprint(Model):
     """X509Thumbprint.
 
-    :param primary_thumbprint:
+    :param primary_thumbprint: The X509 client certificate primary thumbprint.
     :type primary_thumbprint: str
-    :param secondary_thumbprint:
+    :param secondary_thumbprint: The X509 client certificate secondary
+     thumbprint.
     :type secondary_thumbprint: str
     """
 

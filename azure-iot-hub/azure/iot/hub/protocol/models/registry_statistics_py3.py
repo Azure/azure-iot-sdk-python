@@ -11,11 +11,12 @@ from msrest.serialization import Model
 class RegistryStatistics(Model):
     """RegistryStatistics.
 
-    :param total_device_count:
+    :param total_device_count: The total number of devices registered for the
+     IoT Hub.
     :type total_device_count: long
-    :param enabled_device_count:
+    :param enabled_device_count: The number of currently enabled devices.
     :type enabled_device_count: long
-    :param disabled_device_count:
+    :param disabled_device_count: The number of currently disabled devices.
     :type disabled_device_count: long
     """
 

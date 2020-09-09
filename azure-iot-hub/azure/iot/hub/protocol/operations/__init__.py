@@ -6,21 +6,23 @@
 # --------------------------------------------------------------------------
 
 from .configuration_operations import ConfigurationOperations
-from .registry_manager_operations import RegistryManagerOperations
-from .job_client_operations import JobClientOperations
-from .fault_injection_operations import FaultInjectionOperations
-from .twin_operations import TwinOperations
+from .statistics_operations import StatisticsOperations
+from .devices_operations import DevicesOperations
+from .bulk_registry_operations import BulkRegistryOperations
+from .query_operations import QueryOperations
+from .jobs_operations import JobsOperations
+from .cloud_to_device_messages_operations import CloudToDeviceMessagesOperations
+from .modules_operations import ModulesOperations
 from .digital_twin_operations import DigitalTwinOperations
-from .http_runtime_operations import HttpRuntimeOperations
-from .device_method_operations import DeviceMethodOperations
 
 __all__ = [
     "ConfigurationOperations",
-    "RegistryManagerOperations",
-    "JobClientOperations",
-    "FaultInjectionOperations",
-    "TwinOperations",
+    "StatisticsOperations",
+    "DevicesOperations",
+    "BulkRegistryOperations",
+    "QueryOperations",
+    "JobsOperations",
+    "CloudToDeviceMessagesOperations",
+    "ModulesOperations",
     "DigitalTwinOperations",
-    "HttpRuntimeOperations",
-    "DeviceMethodOperations",
 ]
