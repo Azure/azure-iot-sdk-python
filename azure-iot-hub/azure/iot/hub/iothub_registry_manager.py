@@ -24,9 +24,7 @@ from .protocol.models import (
 
 class QueryResult(object):
     """The query result.
-    :param type: The query result type. Possible values include: 'unknown',
-     'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment',
-     'enrollmentGroup', 'deviceRegistration'
+    :param type: The query result type. Possible values include: 'unknown', 'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment', 'enrollmentGroup', 'deviceRegistration'
     :type type: str or ~protocol.models.enum
     :param items: The query result items, as a collection.
     :type items: list[object]
@@ -100,7 +98,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device)
+        return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def create_device_with_x509(
         self, device_id, primary_thumbprint, secondary_thumbprint, status, iot_edge=False
@@ -132,7 +130,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device)
+        return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def create_device_with_certificate_authority(self, device_id, status, iot_edge=False):
         """Creates a device identity on IoTHub using certificate authority.
@@ -154,7 +152,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device)
+        return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def update_device_with_sas(self, device_id, etag, primary_key, secondary_key, status):
         """Updates a device identity on IoTHub using SAS authentication.
@@ -181,7 +179,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device, "*")
+        return self.protocol.devices.create_or_update_identity(device_id, device, "*")
 
     def update_device_with_x509(
         self, device_id, etag, primary_thumbprint, secondary_thumbprint, status
@@ -214,7 +212,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device, "*")
+        return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def update_device_with_certificate_authority(self, device_id, etag, status):
         """Updates a device identity on IoTHub using certificate authority.
@@ -237,7 +235,7 @@ class IoTHubRegistryManager(object):
         }
         device = Device(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_device(device_id, device, "*")
+        return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def get_device(self, device_id):
         """Retrieves a device identity from IoTHub.
@@ -249,7 +247,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Device object containing the requested device.
         """
-        return self.protocol.registry_manager.get_device(device_id)
+        return self.protocol.devices.get_identity(device_id)
 
     def delete_device(self, device_id, etag=None):
         """Deletes a device identity from IoTHub.
@@ -265,7 +263,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.registry_manager.delete_device(device_id, etag)
+        self.protocol.devices.delete_identity(device_id, etag)
 
     def create_module_with_sas(self, device_id, module_id, managed_by, primary_key, secondary_key):
         """Creates a module identity for a device on IoTHub using SAS authentication.
@@ -291,7 +289,7 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(device_id, module_id, module)
+        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
 
     def create_module_with_x509(
         self, device_id, module_id, managed_by, primary_thumbprint, secondary_thumbprint
@@ -323,7 +321,7 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(device_id, module_id, module)
+        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
 
     def create_module_with_certificate_authority(self, device_id, module_id, managed_by):
         """Creates a module identity for a device on IoTHub using certificate authority.
@@ -345,7 +343,7 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(device_id, module_id, module)
+        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
 
     def update_module_with_sas(
         self, device_id, module_id, managed_by, etag, primary_key, secondary_key
@@ -375,9 +373,7 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(
-            device_id, module_id, module, "*"
-        )
+        return self.protocol.modules.create_or_update_identity(device_id, module_id, module, "*")
 
     def update_module_with_x509(
         self, device_id, module_id, managed_by, etag, primary_thumbprint, secondary_thumbprint
@@ -411,9 +407,7 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(
-            device_id, module_id, module, "*"
-        )
+        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
 
     def update_module_with_certificate_authority(self, device_id, module_id, managed_by, etag):
         """Updates a module identity for a device on IoTHub using certificate authority.
@@ -437,9 +431,7 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.registry_manager.create_or_update_module(
-            device_id, module_id, module, "*"
-        )
+        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
 
     def get_module(self, device_id, module_id):
         """Retrieves a module identity for a device from IoTHub.
@@ -452,7 +444,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Module object containing the requested module.
         """
-        return self.protocol.registry_manager.get_module(device_id, module_id)
+        return self.protocol.modules.get_identity(device_id, module_id)
 
     def get_modules(self, device_id):
         """Retrieves all module identities on a device.
@@ -464,7 +456,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The list[Module] containing all the modules on the device.
         """
-        return self.protocol.registry_manager.get_modules_on_device(device_id)
+        return self.protocol.modules.get_modules_on_device(device_id)
 
     def delete_module(self, device_id, module_id, etag=None):
         """Deletes a module identity for a device from IoTHub.
@@ -481,7 +473,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.registry_manager.delete_module(device_id, module_id, etag)
+        self.protocol.modules.delete_identity(device_id, module_id, etag)
 
     def get_service_statistics(self):
         """Retrieves the IoTHub service statistics.
@@ -491,7 +483,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The ServiceStatistics object.
         """
-        return self.protocol.registry_manager.get_service_statistics()
+        return self.protocol.statistics.get_service_statistics()
 
     def get_device_registry_statistics(self):
         """Retrieves the IoTHub device registry statistics.
@@ -501,7 +493,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The RegistryStatistics object.
         """
-        return self.protocol.registry_manager.get_device_statistics()
+        return self.protocol.statistics.get_device_statistics()
 
     def get_devices(self, max_number_of_devices=None):
         """Get the identities of multiple devices from the IoTHub identity
@@ -521,7 +513,7 @@ class IoTHubRegistryManager(object):
 
         :returns: List of device info.
         """
-        return self.protocol.registry_manager.get_devices(max_number_of_devices)
+        return self.protocol.devices.get_devices(max_number_of_devices)
 
     def bulk_create_or_update_devices(self, devices):
         """Create, update, or delete the identities of multiple devices from the
@@ -542,7 +534,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The BulkRegistryOperationResult object.
         """
-        return self.protocol.registry_manager.bulk_device_crud(devices)
+        return self.protocol.bulk_registry.update_registry(devices)
 
     def query_iot_hub(self, query_specification, continuation_token=None, max_item_count=None):
         """Query an IoTHub to retrieve information regarding device twins using a
@@ -560,7 +552,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The QueryResult object.
         """
-        raw_response = self.protocol.registry_manager.query_iot_hub(
+        raw_response = self.protocol.query.get_twins(
             query_specification, continuation_token, max_item_count, None, True
         )
 
@@ -582,7 +574,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.twin.get_device_twin(device_id)
+        return self.protocol.devices.get_twin(device_id)
 
     def replace_twin(self, device_id, device_twin):
         """Replaces tags and desired properties of a device twin.
@@ -595,7 +587,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.twin.replace_device_twin(device_id, device_twin)
+        return self.protocol.devices.replace_twin(device_id, device_twin)
 
     def update_twin(self, device_id, device_twin, etag):
         """Updates tags and desired properties of a device twin.
@@ -609,7 +601,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.twin.update_device_twin(device_id, device_twin, etag)
+        return self.protocol.devices.update_twin(device_id, device_twin, etag)
 
     def get_module_twin(self, device_id, module_id):
         """Gets a module twin.
@@ -622,7 +614,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.twin.get_module_twin(device_id, module_id)
+        return self.protocol.modules.get_twin(device_id, module_id)
 
     def replace_module_twin(self, device_id, module_id, module_twin):
         """Replaces tags and desired properties of a module twin.
@@ -636,7 +628,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.twin.replace_module_twin(device_id, module_id, module_twin)
+        return self.protocol.modules.replace_twin(device_id, module_id, module_twin)
 
     def update_module_twin(self, device_id, module_id, module_twin, etag):
         """Updates tags and desired properties of a module twin.
@@ -651,7 +643,7 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.twin.update_module_twin(device_id, module_id, module_twin, etag)
+        return self.protocol.modules.update_twin(device_id, module_id, module_twin, etag)
 
     def invoke_device_method(self, device_id, direct_method_request):
         """Invoke a direct method on a device.
@@ -667,7 +659,7 @@ class IoTHubRegistryManager(object):
         if direct_method_request.payload is None:
             direct_method_request.payload = ""
 
-        return self.protocol.device_method.invoke_device_method(device_id, direct_method_request)
+        return self.protocol.devices.invoke_method(device_id, direct_method_request)
 
     def invoke_device_module_method(self, device_id, module_id, direct_method_request):
         """Invoke a direct method on a device.
@@ -684,18 +676,10 @@ class IoTHubRegistryManager(object):
         if direct_method_request.payload is None:
             direct_method_request.payload = ""
 
-        return self.protocol.device_method.invoke_module_method(
-            device_id, module_id, direct_method_request
-        )
+        return self.protocol.modules.invoke_method(device_id, module_id, direct_method_request)
 
     def send_c2d_message(self, device_id, message, properties={}):
         """Send a C2D mesage to a IoTHub Device.
-           The following system properties are supported
-
-           correlationId - String property that contains the MessageId of the request
-           messageId - Identifier for the message used for request-reply patterns.
-           userId - An ID used to specify the origin of messages
-           For more information see https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-construct
 
         :param str device_id: The name (Id) of the device.
         :param str message: The message that is to be delievered to the device.

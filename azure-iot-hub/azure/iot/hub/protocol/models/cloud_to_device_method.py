@@ -9,11 +9,12 @@ from msrest.serialization import Model
 
 
 class CloudToDeviceMethod(Model):
-    """Parameters to execute a direct method on the device.
+    """The parameters to execute a direct method on the device.
 
-    :param method_name: Method to run
+    :param method_name: The name of the method to execute.
     :type method_name: str
-    :param payload: Payload
+    :param payload: The JSON-formatted direct method payload, up to 128kb in
+     size.
     :type payload: object
     :param response_timeout_in_seconds:
     :type response_timeout_in_seconds: int

@@ -41,7 +41,7 @@ class IoTHubJobManager(object):
         :returns: JobProperties object containing the created job.
         :rtype: :class:`azure.iot.hub.models.JobProperties`
         """
-        return self.protocol.job_client.create_import_export_job(job_properties)
+        return self.protocol.jobs.create_import_export_job(job_properties)
 
     def get_import_export_jobs(self):
         """Retrieves the status of all import/export jobs on an IoTHub.
@@ -52,7 +52,7 @@ class IoTHubJobManager(object):
         :returns: The list[job_properties] object.
         :rtype: :class:`list[azure.iot.hub.models.JobProperties]`
         """
-        return self.protocol.job_client.get_import_export_jobs()
+        return self.protocol.jobs.get_import_export_jobs()
 
     def get_import_export_job(self, job_id):
         """Retrieves the status of an import/export job on an IoTHub.
@@ -65,7 +65,7 @@ class IoTHubJobManager(object):
         :returns: The JobProperties object containing the requested job.
         :rtype: :class:`azure.iot.hub.models.JobProperties`
         """
-        return self.protocol.job_client.get_import_export_job(job_id)
+        return self.protocol.jobs.get_import_export_job(job_id)
 
     def cancel_import_export_job(self, job_id):
         """Cancels an import/export job on an IoT hub.
@@ -77,9 +77,9 @@ class IoTHubJobManager(object):
 
         :returns: Object.
         """
-        return self.protocol.job_client.cancel_import_export_job(job_id)
+        return self.protocol.jobs.cancel_import_export_job(job_id)
 
-    def create_job(self, job_id, job_request):
+    def create_scheduled_job(self, job_id, job_request):
         """Creates a new job to schedule update twins or device direct methods on an IoT hub.
 
         :param str job_id: The ID of the job.
@@ -92,9 +92,9 @@ class IoTHubJobManager(object):
         :returns: JobResponse object containing the created job.
         :rtype: :class:`azure.iot.hub.models.JobResponse`
         """
-        return self.protocol.job_client.create_job(job_id, job_request)
+        return self.protocol.jobs.create_scheduled_job(job_id, job_request)
 
-    def get_job(self, job_id):
+    def get_scheduled_job(self, job_id):
         """Retrieves the details of a scheduled job on an IoTHub.
 
         :param str job_id: The ID of the job.
@@ -105,9 +105,9 @@ class IoTHubJobManager(object):
         :returns: The JobResponse object containing the requested details.
         :rtype: :class:`azure.iot.hub.models.JobResponse`
         """
-        return self.protocol.job_client.get_job(job_id)
+        return self.protocol.jobs.get_scheduled_job(job_id)
 
-    def cancel_job(self, job_id):
+    def cancel_scheduled_job(self, job_id):
         """Cancels a scheduled job on an IoT hub.
 
         :param str job_id: The ID of the job.
@@ -118,9 +118,9 @@ class IoTHubJobManager(object):
         :returns: JobResponse object containing the cancelled job.
         :rtype: :class:`azure.iot.hub.models.JobResponse`
         """
-        return self.protocol.job_client.cancel_job(job_id)
+        return self.protocol.jobs.cancel_scheduled_job(job_id)
 
-    def query_jobs(self, job_type, job_status):
+    def query_scheduled_jobs(self, job_type, job_status):
         """Query an IoT hub to retrieve information regarding jobs using the IoT Hub query language.
 
         :param str job_type: The type of the jobs.
@@ -132,4 +132,4 @@ class IoTHubJobManager(object):
         :returns: QueryResult object containing the jobs.
         :rtype: :class:`azure.iot.hub.models.QueryResult`
         """
-        return self.protocol.job_client.query_jobs(job_type, job_status)
+        return self.protocol.jobs.query_scheduled_jobs(job_type, job_status)

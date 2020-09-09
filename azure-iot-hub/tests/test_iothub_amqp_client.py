@@ -32,7 +32,6 @@ fake_sys_prop = {
     "contentEncoding": "value2",
     "correlationId": "value3",
     "expiryTimeUtc": 1584727659,
-    "userId": "value4",
     "messageId": 42,
 }
 fake_empty_prop = {}

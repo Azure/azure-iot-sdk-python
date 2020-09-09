@@ -11,42 +11,42 @@ from msrest.serialization import Model
 class JobResponse(Model):
     """JobResponse.
 
-    :param job_id: System generated.  Ignored at creation.
+    :param job_id: System generated.  Ignored at creation. The unique
+     identifier of the job.
     :type job_id: str
-    :param query_condition: Device query condition.
+    :param query_condition: The device query condition.
     :type query_condition: str
-    :param created_time: System generated.  Ignored at creation.
+    :param created_time: System generated.  Ignored at creation. The creation
+     date and time of the job.
     :type created_time: datetime
-    :param start_time: Scheduled job start time in UTC.
+    :param start_time: The start date and time of the scheduled job in UTC.
     :type start_time: datetime
-    :param end_time: System generated.  Ignored at creation.
-     Represents the time the job stopped processing.
+    :param end_time: System generated.  Ignored at creation. The end date and
+     time of the job in UTC.
     :type end_time: datetime
-    :param max_execution_time_in_seconds: Max execution time in secounds (ttl
-     duration)
+    :param max_execution_time_in_seconds: The maximum execution time in
+     secounds.
     :type max_execution_time_in_seconds: long
-    :param type: Required.
-     The type of job to execute. Possible values include: 'unknown', 'export',
+    :param type: The job type. Possible values include: 'unknown', 'export',
      'import', 'backup', 'readDeviceProperties', 'writeDeviceProperties',
      'updateDeviceConfiguration', 'rebootDevice', 'factoryResetDevice',
      'firmwareUpdate', 'scheduleDeviceMethod', 'scheduleUpdateTwin',
      'restoreFromBackup', 'failoverDataCopy'
     :type type: str or ~protocol.models.enum
-    :param cloud_to_device_method: Required if jobType is cloudToDeviceMethod.
-     The method type and parameters.
+    :param cloud_to_device_method: The method type and parameters. This is
+     required if job type is cloudToDeviceMethod.
     :type cloud_to_device_method: ~protocol.models.CloudToDeviceMethod
     :param update_twin:
     :type update_twin: ~protocol.models.Twin
-    :param status: System generated.  Ignored at creation. Possible values
-     include: 'unknown', 'enqueued', 'running', 'completed', 'failed',
-     'cancelled', 'scheduled', 'queued'
+    :param status: System generated.  Ignored at creation. The status of the
+     job. Possible values include: 'unknown', 'enqueued', 'running',
+     'completed', 'failed', 'cancelled', 'scheduled', 'queued'
     :type status: str or ~protocol.models.enum
-    :param failure_reason: System generated.  Ignored at creation.
-     If status == failure, this represents a string containing the reason.
+    :param failure_reason: The reason for the failure, if a failure occurred.
     :type failure_reason: str
-    :param status_message: Status message for the job
+    :param status_message: The status message of the job.
     :type status_message: str
-    :param device_job_statistics: Job details
+    :param device_job_statistics: The details regarding job execution status.
     :type device_job_statistics: ~protocol.models.DeviceJobStatistics
     """
 

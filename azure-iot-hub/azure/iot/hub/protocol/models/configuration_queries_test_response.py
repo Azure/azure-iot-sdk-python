@@ -11,9 +11,11 @@ from msrest.serialization import Model
 class ConfigurationQueriesTestResponse(Model):
     """ConfigurationQueriesTestResponse.
 
-    :param target_condition_error:
+    :param target_condition_error: The errors from running the target
+     condition query.
     :type target_condition_error: str
-    :param custom_metric_query_errors:
+    :param custom_metric_query_errors: The errors from running the custom
+     metric query.
     :type custom_metric_query_errors: dict[str, str]
     """
 

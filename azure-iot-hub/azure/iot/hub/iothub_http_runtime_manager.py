@@ -37,7 +37,7 @@ class IoTHubHttpRuntimeManager(object):
 
         :returns: None.
         """
-        return self.protocol.http_runtime.receive_feedback_notification()
+        return self.protocol.cloud_to_device_messages.receive_feedback_notification()
 
     def complete_feedback_notification(self, lock_token):
         """This method completes a feedback message.
@@ -49,7 +49,7 @@ class IoTHubHttpRuntimeManager(object):
 
         :returns: None.
         """
-        return self.protocol.http_runtime.complete_feedback_notification(lock_token)
+        return self.protocol.cloud_to_device_messages.complete_feedback_notification(lock_token)
 
     def abandon_feedback_notification(self, lock_token):
         """This method abandons a feedback message.
@@ -61,4 +61,4 @@ class IoTHubHttpRuntimeManager(object):
 
         :returns: None.
         """
-        return self.protocol.http_runtime.abandon_feedback_notification(lock_token)
+        return self.protocol.cloud_to_device_messages.abandon_feedback_notification(lock_token)
