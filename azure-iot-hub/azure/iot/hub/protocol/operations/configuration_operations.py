@@ -18,7 +18,7 @@ class ConfigurationOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: The API version to use for the request. Constant value: "2020-09-30".
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,7 +30,7 @@ class ConfigurationOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-09-30"
+        self.api_version = "2020-05-31-preview"
 
     def get(self, id, custom_headers=None, raw=False, **operation_config):
         """Gets a configuration on the IoT Hub for automatic device/module
