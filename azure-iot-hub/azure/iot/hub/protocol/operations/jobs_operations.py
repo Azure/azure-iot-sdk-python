@@ -18,7 +18,7 @@ class JobsOperations(object):
     :param config: Configuration of service client.
     :param serializer: An object model serializer.
     :param deserializer: An object model deserializer.
-    :ivar api_version: The API version to use for the request. Constant value: "2020-09-30".
+    :ivar api_version: The API version to use for the request. Constant value: "2020-05-31-preview".
     """
 
     models = models
@@ -30,7 +30,7 @@ class JobsOperations(object):
         self._deserialize = deserializer
 
         self.config = config
-        self.api_version = "2020-09-30"
+        self.api_version = "2020-05-31-preview"
 
     def create_import_export_job(
         self, job_properties, custom_headers=None, raw=False, **operation_config
