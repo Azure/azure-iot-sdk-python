@@ -74,9 +74,6 @@ class Twin(Model):
     :type capabilities: ~protocol.models.DeviceCapabilities
     :param device_scope: The scope of the device.
     :type device_scope: str
-    :param parent_scopes: The scopes of the upper level edge devices if
-     applicable. Only available for edge devices.
-    :type parent_scopes: list[str]
     """
 
     _attribute_map = {
@@ -97,7 +94,6 @@ class Twin(Model):
         "x509_thumbprint": {"key": "x509Thumbprint", "type": "X509Thumbprint"},
         "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
         "device_scope": {"key": "deviceScope", "type": "str"},
-        "parent_scopes": {"key": "parentScopes", "type": "[str]"},
     }
 
     def __init__(
@@ -120,7 +116,6 @@ class Twin(Model):
         x509_thumbprint=None,
         capabilities=None,
         device_scope: str = None,
-        parent_scopes=None,
         **kwargs
     ) -> None:
         super(Twin, self).__init__(**kwargs)
@@ -141,4 +136,3 @@ class Twin(Model):
         self.x509_thumbprint = x509_thumbprint
         self.capabilities = capabilities
         self.device_scope = device_scope
-        self.parent_scopes = parent_scopes
