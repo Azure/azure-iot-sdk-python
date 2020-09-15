@@ -1256,13 +1256,18 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    async def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
         client = IoTHubModuleClient(mqtt_pipeline, http_pipeline)
         yield client
-        await client.disconnect()
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
