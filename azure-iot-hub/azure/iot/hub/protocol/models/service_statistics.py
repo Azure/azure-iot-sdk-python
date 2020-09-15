@@ -11,7 +11,7 @@ from msrest.serialization import Model
 class ServiceStatistics(Model):
     """ServiceStatistics.
 
-    :param connected_device_count:
+    :param connected_device_count: The number of currently connected devices.
     :type connected_device_count: long
     """
 

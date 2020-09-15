@@ -11,8 +11,8 @@ from msrest.exceptions import HttpOperationError
 from .. import models
 
 
-class HttpRuntimeOperations(object):
-    """HttpRuntimeOperations operations.
+class CloudToDeviceMessagesOperations(object):
+    """CloudToDeviceMessagesOperations operations.
 
     :param client: Client for service requests.
     :param config: Configuration of service client.
@@ -32,12 +32,65 @@ class HttpRuntimeOperations(object):
         self.config = config
         self.api_version = "2020-05-31-preview"
 
-    def receive_feedback_notification(self, custom_headers=None, raw=False, **operation_config):
-        """This method is used to retrieve feedback of a cloud-to-device message.
+    def purge_cloud_to_device_message_queue(
+        self, id, custom_headers=None, raw=False, **operation_config
+    ):
+        """Deletes all the pending commands for a device in the IoT Hub.
 
-        This method is used to retrieve feedback of a cloud-to-device message
-        See https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging
-        for more information. This capability is only available in the standard
+        :param id: The unique identifier of the device.
+        :type id: str
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: PurgeMessageQueueResult or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.PurgeMessageQueueResult or
+         ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.purge_cloud_to_device_message_queue.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
+        url = self._client.format_url(url, **path_format_arguments)
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+
+        # Construct and send request
+        request = self._client.delete(url, query_parameters, header_parameters)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise HttpOperationError(self._deserialize, response)
+
+        deserialized = None
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("PurgeMessageQueueResult", response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(deserialized, response)
+            return client_raw_response
+
+        return deserialized
+
+    purge_cloud_to_device_message_queue.metadata = {"url": "/devices/{id}/commands"}
+
+    def receive_feedback_notification(self, custom_headers=None, raw=False, **operation_config):
+        """Gets the feedback for cloud-to-device messages. See
+        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for
+        more information. This capability is only available in the standard
         tier IoT Hub. For more information, see [Choose the right IoT Hub
         tier](https://aka.ms/scaleyouriotsolution).
 
@@ -81,16 +134,14 @@ class HttpRuntimeOperations(object):
     def complete_feedback_notification(
         self, lock_token, custom_headers=None, raw=False, **operation_config
     ):
-        """This method completes a feedback message.
-
-        This method completes a feedback message. The lockToken obtained when
-        the message was received must be provided to resolve race conditions
-        when completing, a feedback message. A completed message is deleted
-        from the feedback queue. See
+        """Completes the cloud-to-device feedback message. A completed message is
+        deleted from the feedback queue of the service. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for
         more information.
 
-        :param lock_token: Lock token.
+        :param lock_token: The lock token obtained when the cloud-to-device
+         message is received. This is used to resolve race conditions when
+         completing a feedback message.
         :type lock_token: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
@@ -134,16 +185,12 @@ class HttpRuntimeOperations(object):
     def abandon_feedback_notification(
         self, lock_token, custom_headers=None, raw=False, **operation_config
     ):
-        """This method abandons a feedback message.
-
-        This method abandons a feedback message. The lockToken obtained when
-        the message was received must be provided to resolve race conditions
-        when abandoning, a feedback message. A abandoned message is deleted
-        from the feedback queue. See
+        """Abandons the lock on a cloud-to-device feedback message. See
         https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-messaging for
         more information.
 
-        :param lock_token: Lock Token.
+        :param lock_token: The lock token obtained when the cloud-to-device
+         message is received.
         :type lock_token: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the

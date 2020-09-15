@@ -9,14 +9,14 @@ from msrest.serialization import Model
 
 
 class DeviceRegistryOperationWarning(Model):
-    """Encapsulates device registry operation error details.
+    """The device registry operation warning details.
 
-    :param device_id: The ID of the device that indicated the warning.
+    :param device_id: The unique identifier of the device.
     :type device_id: str
-    :param warning_code: Possible values include:
+    :param warning_code: The warning code. Possible values include:
      'DeviceRegisteredWithoutTwin'
     :type warning_code: str or ~protocol.models.enum
-    :param warning_status: Additional details associated with the warning.
+    :param warning_status: The details of the warning.
     :type warning_status: str
     """
 

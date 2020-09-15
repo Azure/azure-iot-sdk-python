@@ -29,7 +29,7 @@ fake_job_status = "fake_job_status"
 @pytest.fixture(scope="function", autouse=True)
 def mock_job_client_operations(mocker):
     mock_job_client_operations_init = mocker.patch(
-        "azure.iot.hub.protocol.iot_hub_gateway_service_ap_is.JobClientOperations"
+        "azure.iot.hub.protocol.iot_hub_gateway_service_ap_is.JobsOperations"
     )
     return mock_job_client_operations_init.return_value
 
@@ -144,44 +144,44 @@ class TestCancelImportExportJob(object):
 
 
 @pytest.mark.describe("IoTHubJobManager - .create_job()")
-class TestCreateJob(object):
+class TestCreateScheduledJob(object):
     @pytest.mark.it("Uses protocol layer Job Client runtime to create a job")
-    def test_create_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        ret_val = iothub_job_manager.create_job(fake_job_id, fake_job_request)
-        assert mock_job_client_operations.create_job.call_count == 1
-        assert mock_job_client_operations.create_job.call_args == mocker.call(
+    def test_create_scheduled_job(self, mocker, mock_job_client_operations, iothub_job_manager):
+        ret_val = iothub_job_manager.create_scheduled_job(fake_job_id, fake_job_request)
+        assert mock_job_client_operations.create_scheduled_job.call_count == 1
+        assert mock_job_client_operations.create_scheduled_job.call_args == mocker.call(
             fake_job_id, fake_job_request
         )
-        assert ret_val == mock_job_client_operations.create_job()
+        assert ret_val == mock_job_client_operations.create_scheduled_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .get_job()")
-class TestGetJob(object):
+class TestGetScheduledJob(object):
     @pytest.mark.it("Uses protocol layer Job Client runtime to get a job")
-    def test_get_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        ret_val = iothub_job_manager.get_job(fake_job_id)
-        assert mock_job_client_operations.get_job.call_count == 1
-        assert mock_job_client_operations.get_job.call_args == mocker.call(fake_job_id)
-        assert ret_val == mock_job_client_operations.get_job()
+    def test_get_scheduled_job(self, mocker, mock_job_client_operations, iothub_job_manager):
+        ret_val = iothub_job_manager.get_scheduled_job(fake_job_id)
+        assert mock_job_client_operations.get_scheduled_job.call_count == 1
+        assert mock_job_client_operations.get_scheduled_job.call_args == mocker.call(fake_job_id)
+        assert ret_val == mock_job_client_operations.get_scheduled_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .cancel_job()")
-class TestCancelJob(object):
+class TestCancelScheduledJob(object):
     @pytest.mark.it("Uses protocol layer Job Client runtime to cancel a job")
-    def test_get_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        ret_val = iothub_job_manager.cancel_job(fake_job_id)
-        assert mock_job_client_operations.cancel_job.call_count == 1
-        assert mock_job_client_operations.cancel_job.call_args == mocker.call(fake_job_id)
-        assert ret_val == mock_job_client_operations.cancel_job()
+    def test_cancel_scheduled_job(self, mocker, mock_job_client_operations, iothub_job_manager):
+        ret_val = iothub_job_manager.cancel_scheduled_job(fake_job_id)
+        assert mock_job_client_operations.cancel_scheduled_job.call_count == 1
+        assert mock_job_client_operations.cancel_scheduled_job.call_args == mocker.call(fake_job_id)
+        assert ret_val == mock_job_client_operations.cancel_scheduled_job()
 
 
 @pytest.mark.describe("IoTHubJobManager - .query_jobs()")
-class TestQueryJob(object):
+class TestQueryScheduledJobs(object):
     @pytest.mark.it("Uses protocol layer Job Client runtime to query a job")
-    def test_get_job(self, mocker, mock_job_client_operations, iothub_job_manager):
-        ret_val = iothub_job_manager.query_jobs(fake_job_type, fake_job_status)
-        assert mock_job_client_operations.query_jobs.call_count == 1
-        assert mock_job_client_operations.query_jobs.call_args == mocker.call(
+    def test_query_scheduled_jobs(self, mocker, mock_job_client_operations, iothub_job_manager):
+        ret_val = iothub_job_manager.query_scheduled_jobs(fake_job_type, fake_job_status)
+        assert mock_job_client_operations.query_scheduled_jobs.call_count == 1
+        assert mock_job_client_operations.query_scheduled_jobs.call_args == mocker.call(
             fake_job_type, fake_job_status
         )
-        assert ret_val == mock_job_client_operations.query_jobs()
+        assert ret_val == mock_job_client_operations.query_scheduled_jobs()

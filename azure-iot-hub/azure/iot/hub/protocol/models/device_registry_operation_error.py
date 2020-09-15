@@ -9,14 +9,14 @@ from msrest.serialization import Model
 
 
 class DeviceRegistryOperationError(Model):
-    """Encapsulates device registry operation error details.
+    """The device registry operation error details.
 
-    :param device_id: The ID of the device that indicated the error.
+    :param device_id: The unique identifier of the device.
     :type device_id: str
-    :param error_code: ErrorCode associated with the error. Possible values
-     include: 'InvalidErrorCode', 'GenericBadRequest',
-     'InvalidProtocolVersion', 'DeviceInvalidResultCount', 'InvalidOperation',
-     'ArgumentInvalid', 'ArgumentNull', 'IotHubFormatError',
+    :param error_code: The error code. Possible values include:
+     'InvalidErrorCode', 'GenericBadRequest', 'InvalidProtocolVersion',
+     'DeviceInvalidResultCount', 'InvalidOperation', 'ArgumentInvalid',
+     'ArgumentNull', 'IotHubFormatError',
      'DeviceStorageEntitySerializationError', 'BlobContainerValidationError',
      'ImportWarningExistsError', 'InvalidSchemaVersion',
      'DeviceDefinedMultipleTimes', 'DeserializationError',
@@ -28,7 +28,8 @@ class DeviceRegistryOperationError(Model):
      'RequestTimedOut', 'UnsupportedOperationOnReplica', 'NullMessage',
      'ConnectionForcefullyClosedOnNewConnection', 'InvalidDeviceScope',
      'ConnectionForcefullyClosedOnFaultInjection',
-     'ConnectionRejectedOnFaultInjection', 'InvalidRouteTestInput',
+     'ConnectionRejectedOnFaultInjection', 'InvalidEndpointAuthenticationType',
+     'ManagedIdentityNotEnabled', 'InvalidRouteTestInput',
      'InvalidSourceOnRoute', 'RoutingNotEnabled',
      'InvalidContentEncodingOrType', 'InvalidEndorsementKey',
      'InvalidRegistrationId', 'InvalidStorageRootKey',
@@ -41,15 +42,17 @@ class DeviceRegistryOperationError(Model):
      'CannotModifyImmutableConfigurationContent',
      'InvalidConfigurationCustomMetricsQuery', 'InvalidPnPInterfaceDefinition',
      'InvalidPnPDesiredProperties', 'InvalidPnPReportedProperties',
-     'InvalidPnPWritableReportedProperties', 'GenericUnauthorized',
-     'IotHubNotFound', 'IotHubUnauthorizedAccess', 'IotHubUnauthorized',
-     'ElasticPoolNotFound', 'SystemModuleModifyUnauthorizedAccess',
-     'GenericForbidden', 'IotHubSuspended', 'IotHubQuotaExceeded',
-     'JobQuotaExceeded', 'DeviceMaximumQueueDepthExceeded',
-     'IotHubMaxCbsTokenExceeded', 'DeviceMaximumActiveFileUploadLimitExceeded',
+     'InvalidPnPWritableReportedProperties', 'InvalidDigitalTwinJsonPatch',
+     'InvalidDigitalTwinPayload', 'InvalidDigitalTwinPatch',
+     'InvalidDigitalTwinPatchPath', 'GenericUnauthorized', 'IotHubNotFound',
+     'IotHubUnauthorizedAccess', 'IotHubUnauthorized', 'ElasticPoolNotFound',
+     'SystemModuleModifyUnauthorizedAccess', 'GenericForbidden',
+     'IotHubSuspended', 'IotHubQuotaExceeded', 'JobQuotaExceeded',
+     'DeviceMaximumQueueDepthExceeded', 'IotHubMaxCbsTokenExceeded',
+     'DeviceMaximumActiveFileUploadLimitExceeded',
      'DeviceMaximumQueueSizeExceeded', 'RoutingEndpointResponseForbidden',
      'InvalidMessageExpiryTime', 'OperationNotAvailableInCurrentTier',
-     'DeviceModelMaxPropertiesExceeded',
+     'KeyEncryptionKeyRevoked', 'DeviceModelMaxPropertiesExceeded',
      'DeviceModelMaxIndexablePropertiesExceeded', 'IotDpsSuspended',
      'IotDpsSuspending', 'GenericNotFound', 'DeviceNotFound', 'JobNotFound',
      'QuotaMetricNotFound', 'SystemPropertyNotFound', 'AmqpAddressNotFound',
@@ -96,10 +99,13 @@ class DeviceRegistryOperationError(Model):
      'DocumentDbInvalidReturnValue', 'ReliableDocDbStoreStoreError',
      'ReliableBlobStoreTimeoutError', 'ConfigReadFailed',
      'InvalidContainerReceiveLink', 'InvalidPartitionEpoch', 'RestoreTimedOut',
-     'StreamReservationFailure', 'UnexpectedPropertyValue',
-     'OrchestrationOperationFailed', 'ModelRepoEndpointError',
-     'ResolutionError', 'UnableToFetchCredentials', 'UnableToFetchTenantInfo',
-     'UnableToShareIdentity', 'GenericBadGateway',
+     'StreamReservationFailure', 'SerializationError',
+     'UnexpectedPropertyValue', 'OrchestrationOperationFailed',
+     'ModelRepoEndpointError', 'ResolutionError', 'UnableToFetchCredentials',
+     'UnableToFetchTenantInfo', 'UnableToShareIdentity',
+     'UnableToExpandDiscoveryInfo', 'UnableToExpandComponentInfo',
+     'UnableToCompressComponentInfo', 'UnableToCompressDiscoveryInfo',
+     'OrphanDiscoveryDocument', 'GenericBadGateway',
      'InvalidResponseWhileProxying', 'GenericServiceUnavailable',
      'ServiceUnavailable', 'PartitionNotFound', 'IotHubActivationFailed',
      'ServerBusy', 'IotHubRestoring', 'ReceiveLinkOpensThrottled',
@@ -107,11 +113,11 @@ class DeviceRegistryOperationError(Model):
      'GroupNotAvailable', 'HostingServiceNotAvailable',
      'GenericGatewayTimeout', 'GatewayTimeout'
     :type error_code: str or ~protocol.models.enum
-    :param error_status: Additional details associated with the error.
+    :param error_status: The details of the error.
     :type error_status: str
-    :param module_id:
+    :param module_id: The unique identifier of the module, if applicable.
     :type module_id: str
-    :param operation:
+    :param operation: The type of the operation that failed.
     :type operation: str
     """
 

@@ -9,30 +9,33 @@ from msrest.serialization import Model
 
 
 class Configuration(Model):
-    """Configuration for IotHub devices and modules.
+    """The configuration for Iot Hub device and module twins.
 
-    :param id: Gets Identifier for the configuration
+    :param id: The unique identifier of the configuration.
     :type id: str
-    :param schema_version: Gets Schema version for the configuration
+    :param schema_version: The schema version of the configuration.
     :type schema_version: str
-    :param labels: Gets or sets labels for the configuration
+    :param labels: The key-value pairs used to describe the configuration.
     :type labels: dict[str, str]
-    :param content: Gets or sets Content for the configuration
+    :param content: The content of the configuration.
     :type content: ~protocol.models.ConfigurationContent
-    :param target_condition: Gets or sets Target Condition for the
-     configuration
+    :param target_condition: The query used to define the targeted devices or
+     modules. The query is based on twin tags and/or reported properties.
     :type target_condition: str
-    :param created_time_utc: Gets creation time for the configuration
+    :param created_time_utc: The creation date and time of the configuration.
     :type created_time_utc: datetime
-    :param last_updated_time_utc: Gets last update time for the configuration
+    :param last_updated_time_utc: The update date and time of the
+     configuration.
     :type last_updated_time_utc: datetime
-    :param priority: Gets or sets Priority for the configuration
+    :param priority: The priority number assigned to the configuration.
     :type priority: int
-    :param system_metrics: System Configuration Metrics
+    :param system_metrics: The system metrics computed by the IoT Hub that
+     cannot be customized.
     :type system_metrics: ~protocol.models.ConfigurationMetrics
-    :param metrics: Custom Configuration Metrics
+    :param metrics: The custom metrics specified by the developer as queries
+     against twin reported properties.
     :type metrics: ~protocol.models.ConfigurationMetrics
-    :param etag: Gets or sets configuration's ETag
+    :param etag: The ETag of the configuration.
     :type etag: str
     """
 

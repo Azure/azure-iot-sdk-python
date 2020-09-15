@@ -58,9 +58,7 @@ class TestGetConfiguration(object):
         iothub_configuration_manager.get_configuration(fake_configuration_id)
 
         assert mock_configuration_operations.get.call_count == 1
-        assert mock_configuration_operations.get.call_args == mocker.call(
-            fake_configuration_id
-        )
+        assert mock_configuration_operations.get.call_args == mocker.call(fake_configuration_id)
 
 
 @pytest.mark.describe("IoTHubConfigurationManager - .create_configuration()")
@@ -127,7 +125,9 @@ class TestGetConfigurations(object):
         iothub_configuration_manager.get_configurations(fake_max_count)
 
         assert mock_configuration_operations.get_configurations.call_count == 1
-        assert mock_configuration_operations.get_configurations.call_args == mocker.call(fake_max_count)
+        assert mock_configuration_operations.get_configurations.call_args == mocker.call(
+            fake_max_count
+        )
 
 
 @pytest.mark.describe("IoTHubConfigurationManager - .test_configuration_queries()")
