@@ -167,18 +167,29 @@ class SharedClientDisconnectTests(object):
         "Waits for the completion of both 'disconnect' pipeline operations before returning"
     )
     async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
-        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
-        cb_mock.completion.return_value = await create_completed_future(None)
+        # Make a mock that returns two different objects (since there are two AwaitableCallbacks used)
+        cb_mock1 = mocker.MagicMock()
+        cb_mock2 = mocker.MagicMock()
+        cb_mock1.completion.return_value = await create_completed_future(None)
+        cb_mock2.completion.return_value = await create_completed_future(None)
+        cb_mock_init = mocker.patch.object(async_adapter, "AwaitableCallback")
+        cb_mock_init.side_effect = [cb_mock1, cb_mock2]
 
         await client.disconnect()
 
         # Disconnect called twice
         assert mqtt_pipeline.disconnect.call_count == 2
-        # Assert callback is sent to pipeline
-        assert mqtt_pipeline.disconnect.call_args_list[0][1]["callback"] is cb_mock
-        assert mqtt_pipeline.disconnect.call_args_list[1][1]["callback"] is cb_mock
-        # Assert callback completion is waited upon
-        assert cb_mock.completion.call_count == 2
+        # Assert callbacks sent to pipeline
+        assert mqtt_pipeline.disconnect.call_args_list[0][1]["callback"] is cb_mock1
+        assert mqtt_pipeline.disconnect.call_args_list[1][1]["callback"] is cb_mock2
+        # Assert callback completions were waited upon
+        assert cb_mock1.completion.call_count == 1
+        assert cb_mock2.completion.call_count == 1
+
+        # Give the AwaitableCallback mock a standardized return value again, since
+        # .disconnect() will be called in cleanup
+        cb_mock_init.side_effect = None
+        cb_mock_init.return_value.completion.return_value = await create_completed_future(None)
 
     @pytest.mark.it(
         "Raises a client error if the `disconnect` pipeline operation calls back with a pipeline error"
@@ -202,14 +213,13 @@ class SharedClientDisconnectTests(object):
         def fail_disconnect(callback):
             callback(error=my_pipeline_error)
 
-        # mqtt_pipeline.disconnect = mocker.MagicMock(side_effect=fail_disconnect)
         mqtt_pipeline.disconnect.side_effect = fail_disconnect
         with pytest.raises(client_error) as e_info:
             await client.disconnect()
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.disconnect.call_count == 1
 
-        # # Unset the side effect, since disconnect is used to clean up fixtures.
+        # Unset the side effect, since disconnect is used to clean up fixtures.
         mqtt_pipeline.disconnect.side_effect = None
 
 
