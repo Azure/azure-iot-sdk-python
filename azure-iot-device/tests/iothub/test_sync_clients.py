@@ -27,6 +27,8 @@ from .shared_client_tests import (
     SharedIoTHubClientInstantiationTests,
     SharedIoTHubClientPROPERTYHandlerTests,
     SharedIoTHubClientPROPERTYConnectedTests,
+    SharedIoTHubClientOCCURANCEConnectTests,
+    SharedIoTHubClientOCCURANCEDisconnectTests,
     SharedIoTHubClientCreateFromConnectionStringTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromX509CertificateTests,
@@ -151,7 +153,7 @@ class SharedClientDisconnectTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'disconnect' pipeline operation")
     def test_calls_pipeline_disconnect(self, client, mqtt_pipeline):
         client.disconnect()
-        assert mqtt_pipeline.disconnect.call_count == 1
+        assert mqtt_pipeline.disconnect.call_count == 2
 
     @pytest.mark.it(
         "Waits for the completion of the 'disconnect' pipeline operation before returning"
@@ -190,14 +192,6 @@ class SharedClientDisconnectTests(WaitsForEventCompletion):
         with pytest.raises(client_error) as e_info:
             client_manual_cb.disconnect()
         assert e_info.value.__cause__ is my_pipeline_error
-
-
-class SharedClientDisconnectEventTests(object):
-    @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
-    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
-        clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
-        client._on_disconnected()
-        assert clear_method_request_spy.call_count == 1
 
 
 class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
@@ -1070,13 +1064,6 @@ class TestIoTHubDeviceClientDisconnect(IoTHubDeviceClientTestsConfig, SharedClie
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURANCE: Disconnect")
-class TestIoTHubDeviceClientDisconnectEvent(
-    IoTHubDeviceClientTestsConfig, SharedClientDisconnectEventTests
-):
-    pass
-
-
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .send_message()")
 class TestIoTHubDeviceClientSendD2CMessage(
     IoTHubDeviceClientTestsConfig, SharedClientSendD2CMessageTests
@@ -1459,6 +1446,20 @@ class TestIoTHubDeviceClientPROPERTYConnected(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURANCE: Connect")
+class TestIoTHubDeviceClientOCCURANCEConnect(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURANCEConnectTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURANCE: Disconnect")
+class TestIoTHubDeviceClientOCCURANCEDisconnect(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
+):
+    pass
+
+
 ################
 # MODULE TESTS #
 ################
@@ -1551,13 +1552,6 @@ class TestIoTHubModuleClientConnect(IoTHubModuleClientTestsConfig, SharedClientC
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .disconnect()")
 class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClientDisconnectTests):
-    pass
-
-
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURANCE: Disconnect")
-class TestIoTHubModuleClientDisconnectEvent(
-    IoTHubModuleClientTestsConfig, SharedClientDisconnectEventTests
-):
     pass
 
 
@@ -2029,5 +2023,19 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 @pytest.mark.describe("IoTHubModule (Synchronous) - PROPERTY .connected")
 class TestIoTHubModuleClientPROPERTYConnected(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYConnectedTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURANCE: Connect")
+class TestIoTHubModuleClientOCCURANCEConnect(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEConnectTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURANCE: Disconnect")
+class TestIoTHubModuleClientOCCURANCEDisconnect(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
 ):
     pass

@@ -8,6 +8,7 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
+import deprecation
 from .abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -85,16 +86,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             self._inbox_manager, "route_twin_patch"
         )
 
-    def _on_connected(self):
-        """Helper handler that is called upon an iothub pipeline connect"""
-        logger.info("Connection State - Connected")
-
-    def _on_disconnected(self):
-        """Helper handler that is called upon an iothub pipeline disconnect"""
-        logger.info("Connection State - Disconnected")
-        self._inbox_manager.clear_all_method_requests()
-        logger.info("Cleared all pending method requests due to disconnect")
-
     def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature.
 
@@ -165,6 +156,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
+        It is recommended that you make sure to call this function when you are completely done
+        with the your client instance.
+
         This is a synchronous call, meaning that this function will not return until the connection
         to the service has been completely closed.
 
@@ -173,9 +167,30 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         logger.info("Disconnecting from Hub...")
 
+        logger.debug("Executing initial disconnect")
         callback = EventedCallback()
         self._mqtt_pipeline.disconnect(callback=callback)
         handle_result(callback)
+        logger.debug("Successfully executed initial disconnect")
+
+        # Note that in the process of stopping the handlers and resolving pending calls
+        # a user-supplied handler may cause a reconnection to occur
+        logger.debug("Stopping handlers...")
+        self._handler_manager.stop()
+        logger.debug("Successfully stopped handlers")
+
+        # Disconnect again to ensure disconnection has ocurred due to the issue mentioned above
+        logger.debug("Executing secondary disconnect...")
+        callback = EventedCallback()
+        self._mqtt_pipeline.disconnect(callback=callback)
+        handle_result(callback)
+        logger.debug("Successfully executed secondary disconnect")
+
+        # It's also possible that in the (very short) time between stopping the handlers and
+        # the second disconnect, additional items were received (e.g. C2D Message)
+        # Currently, this isn't really possible to accurately check due to a race condition.
+        # It has always been true of this client, even before handlers.
+        # TODO: Fix that
 
         logger.info("Successfully disconnected from Hub")
 
@@ -216,6 +231,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent message to Hub")
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_method_request_received property to set a handler instead",
+    )
     def receive_method_request(self, method_name=None, block=True, timeout=None):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
@@ -334,6 +354,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully patched twin")
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_twin_desired_properties_patch_received property to set a handler instead",
+    )
     def receive_twin_desired_properties_patch(self, block=True, timeout=None):
         """
         Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
@@ -432,6 +457,11 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
             self._inbox_manager, "route_c2d_message"
         )
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_message_received property to set a handler instead",
+    )
     def receive_message(self, block=True, timeout=None):
         """Receive a message that has been sent from the Azure IoT Hub.
 
@@ -569,6 +599,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         logger.info("Successfully sent message to output: " + output_name)
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_message_received property to set a handler instead",
+    )
     def receive_message_on_input(self, input_name, block=True, timeout=None):
         """Receive an input message that has been sent from another Module to a specific input.
 

@@ -70,6 +70,8 @@ class AsyncClientInbox(AbstractInbox):
     def empty(self):
         """Returns True if the inbox is empty, False otherwise
 
+        Note that there is a race condition here, and this may not be accurate.
+
         :returns: Boolean indicating if the inbox is empty
         """
         return self._queue.async_q.empty()

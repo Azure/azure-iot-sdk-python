@@ -113,6 +113,23 @@ class AbstractHandlerManager(object):
             logger.debug("Updating set handler: {}".format(handler_name))
             setattr(self, handler_name, new_handler)
 
+    def stop(self):
+        """Stop the process of invoking handlers in response to events.
+        All pending items will be handled prior to stoppage.
+        """
+        for handler_name in self._handler_runners:
+            if self._handler_runners[handler_name] is not None:
+                self._stop_handler_runner(handler_name)
+
+    def ensure_running(self):
+        """Ensure the process of invoking handlers in response to events is running"""
+        for handler_name in self._handler_runners:
+            if (
+                self._handler_runners[handler_name] is None
+                and getattr(self, handler_name) is not None
+            ):
+                self._start_handler_runner(handler_name)
+
     @property
     def on_message_received(self):
         return self._on_message_received
@@ -228,7 +245,7 @@ class SyncHandlerManager(AbstractHandlerManager):
         thread.start()
 
     def _stop_handler_runner(self, handler_name):
-        """Stop and remove a handler runner thread.
+        """Stop and remove a handler runner task.
         All pending items in the corresponding inbox will be handled by the handler before stoppage.
         """
         # Add a Handler Runner Killer Sentinel to the relevant inbox
@@ -244,5 +261,5 @@ class SyncHandlerManager(AbstractHandlerManager):
         logger.debug("Waiting for {} handler runner to exit...".format(handler_name))
         thread = self._handler_runners[handler_name]
         thread.join()
-        logger.debug("Handler runner for {} has been stopped".format(handler_name))
         self._handler_runners[handler_name] = None
+        logger.debug("Handler runner for {} has been stopped".format(handler_name))

@@ -9,6 +9,7 @@ Azure IoTHub Device SDK for Python.
 
 import logging
 import asyncio
+import deprecation
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
@@ -80,16 +81,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
-    def _on_connected(self):
-        """Helper handler that is called upon an iothub pipeline connect"""
-        logger.info("Connection State - Connected")
-
-    def _on_disconnected(self):
-        """Helper handler that is called upon an iothub pipeline disconnect"""
-        logger.info("Connection State - Disconnected")
-        self._inbox_manager.clear_all_method_requests()
-        logger.info("Cleared all pending method requests due to disconnect")
-
     async def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature
 
@@ -157,15 +148,40 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
+        It is recommended that you make sure to call this coroutine when you are completely done
+        with the your client instance.
+
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
         logger.info("Disconnecting from Hub...")
-        disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
 
+        logger.debug("Executing initial disconnect")
+        disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
         callback = async_adapter.AwaitableCallback()
         await disconnect_async(callback=callback)
         await handle_result(callback)
+        logger.debug("Successfully executed initial disconnect")
+
+        # Note that in the process of stopping the handlers and resolving pending calls
+        # a user-supplied handler may cause a reconnection to occur
+        logger.debug("Stopping handlers...")
+        self._handler_manager.stop()
+        logger.debug("Successfully stopped handlers")
+
+        # Disconnect again to ensure disconnection has ocurred due to the issue mentioned above
+        logger.debug("Executing secondary disconnect...")
+        disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
+        callback = async_adapter.AwaitableCallback()
+        await disconnect_async(callback=callback)
+        await handle_result(callback)
+        logger.debug("Successfully executed secondary disconnect")
+
+        # It's also possible that in the (very short) time between stopping the handlers and
+        # the second disconnect, additional items were received (e.g. C2D Message)
+        # Currently, this isn't really possible to accurately check due to a race condition.
+        # It has always been true of this client, even before handlers.
+        # TODO: Fix that
 
         logger.info("Successfully disconnected from Hub")
 
@@ -204,6 +220,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent message to Hub")
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_method_request_received property to set a handler instead",
+    )
     async def receive_method_request(self, method_name=None):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
@@ -322,6 +343,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent twin patch")
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_twin_desired_properties_patch_received property to set a handler instead",
+    )
     async def receive_twin_desired_properties_patch(self):
         """
         Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
@@ -341,6 +367,76 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         patch = await twin_patch_inbox.get()
         logger.info("twin patch received")
         return patch
+
+    @property
+    def on_twin_desired_properties_patch_received(self):
+        """The handler function or coroutine that will be called when a twin desired properties
+        patch is received.
+
+        The function or coroutine definition should take one positional argument (the twin patch
+        in the form of a JSON dictionary object)"""
+        return self._handler_manager.on_twin_desired_properties_patch_received
+
+    @on_twin_desired_properties_patch_received.setter
+    def on_twin_desired_properties_patch_received(self, value):
+        self._generic_handler_setter(
+            "on_twin_desired_properties_patch_received", constant.TWIN_PATCHES, value
+        )
+
+    @property
+    def on_method_request_received(self):
+        """The handler function or coroutine that will be called when a method request is received.
+
+        The function or coroutine definition should take one positional argument (the
+        :class:`azure.iot.device.MethodRequest` object)"""
+        return self._handler_manager.on_method_request_received
+
+    @on_method_request_received.setter
+    def on_method_request_received(self, value):
+        self._generic_handler_setter("on_method_request_received", constant.METHODS, value)
+
+
+class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
+    """An asynchronous device client that connects to an Azure IoT Hub instance.
+
+    Intended for usage with Python 3.5.3+
+    """
+
+    def __init__(self, mqtt_pipeline, http_pipeline):
+        """Initializer for a IoTHubDeviceClient.
+
+        This initializer should not be called directly.
+        Instead, use one of the 'create_from_' classmethods to instantiate
+
+        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
+        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
+        """
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
+        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
+
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_message_received property to set a handler instead",
+    )
+    async def receive_message(self):
+        """Receive a message that has been sent from the Azure IoT Hub.
+
+        If no message is yet available, will wait until an item is available.
+
+        :returns: Message that was sent from the Azure IoT Hub.
+        :rtype: :class:`azure.iot.device.Message`
+        """
+        self._check_receive_mode_is_api()
+
+        if not self._mqtt_pipeline.feature_enabled[constant.C2D_MSG]:
+            await self._enable_feature(constant.C2D_MSG)
+        c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
+
+        logger.info("Waiting for message from Hub...")
+        message = await c2d_inbox.get()
+        logger.info("Message received")
+        return message
 
     async def get_storage_info_for_blob(self, blob_name):
         """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
@@ -406,71 +502,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             loop = loop_management.get_client_internal_loop()
             fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
             fut.result()
-
-    @property
-    def on_twin_desired_properties_patch_received(self):
-        """The handler function or coroutine that will be called when a twin desired properties
-        patch is received.
-
-        The function or coroutine definition should take one positional argument (the twin patch
-        in the form of a JSON dictionary object)"""
-        return self._handler_manager.on_twin_desired_properties_patch_received
-
-    @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value):
-        self._generic_handler_setter(
-            "on_twin_desired_properties_patch_received", constant.TWIN_PATCHES, value
-        )
-
-    @property
-    def on_method_request_received(self):
-        """The handler function or coroutine that will be called when a method request is received.
-
-        The function or coroutine definition should take one positional argument (the
-        :class:`azure.iot.device.MethodRequest` object)"""
-        return self._handler_manager.on_method_request_received
-
-    @on_method_request_received.setter
-    def on_method_request_received(self, value):
-        self._generic_handler_setter("on_method_request_received", constant.METHODS, value)
-
-
-class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
-    """An asynchronous device client that connects to an Azure IoT Hub instance.
-
-    Intended for usage with Python 3.5.3+
-    """
-
-    def __init__(self, mqtt_pipeline, http_pipeline):
-        """Initializer for a IoTHubDeviceClient.
-
-        This initializer should not be called directly.
-        Instead, use one of the 'create_from_' classmethods to instantiate
-
-        :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
-        :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
-        """
-        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
-        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
-
-    async def receive_message(self):
-        """Receive a message that has been sent from the Azure IoT Hub.
-
-        If no message is yet available, will wait until an item is available.
-
-        :returns: Message that was sent from the Azure IoT Hub.
-        :rtype: :class:`azure.iot.device.Message`
-        """
-        self._check_receive_mode_is_api()
-
-        if not self._mqtt_pipeline.feature_enabled[constant.C2D_MSG]:
-            await self._enable_feature(constant.C2D_MSG)
-        c2d_inbox = self._inbox_manager.get_c2d_message_inbox()
-
-        logger.info("Waiting for message from Hub...")
-        message = await c2d_inbox.get()
-        logger.info("Message received")
-        return message
 
     @property
     def on_message_received(self):
@@ -545,6 +576,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         logger.info("Successfully sent message to output: " + output_name)
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_message_received property to set a handler instead",
+    )
     async def receive_message_on_input(self, input_name):
         """Receive an input message that has been sent from another Module to a specific input.
 

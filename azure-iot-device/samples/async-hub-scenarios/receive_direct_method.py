@@ -22,47 +22,30 @@ async def main():
     # connect the client.
     await device_client.connect()
 
-    # define behavior for handling methods
-    async def method1_listener(device_client):
-        while True:
-            method_request = await device_client.receive_method_request(
-                "method1"
-            )  # Wait for method1 calls
+    # Define behavior for handling methods
+    async def method_request_handler(method_request):
+        # Determine how to respond to the method request based on the method name
+        if method_request.name == "method1":
             payload = {"result": True, "data": "some data"}  # set response payload
             status = 200  # set return status code
             print("executed method1")
-            method_response = MethodResponse.create_from_method_request(
-                method_request, status, payload
-            )
-            await device_client.send_method_response(method_response)  # send response
-
-    async def method2_listener(device_client):
-        while True:
-            method_request = await device_client.receive_method_request(
-                "method2"
-            )  # Wait for method2 calls
+        elif method_request.name == "method2":
             payload = {"result": True, "data": 1234}  # set response payload
             status = 200  # set return status code
             print("executed method2")
-            method_response = MethodResponse.create_from_method_request(
-                method_request, status, payload
-            )
-            await device_client.send_method_response(method_response)  # send response
-
-    async def generic_method_listener(device_client):
-        while True:
-            method_request = (
-                await device_client.receive_method_request()
-            )  # Wait for unknown method calls
+        else:
             payload = {"result": False, "data": "unknown method"}  # set response payload
             status = 400  # set return status code
             print("executed unknown method: " + method_request.name)
-            method_response = MethodResponse.create_from_method_request(
-                method_request, status, payload
-            )
-            await device_client.send_method_response(method_response)  # send response
 
-    # define behavior for halting the application
+        # Send the response
+        method_response = MethodResponse.create_from_method_request(method_request, status, payload)
+        await device_client.send_method_response(method_response)
+
+    # Set the method request handler on the client
+    device_client.on_method_request_received = method_request_handler
+
+    # Define behavior for halting the application
     def stdin_listener():
         while True:
             selection = input("Press Q to quit\n")
@@ -70,25 +53,12 @@ async def main():
                 print("Quitting...")
                 break
 
-    # Schedule tasks for Method Listener
-    listeners = asyncio.gather(
-        method1_listener(device_client),
-        method2_listener(device_client),
-        generic_method_listener(device_client),
-    )
-
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
     user_finished = loop.run_in_executor(None, stdin_listener)
 
     # Wait for user to indicate they are done listening for method calls
     await user_finished
-
-    if not listeners.done():
-        listeners.set_result("DONE")
-
-    # Cancel listening
-    listeners.cancel()
 
     # Finally, disconnect
     await device_client.disconnect()

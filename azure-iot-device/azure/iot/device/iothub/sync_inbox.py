@@ -104,7 +104,9 @@ class SyncClientInbox(AbstractInbox):
             raise InboxEmpty("Inbox is empty")
 
     def empty(self):
-        """Returns True if the inbox is empty, False otherwise
+        """Returns True if the inbox is empty, False otherwise.
+
+        Note that there is a race condition here, and this may not be accurate.
 
         :returns: Boolean indicating if the inbox is empty
         """

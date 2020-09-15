@@ -27,25 +27,24 @@ async def main():
         hostname=hostname, device_id=device_id, x509=x509
     )
 
-    # define behavior for receiving a message
-    async def message_listener(device_client):
-        while True:
-            message = await device_client.receive_message()  # blocking call
-            print("the data in the message received was ")
-            print(message.data)
-            print("custom properties are")
-            print(message.custom_properties)
+    # Define behavior for receiving a message
+    # NOTE: this could be a function or a coroutine
+    def message_received_handler(message):
+        print("the data in the message received was ")
+        print(message.data)
+        print("custom properties are")
+        print(message.custom_properties)
 
-    # define behavior for halting the application
+    # Set the message received handler on the client
+    device_client.on_message_received = message_received_handler
+
+    # Define behavior for halting the application
     def stdin_listener():
         while True:
             selection = input("Press Q to quit\n")
             if selection == "Q" or selection == "q":
                 print("Quitting...")
                 break
-
-    # Schedule task for message listener
-    asyncio.create_task(message_listener(device_client))
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()

@@ -433,19 +433,6 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
 
 
 class SharedIoTHubClientPROPERTYHandlerTests(object):
-    @pytest.fixture(autouse=True)
-    def teardown(self, client, handler_name):
-        """In an async context this makes sure tasks are finished"""
-        yield
-        try:
-            setattr(client, handler_name, None)
-        except client_exceptions.ClientError:
-            # In some tests involving locked client receive modes, trying to set
-            # back to None will raise errors (because handlers are disallowed).
-            # Just catch the error and keep it moving - if the client mode was locked
-            # then there's no need for the cleanup anyway
-            pass
-
     @pytest.mark.it("Can have its value set and retrieved")
     def test_read_write(self, client, handler, handler_name):
         assert getattr(client, handler_name) is None
@@ -547,6 +534,22 @@ class SharedIoTHubClientPROPERTYConnectedTests(object):
         assert client.connected
         mqtt_pipeline.connected = False
         assert not client.connected
+
+
+class SharedIoTHubClientOCCURANCEConnectTests(object):
+    @pytest.mark.it("Ensures that the HandlerManager is running")
+    def test_ensure_handler_manager_running_on_connect(self, client, mocker):
+        ensure_running_spy = mocker.spy(client._handler_manager, "ensure_running")
+        client._on_connected()
+        assert ensure_running_spy.call_count == 1
+
+
+class SharedIoTHubClientOCCURANCEDisconnectTests(object):
+    @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
+    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
+        clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
+        client._on_disconnected()
+        assert clear_method_request_spy.call_count == 1
 
 
 ##############################
