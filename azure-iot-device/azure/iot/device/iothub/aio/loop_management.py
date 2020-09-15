@@ -21,7 +21,6 @@ loops = {
 
 def _cleanup():
     """Clear all running loops and end respective threads.
-    Does not clear the USER_LOOP.
     ONLY FOR TESTING USAGE
     By using this function, you can wipe all global loops.
     DO NOT USE THIS IN PRODUCTION CODE
@@ -40,6 +39,7 @@ def _make_new_loop(loop_name):
     # Create the loop on a new Thread
     new_loop = asyncio.new_event_loop()
     loop_thread = threading.Thread(target=new_loop.run_forever)
+    # Make the Thread a daemon so it will not block program exit
     loop_thread.daemon = True
     loop_thread.start()
     # Store the loop
