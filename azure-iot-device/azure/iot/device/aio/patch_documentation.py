@@ -133,27 +133,11 @@ def execute_patch_for_async():
     disconnect.__doc__ = IoTHubModuleClient_.disconnect.__doc__
     setattr(IoTHubModuleClient_, "disconnect", disconnect)
 
-    async def get_storage_info_for_blob(self, blob_name):
-        return await super(IoTHubModuleClient_, self).get_storage_info_for_blob(blob_name)
-
-    get_storage_info_for_blob.__doc__ = IoTHubModuleClient_.get_storage_info_for_blob.__doc__
-    setattr(IoTHubModuleClient_, "get_storage_info_for_blob", get_storage_info_for_blob)
-
     async def get_twin(self):
         return await super(IoTHubModuleClient_, self).get_twin()
 
     get_twin.__doc__ = IoTHubModuleClient_.get_twin.__doc__
     setattr(IoTHubModuleClient_, "get_twin", get_twin)
-
-    async def notify_blob_upload_status(
-        self, correlation_id, is_success, status_code, status_description
-    ):
-        return await super(IoTHubModuleClient_, self).notify_blob_upload_status(
-            correlation_id, is_success, status_code, status_description
-        )
-
-    notify_blob_upload_status.__doc__ = IoTHubModuleClient_.notify_blob_upload_status.__doc__
-    setattr(IoTHubModuleClient_, "notify_blob_upload_status", notify_blob_upload_status)
 
     async def patch_twin_reported_properties(self, reported_properties_patch):
         return await super(IoTHubModuleClient_, self).patch_twin_reported_properties(
