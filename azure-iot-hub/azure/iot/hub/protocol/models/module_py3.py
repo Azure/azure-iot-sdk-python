@@ -9,28 +9,36 @@ from msrest.serialization import Model
 
 
 class Module(Model):
-    """Module identity on a device.
+    """The module identity on a device.
 
-    :param module_id:
+    :param module_id: The unique identifier of the module.
     :type module_id: str
-    :param managed_by:
+    :param managed_by: Identifies who manages this module. For instance, this
+     value is \\"IotEdge\\" if the edge runtime owns this module.
     :type managed_by: str
-    :param device_id:
+    :param device_id: The unique identifier of the device.
     :type device_id: str
-    :param generation_id:
+    :param generation_id: The IoT Hub generated, case-sensitive string up to
+     128 characters long. This value is used to distinguish modules with the
+     same moduleId, when they have been deleted and re-created.
     :type generation_id: str
-    :param etag:
+    :param etag: The string representing a weak ETag for the module identity,
+     as per RFC7232.
     :type etag: str
-    :param connection_state: Possible values include: 'Disconnected',
-     'Connected'
+    :param connection_state: The connection state of the device. Possible
+     values include: 'Disconnected', 'Connected'
     :type connection_state: str or ~protocol.models.enum
-    :param connection_state_updated_time:
+    :param connection_state_updated_time: The date and time the connection
+     state was last updated.
     :type connection_state_updated_time: datetime
-    :param last_activity_time:
+    :param last_activity_time: The date and time the device last connected,
+     received, or sent a message.
     :type last_activity_time: datetime
-    :param cloud_to_device_message_count:
+    :param cloud_to_device_message_count: The number of cloud-to-module
+     messages currently queued to be sent to the module.
     :type cloud_to_device_message_count: int
-    :param authentication:
+    :param authentication: The authentication mechanism used by the module
+     when connecting to the service and edge hub.
     :type authentication: ~protocol.models.AuthenticationMechanism
     """
 

@@ -9,13 +9,13 @@ from msrest.serialization import Model
 
 
 class PurgeMessageQueueResult(Model):
-    """Result of a device message queue purge operation.
+    """The result of a device message queue purge operation.
 
     :param total_messages_purged:
     :type total_messages_purged: int
-    :param device_id: The ID of the device whose messages are being purged.
+    :param device_id: The unique identifier of the device.
     :type device_id: str
-    :param module_id: The ID of the device whose messages are being purged.
+    :param module_id: The unique identifier of the module.
     :type module_id: str
     """
 

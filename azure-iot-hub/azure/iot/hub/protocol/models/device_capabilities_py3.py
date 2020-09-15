@@ -9,9 +9,10 @@ from msrest.serialization import Model
 
 
 class DeviceCapabilities(Model):
-    """Status of Capabilities enabled on the device.
+    """The status of capabilities enabled on the device.
 
-    :param iot_edge:
+    :param iot_edge: The property that determines if the device is an edge
+     device or not.
     :type iot_edge: bool
     """
 

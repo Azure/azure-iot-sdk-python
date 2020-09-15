@@ -17,7 +17,7 @@ class QueryResult(Model):
     :type type: str or ~protocol.models.enum
     :param items: The query result items, as a collection.
     :type items: list[object]
-    :param continuation_token: Request continuation token.
+    :param continuation_token: The continuation token.
     :type continuation_token: str
     """
 

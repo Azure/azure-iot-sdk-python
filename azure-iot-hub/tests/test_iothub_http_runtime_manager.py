@@ -25,7 +25,7 @@ fake_lock_token = "fake_lock_token"
 @pytest.fixture(scope="function", autouse=True)
 def mock_http_runtime_operations(mocker):
     mock_http_runtime_operations_init = mocker.patch(
-        "azure.iot.hub.protocol.iot_hub_gateway_service_ap_is.HttpRuntimeOperations"
+        "azure.iot.hub.protocol.iot_hub_gateway_service_ap_is.CloudToDeviceMessagesOperations"
     )
     return mock_http_runtime_operations_init.return_value
 

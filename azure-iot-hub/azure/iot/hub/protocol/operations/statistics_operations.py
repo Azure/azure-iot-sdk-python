@@ -11,8 +11,8 @@ from msrest.exceptions import HttpOperationError
 from .. import models
 
 
-class FaultInjectionOperations(object):
-    """FaultInjectionOperations operations.
+class StatisticsOperations(object):
+    """StatisticsOperations operations.
 
     :param client: Client for service requests.
     :param config: Configuration of service client.
@@ -32,22 +32,23 @@ class FaultInjectionOperations(object):
         self.config = config
         self.api_version = "2020-05-31-preview"
 
-    def get(self, custom_headers=None, raw=False, **operation_config):
-        """Get FaultInjection entity.
+    def get_device_statistics(self, custom_headers=None, raw=False, **operation_config):
+        """Gets device statistics of the IoT Hub identity registry, such as total
+        device count.
 
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: FaultInjectionProperties or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.FaultInjectionProperties or
+        :return: RegistryStatistics or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.RegistryStatistics or
          ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get.metadata["url"]
+        url = self.get_device_statistics.metadata["url"]
 
         # Construct parameters
         query_parameters = {}
@@ -71,7 +72,7 @@ class FaultInjectionOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("FaultInjectionProperties", response)
+            deserialized = self._deserialize("RegistryStatistics", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -79,25 +80,25 @@ class FaultInjectionOperations(object):
 
         return deserialized
 
-    get.metadata = {"url": "/faultInjection"}
+    get_device_statistics.metadata = {"url": "/statistics/devices"}
 
-    def set(self, value, custom_headers=None, raw=False, **operation_config):
-        """Create or update FaultInjection entity.
+    def get_service_statistics(self, custom_headers=None, raw=False, **operation_config):
+        """Gets service statistics of the IoT Hub identity registry, such as
+        connected device count.
 
-        :param value:
-        :type value: ~protocol.models.FaultInjectionProperties
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: None or ClientRawResponse if raw=true
-        :rtype: None or ~msrest.pipeline.ClientRawResponse
+        :return: ServiceStatistics or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.ServiceStatistics or
+         ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.set.metadata["url"]
+        url = self.get_service_statistics.metadata["url"]
 
         # Construct parameters
         query_parameters = {}
@@ -107,22 +108,26 @@ class FaultInjectionOperations(object):
 
         # Construct headers
         header_parameters = {}
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        header_parameters["Accept"] = "application/json"
         if custom_headers:
             header_parameters.update(custom_headers)
 
-        # Construct body
-        body_content = self._serialize.body(value, "FaultInjectionProperties")
-
         # Construct and send request
-        request = self._client.put(url, query_parameters, header_parameters, body_content)
+        request = self._client.get(url, query_parameters, header_parameters)
         response = self._client.send(request, stream=False, **operation_config)
 
         if response.status_code not in [200]:
             raise HttpOperationError(self._deserialize, response)
 
+        deserialized = None
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("ServiceStatistics", response)
+
         if raw:
-            client_raw_response = ClientRawResponse(None, response)
+            client_raw_response = ClientRawResponse(deserialized, response)
             return client_raw_response
 
-    set.metadata = {"url": "/faultInjection"}
+        return deserialized
+
+    get_service_statistics.metadata = {"url": "/statistics/service"}

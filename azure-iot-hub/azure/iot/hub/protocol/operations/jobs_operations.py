@@ -11,8 +11,8 @@ from msrest.exceptions import HttpOperationError
 from .. import models
 
 
-class TwinOperations(object):
-    """TwinOperations operations.
+class JobsOperations(object):
+    """JobsOperations operations.
 
     :param client: Client for service requests.
     :param config: Configuration of service client.
@@ -32,27 +32,136 @@ class TwinOperations(object):
         self.config = config
         self.api_version = "2020-05-31-preview"
 
-    def get_device_twin(self, id, custom_headers=None, raw=False, **operation_config):
-        """Gets a device twin.
-
-        Gets a device twin. See
-        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
+    def create_import_export_job(
+        self, job_properties, custom_headers=None, raw=False, **operation_config
+    ):
+        """Creates a new import or export job on the IoT Hub. See
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
         for more information.
 
-        :param id: Device ID.
+        :param job_properties: The job specifications.
+        :type job_properties: ~protocol.models.JobProperties
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: JobProperties or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.JobProperties or
+         ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.create_import_export_job.metadata["url"]
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        header_parameters["Content-Type"] = "application/json; charset=utf-8"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+
+        # Construct body
+        body_content = self._serialize.body(job_properties, "JobProperties")
+
+        # Construct and send request
+        request = self._client.post(url, query_parameters, header_parameters, body_content)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise HttpOperationError(self._deserialize, response)
+
+        deserialized = None
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("JobProperties", response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(deserialized, response)
+            return client_raw_response
+
+        return deserialized
+
+    create_import_export_job.metadata = {"url": "/jobs/create"}
+
+    def get_import_export_jobs(self, custom_headers=None, raw=False, **operation_config):
+        """Gets the status of all import and export jobs in the IoT Hub. See
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
+        for more information.
+
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: list or ClientRawResponse if raw=true
+        :rtype: list[~protocol.models.JobProperties] or
+         ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.get_import_export_jobs.metadata["url"]
+
+        # Construct parameters
+        query_parameters = {}
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+
+        # Construct and send request
+        request = self._client.get(url, query_parameters, header_parameters)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise HttpOperationError(self._deserialize, response)
+
+        deserialized = None
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("[JobProperties]", response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(deserialized, response)
+            return client_raw_response
+
+        return deserialized
+
+    get_import_export_jobs.metadata = {"url": "/jobs"}
+
+    def get_import_export_job(self, id, custom_headers=None, raw=False, **operation_config):
+        """Gets the status of an import or export job in the IoT Hub. See
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-identity-registry#import-and-export-device-identities
+        for more information.
+
+        :param id: The unique identifier of the job.
         :type id: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: Twin or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.Twin or ~msrest.pipeline.ClientRawResponse
+        :return: JobProperties or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.JobProperties or
+         ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.get_device_twin.metadata["url"]
+        url = self.get_import_export_job.metadata["url"]
         path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
@@ -78,7 +187,7 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Twin", response)
+            deserialized = self._deserialize("JobProperties", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -86,41 +195,25 @@ class TwinOperations(object):
 
         return deserialized
 
-    get_device_twin.metadata = {"url": "/twins/{id}"}
+    get_import_export_job.metadata = {"url": "/jobs/{id}"}
 
-    def replace_device_twin(
-        self,
-        id,
-        device_twin_info,
-        if_match=None,
-        custom_headers=None,
-        raw=False,
-        **operation_config
-    ):
-        """Replaces tags and desired properties of a device twin.
+    def cancel_import_export_job(self, id, custom_headers=None, raw=False, **operation_config):
+        """Cancels an import or export job in the IoT Hub.
 
-        Replaces a device twin. See
-        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
-
-        :param id: Device ID.
+        :param id: The unique identifier of the job.
         :type id: str
-        :param device_twin_info: Device twin info
-        :type device_twin_info: ~protocol.models.Twin
-        :param if_match:
-        :type if_match: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: Twin or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.Twin or ~msrest.pipeline.ClientRawResponse
+        :return: object or ClientRawResponse if raw=true
+        :rtype: object or ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.replace_device_twin.metadata["url"]
+        url = self.cancel_import_export_job.metadata["url"]
         path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
@@ -133,26 +226,20 @@ class TwinOperations(object):
         # Construct headers
         header_parameters = {}
         header_parameters["Accept"] = "application/json"
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
-        if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
-
-        # Construct body
-        body_content = self._serialize.body(device_twin_info, "Twin")
 
         # Construct and send request
-        request = self._client.put(url, query_parameters, header_parameters, body_content)
+        request = self._client.delete(url, query_parameters, header_parameters)
         response = self._client.send(request, stream=False, **operation_config)
 
-        if response.status_code not in [200]:
+        if response.status_code not in [200, 204]:
             raise HttpOperationError(self._deserialize, response)
 
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Twin", response)
+            deserialized = self._deserialize("object", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -160,109 +247,29 @@ class TwinOperations(object):
 
         return deserialized
 
-    replace_device_twin.metadata = {"url": "/twins/{id}"}
+    cancel_import_export_job.metadata = {"url": "/jobs/{id}"}
 
-    def update_device_twin(
-        self,
-        id,
-        device_twin_info,
-        if_match=None,
-        custom_headers=None,
-        raw=False,
-        **operation_config
-    ):
-        """Updates tags and desired properties of a device twin.
-
-        Updates a device twin. See
-        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
+    def get_scheduled_job(self, id, custom_headers=None, raw=False, **operation_config):
+        """Gets details of a scheduled job from the IoT Hub. See
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs
         for more information.
 
-        :param id: Device ID.
+        :param id: The unique identifier of the job.
         :type id: str
-        :param device_twin_info: Device twin info
-        :type device_twin_info: ~protocol.models.Twin
-        :param if_match:
-        :type if_match: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: Twin or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.Twin or ~msrest.pipeline.ClientRawResponse
+        :return: JobResponse or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.JobResponse or
+         ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.update_device_twin.metadata["url"]
+        url = self.get_scheduled_job.metadata["url"]
         path_format_arguments = {"id": self._serialize.url("id", id, "str")}
-        url = self._client.format_url(url, **path_format_arguments)
-
-        # Construct parameters
-        query_parameters = {}
-        query_parameters["api-version"] = self._serialize.query(
-            "self.api_version", self.api_version, "str"
-        )
-
-        # Construct headers
-        header_parameters = {}
-        header_parameters["Accept"] = "application/json"
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
-        if custom_headers:
-            header_parameters.update(custom_headers)
-        if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
-
-        # Construct body
-        body_content = self._serialize.body(device_twin_info, "Twin")
-
-        # Construct and send request
-        request = self._client.patch(url, query_parameters, header_parameters, body_content)
-        response = self._client.send(request, stream=False, **operation_config)
-
-        if response.status_code not in [200]:
-            raise HttpOperationError(self._deserialize, response)
-
-        deserialized = None
-
-        if response.status_code == 200:
-            deserialized = self._deserialize("Twin", response)
-
-        if raw:
-            client_raw_response = ClientRawResponse(deserialized, response)
-            return client_raw_response
-
-        return deserialized
-
-    update_device_twin.metadata = {"url": "/twins/{id}"}
-
-    def get_module_twin(self, id, mid, custom_headers=None, raw=False, **operation_config):
-        """Gets a module twin.
-
-        Gets a module twin. See
-        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
-        for more information.
-
-        :param id: Device ID.
-        :type id: str
-        :param mid: Module ID.
-        :type mid: str
-        :param dict custom_headers: headers that will be added to the request
-        :param bool raw: returns the direct response alongside the
-         deserialized response
-        :param operation_config: :ref:`Operation configuration
-         overrides<msrest:optionsforoperations>`.
-        :return: Twin or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.Twin or ~msrest.pipeline.ClientRawResponse
-        :raises:
-         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
-        """
-        # Construct URL
-        url = self.get_module_twin.metadata["url"]
-        path_format_arguments = {
-            "id": self._serialize.url("id", id, "str"),
-            "mid": self._serialize.url("mid", mid, "str"),
-        }
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
@@ -287,7 +294,7 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Twin", response)
+            deserialized = self._deserialize("JobResponse", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -295,48 +302,34 @@ class TwinOperations(object):
 
         return deserialized
 
-    get_module_twin.metadata = {"url": "/twins/{id}/modules/{mid}"}
+    get_scheduled_job.metadata = {"url": "/jobs/v2/{id}"}
 
-    def replace_module_twin(
-        self,
-        id,
-        mid,
-        device_twin_info,
-        if_match=None,
-        custom_headers=None,
-        raw=False,
-        **operation_config
+    def create_scheduled_job(
+        self, id, job_request, custom_headers=None, raw=False, **operation_config
     ):
-        """Replaces tags and desired properties of a module twin.
-
-        Replaces a module twin. See
-        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
+        """Creates a new job to schedule twin updates or direct methods on the IoT
+        Hub at a scheduled time. See
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs
         for more information.
 
-        :param id: Device ID.
+        :param id: The unique identifier of the job.
         :type id: str
-        :param mid: Module ID.
-        :type mid: str
-        :param device_twin_info: Device twin info
-        :type device_twin_info: ~protocol.models.Twin
-        :param if_match:
-        :type if_match: str
+        :param job_request: The job request info.
+        :type job_request: ~protocol.models.JobRequest
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: Twin or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.Twin or ~msrest.pipeline.ClientRawResponse
+        :return: JobResponse or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.JobResponse or
+         ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.replace_module_twin.metadata["url"]
-        path_format_arguments = {
-            "id": self._serialize.url("id", id, "str"),
-            "mid": self._serialize.url("mid", mid, "str"),
-        }
+        url = self.create_scheduled_job.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
@@ -351,11 +344,9 @@ class TwinOperations(object):
         header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
-        if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
 
         # Construct body
-        body_content = self._serialize.body(device_twin_info, "Twin")
+        body_content = self._serialize.body(job_request, "JobRequest")
 
         # Construct and send request
         request = self._client.put(url, query_parameters, header_parameters, body_content)
@@ -367,7 +358,7 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Twin", response)
+            deserialized = self._deserialize("JobResponse", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -375,48 +366,29 @@ class TwinOperations(object):
 
         return deserialized
 
-    replace_module_twin.metadata = {"url": "/twins/{id}/modules/{mid}"}
+    create_scheduled_job.metadata = {"url": "/jobs/v2/{id}"}
 
-    def update_module_twin(
-        self,
-        id,
-        mid,
-        device_twin_info,
-        if_match=None,
-        custom_headers=None,
-        raw=False,
-        **operation_config
-    ):
-        """Updates tags and desired properties of a module twin.
-
-        Updates a module twin. See
-        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-device-twins
+    def cancel_scheduled_job(self, id, custom_headers=None, raw=False, **operation_config):
+        """Cancels a scheduled job on the IoT Hub. See
+        https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs
         for more information.
 
-        :param id: Device ID.
+        :param id: The unique identifier of the job.
         :type id: str
-        :param mid: Module ID.
-        :type mid: str
-        :param device_twin_info: Device twin information
-        :type device_twin_info: ~protocol.models.Twin
-        :param if_match:
-        :type if_match: str
         :param dict custom_headers: headers that will be added to the request
         :param bool raw: returns the direct response alongside the
          deserialized response
         :param operation_config: :ref:`Operation configuration
          overrides<msrest:optionsforoperations>`.
-        :return: Twin or ClientRawResponse if raw=true
-        :rtype: ~protocol.models.Twin or ~msrest.pipeline.ClientRawResponse
+        :return: JobResponse or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.JobResponse or
+         ~msrest.pipeline.ClientRawResponse
         :raises:
          :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
         """
         # Construct URL
-        url = self.update_module_twin.metadata["url"]
-        path_format_arguments = {
-            "id": self._serialize.url("id", id, "str"),
-            "mid": self._serialize.url("mid", mid, "str"),
-        }
+        url = self.cancel_scheduled_job.metadata["url"]
+        path_format_arguments = {"id": self._serialize.url("id", id, "str")}
         url = self._client.format_url(url, **path_format_arguments)
 
         # Construct parameters
@@ -428,17 +400,11 @@ class TwinOperations(object):
         # Construct headers
         header_parameters = {}
         header_parameters["Accept"] = "application/json"
-        header_parameters["Content-Type"] = "application/json; charset=utf-8"
         if custom_headers:
             header_parameters.update(custom_headers)
-        if if_match is not None:
-            header_parameters["If-Match"] = self._serialize.header("if_match", if_match, "str")
-
-        # Construct body
-        body_content = self._serialize.body(device_twin_info, "Twin")
 
         # Construct and send request
-        request = self._client.patch(url, query_parameters, header_parameters, body_content)
+        request = self._client.post(url, query_parameters, header_parameters)
         response = self._client.send(request, stream=False, **operation_config)
 
         if response.status_code not in [200]:
@@ -447,7 +413,7 @@ class TwinOperations(object):
         deserialized = None
 
         if response.status_code == 200:
-            deserialized = self._deserialize("Twin", response)
+            deserialized = self._deserialize("JobResponse", response)
 
         if raw:
             client_raw_response = ClientRawResponse(deserialized, response)
@@ -455,4 +421,69 @@ class TwinOperations(object):
 
         return deserialized
 
-    update_module_twin.metadata = {"url": "/twins/{id}/modules/{mid}"}
+    cancel_scheduled_job.metadata = {"url": "/jobs/v2/{id}/cancel"}
+
+    def query_scheduled_jobs(
+        self, job_type=None, job_status=None, custom_headers=None, raw=False, **operation_config
+    ):
+        """Gets the information about jobs using an IoT Hub query. See
+        https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-query-language
+        for more information.
+
+        :param job_type: The job type. See
+         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs#querying-for-progress-on-jobs
+         for a list of possible job types.
+        :type job_type: str
+        :param job_status: The job status. See
+         https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-jobs#querying-for-progress-on-jobs
+         for a list of possible statuses.
+        :type job_status: str
+        :param dict custom_headers: headers that will be added to the request
+        :param bool raw: returns the direct response alongside the
+         deserialized response
+        :param operation_config: :ref:`Operation configuration
+         overrides<msrest:optionsforoperations>`.
+        :return: QueryResult or ClientRawResponse if raw=true
+        :rtype: ~protocol.models.QueryResult or
+         ~msrest.pipeline.ClientRawResponse
+        :raises:
+         :class:`HttpOperationError<msrest.exceptions.HttpOperationError>`
+        """
+        # Construct URL
+        url = self.query_scheduled_jobs.metadata["url"]
+
+        # Construct parameters
+        query_parameters = {}
+        if job_type is not None:
+            query_parameters["jobType"] = self._serialize.query("job_type", job_type, "str")
+        if job_status is not None:
+            query_parameters["jobStatus"] = self._serialize.query("job_status", job_status, "str")
+        query_parameters["api-version"] = self._serialize.query(
+            "self.api_version", self.api_version, "str"
+        )
+
+        # Construct headers
+        header_parameters = {}
+        header_parameters["Accept"] = "application/json"
+        if custom_headers:
+            header_parameters.update(custom_headers)
+
+        # Construct and send request
+        request = self._client.get(url, query_parameters, header_parameters)
+        response = self._client.send(request, stream=False, **operation_config)
+
+        if response.status_code not in [200]:
+            raise HttpOperationError(self._deserialize, response)
+
+        deserialized = None
+
+        if response.status_code == 200:
+            deserialized = self._deserialize("QueryResult", response)
+
+        if raw:
+            client_raw_response = ClientRawResponse(deserialized, response)
+            return client_raw_response
+
+        return deserialized
+
+    query_scheduled_jobs.metadata = {"url": "/jobs/v2/query"}

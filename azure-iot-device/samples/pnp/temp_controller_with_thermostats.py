@@ -12,10 +12,8 @@ import json
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import Message, MethodResponse
-from datetime import date
-
+from datetime import date, timedelta, datetime
 import pnp_helper_preview_refresh
-
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -27,10 +25,10 @@ device_info_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceI
 
 # The device "TemperatureController" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
-# and the name user wants to call this pnp device
+# and the name user wants to call this Plug and Play device
 model_id = "dtmi:com:example:TemperatureController;1"
 
-# the components inside this pnp device.
+# the components inside this Plug and Play device.
 # there can be multiple components from 1 interface
 # component names according to interfaces following pascal case.
 device_information_component_name = "deviceInformation"
@@ -40,6 +38,61 @@ serial_number = "alohomora"
 #####################################################
 # COMMAND HANDLERS : User will define these handlers
 # depending on what commands the component defines
+
+#####################################################
+# GLOBAL VARIABLES
+THERMOSTAT_1 = None
+THERMOSTAT_2 = None
+
+
+class Thermostat(object):
+    def __init__(self, name, moving_win=10):
+
+        self.moving_window = moving_win
+        self.records = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.index = 0
+
+        self.cur = 0
+        self.max = 0
+        self.min = 0
+        self.avg = 0
+
+        self.name = name
+
+    def record(self, current_temp):
+        self.cur = current_temp
+        self.records[self.index] = current_temp
+        self.max = self.calculate_max(current_temp)
+        self.min = self.calculate_min(current_temp)
+        self.avg = self.calculate_average()
+
+        self.index = (self.index + 1) % self.moving_window
+
+    def calculate_max(self, current_temp):
+        if not self.max:
+            return current_temp
+        elif current_temp > self.max:
+            return self.max
+
+    def calculate_min(self, current_temp):
+        if not self.min:
+            return current_temp
+        elif current_temp < self.min:
+            return self.min
+
+    def calculate_average(self):
+        return sum(self.records) / self.moving_window
+
+    def create_report(self):
+        response_dict = {}
+        response_dict["maxTemp"] = self.max
+        response_dict["minTemp"] = self.min
+        response_dict["avgTemp"] = self.avg
+        response_dict["startTime"] = (
+            datetime.now() - timedelta(0, self.moving_window * 8)
+        ).isoformat()
+        response_dict["endTime"] = datetime.now().isoformat()
+        return response_dict
 
 
 async def reboot_handler(values):
@@ -65,22 +118,27 @@ async def max_min_handler(values):
 # CREATE RESPONSES TO COMMANDS
 
 
-def create_max_min_report_response(values):
+def create_max_min_report_response(thermostat_name):
     """
     An example function that can create a response to the "getMaxMinReport" command request the way the user wants it.
     Most of the times response is created by a helper function which follows a generic pattern.
     This should be only used when the user wants to give a detailed response back to the Hub.
     :param values: The values that were received as part of the request.
     """
-    response_dict = {}
-    response_dict["maxTemp"] = 60.64
-    response_dict["minTemp"] = 10.54
-    response_dict["avgTemp"] = 34.78
-    response_dict["startTime"] = date.fromisoformat("2020-05-04").__str__()
-    response_dict["endTime"] = date.fromisoformat("2020-06-04").__str__()
+    if "Thermostat;1" in thermostat_name and THERMOSTAT_1:
+        response_dict = THERMOSTAT_1.create_report()
+    elif THERMOSTAT_2:
+        response_dict = THERMOSTAT_2.create_report()
+    else:  # This is done to pass certification.
+        response_dict = {}
+        response_dict["maxTemp"] = 0
+        response_dict["minTemp"] = 0
+        response_dict["avgTemp"] = 0
+        response_dict["startTime"] = datetime.now().isoformat()
+        response_dict["endTime"] = datetime.now().isoformat()
 
     response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
-    # print(response_payload)
+    print(response_payload)
     return response_payload
 
 
@@ -92,10 +150,11 @@ def create_max_min_report_response(values):
 
 
 async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
-    pnp_msg = pnp_helper_preview_refresh.create_telemetry(telemetry_msg, component_name)
-    await device_client.send_message(pnp_msg)
+    msg = pnp_helper_preview_refresh.create_telemetry(telemetry_msg, component_name)
+    await device_client.send_message(msg)
     print("Sent message")
-    await asyncio.sleep(8)
+    print(msg)
+    await asyncio.sleep(5)
 
 
 #####################################################
@@ -148,12 +207,12 @@ async def execute_command_listener(
             command_request, method_name, create_user_response=create_user_response_handler
         )
 
-        pnp_command_response = MethodResponse.create_from_method_request(
+        command_response = MethodResponse.create_from_method_request(
             command_request, response_status, response_payload
         )
 
         try:
-            await device_client.send_method_response(pnp_command_response)
+            await device_client.send_method_response(command_response)
         except Exception:
             print("responding to the {command} command failed".format(command=method_name))
 
@@ -165,11 +224,10 @@ async def execute_command_listener(
 async def execute_property_listener(device_client):
     while True:
         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-        pnp_properties_dict = pnp_helper_preview_refresh.create_reported_properties_from_desired(
-            patch
-        )
+        print(patch)
+        properties_dict = pnp_helper_preview_refresh.create_reported_properties_from_desired(patch)
 
-        await device_client.patch_twin_reported_properties(pnp_properties_dict)
+        await device_client.patch_twin_reported_properties(properties_dict)
 
 
 #####################################################
@@ -208,7 +266,11 @@ async def provision_device(provisioning_host, id_scope, registration_id, symmetr
 async def main():
     switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
     if switch == "DPS":
-        provisioning_host = os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+        provisioning_host = (
+            os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+            if os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
+            else "global.azure-devices-provisioning.net"
+        )
         id_scope = os.getenv("IOTHUB_DEVICE_DPS_ID_SCOPE")
         registration_id = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_ID")
         symmetric_key = os.getenv("IOTHUB_DEVICE_DPS_DEVICE_KEY")
@@ -218,19 +280,29 @@ async def main():
         )
 
         if registration_result.status == "assigned":
+            print("Device was assigned")
+            print(registration_result.registration_state.assigned_hub)
+            print(registration_result.registration_state.device_id)
             device_client = IoTHubDeviceClient.create_from_symmetric_key(
                 symmetric_key=symmetric_key,
                 hostname=registration_result.registration_state.assigned_hub,
                 device_id=registration_result.registration_state.device_id,
+                product_info=model_id,
             )
         else:
-            raise RuntimeError("Could not provision device. Aborting PNP device connection.")
+            raise RuntimeError(
+                "Could not provision device. Aborting Plug and Play device connection."
+            )
 
-    else:
+    elif switch == "connectionString":
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
             conn_str, product_info=model_id
+        )
+    else:
+        raise RuntimeError(
+            "At least one choice needs to be made for complete functioning of this sample."
         )
 
     # Connect the client.
@@ -239,16 +311,16 @@ async def main():
     ################################################
     # Update readable properties from various components
 
-    pnp_properties_root = pnp_helper_preview_refresh.create_reported_properties(
+    properties_root = pnp_helper_preview_refresh.create_reported_properties(
         serialNumber=serial_number
     )
-    pnp_properties_thermostat1 = pnp_helper_preview_refresh.create_reported_properties(
+    properties_thermostat1 = pnp_helper_preview_refresh.create_reported_properties(
         thermostat_1_component_name, maxTempSinceLastReboot=98.34
     )
-    pnp_properties_thermostat2 = pnp_helper_preview_refresh.create_reported_properties(
+    properties_thermostat2 = pnp_helper_preview_refresh.create_reported_properties(
         thermostat_2_component_name, maxTempSinceLastReboot=48.92
     )
-    pnp_properties_device_info = pnp_helper_preview_refresh.create_reported_properties(
+    properties_device_info = pnp_helper_preview_refresh.create_reported_properties(
         device_information_component_name,
         swVersion="5.5",
         manufacturer="Contoso Device Corporation",
@@ -261,15 +333,20 @@ async def main():
     )
 
     property_updates = asyncio.gather(
-        device_client.patch_twin_reported_properties(pnp_properties_root),
-        device_client.patch_twin_reported_properties(pnp_properties_thermostat1),
-        device_client.patch_twin_reported_properties(pnp_properties_thermostat2),
-        device_client.patch_twin_reported_properties(pnp_properties_device_info),
+        device_client.patch_twin_reported_properties(properties_root),
+        device_client.patch_twin_reported_properties(properties_thermostat1),
+        device_client.patch_twin_reported_properties(properties_thermostat2),
+        device_client.patch_twin_reported_properties(properties_device_info),
     )
 
     ################################################
     # Get all the listeners running
     print("Listening for command requests and property updates")
+
+    global THERMOSTAT_1
+    global THERMOSTAT_2
+    THERMOSTAT_1 = Thermostat(thermostat_1_component_name, 10)
+    THERMOSTAT_2 = Thermostat(thermostat_2_component_name, 10)
 
     listeners = asyncio.gather(
         execute_command_listener(
@@ -297,16 +374,26 @@ async def main():
 
     async def send_telemetry():
         print("Sending telemetry from various components")
+
         while True:
-            temperature_msg1 = {"temperature": random.randrange(10, 50)}
-            temperature_msg2 = {"temperature": random.randrange(10, 50)}
-            workingset_msg3 = {"workingset": random.randrange(1, 100)}
+            curr_temp_ext = random.randrange(10, 50)
+            THERMOSTAT_1.record(curr_temp_ext)
+
+            temperature_msg1 = {"temperature": curr_temp_ext}
             await send_telemetry_from_temp_controller(
                 device_client, temperature_msg1, thermostat_1_component_name
             )
+
+            curr_temp_int = random.randrange(10, 50)  # Current temperature in Celsius
+            THERMOSTAT_2.record(curr_temp_int)
+
+            temperature_msg2 = {"temperature": curr_temp_int}
+
             await send_telemetry_from_temp_controller(
                 device_client, temperature_msg2, thermostat_2_component_name
             )
+
+            workingset_msg3 = {"workingSet": random.randrange(1, 100)}
             await send_telemetry_from_temp_controller(device_client, workingset_msg3)
 
     send_telemetry_task = asyncio.ensure_future(send_telemetry())
