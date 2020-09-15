@@ -202,11 +202,15 @@ class SharedClientDisconnectTests(object):
         def fail_disconnect(callback):
             callback(error=my_pipeline_error)
 
-        mqtt_pipeline.disconnect = mocker.MagicMock(side_effect=fail_disconnect)
+        # mqtt_pipeline.disconnect = mocker.MagicMock(side_effect=fail_disconnect)
+        mqtt_pipeline.disconnect.side_effect = fail_disconnect
         with pytest.raises(client_error) as e_info:
             await client.disconnect()
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.disconnect.call_count == 1
+
+        # # Unset the side effect, since disconnect is used to clean up fixtures.
+        mqtt_pipeline.disconnect.side_effect = None
 
 
 class SharedClientSendD2CMessageTests(object):

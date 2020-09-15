@@ -368,6 +368,29 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
+    def _generic_handler_setter(self, handler_name, feature_name, new_handler):
+        self._check_receive_mode_is_handler()
+        # Set the handler on the handler manager
+        setattr(self._handler_manager, handler_name, new_handler)
+
+        # Enable the feature if necessary
+        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+            # We have to call this on a loop running on a different thread in order to ensure
+            # the setter can be called both within a coroutine (with a running event loop) and
+            # outside of a coroutine (where no event loop is currently running)
+            loop = loop_management.get_client_internal_loop()
+            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
+            fut.result()
+
+        # Disable the feature if necessary
+        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
+            # We have to call this on a loop running on a different thread in order to ensure
+            # the setter can be called both within a coroutine (with a running event loop) and
+            # outside of a coroutine (where no event loop is currently running)
+            loop = loop_management.get_client_internal_loop()
+            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
+            fut.result()
+
     @property
     def on_twin_desired_properties_patch_received(self):
         """The handler function or coroutine that will be called when a twin desired properties
@@ -479,29 +502,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
-
-    def _generic_handler_setter(self, handler_name, feature_name, new_handler):
-        self._check_receive_mode_is_handler()
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
-
-        # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
-            fut.result()
-
-        # Disable the feature if necessary
-        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
-            fut.result()
 
     @property
     def on_message_received(self):
