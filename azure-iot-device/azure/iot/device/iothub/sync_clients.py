@@ -631,7 +631,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     def invoke_method(self, method_params, device_id, module_id=None):
         """Invoke a method from your client onto a device or module client, and receive the response to the method call.
 
-        :param dict method_params: Should contain a method_name, payload, connect_timeout_in_seconds, response_timeout_in_seconds.
+        :param dict method_params: Should contain a methodName (str), payload (str),
+            connectTimeoutInSeconds (int), responseTimeoutInSeconds (int).
         :param str device_id: Device ID of the target device where the method will be invoked.
         :param str module_id: Module ID of the target module where the method will be invoked. (Optional)
 
