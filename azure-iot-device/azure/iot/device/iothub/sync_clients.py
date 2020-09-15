@@ -190,7 +190,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # the second disconnect, additional items were received (e.g. C2D Message)
         # Currently, this isn't really possible to accurately check due to a race condition.
         # It has always been true of this client, even before handlers.
-        # TODO: Fix that
+        # TODO: fix the race condition
+        # However, even if the race condition is addressed, that will only allow us to log that
+        # messages were lost. To actually fix the problem, IoTHub needs to support MQTT5 so that
+        # we can unsubscribe from receiving data.
 
         logger.info("Successfully disconnected from Hub")
 
