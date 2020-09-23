@@ -7,7 +7,7 @@
 import sys
 import os
 import msrest
-from azure.iot.hub import IoTHubDigitalTwinManager
+from azure.iot.hub import IoTHubDigitalTwinManager, IoTHubRegistryManager
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -38,6 +38,14 @@ try:
         print(invoke_component_command_result)
     else:
         print("No invoke_component_command_result found")
+
+    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    twin = iothub_registry_manager.get_twin(device_id)
+
+    additional_props = twin.additional_properties
+    if "modelId" in additional_props:
+        print("Model id for digital twin is")
+        print("ModelId:" + additional_props["modelId"])
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))
