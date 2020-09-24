@@ -15,7 +15,7 @@ The directory contains the following samples:
 Both samples use environment variables to retrieve configuration.
 
 * If you are using a connection string to authenticate:
-  * set IOTHUB_DEVICE_SECURITY_TYPE="CONNECTION_STRING"
+  * set IOTHUB_DEVICE_SECURITY_TYPE="connectionString"
   * set IOTHUB_DEVICE_CONNECTION_STRING="\<connection string of your device\>"
 
 * If you are using a DPS enrollment group to authenticate:
