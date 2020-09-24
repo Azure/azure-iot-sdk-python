@@ -27,6 +27,8 @@ async def main():
         hostname=hostname, device_id=device_id, x509=x509
     )
 
+    await device_client.connect()
+
     # Define behavior for receiving a message
     # NOTE: this could be a function or a coroutine
     def message_received_handler(message):
