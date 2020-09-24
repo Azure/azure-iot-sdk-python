@@ -10,7 +10,7 @@ from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = os.getenv("IOTHUB_NEW_DEVICE_ID")
+device_id = os.getenv("IOTHUB_DEVICE_ID")
 
 
 def print_device_info(title, iothub_device):
@@ -76,6 +76,11 @@ try:
     twin = iothub_registry_manager.get_twin(device_id)
     print(twin)
     print("")
+    
+    additional_props = twin.additional_properties
+    if "modelId" in additional_props:
+        print("Model id for digital twin is")
+        print("ModelId:" + additional_props["modelId"])
 
     # # Replace twin
     new_twin = Twin()
