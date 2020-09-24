@@ -15,31 +15,7 @@ device_id = os.getenv("IOTHUB_DEVICE_ID")
 method_name = os.getenv("IOTHUB_METHOD_NAME")
 method_payload = os.getenv("IOTHUB_METHOD_PAYLOAD")
 
-
-def print_device_info(title, iothub_device):
-    print(title + ":")
-    print("device_id                      = {0}".format(iothub_device.device_id))
-    print("authentication.type            = {0}".format(iothub_device.authentication.type))
-    print("authentication.symmetric_key   = {0}".format(iothub_device.authentication.symmetric_key))
-    print(
-        "authentication.x509_thumbprint = {0}".format(iothub_device.authentication.x509_thumbprint)
-    )
-    print("connection_state               = {0}".format(iothub_device.connection_state))
-    print(
-        "connection_state_updated_tTime = {0}".format(iothub_device.connection_state_updated_time)
-    )
-    print(
-        "cloud_to_device_message_count  = {0}".format(iothub_device.cloud_to_device_message_count)
-    )
-    print("device_scope                   = {0}".format(iothub_device.device_scope))
-    print("etag                           = {0}".format(iothub_device.etag))
-    print("generation_id                  = {0}".format(iothub_device.generation_id))
-    print("last_activity_time             = {0}".format(iothub_device.last_activity_time))
-    print("status                         = {0}".format(iothub_device.status))
-    print("status_reason                  = {0}".format(iothub_device.status_reason))
-    print("status_updated_time            = {0}".format(iothub_device.status_updated_time))
-    print("")
-
+# This sample shows how to use the IoT Hub Registry Manager for a PnP device using a "thermostat" example
 
 # This sample creates and uses device with SAS authentication
 # For other authentication types use the appropriate create and update APIs:
@@ -55,14 +31,16 @@ try:
 
     # Get device twin
     twin = iothub_registry_manager.get_twin(device_id)
+    print("The device twin is: ")
+    print("")
     print(twin)
     print("")
     
     # Print the device's model ID
     additional_props = twin.additional_properties
     if "modelId" in additional_props:
-        print("Model id for digital twin is")
-        print("ModelId:" + additional_props["modelId"])
+        print("The Model ID for this device is:")
+        print(additional_props["modelId"])
         print("")
 
 
@@ -70,13 +48,14 @@ try:
     twin_patch = Twin()
     twin_patch.properties = TwinProperties(desired={"targetTemperature": 42})
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
-    print(updated_twin)
     print("The twin patch has been successfully applied")
+    print("")
 
     # invoke device method
     deviceMethod = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
     iothub_registry_manager.invoke_device_method(device_id, deviceMethod)
     print("The device method has been successfully invoked")
+    print("")
 
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
