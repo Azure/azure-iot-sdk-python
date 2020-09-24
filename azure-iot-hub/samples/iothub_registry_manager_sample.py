@@ -98,7 +98,7 @@ try:
     twin_patch.properties = TwinProperties(desired={"telemetryInterval": 3000})
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
     print(updated_twin)
-    print("")
+    print("The twin patch has been successfully applied")
 
     # Get devices
     max_number_of_devices = 10
