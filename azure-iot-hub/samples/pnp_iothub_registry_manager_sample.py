@@ -46,7 +46,7 @@ try:
 
     # Update twin
     twin_patch = Twin()
-    twin_patch.properties = TwinProperties(desired={"targetTemperature": 42})
+    twin_patch.properties = TwinProperties(desired={"targetTemperature": 42}) # this is relevant for the thermostat device sample
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
     print("The twin patch has been successfully applied")
     print("")
