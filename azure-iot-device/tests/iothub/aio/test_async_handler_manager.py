@@ -37,11 +37,6 @@ def inbox_manager():
     return InboxManager(inbox_type=AsyncClientInbox)
 
 
-@pytest.fixture
-def handler_manager(inbox_manager):
-    return AsyncHandlerManager(inbox_manager)
-
-
 # ----------------------
 # We have to do some unfortunate things here in order to manually mock out handlers, to test
 # tha they have been called. We can't use MagicMocks because not only do they not work well
@@ -100,7 +95,109 @@ class TestInstantiation(object):
         assert hm._handler_runners[handler_name] is None
 
 
+@pytest.mark.describe("AsyncHandlerManager - .stop()")
+class TestStop(object):
+    @pytest.fixture(params=["No handlers running", "Some handlers running", "All handlers running"])
+    def handler_manager(self, mocker, request, inbox_manager):
+        hm = AsyncHandlerManager(inbox_manager)
+        if request.param == "Some handlers running":
+            # Set an arbitrary handler
+            hm.on_message_received = mocker.MagicMock()
+        elif request.param == "All handlers running":
+            for handler_name in all_handlers:
+                setattr(hm, handler_name, mocker.MagicMock())
+        yield hm
+        hm.stop()
+
+    @pytest.mark.it("Stops all handler runners currently running in the HandlerManager")
+    def test_stops_all_runners(self, handler_manager, handler):
+        handler_manager.stop()
+        for handler_name in all_internal_handlers:
+            assert handler_manager._handler_runners[handler_name] is None
+
+    @pytest.mark.it("Completes all pending handler invocations before stopping the runner(s)")
+    def test_completes_pending(self, mocker, inbox_manager):
+        hm = AsyncHandlerManager(inbox_manager)
+
+        # NOTE: We use two handlers arbitrarily here to show this happens for all handler runners
+        mock_msg_handler = mocker.MagicMock()
+        mock_mth_handler = mocker.MagicMock()
+        msg_inbox = inbox_manager.get_unified_message_inbox()
+        mth_inbox = inbox_manager.get_method_request_inbox()
+        for _ in range(100):  # sufficiently many items so can't complete quickly
+            msg_inbox._put(mocker.MagicMock())
+            mth_inbox._put(mocker.MagicMock())
+
+        hm.on_message_received = mock_msg_handler
+        hm.on_method_request_received = mock_mth_handler
+        assert not msg_inbox.empty()
+        assert not mth_inbox.empty()
+        assert mock_msg_handler.call_count != 100
+        assert mock_mth_handler.call_count != 100
+        hm.stop()
+        assert msg_inbox.empty()
+        assert mth_inbox.empty()
+        assert mock_msg_handler.call_count == 100
+        assert mock_mth_handler.call_count == 100
+
+
+@pytest.mark.describe("AsyncHandlerManager - .ensure_running()")
+class TestEnsureRunning(object):
+    @pytest.fixture(
+        params=[
+            "All handlers set, stopped",
+            "All handlers set, running",
+            "Some handlers set, stopped",
+            "Some handlers set, running",
+            "No handlers set",
+        ]
+    )
+    def handler_manager(self, mocker, request, inbox_manager):
+        hm = AsyncHandlerManager(inbox_manager)
+
+        if request.param == "All handlers set, stopped":
+            for handler_name in all_handlers:
+                setattr(hm, handler_name, mocker.MagicMock())
+            hm.stop()
+        elif request.param == "All handlers set, running":
+            for handler_name in all_handlers:
+                setattr(hm, handler_name, mocker.MagicMock())
+        elif request.param == "Some handlers set, stopped":
+            hm.on_message_received = mocker.MagicMock()
+            hm.on_method_request_received = mocker.MagicMock()
+            hm.stop()
+        elif request.param == "Some handlers set, running":
+            hm.on_message_received = mocker.MagicMock()
+            hm.on_method_request_received = mocker.MagicMock()
+
+        yield hm
+        hm.stop()
+
+    @pytest.mark.it(
+        "Starts handler runners for any handler that is set, but does not have a handler runner running"
+    )
+    def test_starts_runners_if_necessary(self, handler_manager):
+        handler_manager.ensure_running()
+
+        for handler_name in all_handlers:
+            if getattr(handler_manager, handler_name) is not None:
+                # NOTE: this assumes the convention of internal names being the name of a handler
+                # prefixed with a "_". If this ever changes, you must change this test.
+                assert handler_manager._handler_runners["_" + handler_name] is not None
+
+
+##############
+# PROPERTIES #
+##############
+
+
 class SharedHandlerPropertyTests(object):
+    @pytest.fixture
+    def handler_manager(self, inbox_manager):
+        hm = AsyncHandlerManager(inbox_manager)
+        yield hm
+        hm.stop()
+
     # NOTE: this fixture is necessary to clean up any hanging tasks that don't have time
     # to complete cleanly within the testing framework. Unsure at this time if this presents
     # problems in the actual production use-case for the package.

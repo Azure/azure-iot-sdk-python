@@ -82,6 +82,7 @@ setup(
         "urllib3>1.21.1,<1.26,!=1.25.0,!=1.25.1;python_version!='3.4'",
         "urllib3>1.21.1,<1.25;python_version=='3.4'",
         # Actual project dependencies
+        "deprecation>=2.1.0,<3.0.0",
         "six>=1.12.0,<2.0.0",
         "paho-mqtt>=1.4.0,<2.0.0",
         "requests>=2.20.0,<3.0.0",

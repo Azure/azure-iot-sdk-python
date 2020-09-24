@@ -89,8 +89,23 @@ class AbstractIoTHubClient(object):
         self._http_pipeline = http_pipeline
 
         self._inbox_manager = None  # this will be overriden in child class
+        self._handler_manager = None  # this will be overriden in child class
         self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_lock = threading.Lock()
+
+    def _on_connected(self):
+        """Helper handler that is called upon an iothub pipeline connect"""
+        logger.info("Connection State - Connected")
+        # Ensure that all handlers are running now that connection is re-established.
+        self._handler_manager.ensure_running()
+
+    def _on_disconnected(self):
+        """Helper handler that is called upon an iothub pipeline disconnect"""
+        logger.info("Connection State - Disconnected")
+        # Locally stored method requests on client are cleared.
+        # They will be resent by IoTHub on reconnect.
+        self._inbox_manager.clear_all_method_requests()
+        logger.info("Cleared all pending method requests due to disconnect")
 
     def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""
@@ -362,6 +377,16 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     def receive_message(self):
         pass
 
+    @abc.abstractmethod
+    def get_storage_info_for_blob(self, blob_name):
+        pass
+
+    @abc.abstractmethod
+    def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description
+    ):
+        pass
+
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
@@ -559,4 +584,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
 
     @abc.abstractmethod
     def receive_message_on_input(self, input_name):
+        pass
+
+    @abc.abstractmethod
+    def invoke_method(self, method_params, device_id, module_id=None):
         pass

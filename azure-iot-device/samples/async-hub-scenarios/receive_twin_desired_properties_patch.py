@@ -21,10 +21,12 @@ async def main():
     await device_client.connect()
 
     # define behavior for receiving a twin patch
-    async def twin_patch_listener(device_client):
-        while True:
-            patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-            print("the data in the desired properties patch was: {}".format(patch))
+    # NOTE: this could be a function or a coroutine
+    def twin_patch_handler(patch):
+        print("the data in the desired properties patch was: {}".format(patch))
+
+    # set the twin patch handler on the client
+    device_client.on_twin_desired_properties_patch_received = twin_patch_handler
 
     # define behavior for halting the application
     def stdin_listener():
@@ -33,9 +35,6 @@ async def main():
             if selection == "Q" or selection == "q":
                 print("Quitting...")
                 break
-
-    # Schedule task for twin patch
-    asyncio.create_task(twin_patch_listener(device_client))
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()

@@ -18,23 +18,26 @@ async def main():
     # connect the client.
     await module_client.connect()
 
-    # define behavior for receiving an input message on input1
-    async def input1_listener(module_client):
-        while True:
-            input_message = await module_client.receive_message_on_input("input1")  # blocking call
-            print("the data in the message received on input1 was ")
-            print(input_message.data)
+    # Define behavior for receiving an input message on input1
+    # NOTE: this could be a coroutine or a function
+    def message_handler(message):
+        if message.input_name == "input1":
+            print("Message received on INPUT 1")
+            print("the data in the message received was ")
+            print(message.data)
             print("custom properties are")
-            print(input_message.custom_properties)
+            print(message.custom_properties)
+        elif message.input_name == "input2":
+            print("Message received on INPUT 2")
+            print("the data in the message received was ")
+            print(message.data)
+            print("custom properties are")
+            print(message.custom_properties)
+        else:
+            print("message received on unknown input")
 
-    # define behavior for receiving an input message on input2
-    async def input2_listener(module_client):
-        while True:
-            input_message = await module_client.receive_message_on_input("input2")  # blocking call
-            print("the data in the message received on input2 was ")
-            print(input_message.data)
-            print("custom properties are")
-            print(input_message.custom_properties)
+    # set the message handler on the client
+    module_client.on_message_received = message_handler
 
     # define behavior for halting the application
     def stdin_listener():
@@ -44,18 +47,12 @@ async def main():
                 print("Quitting...")
                 break
 
-    # Schedule task for listeners
-    listeners = asyncio.gather(input1_listener(module_client), input2_listener(module_client))
-
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
     user_finished = loop.run_in_executor(None, stdin_listener)
 
     # Wait for user to indicate they are done listening for messages
     await user_finished
-
-    # Cancel listening
-    listeners.cancel()
 
     # Finally, disconnect
     await module_client.disconnect()
