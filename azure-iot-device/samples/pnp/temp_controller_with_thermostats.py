@@ -261,7 +261,7 @@ async def provision_device(provisioning_host, id_scope, registration_id, symmetr
 
 
 async def main():
-    switch = "connectionString"  # os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
+    switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
     if switch == "DPS":
         provisioning_host = (
             os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
@@ -292,7 +292,7 @@ async def main():
             )
 
     elif switch == "connectionString":
-        conn_str = "HostName=hubforsdkfolks.azure-devices.net;DeviceId=olkarcomplexpython;SharedAccessKey=hu6tu1oZeJaV+/AQmmLnc0ngTROkXZljAhkpcAIibxM="  # os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+        conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
             conn_str, product_info=model_id
