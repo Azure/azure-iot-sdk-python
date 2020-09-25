@@ -11,9 +11,9 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device import Message, MethodResponse
-from datetime import date, timedelta, datetime
-import pnp_helper_preview_refresh
+from azure.iot.device import MethodResponse
+from datetime import timedelta, datetime
+import pnp_helper
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -150,7 +150,7 @@ def create_max_min_report_response(thermostat_name):
 
 
 async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
-    msg = pnp_helper_preview_refresh.create_telemetry(telemetry_msg, component_name)
+    msg = pnp_helper.create_telemetry(telemetry_msg, component_name)
     await device_client.send_message(msg)
     print("Sent message")
     print(msg)
@@ -200,10 +200,7 @@ async def execute_command_listener(
         else:
             print("No handler provided to execute")
 
-        (
-            response_status,
-            response_payload,
-        ) = pnp_helper_preview_refresh.create_response_payload_with_status(
+        (response_status, response_payload) = pnp_helper.create_response_payload_with_status(
             command_request, method_name, create_user_response=create_user_response_handler
         )
 
@@ -225,7 +222,7 @@ async def execute_property_listener(device_client):
     while True:
         patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
         print(patch)
-        properties_dict = pnp_helper_preview_refresh.create_reported_properties_from_desired(patch)
+        properties_dict = pnp_helper.create_reported_properties_from_desired(patch)
 
         await device_client.patch_twin_reported_properties(properties_dict)
 
@@ -264,7 +261,7 @@ async def provision_device(provisioning_host, id_scope, registration_id, symmetr
 
 
 async def main():
-    switch = os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
+    switch = "connectionString"  # os.getenv("IOTHUB_DEVICE_SECURITY_TYPE")
     if switch == "DPS":
         provisioning_host = (
             os.getenv("IOTHUB_DEVICE_DPS_ENDPOINT")
@@ -295,7 +292,7 @@ async def main():
             )
 
     elif switch == "connectionString":
-        conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+        conn_str = "HostName=hubforsdkfolks.azure-devices.net;DeviceId=olkarcomplexpython;SharedAccessKey=hu6tu1oZeJaV+/AQmmLnc0ngTROkXZljAhkpcAIibxM="  # os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
             conn_str, product_info=model_id
@@ -311,16 +308,14 @@ async def main():
     ################################################
     # Update readable properties from various components
 
-    properties_root = pnp_helper_preview_refresh.create_reported_properties(
-        serialNumber=serial_number
-    )
-    properties_thermostat1 = pnp_helper_preview_refresh.create_reported_properties(
+    properties_root = pnp_helper.create_reported_properties(serialNumber=serial_number)
+    properties_thermostat1 = pnp_helper.create_reported_properties(
         thermostat_1_component_name, maxTempSinceLastReboot=98.34
     )
-    properties_thermostat2 = pnp_helper_preview_refresh.create_reported_properties(
+    properties_thermostat2 = pnp_helper.create_reported_properties(
         thermostat_2_component_name, maxTempSinceLastReboot=48.92
     )
-    properties_device_info = pnp_helper_preview_refresh.create_reported_properties(
+    properties_device_info = pnp_helper.create_reported_properties(
         device_information_component_name,
         swVersion="5.5",
         manufacturer="Contoso Device Corporation",
