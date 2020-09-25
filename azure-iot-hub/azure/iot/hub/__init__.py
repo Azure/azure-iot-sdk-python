@@ -8,7 +8,7 @@ from .iothub_configuration_manager import IoTHubConfigurationManager
 from .iothub_job_manager import IoTHubJobManager
 from .iothub_http_runtime_manager import IoTHubHttpRuntimeManager
 from .iothub_amqp_client import IoTHubAmqpClient
-from .iothub_digitaltwin_manager import IoTHubDigitalTwinManager
+from .digital_twin_client import DigitalTwinClient
 
 __all__ = [
     "IoTHubRegistryManager",
@@ -16,5 +16,5 @@ __all__ = [
     "IoTHubJobManager",
     "IoTHubHttpRuntimeManager",
     "IoTHubAmqpClient",
-    "IoTHubDigitalTwinManager",
+    "DigitalTwinClient",
 ]
