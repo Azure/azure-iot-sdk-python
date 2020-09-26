@@ -8,12 +8,12 @@ from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as 
 
 
 class DigitalTwinClient(object):
-    """A class to provide convenience APIs for IoTHub DigitalTwin Manager operations,
+    """A class to provide convenience APIs for DigitalTwin operations,
     based on top of the auto generated IotHub REST APIs
     """
 
     def __init__(self, connection_string):
-        """Initializer for a DigitalTwin Manager Service client.
+        """Initializer for a DigitalTwinClient.
 
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
