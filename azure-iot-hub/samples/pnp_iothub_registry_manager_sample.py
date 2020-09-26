@@ -35,7 +35,7 @@ try:
     print("")
     print(twin)
     print("")
-    
+
     # Print the device's model ID
     additional_props = twin.additional_properties
     if "modelId" in additional_props:
@@ -43,17 +43,18 @@ try:
         print(additional_props["modelId"])
         print("")
 
-
     # Update twin
     twin_patch = Twin()
-    twin_patch.properties = TwinProperties(desired={"targetTemperature": 42}) # this is relevant for the thermostat device sample
+    twin_patch.properties = TwinProperties(
+        desired={"targetTemperature": 42}
+    )  # this is relevant for the thermostat device sample
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
     print("The twin patch has been successfully applied")
     print("")
 
     # invoke device method
-    deviceMethod = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
-    iothub_registry_manager.invoke_device_method(device_id, deviceMethod)
+    device_method = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
+    iothub_registry_manager.invoke_device_method(device_id, device_method)
     print("The device method has been successfully invoked")
     print("")
 
