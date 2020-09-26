@@ -84,7 +84,6 @@ def create_max_min_report_response(values):
         "endTime": datetime.now().isoformat(),
     }
     # serialize response dictionary into a JSON formatted str
-    # TODO: For python team, this seems optional? Because for reboot response, the response being a dictionary seems to work fine.
     response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
     print(response_payload)
     return response_payload
