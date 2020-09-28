@@ -76,7 +76,7 @@ try:
     twin = iothub_registry_manager.get_twin(device_id)
     print(twin)
     print("")
-    
+
     additional_props = twin.additional_properties
     if "modelId" in additional_props:
         print("Model id for digital twin is")
