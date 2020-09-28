@@ -7,7 +7,7 @@
 import sys
 import os
 import msrest
-from azure.iot.hub import IoTHubDigitalTwinManager 
+from azure.iot.hub import DigitalTwinClient
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -22,11 +22,11 @@ connect_timeout_in_seconds = 3
 response_timeout_in_seconds = 7  # Must be within 5-300
 
 try:
-    # Create IoTHubDigitalTwinManager
-    iothub_digital_twin_manager = IoTHubDigitalTwinManager(iothub_connection_str)
+    # Create DigitalTwinClient
+    digital_twin_client = DigitalTwinClient(iothub_connection_str)
 
     # Invoke component command
-    invoke_component_command_result = iothub_digital_twin_manager.invoke_component_command(
+    invoke_component_command_result = digital_twin_client.invoke_component_command(
         device_id,
         component_name,
         command_name,

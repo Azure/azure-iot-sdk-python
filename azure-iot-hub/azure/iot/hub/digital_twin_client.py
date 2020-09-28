@@ -7,13 +7,13 @@ from .auth import ConnectionStringAuthentication
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 
 
-class IoTHubDigitalTwinManager(object):
-    """A class to provide convenience APIs for IoTHub DigitalTwin Manager operations,
+class DigitalTwinClient(object):
+    """A class to provide convenience APIs for DigitalTwin operations,
     based on top of the auto generated IotHub REST APIs
     """
 
     def __init__(self, connection_string):
-        """Initializer for a DigitalTwin Manager Service client.
+        """Initializer for a DigitalTwinClient.
 
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
@@ -21,8 +21,8 @@ class IoTHubDigitalTwinManager(object):
         :param str connection_string: The IoTHub connection string used to authenticate connection
             with IoTHub.
 
-        :returns: Instance of the IoTHubDigitalTwinManager object.
-        :rtype: :class:`azure.iot.hub.IoTHubDigitalTwinManager`
+        :returns: Instance of the DigitalTwinClient object.
+        :rtype: :class:`azure.iot.hub.DigitalTwinClient`
         """
         self.auth = ConnectionStringAuthentication(connection_string)
         self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
