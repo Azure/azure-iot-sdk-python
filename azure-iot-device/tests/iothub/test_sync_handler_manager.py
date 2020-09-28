@@ -278,6 +278,7 @@ class SharedHandlerPropertyTests(object):
         # Set the handler
         setattr(handler_manager, handler_name, mock_handler)
         # The handler has not yet been called for everything that was in the inbox
+        # (but it has started the process)
         assert not inbox.empty()
         # NOTE: I'd really like to show that the handler call count is also > 0 here, but
         # unfortunately there are timing differences between Python 2 and Python 3 that
@@ -287,7 +288,7 @@ class SharedHandlerPropertyTests(object):
         # Immediately remove the handler
         setattr(handler_manager, handler_name, None)
         # Wait to give a chance for the handler runner to finish calling everything
-        time.sleep(0.5)
+        time.sleep(1)
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
         assert inbox.empty()
