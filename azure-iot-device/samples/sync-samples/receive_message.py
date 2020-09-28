@@ -20,19 +20,15 @@ device_client.connect()
 
 
 # define behavior for receiving a message
-def message_listener(device_client):
-    while True:
-        message = device_client.receive_message()  # blocking call
-        print("the data in the message received was ")
-        print(message.data)
-        print("custom properties are")
-        print(message.custom_properties)
+def message_handler(message):
+    print("the data in the message received was ")
+    print(message.data)
+    print("custom properties are")
+    print(message.custom_properties)
 
 
-# Run a listener thread in the background
-listen_thread = threading.Thread(target=message_listener, args=(device_client,))
-listen_thread.daemon = True
-listen_thread.start()
+# set the message handler on the client
+device_client.on_message_received = message_handler
 
 
 # Wait for user to indicate they are done listening for messages

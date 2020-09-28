@@ -171,7 +171,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
         inbox = self._get_inbox_for_handler(handler_name)
         inbox._put(HandlerRunnerKillerSentinel())
         # Wait for Handler Runner to end due to the sentinel
+        logger.debug("Waiting for {} handler runner to exit...".format(handler_name))
         future = self._handler_runners[handler_name]
         future.result()
         # Stop tracking the task since it is now complete
         self._handler_runners[handler_name] = None
+        logger.debug("Handler runner for {} has been stopped".format(handler_name))

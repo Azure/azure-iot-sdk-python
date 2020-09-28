@@ -29,6 +29,8 @@ from ..shared_client_tests import (
     SharedIoTHubClientInstantiationTests,
     SharedIoTHubClientPROPERTYHandlerTests,
     SharedIoTHubClientPROPERTYConnectedTests,
+    SharedIoTHubClientOCCURANCEConnectTests,
+    SharedIoTHubClientOCCURANCEDisconnectTests,
     SharedIoTHubClientCreateFromConnectionStringTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromX509CertificateTests,
@@ -143,24 +145,51 @@ class SharedClientConnectTests(object):
 
 
 class SharedClientDisconnectTests(object):
-    @pytest.mark.it("Begins a 'disconnect' pipeline operation")
-    async def test_calls_pipeline_disconnect(self, client, mqtt_pipeline):
+    @pytest.mark.it(
+        "Runs a 'disconnect' pipeline operation, stops the handler manager, then runs a second 'disconnect' pipeline operation"
+    )
+    async def test_calls_pipeline_disconnect(self, mocker, client, mqtt_pipeline):
+        manager_mock = mocker.MagicMock()
+        client._handler_manager = mocker.MagicMock()
+        manager_mock.attach_mock(mqtt_pipeline.disconnect, "disconnect")
+        manager_mock.attach_mock(client._handler_manager.stop, "stop")
+
         await client.disconnect()
-        assert mqtt_pipeline.disconnect.call_count == 1
+        assert mqtt_pipeline.disconnect.call_count == 2
+        assert client._handler_manager.stop.call_count == 1
+        assert manager_mock.mock_calls == [
+            mocker.call.disconnect(callback=mocker.ANY),
+            mocker.call.stop(),
+            mocker.call.disconnect(callback=mocker.ANY),
+        ]
 
     @pytest.mark.it(
-        "Waits for the completion of the 'disconnect' pipeline operation before returning"
+        "Waits for the completion of both 'disconnect' pipeline operations before returning"
     )
     async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
-        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
-        cb_mock.completion.return_value = await create_completed_future(None)
+        # Make a mock that returns two different objects (since there are two AwaitableCallbacks used)
+        cb_mock1 = mocker.MagicMock()
+        cb_mock2 = mocker.MagicMock()
+        cb_mock1.completion.return_value = await create_completed_future(None)
+        cb_mock2.completion.return_value = await create_completed_future(None)
+        cb_mock_init = mocker.patch.object(async_adapter, "AwaitableCallback")
+        cb_mock_init.side_effect = [cb_mock1, cb_mock2]
 
         await client.disconnect()
 
-        # Assert callback is sent to pipeline
-        assert mqtt_pipeline.disconnect.call_args[1]["callback"] is cb_mock
-        # Assert callback completion is waited upon
-        assert cb_mock.completion.call_count == 1
+        # Disconnect called twice
+        assert mqtt_pipeline.disconnect.call_count == 2
+        # Assert callbacks sent to pipeline
+        assert mqtt_pipeline.disconnect.call_args_list[0][1]["callback"] is cb_mock1
+        assert mqtt_pipeline.disconnect.call_args_list[1][1]["callback"] is cb_mock2
+        # Assert callback completions were waited upon
+        assert cb_mock1.completion.call_count == 1
+        assert cb_mock2.completion.call_count == 1
+
+        # Give the AwaitableCallback mock a standardized return value again, since
+        # .disconnect() will be called in cleanup
+        cb_mock_init.side_effect = None
+        cb_mock_init.return_value.completion.return_value = await create_completed_future(None)
 
     @pytest.mark.it(
         "Raises a client error if the `disconnect` pipeline operation calls back with a pipeline error"
@@ -184,21 +213,14 @@ class SharedClientDisconnectTests(object):
         def fail_disconnect(callback):
             callback(error=my_pipeline_error)
 
-        mqtt_pipeline.disconnect = mocker.MagicMock(side_effect=fail_disconnect)
+        mqtt_pipeline.disconnect.side_effect = fail_disconnect
         with pytest.raises(client_error) as e_info:
             await client.disconnect()
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.disconnect.call_count == 1
 
-
-class SharedClientDisconnectEventTests(object):
-    @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
-    async def test_state_change_handler_clears_method_request_inboxes_on_disconnect(
-        self, client, mocker
-    ):
-        clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
-        client._on_disconnected()
-        assert clear_method_request_spy.call_count == 1
+        # Unset the side effect, since disconnect is used to clean up fixtures.
+        mqtt_pipeline.disconnect.side_effect = None
 
 
 class SharedClientSendD2CMessageTests(object):
@@ -826,7 +848,14 @@ class IoTHubDeviceClientTestsConfig(object):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
@@ -884,13 +913,6 @@ class TestIoTHubDeviceClientConnect(IoTHubDeviceClientTestsConfig, SharedClientC
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .disconnect()")
 class TestIoTHubDeviceClientDisconnect(IoTHubDeviceClientTestsConfig, SharedClientDisconnectTests):
-    pass
-
-
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - OCCURANCE: Disconnect")
-class TestIoTHubDeviceClientDisconnectEvent(
-    IoTHubDeviceClientTestsConfig, SharedClientDisconnectEventTests
-):
     pass
 
 
@@ -1018,7 +1040,7 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) -.get_storage_info_for_blob()")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_storage_info_for_blob()")
 class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
     async def test_calls_pipeline_get_storage_info_for_blob(self, client, http_pipeline):
@@ -1211,6 +1233,20 @@ class TestIoTHubDeviceClientPROPERTYConnected(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - OCCURANCE: Connect")
+class TestIoTHubDeviceClientOCCURANCEConnect(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURANCEConnectTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - OCCURANCE: Disconnect")
+class TestIoTHubDeviceClientOCCURANCEDisconnect(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
+):
+    pass
+
+
 ################
 # MODULE TESTS #
 ################
@@ -1224,7 +1260,14 @@ class IoTHubModuleClientTestsConfig(object):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubModuleClient(mqtt_pipeline, http_pipeline)
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
@@ -1301,7 +1344,7 @@ class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClie
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURANCE: Disconnect")
 class TestIoTHubModuleClientDisconnectEvent(
-    IoTHubModuleClientTestsConfig, SharedClientDisconnectEventTests
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
 ):
     pass
 
@@ -1694,5 +1737,19 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 @pytest.mark.describe("IoTHubModule (Asynchronous) - PROPERTY .connected")
 class TestIoTHubModuleClientPROPERTYConnected(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYConnectedTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURANCE: Connect")
+class TestIoTHubModuleClientOCCURANCEConnect(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEConnectTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURANCE: Disconnect")
+class TestIoTHubModuleClientOCCURANCEDisconnect(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
 ):
     pass

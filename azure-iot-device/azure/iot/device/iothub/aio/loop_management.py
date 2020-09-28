@@ -13,7 +13,6 @@ from azure.iot.device.common import asyncio_compat
 logger = logging.getLogger(__name__)
 
 loops = {
-    # TODO: Try and store the user loop somehow
     "CLIENT_HANDLER_LOOP": None,
     "CLIENT_INTERNAL_LOOP": None,
     "CLIENT_HANDLER_RUNNER_LOOP": None,
@@ -22,14 +21,14 @@ loops = {
 
 def _cleanup():
     """Clear all running loops and end respective threads.
-    Does not clear the USER_LOOP.
     ONLY FOR TESTING USAGE
     By using this function, you can wipe all global loops.
     DO NOT USE THIS IN PRODUCTION CODE
     """
     for loop_name, loop in loops.items():
         if loop is not None:
-            loop.call_soon_threadsafe(loop.stop())
+            logger.debug("Stopping event loop - {}".format(loop_name))
+            loop.call_soon_threadsafe(loop.stop)
             # NOTE: Stopping the loop will also end the thread, because the only thing keeping
             # the thread alive was the loop running
             loops[loop_name] = None
@@ -63,6 +62,7 @@ def get_client_handler_runner_loop():
 
 def get_client_handler_loop():
     """Return the loop for invoking user-provided handlers on the client"""
+    # TODO: Try and store the user loop somehow
     if loops["CLIENT_HANDLER_LOOP"] is None:
         _make_new_loop("CLIENT_HANDLER_LOOP")
     return loops["CLIENT_HANDLER_LOOP"]
