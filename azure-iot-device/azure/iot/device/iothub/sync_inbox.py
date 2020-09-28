@@ -106,7 +106,8 @@ class SyncClientInbox(AbstractInbox):
     def empty(self):
         """Returns True if the inbox is empty, False otherwise.
 
-        Note that there is a race condition here, and this may not be accurate.
+        Note that there is a race condition here, and this may not be accurate. This is because
+        the .empty() operation on a janus queue is not threadsafe.
 
         :returns: Boolean indicating if the inbox is empty
         """
