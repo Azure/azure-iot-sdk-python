@@ -167,11 +167,12 @@ class MQTTTransport(object):
         # Configure TLS/SSL
         ssl_context = self._create_ssl_context()
         mqtt_client.tls_set_context(context=ssl_context)
+
         # Set event handlers.  Use weak references back into this object to prevent
         # leaks on Python 2.7.  See callable_weak_method.py and PEP 442 for explanation.
         #
         # We don't use the CallableWeakMethod object here because these handlers
-        # are not methods
+        # are not methods.
         self_weakref = weakref.ref(self)
 
         def on_connect(client, userdata, flags, rc):
@@ -347,13 +348,8 @@ class MQTTTransport(object):
                 self._x509_cert.pass_phrase,
             )
 
-        logger.error("cert is required and hostname checked")
         ssl_context.verify_mode = ssl.CERT_REQUIRED
         ssl_context.check_hostname = True
-
-        # logger.error("cert is NOT required and hostname is NOT checked")
-        # ssl_context.verify_mode = ssl.CERT_NONE
-        # ssl_context.check_hostname = False
 
         return ssl_context
 
