@@ -285,7 +285,7 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
     )
     def test_sastoken(self, mocker, client_class, connection_string):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         cs_obj = cs.ConnectionString(connection_string)
 
         custom_ttl = 1000
@@ -318,7 +318,7 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
     )
     def test_sastoken_default(self, mocker, client_class, connection_string):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         cs_obj = cs.ConnectionString(connection_string)
 
         client_class.create_from_connection_string(connection_string)
@@ -356,7 +356,7 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         cs_obj = cs.ConnectionString(connection_string)
 
         client_class.create_from_connection_string(connection_string)
@@ -423,7 +423,7 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
     def test_raises_value_error_on_sastoken_failure(self, mocker, client_class, connection_string):
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
         sastoken_mock.side_effect = token_err
 
@@ -580,7 +580,7 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
     )
     def test_sastoken(self, mocker, client_class):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         expected_uri = "{hostname}/devices/{device_id}".format(
             hostname=self.hostname, device_id=self.device_id
         )
@@ -608,7 +608,7 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
     )
     def test_sastoken_default(self, mocker, client_class):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         expected_uri = "{hostname}/devices/{device_id}".format(
             hostname=self.hostname, device_id=self.device_id
         )
@@ -633,7 +633,7 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
     def test_pipeline_config(
         self, mocker, client_class, mock_mqtt_pipeline_init, mock_http_pipeline_init
     ):
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
         client_class.create_from_symmetric_key(
             symmetric_key=self.symmetric_key, hostname=self.hostname, device_id=self.device_id
@@ -669,7 +669,7 @@ class SharedIoTHubDeviceClientCreateFromSymmetricKeyTests(
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
     def test_raises_value_error_on_sastoken_failure(self, mocker, client_class):
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
         sastoken_mock.side_effect = token_err
 
@@ -898,7 +898,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
     )
     def test_sastoken(self, mocker, client_class, mock_edge_hsm, edge_container_environment):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
         expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=edge_container_environment["IOTEDGE_IOTHUBHOSTNAME"],
@@ -931,7 +931,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         self, mocker, client_class, mock_edge_hsm, edge_container_environment
     ):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
         expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=edge_container_environment["IOTEDGE_IOTHUBHOSTNAME"],
@@ -969,7 +969,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
     ):
         hybrid_environment = merge_dicts(edge_container_environment, edge_local_debug_environment)
         mocker.patch.dict(os.environ, hybrid_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         mock_sksm = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
 
         client_class.create_from_edge_environment()
@@ -1000,7 +1000,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         mock_http_pipeline_init,
     ):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
         client_class.create_from_edge_environment()
 
@@ -1083,7 +1083,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests(
         self, mocker, client_class, edge_container_environment, mock_edge_hsm
     ):
         mocker.patch.dict(os.environ, edge_container_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
         sastoken_mock.side_effect = token_err
 
@@ -1111,7 +1111,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     def test_sastoken(self, mocker, client_class, mock_open, edge_local_debug_environment):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         cs_obj = cs.ConnectionString(edge_local_debug_environment["EdgeHubConnectionString"])
         expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=cs_obj[cs.HOST_NAME],
@@ -1138,7 +1138,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
     def test_sastoken_default(self, mocker, client_class, mock_open, edge_local_debug_environment):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         cs_obj = cs.ConnectionString(edge_local_debug_environment["EdgeHubConnectionString"])
         expected_uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
             hostname=cs_obj[cs.HOST_NAME],
@@ -1175,7 +1175,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         # even if edge local debug variables are present.
         hybrid_environment = merge_dicts(edge_container_environment, edge_local_debug_environment)
         mocker.patch.dict(os.environ, hybrid_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
 
         client_class.create_from_edge_environment()
@@ -1222,7 +1222,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         mock_http_pipeline_init,
     ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         mock_file_handle = mock_open.return_value.__enter__.return_value
         ca_cert_file_contents = "some cert"
         mock_file_handle.read.return_value = ca_cert_file_contents
@@ -1346,7 +1346,7 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
         self, mocker, client_class, edge_local_debug_environment, mock_open
     ):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
         sastoken_mock.side_effect = token_err
 
