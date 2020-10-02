@@ -10,7 +10,7 @@ import time
 import re
 import logging
 import six.moves.urllib as urllib
-from azure.iot.device.common.auth.sastoken import SasToken, SasTokenError
+from azure.iot.device.common.auth.sastoken import RenewableSasToken, SasTokenError
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -42,32 +42,34 @@ def signing_mechanism(mocker):
 def sastoken(request, signing_mechanism):
     token_type = request.param
     if token_type == "Device Token":
-        return SasToken(uri=fake_uri, signing_mechanism=signing_mechanism)
+        return RenewableSasToken(uri=fake_uri, signing_mechanism=signing_mechanism)
     elif token_type == "Service Token":
-        return SasToken(uri=fake_uri, signing_mechanism=signing_mechanism, key_name=fake_key_name)
+        return RenewableSasToken(
+            uri=fake_uri, signing_mechanism=signing_mechanism, key_name=fake_key_name
+        )
 
 
-@pytest.mark.describe("SasToken")
+@pytest.mark.describe("RenewableSasToken")
 class TestSasToken(object):
     @pytest.mark.it("Instantiates with a default TTL of 3600 seconds if no TTL is provided")
     def test_default_ttl(self, signing_mechanism):
-        s = SasToken(fake_uri, signing_mechanism)
+        s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s.ttl == 3600
 
     @pytest.mark.it("Instantiates with a custom TTL if provided")
     def test_custom_ttl(self, signing_mechanism):
         custom_ttl = 4747
-        s = SasToken(fake_uri, signing_mechanism, ttl=custom_ttl)
+        s = RenewableSasToken(fake_uri, signing_mechanism, ttl=custom_ttl)
         assert s.ttl == custom_ttl
 
     @pytest.mark.it("Instantiates with with no key name by default if no key name is provided")
     def test_default_key_name(self, signing_mechanism):
-        s = SasToken(fake_uri, signing_mechanism)
+        s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s._key_name is None
 
     @pytest.mark.it("Instantiates with the given key name if provided")
     def test_custom_key_name(self, signing_mechanism):
-        s = SasToken(fake_uri, signing_mechanism, key_name=fake_key_name)
+        s = RenewableSasToken(fake_uri, signing_mechanism, key_name=fake_key_name)
         assert s._key_name == fake_key_name
 
     @pytest.mark.it(
@@ -77,14 +79,14 @@ class TestSasToken(object):
         fake_current_time = 1000
         mocker.patch.object(time, "time", return_value=fake_current_time)
 
-        s = SasToken(fake_uri, signing_mechanism)
+        s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s.expiry_time == fake_current_time + s.ttl
 
     @pytest.mark.it("Calls .refresh() to build the SAS token string on instantiation")
     def test_refresh_on_instantiation(self, mocker, signing_mechanism):
-        refresh_mock = mocker.spy(SasToken, "refresh")
+        refresh_mock = mocker.spy(RenewableSasToken, "refresh")
         assert refresh_mock.call_count == 0
-        SasToken(fake_uri, signing_mechanism)
+        RenewableSasToken(fake_uri, signing_mechanism)
         assert refresh_mock.call_count == 1
 
     @pytest.mark.it("Returns the SAS token string as the string representation of the object")
@@ -99,7 +101,7 @@ class TestSasToken(object):
             sastoken.expiry_time = 12321312
 
 
-@pytest.mark.describe("SasToken - .refresh()")
+@pytest.mark.describe("RenewableSasToken - .refresh()")
 class TestSasTokenRefresh(object):
     @pytest.mark.it("Sets a new expiry time of TTL seconds in the future")
     def test_new_expiry(self, mocker, sastoken):

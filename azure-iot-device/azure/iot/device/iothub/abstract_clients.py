@@ -183,7 +183,7 @@ class AbstractIoTHubClient(object):
         )
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError("Could not create a SasToken using provided values")
             new_err.__cause__ = e
@@ -314,6 +314,34 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
+    def create_from_sastoken(cls, sastoken, hostname, device_id, **kwargs):
+        """Instantiate the client from a pre-created SAS Token
+        """
+        # Ensure no invalid kwargs were passed by the user
+        _validate_kwargs(**kwargs)
+
+        # Create SasToken object from string
+        try:
+            sastoken_o = st.NonRenewableSasToken(sastoken)
+        except st.SasTokenError as e:
+            new_err = ValueError("Invalid SasToken provided")
+            new_err.__cause__ = e
+            raise new_err
+        # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=device_id, hostname=hostname, sastoken=sastoken_o, **config_kwargs
+        )
+        if cls.__name__ == "IoTHubDeviceClient":
+            pipeline_configuration.blob_upload = True
+
+        # Pipeline setup
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+
+        return cls(mqtt_pipeline, http_pipeline)
+
+    @classmethod
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
         """
         Instantiate a client using symmetric key authentication.
@@ -354,7 +382,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         signing_mechanism = auth.SymmetricKeySigningMechanism(key=symmetric_key)
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError("Could not create a SasToken using provided values")
             new_err.__cause__ = e
@@ -498,7 +526,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError(
                 "Could not create a SasToken using the values provided, or in the Edge environment"

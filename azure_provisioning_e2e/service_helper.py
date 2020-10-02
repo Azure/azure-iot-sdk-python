@@ -10,7 +10,7 @@ from azure_provisioning_e2e.iothubservice20180630.iot_hub_gateway_service_ap_is2
 
 from msrest.exceptions import HttpOperationError
 from azure.iot.device.common.auth.connection_string import ConnectionString
-from azure.iot.device.common.auth.sastoken import SasToken
+from azure.iot.device.common.auth.sastoken import RenewableSasToken
 from azure.iot.device.common.auth.signing_mechanism import SymmetricKeySigningMechanism
 import uuid
 import time
@@ -28,7 +28,7 @@ def connection_string_to_sas_token(conn_str):
     """
     conn_str_obj = ConnectionString(conn_str)
     signing_mechanism = SymmetricKeySigningMechanism(conn_str_obj.get("SharedAccessKey"))
-    sas_token = SasToken(
+    sas_token = RenewableSasToken(
         uri=conn_str_obj.get("HostName"),
         signing_mechanism=signing_mechanism,
         key_name=conn_str_obj.get("SharedAccessKeyName"),

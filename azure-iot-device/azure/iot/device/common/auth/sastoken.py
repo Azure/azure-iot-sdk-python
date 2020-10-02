@@ -10,6 +10,7 @@ import hmac
 import hashlib
 import time
 import six.moves.urllib as urllib
+from azure.iot.device.common import version_compat
 from azure.iot.device.common.chainable_exception import ChainableException
 
 
@@ -19,7 +20,7 @@ class SasTokenError(ChainableException):
     pass
 
 
-class SasToken(object):
+class RenewableSasToken(object):
     """Shared Access Signature Token used to authenticate a request
 
     Data Attributes:
@@ -94,3 +95,38 @@ class SasToken(object):
     def expiry_time(self):
         """Expiry Time is READ ONLY"""
         return self._expiry_time
+
+
+class NonRenewableSasToken(object):
+    def __init__(self, sastoken_string):
+        self._token = sastoken_string
+        self._token_info = get_sastoken_info_from_string(self._token)
+
+    def __str__(self):
+        return self._token
+
+    @property
+    def expiry_time(self):
+        """Expiry Time is READ ONLY"""
+        return self._token_info["se"]
+
+
+REQUIRED_SASTOKEN_FIELDS = ["sr", "sig", "se"]
+
+
+def get_sastoken_info_from_string(sastoken_string):
+    pieces = sastoken_string.split("SharedAccessSignature ")
+    if len(pieces) != 2:
+        raise SasTokenError("Invalid SasToken string: Not a SasToken ")
+
+    # Get sastoken info as dictionary
+    try:
+        sastoken_info = dict(map(str.strip, sub.split("=", 1)) for sub in pieces[1].split("&"))
+    except Exception as e:
+        raise SasTokenError("Invalid SasToken string: Incorrectly formatted", e)
+
+    # Validate that all required fields are present
+    if not all(key in sastoken_info for key in REQUIRED_SASTOKEN_FIELDS):
+        raise SasTokenError("Invalid SasToken string: Not all required fields present")
+
+    return sastoken_info
