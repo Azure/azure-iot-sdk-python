@@ -9,6 +9,7 @@ Azure IoTHub Device SDK for Python.
 
 import logging
 import asyncio
+import deprecation
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
@@ -80,16 +81,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
-    def _on_connected(self):
-        """Helper handler that is called upon an iothub pipeline connect"""
-        logger.info("Connection State - Connected")
-
-    def _on_disconnected(self):
-        """Helper handler that is called upon an iothub pipeline disconnect"""
-        logger.info("Connection State - Disconnected")
-        self._inbox_manager.clear_all_method_requests()
-        logger.info("Cleared all pending method requests due to disconnect")
-
     async def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature
 
@@ -157,15 +148,43 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     async def disconnect(self):
         """Disconnect the client from the Azure IoT Hub or Azure IoT Edge Hub instance.
 
+        It is recommended that you make sure to call this coroutine when you are completely done
+        with the your client instance.
+
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
         logger.info("Disconnecting from Hub...")
-        disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
 
+        logger.debug("Executing initial disconnect")
+        disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
         callback = async_adapter.AwaitableCallback()
         await disconnect_async(callback=callback)
         await handle_result(callback)
+        logger.debug("Successfully executed initial disconnect")
+
+        # Note that in the process of stopping the handlers and resolving pending calls
+        # a user-supplied handler may cause a reconnection to occur
+        logger.debug("Stopping handlers...")
+        self._handler_manager.stop()
+        logger.debug("Successfully stopped handlers")
+
+        # Disconnect again to ensure disconnection has ocurred due to the issue mentioned above
+        logger.debug("Executing secondary disconnect...")
+        disconnect_async = async_adapter.emulate_async(self._mqtt_pipeline.disconnect)
+        callback = async_adapter.AwaitableCallback()
+        await disconnect_async(callback=callback)
+        await handle_result(callback)
+        logger.debug("Successfully executed secondary disconnect")
+
+        # It's also possible that in the (very short) time between stopping the handlers and
+        # the second disconnect, additional items were received (e.g. C2D Message)
+        # Currently, this isn't really possible to accurately check due to a race condition.
+        # It has always been true of this client, even before handlers.
+        # TODO: fix the race condition
+        # However, even if the race condition is addressed, that will only allow us to log that
+        # messages were lost. To actually fix the problem, IoTHub needs to support MQTT5 so that
+        # we can unsubscribe from receiving data.
 
         logger.info("Successfully disconnected from Hub")
 
@@ -204,6 +223,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent message to Hub")
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_method_request_received property to set a handler instead",
+    )
     async def receive_method_request(self, method_name=None):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
@@ -322,6 +346,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent twin patch")
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_twin_desired_properties_patch_received property to set a handler instead",
+    )
     async def receive_twin_desired_properties_patch(self):
         """
         Receive a desired property patch via the Azure IoT Hub or Azure IoT Edge Hub.
@@ -341,48 +370,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         patch = await twin_patch_inbox.get()
         logger.info("twin patch received")
         return patch
-
-    async def get_storage_info_for_blob(self, blob_name):
-        """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
-
-        :param str blob_name: The name in string format of the blob that will be uploaded using the storage API. This name will be used to generate the proper credentials for Storage, and needs to match what will be used with the Azure Storage SDK to perform the blob upload.
-
-        :returns: A JSON-like (dictionary) object from IoT Hub that will contain relevant information including: correlationId, hostName, containerName, blobName, sasToken.
-        """
-        get_storage_info_for_blob_async = async_adapter.emulate_async(
-            self._http_pipeline.get_storage_info_for_blob
-        )
-
-        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
-        await get_storage_info_for_blob_async(blob_name=blob_name, callback=callback)
-        storage_info = await handle_result(callback)
-        logger.info("Successfully retrieved storage_info")
-        return storage_info
-
-    async def notify_blob_upload_status(
-        self, correlation_id, is_success, status_code, status_description
-    ):
-        """When the upload is complete, the device sends a POST request to the IoT Hub endpoint with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients.
-
-        :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
-        :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
-        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
-        :param str status_description: A description that corresponds to the status_code.
-        """
-        notify_blob_upload_status_async = async_adapter.emulate_async(
-            self._http_pipeline.notify_blob_upload_status
-        )
-
-        callback = async_adapter.AwaitableCallback()
-        await notify_blob_upload_status_async(
-            correlation_id=correlation_id,
-            is_success=is_success,
-            status_code=status_code,
-            status_description=status_description,
-            callback=callback,
-        )
-        await handle_result(callback)
-        logger.info("Successfully notified blob upload status")
 
     def _generic_handler_setter(self, handler_name, feature_name, new_handler):
         self._check_receive_mode_is_handler()
@@ -453,6 +440,11 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_message_received property to set a handler instead",
+    )
     async def receive_message(self):
         """Receive a message that has been sent from the Azure IoT Hub.
 
@@ -471,6 +463,48 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         message = await c2d_inbox.get()
         logger.info("Message received")
         return message
+
+    async def get_storage_info_for_blob(self, blob_name):
+        """Sends a POST request over HTTP to an IoTHub endpoint that will return information for uploading via the Azure Storage Account linked to the IoTHub your device is connected to.
+
+        :param str blob_name: The name in string format of the blob that will be uploaded using the storage API. This name will be used to generate the proper credentials for Storage, and needs to match what will be used with the Azure Storage SDK to perform the blob upload.
+
+        :returns: A JSON-like (dictionary) object from IoT Hub that will contain relevant information including: correlationId, hostName, containerName, blobName, sasToken.
+        """
+        get_storage_info_for_blob_async = async_adapter.emulate_async(
+            self._http_pipeline.get_storage_info_for_blob
+        )
+
+        callback = async_adapter.AwaitableCallback(return_arg_name="storage_info")
+        await get_storage_info_for_blob_async(blob_name=blob_name, callback=callback)
+        storage_info = await handle_result(callback)
+        logger.info("Successfully retrieved storage_info")
+        return storage_info
+
+    async def notify_blob_upload_status(
+        self, correlation_id, is_success, status_code, status_description
+    ):
+        """When the upload is complete, the device sends a POST request to the IoT Hub endpoint with information on the status of an upload to blob attempt. This is used by IoT Hub to notify listening clients.
+
+        :param str correlation_id: Provided by IoT Hub on get_storage_info_for_blob request.
+        :param bool is_success: A boolean that indicates whether the file was uploaded successfully.
+        :param int status_code: A numeric status code that is the status for the upload of the fiel to storage.
+        :param str status_description: A description that corresponds to the status_code.
+        """
+        notify_blob_upload_status_async = async_adapter.emulate_async(
+            self._http_pipeline.notify_blob_upload_status
+        )
+
+        callback = async_adapter.AwaitableCallback()
+        await notify_blob_upload_status_async(
+            correlation_id=correlation_id,
+            is_success=is_success,
+            status_code=status_code,
+            status_description=status_description,
+            callback=callback,
+        )
+        await handle_result(callback)
+        logger.info("Successfully notified blob upload status")
 
     @property
     def on_message_received(self):
@@ -545,6 +579,11 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
         logger.info("Successfully sent message to output: " + output_name)
 
+    @deprecation.deprecated(
+        deprecated_in="2.3.0",
+        current_version=device_constant.VERSION,
+        details="We recommend that you use the .on_message_received property to set a handler instead",
+    )
     async def receive_message_on_input(self, input_name):
         """Receive an input message that has been sent from another Module to a specific input.
 

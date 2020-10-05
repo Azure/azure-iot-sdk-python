@@ -14,34 +14,27 @@ module_client = IoTHubModuleClient.create_from_edge_environment()
 module_client.connect()
 
 
-# define behavior for receiving an input message on input1
-def input1_listener(module_client):
-    while True:
-        input_message = module_client.receive_message_on_input("input1")  # blocking call
-        print("the data in the message received on input1 was ")
-        print(input_message.data)
+# define behavior for receiving a message on inputs 1 and 2
+def message_handler(message):
+    if message.input_name == "input1":
+        print("Message received on INPUT 1")
+        print("the data in the message received was ")
+        print(message.data)
         print("custom properties are")
-        print(input_message.custom_properties)
-
-
-# define behavior for receiving an input message on input2
-def input2_listener(module_client):
-    while True:
-        input_message = module_client.receive_message_on_input("input2")  # blocking call
-        print("the data in the message received on input2 was ")
-        print(input_message.data)
+        print(message.custom_properties)
+    elif message.input_name == "input2":
+        print("Message received on INPUT 2")
+        print("the data in the message received was ")
+        print(message.data)
         print("custom properties are")
-        print(input_message.custom_properties)
+        print(message.custom_properties)
+    else:
+        print("message received on unknown input")
 
 
-# Run listener threads in the background
-listen_thread = threading.Thread(target=input1_listener, args=(module_client,))
-listen_thread.daemon = True
-listen_thread.start()
+# set the message handler on the client
+module_client.on_message_received = message_handler
 
-listen_thread = threading.Thread(target=input2_listener, args=(module_client,))
-listen_thread.daemon = True
-listen_thread.start()
 
 while True:
     selection = input("Press Q to quit\n")

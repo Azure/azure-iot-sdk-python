@@ -17,16 +17,12 @@ device_client.connect()
 
 
 # define behavior for receiving a twin patch
-def twin_patch_listener(device_client):
-    while True:
-        patch = device_client.receive_twin_desired_properties_patch()  # blocking call
-        print("the data in the desired properties patch was: {}".format(patch))
+def twin_patch_handler(patch):
+    print("the data in the desired properties patch was: {}".format(patch))
 
 
-# Run a listener thread in the background
-listen_thread = threading.Thread(target=twin_patch_listener, args=(device_client,))
-listen_thread.daemon = True
-listen_thread.start()
+# set the twin patch handler on the client
+device_client.on_twin_desired_properties_patch_received = twin_patch_handler
 
 
 # Wait for user to indicate they are done listening for messages

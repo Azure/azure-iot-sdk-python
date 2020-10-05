@@ -10,7 +10,7 @@ from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = os.getenv("IOTHUB_NEW_DEVICE_ID")
+device_id = os.getenv("IOTHUB_DEVICE_ID")
 
 
 def print_device_info(title, iothub_device):
@@ -77,6 +77,11 @@ try:
     print(twin)
     print("")
 
+    additional_props = twin.additional_properties
+    if "modelId" in additional_props:
+        print("Model id for digital twin is")
+        print("ModelId:" + additional_props["modelId"])
+
     # # Replace twin
     new_twin = Twin()
     new_twin = twin
@@ -93,7 +98,7 @@ try:
     twin_patch.properties = TwinProperties(desired={"telemetryInterval": 3000})
     updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
     print(updated_twin)
-    print("")
+    print("The twin patch has been successfully applied")
 
     # Get devices
     max_number_of_devices = 10
