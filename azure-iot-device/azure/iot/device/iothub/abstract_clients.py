@@ -156,7 +156,7 @@ class AbstractIoTHubClient(object):
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
-        :param int keepalive: Maximum period in seconds between communications with the
+        :param int keep_alive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
         If not provided default value of 60 secs will be used.
@@ -287,7 +287,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
-        :param int keepalive: Maximum period in seconds between communications with the
+        :param int keep_alive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
         If not provided default value of 60 secs will be used.
@@ -337,7 +337,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
-        :param int keepalive: Maximum period in seconds between communications with the
+        :param int keep_alive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
         If not provided default value of 60 secs will be used.
@@ -409,7 +409,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
-        :param int keepalive: Maximum period in seconds between communications with the
+        :param int keep_alive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
         If not provided default value of 60 secs will be used.
@@ -554,7 +554,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             arbitrary product info which is appended to the user agent string.
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
-        :param int keepalive: Maximum period in seconds between communications with the
+        :param int keep_alive: Maximum period in seconds between communications with the
         broker. If no other messages are being exchanged, this controls the
         rate at which the client will send ping messages to the broker.
         If not provided default value of 60 secs will be used.
