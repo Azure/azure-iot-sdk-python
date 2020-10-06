@@ -36,7 +36,8 @@ all_handlers = [s.lstrip("_") for s in all_internal_handlers]
 
 class ThreadsafeMock(object):
     """ This class provides (some) Mock functionality in a threadsafe manner, specifically, it
-    ensures that the 'call_count' attribute will be accurate.
+    ensures that the 'call_count' attribute will be accurate when the mock is called from another
+    thread.
 
     It does not cover ALL mock functionality, but more features could be added to it as necessary
     """
@@ -118,7 +119,7 @@ class TestStop(object):
         assert mock_msg_handler.call_count < 150
         assert mock_mth_handler.call_count < 150
         hm.stop()
-        time.sleep(0.5)
+        time.sleep(0.1)
         assert mock_msg_handler.call_count == 150
         assert mock_mth_handler.call_count == 150
         assert msg_inbox.empty()
@@ -258,7 +259,7 @@ class SharedHandlerPropertyTests(object):
         # Add an item to corresponding inbox, triggering the handler
         mock_obj = mocker.MagicMock()
         inbox._put(mock_obj)
-        time.sleep(0.2)
+        time.sleep(0.1)
 
         # Handler has been called with the item from the inbox
         assert mock_handler.call_count == 1
@@ -277,7 +278,7 @@ class SharedHandlerPropertyTests(object):
         # Add 5 items to the corresponding inbox, triggering the handler
         for _ in range(5):
             inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
 
         # Handler has been called 5 times
         assert mock_handler.call_count == 5
@@ -308,7 +309,7 @@ class SharedHandlerPropertyTests(object):
         # Immediately remove the handler
         setattr(handler_manager, handler_name, None)
         # Wait to give a chance for the handler runner to finish calling everything
-        time.sleep(0.5)
+        time.sleep(0.1)
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
         assert mock_handler.call_count == 100
@@ -318,7 +319,7 @@ class SharedHandlerPropertyTests(object):
         for _ in range(100):
             inbox._put(mocker.MagicMock())
         # Wait to give a chance for the handler to be called (it won't)
-        time.sleep(0.5)
+        time.sleep(0.1)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert mock_handler.call_count == 100
@@ -341,7 +342,7 @@ class SharedHandlerPropertyTests(object):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
         # Handler has now been called
         assert mock_handler.call_count == 1
         # Background exception handler was called
@@ -361,13 +362,13 @@ class SharedHandlerPropertyTests(object):
         setattr(handler_manager, handler_name, handler)
 
         inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
         # Handler has been replaced with a mock, but the mock has not been invoked
         assert getattr(handler_manager, handler_name) is not handler
         assert getattr(handler_manager, handler_name).call_count == 0
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
