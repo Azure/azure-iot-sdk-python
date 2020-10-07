@@ -25,10 +25,8 @@ logging.basicConfig(level=logging.DEBUG)
 # shared behavior, or when shared features are added.
 
 # NOTE ON TIMING/DELAY
-# The tests in this module are VERY finnicky. As many of them involve testing operations running
-# in background threads, we often have to use waits and strategically choose how many items to
-# make them handle in a test, so that the test does not flake. Change numeric constants and
-# sleep/wait delays at your own risk.
+# Several tests in this module have sleeps/delays in their implementation due to needing to wait
+# for things to happen in other threads.
 
 all_internal_handlers = [MESSAGE, METHOD, TWIN_DP_PATCH]
 all_handlers = [s.lstrip("_") for s in all_internal_handlers]
