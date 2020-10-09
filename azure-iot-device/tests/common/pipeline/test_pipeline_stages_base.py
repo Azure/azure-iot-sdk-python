@@ -14,6 +14,7 @@ import random
 import uuid
 from six.moves import queue
 from azure.iot.device.common import transport_exceptions, handle_exceptions
+from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_ops_base,
@@ -28,6 +29,11 @@ from tests.common.pipeline import pipeline_stage_test
 this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
+
+
+fake_signed_data = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
+fake_uri = "some/resource/location"
+fake_expiry = 12321312
 
 
 ###################
@@ -234,15 +240,21 @@ class SasTokenRenewalStageTestConfig(object):
         return {}
 
     @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
+    def sastoken(self, mocker):
+        # For most tests, a real sastoken with mocked refresh method is required
+        mock_signing_mechanism = mocker.MagicMock()
+        mock_signing_mechanism.sign.return_value = fake_signed_data
+        sastoken = st.RenewableSasToken(uri=fake_uri, signing_mechanism=mock_signing_mechanism)
+        sastoken.refresh = mocker.MagicMock()
+        return sastoken
+
+    @pytest.fixture
+    def stage(self, mocker, cls_type, sastoken, init_kwargs):
         stage = cls_type(**init_kwargs)
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
         )
-        # Add mock SasToken
-        mock_sastoken = mocker.MagicMock()
-        mock_sastoken.ttl = 10000
-        stage.pipeline_root.pipeline_configuration.sastoken = mock_sastoken
+        stage.pipeline_root.pipeline_configuration.sastoken = sastoken
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
@@ -273,7 +285,7 @@ pipeline_stage_test.add_base_pipeline_stage_tests(
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - .run_op() -- Called with InitializePipelineOperation, on a pipeline configured with SAS authentication"
+    "SasTokenRenewalStage - .run_op() -- Called with InitializePipelineOperation, on a pipeline configured with Renewable SAS authentication"
 )
 class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
     SasTokenRenewalStageTestConfig, StageRunOpTestBase
@@ -350,7 +362,7 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - .run_op() -- Called with InitializePipelineOperation, on a pipeline NOT configured with SAS authentication"
+    "SasTokenRenewalStage - .run_op() -- Called with InitializePipelineOperation, on a pipeline NOT configured with Renewable SAS authentication"
 )
 class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
     SasTokenRenewalStageTestConfig, StageRunOpTestBase
@@ -359,19 +371,17 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
     def op(self, mocker):
         return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
 
-    # Override inherited fixture so that there is NO sastoken
-    @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
-        stage = cls_type(**init_kwargs)
-        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_configuration=mocker.MagicMock()
-        )
-        # No Sastoken
-        stage.pipeline_root.pipeline_configuration.sastoken = None
-        # Mock flow methods
-        stage.send_op_down = mocker.MagicMock()
-        stage.send_event_up = mocker.MagicMock()
-        return stage
+    @pytest.fixture(params=["NonRenewableSasToken", "No SAS Token Present"])
+    def sastoken(self, request):
+        # Alternate SAS tokens required for these test cases
+        if request.param == "NonRenewableSasToken":
+            token_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+                resource=fake_uri, signature=fake_signed_data, expiry=fake_expiry
+            )
+            sastoken = st.NonRenewableSasToken(token_str)
+        else:
+            sastoken = None
+        return sastoken
 
     @pytest.mark.it("Sends the operation down, WITHOUT setting a renewal timer")
     def test_sends_op_down_no_timer(self, mocker, stage, op):

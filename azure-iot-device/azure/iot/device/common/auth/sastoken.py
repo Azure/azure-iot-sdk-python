@@ -112,6 +112,7 @@ class NonRenewableSasToken(object):
 
 
 REQUIRED_SASTOKEN_FIELDS = ["sr", "sig", "se"]
+VALID_SASTOKEN_FIELDS = REQUIRED_SASTOKEN_FIELDS + ["skn"]
 
 
 def get_sastoken_info_from_string(sastoken_string):
@@ -128,5 +129,9 @@ def get_sastoken_info_from_string(sastoken_string):
     # Validate that all required fields are present
     if not all(key in sastoken_info for key in REQUIRED_SASTOKEN_FIELDS):
         raise SasTokenError("Invalid SasToken string: Not all required fields present")
+
+    # Validate that no unexpected fields are present
+    if not all(key in VALID_SASTOKEN_FIELDS for key in sastoken_info):
+        raise SasTokenError("Invalid SasToken string: Unexpected fields present")
 
     return sastoken_info
