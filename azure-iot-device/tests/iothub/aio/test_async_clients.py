@@ -32,8 +32,10 @@ from ..shared_client_tests import (
     SharedIoTHubClientOCCURANCEConnectTests,
     SharedIoTHubClientOCCURANCEDisconnectTests,
     SharedIoTHubClientCreateFromConnectionStringTests,
+    SharedIoTHubDeviceClientCreateFromSastokenTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromX509CertificateTests,
+    SharedIoTHubModuleClientCreateFromSastokenTests,
     SharedIoTHubModuleClientCreateFromX509CertificateTests,
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests,
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests,
@@ -892,6 +894,13 @@ class TestIoTHubDeviceClientCreateFromConnectionString(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .create_from_sastoken()")
+class TestIoTHubDeviceClientCreateFromSastoken(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubDeviceClientCreateFromSastokenTests
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .create_from_symmetric_key()")
 class TestConfigurationCreateIoTHubDeviceClientFromSymmetricKey(
     IoTHubDeviceClientTestsConfig, SharedIoTHubDeviceClientCreateFromSymmetricKeyTests
@@ -1301,6 +1310,13 @@ class TestIoTHubModuleClientInstantiation(
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_connection_string()")
 class TestIoTHubModuleClientCreateFromConnectionString(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientCreateFromConnectionStringTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_sastoken()")
+class TestIoTHubModuleClientCreateFromSastoken(
+    IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientCreateFromSastokenTests
 ):
     pass
 

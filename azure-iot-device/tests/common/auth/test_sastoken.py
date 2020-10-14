@@ -188,11 +188,13 @@ class TestNonRenewableSasToken(object):
         token_type = request.param
         if token_type == "Device Token":
             return simple_token_format.format(
-                resource=fake_uri, signature=fake_signed_data, expiry=fake_expiry
+                resource=urllib.parse.quote(fake_uri, safe=""),
+                signature=fake_signed_data,
+                expiry=fake_expiry,
             )
         elif token_type == "Service Token":
             return auth_rule_token_format.format(
-                resource=fake_uri,
+                resource=urllib.parse.quote(fake_uri, safe=""),
                 signature=fake_signed_data,
                 expiry=fake_expiry,
                 keyname=fake_key_name,
@@ -212,15 +214,15 @@ class TestNonRenewableSasToken(object):
         "invalid_token_str",
         [
             pytest.param(
-                "sr=some/resource/location&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
+                "sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
                 id="Incomplete token format",
             ),
             pytest.param(
-                "SharedERRORSignature sr=some/resource/location&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
+                "SharedERRORSignature sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
                 id="Invalid token format",
             ),
             pytest.param(
-                "SharedAccessignature sr=some/resource/locationsig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se12321312",
+                "SharedAccessignature sr=some%2Fresource%2Flocationsig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se12321312",
                 id="Token values incorectly formatted",
             ),
             pytest.param(
@@ -228,15 +230,15 @@ class TestNonRenewableSasToken(object):
                 id="Missing resource value",
             ),
             pytest.param(
-                "SharedAccessSignature sr=some/resource/location&se=12321312",
+                "SharedAccessSignature sr=some%2Fresource%2Flocation&se=12321312",
                 id="Missing signature value",
             ),
             pytest.param(
-                "SharedAccessSignature sr=some/resource/location&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=",
+                "SharedAccessSignature sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=",
                 id="Missing expiry value",
             ),
             pytest.param(
-                "SharedAccessSignature sr=some/resource/location&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312&foovalue=nonsense",
+                "SharedAccessSignature sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312&foovalue=nonsense",
                 id="Extraneous invalid value",
             ),
         ],
@@ -245,13 +247,18 @@ class TestNonRenewableSasToken(object):
         with pytest.raises(SasTokenError):
             NonRenewableSasToken(invalid_token_str)
 
+    @pytest.mark.it("Returns the SAS token string as the string representation of the object")
+    def test_str_rep(self, sastoken_str):
+        sastoken = NonRenewableSasToken(sastoken_str)
+        assert str(sastoken) == sastoken_str
+
     @pytest.mark.it(
-        "Instantiates with the .expiry_time attribute corresponding to the expiry time of the given SAS Token string"
+        "Instantiates with the .expiry_time attribute corresponding to the expiry time of the given SAS Token string (as an integer)"
     )
     def test_instantiates_expiry_time(self, sastoken_str):
         sastoken = NonRenewableSasToken(sastoken_str)
         expected_expiry_time = token_parser(sastoken_str)["se"]
-        assert sastoken.expiry_time == expected_expiry_time
+        assert sastoken.expiry_time == int(expected_expiry_time)
 
     @pytest.mark.it(
         "Maintains the .expiry_time attribute as a read-only property (raises AttributeError upon attempt)"
@@ -260,7 +267,19 @@ class TestNonRenewableSasToken(object):
         with pytest.raises(AttributeError):
             sastoken.expiry_time = 12312312312123
 
-    @pytest.mark.it("Returns the SAS token string as the string representation of the object")
-    def test_str_rep(self, sastoken_str):
+    @pytest.mark.it(
+        "Instantiates with the .resource_uri attribute corresponding to the URL decoded URI of the given SAS Token string"
+    )
+    def test_instantiates_resource_uri(self, sastoken_str):
         sastoken = NonRenewableSasToken(sastoken_str)
-        assert str(sastoken) == sastoken_str
+        resource_uri = token_parser(sastoken_str)["sr"]
+        assert resource_uri != sastoken.resource_uri
+        assert resource_uri == urllib.parse.quote(sastoken.resource_uri, safe="")
+        assert urllib.parse.unquote(resource_uri) == sastoken.resource_uri
+
+    @pytest.mark.it(
+        "Maintains the .resource_uri attribute as a read-only property (raises AttributeError upon attempt)"
+    )
+    def test_resource_uri_read_only(self, sastoken):
+        with pytest.raises(AttributeError):
+            sastoken.resource_uri = "new%2Ffake%2Furi"

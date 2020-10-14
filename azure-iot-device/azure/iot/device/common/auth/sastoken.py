@@ -108,7 +108,13 @@ class NonRenewableSasToken(object):
     @property
     def expiry_time(self):
         """Expiry Time is READ ONLY"""
-        return self._token_info["se"]
+        return int(self._token_info["se"])
+
+    @property
+    def resource_uri(self):
+        "Resource URI is READ ONLY"
+        uri = self._token_info["sr"]
+        return urllib.parse.unquote(uri)
 
 
 REQUIRED_SASTOKEN_FIELDS = ["sr", "sig", "se"]
