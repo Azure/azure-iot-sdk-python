@@ -7,6 +7,7 @@ import logging
 import pytest
 import threading
 import time
+import sys
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub.sync_handler_manager import SyncHandlerManager, HandlerManagerException
 from azure.iot.device.iothub.sync_handler_manager import MESSAGE, METHOD, TWIN_DP_PATCH
@@ -23,8 +24,29 @@ logging.basicConfig(level=logging.DEBUG)
 # This means we must be very careful to always change both test modules when a change is made to
 # shared behavior, or when shared features are added.
 
+# NOTE ON TIMING/DELAY
+# Several tests in this module have sleeps/delays in their implementation due to needing to wait
+# for things to happen in other threads.
+
 all_internal_handlers = [MESSAGE, METHOD, TWIN_DP_PATCH]
 all_handlers = [s.lstrip("_") for s in all_internal_handlers]
+
+
+class ThreadsafeMock(object):
+    """ This class provides (some) Mock functionality in a threadsafe manner, specifically, it
+    ensures that the 'call_count' attribute will be accurate when the mock is called from another
+    thread.
+
+    It does not cover ALL mock functionality, but more features could be added to it as necessary
+    """
+
+    def __init__(self):
+        self.call_count = 0
+        self.lock = threading.Lock()
+
+    def __call__(self, *args, **kwargs):
+        with self.lock:
+            self.call_count += 1
 
 
 @pytest.fixture
@@ -82,25 +104,24 @@ class TestStop(object):
         hm = SyncHandlerManager(inbox_manager)
 
         # NOTE: We use two handlers arbitrarily here to show this happens for all handler runners
-        mock_msg_handler = mocker.MagicMock()
-        mock_mth_handler = mocker.MagicMock()
+        mock_msg_handler = ThreadsafeMock()
+        mock_mth_handler = ThreadsafeMock()
         msg_inbox = inbox_manager.get_unified_message_inbox()
         mth_inbox = inbox_manager.get_method_request_inbox()
-        for _ in range(100):  # sufficiently many items so can't complete quickly
+        for _ in range(200):  # sufficiently many items so can't complete quickly
             msg_inbox._put(mocker.MagicMock())
             mth_inbox._put(mocker.MagicMock())
 
         hm.on_message_received = mock_msg_handler
         hm.on_method_request_received = mock_mth_handler
-        assert not msg_inbox.empty()
-        assert not mth_inbox.empty()
-        assert mock_msg_handler.call_count != 100
-        assert mock_mth_handler.call_count != 100
+        assert mock_msg_handler.call_count < 200
+        assert mock_mth_handler.call_count < 200
         hm.stop()
+        time.sleep(0.1)
+        assert mock_msg_handler.call_count == 200
+        assert mock_mth_handler.call_count == 200
         assert msg_inbox.empty()
         assert mth_inbox.empty()
-        assert mock_msg_handler.call_count == 100
-        assert mock_mth_handler.call_count == 100
 
 
 @pytest.mark.describe("SyncHandlerManager - .ensure_running()")
@@ -236,7 +257,7 @@ class SharedHandlerPropertyTests(object):
         # Add an item to corresponding inbox, triggering the handler
         mock_obj = mocker.MagicMock()
         inbox._put(mock_obj)
-        time.sleep(0.2)
+        time.sleep(0.1)
 
         # Handler has been called with the item from the inbox
         assert mock_handler.call_count == 1
@@ -247,7 +268,7 @@ class SharedHandlerPropertyTests(object):
     )
     def test_handler_invoked_multiple(self, mocker, handler_name, handler_manager, inbox):
         # Set the handler
-        mock_handler = mocker.MagicMock()
+        mock_handler = ThreadsafeMock()
         setattr(handler_manager, handler_name, mock_handler)
         # Handler has not been called
         assert mock_handler.call_count == 0
@@ -264,9 +285,10 @@ class SharedHandlerPropertyTests(object):
         "Is invoked for every item already in the corresponding Inbox at the moment of handler removal"
     )
     def test_handler_resolve_pending_items_before_handler_removal(
-        self, mocker, handler_name, handler_manager, handler, inbox
+        self, mocker, handler_name, handler_manager, inbox
     ):
-        mock_handler = mocker.MagicMock(wraps=handler)
+        # Use a threadsafe mock to ensure accurate counts
+        mock_handler = ThreadsafeMock()
         assert inbox.empty()
         # Queue up a bunch of items in the inbox
         for _ in range(100):
@@ -278,26 +300,24 @@ class SharedHandlerPropertyTests(object):
         # Set the handler
         setattr(handler_manager, handler_name, mock_handler)
         # The handler has not yet been called for everything that was in the inbox
-        assert not inbox.empty()
         # NOTE: I'd really like to show that the handler call count is also > 0 here, but
-        # unfortunately there are timing differences between Python 2 and Python 3 that
-        # result in an inability for me to write this test in a way that would work on both
-        # versions. So we'll just test that it's less than 100.
+        # it's pretty difficult to make the timing work
         assert mock_handler.call_count < 100
+
         # Immediately remove the handler
         setattr(handler_manager, handler_name, None)
         # Wait to give a chance for the handler runner to finish calling everything
-        time.sleep(0.5)
+        time.sleep(0.2)
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
-        assert inbox.empty()
         assert mock_handler.call_count == 100
+        assert inbox.empty()
 
         # Add some more items
         for _ in range(100):
             inbox._put(mocker.MagicMock())
         # Wait to give a chance for the handler to be called (it won't)
-        time.sleep(0.5)
+        time.sleep(0.2)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert mock_handler.call_count == 100
@@ -320,7 +340,7 @@ class SharedHandlerPropertyTests(object):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
         # Handler has now been called
         assert mock_handler.call_count == 1
         # Background exception handler was called
@@ -340,13 +360,13 @@ class SharedHandlerPropertyTests(object):
         setattr(handler_manager, handler_name, handler)
 
         inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
         # Handler has been replaced with a mock, but the mock has not been invoked
         assert getattr(handler_manager, handler_name) is not handler
         assert getattr(handler_manager, handler_name).call_count == 0
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
-        time.sleep(0.2)
+        time.sleep(0.1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
