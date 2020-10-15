@@ -35,10 +35,12 @@ from ..shared_client_tests import (
     SharedIoTHubDeviceClientCreateFromSastokenTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromX509CertificateTests,
+    SharedIoTHubDeviceClientUpdateSastokenTests,
     SharedIoTHubModuleClientCreateFromSastokenTests,
     SharedIoTHubModuleClientCreateFromX509CertificateTests,
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests,
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests,
+    SharedIoTHubModuleClientUpdateSastokenTests,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -915,6 +917,13 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .update_sastoken()")
+class TestIoTHubDeviceClientUpdateSasToken(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubDeviceClientUpdateSastokenTests
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .connect()")
 class TestIoTHubDeviceClientConnect(IoTHubDeviceClientTestsConfig, SharedClientConnectTests):
     pass
@@ -1344,6 +1353,13 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .create_from_x509_certificate()")
 class TestIoTHubModuleClientCreateFromX509Certificate(
     IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientCreateFromX509CertificateTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .update_sastoken()")
+class TestIoTHubModuleClientUpdateSasToken(
+    IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientUpdateSastokenTests
 ):
     pass
 

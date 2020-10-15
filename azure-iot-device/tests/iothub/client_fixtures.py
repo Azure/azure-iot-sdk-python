@@ -125,7 +125,9 @@ sas_token_skn_format = (
 def device_sas_token_string():
     uri = hostname + "/devices/" + device_id
     return sas_token_format.format(
-        uri=urllib.parse.quote(uri, safe=""), signature=signature, expiry=expiry
+        uri=urllib.parse.quote(uri, safe=""),
+        signature=urllib.parse.quote(signature, safe=""),
+        expiry=expiry,
     )
 
 
@@ -133,7 +135,9 @@ def device_sas_token_string():
 def module_sas_token_string():
     uri = hostname + "/devices/" + device_id + "/modules/" + module_id
     return sas_token_format.format(
-        uri=urllib.parse.quote(uri, safe=""), signature=signature, expiry=expiry
+        uri=urllib.parse.quote(uri, safe=""),
+        signature=urllib.parse.quote(signature, safe=""),
+        expiry=expiry,
     )
 
 
