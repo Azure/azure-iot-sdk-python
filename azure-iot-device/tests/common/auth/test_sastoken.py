@@ -189,13 +189,13 @@ class TestNonRenewableSasToken(object):
         if token_type == "Device Token":
             return simple_token_format.format(
                 resource=urllib.parse.quote(fake_uri, safe=""),
-                signature=fake_signed_data,
+                signature=urllib.parse.quote(fake_signed_data, safe=""),
                 expiry=fake_expiry,
             )
         elif token_type == "Service Token":
             return auth_rule_token_format.format(
                 resource=urllib.parse.quote(fake_uri, safe=""),
-                signature=fake_signed_data,
+                signature=urllib.parse.quote(fake_signed_data, safe=""),
                 expiry=fake_expiry,
                 keyname=fake_key_name,
             )

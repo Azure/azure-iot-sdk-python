@@ -339,6 +339,7 @@ class AbstractIoTHubClient(object):
             raise exceptions.ClientError(
                 "Cannot update sastoken when client was not created with one"
             )
+        # Create new SasToken
         try:
             new_token_o = st.NonRenewableSasToken(sastoken)
         except st.SasTokenError as e:
@@ -361,6 +362,8 @@ class AbstractIoTHubClient(object):
         if new_token_o.expiry_time < int(time.time()):
             raise ValueError("Provided SasToken has already expired")
         # Set token
+        # NOTE: We only need to set this on MQTT because this is a reference to the same object
+        # that is stored in HTTP. The HTTP pipeline is updated implicitly.
         self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
 
     @property
