@@ -68,6 +68,12 @@ def execute_patch_for_async():
     send_method_response.__doc__ = IoTHubDeviceClient_.send_method_response.__doc__
     setattr(IoTHubDeviceClient_, "send_method_response", send_method_response)
 
+    def update_sastoken(self, sastoken):
+        return super(IoTHubDeviceClient_, self).update_sastoken(sastoken)
+
+    update_sastoken.__doc__ = IoTHubDeviceClient_.update_sastoken.__doc__
+    setattr(IoTHubDeviceClient_, "update_sastoken", update_sastoken)
+
     def create_from_connection_string(cls, connection_string, **kwargs):
         return super(IoTHubDeviceClient_, cls).create_from_connection_string(
             connection_string, **kwargs
@@ -81,6 +87,12 @@ def execute_patch_for_async():
         "create_from_connection_string",
         classmethod(create_from_connection_string),
     )
+
+    def create_from_sastoken(cls, sastoken, **kwargs):
+        return super(IoTHubDeviceClient_, cls).create_from_sastoken(sastoken, **kwargs)
+
+    create_from_sastoken.__doc__ = IoTHubDeviceClient_.create_from_sastoken.__doc__
+    setattr(IoTHubDeviceClient_, "create_from_sastoken", classmethod(create_from_sastoken))
 
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
         return super(IoTHubDeviceClient_, cls).create_from_symmetric_key(
@@ -163,6 +175,12 @@ def execute_patch_for_async():
     send_method_response.__doc__ = IoTHubModuleClient_.send_method_response.__doc__
     setattr(IoTHubModuleClient_, "send_method_response", send_method_response)
 
+    def update_sastoken(self, sastoken):
+        return super(IoTHubModuleClient_, self).update_sastoken(sastoken)
+
+    update_sastoken.__doc__ = IoTHubModuleClient_.update_sastoken.__doc__
+    setattr(IoTHubModuleClient_, "update_sastoken", update_sastoken)
+
     def create_from_connection_string(cls, connection_string, **kwargs):
         return super(IoTHubModuleClient_, cls).create_from_connection_string(
             connection_string, **kwargs
@@ -186,6 +204,12 @@ def execute_patch_for_async():
         "create_from_edge_environment",
         classmethod(create_from_edge_environment),
     )
+
+    def create_from_sastoken(cls, sastoken, **kwargs):
+        return super(IoTHubModuleClient_, cls).create_from_sastoken(sastoken, **kwargs)
+
+    create_from_sastoken.__doc__ = IoTHubModuleClient_.create_from_sastoken.__doc__
+    setattr(IoTHubModuleClient_, "create_from_sastoken", classmethod(create_from_sastoken))
 
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
         return super(IoTHubModuleClient_, cls).create_from_x509_certificate(

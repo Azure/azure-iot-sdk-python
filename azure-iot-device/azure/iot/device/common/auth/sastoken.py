@@ -10,7 +10,6 @@ import hmac
 import hashlib
 import time
 import six.moves.urllib as urllib
-from azure.iot.device.common import version_compat
 from azure.iot.device.common.chainable_exception import ChainableException
 
 

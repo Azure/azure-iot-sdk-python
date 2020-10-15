@@ -685,9 +685,8 @@ class SharedIoTHubDeviceClientCreateFromSastokenTests(
             expiry=int(time.time() + 3600),
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
     def test_expired_token(self, mocker, client_class):
@@ -697,15 +696,13 @@ class SharedIoTHubDeviceClientCreateFromSastokenTests(
             expiry=int(time.time() - 3600),  # expired
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
     def test_sastoken_ttl(self, client_class, sas_token_string):
-        with pytest.raises(TypeError) as e_info:
+        with pytest.raises(TypeError):
             client_class.create_from_sastoken(sastoken=sas_token_string, sastoken_ttl=1000)
-        assert e_info.value.__cause__ is None
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -964,9 +961,8 @@ class SharedIoTHubDeviceClientUpdateSastokenTests(object):
         x509_client._mqtt_pipeline.pipeline_configuration.sastoken = None
         x509_client._mqtt_pipeline.pipeline_configuration.x509 = mocker.MagicMock()
 
-        with pytest.raises(client_exceptions.ClientError) as e_info:
+        with pytest.raises(client_exceptions.ClientError):
             x509_client.update_sastoken(new_sas_token_string)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it(
         "Raises a ClientError if the client was created with a renewable, non-user provided SAS (e.g. from connection string, symmetric key, etc.)"
@@ -983,9 +979,8 @@ class SharedIoTHubDeviceClientUpdateSastokenTests(object):
         sas_client._mqtt_pipeline.pipeline_configuration.sastoken = renewable_token
 
         # Client fails
-        with pytest.raises(client_exceptions.ClientError) as e_info:
+        with pytest.raises(client_exceptions.ClientError):
             sas_client.update_sastoken(new_sas_token_string)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it("Raises a ValueError if there is an error creating a new NonRenewableSasToken")
     def test_token_error(self, mocker, sas_client, new_sas_token_string):
@@ -1007,9 +1002,8 @@ class SharedIoTHubDeviceClientUpdateSastokenTests(object):
             expiry=int(time.time() - 3600),  # expired
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sas_client.update_sastoken(sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.fixture(params=["Nonmatching Device ID", "Nonmatching Hostname"])
     def nonmatching_uri(self, request, device_id, hostname):
@@ -1034,9 +1028,8 @@ class SharedIoTHubDeviceClientUpdateSastokenTests(object):
             expiry=int(time.time()) + 3600,
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sas_client.update_sastoken(sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.fixture(
         params=["Too short", "Too long", "Incorrectly formatted device notation", "Module URI"]
@@ -1066,9 +1059,8 @@ class SharedIoTHubDeviceClientUpdateSastokenTests(object):
             expiry=int(time.time() + 3600),
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sas_client.update_sastoken(sastoken_str)
-        assert e_info.value.__cause__ is None
 
 
 ##############################
@@ -1194,9 +1186,8 @@ class SharedIoTHubModuleClientCreateFromSastokenTests(
             expiry=int(time.time() + 3600),
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
     def test_expired_token(self, mocker, client_class):
@@ -1208,15 +1199,13 @@ class SharedIoTHubModuleClientCreateFromSastokenTests(
             expiry=int(time.time() - 3600),  # expired
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             client_class.create_from_sastoken(sastoken=sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it("Raises a TypeError if the 'sastoken_ttl' kwarg is supplied by the user")
     def test_sastoken_ttl(self, client_class, sas_token_string):
-        with pytest.raises(TypeError) as e_info:
+        with pytest.raises(TypeError):
             client_class.create_from_sastoken(sastoken=sas_token_string, sastoken_ttl=1000)
-        assert e_info.value.__cause__ is None
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -1910,9 +1899,8 @@ class SharedIoTHubModuleClientUpdateSastokenTests(object):
         x509_client._mqtt_pipeline.pipeline_configuration.x509 = mocker.MagicMock()
 
         # Client raises error
-        with pytest.raises(client_exceptions.ClientError) as e_info:
+        with pytest.raises(client_exceptions.ClientError):
             x509_client.update_sastoken(new_sas_token_string)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it(
         "Raises a ClientError if the client was created with a renewable, non-user provided SAS (e.g. from connection string, symmetric key, etc.)"
@@ -1930,9 +1918,8 @@ class SharedIoTHubModuleClientUpdateSastokenTests(object):
         sas_client._mqtt_pipeline.pipeline_configuration.sastoken = renewable_token
 
         # Client raises error
-        with pytest.raises(client_exceptions.ClientError) as e_info:
+        with pytest.raises(client_exceptions.ClientError):
             sas_client.update_sastoken(new_sas_token_string)
-        assert e_info.value.__cause__ is None
 
     @pytest.mark.it("Raises a ValueError if there is an error creating a new NonRenewableSasToken")
     def test_token_error(self, mocker, sas_client, new_sas_token_string):
@@ -1956,9 +1943,8 @@ class SharedIoTHubModuleClientUpdateSastokenTests(object):
             expiry=int(time.time() - 3600),  # expired
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sas_client.update_sastoken(sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.fixture(
         params=["Nonmatching Device ID", "Nonmatching Module ID", "Nonmatching Hostname"]
@@ -1993,9 +1979,8 @@ class SharedIoTHubModuleClientUpdateSastokenTests(object):
             expiry=int(time.time()) + 3600,
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sas_client.update_sastoken(sastoken_str)
-        assert e_info.value.__cause__ is None
 
     @pytest.fixture(
         params=[
@@ -2034,9 +2019,8 @@ class SharedIoTHubModuleClientUpdateSastokenTests(object):
             expiry=int(time.time() + 3600),
         )
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sas_client.update_sastoken(sastoken_str)
-        assert e_info.value.__cause__ is None
 
 
 ####################
