@@ -20,7 +20,10 @@ class SasTokenError(ChainableException):
 
 
 class RenewableSasToken(object):
-    """Shared Access Signature Token used to authenticate a request
+    """Renewable Shared Access Signature Token used to authenticate a request.
+
+    This token is 'renewable', which means that it can be updated when necessary to
+    prevent expiry, by using the .refresh() method.
 
     Data Attributes:
     expiry_time (int): Time that token will expire (in UTC, since epoch)
@@ -97,7 +100,20 @@ class RenewableSasToken(object):
 
 
 class NonRenewableSasToken(object):
+    """NonRenewable Shared Access Signature Token used to authenticate a request.
+
+    This token is 'non-renewable', which means that it is invalid once it expires, and there
+    is no way to keep it alive. Instead, a new token must be created.
+
+    Data Attributes:
+    expiry_time (int): Time that token will expire (in UTC, since epoch)
+    resource_uri (str): URI for the resource the Token provides authentication to access
+    """
+
     def __init__(self, sastoken_string):
+        """
+        :param str sastoken_string: A string representation of a SAS token
+        """
         self._token = sastoken_string
         self._token_info = get_sastoken_info_from_string(self._token)
 
@@ -111,7 +127,7 @@ class NonRenewableSasToken(object):
 
     @property
     def resource_uri(self):
-        "Resource URI is READ ONLY"
+        """Resource URI is READ ONLY"""
         uri = self._token_info["sr"]
         return urllib.parse.unquote(uri)
 
