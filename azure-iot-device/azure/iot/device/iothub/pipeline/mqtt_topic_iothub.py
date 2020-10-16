@@ -22,15 +22,32 @@ logger = logging.getLogger(__name__)
 # which is also invalid.
 
 
+# NOTE (Oct 2020): URL encoding policy is currently inconsistent in this module due to restrictions
+# with the Hub, as Hub does not do URL decoding on most values.
+# (see: https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)).
+# Currently, as much as possible is URL encoded while keeping in line with the policy outlined
+# in the above linked wiki article. This is to say that Device ID and Module ID are never
+# encoded, however other values are. By convention, it's probably fine to be encoding/decoding most
+# values that are not Device ID or Module ID, since it won't make a difference in production as
+# the narrow range of acceptable values for, say, status code, or request ID don't contain any
+# characters that require URL encoding/decoding in the first place. Thus it doesn't break on Hub,
+# but it's still done here as a client-side best practice - Hub will eventually be doing a new API
+# that does correctly URL encode/decode all values, so it's not good to roll back more than
+# is currently necessary to avoid errors.
+
+
 def _get_topic_base(device_id, module_id=None):
     """
     return the string that is at the beginning of all topics for this
     device/module
     """
 
-    topic = "devices/" + urllib.parse.quote(str(device_id), safe="")
+    # NOTE: Neither Device ID nor Module ID should be URL encoded in a topic string.
+    # See the repo wiki article for details:
+    # https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)
+    topic = "devices/" + str(device_id)
     if module_id:
-        topic = topic + "/modules/" + urllib.parse.quote(str(module_id), safe="")
+        topic = topic + "/modules/" + str(module_id)
     return topic
 
 
@@ -113,10 +130,10 @@ def is_c2d_topic(topic, device_id):
     devices/<deviceId>/messages/devicebound
     :param topic: The topic string
     """
-    if (
-        "devices/{}/messages/devicebound".format(urllib.parse.quote(str(device_id), safe=""))
-        in topic
-    ):
+    # Device ID is not URL encoded in a topic string
+    # See the repo wiki article for details:
+    # https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)
+    if "devices/{}/messages/devicebound".format(device_id) in topic:
         return True
     return False
 
@@ -129,12 +146,10 @@ def is_input_topic(topic, device_id, module_id):
     """
     if not device_id or not module_id:
         return False
-    if (
-        "devices/{}/modules/{}/inputs/".format(
-            urllib.parse.quote(str(device_id), safe=""), urllib.parse.quote(str(module_id), safe="")
-        )
-        in topic
-    ):
+    # NOTE: Neither Device ID nor Module ID are URL encoded in a topic string.
+    # See the repo wiki article for details:
+    # https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)
+    if "devices/{}/modules/{}/inputs/".format(device_id, module_id) in topic:
         return True
     return False
 
