@@ -65,6 +65,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                     ("DeviceClientType", user_agent.get_iothub_user_agent() + custom_product_info)
                 )
 
+            # NOTE: Client ID (including the device and/or module ids that are in it)
+            # is NOT url encoded as part of the username. Neither is the hostname.
+            # The sequence of key/value property pairs (query_param_seq) however, MUST have all
+            # keys and values URL encoded.
+            # See the repo wiki article for details:
+            # https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)
             username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=self.pipeline_root.pipeline_configuration.hostname,
                 client_id=client_id,
