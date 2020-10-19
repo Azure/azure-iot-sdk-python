@@ -381,6 +381,14 @@ class MQTTPipeline(object):
         )
 
     @property
+    def pipeline_configuration(self):
+        """
+        Pipeline Configuration for the pipeline. Note that while a new config object cannot be
+        provided (read-only), the values stored in the config object CAN be changed.
+        """
+        return self._pipeline.pipeline_configuration
+
+    @property
     def connected(self):
         """
         Read-only property to indicate if the transport is connected or not.

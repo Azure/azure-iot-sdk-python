@@ -12,6 +12,7 @@ import logging
 import threading
 import os
 import io
+import time
 from . import pipeline
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
@@ -65,6 +66,24 @@ def _form_sas_uri(hostname, device_id, module_id=None):
         )
     else:
         return "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+
+
+def _extract_sas_uri_values(uri):
+    d = {}
+    items = uri.split("/")
+    if len(items) != 3 and len(items) != 5:
+        raise ValueError("Invalid SAS URI")
+    if items[1] != "devices":
+        raise ValueError("Cannot extract device id from SAS URI")
+    if len(items) > 3 and items[3] != "modules":
+        raise ValueError("Cannot extract module id from SAS URI")
+    d["hostname"] = items[0]
+    d["device_id"] = items[2]
+    try:
+        d["module_id"] = items[4]
+    except IndexError:
+        d["module_id"] = None
+    return d
 
 
 # Receive Type constant defs
@@ -183,7 +202,7 @@ class AbstractIoTHubClient(object):
         )
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError("Could not create a SasToken using provided values")
             new_err.__cause__ = e
@@ -200,6 +219,69 @@ class AbstractIoTHubClient(object):
         )
         if cls.__name__ == "IoTHubDeviceClient":
             pipeline_configuration.blob_upload = True
+
+        # Pipeline setup
+        http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
+        mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
+
+        return cls(mqtt_pipeline, http_pipeline)
+
+    @classmethod
+    def create_from_sastoken(cls, sastoken, **kwargs):
+        """Instantiate the client from a pre-created SAS Token string
+
+        :param str sastoken: The SAS Token string
+
+        :param str server_verification_cert: Configuration Option. The trusted certificate chain.
+            Necessary when using connecting to an endpoint which has a non-standard root of trust,
+            such as a protocol gateway.
+        :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
+            over websockets.
+        :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
+            "OpenSSL cipher list format" or as a list of cipher suite strings.
+        :type cipher: str or list(str)
+        :param str product_info: Configuration Option. Default is empty string. The string contains
+            arbitrary product info which is appended to the user agent string.
+        :param proxy_options: Options for sending traffic through proxy servers.
+        :type proxy_options: :class:`azure.iot.device.ProxyOptions`
+        :param int keep_alive: Maximum period in seconds between communications with the
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
+
+        :raises: TypeError if given an unsupported parameter.
+        :raises: ValueError if the sastoken parameter is invalid.
+        """
+        # Ensure no invalid kwargs were passed by the user
+        excluded_kwargs = ["sastoken_ttl"]
+        _validate_kwargs(exclude=excluded_kwargs, **kwargs)
+
+        # Create SasToken object from string
+        try:
+            sastoken_o = st.NonRenewableSasToken(sastoken)
+        except st.SasTokenError as e:
+            new_err = ValueError("Invalid SasToken provided")
+            new_err.__cause__ = e
+            raise new_err
+        # Extract values from SasToken
+        vals = _extract_sas_uri_values(sastoken_o.resource_uri)
+        if cls.__name__ == "IoTHubDeviceClient" and vals["module_id"]:
+            raise ValueError("Provided SasToken is for a module")
+        if cls.__name__ == "IoTHubModuleClient" and not vals["module_id"]:
+            raise ValueError("Provided SasToken is for a device")
+        if sastoken_o.expiry_time < int(time.time()):
+            raise ValueError("Provided SasToken has already expired")
+        # Pipeline Config setup
+        config_kwargs = _get_config_kwargs(**kwargs)
+        pipeline_configuration = pipeline.IoTHubPipelineConfig(
+            device_id=vals["device_id"],
+            module_id=vals["module_id"],
+            hostname=vals["hostname"],
+            sastoken=sastoken_o,
+            **config_kwargs
+        )
+        if cls.__name__ == "IoTHubDeviceClient":
+            pipeline_configuration.blob_upload = True  # Blob Upload is a feature on Device Clients
 
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
@@ -239,6 +321,51 @@ class AbstractIoTHubClient(object):
     def receive_twin_desired_properties_patch(self):
         pass
 
+    def update_sastoken(self, sastoken):
+        """
+        Update the client's SAS Token used for authentication.
+
+        This API can only be used if the client was initially created with a SAS Token.
+
+        :param str sastoken: The new SAS Token string for the client to use
+
+        :raises: ValueError if the sastoken parameter is invalid
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if the client was not initially
+            created with a SAS token.
+        """
+        if not isinstance(
+            self._mqtt_pipeline.pipeline_configuration.sastoken, st.NonRenewableSasToken
+        ):
+            raise exceptions.ClientError(
+                "Cannot update sastoken when client was not created with one"
+            )
+        # Create new SasToken
+        try:
+            new_token_o = st.NonRenewableSasToken(sastoken)
+        except st.SasTokenError as e:
+            new_err = ValueError("Invalid SasToken provided")
+            new_err.__cause__ = e
+            raise new_err
+        # Extract values from SasToken
+        vals = _extract_sas_uri_values(new_token_o.resource_uri)
+        # Validate new token
+        if type(self).__name__ == "IoTHubDeviceClient" and vals["module_id"]:
+            raise ValueError("Provided SasToken is for a module")
+        if type(self).__name__ == "IoTHubModuleClient" and not vals["module_id"]:
+            raise ValueError("Provided SasToken is for a device")
+        if self._mqtt_pipeline.pipeline_configuration.device_id != vals["device_id"]:
+            raise ValueError("Provided SasToken does not match existing device id")
+        if self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]:
+            raise ValueError("Provided SasToken does not match existing module id")
+        if self._mqtt_pipeline.pipeline_configuration.hostname != vals["hostname"]:
+            raise ValueError("Provided SasToken does not match existing hostname")
+        if new_token_o.expiry_time < int(time.time()):
+            raise ValueError("Provided SasToken has already expired")
+        # Set token
+        # NOTE: We only need to set this on MQTT because this is a reference to the same object
+        # that is stored in HTTP. The HTTP pipeline is updated implicitly.
+        self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
+
     @property
     def connected(self):
         """
@@ -264,7 +391,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
         """
-        Instantiate a client which using X509 certificate authentication.
+        Instantiate a client using X509 certificate authentication.
 
         :param str hostname: Host running the IotHub.
             Can be found in the Azure portal in the Overview tab as the string hostname.
@@ -343,6 +470,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
+        :raises: ValueError if the provided parameters are invalid.
 
         :return: An instance of an IoTHub client that uses a symmetric key for authentication.
         """
@@ -354,7 +482,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         signing_mechanism = auth.SymmetricKeySigningMechanism(key=symmetric_key)
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError("Could not create a SasToken using provided values")
             new_err.__cause__ = e
@@ -498,7 +626,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         uri = _form_sas_uri(hostname=hostname, device_id=device_id, module_id=module_id)
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError(
                 "Could not create a SasToken using the values provided, or in the Edge environment"
@@ -530,7 +658,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
         """
-        Instantiate a client which using X509 certificate authentication.
+        Instantiate a client using X509 certificate authentication.
 
         :param str hostname: Host running the IotHub.
             Can be found in the Azure portal in the Overview tab as the string hostname.

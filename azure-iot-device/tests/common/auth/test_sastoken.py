@@ -10,13 +10,23 @@ import time
 import re
 import logging
 import six.moves.urllib as urllib
-from azure.iot.device.common.auth.sastoken import SasToken, SasTokenError
+from azure.iot.device.common.auth.sastoken import (
+    RenewableSasToken,
+    NonRenewableSasToken,
+    SasTokenError,
+)
 
 logging.basicConfig(level=logging.DEBUG)
 
 fake_uri = "some/resource/location"
 fake_signed_data = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 fake_key_name = "fakekeyname"
+fake_expiry = 12321312
+
+simple_token_format = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}"
+auth_rule_token_format = (
+    "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}&skn={keyname}"
+)
 
 
 def token_parser(token_str):
@@ -30,44 +40,46 @@ def token_parser(token_str):
     return token_map
 
 
-@pytest.fixture
-def signing_mechanism(mocker):
-    mechanism = mocker.MagicMock()
-    mechanism.sign.return_value = fake_signed_data
-    return mechanism
+class RenewableSasTokenTestConfig(object):
+    @pytest.fixture
+    def signing_mechanism(self, mocker):
+        mechanism = mocker.MagicMock()
+        mechanism.sign.return_value = fake_signed_data
+        return mechanism
+
+    # TODO: Rename this. These are not "device" and "service" tokens, the distinction is more generic
+    @pytest.fixture(params=["Device Token", "Service Token"])
+    def sastoken(self, request, signing_mechanism):
+        token_type = request.param
+        if token_type == "Device Token":
+            return RenewableSasToken(uri=fake_uri, signing_mechanism=signing_mechanism)
+        elif token_type == "Service Token":
+            return RenewableSasToken(
+                uri=fake_uri, signing_mechanism=signing_mechanism, key_name=fake_key_name
+            )
 
 
-# TODO: Rename this. These are not "device" and "service" tokens, the distinction is more generic
-@pytest.fixture(params=["Device Token", "Service Token"])
-def sastoken(request, signing_mechanism):
-    token_type = request.param
-    if token_type == "Device Token":
-        return SasToken(uri=fake_uri, signing_mechanism=signing_mechanism)
-    elif token_type == "Service Token":
-        return SasToken(uri=fake_uri, signing_mechanism=signing_mechanism, key_name=fake_key_name)
-
-
-@pytest.mark.describe("SasToken")
-class TestSasToken(object):
+@pytest.mark.describe("RenewableSasToken")
+class TestRenewableSasToken(RenewableSasTokenTestConfig):
     @pytest.mark.it("Instantiates with a default TTL of 3600 seconds if no TTL is provided")
     def test_default_ttl(self, signing_mechanism):
-        s = SasToken(fake_uri, signing_mechanism)
+        s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s.ttl == 3600
 
     @pytest.mark.it("Instantiates with a custom TTL if provided")
     def test_custom_ttl(self, signing_mechanism):
         custom_ttl = 4747
-        s = SasToken(fake_uri, signing_mechanism, ttl=custom_ttl)
+        s = RenewableSasToken(fake_uri, signing_mechanism, ttl=custom_ttl)
         assert s.ttl == custom_ttl
 
     @pytest.mark.it("Instantiates with with no key name by default if no key name is provided")
     def test_default_key_name(self, signing_mechanism):
-        s = SasToken(fake_uri, signing_mechanism)
+        s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s._key_name is None
 
     @pytest.mark.it("Instantiates with the given key name if provided")
     def test_custom_key_name(self, signing_mechanism):
-        s = SasToken(fake_uri, signing_mechanism, key_name=fake_key_name)
+        s = RenewableSasToken(fake_uri, signing_mechanism, key_name=fake_key_name)
         assert s._key_name == fake_key_name
 
     @pytest.mark.it(
@@ -77,14 +89,14 @@ class TestSasToken(object):
         fake_current_time = 1000
         mocker.patch.object(time, "time", return_value=fake_current_time)
 
-        s = SasToken(fake_uri, signing_mechanism)
+        s = RenewableSasToken(fake_uri, signing_mechanism)
         assert s.expiry_time == fake_current_time + s.ttl
 
     @pytest.mark.it("Calls .refresh() to build the SAS token string on instantiation")
     def test_refresh_on_instantiation(self, mocker, signing_mechanism):
-        refresh_mock = mocker.spy(SasToken, "refresh")
+        refresh_mock = mocker.spy(RenewableSasToken, "refresh")
         assert refresh_mock.call_count == 0
-        SasToken(fake_uri, signing_mechanism)
+        RenewableSasToken(fake_uri, signing_mechanism)
         assert refresh_mock.call_count == 1
 
     @pytest.mark.it("Returns the SAS token string as the string representation of the object")
@@ -99,8 +111,8 @@ class TestSasToken(object):
             sastoken.expiry_time = 12321312
 
 
-@pytest.mark.describe("SasToken - .refresh()")
-class TestSasTokenRefresh(object):
+@pytest.mark.describe("RenewableSasToken - .refresh()")
+class TestRenewableSasTokenRefresh(RenewableSasTokenTestConfig):
     @pytest.mark.it("Sets a new expiry time of TTL seconds in the future")
     def test_new_expiry(self, mocker, sastoken):
         fake_current_time = 1000
@@ -166,3 +178,108 @@ class TestSasTokenRefresh(object):
         with pytest.raises(SasTokenError) as e_info:
             sastoken.refresh()
         assert e_info.value.__cause__ is arbitrary_exception
+
+
+@pytest.mark.describe("NonRenewableSasToken")
+class TestNonRenewableSasToken(object):
+    # TODO: Rename this. These are not "device" and "service" tokens, the distinction is more generic
+    @pytest.fixture(params=["Device Token", "Service Token"])
+    def sastoken_str(self, request):
+        token_type = request.param
+        if token_type == "Device Token":
+            return simple_token_format.format(
+                resource=urllib.parse.quote(fake_uri, safe=""),
+                signature=urllib.parse.quote(fake_signed_data, safe=""),
+                expiry=fake_expiry,
+            )
+        elif token_type == "Service Token":
+            return auth_rule_token_format.format(
+                resource=urllib.parse.quote(fake_uri, safe=""),
+                signature=urllib.parse.quote(fake_signed_data, safe=""),
+                expiry=fake_expiry,
+                keyname=fake_key_name,
+            )
+
+    @pytest.fixture()
+    def sastoken(self, sastoken_str):
+        return NonRenewableSasToken(sastoken_str)
+
+    @pytest.mark.it("Instantiates from a valid SAS Token string")
+    def test_instantiates_from_token_string(self, sastoken_str):
+        s = NonRenewableSasToken(sastoken_str)
+        assert s._token == sastoken_str
+
+    @pytest.mark.it("Raises a SasToken error if instantiating from an invalid SAS Token string")
+    @pytest.mark.parametrize(
+        "invalid_token_str",
+        [
+            pytest.param(
+                "sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
+                id="Incomplete token format",
+            ),
+            pytest.param(
+                "SharedERRORSignature sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
+                id="Invalid token format",
+            ),
+            pytest.param(
+                "SharedAccessignature sr=some%2Fresource%2Flocationsig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se12321312",
+                id="Token values incorectly formatted",
+            ),
+            pytest.param(
+                "SharedAccessSignature sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312",
+                id="Missing resource value",
+            ),
+            pytest.param(
+                "SharedAccessSignature sr=some%2Fresource%2Flocation&se=12321312",
+                id="Missing signature value",
+            ),
+            pytest.param(
+                "SharedAccessSignature sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=",
+                id="Missing expiry value",
+            ),
+            pytest.param(
+                "SharedAccessSignature sr=some%2Fresource%2Flocation&sig=ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=&se=12321312&foovalue=nonsense",
+                id="Extraneous invalid value",
+            ),
+        ],
+    )
+    def test_raises_error_invalid_token_string(self, invalid_token_str):
+        with pytest.raises(SasTokenError):
+            NonRenewableSasToken(invalid_token_str)
+
+    @pytest.mark.it("Returns the SAS token string as the string representation of the object")
+    def test_str_rep(self, sastoken_str):
+        sastoken = NonRenewableSasToken(sastoken_str)
+        assert str(sastoken) == sastoken_str
+
+    @pytest.mark.it(
+        "Instantiates with the .expiry_time attribute corresponding to the expiry time of the given SAS Token string (as an integer)"
+    )
+    def test_instantiates_expiry_time(self, sastoken_str):
+        sastoken = NonRenewableSasToken(sastoken_str)
+        expected_expiry_time = token_parser(sastoken_str)["se"]
+        assert sastoken.expiry_time == int(expected_expiry_time)
+
+    @pytest.mark.it(
+        "Maintains the .expiry_time attribute as a read-only property (raises AttributeError upon attempt)"
+    )
+    def test_expiry_time_read_only(self, sastoken):
+        with pytest.raises(AttributeError):
+            sastoken.expiry_time = 12312312312123
+
+    @pytest.mark.it(
+        "Instantiates with the .resource_uri attribute corresponding to the URL decoded URI of the given SAS Token string"
+    )
+    def test_instantiates_resource_uri(self, sastoken_str):
+        sastoken = NonRenewableSasToken(sastoken_str)
+        resource_uri = token_parser(sastoken_str)["sr"]
+        assert resource_uri != sastoken.resource_uri
+        assert resource_uri == urllib.parse.quote(sastoken.resource_uri, safe="")
+        assert urllib.parse.unquote(resource_uri) == sastoken.resource_uri
+
+    @pytest.mark.it(
+        "Maintains the .resource_uri attribute as a read-only property (raises AttributeError upon attempt)"
+    )
+    def test_resource_uri_read_only(self, sastoken):
+        with pytest.raises(AttributeError):
+            sastoken.resource_uri = "new%2Ffake%2Furi"

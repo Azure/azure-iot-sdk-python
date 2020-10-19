@@ -776,6 +776,24 @@ class TestMQTTPipelineEVENTReceiveDesiredPropertiesPatch(object):
         # No assertions required - not throwing an exception means the test passed
 
 
+@pytest.mark.describe("MQTTPipeline - PROPERTY .pipeline_configuration")
+class TestMQTTPipelinePROPERTYPipelineConfiguration(object):
+    @pytest.mark.it("Value of the object cannot be changed")
+    def test_read_only(self, pipeline):
+        with pytest.raises(AttributeError):
+            pipeline.pipeline_configuration = 12
+
+    @pytest.mark.it("Values ON the object CAN be changed")
+    def test_update_values_on_read_only_object(self, pipeline):
+        assert pipeline.pipeline_configuration.sastoken is not None
+        pipeline.pipeline_configuration.sastoken = None
+        assert pipeline.pipeline_configuration.sastoken is None
+
+    @pytest.mark.it("Reflects the value of the root stage attribute of the same name")
+    def test_reflects_pipeline_attribute(self, pipeline):
+        assert pipeline.pipeline_configuration is pipeline._pipeline.pipeline_configuration
+
+
 @pytest.mark.describe("MQTTPipeline - PROPERTY .connected")
 class TestMQTTPipelinePROPERTYConnected(object):
     @pytest.mark.it("Cannot be changed")
@@ -783,8 +801,8 @@ class TestMQTTPipelinePROPERTYConnected(object):
         with pytest.raises(AttributeError):
             pipeline.connected = not pipeline.connected
 
-    @pytest.mark.it("Reflects the value of the root stage property of the same name")
-    def test_reflects_pipeline_property(self, pipeline):
+    @pytest.mark.it("Reflects the value of the root stage attribute of the same name")
+    def test_reflects_pipeline_attribute(self, pipeline):
         pipeline._pipeline.connected = True
         assert pipeline.connected
         pipeline._pipeline.connected = False

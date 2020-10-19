@@ -143,7 +143,7 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
     )
     def test_sastoken(self, mocker, client_class):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         expected_uri = "{id_scope}/registrations/{registration_id}".format(
             id_scope=fake_id_scope, registration_id=fake_registration_id
         )
@@ -172,7 +172,7 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
     )
     def test_sastoken_default(self, mocker, client_class):
         sksm_mock = mocker.patch.object(auth, "SymmetricKeySigningMechanism")
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         expected_uri = "{id_scope}/registrations/{registration_id}".format(
             id_scope=fake_id_scope, registration_id=fake_registration_id
         )
@@ -198,7 +198,7 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
         "Creates an MQTT pipeline with a ProvisioningPipelineConfig object containing the SasToken and values provided in the parameters"
     )
     def test_pipeline_config(self, mocker, client_class, mock_pipeline_init):
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
 
         client_class.create_from_symmetric_key(
             provisioning_host=fake_provisioning_host,
@@ -234,7 +234,7 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
     def test_sastoken_failure(self, mocker, client_class):
-        sastoken_mock = mocker.patch.object(st, "SasToken")
+        sastoken_mock = mocker.patch.object(st, "RenewableSasToken")
         token_err = st.SasTokenError("Some SasToken failure")
         sastoken_mock.side_effect = token_err
 
