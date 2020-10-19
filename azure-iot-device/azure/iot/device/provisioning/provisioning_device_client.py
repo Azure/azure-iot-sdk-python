@@ -42,12 +42,12 @@ def handle_result(callback):
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
     """
     Client which can be used to run the registration of a device with provisioning service
-    using Symmetric Key orr X509 authentication.
+    using Symmetric Key or X509 authentication.
     """
 
     def register(self):
         """
-        Register the device with the with the provisioning service
+        Register the device with the provisioning service
 
         This is a synchronous call, meaning that this function will not return until the
         registration process has completed successfully or the attempt has resulted in a failure.
@@ -60,7 +60,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
 
         :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
             and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if establishing a
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
