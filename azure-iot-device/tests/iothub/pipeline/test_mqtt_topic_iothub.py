@@ -37,18 +37,24 @@ class TestGetC2DTopicForSubscribe(object):
         topic = mqtt_topic_iothub.get_c2d_topic_for_subscribe(device_id)
         assert topic == expected_topic
 
-    @pytest.mark.it("URL encodes the device_id when generating the topic")
+    # NOTE: It SHOULD do URL encoding, but Hub doesn't currently support URL decoding, so we have
+    # to follow that and not do URL encoding for safety. As a result, some of the values used in
+    # this test would actually be invalid in production due to character restrictions on the Hub
+    # that exist to prevent Hub from breaking due to a lack of URL decoding.
+    # If Hub does begin to support robust URL encoding for safety, this test can easily be switched
+    # to show that URL encoding DOES work.
+    @pytest.mark.it("Does NOT URL encode the device_id when generating the topic")
     @pytest.mark.parametrize(
         "device_id, expected_topic",
         [
             pytest.param(
-                "my$device", "devices/my%24device/messages/devicebound/#", id="id contains '$'"
+                "my$device", "devices/my$device/messages/devicebound/#", id="id contains '$'"
             ),
             pytest.param(
-                "my device", "devices/my%20device/messages/devicebound/#", id="id contains ' '"
+                "my device", "devices/my device/messages/devicebound/#", id="id contains ' '"
             ),
             pytest.param(
-                "my/device", "devices/my%2Fdevice/messages/devicebound/#", id="id contains '/'"
+                "my/device", "devices/my/device/messages/devicebound/#", id="id contains '/'"
             ),
         ],
     )
@@ -74,6 +80,12 @@ class TestGetInputTopicForSubscribe(object):
         topic = mqtt_topic_iothub.get_input_topic_for_subscribe(device_id, module_id)
         assert topic == expected_topic
 
+    # NOTE: It SHOULD do URL encoding, but Hub doesn't currently support URL decoding, so we have
+    # to follow that and not do URL encoding for safety. As a result, some of the values used in
+    # this test would actually be invalid in production due to character restrictions on the Hub
+    # that exist to prevent Hub from breaking due to a lack of URL decoding.
+    # If Hub does begin to support robust URL encoding for safety, this test can easily be switched
+    # to show that URL encoding DOES work.
     @pytest.mark.it("URL encodes the device_id and module_id when generating the topic")
     @pytest.mark.parametrize(
         "device_id, module_id, expected_topic",
@@ -81,19 +93,19 @@ class TestGetInputTopicForSubscribe(object):
             pytest.param(
                 "my$device",
                 "my$module",
-                "devices/my%24device/modules/my%24module/inputs/#",
+                "devices/my$device/modules/my$module/inputs/#",
                 id="ids contain '$'",
             ),
             pytest.param(
                 "my device",
                 "my module",
-                "devices/my%20device/modules/my%20module/inputs/#",
+                "devices/my device/modules/my module/inputs/#",
                 id="ids contain ' '",
             ),
             pytest.param(
                 "my/device",
                 "my/module",
-                "devices/my%2Fdevice/modules/my%2Fmodule/inputs/#",
+                "devices/my/device/modules/my/module/inputs/#",
                 id="ids contain '/'",
             ),
         ],
@@ -154,6 +166,12 @@ class TestGetTelemetryTopicForPublish(object):
         topic = mqtt_topic_iothub.get_telemetry_topic_for_publish(device_id, module_id)
         assert topic == expected_topic
 
+    # NOTE: It SHOULD do URL encoding, but Hub doesn't currently support URL decoding, so we have
+    # to follow that and not do URL encoding for safety. As a result, some of the values used in
+    # this test would actually be invalid in production due to character restrictions on the Hub
+    # that exist to prevent Hub from breaking due to a lack of URL decoding.
+    # If Hub does begin to support robust URL encoding for safety, this test can easily be switched
+    # to show that URL encoding DOES work.
     @pytest.mark.it("URL encodes the device_id and module_id when generating the topic")
     @pytest.mark.parametrize(
         "device_id, module_id, expected_topic",
@@ -161,37 +179,37 @@ class TestGetTelemetryTopicForPublish(object):
             pytest.param(
                 "my$device",
                 None,
-                "devices/my%24device/messages/events/",
+                "devices/my$device/messages/events/",
                 id="Device, id contains '$'",
             ),
             pytest.param(
                 "my device",
                 None,
-                "devices/my%20device/messages/events/",
+                "devices/my device/messages/events/",
                 id="Device, id contains ' '",
             ),
             pytest.param(
                 "my/device",
                 None,
-                "devices/my%2Fdevice/messages/events/",
+                "devices/my/device/messages/events/",
                 id="Device, id contains '/'",
             ),
             pytest.param(
                 "my$device",
                 "my$module",
-                "devices/my%24device/modules/my%24module/messages/events/",
+                "devices/my$device/modules/my$module/messages/events/",
                 id="Module, ids contain '$'",
             ),
             pytest.param(
                 "my device",
                 "my module",
-                "devices/my%20device/modules/my%20module/messages/events/",
+                "devices/my device/modules/my module/messages/events/",
                 id="Module, ids contain ' '",
             ),
             pytest.param(
                 "my/device",
                 "my/module",
-                "devices/my%2Fdevice/modules/my%2Fmodule/messages/events/",
+                "devices/my/device/modules/my/module/messages/events/",
                 id="Module, ids contain '/'",
             ),
         ],
@@ -377,17 +395,23 @@ class TestIsC2DTopic(object):
         device_id = "fake_device"
         assert mqtt_topic_iothub.is_c2d_topic(topic, device_id)
 
-    @pytest.mark.it("URL encodes the device id when matching to the topic")
+    # NOTE: It SHOULD do URL encoding, but Hub doesn't currently support URL decoding, so we have
+    # to follow that and not do URL encoding for safety. As a result, some of the values used in
+    # this test would actually be invalid in production due to character restrictions on the Hub
+    # that exist to prevent Hub from breaking due to a lack of URL decoding.
+    # If Hub does begin to support robust URL encoding for safety, this test can easily be switched
+    # to show that URL encoding DOES work.
+    @pytest.mark.it("Does NOT URL encode the device id when matching to the topic")
     @pytest.mark.parametrize(
         "topic, device_id",
         [
             pytest.param(
-                "devices/fake%3Fdevice/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%3Fdevice%2Fmessages%2Fdevicebound",
+                "devices/fake?device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake?device%2Fmessages%2Fdevicebound",
                 "fake?device",
                 id="Standard URL encoding required for device_id",
             ),
             pytest.param(
-                "devices/fake%20device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%20device%2Fmessages%2Fdevicebound",
+                "devices/fake device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake device%2Fmessages%2Fdevicebound",
                 "fake device",
                 id="URL encoding of ' ' character required for device_id",
             ),
@@ -396,7 +420,7 @@ class TestIsC2DTopic(object):
             # system properties would cause the system properties to not be able to be decoded correctly. But, like many tests
             # this is just for completeness, safety, and consistency.
             pytest.param(
-                "devices/fake%2Fdevice/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%2Fdevice%2Fmessages%2Fdevicebound",
+                "devices/fake/device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake/device%2Fmessages%2Fdevicebound",
                 "fake/device",
                 id="URL encoding of '/' character required for device_id",
             ),
@@ -451,24 +475,30 @@ class TestIsInputTopic(object):
         module_id = "fake_module"
         assert mqtt_topic_iothub.is_input_topic(topic, device_id, module_id)
 
-    @pytest.mark.it("URL encodes the device id and module_id when matching to the topic")
+    # NOTE: It SHOULD do URL encoding, but Hub doesn't currently support URL decoding, so we have
+    # to follow that and not do URL encoding for safety. As a result, some of the values used in
+    # this test would actually be invalid in production due to character restrictions on the Hub
+    # that exist to prevent Hub from breaking due to a lack of URL decoding.
+    # If Hub does begin to support robust URL encoding for safety, this test can easily be switched
+    # to show that URL encoding DOES work.
+    @pytest.mark.it("Does NOT URL encode the device id and module_id when matching to the topic")
     @pytest.mark.parametrize(
         "topic, device_id, module_id",
         [
             pytest.param(
-                "devices/fake%3Fdevice/modules/fake%24module/inputs/fake%23input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%3Fdevice%2Fmodules%2Ffake%24module%2Finputs%2Ffake%23input",
+                "devices/fake?device/modules/fake$module/inputs/fake%23input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%3Fdevice%2Fmodules%2Ffake%24module%2Finputs%2Ffake%23input",
                 "fake?device",
                 "fake$module",
                 id="Standard URL encoding required for ids",
             ),
             pytest.param(
-                "devices/fake%20device/modules/fake%20module/inputs/fake%20input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%20device%2Fmodules%2Ffake%20module%2Finputs%2Ffake%20input",
+                "devices/fake device/modules/fake module/inputs/fake%20input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%20device%2Fmodules%2Ffake%20module%2Finputs%2Ffake%20input",
                 "fake device",
                 "fake module",
                 id="URL encoding for ' ' character required for ids",
             ),
             pytest.param(
-                "devices/fake%2Fdevice/modules/fake%2Fmodule/inputs/fake%20input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%2Fdevice%2Fmodules%2Ffake%2Fmodule%2Finputs%2Ffake%2Finput",
+                "devices/fake/device/modules/fake/module/inputs/fake%20input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake%2Fdevice%2Fmodules%2Ffake%2Fmodule%2Finputs%2Ffake%2Finput",
                 "fake/device",
                 "fake/module",
                 id="URL encoding for '/' character required for ids",
