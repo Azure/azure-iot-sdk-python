@@ -43,6 +43,7 @@ def message_handler(message):
 device_client.on_message_received = message_handler
 
 
+# define behavior for providing new sastokens to prevent expiry
 def sastoken_keepalive():
     while True:
         time.sleep(NEW_TOKEN_INTERVAL)
@@ -51,6 +52,7 @@ def sastoken_keepalive():
         device_client.update_sastoken(sastoken)
 
 
+# run the sastoken keepalive in a new daemon thread
 t = threading.Thread(target=sastoken_keepalive)
 t.daemon = True
 t.start()
