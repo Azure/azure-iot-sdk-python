@@ -176,9 +176,9 @@ class AbstractIoTHubClient(object):
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
         :param int keep_alive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -415,9 +415,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int keep_alive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -465,9 +465,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
         :param int keep_alive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the provided parameters are invalid.
@@ -538,9 +538,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
             authentication. Default is 3600 seconds (1 hour)
         :param int keep_alive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -683,9 +683,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int keep_alive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
 
         :raises: TypeError if given an unsupported parameter.
 
