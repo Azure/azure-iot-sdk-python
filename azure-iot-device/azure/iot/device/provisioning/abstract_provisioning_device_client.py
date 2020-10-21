@@ -30,6 +30,11 @@ def _validate_kwargs(exclude=[], **kwargs):
             raise TypeError("Unsupported keyword argument '{}'".format(kwarg))
 
 
+def validate_registration_id(reg_id):
+    if not (reg_id and reg_id.strip()):
+        raise ValueError("Registration Id can not be none, empty or blank.")
+
+
 def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = ["websockets", "cipher", "proxy_options", "keep_alive"]
@@ -99,13 +104,14 @@ class AbstractProvisioningDeviceClient(object):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int keepalive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
         :raises: TypeError if given an unrecognized parameter.
 
         :returns: A ProvisioningDeviceClient instance which can register via Symmetric Key.
         """
+        validate_registration_id(registration_id)
         # Ensure no invalid kwargs were passed by the user
         _validate_kwargs(**kwargs)
 
@@ -165,13 +171,14 @@ class AbstractProvisioningDeviceClient(object):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int keepalive: Maximum period in seconds between communications with the
-        broker. If no other messages are being exchanged, this controls the
-        rate at which the client will send ping messages to the broker.
-        If not provided default value of 60 secs will be used.
+            broker. If no other messages are being exchanged, this controls the
+            rate at which the client will send ping messages to the broker.
+            If not provided default value of 60 secs will be used.
         :raises: TypeError if given an unrecognized parameter.
 
-        :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
+        :returns: A ProvisioningDeviceClient which can register via X509 client certificates.
         """
+        validate_registration_id(registration_id)
         # Ensure no invalid kwargs were passed by the user
         excluded_kwargs = ["sastoken_ttl"]
         _validate_kwargs(exclude=excluded_kwargs, **kwargs)

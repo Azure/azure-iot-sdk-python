@@ -125,6 +125,20 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         assert config.proxy_options is None
         assert config.keep_alive == DEFAULT_KEEPALIVE
 
+    @pytest.mark.parametrize(
+        "registration_id",
+        [
+            pytest.param(None, id="No Registration Id provided"),
+            pytest.param(" ", id="Blank Registration Id provided"),
+            pytest.param("", id="Empty Registration Id provided"),
+        ],
+    )
+    def test_invalid_registration_id(self, client_create_method, registration_id):
+        with pytest.raises(ValueError):
+            client_create_method(
+                fake_provisioning_host, registration_id, fake_id_scope, fake_symmetric_key
+            )
+
 
 @pytest.mark.usefixtures("mock_pipeline_init")
 class SharedProvisioningClientCreateFromSymmetricKeyTests(
