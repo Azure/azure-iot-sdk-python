@@ -5,6 +5,8 @@
 # --------------------------------------------------------------------------
 
 import pytest
+import time
+from six.moves import urllib
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest
 from azure.iot.device.common.models.x509 import X509
@@ -17,8 +19,8 @@ hostname = "beauxbatons.academy-net"
 device_id = "MyPensieve"
 module_id = "Divination"
 gateway_hostname = "EnchantedCeiling"
-signature = "IsolemnlySwearThatIamuUptoNogood"  # does this need to be something else?
-expiry = "1539043658"
+signature = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
+expiry = str(int(time.time()) + 3600)
 fake_x509_cert_value = "fantastic_beasts"
 fake_x509_cert_key = "where_to_find_them"
 fake_pass_phrase = "alohomora"
@@ -122,13 +124,21 @@ sas_token_skn_format = (
 @pytest.fixture()
 def device_sas_token_string():
     uri = hostname + "/devices/" + device_id
-    return sas_token_format.format(uri=uri, signature=signature, expiry=expiry)
+    return sas_token_format.format(
+        uri=urllib.parse.quote(uri, safe=""),
+        signature=urllib.parse.quote(signature, safe=""),
+        expiry=expiry,
+    )
 
 
 @pytest.fixture()
 def module_sas_token_string():
     uri = hostname + "/devices/" + device_id + "/modules/" + module_id
-    return sas_token_format.format(uri=uri, signature=signature, expiry=expiry)
+    return sas_token_format.format(
+        uri=urllib.parse.quote(uri, safe=""),
+        signature=urllib.parse.quote(signature, safe=""),
+        expiry=expiry,
+    )
 
 
 """----Shared certificate fixtures----"""

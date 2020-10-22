@@ -114,7 +114,7 @@ class AbstractProvisioningDeviceClient(object):
         signing_mechanism = auth.SymmetricKeySigningMechanism(key=symmetric_key)
         token_ttl = kwargs.get("sastoken_ttl", 3600)
         try:
-            sastoken = st.SasToken(uri, signing_mechanism, ttl=token_ttl)
+            sastoken = st.RenewableSasToken(uri, signing_mechanism, ttl=token_ttl)
         except st.SasTokenError as e:
             new_err = ValueError("Could not create a SasToken using the provided values")
             new_err.__cause__ = e

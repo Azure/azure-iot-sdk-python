@@ -11,11 +11,19 @@
     },
     {
       "file": "\\azure-iot-device\\tests\\common\\auth\\test_signing_mechanism.py",
-      "_justification:": "Test containing fake keys"
+      "_justification": "Test containing fake keys"
+    },
+    {
+      "file": "\\azure-iot-device\\tests\\common\\auth\\test_sastoken.py",
+      "_justification": "Test containing fake signed data"
     },
     {
       "file": "\\azure-iot-device\\tests\\iothub\\client_fixtures.py",
-      "_justification": "Test containing fake keys"
+      "_justification": "Test containing fake keys and fake signed data"
+    },
+    {
+      "file": "\\azure-iot-device\\tests\\iothub\\shared_client_tests.py",
+      "_justification": "Test containing fake signed data"
     }
   ]
 

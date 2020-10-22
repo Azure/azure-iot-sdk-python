@@ -19,6 +19,7 @@ from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
 from . import pipeline_exceptions
 from azure.iot.device.common import handle_exceptions, transport_exceptions
+from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
@@ -294,9 +295,9 @@ class SasTokenRenewalStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        if (
-            isinstance(op, pipeline_ops_base.InitializePipelineOperation)
-            and self.pipeline_root.pipeline_configuration.sastoken
+        # Only use this stage if using a RenewableSasToken
+        if isinstance(op, pipeline_ops_base.InitializePipelineOperation) and isinstance(
+            self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken
         ):
             self._start_renewal_timer()
             self.send_op_down(op)

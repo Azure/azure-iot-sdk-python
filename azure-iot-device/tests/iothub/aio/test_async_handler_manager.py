@@ -27,9 +27,30 @@ logging.basicConfig(level=logging.DEBUG)
 # This means we must be very careful to always change both test modules when a change is made to
 # shared behavior, or when shared features are added.
 
+# NOTE ON TIMING/DELAY
+# Several tests in this module have sleeps/delays in their implementation due to needing to wait
+# for things to happen in other threads.
+
 
 all_internal_handlers = [MESSAGE, METHOD, TWIN_DP_PATCH]
 all_handlers = [s.lstrip("_") for s in all_internal_handlers]
+
+
+class ThreadsafeMock(object):
+    """ This class provides (some) Mock functionality in a threadsafe manner, specifically, it
+    ensures that the 'call_count' attribute will be accurate when the mock is called from another
+    thread.
+
+    It does not cover ALL mock functionality, but more features could be added to it as necessary
+    """
+
+    def __init__(self):
+        self.call_count = 0
+        self.lock = threading.Lock()
+
+    def __call__(self, *args, **kwargs):
+        with self.lock:
+            self.call_count += 1
 
 
 @pytest.fixture
@@ -52,6 +73,7 @@ def handler_checker():
             self.handler_called = False
             self.handler_call_count = 0
             self.handler_call_arg = None
+            self.lock = threading.Lock()
 
     return HandlerChecker()
 
@@ -61,18 +83,20 @@ def handler(request, handler_checker):
     if request.param == "Handler function":
 
         def some_handler_fn(arg):
-            handler_checker.handler_called = True
-            handler_checker.handler_call_count += 1
-            handler_checker.handler_call_arg = arg
+            with handler_checker.lock:
+                handler_checker.handler_called = True
+                handler_checker.handler_call_count += 1
+                handler_checker.handler_call_arg = arg
 
         return some_handler_fn
 
     else:
 
         async def some_handler_coro(arg):
-            handler_checker.handler_called = True
-            handler_checker.handler_call_count += 1
-            handler_checker.handler_call_arg = arg
+            with handler_checker.lock:
+                handler_checker.handler_called = True
+                handler_checker.handler_call_count += 1
+                handler_checker.handler_call_arg = arg
 
         return some_handler_coro
 
@@ -116,29 +140,28 @@ class TestStop(object):
             assert handler_manager._handler_runners[handler_name] is None
 
     @pytest.mark.it("Completes all pending handler invocations before stopping the runner(s)")
-    def test_completes_pending(self, mocker, inbox_manager):
+    async def test_completes_pending(self, mocker, inbox_manager):
         hm = AsyncHandlerManager(inbox_manager)
 
         # NOTE: We use two handlers arbitrarily here to show this happens for all handler runners
-        mock_msg_handler = mocker.MagicMock()
-        mock_mth_handler = mocker.MagicMock()
+        mock_msg_handler = ThreadsafeMock()
+        mock_mth_handler = ThreadsafeMock()
         msg_inbox = inbox_manager.get_unified_message_inbox()
         mth_inbox = inbox_manager.get_method_request_inbox()
-        for _ in range(100):  # sufficiently many items so can't complete quickly
+        for _ in range(200):  # sufficiently many items so can't complete quickly
             msg_inbox._put(mocker.MagicMock())
             mth_inbox._put(mocker.MagicMock())
 
         hm.on_message_received = mock_msg_handler
         hm.on_method_request_received = mock_mth_handler
-        assert not msg_inbox.empty()
-        assert not mth_inbox.empty()
-        assert mock_msg_handler.call_count != 100
-        assert mock_mth_handler.call_count != 100
+        assert mock_msg_handler.call_count < 200
+        assert mock_mth_handler.call_count < 200
         hm.stop()
+        await asyncio.sleep(0.1)
+        assert mock_msg_handler.call_count == 200
+        assert mock_mth_handler.call_count == 200
         assert msg_inbox.empty()
         assert mth_inbox.empty()
-        assert mock_msg_handler.call_count == 100
-        assert mock_mth_handler.call_count == 100
 
 
 @pytest.mark.describe("AsyncHandlerManager - .ensure_running()")
@@ -295,7 +318,7 @@ class SharedHandlerPropertyTests(object):
         # Add an item to the associated inbox, triggering the handler
         mock_obj = mocker.MagicMock()
         inbox._put(mock_obj)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
 
         # Handler has been called with the item from the inbox
         assert handler_checker.handler_called is True
@@ -315,7 +338,7 @@ class SharedHandlerPropertyTests(object):
         # Add 5 items to the associated inbox, triggering the handler
         for _ in range(5):
             inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
 
         # Handler has been called 5 times
         assert handler_checker.handler_call_count == 5
@@ -337,24 +360,25 @@ class SharedHandlerPropertyTests(object):
         # Set the handler
         setattr(handler_manager, handler_name, handler)
         # The handler has not yet been called for everything that was in the inbox
-        # (but it has started the process)
-        await asyncio.sleep(0.01)
-        assert not inbox.empty()
-        assert 0 < handler_checker.handler_call_count < 100
+        # NOTE: I'd really like to show that the handler call count is also > 0 here, but
+        # it's pretty difficult to make the timing work
+        await asyncio.sleep(0.1)
+        handler_checker.handler_call_count < 100
+
         # Immediately remove the handler
         setattr(handler_manager, handler_name, None)
         # Wait to give a chance for the handler runner to finish calling everything
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
         # Despite removal, handler has been called for everything that was in the inbox at the
         # time of the removal
-        assert inbox.empty()
         assert handler_checker.handler_call_count == 100
+        assert inbox.empty()
 
         # Add some more items
         for _ in range(100):
             inbox._put(mocker.MagicMock())
         # Wait to give a chance for the handler to be called (it won't)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
         # Despite more items added to inbox, no further handler calls have been made beyond the
         # initial calls that were made when the original items were added
         assert handler_checker.handler_call_count == 100
@@ -380,7 +404,7 @@ class SharedHandlerPropertyTests(object):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
         e = background_exc_spy.call_args[0][0]
@@ -396,7 +420,7 @@ class SharedHandlerPropertyTests(object):
         assert background_exc_spy.call_count == 0
         # Add an item to corresponding inbox, triggering the handler
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
         # Background exception handler was called
         assert background_exc_spy.call_count == 1
         e = background_exc_spy.call_args[0][0]
@@ -422,19 +446,19 @@ class SharedHandlerPropertyTests(object):
         setattr(handler_manager, handler_name, handler1)
 
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
         # The set handler (handler1) has been replaced with a new handler (handler2)
         assert getattr(handler_manager, handler_name) is not handler1
         assert getattr(handler_manager, handler_name) is handler2
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
         # The set handler (handler2) has now been replaced by a mock handler
         assert getattr(handler_manager, handler_name) is not handler2
         assert getattr(handler_manager, handler_name) is mock_handler
         # Add a new item to the inbox
         inbox._put(mocker.MagicMock())
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
         # The mock was now called
         assert getattr(handler_manager, handler_name).call_count == 1
 
