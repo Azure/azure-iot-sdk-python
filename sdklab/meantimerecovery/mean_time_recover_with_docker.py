@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
 import docker
 import asyncio
 import uuid
@@ -62,11 +67,6 @@ def quitting_listener(quit_signal):
         if sig_val == 1:
             print("Quitting...")
             break
-        # For user input do the below
-        # selection = input("Press Q to quit\n")
-        # if selection == "Q" or selection == "q":
-        #     print("Quitting...")
-        #     break
 
 
 async def send_test_message(device_client, restart_count):

@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -15,7 +20,7 @@ For using this script must have cryptography package installed in python environ
 PUBLIC_EXPONENT = 65537
 
 
-def create_self_signed_cert(common_name, days=365):
+def create_self_signed_cert(common_name, days=30):
     password_file = "self_key.pem"
     private_key = create_private_key(key_file=password_file, key_size=4096)
     file_certificate = "self_cert.pem"
@@ -39,13 +44,13 @@ def create_self_signed_cert(common_name, days=365):
     return self_cert
 
 
-def create_cert_builder(subject, issuer_name, public_key, days=365, is_ca=False):
+def create_cert_builder(subject, issuer_name, public_key, days=30, is_ca=False):
     """
     The method to create a builder for all types of certificates.
     :param subject: The subject of the certificate.
     :param issuer_name: The name of the issuer.
     :param public_key: The public key of the certificate.
-    :param days: The number of days for which the certificate is valid. The default is 1 year or 365 days.
+    :param days: The number of days for which the certificate is valid. The default is 1 year or 30 days.
     :param is_ca: Boolean to indicate if a cert is ca or non ca.
     :return: The certificate builder.
     :rtype: :class `x509.CertificateBuilder`
