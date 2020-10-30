@@ -235,6 +235,48 @@ class TestMQTTPipelineDisconnect(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
+@pytest.mark.describe("MQTTPipeline - .reauthorize_connection()")
+class TestMQTTPipelineReauthorizeConnection(object):
+    @pytest.mark.it("Runs a ReauthorizeConnectionOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        pipeline.reauthorize_connection(callback=mocker.MagicMock())
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0],
+            pipeline_ops_base.ReauthorizeConnectionOperation,
+        )
+
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the ReauthorizeConnectionOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.reauthorize_connection(callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger oop completion callback
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None)
+
+    @pytest.mark.it(
+        "Calls the callback with the error upon unsuccessful completion of the ReauthorizeConnectionOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
+        pipeline.reauthorize_connection(callback=cb)
+
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=arbitrary_exception)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception)
+
+
 @pytest.mark.describe("MQTTPipeline - .send_message()")
 class TestMQTTPipelineSendD2CMessage(object):
     @pytest.mark.it("Runs a SendD2CMessageOperation with the provided message on the pipeline")
