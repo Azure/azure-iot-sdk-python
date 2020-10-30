@@ -12,10 +12,13 @@ import time
 import os
 import io
 import sys
+import six.moves.urllib as urllib
 from azure.iot.device import exceptions as client_exceptions
+from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
+from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
 from azure.iot.device.iothub.models import Message, MethodRequest
 from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
@@ -35,12 +38,10 @@ from ..shared_client_tests import (
     SharedIoTHubDeviceClientCreateFromSastokenTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromX509CertificateTests,
-    SharedIoTHubDeviceClientUpdateSastokenTests,
     SharedIoTHubModuleClientCreateFromSastokenTests,
     SharedIoTHubModuleClientCreateFromX509CertificateTests,
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithContainerEnvTests,
     SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests,
-    SharedIoTHubModuleClientUpdateSastokenTests,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -918,10 +919,257 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .update_sastoken()")
-class TestIoTHubDeviceClientUpdateSasToken(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubDeviceClientUpdateSastokenTests
-):
-    pass
+class TestIoTHubDeviceClientUpdateSasToken(IoTHubDeviceClientTestsConfig):
+    # NOTE: This method under test (.update_sas_token()) doesn't really play well with shared
+    # testing infrastructure. Usually we try to share tests between Device and Module, or between
+    # sync and async, but it just doesn't work well for this method:
+    #   - Sync and Async clients can't share tests here because Async client has a coroutine while
+    #     Sync client has a method
+    #   - Device and Module can't share tests here because of the differences in parsing logic
+    #     re: sas token string
+    # It is possible share SOME of the tests if you REALLY want to wade into object hierarchy
+    # shenanigans, but it becomes much more difficult to follow, and I figured this was just more
+    # readable.
+    #
+    # THIS MEANS ANY TEST CHANGES TO THIS METHOD NEED TO BE UPDATED IN ~~~FOUR~~~ PLACES:
+    # Sync Device, Sync Module, Async Device, Async Module
+    #
+    # This method under test is a weird exceptional API. I'm sorry :(
+
+    @pytest.fixture
+    def device_id(self, sas_token_string):
+        # NOTE: This is kind of unconventional, but this is the easiest way to extract the
+        # device id from a sastoken string
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        device_id = token_uri_pieces[2]
+        return device_id
+
+    @pytest.fixture
+    def hostname(self, sas_token_string):
+        # NOTE: This is kind of unconventional, but this is the easiest way to extract the
+        # hostname from a sastoken string
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        hostname = token_uri_pieces[0]
+        return hostname
+
+    @pytest.fixture
+    def sas_config(self, sas_token_string):
+        """PipelineConfig set up as if using user-provided, non-renewable SAS auth"""
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        hostname = token_uri_pieces[0]
+        device_id = token_uri_pieces[2]
+        sas_config = IoTHubPipelineConfig(hostname=hostname, device_id=device_id, sastoken=sastoken)
+        return sas_config
+
+    @pytest.fixture
+    def sas_client(self, mqtt_pipeline, http_pipeline, sas_config):
+        """Client configured as if using user-provided, non-renewable SAS auth"""
+        mqtt_pipeline.pipeline_configuration = sas_config
+        http_pipeline.pipeline_configuration = sas_config
+        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
+
+    @pytest.fixture
+    def sas_client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, sas_config):
+        mqtt_pipeline_manual_cb.pipeline_configuration = sas_config
+        http_pipeline_manual_cb.pipeline_configuration = sas_config
+        return IoTHubDeviceClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+
+    @pytest.fixture
+    def new_sas_token_string(self, hostname, device_id):
+        # New SASToken String that matches old device id and hostname
+        uri = "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+        signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
+        new_token_string = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
+            uri=urllib.parse.quote(uri, safe=""),
+            signature=urllib.parse.quote(signature, safe=""),
+            expiry=int(time.time()) + 3600,
+        )
+        return new_token_string
+
+    @pytest.mark.it(
+        "Creates a new NonRenewableSasToken and sets it on the PipelineConfig, if the new SAS Token string matches the existing SAS Token's information"
+    )
+    async def test_updates_token_if_match_vals(self, sas_client, new_sas_token_string):
+
+        old_sas_token_string = str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken)
+
+        # Update to new token
+        await sas_client.update_sastoken(new_sas_token_string)
+
+        # Sastoken was updated
+        assert (
+            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken) == new_sas_token_string
+        )
+        assert (
+            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken) != old_sas_token_string
+        )
+
+    @pytest.mark.it("Begins a 'reauthorize connection' pipeline operation")
+    async def test_calls_pipeline_reauthorize(
+        self, sas_client, new_sas_token_string, mqtt_pipeline
+    ):
+        await sas_client.update_sastoken(new_sas_token_string)
+        assert mqtt_pipeline.reauthorize_connection.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'reauthorize connection' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, sas_client, mqtt_pipeline, new_sas_token_string
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await sas_client.update_sastoken(new_sas_token_string)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.reauthorize_connection.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a ClientError if the 'reauthorize connection' pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, sas_client, mqtt_pipeline, new_sas_token_string, client_error, pipeline_error
+    ):
+        # NOTE: If/When the MQTT pipeline is updated so that the reauthorize op waits for
+        # reconnection in order to return (currently it just waits for the disconnect),
+        # there will need to be additional connect-related errors in the parametrization.
+        my_pipeline_error = pipeline_error()
+
+        def fail_reauth(callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.reauthorize_connection = mocker.MagicMock(side_effect=fail_reauth)
+        with pytest.raises(client_error) as e_info:
+            await sas_client.update_sastoken(new_sas_token_string)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.reauthorize_connection.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a ClientError if the client was created with an X509 certificate instead of SAS"
+    )
+    async def test_created_with_x509(self, mocker, sas_client, new_sas_token_string):
+        # Modify client to seem as if created with X509
+        x509_client = sas_client
+        x509_client._mqtt_pipeline.pipeline_configuration.sastoken = None
+        x509_client._mqtt_pipeline.pipeline_configuration.x509 = mocker.MagicMock()
+
+        with pytest.raises(client_exceptions.ClientError):
+            await x509_client.update_sastoken(new_sas_token_string)
+
+    @pytest.mark.it(
+        "Raises a ClientError if the client was created with a renewable, non-user provided SAS (e.g. from connection string, symmetric key, etc.)"
+    )
+    async def test_created_with_renewable_sas(self, mocker, sas_client, new_sas_token_string):
+        # Modify client to seem as if created with renewable SAS
+        mock_signing_mechanism = mocker.MagicMock()
+        mock_signing_mechanism.sign.return_value = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
+        uri = "{hostname}/devices/{device_id}".format(
+            hostname=sas_client._mqtt_pipeline.pipeline_configuration.hostname,
+            device_id=sas_client._mqtt_pipeline.pipeline_configuration.device_id,
+        )
+        renewable_token = st.RenewableSasToken(uri, mock_signing_mechanism)
+        sas_client._mqtt_pipeline.pipeline_configuration.sastoken = renewable_token
+
+        # Client fails
+        with pytest.raises(client_exceptions.ClientError):
+            await sas_client.update_sastoken(new_sas_token_string)
+
+    @pytest.mark.it("Raises a ValueError if there is an error creating a new NonRenewableSasToken")
+    async def test_token_error(self, mocker, sas_client, new_sas_token_string):
+        # NOTE: specific inputs that could cause this are tested in the sastoken test module
+        sastoken_mock = mocker.patch.object(st.NonRenewableSasToken, "__init__")
+        token_err = st.SasTokenError("Some SasToken failure")
+        sastoken_mock.side_effect = token_err
+
+        with pytest.raises(ValueError) as e_info:
+            await sas_client.update_sastoken(new_sas_token_string)
+        assert e_info.value.__cause__ is token_err
+
+    @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
+    async def test_expired_token(self, mocker, sas_client, hostname, device_id):
+        uri = "{hostname}/devices/{device_id}".format(hostname=hostname, device_id=device_id)
+        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+            resource=urllib.parse.quote(uri, safe=""),
+            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
+            expiry=int(time.time() - 3600),  # expired
+        )
+
+        with pytest.raises(ValueError):
+            await sas_client.update_sastoken(sastoken_str)
+
+    @pytest.fixture(params=["Nonmatching Device ID", "Nonmatching Hostname"])
+    def nonmatching_uri(self, request, device_id, hostname):
+        # NOTE: It would be preferable to have this as a parametrization on a test rather than a
+        # fixture, however, we need to use the device_id and hostname fixtures in order to ensure
+        # tests don't break when other fixtures change, and you can't include fixtures in a
+        # parametrization, so this also has to be a fixture
+        uri_format = "{hostname}/devices/{device_id}"
+        if request.param == "Nonmatching Device ID":
+            return uri_format.format(hostname=hostname, device_id="nonmatching_device")
+        else:
+            return uri_format.format(hostname="nonmatching_hostname", device_id=device_id)
+
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string does not match the previous SAS details"
+    )
+    async def test_nonmatching_uri_in_new_token(self, sas_client, nonmatching_uri):
+        signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
+        sastoken_str = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
+            uri=urllib.parse.quote(nonmatching_uri, safe=""),
+            signature=urllib.parse.quote(signature),
+            expiry=int(time.time()) + 3600,
+        )
+
+        with pytest.raises(ValueError):
+            await sas_client.update_sastoken(sastoken_str)
+
+    @pytest.fixture(
+        params=["Too short", "Too long", "Incorrectly formatted device notation", "Module URI"]
+    )
+    def invalid_uri(self, request, device_id, hostname):
+        # NOTE: As in the nonmatching_uri fixture above, this is a workaround for parametrization
+        # that allows the usage of other fixtures in the parametrized value. Weird pattern, but
+        # necessary to ensure stability of the tests over time.
+        if request.param == "Too short":
+            # Doesn't have device ID
+            return hostname + "/devices"
+        elif request.param == "Too long":
+            # Extraneous value at the end
+            return "{}/devices/{}/somethingElse".format(hostname, device_id)
+        elif request.param == "Incorrectly formatted device notation":
+            # Doesn't have '/devices/'
+            return "{}/not-devices/{}".format(hostname, device_id)
+        else:
+            # Valid... for a Module... but this is a Device
+            return "{}/devices/{}/modules/my_module".format(hostname, device_id)
+
+    @pytest.mark.it("Raises ValueError if the provided SAS token string has an invalid URI")
+    async def test_raises_value_error_invalid_uri(self, mocker, sas_client, invalid_uri):
+        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+            resource=urllib.parse.quote(invalid_uri, safe=""),
+            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
+            expiry=int(time.time() + 3600),
+        )
+
+        with pytest.raises(ValueError):
+            await sas_client.update_sastoken(sastoken_str)
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .connect()")
@@ -1358,10 +1606,293 @@ class TestIoTHubModuleClientCreateFromX509Certificate(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .update_sastoken()")
-class TestIoTHubModuleClientUpdateSasToken(
-    IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientUpdateSastokenTests
-):
-    pass
+class TestIoTHubModuleClientUpdateSasToken(IoTHubModuleClientTestsConfig):
+    # NOTE: This method under test (.update_sas_token()) doesn't really play well with shared
+    # testing infrastructure. Usually we try to share tests between Device and Module, or between
+    # sync and async, but it just doesn't work well for this method:
+    #   - Sync and Async clients can't share tests here because Async client has a coroutine while
+    #     Sync client has a method
+    #   - Device and Module can't share tests here because of the differences in parsing logic
+    #     re: sas token string
+    # It is possible share SOME of the tests if you REALLY want to wade into object hierarchy
+    # shenanigans, but it becomes much more difficult to follow, and I figured this was just more
+    # readable.
+    #
+    # THIS MEANS ANY TEST CHANGES TO THIS METHOD NEED TO BE UPDATED IN ~~~FOUR~~~ PLACES:
+    # Sync Device, Sync Module, Async Device, Async Module
+    #
+    # This method under test is a weird exceptional API. I'm sorry :(
+
+    @pytest.fixture
+    def device_id(self, sas_token_string):
+        # NOTE: This is kind of unconventional, but this is the easiest way to extract the
+        # device id from a sastoken string
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        device_id = token_uri_pieces[2]
+        return device_id
+
+    @pytest.fixture
+    def module_id(self, sas_token_string):
+        # NOTE: This is kind of unconventional, but this is the easiest way to extract the
+        # module id from a sastoken string
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        module_id = token_uri_pieces[4]
+        return module_id
+
+    @pytest.fixture
+    def hostname(self, sas_token_string):
+        # NOTE: This is kind of unconventional, but this is the easiest way to extract the
+        # hostname from a sastoken string
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        hostname = token_uri_pieces[0]
+        return hostname
+
+    @pytest.fixture
+    def sas_config(self, sas_token_string):
+        """PipelineConfig set up as if using user-provided, non-renewable SAS auth"""
+        sastoken = st.NonRenewableSasToken(sas_token_string)
+        token_uri_pieces = sastoken.resource_uri.split("/")
+        hostname = token_uri_pieces[0]
+        device_id = token_uri_pieces[2]
+        module_id = token_uri_pieces[4]
+        sas_config = IoTHubPipelineConfig(
+            hostname=hostname, device_id=device_id, module_id=module_id, sastoken=sastoken
+        )
+        return sas_config
+
+    @pytest.fixture
+    def sas_client(self, mqtt_pipeline, http_pipeline, sas_config):
+        """Client configured as if using user-provided, non-renewable SAS auth"""
+        mqtt_pipeline.pipeline_configuration = sas_config
+        http_pipeline.pipeline_configuration = sas_config
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline)
+
+    @pytest.fixture
+    def sas_client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, sas_config):
+        mqtt_pipeline_manual_cb.pipeline_configuration = sas_config
+        http_pipeline_manual_cb.pipeline_configuration = sas_config
+        return IoTHubModuleClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+
+    @pytest.fixture
+    def new_sas_token_string(self, hostname, device_id, module_id):
+        # New SASToken String that matches old device id, module_id and hostname
+        uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
+        signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
+        new_token_string = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
+            uri=urllib.parse.quote(uri, safe=""),
+            signature=urllib.parse.quote(signature, safe=""),
+            expiry=int(time.time()) + 3600,
+        )
+        return new_token_string
+
+    @pytest.mark.it(
+        "Creates a new NonRenewableSasToken and sets it on the PipelineConfig, if the new SAS Token string matches the existing SAS Token's information"
+    )
+    async def test_updates_token_if_match_vals(self, sas_client, new_sas_token_string):
+        old_sas_token_string = str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken)
+
+        # Update to new token
+        await sas_client.update_sastoken(new_sas_token_string)
+
+        # Sastoken was updated
+        assert (
+            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken) == new_sas_token_string
+        )
+        assert (
+            str(sas_client._mqtt_pipeline.pipeline_configuration.sastoken) != old_sas_token_string
+        )
+
+    @pytest.mark.it("Begins a 'reauthorize connection' pipeline operation")
+    async def test_calls_pipeline_reauthorize(
+        self, sas_client, new_sas_token_string, mqtt_pipeline
+    ):
+        await sas_client.update_sastoken(new_sas_token_string)
+        assert mqtt_pipeline.reauthorize_connection.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'reauthorize connection' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, sas_client, mqtt_pipeline, new_sas_token_string
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await sas_client.update_sastoken(new_sas_token_string)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.reauthorize_connection.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a ClientError if the 'reauthorize connection' pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, sas_client, mqtt_pipeline, new_sas_token_string, client_error, pipeline_error
+    ):
+        # NOTE: If/When the MQTT pipeline is updated so that the reauthorize op waits for
+        # reconnection in order to return (currently it just waits for the disconnect),
+        # there will need to be additional connect-related errors in the parametrization.
+        my_pipeline_error = pipeline_error()
+
+        def fail_reauth(callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.reauthorize_connection = mocker.MagicMock(side_effect=fail_reauth)
+        with pytest.raises(client_error) as e_info:
+            await sas_client.update_sastoken(new_sas_token_string)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.reauthorize_connection.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a ClientError if the client was created with an X509 certificate instead of SAS"
+    )
+    async def test_created_with_x509(self, mocker, sas_client, new_sas_token_string):
+        # Modify client to seem as if created with X509
+        x509_client = sas_client
+        x509_client._mqtt_pipeline.pipeline_configuration.sastoken = None
+        x509_client._mqtt_pipeline.pipeline_configuration.x509 = mocker.MagicMock()
+
+        # Client raises error
+        with pytest.raises(client_exceptions.ClientError):
+            await x509_client.update_sastoken(new_sas_token_string)
+
+    @pytest.mark.it(
+        "Raises a ClientError if the client was created with a renewable, non-user provided SAS (e.g. from connection string, symmetric key, etc.)"
+    )
+    async def test_created_with_renewable_sas(self, mocker, sas_client, new_sas_token_string):
+        # Modify client to seem as if created with renewable SAS
+        mock_signing_mechanism = mocker.MagicMock()
+        mock_signing_mechanism.sign.return_value = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
+        uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=sas_client._mqtt_pipeline.pipeline_configuration.hostname,
+            device_id=sas_client._mqtt_pipeline.pipeline_configuration.device_id,
+            module_id=sas_client._mqtt_pipeline.pipeline_configuration.module_id,
+        )
+        renewable_token = st.RenewableSasToken(uri, mock_signing_mechanism)
+        sas_client._mqtt_pipeline.pipeline_configuration.sastoken = renewable_token
+
+        # Client raises error
+        with pytest.raises(client_exceptions.ClientError):
+            await sas_client.update_sastoken(new_sas_token_string)
+
+    @pytest.mark.it("Raises a ValueError if there is an error creating a new NonRenewableSasToken")
+    async def test_token_error(self, mocker, sas_client, new_sas_token_string):
+        # NOTE: specific inputs that could cause this are tested in the sastoken test module
+        sastoken_mock = mocker.patch.object(st.NonRenewableSasToken, "__init__")
+        token_err = st.SasTokenError("Some SasToken failure")
+        sastoken_mock.side_effect = token_err
+
+        with pytest.raises(ValueError) as e_info:
+            await sas_client.update_sastoken(new_sas_token_string)
+        assert e_info.value.__cause__ is token_err
+
+    @pytest.mark.it("Raises ValueError if the provided SAS token string has already expired")
+    async def test_expired_token(self, mocker, sas_client, hostname, device_id, module_id):
+        uri = "{hostname}/devices/{device_id}/modules/{module_id}".format(
+            hostname=hostname, device_id=device_id, module_id=module_id
+        )
+        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+            resource=urllib.parse.quote(uri, safe=""),
+            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
+            expiry=int(time.time() - 3600),  # expired
+        )
+
+        with pytest.raises(ValueError):
+            await sas_client.update_sastoken(sastoken_str)
+
+    @pytest.fixture(
+        params=["Nonmatching Device ID", "Nonmatching Module ID", "Nonmatching Hostname"]
+    )
+    def nonmatching_uri(self, request, device_id, module_id, hostname):
+        # NOTE: It would be preferable to have this as a parametrization on a test rather than a
+        # fixture, however, we need to use the device_id and hostname fixtures in order to ensure
+        # tests don't break when other fixtures change, and you can't include fixtures in a
+        # parametrization, so this also has to be a fixture
+        uri_format = "{hostname}/devices/{device_id}/modules/{module_id}"
+        if request.param == "Nonmatching Device ID":
+            return uri_format.format(
+                hostname=hostname, device_id="nonmatching_device", module_id=module_id
+            )
+        elif request.param == "Nonmatching Module ID":
+            return uri_format.format(
+                hostname=hostname, device_id=device_id, module_id="nonmatching_module"
+            )
+        else:
+            return uri_format.format(
+                hostname="nonmatching_hostname", device_id=device_id, module_id=module_id
+            )
+
+    @pytest.mark.it(
+        "Raises ValueError if the provided SAS token string does not match the previous SAS details"
+    )
+    async def test_nonmatching_uri_in_new_token(self, sas_client, nonmatching_uri):
+        signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
+        sastoken_str = "SharedAccessSignature sr={uri}&sig={signature}&se={expiry}".format(
+            uri=urllib.parse.quote(nonmatching_uri, safe=""),
+            signature=urllib.parse.quote(signature),
+            expiry=int(time.time()) + 3600,
+        )
+
+        with pytest.raises(ValueError):
+            await sas_client.update_sastoken(sastoken_str)
+
+    @pytest.fixture(
+        params=[
+            "Too short",
+            "Too long",
+            "Incorrectly formatted device notation",
+            "Incorrectly formatted module notation",
+            "Device URI",
+        ]
+    )
+    def invalid_uri(self, request, device_id, module_id, hostname):
+        # NOTE: As in the nonmatching_uri fixture above, this is a workaround for parametrization
+        # that allows the usage of other fixtures in the parametrized value. Weird pattern, but
+        # necessary to ensure stability of the tests over time.
+        if request.param == "Too short":
+            # Doesn't have module ID
+            return "{}/devices/{}/modules".format(hostname, device_id)
+        elif request.param == "Too long":
+            # Extraneous value at the end
+            return "{}/devices/{}/modules/{}/somethingElse".format(hostname, device_id, module_id)
+        elif request.param == "Incorrectly formatted device notation":
+            # Doesn't have '/devices/'
+            return "{}/not-devices/{}/modules/{}".format(hostname, device_id, module_id)
+        elif request.param == "Incorrectly formatted module notation":
+            # Doesn't have '/modules/'
+            return "{}/devices/{}/not-modules/{}".format(hostname, device_id, module_id)
+        else:
+            # Valid... for a Device... but this is a Module
+            return "{}/devices/{}/".format(hostname, device_id)
+
+    @pytest.mark.it("Raises ValueError if the provided SAS token string has an invalid URI")
+    async def test_raises_value_error_invalid_uri(self, mocker, sas_client, invalid_uri):
+        sastoken_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
+            resource=urllib.parse.quote(invalid_uri, safe=""),
+            signature=urllib.parse.quote("ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI=", safe=""),
+            expiry=int(time.time() + 3600),
+        )
+
+        with pytest.raises(ValueError):
+            await sas_client.update_sastoken(sastoken_str)
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .connect()")
