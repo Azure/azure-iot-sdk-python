@@ -203,6 +203,9 @@ class FakeIoTHubPipeline:
     def disconnect(self, callback):
         callback()
 
+    def reauthorize_connection(self, callback):
+        callback()
+
     def enable_feature(self, feature_name, callback):
         callback()
 
