@@ -57,7 +57,7 @@ async def main():
         while True:
             await asyncio.sleep(NEW_TOKEN_INTERVAL)
             sastoken = get_new_sastoken()
-            device_client.update_sastoken(sastoken)
+            await device_client.update_sastoken(sastoken)
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
