@@ -14,10 +14,10 @@ This directory contains samples showing how to use the various features of the M
 
     * Note that this operation make take a few minutes.
 
-2. Add the IoT Extension to the Azure CLI, and then [register a device identity](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-create)
+2. Add the IoT Extension to the Azure CLI, and then [register a device identity](https://docs.microsoft.com/en-us/cli/azure/ext/azure-iot/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-create)
 
     ```bash
-    az extension add --name azure-cli-iot-ext
+    az extension add --name azure-iot
     az iot hub device-identity create --hub-name <your IoT Hub name> --device-id <your device id>
     ```
 
@@ -36,7 +36,7 @@ This directory contains samples showing how to use the various features of the M
 4. [Begin monitoring for telemetry](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-monitor-events) on your IoT Hub using the Azure CLI
 
     ```bash
-    az iot hub monitor-events --hub-name <your IoT Hub name> --output table
+    az iot hub monitor-events --hub-name <your IoT Hub name> --output json
     ```
 
 5. On your device, set the Device Connection String as an enviornment variable called `IOTHUB_DEVICE_CONNECTION_STRING`.
