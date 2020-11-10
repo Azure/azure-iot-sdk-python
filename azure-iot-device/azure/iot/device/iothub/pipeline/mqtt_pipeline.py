@@ -208,6 +208,30 @@ class MQTTPipeline(object):
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=on_complete))
 
+    def reauthorize_connection(self, callback):
+        """
+        Reauthorize connection to the service.
+
+        Technically, this function will return upon disconnection. The disconnection will then
+        immediately trigger a reconnect, but this function will not wait for that to return.
+        This is (unfortunately) necessary while supporting MQTT3.
+
+        :param callback: callback which is called when the connection to the service has been disconnected
+
+        The following exceptions are not "raised", but rather returned via the "error" parameter
+        when invoking "callback":
+
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        """
+        logger.debug("Starting ReauthorizeConnectionOperation on the pipeline")
+
+        def on_complete(op, error):
+            callback(error=error)
+
+        self._pipeline.run_op(
+            pipeline_ops_base.ReauthorizeConnectionOperation(callback=on_complete)
+        )
+
     def send_message(self, message, callback):
         """
         Send a telemetry message to the service.

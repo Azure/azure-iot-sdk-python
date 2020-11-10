@@ -154,6 +154,45 @@ class AbstractIoTHubClient(object):
             else:
                 pass
 
+    def _replace_user_supplied_sastoken(self, sastoken_str):
+        """
+        Replaces the pipeline's NonRenewableSasToken with a new one based on a provided
+        sastoken string. Also does validation.
+        This helper only updates the PipelineConfig - it does not reauthorize the connection.
+        """
+        if not isinstance(
+            self._mqtt_pipeline.pipeline_configuration.sastoken, st.NonRenewableSasToken
+        ):
+            raise exceptions.ClientError(
+                "Cannot update sastoken when client was not created with one"
+            )
+        # Create new SasToken
+        try:
+            new_token_o = st.NonRenewableSasToken(sastoken_str)
+        except st.SasTokenError as e:
+            new_err = ValueError("Invalid SasToken provided")
+            new_err.__cause__ = e
+            raise new_err
+        # Extract values from SasToken
+        vals = _extract_sas_uri_values(new_token_o.resource_uri)
+        # Validate new token
+        if type(self).__name__ == "IoTHubDeviceClient" and vals["module_id"]:
+            raise ValueError("Provided SasToken is for a module")
+        if type(self).__name__ == "IoTHubModuleClient" and not vals["module_id"]:
+            raise ValueError("Provided SasToken is for a device")
+        if self._mqtt_pipeline.pipeline_configuration.device_id != vals["device_id"]:
+            raise ValueError("Provided SasToken does not match existing device id")
+        if self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]:
+            raise ValueError("Provided SasToken does not match existing module id")
+        if self._mqtt_pipeline.pipeline_configuration.hostname != vals["hostname"]:
+            raise ValueError("Provided SasToken does not match existing hostname")
+        if new_token_o.expiry_time < int(time.time()):
+            raise ValueError("Provided SasToken has already expired")
+        # Set token
+        # NOTE: We only need to set this on MQTT because this is a reference to the same object
+        # that is stored in HTTP. The HTTP pipeline is updated implicitly.
+        self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
+
     @classmethod
     def create_from_connection_string(cls, connection_string, **kwargs):
         """
@@ -298,6 +337,10 @@ class AbstractIoTHubClient(object):
         pass
 
     @abc.abstractmethod
+    def update_sastoken(self, sastoken):
+        pass
+
+    @abc.abstractmethod
     def send_message(self, message):
         pass
 
@@ -320,51 +363,6 @@ class AbstractIoTHubClient(object):
     @abc.abstractmethod
     def receive_twin_desired_properties_patch(self):
         pass
-
-    def update_sastoken(self, sastoken):
-        """
-        Update the client's SAS Token used for authentication.
-
-        This API can only be used if the client was initially created with a SAS Token.
-
-        :param str sastoken: The new SAS Token string for the client to use
-
-        :raises: ValueError if the sastoken parameter is invalid
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if the client was not initially
-            created with a SAS token.
-        """
-        if not isinstance(
-            self._mqtt_pipeline.pipeline_configuration.sastoken, st.NonRenewableSasToken
-        ):
-            raise exceptions.ClientError(
-                "Cannot update sastoken when client was not created with one"
-            )
-        # Create new SasToken
-        try:
-            new_token_o = st.NonRenewableSasToken(sastoken)
-        except st.SasTokenError as e:
-            new_err = ValueError("Invalid SasToken provided")
-            new_err.__cause__ = e
-            raise new_err
-        # Extract values from SasToken
-        vals = _extract_sas_uri_values(new_token_o.resource_uri)
-        # Validate new token
-        if type(self).__name__ == "IoTHubDeviceClient" and vals["module_id"]:
-            raise ValueError("Provided SasToken is for a module")
-        if type(self).__name__ == "IoTHubModuleClient" and not vals["module_id"]:
-            raise ValueError("Provided SasToken is for a device")
-        if self._mqtt_pipeline.pipeline_configuration.device_id != vals["device_id"]:
-            raise ValueError("Provided SasToken does not match existing device id")
-        if self._mqtt_pipeline.pipeline_configuration.module_id != vals["module_id"]:
-            raise ValueError("Provided SasToken does not match existing module id")
-        if self._mqtt_pipeline.pipeline_configuration.hostname != vals["hostname"]:
-            raise ValueError("Provided SasToken does not match existing hostname")
-        if new_token_o.expiry_time < int(time.time()):
-            raise ValueError("Provided SasToken has already expired")
-        # Set token
-        # NOTE: We only need to set this on MQTT because this is a reference to the same object
-        # that is stored in HTTP. The HTTP pipeline is updated implicitly.
-        self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
 
     @property
     def connected(self):
