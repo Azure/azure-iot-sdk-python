@@ -307,11 +307,11 @@ class SasTokenRenewalStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_token_renewal_alarm(self):
         """Cancel and delete any pending renewal alarm"""
-        alarm = self._token_renewal_alarm
+        old_alarm = self._token_renewal_alarm
         self._token_renewal_alarm = None
-        if alarm:
+        if old_alarm:
             logger.debug("Cancelling SAS Token renewal alarm")
-            alarm.cancel()
+            old_alarm.cancel()
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_renewal_alarm(self):
