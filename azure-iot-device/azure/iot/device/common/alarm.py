@@ -24,7 +24,8 @@ class Alarm(Thread):
 
     def run(self):
         """Method representing the thread's activity.
-        Overrides the method inherited from Thread
+        Overrides the method inherited from Thread.
+        Will invoke the Alarm's given function at the given alarm time.
         """
         while not self.finished.is_set():
             curr_time = time.time()
