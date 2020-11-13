@@ -312,7 +312,6 @@ class SasTokenRenewalStage(PipelineStage):
         if old_alarm:
             logger.debug("Cancelling SAS Token renewal alarm")
             old_alarm.cancel()
-            time.sleep(1)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_renewal_alarm(self):

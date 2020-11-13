@@ -33,5 +33,5 @@ class Alarm(Thread):
                 self.function(*self.args, **self.kwargs)
                 self.finished.set()
                 break
-            else:
-                time.sleep(1)
+            # else:
+            #     time.sleep(1)
