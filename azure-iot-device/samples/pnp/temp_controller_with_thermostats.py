@@ -8,6 +8,7 @@ import asyncio
 import random
 import logging
 import json
+import time
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
@@ -232,14 +233,15 @@ async def execute_property_listener(device_client):
 
 
 def stdin_listener():
-    """
-    Listener for quitting the sample
-    """
     while True:
-        selection = input("Press Q to quit\n")
-        if selection == "Q" or selection == "q":
-            print("Quitting...")
-            break
+        try:
+            selection = input("Press Q to quit\n")
+            if selection == "Q" or selection == "q":
+                print("Quitting...")
+                break
+        except EOFError as err:
+            print("Unexpcted error occured", str(err))
+            time.sleep(100)
 
 
 # END KEYBOARD INPUT LISTENER
