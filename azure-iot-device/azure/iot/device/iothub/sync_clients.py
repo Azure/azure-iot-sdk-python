@@ -515,9 +515,10 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         logger.info("Waiting for message from Hub...")
         try:
             message = c2d_inbox.get(block=block, timeout=timeout)
+            logger.info("Message received")
         except InboxEmpty:
             message = None
-        logger.info("Message received")
+            logger.info("No message received.")
         return message
 
     def get_storage_info_for_blob(self, blob_name):
