@@ -292,9 +292,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Waiting for method request...")
         try:
             method_request = method_inbox.get(block=block, timeout=timeout)
+            logger.info("Received method request")
         except InboxEmpty:
             method_request = None
-        logger.info("Received method request")
+            logger.info("Did not receive method request")
         return method_request
 
     def send_method_response(self, method_response):
@@ -423,9 +424,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Waiting for twin patches...")
         try:
             patch = twin_patch_inbox.get(block=block, timeout=timeout)
+            logger.info("twin patch received")
         except InboxEmpty:
+            logger.info("Did not receive twin patch")
             return None
-        logger.info("twin patch received")
         return patch
 
     def _generic_handler_setter(self, handler_name, feature_name, new_handler):
@@ -515,9 +517,10 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         logger.info("Waiting for message from Hub...")
         try:
             message = c2d_inbox.get(block=block, timeout=timeout)
+            logger.info("Message received")
         except InboxEmpty:
             message = None
-        logger.info("Message received")
+            logger.info("No message received.")
         return message
 
     def get_storage_info_for_blob(self, blob_name):
@@ -657,9 +660,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Waiting for input message on: " + input_name + "...")
         try:
             message = input_inbox.get(block=block, timeout=timeout)
+            logger.info("Input message received on: " + input_name)
         except InboxEmpty:
             message = None
-        logger.info("Input message received on: " + input_name)
+            logger.info("No input message received on: " + input_name)
         return message
 
     def invoke_method(self, method_params, device_id, module_id=None):
