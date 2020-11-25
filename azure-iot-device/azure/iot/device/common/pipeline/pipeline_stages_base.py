@@ -324,6 +324,8 @@ class SasTokenRenewalStage(PipelineStage):
             self.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_RENEWAL_MARGIN
         )
+        # remove this line
+        renew_time = renew_time - time.time()
 
         logger.debug("Scheduling SAS Token renewal at epoch time: {}".format(renew_time))
         self_weakref = weakref.ref(self)
