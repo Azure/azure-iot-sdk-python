@@ -22,16 +22,27 @@ class Alarm(Thread):
         """Stop the alarm if it hasn't finished yet."""
         self.finished.set()
 
+    #     def run(self):
+    #         """Method representing the thread's activity.
+    #         Overrides the method inherited from Thread.
+    #         Will invoke the Alarm's given function at the given alarm time.
+    #         """
+    #         while not self.finished.is_set():
+    #             curr_time = time.time()
+    #             if curr_time >= self.alarm_time:
+    #                 self.function(*self.args, **self.kwargs)
+    #                 self.finished.set()
+    #                 break
+    #             else:
+    #                 time.sleep(1)
+
     def run(self):
         """Method representing the thread's activity.
         Overrides the method inherited from Thread.
         Will invoke the Alarm's given function at the given alarm time.
         """
-        while not self.finished.is_set():
-            curr_time = time.time()
-            if curr_time >= self.alarm_time:
-                self.function(*self.args, **self.kwargs)
-                self.finished.set()
-                break
-            # else:
-            #     time.sleep(1)
+        interval = self.alarm_time - time.time()
+        self.finished.wait(interval)
+        if not self.finished.is_set():
+            self.function(*self.args, **self.kwargs)
+        self.finished.set()
