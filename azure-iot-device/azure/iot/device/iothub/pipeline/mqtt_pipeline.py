@@ -169,6 +169,9 @@ class MQTTPipeline(object):
         self._pipeline.run_op(op)
         callback.wait_for_completion()
 
+    def shutdown(self):
+        pass
+
     def connect(self, callback):
         """
         Connect to the service.
