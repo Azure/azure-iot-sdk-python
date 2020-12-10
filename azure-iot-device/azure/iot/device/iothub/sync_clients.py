@@ -197,6 +197,37 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully disconnected from Hub")
 
+    def update_sastoken(self, sastoken):
+        """
+        Update the client's SAS Token used for authentication, then reauthorizes the connection.
+
+        This API can only be used if the client was initially created with a SAS Token.
+        Note also that this API may return before the reauthorization/reconnection is completed.
+        This means that some errors that may occur as part of the reconnection could occur in the
+        background, and will not be raised by this method.
+
+        :param str sastoken: The new SAS Token string for the client to use
+
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if the client was not initially
+            created with a SAS token.
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        :raises: ValueError if the sastoken parameter is invalid
+        """
+        self._replace_user_supplied_sastoken(sastoken)
+
+        # Reauthorize the connection
+        logger.info("Reauthorizing connection with Hub...")
+        callback = EventedCallback()
+        self._mqtt_pipeline.reauthorize_connection(callback=callback)
+        handle_result(callback)
+        # NOTE: Currently due to the MQTT3 implemenation, the pipeline reauthorization will return
+        # after the disconnect. It does not wait for the reconnect to complete. This means that
+        # any errors that may occur as part of the connect will not return via this callback.
+        # They will instead go to the background exception handler.
+
+        logger.info("Successfully reauthorized connection to Hub")
+
     def send_message(self, message):
         """Sends a message to the default events endpoint on the Azure IoT Hub or Azure IoT Edge Hub instance.
 
@@ -261,9 +292,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Waiting for method request...")
         try:
             method_request = method_inbox.get(block=block, timeout=timeout)
+            logger.info("Received method request")
         except InboxEmpty:
             method_request = None
-        logger.info("Received method request")
+            logger.info("Did not receive method request")
         return method_request
 
     def send_method_response(self, method_response):
@@ -392,9 +424,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Waiting for twin patches...")
         try:
             patch = twin_patch_inbox.get(block=block, timeout=timeout)
+            logger.info("twin patch received")
         except InboxEmpty:
+            logger.info("Did not receive twin patch")
             return None
-        logger.info("twin patch received")
         return patch
 
     def _generic_handler_setter(self, handler_name, feature_name, new_handler):
@@ -484,9 +517,10 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         logger.info("Waiting for message from Hub...")
         try:
             message = c2d_inbox.get(block=block, timeout=timeout)
+            logger.info("Message received")
         except InboxEmpty:
             message = None
-        logger.info("Message received")
+            logger.info("No message received.")
         return message
 
     def get_storage_info_for_blob(self, blob_name):
@@ -626,9 +660,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         logger.info("Waiting for input message on: " + input_name + "...")
         try:
             message = input_inbox.get(block=block, timeout=timeout)
+            logger.info("Input message received on: " + input_name)
         except InboxEmpty:
             message = None
-        logger.info("Input message received on: " + input_name)
+            logger.info("No input message received on: " + input_name)
         return message
 
     def invoke_method(self, method_params, device_id, module_id=None):
