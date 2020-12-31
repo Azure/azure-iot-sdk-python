@@ -19,5 +19,5 @@ twin = device_client.get_twin()
 print("Twin document:")
 print("{}".format(twin))
 
-# Finally, disconnect
-device_client.disconnect()
+# Finally, shut down the client
+device_client.shutdown()

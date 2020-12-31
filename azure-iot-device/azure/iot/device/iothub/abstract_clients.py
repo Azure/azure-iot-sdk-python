@@ -329,6 +329,10 @@ class AbstractIoTHubClient(object):
         return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
+    def shutdown(self):
+        pass
+
+    @abc.abstractmethod
     def connect(self):
         pass
 

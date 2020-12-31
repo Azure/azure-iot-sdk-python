@@ -341,7 +341,7 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
         assert mock_timer.return_value.start.call_args == mocker.call()
 
     @pytest.mark.it(
-        "Sends a PipelineError to the background exception handler and does not set a timer if the SasToken TTL is less than the Renewal Margin (time prior to token expiration triggering renew)"
+        "Sends a PipelineRuntimeError to the background exception handler and does not set a timer if the SasToken TTL is less than the Renewal Margin (time prior to token expiration triggering renew)"
     )
     def test_token_ttl_less_than_renewal_timer(self, mocker, stage, op, mock_timer):
         # NOTE: this really shouldn't happen in regular flow. This is a total edge case, that is
@@ -356,7 +356,7 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
         assert handle_exceptions.handle_background_exception.call_count == 1
         assert isinstance(
             handle_exceptions.handle_background_exception.call_args[0][0],
-            pipeline_exceptions.PipelineError,
+            pipeline_exceptions.PipelineRuntimeError,
         )
         assert mock_timer.call_count == 0
 
@@ -373,7 +373,8 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
 
     @pytest.fixture(params=["NonRenewableSasToken", "No SAS Token Present"])
     def sastoken(self, request):
-        # Alternate SAS tokens required for these test cases
+        # This fixture overrides the sastoken fixture in the SasTokenRenewalStageTestConfig
+        # Alternate SAS tokens are required for these test cases
         if request.param == "NonRenewableSasToken":
             token_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
                 resource=fake_uri, signature=fake_signed_data, expiry=fake_expiry
@@ -393,6 +394,39 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
         assert stage.send_op_down.call_args == mocker.call(op)
         assert stage._token_renewal_timer is None
         assert mock_timer.call_count == 0
+
+
+@pytest.mark.describe("SasTokenRenewalStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestSasTokenRenewalStageRunOpWithShutdownPipelineOp(
+    SasTokenRenewalStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
+
+    @pytest.mark.it(
+        "Cancels the token renewal timer, and then sends the operation down, if a timer exists"
+    )
+    def test_with_timer(self, mocker, stage, op, mock_timer):
+        stage._token_renewal_timer = mock_timer
+        assert mock_timer.cancel.call_count == 0
+        assert stage.send_op_down.call_count == 0
+
+        stage.run_op(op)
+
+        assert mock_timer.cancel.call_count == 1
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+    @pytest.mark.it("Simply sends the operation down if no timer exists")
+    def test_no_timer(self, mocker, stage, op):
+        assert stage._token_renewal_timer is None
+        assert stage.send_op_down.call_count == 0
+
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
 
 
 @pytest.mark.describe("SasTokenRenewalStage - OCCURANCE: SasToken Renewal Timer expires")
@@ -3026,6 +3060,37 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
         assert stage.waiting_connect_ops == waiting_connect_ops_copy
         for op in stage.waiting_connect_ops:
             assert op.original_callback.call_count == 0
+
+
+@pytest.mark.describe("ReconnectStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestReconnectStageRunOpWithShutdownPipelineOperation(
+    ReconnectStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
+
+    @pytest.mark.it("Clears the reconnect timer, if it exists")
+    def test_with_reconnect_timer(self, stage, op, mock_timer):
+        stage.reconnect_timer = mock_timer
+        assert mock_timer.cancel.call_count == 0
+        stage.run_op(op)
+        assert mock_timer.cancel.call_count == 1
+
+    @pytest.mark.it("Sends the op down")
+    @pytest.mark.parametrize(
+        "has_timer",
+        [
+            pytest.param(True, id="Has reconnect timer"),
+            pytest.param(False, id="No set reconnect timer"),
+        ],
+    )
+    def test_sends_down(self, stage, op, mock_timer, has_timer):
+        if has_timer:
+            stage.reconnect_timer = mock_timer
+        assert stage.send_op_down.call_count == 0
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
 
 
 @pytest.mark.describe("ReconnectStage - .run_op() -- Called with arbitrary other operation")

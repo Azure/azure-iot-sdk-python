@@ -12,6 +12,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_mqtt,
     pipeline_ops_base,
+    pipeline_exceptions,
 )
 from azure.iot.device.iothub.pipeline import (
     config,
@@ -133,6 +134,17 @@ class TestMQTTPipelineInstantiation(object):
         assert isinstance(op, pipeline_ops_base.InitializePipelineOperation)
 
     @pytest.mark.it(
+        "Sets a flag to indicate the pipeline is 'running' upon successful completion of the InitializePipelineOperation"
+    )
+    def test_running(self, mocker, pipeline_configuration):
+        # Because this is an init test, there isn't really a way to check that it only occurs after
+        # the op. The reason is because this is the object's init, the object doesn't actually
+        # exist until the entire method has completed, so there's no reference you can check prior
+        # to method completion.
+        pipeline = MQTTPipeline(pipeline_configuration)
+        assert pipeline._running
+
+    @pytest.mark.it(
         "Raises exceptions that occurred in execution upon unsuccessful completion of the InitializePipelineOperation"
     )
     def test_init_pipeline_fail(self, mocker, arbitrary_exception, pipeline_configuration):
@@ -156,8 +168,102 @@ class TestMQTTPipelineInstantiation(object):
         assert e_info.value is arbitrary_exception
 
 
+@pytest.mark.describe("MQTTPipeline - .shutdown()")
+class TestMQTTPipelineShutdown(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.shutdown(callback=mocker.MagicMock())
+
+    @pytest.mark.it("Runs a ShutdownPipelineOperation on the pipeline")
+    def test_runs_op(self, pipeline, mocker):
+        cb = mocker.MagicMock()
+        pipeline.shutdown(callback=cb)
+        assert pipeline._pipeline.run_op.call_count == 1
+        assert isinstance(
+            pipeline._pipeline.run_op.call_args[0][0], pipeline_ops_base.ShutdownPipelineOperation
+        )
+
+    @pytest.mark.it(
+        "Triggers the callback upon successful completion of the ShutdownPipelineOperation"
+    )
+    def test_op_success_with_callback(self, mocker, pipeline):
+        cb = mocker.MagicMock()
+
+        # Begin operation
+        pipeline.shutdown(callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
+
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=None)
+
+    @pytest.mark.it(
+        "Calls the callback with the error upon unscessful completion of the ShutdownPipelineOperation"
+    )
+    def test_op_fail(self, mocker, pipeline, arbitrary_exception):
+        cb = mocker.MagicMock()
+
+        pipeline.shutdown(callback=cb)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+
+        op.complete(error=arbitrary_exception)
+        assert cb.call_count == 1
+        assert cb.call_args == mocker.call(error=arbitrary_exception)
+
+    @pytest.mark.it(
+        "Sets a flag to indicate the pipeline is no longer running only upon successful completion of the ShutdownPipelineOperation"
+    )
+    def test_set_not_running(self, mocker, pipeline, arbitrary_exception):
+        # Pipeline is running
+        assert pipeline._running
+
+        # Begin operation (we will fail this one)
+        cb = mocker.MagicMock()
+        pipeline.shutdown(callback=cb)
+        assert cb.call_count == 0
+
+        # Pipeline is still running
+        assert pipeline._running
+
+        # Trigger op copmletion (failure)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=arbitrary_exception)
+
+        # Pipeline is still running
+        assert pipeline._running
+
+        # Try operation again (we will make this one succeed)
+        cb.reset_mock()
+        pipeline.shutdown(callback=cb)
+        assert cb.call_count == 0
+
+        # Trigger op completion (successful)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        op.complete(error=None)
+
+        # Pipeline is no longer running
+        assert not pipeline._running
+
+
 @pytest.mark.describe("MQTTPipeline - .connect()")
 class TestMQTTPipelineConnect(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.connect(callback=mocker.MagicMock())
+
     @pytest.mark.it("Runs a ConnectOperation on the pipeline")
     def test_runs_op(self, pipeline, mocker):
         cb = mocker.MagicMock()
@@ -198,6 +304,15 @@ class TestMQTTPipelineConnect(object):
 
 @pytest.mark.describe("MQTTPipeline - .disconnect()")
 class TestMQTTPipelineDisconnect(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.disconnect(callback=mocker.MagicMock())
+
     @pytest.mark.it("Runs a DisconnectOperation on the pipeline")
     def test_runs_op(self, pipeline, mocker):
         pipeline.disconnect(callback=mocker.MagicMock())
@@ -237,6 +352,15 @@ class TestMQTTPipelineDisconnect(object):
 
 @pytest.mark.describe("MQTTPipeline - .reauthorize_connection()")
 class TestMQTTPipelineReauthorizeConnection(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.reauthorize_connection(callback=mocker.MagicMock())
+
     @pytest.mark.it("Runs a ReauthorizeConnectionOperation on the pipeline")
     def test_runs_op(self, pipeline, mocker):
         pipeline.reauthorize_connection(callback=mocker.MagicMock())
@@ -279,6 +403,15 @@ class TestMQTTPipelineReauthorizeConnection(object):
 
 @pytest.mark.describe("MQTTPipeline - .send_message()")
 class TestMQTTPipelineSendD2CMessage(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, message, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.send_message(message, callback=mocker.MagicMock())
+
     @pytest.mark.it("Runs a SendD2CMessageOperation with the provided message on the pipeline")
     def test_runs_op(self, pipeline, message, mocker):
         pipeline.send_message(message, callback=mocker.MagicMock())
@@ -321,6 +454,15 @@ class TestMQTTPipelineSendD2CMessage(object):
 
 @pytest.mark.describe("MQTTPipeline - .send_output_message()")
 class TestMQTTPipelineSendOutputMessage(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, message, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.send_output_message(message, callback=mocker.MagicMock())
+
     @pytest.fixture
     def message(self, message):
         """Modify message fixture to have an output"""
@@ -370,6 +512,15 @@ class TestMQTTPipelineSendOutputMessage(object):
 @pytest.mark.describe("MQTTPipeline - .send_method_response()")
 class TestMQTTPipelineSendMethodResponse(object):
     @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, method_response, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.send_method_response(method_response, callback=mocker.MagicMock())
+
+    @pytest.mark.it(
         "Runs a SendMethodResponseOperation with the provided MethodResponse on the pipeline"
     )
     def test_runs_op(self, pipeline, method_response, mocker):
@@ -413,6 +564,15 @@ class TestMQTTPipelineSendMethodResponse(object):
 
 @pytest.mark.describe("MQTTPipeline - .get_twin()")
 class TestMQTTPipelineGetTwin(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.get_twin(callback=mocker.MagicMock())
+
     @pytest.mark.it("Runs a GetTwinOperation on the pipeline")
     def test_runs_op(self, mocker, pipeline):
         cb = mocker.MagicMock()
@@ -455,6 +615,15 @@ class TestMQTTPipelineGetTwin(object):
 
 @pytest.mark.describe("MQTTPipeline - .patch_twin_reported_properties()")
 class TestMQTTPipelinePatchTwinReportedProperties(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    def test_not_running(self, mocker, twin_patch, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.patch_twin_reported_properties(twin_patch, callback=mocker.MagicMock())
+
     @pytest.mark.it(
         "Runs a PatchTwinReportedPropertiesOperation with the provided twin patch on the pipeline"
     )
@@ -499,6 +668,16 @@ class TestMQTTPipelinePatchTwinReportedProperties(object):
 
 @pytest.mark.describe("MQTTPipeline - .enable_feature()")
 class TestMQTTPipelineEnableFeature(object):
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
+    @pytest.mark.parametrize("feature", all_features)
+    def test_not_running(self, mocker, feature, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.enable_feature(feature, callback=mocker.MagicMock())
+
     @pytest.mark.it("Raises ValueError if the feature_name is invalid")
     def test_invalid_feature_name(self, pipeline, mocker):
         bad_feature = "not-a-feature-name"
@@ -594,14 +773,15 @@ class TestMQTTPipelineEnableFeature(object):
 
 @pytest.mark.describe("MQTTPipeline - .disable_feature()")
 class TestMQTTPipelineDisableFeature(object):
-    @pytest.mark.it("Marks the feature as disabled")
+    @pytest.mark.it(
+        "Raises a PipelineNotRunning exception if the pipeline is not running (i.e. already shut down)"
+    )
     @pytest.mark.parametrize("feature", all_features)
-    def test_mark_feature_disabled(self, pipeline, feature, mocker):
-        # enable feature first
-        pipeline.feature_enabled[feature] = True
-        assert pipeline.feature_enabled[feature]
-        pipeline.disable_feature(feature, callback=mocker.MagicMock())
-        assert not pipeline.feature_enabled[feature]
+    def test_not_running(self, mocker, feature, pipeline):
+        pipeline._running = False
+
+        with pytest.raises(pipeline_exceptions.PipelineNotRunning):
+            pipeline.disable_feature(feature, callback=mocker.MagicMock())
 
     @pytest.mark.it("Raises ValueError if the feature_name is invalid")
     def test_invalid_feature_name(self, pipeline, mocker):
@@ -622,6 +802,58 @@ class TestMQTTPipelineDisableFeature(object):
         assert pipeline._pipeline.run_op.call_count == 1
         assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
         assert op.feature_name == feature
+
+    @pytest.mark.it("Does not mark the feature as disabled before the callback is complete")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_not_enabled(self, pipeline, feature, mocker):
+        # feature is already enabled
+        pipeline.feature_enabled[feature] = True
+        assert pipeline.feature_enabled[feature]
+
+        # start call to disable feature
+        callback = mocker.MagicMock()
+        pipeline.disable_feature(feature, callback=callback)
+
+        # feature is still enabled (because callback has not been completed yet)
+        assert callback.call_count == 0
+        assert pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Does not mark the feature as disabled if the DisableFeatureOperation fails")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_not_enabled_on_failure(
+        self, pipeline, feature, mocker, arbitrary_exception
+    ):
+        # feature is already enabled
+        pipeline.feature_enabled[feature] = True
+        assert pipeline.feature_enabled[feature]
+
+        # tyr to disable the feature (but fail)
+        callback = mocker.MagicMock()
+        pipeline.disable_feature(feature, callback=callback)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
+        op.complete(arbitrary_exception)
+
+        # Feature was NOT disabled
+        assert callback.call_count == 1
+        assert pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Marks the feature as disabled if the DisableFeatureOperation succeeds")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_enabled_on_success(self, pipeline, feature, mocker):
+        # feature is already enabled
+        pipeline.feature_enabled[feature] = True
+        assert pipeline.feature_enabled[feature]
+
+        # try to disable the feature (and succeed)
+        callback = mocker.MagicMock()
+        pipeline.disable_feature(feature, callback=callback)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
+        op.complete()
+
+        assert callback.call_count == 1
+        assert not pipeline.feature_enabled[feature]
 
     @pytest.mark.it(
         "Triggers the callback upon successful completion of the DisableFeatureOperation"

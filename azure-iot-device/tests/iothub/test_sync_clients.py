@@ -88,6 +88,67 @@ def handler():
 #######################
 # SHARED CLIENT TESTS #
 #######################
+class SharedClientShutdownTests(WaitsForEventCompletion):
+    @pytest.mark.it("Performs a client disconnect (and everything that entails)")
+    def test_calls_disconnect(self, mocker, client):
+        # We merely check that disconnect is called here. Doing so does several things, which
+        # are covered by the disconnect tests themselves. Those tests will NOT be duplicated here
+        client.disconnect = mocker.MagicMock()
+        assert client.disconnect.call_count == 0
+
+        client.shutdown()
+
+        assert client.disconnect.call_count == 1
+
+    @pytest.mark.it("Begins a 'shutdown' pipeline operation")
+    def test_calls_pipeline_shutdown(self, mocker, client, mqtt_pipeline):
+        # mock out implicit disconnect
+        client.disconnect = mocker.MagicMock()
+
+        client.shutdown()
+        assert mqtt_pipeline.shutdown.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'shutdown' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb
+    ):
+        self.add_event_completion_checks(
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.shutdown
+        )
+        # mock out implicit disconnect
+        client_manual_cb.disconnect = mocker.MagicMock()
+
+        client_manual_cb.shutdown()
+
+    @pytest.mark.it(
+        "Raises a client error if the `shutdown` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            # The only expected errors are unexpected ones.
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError")
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, pipeline_error, client_error
+    ):
+        # mock out implicit disconnect
+        client_manual_cb.disconnect = mocker.MagicMock()
+
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.shutdown,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.shutdown()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+
 class SharedClientConnectTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
     def test_calls_pipeline_connect(self, client, mqtt_pipeline):
@@ -1289,6 +1350,11 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .shutdown()")
+class TestIoTHubDeviceClientShutdown(IoTHubDeviceClientTestsConfig, SharedClientShutdownTests):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .update_sastoken()")
 class TestIoTHubDeviceClientUpdateSasToken(
     IoTHubDeviceClientTestsConfig, SharedClientUpdateSasTokenTests
@@ -1844,6 +1910,11 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
 class TestIoTHubModuleClientCreateFromX509Certificate(
     IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientCreateFromX509CertificateTests
 ):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .shutdown()")
+class TestIoTHubModuleClientShutdown(IoTHubModuleClientTestsConfig, SharedClientShutdownTests):
     pass
 
 

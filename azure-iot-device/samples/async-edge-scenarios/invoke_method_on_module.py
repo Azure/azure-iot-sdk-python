@@ -30,8 +30,9 @@ async def main():
         device_id="fakeDeviceId", module_id="fakeModuleId", method_params=fake_method_params
     )
     print("Method Response: {}".format(response))
-    # finally, disconnect
-    module_client.disconnect()
+
+    # Finally, shut down the client
+    await module_client.shutdown()
 
 
 if __name__ == "__main__":

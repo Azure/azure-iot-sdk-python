@@ -210,7 +210,7 @@ class MQTTTransport(object):
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
                 if this:
-                    this._cleanup_transport_on_error()
+                    this._force_transport_disconnect_and_cleanup()
 
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
@@ -282,7 +282,7 @@ class MQTTTransport(object):
         logger.debug("Created MQTT protocol client, assigned callbacks")
         return mqtt_client
 
-    def _cleanup_transport_on_error(self):
+    def _force_transport_disconnect_and_cleanup(self):
         """
         After disconnecting because of an error, Paho was designed to keep the loop running and
         to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
@@ -353,6 +353,19 @@ class MQTTTransport(object):
 
         return ssl_context
 
+    def shutdown(self):
+        """Shut down the transport. This is (currently) irreversible."""
+        # Remove the disconnect handler from Paho. We don't want to trigger any events in response
+        # to the shutdown and confuse the higher level layers of code. Just end it.
+        self._mqtt_client.on_disconnect = None
+        # Now disconnect and do some additional cleanup.
+        self._force_transport_disconnect_and_cleanup()
+        # Paho can't be fully shut down until it is garbage collected. So we delete the reference.
+        # Due to the GC algorithm, we don't know exactly when it will get garbage collected, and
+        # thus we don't know when it will truly be shut down. But we do know it will happen (soon).
+        del self._mqtt_client
+        self._mqtt_client = None
+
     def connect(self, password=None):
         """
         Connect to the MQTT broker, using hostname and username set at instantiation.
@@ -387,7 +400,7 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=self._keep_alive
                 )
         except socket.error as e:
-            self._cleanup_transport_on_error()
+            self._force_transport_disconnect_and_cleanup()
 
             # Only this type will raise a special error
             # To stop it from retrying.
@@ -409,7 +422,7 @@ class MQTTTransport(object):
                 raise exceptions.ConnectionFailedError(cause=e)
 
         except socks.ProxyError as pe:
-            self._cleanup_transport_on_error()
+            self._force_transport_disconnect_and_cleanup()
 
             if isinstance(pe, socks.SOCKS5AuthError):
                 raise exceptions.UnauthorizedError(cause=pe)
@@ -417,7 +430,7 @@ class MQTTTransport(object):
                 raise exceptions.ProtocolProxyError(cause=pe)
 
         except Exception as e:
-            self._cleanup_transport_on_error()
+            self._force_transport_disconnect_and_cleanup()
 
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e

@@ -251,6 +251,38 @@ class MQTTTransportStageTestConfigComplex(MQTTTransportStageTestConfig):
         return stage
 
 
+@pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestMQTTTransportStageRunOpCalledWithShutdownPipelineOperation(
+    MQTTTransportStageTestConfigComplex, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
+
+    @pytest.mark.it("Performs a shutdown of the MQTTTransport")
+    def test_transport_shutdown(self, mocker, stage, op):
+        stage.run_op(op)
+        assert stage.transport.shutdown.call_count == 1
+        assert stage.transport.shutdown.call_args == mocker.call()
+
+    @pytest.mark.it(
+        "Completes the operation successfully if there is no error in executing the MQTTTransport shutdown"
+    )
+    def test_no_error(self, stage, op):
+        stage.run_op(op)
+        assert op.completed
+        assert op.error is None
+
+    @pytest.mark.it(
+        "Completes the operation unsucessfully (with error) if there was an error in executing the MQTTTransport shutdown"
+    )
+    def test_error_occurs(self, mocker, stage, op, arbitrary_exception):
+        stage.transport.shutdown.side_effect = arbitrary_exception
+        stage.run_op(op)
+        assert op.completed
+        assert op.error is arbitrary_exception
+
+
 @pytest.mark.describe("MQTTTransportStage - .run_op() -- Called with ConnectOperation")
 class TestMQTTTransportStageRunOpCalledWithConnectOperation(
     MQTTTransportStageTestConfigComplex, StageRunOpTestBase

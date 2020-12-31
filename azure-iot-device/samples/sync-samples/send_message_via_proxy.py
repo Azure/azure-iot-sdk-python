@@ -71,5 +71,5 @@ for i in range(9, 11):
     time.sleep(1)
 
 
-# finally, disconnect
-device_client.disconnect()
+# finally, shut down the client
+device_client.shutdown()

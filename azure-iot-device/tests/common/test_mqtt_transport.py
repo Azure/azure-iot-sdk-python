@@ -342,6 +342,32 @@ class TestInstantiation(object):
         assert mock_mqtt_client.reconnect_delay_set.call_args == mocker.call(120 * 60)
 
 
+@pytest.mark.describe("MQTTTransport - .shutdown()")
+class TestShutdown(object):
+    @pytest.mark.it("Force Disconnects Paho")
+    def test_disconnects(self, mocker, mock_mqtt_client, transport):
+        transport.shutdown()
+
+        assert mock_mqtt_client.disconnect.call_count == 1
+        assert mock_mqtt_client.disconnect.call_args == mocker.call()
+        assert mock_mqtt_client.loop_stop.call_count == 1
+        assert mock_mqtt_client.loop_stop.call_args == mocker.call()
+
+    @pytest.mark.it("Does NOT trigger the on_disconnect handler upon disconnect")
+    def test_does_not_trigger_handler(self, mocker, mock_mqtt_client, transport):
+        mock_disconnect_handler = mocker.MagicMock()
+        mock_mqtt_client.on_disconnect = mock_disconnect_handler
+        transport.shutdown()
+        assert mock_mqtt_client.on_disconnect is None
+        assert mock_disconnect_handler.call_count == 0
+
+    @pytest.mark.it("Deletes the instance of Paho")
+    def test_deletes_paho(self, transport):
+        assert transport._mqtt_client is not None
+        transport.shutdown()
+        assert transport._mqtt_client is None
+
+
 class ArbitraryConnectException(Exception):
     pass
 
