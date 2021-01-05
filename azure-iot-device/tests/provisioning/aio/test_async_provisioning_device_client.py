@@ -114,7 +114,9 @@ class TestClientRegister(object):
         def register_complete_success_callback(payload, callback):
             callback(result=registration_result)
 
-        provisioning_pipeline.register.side_effect = register_complete_success_callback
+        mocker.patch.object(
+            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+        )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
         await client.register()
@@ -131,7 +133,9 @@ class TestClientRegister(object):
         def register_complete_fail_callback(payload, callback):
             callback(result=registration_result)
 
-        provisioning_pipeline.register.side_effect = register_complete_fail_callback
+        mocker.patch.object(
+            provisioning_pipeline, "register", side_effect=register_complete_fail_callback
+        )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
         await client.register()
