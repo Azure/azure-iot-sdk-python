@@ -283,8 +283,12 @@ class TestClientRegister(object):
         def shutdown_failure_callback(callback):
             callback(result=None, error=error)
 
-        provisioning_pipeline.register.side_effect = register_complete_success_callback
-        provisioning_pipeline.shutdown.side_effect = shutdown_failure_callback
+        mocker.patch.object(
+            provisioning_pipeline, "register", side_effect=register_complete_success_callback
+        )
+        mocker.patch.object(
+            provisioning_pipeline, "shutdown", side_effect=shutdown_failure_callback
+        )
 
         client = ProvisioningDeviceClient(provisioning_pipeline)
         with pytest.raises(client_error) as e_info:
