@@ -818,7 +818,24 @@ class TestMQTTPipelineDisableFeature(object):
         assert callback.call_count == 0
         assert pipeline.feature_enabled[feature]
 
-    @pytest.mark.it("Does not mark the feature as disabled if the DisableFeatureOperation fails")
+    @pytest.mark.it("Marks the feature as disabled if the DisableFeatureOperation succeeds")
+    @pytest.mark.parametrize("feature", all_features)
+    def test_mark_feature_enabled_on_success(self, pipeline, feature, mocker):
+        # feature is already enabled
+        pipeline.feature_enabled[feature] = True
+        assert pipeline.feature_enabled[feature]
+
+        # try to disable the feature (and succeed)
+        callback = mocker.MagicMock()
+        pipeline.disable_feature(feature, callback=callback)
+        op = pipeline._pipeline.run_op.call_args[0][0]
+        assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
+        op.complete()
+
+        assert callback.call_count == 1
+        assert not pipeline.feature_enabled[feature]
+
+    @pytest.mark.it("Marks the feature as disabled even if the DisableFeatureOperation fails")
     @pytest.mark.parametrize("feature", all_features)
     def test_mark_feature_not_enabled_on_failure(
         self, pipeline, feature, mocker, arbitrary_exception
@@ -834,24 +851,7 @@ class TestMQTTPipelineDisableFeature(object):
         assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
         op.complete(arbitrary_exception)
 
-        # Feature was NOT disabled
-        assert callback.call_count == 1
-        assert pipeline.feature_enabled[feature]
-
-    @pytest.mark.it("Marks the feature as disabled if the DisableFeatureOperation succeeds")
-    @pytest.mark.parametrize("feature", all_features)
-    def test_mark_feature_enabled_on_success(self, pipeline, feature, mocker):
-        # feature is already enabled
-        pipeline.feature_enabled[feature] = True
-        assert pipeline.feature_enabled[feature]
-
-        # try to disable the feature (and succeed)
-        callback = mocker.MagicMock()
-        pipeline.disable_feature(feature, callback=callback)
-        op = pipeline._pipeline.run_op.call_args[0][0]
-        assert isinstance(op, pipeline_ops_base.DisableFeatureOperation)
-        op.complete()
-
+        # Feature was STILL disabled
         assert callback.call_count == 1
         assert not pipeline.feature_enabled[feature]
 
