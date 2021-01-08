@@ -127,7 +127,7 @@ class MQTTPipeline(object):
         # Set the running flag
         self._running = True
 
-    def _ensure_running(self):
+    def _verify_running(self):
         if not self._running:
             raise pipeline_exceptions.PipelineNotRunning(
                 "Cannot execute method - Pipeline is not running"
@@ -148,7 +148,7 @@ class MQTTPipeline(object):
         does, exceptions are not "raised", but rather, returned via the "error" parameter when
         invoking "callback".
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Commencing shutdown of pipeline")
 
         def on_complete(op, error):
@@ -181,7 +181,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("connect called")
 
         def pipeline_callback(op, error):
@@ -203,7 +203,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("disconnect called")
 
         def pipeline_callback(op, error):
@@ -220,7 +220,7 @@ class MQTTPipeline(object):
 
         :param callback: callback which is called when responses are enabled
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("enable_responses called")
 
         self.responses_enabled[provisioning_constants.REGISTER] = True
@@ -251,7 +251,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
 
         def on_complete(op, error):
             # TODO : Apparently when its failed we can get result as well as error.

@@ -170,7 +170,7 @@ class MQTTPipeline(object):
         # Set the running flag
         self._running = True
 
-    def _ensure_running(self):
+    def _verify_running(self):
         if not self._running:
             raise pipeline_exceptions.PipelineNotRunning(
                 "Cannot execute method - Pipeline is not running"
@@ -191,7 +191,7 @@ class MQTTPipeline(object):
         does, exceptions are not "raised", but rather, returned via the "error" parameter when
         invoking "callback".
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Commencing shutdown of pipeline")
 
         def on_complete(op, error):
@@ -224,7 +224,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting ConnectOperation on the pipeline")
 
         def on_complete(op, error):
@@ -246,7 +246,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting DisconnectOperation on the pipeline")
 
         def on_complete(op, error):
@@ -272,7 +272,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting ReauthorizeConnectionOperation on the pipeline")
 
         def on_complete(op, error):
@@ -300,7 +300,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting SendD2CMessageOperation on the pipeline")
 
         def on_complete(op, error):
@@ -328,7 +328,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting SendOutputMessageOperation on the pipeline")
 
         def on_complete(op, error):
@@ -356,7 +356,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting SendMethodResponseOperation on the pipeline")
 
         def on_complete(op, error):
@@ -388,7 +388,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting GetTwinOperation on the pipeline")
 
         def on_complete(op, error):
@@ -417,7 +417,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("Starting PatchTwinReportedPropertiesOperation on the pipeline")
 
         def on_complete(op, error):
@@ -448,7 +448,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("enable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
@@ -486,7 +486,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
-        self._ensure_running()
+        self._verify_running()
         logger.debug("disable_feature {} called".format(feature_name))
         if feature_name not in self.feature_enabled:
             raise ValueError("Invalid feature_name")
@@ -494,11 +494,17 @@ class MQTTPipeline(object):
 
         def on_complete(op, error):
             if error:
-                logger.error(
-                    "Unsubscribe for {} failed. Not disabling feature".format(feature_name)
+                logger.warning(
+                    "Error occurred while disabling feature. Unclear if subscription for {} is still alive or not".format(
+                        feature_name
+                    )
                 )
-            else:
-                self.feature_enabled[feature_name] = False
+
+            # No matter what, mark the feature as disabled, even if there was an error.
+            # This is safer than only marking it disabled upon operation success, because an op
+            # could fail after successfully doing the network operations to change the subscription
+            # state, and then we would be stuck in a bad state.
+            self.feature_enabled[feature_name] = False
             callback(error=error)
 
         self._pipeline.run_op(

@@ -168,7 +168,6 @@ class MQTTTransportStage(PipelineStage):
             op.complete()
 
         elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
-            # TODO: Make sure the transport is disconnected. This is trickier than it seems.
             try:
                 self.transport.shutdown()
             except Exception as e:
