@@ -361,12 +361,6 @@ class TestShutdown(object):
         assert mock_mqtt_client.on_disconnect is None
         assert mock_disconnect_handler.call_count == 0
 
-    @pytest.mark.it("Deletes the instance of Paho")
-    def test_deletes_paho(self, transport):
-        assert transport._mqtt_client is not None
-        transport.shutdown()
-        assert transport._mqtt_client is None
-
 
 class ArbitraryConnectException(Exception):
     pass

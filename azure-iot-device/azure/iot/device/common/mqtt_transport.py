@@ -360,11 +360,6 @@ class MQTTTransport(object):
         self._mqtt_client.on_disconnect = None
         # Now disconnect and do some additional cleanup.
         self._force_transport_disconnect_and_cleanup()
-        # Paho can't be fully shut down until it is garbage collected. So we delete the reference.
-        # Due to the GC algorithm, we don't know exactly when it will get garbage collected, and
-        # thus we don't know when it will truly be shut down. But we do know it will happen (soon).
-        del self._mqtt_client
-        self._mqtt_client = None
 
     def connect(self, password=None):
         """
