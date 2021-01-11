@@ -23,7 +23,7 @@ from azure.iot.device.iothub.pipeline import (
     config,
     mqtt_topic_iothub,
 )
-from azure.iot.device.iothub.pipeline.exceptions import OperationError, PipelineError
+from azure.iot.device.iothub.pipeline.exceptions import OperationError
 from azure.iot.device.iothub.models.message import Message
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase

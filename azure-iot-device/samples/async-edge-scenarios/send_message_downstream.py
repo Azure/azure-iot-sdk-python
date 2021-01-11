@@ -26,7 +26,9 @@ async def main():
     root_ca_cert = certfile.read()
 
     # The client object is used to interact with your Azure IoT Edge device.
-    device_client = IoTHubDeviceClient.create_from_connection_string(connection_string=conn_str, server_verification_cert=root_ca_cert)
+    device_client = IoTHubDeviceClient.create_from_connection_string(
+        connection_string=conn_str, server_verification_cert=root_ca_cert
+    )
 
     # Connect the client.
     await device_client.connect()
@@ -43,8 +45,8 @@ async def main():
     # send `messages_to_send` messages in parallel
     await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 if __name__ == "__main__":

@@ -19,5 +19,5 @@ reported_properties = {"temperature": random.randint(320, 800) / 10}
 print("Setting reported temperature to {}".format(reported_properties["temperature"]))
 device_client.patch_twin_reported_properties(reported_properties)
 
-# Finally, disconnect
-device_client.disconnect()
+# finally, shut down the client
+device_client.shutdown()

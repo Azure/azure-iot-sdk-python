@@ -47,6 +47,8 @@ async def handle_result(callback):
         raise exceptions.ClientError(
             message="Error in the IoTHub client raised due to proxy connections.", cause=e
         )
+    except pipeline_exceptions.PipelineNotRunning as e:
+        raise exceptions.ClientError(message="Client has already been shut down", cause=e)
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -121,6 +123,47 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
 
+    async def shutdown(self):
+        """Shut down the client for graceful exit.
+
+        Once this method is called, any attempts at further client calls will result in a
+        ClientError being raised
+
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        logger.info("Initiating client shutdown")
+        # Note that client disconnect does the following:
+        #   - Disconnects the pipeline
+        #   - Resolves all pending handler calls
+        #   - Stops handler threads
+        await self.disconnect()
+
+        # Note that shutting down does the following:
+        #   - Disconnects the MQTT pipeline
+        #   - Stops MQTT pipeline threads
+        logger.debug("Beginning pipeline shutdown operation")
+        shutdown_async = async_adapter.emulate_async(self._mqtt_pipeline.shutdown)
+        callback = async_adapter.AwaitableCallback()
+        await shutdown_async(callback=callback)
+        await handle_result(callback)
+        logger.debug("Completed pipeline shutdown operation")
+
+        # Yes, that means the pipeline is disconnected twice (well, actually three times if you
+        # consider that the client-level disconnect causes two pipeline-level disconnects for
+        # reasons explained in comments in the client's .disconnect() method).
+        #
+        # This last disconnect that occurs as a result of the pipeline shutdown is a bit different
+        # from the first though, in that it's more "final" and can't simply just be reconnected.
+
+        # Note also that only the MQTT pipeline is shut down. The reason is twofold:
+        #   1. There are no known issues related to graceful exit if the HTTP pipeline is not
+        #      explicitly shut down
+        #   2. The HTTP pipeline is planned for eventual removal from the client
+        # In light of these two facts, it seemed irrelevant to spend time implementing shutdown
+        # capability for HTTP pipeline.
+        logger.info("Client shutdown complete")
+
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
 
@@ -179,9 +222,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         # It's also possible that in the (very short) time between stopping the handlers and
         # the second disconnect, additional items were received (e.g. C2D Message)
-        # Currently, this isn't really possible to accurately check due to a race condition.
+        # Currently, this isn't really possible to accurately check due to a
+        # race condition / thread timing issue with inboxes where we can't guarantee how many
+        # items are truly in them.
         # It has always been true of this client, even before handlers.
-        # TODO: fix the race condition
+        #
         # However, even if the race condition is addressed, that will only allow us to log that
         # messages were lost. To actually fix the problem, IoTHub needs to support MQTT5 so that
         # we can unsubscribe from receiving data.

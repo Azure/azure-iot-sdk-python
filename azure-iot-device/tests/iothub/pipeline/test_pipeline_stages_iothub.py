@@ -16,7 +16,6 @@ from azure.iot.device.iothub.pipeline import (
     constant as pipeline_constants,
 )
 from azure.iot.device.common.pipeline import pipeline_events_base, pipeline_ops_base
-from azure.iot.device.iothub.pipeline.exceptions import PipelineError
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from tests.common.pipeline import pipeline_stage_test
 

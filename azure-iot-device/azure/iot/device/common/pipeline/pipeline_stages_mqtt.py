@@ -38,7 +38,7 @@ class MQTTTransportStage(PipelineStage):
     def __init__(self):
         super(MQTTTransportStage, self).__init__()
 
-        # The transport will be instantiated when Connection Args are received
+        # The transport will be instantiated upon receiving the InitializePipelineOperation
         self.transport = None
 
         self._pending_connection_op = None
@@ -166,6 +166,16 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
 
             op.complete()
+
+        elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
+            try:
+                self.transport.shutdown()
+            except Exception as e:
+                logger.info("transport.shutdown raised error")
+                logger.info(traceback.format_exc())
+                op.complete(error=e)
+            else:
+                op.complete()
 
         elif isinstance(op, pipeline_ops_base.ConnectOperation):
             logger.debug("{}({}): connecting".format(self.name, op.name))

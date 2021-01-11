@@ -21,8 +21,8 @@ async def main():
     print("Setting reported temperature to {}".format(reported_properties["temperature"]))
     await module_client.patch_twin_reported_properties(reported_properties)
 
-    # Finally, disconnect
-    await module_client.disconnect()
+    # Finally, shut down the client
+    await module_client.shutdown()
 
 
 if __name__ == "__main__":

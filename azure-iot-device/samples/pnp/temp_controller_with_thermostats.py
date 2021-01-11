@@ -410,8 +410,8 @@ async def main():
 
     send_telemetry_task.cancel()
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 #####################################################

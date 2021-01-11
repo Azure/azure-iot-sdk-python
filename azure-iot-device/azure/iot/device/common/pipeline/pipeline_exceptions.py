@@ -26,15 +26,19 @@ class OperationError(PipelineException):
     pass
 
 
-class PipelineTimeoutError(PipelineException):
-    """
-    Pipeline operation timed out
-    """
+class PipelineNotRunning(PipelineException):
+    """Pipeline is not currently running"""
 
     pass
 
 
-class PipelineError(PipelineException):
-    """Error caused by incorrect pipeline configuration"""
+class PipelineTimeoutError(PipelineException):
+    """Pipeline operation timed out"""
+
+    pass
+
+
+class PipelineRuntimeError(PipelineException):
+    """Error at runtime caused by incorrect pipeline configuration"""
 
     pass

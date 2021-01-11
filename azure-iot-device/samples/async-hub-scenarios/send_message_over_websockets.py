@@ -23,7 +23,8 @@ async def main():
     await device_client.send_message("This is a message that is being sent")
     print("Message successfully sent!")
 
-    # Finally, we do not need a disconnect. When the program completes, the client will be disconnected and destroyed.
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 if __name__ == "__main__":

@@ -34,5 +34,5 @@ for i in range(6, 11):
     time.sleep(1)
 
 
-# finally, disconnect
-module_client.disconnect()
+# finally, shut down the client
+module_client.shutdown()
