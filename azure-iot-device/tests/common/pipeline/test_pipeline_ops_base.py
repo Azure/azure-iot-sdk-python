@@ -32,6 +32,24 @@ pipeline_ops_test.add_operation_tests(
 )
 
 
+class ShutdownPipelineOperationTestConfig(object):
+    @pytest.fixture
+    def cls_type(self):
+        return pipeline_ops_base.ShutdownPipelineOperation
+
+    @pytest.fixture
+    def init_kwargs(self, mocker):
+        kwargs = {"callback": mocker.MagicMock()}
+        return kwargs
+
+
+pipeline_ops_test.add_operation_tests(
+    test_module=this_module,
+    op_class_under_test=pipeline_ops_base.ShutdownPipelineOperation,
+    op_test_config_class=ShutdownPipelineOperationTestConfig,
+)
+
+
 class ConnectOperationTestConfig(object):
     @pytest.fixture
     def cls_type(self):

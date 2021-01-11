@@ -197,6 +197,9 @@ class FakeIoTHubPipeline:
     def __init__(self):
         self.feature_enabled = {}  # This just has to be here for the spec
 
+    def shutdown(self, callback):
+        callback()
+
     def connect(self, callback):
         callback()
 

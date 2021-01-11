@@ -52,5 +52,5 @@ while True:
         break
 
 
-# finally, disconnect
-device_client.disconnect()
+# finally, shut down the client
+device_client.shutdown()

@@ -29,14 +29,16 @@ async def main():
         msg.message_id = uuid.uuid4()
         msg.correlation_id = "correlation-1234"
         msg.custom_properties["tornado-warning"] = "yes"
+        msg.content_encoding = "utf-8"
+        msg.content_type = "application/json"
         await device_client.send_message(msg)
         print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel
     await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 if __name__ == "__main__":

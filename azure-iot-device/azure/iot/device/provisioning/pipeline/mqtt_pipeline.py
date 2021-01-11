@@ -6,9 +6,12 @@
 
 import logging
 from azure.iot.device.common.evented_callback import EventedCallback
-from azure.iot.device.common.pipeline import pipeline_stages_base
-from azure.iot.device.common.pipeline import pipeline_ops_base
-from azure.iot.device.common.pipeline import pipeline_stages_mqtt
+from azure.iot.device.common.pipeline import (
+    pipeline_stages_base,
+    pipeline_ops_base,
+    pipeline_stages_mqtt,
+    pipeline_exceptions,
+)
 from azure.iot.device.provisioning.pipeline import (
     pipeline_stages_provisioning,
     pipeline_stages_provisioning_mqtt,
@@ -121,11 +124,54 @@ class MQTTPipeline(object):
         self._pipeline.run_op(op)
         callback.wait_for_completion()
 
+        # Set the running flag
+        self._running = True
+
+    def _verify_running(self):
+        if not self._running:
+            raise pipeline_exceptions.PipelineNotRunning(
+                "Cannot execute method - Pipeline is not running"
+            )
+
+    def shutdown(self, callback):
+        """Shut down the pipeline and clean up any resources.
+
+        Once shut down, making any further calls on the pipeline will result in a
+        PipelineNotRunning exception being raised.
+
+        There is currently no way to resume pipeline functionality once shutdown has occurred.
+
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.PipelineNotRunning` if the
+            pipeline has already been shut down
+
+        The shutdown process itself is not expected to fail under any normal condition, but if it
+        does, exceptions are not "raised", but rather, returned via the "error" parameter when
+        invoking "callback".
+        """
+        self._verify_running()
+        logger.debug("Commencing shutdown of pipeline")
+
+        def on_complete(op, error):
+            if not error:
+                # Only set the pipeline to not be running if the op was successful
+                self._running = False
+            callback(error=error)
+
+        # NOTE: While we do run this operation, its functionality is incomplete. Some stages still
+        # need a response to this operation implemented. Additionally, there are other pipeline
+        # constructs other than Stages (e.g. Operations) which may have timers attached. These are
+        # lesser issues, but should be addressed at some point.
+        # TODO: Truly complete the shutdown implementation
+        self._pipeline.run_op(pipeline_ops_base.ShutdownPipelineOperation(callback=on_complete))
+
     def connect(self, callback=None):
         """
         Connect to the service.
 
         :param callback: callback which is called when the connection to the service is complete.
+
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.PipelineNotRunning` if the
+            pipeline has already been shut down
 
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
@@ -135,6 +181,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
         """
+        self._verify_running()
         logger.debug("connect called")
 
         def pipeline_callback(op, error):
@@ -148,11 +195,15 @@ class MQTTPipeline(object):
 
         :param callback: callback which is called when the connection to the service has been disconnected
 
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.PipelineNotRunning` if the
+            pipeline has already been shut down
+
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
+        self._verify_running()
         logger.debug("disconnect called")
 
         def pipeline_callback(op, error):
@@ -164,8 +215,12 @@ class MQTTPipeline(object):
         """
         Enable response from the DPS service by subscribing to the appropriate topics.
 
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.PipelineNotRunning` if the
+            pipeline has already been shut down
+
         :param callback: callback which is called when responses are enabled
         """
+        self._verify_running()
         logger.debug("enable_responses called")
 
         self.responses_enabled[provisioning_constants.REGISTER] = True
@@ -185,6 +240,9 @@ class MQTTPipeline(object):
         :param payload: Payload that can be sent with the registration request.
         :param callback: callback which is called when the registration is done.
 
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.PipelineNotRunning` if the
+            pipeline has already been shut down
+
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
@@ -193,6 +251,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
         """
+        self._verify_running()
 
         def on_complete(op, error):
             # TODO : Apparently when its failed we can get result as well as error.

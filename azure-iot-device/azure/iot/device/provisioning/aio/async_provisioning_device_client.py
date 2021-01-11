@@ -35,6 +35,8 @@ async def handle_result(callback):
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except pipeline_exceptions.PipelineNotRunning as e:
+        raise exceptions.ClientError(message="Client has already been shut down", cause=e)
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -52,6 +54,8 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         Before returning the client will also disconnect from the provisioning service.
         If a registration attempt is made while a previous registration is in progress it may
         throw an error.
+
+        Once the device is successfully registered, the client will no longer be operable.
 
         :returns: RegistrationResult indicating the result of the registration.
         :rtype: :class:`azure.iot.device.RegistrationResult`
@@ -72,12 +76,20 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
             await self._enable_responses()
 
         register_async = async_adapter.emulate_async(self._pipeline.register)
-
         register_complete = async_adapter.AwaitableCallback(return_arg_name="result")
         await register_async(payload=self._provisioning_payload, callback=register_complete)
         result = await handle_result(register_complete)
 
         log_on_register_complete(result)
+
+        if result is not None and result.status == "assigned":
+            logger.debug("Beginning pipeline shutdown operation")
+            shutdown_async = async_adapter.emulate_async(self._pipeline.shutdown)
+            callback = async_adapter.AwaitableCallback()
+            await shutdown_async(callback=callback)
+            await handle_result(callback)
+            logger.debug("Completed pipeline shutdown operation")
+
         return result
 
     async def _enable_responses(self):

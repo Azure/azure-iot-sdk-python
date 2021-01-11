@@ -42,13 +42,15 @@ async def main():
         msg.message_id = uuid.uuid4()
         msg.correlation_id = "correlation-1234"
         msg.custom_properties["tornado-warning"] = "yes"
+        msg.content_encoding = "utf-8"
+        msg.content_type = "application/json"
         await module_client.send_message(msg)
         print("done sending message #" + str(i))
 
     await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
-    # finally, disconnect
-    await module_client.disconnect()
+    # Finally, shut down the client
+    await module_client.shutdown()
 
 
 if __name__ == "__main__":

@@ -171,7 +171,7 @@ class PipelineStage(object):
             # happen if our pipeline was created correctly and we're only sending expected
             # operations.
             logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
-            error = pipeline_exceptions.PipelineError(
+            error = pipeline_exceptions.PipelineRuntimeError(
                 "{} not handled after {} stage with no next stage".format(op.name, self.name)
             )
             op.complete(error=error)
@@ -188,7 +188,7 @@ class PipelineStage(object):
         if self.previous:
             self.previous.handle_pipeline_event(event)
         else:
-            error = pipeline_exceptions.PipelineError(
+            error = pipeline_exceptions.PipelineRuntimeError(
                 "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
             )
             handle_exceptions.handle_background_exception(error)
@@ -301,6 +301,9 @@ class SasTokenRenewalStage(PipelineStage):
         ):
             self._start_renewal_alarm()
             self.send_op_down(op)
+        elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
+            self._cancel_token_renewal_timer()
+            self.send_op_down(op)
         else:
             self.send_op_down(op)
 
@@ -324,8 +327,6 @@ class SasTokenRenewalStage(PipelineStage):
             self.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_RENEWAL_MARGIN
         )
-        # remove this line
-        renew_time = renew_time - time.time()
 
         logger.debug("Scheduling SAS Token renewal at epoch time: {}".format(renew_time))
         self_weakref = weakref.ref(self)
@@ -991,6 +992,10 @@ class ReconnectStage(PipelineStage):
                 )
                 self.state = ReconnectState.LOGICALLY_DISCONNECTED
                 self.send_op_down(op)
+
+        elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
+            self._clear_reconnect_timer()
+            self.send_op_down(op)
 
         else:
             self.send_op_down(op)

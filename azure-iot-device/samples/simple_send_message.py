@@ -24,8 +24,8 @@ async def main():
     await device_client.send_message("This is a message that is being sent")
     print("Message successfully sent!")
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 if __name__ == "__main__":

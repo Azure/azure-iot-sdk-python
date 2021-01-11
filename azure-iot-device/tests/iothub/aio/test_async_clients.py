@@ -77,6 +77,76 @@ def handler(request):
 #######################
 # SHARED CLIENT TESTS #
 #######################
+class SharedClientShutdownTests(object):
+    @pytest.mark.it("Performs a client disconnect (and everything that entails)")
+    async def test_calls_disconnect(self, mocker, client):
+        # We merely check that disconnect is called here. Doing so does several things, which
+        # are covered by the disconnect tests themselves. Those tests will NOT be duplicated here
+        client.disconnect = mocker.MagicMock()
+        client.disconnect.return_value = await create_completed_future(None)
+        assert client.disconnect.call_count == 0
+
+        await client.shutdown()
+
+        assert client.disconnect.call_count == 1
+
+    @pytest.mark.it("Begins a 'shutdown' pipeline operation")
+    async def test_calls_pipeline_shutdown(self, mocker, client, mqtt_pipeline):
+        # mock out implicit disconnect
+        client.disconnect = mocker.MagicMock()
+        client.disconnect.return_value = await create_completed_future(None)
+
+        await client.shutdown()
+
+        assert mqtt_pipeline.shutdown.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'shutdown' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline):
+        # mock out implicit disconnect
+        client.disconnect = mocker.MagicMock()
+        client.disconnect.return_value = await create_completed_future(None)
+        # mock out callback
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.shutdown()
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.shutdown.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `shutdown` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            # The only expected errors are unexpected ones.
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError")
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, pipeline_error, client_error
+    ):
+        # mock out implicit disconnect
+        client.disconnect = mocker.MagicMock()
+        client.disconnect.return_value = await create_completed_future(None)
+
+        my_pipeline_error = pipeline_error()
+
+        def fail_shutdown(callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.shutdown.side_effect = fail_shutdown
+
+        with pytest.raises(client_error) as e_info:
+            await client.shutdown()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+
 class SharedClientConnectTests(object):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
     async def test_calls_pipeline_connect(self, client, mqtt_pipeline):
@@ -1116,6 +1186,11 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .shutdown()")
+class TestIoTHubDeviceClientShutdown(IoTHubDeviceClientTestsConfig, SharedClientShutdownTests):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .update_sastoken()")
 class TestIoTHubDeviceClientUpdateSasToken(
     IoTHubDeviceClientTestsConfig, SharedClientUpdateSasTokenTests
@@ -1597,6 +1672,11 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
 class TestIoTHubModuleClientCreateFromX509Certificate(
     IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientCreateFromX509CertificateTests
 ):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .shutdown()")
+class TestIoTHubModuleClientShutdown(IoTHubModuleClientTestsConfig, SharedClientShutdownTests):
     pass
 
 

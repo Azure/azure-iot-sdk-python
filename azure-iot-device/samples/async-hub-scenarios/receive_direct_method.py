@@ -60,8 +60,8 @@ async def main():
     # Wait for user to indicate they are done listening for method calls
     await user_finished
 
-    # Finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 if __name__ == "__main__":

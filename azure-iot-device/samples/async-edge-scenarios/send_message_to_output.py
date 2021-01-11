@@ -33,8 +33,8 @@ async def main():
 
     await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send)])
 
-    # finally, disconnect
-    module_client.disconnect()
+    # Finally, shut down the client
+    await module_client.shutdown()
 
 
 if __name__ == "__main__":

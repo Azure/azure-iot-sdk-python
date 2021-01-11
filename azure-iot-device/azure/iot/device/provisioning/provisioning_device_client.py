@@ -35,6 +35,8 @@ def handle_result(callback):
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError(message="Error in the provisioning client", cause=e)
+    except pipeline_exceptions.PipelineNotRunning as e:
+        raise exceptions.ClientError(message="Client has already been shut down", cause=e)
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -55,6 +57,8 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         If a registration attempt is made while a previous registration is in progress it may
         throw an error.
 
+        Once the device is successfully registered, the client will no longer be operable.
+
         :returns: RegistrationResult indicating the result of the registration.
         :rtype: :class:`azure.iot.device.RegistrationResult`
 
@@ -72,13 +76,21 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         if not self._pipeline.responses_enabled[dps_constant.REGISTER]:
             self._enable_responses()
 
+        # Register
         register_complete = EventedCallback(return_arg_name="result")
-
         self._pipeline.register(payload=self._provisioning_payload, callback=register_complete)
-
         result = handle_result(register_complete)
 
         log_on_register_complete(result)
+
+        # Implicitly shut down the pipeline upon successful completion
+        if result is not None and result.status == "assigned":
+            logger.debug("Beginning pipeline shutdown operation")
+            shutdown_complete = EventedCallback()
+            self._pipeline.shutdown(callback=shutdown_complete)
+            handle_result(shutdown_complete)
+            logger.debug("Completed pipeline shutdown operation")
+
         return result
 
     def _enable_responses(self):

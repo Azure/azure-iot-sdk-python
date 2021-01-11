@@ -24,6 +24,8 @@ for i in range(1, 3):
     msg.message_id = uuid.uuid4()
     msg.correlation_id = "correlation-1234"
     msg.custom_properties["tornado-warning"] = "yes"
+    msg.content_encoding = "utf-8"
+    msg.content_type = "application/json"
     device_client.send_message(msg)
     time.sleep(1)
 
@@ -32,6 +34,8 @@ for i in range(3, 5):
     print("sending message #" + str(i))
     msg = Message("test wind speed " + str(i))
     msg.custom_properties["tornado-warning"] = "yes"
+    msg.content_encoding = "utf-8"
+    msg.content_type = "application/json"
     device_client.send_message(msg)
     time.sleep(1)
 
@@ -41,6 +45,8 @@ for i in range(5, 7):
     msg = Message("test wind speed " + str(i))
     msg.message_id = uuid.uuid4()
     msg.correlation_id = "correlation-1234"
+    msg.content_encoding = "utf-8"
+    msg.content_type = "application/json"
     device_client.send_message(msg)
     time.sleep(1)
 
@@ -50,6 +56,8 @@ for i in range(7, 9):
     msg = Message("test wind speed " + str(i))
     msg.message_id = uuid.uuid4()
     msg.custom_properties["tornado-warning"] = "yes"
+    msg.content_encoding = "utf-8"
+    msg.content_type = "application/json"
     device_client.send_message(msg)
     time.sleep(1)
 
@@ -60,5 +68,5 @@ for i in range(9, 11):
     time.sleep(1)
 
 
-# finally, disconnect
-device_client.disconnect()
+# finally, shut down the client
+device_client.shutdown()
