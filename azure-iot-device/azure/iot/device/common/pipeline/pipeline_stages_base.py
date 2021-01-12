@@ -302,7 +302,7 @@ class SasTokenRenewalStage(PipelineStage):
             self._start_renewal_alarm()
             self.send_op_down(op)
         elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
-            self._cancel_token_renewal_timer()
+            self._cancel_token_renewal_alarm()
             self.send_op_down(op)
         else:
             self.send_op_down(op)

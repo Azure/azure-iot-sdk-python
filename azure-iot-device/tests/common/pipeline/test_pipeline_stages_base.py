@@ -387,22 +387,22 @@ class TestSasTokenRenewalStageRunOpWithShutdownPipelineOp(
         return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it(
-        "Cancels the token renewal timer, and then sends the operation down, if a timer exists"
+        "Cancels the token renewal alarm, and then sends the operation down, if an alarm exists"
     )
-    def test_with_timer(self, mocker, stage, op, mock_timer):
-        stage._token_renewal_timer = mock_timer
-        assert mock_timer.cancel.call_count == 0
+    def test_with_timer(self, mocker, stage, op, mock_alarm):
+        stage._token_renewal_alarm = mock_alarm
+        assert mock_alarm.cancel.call_count == 0
         assert stage.send_op_down.call_count == 0
 
         stage.run_op(op)
 
-        assert mock_timer.cancel.call_count == 1
+        assert mock_alarm.cancel.call_count == 1
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
-    @pytest.mark.it("Simply sends the operation down if no timer exists")
+    @pytest.mark.it("Simply sends the operation down if no alarm exists")
     def test_no_timer(self, mocker, stage, op):
-        assert stage._token_renewal_timer is None
+        assert stage._token_renewal_alarm is None
         assert stage.send_op_down.call_count == 0
 
         stage.run_op(op)
