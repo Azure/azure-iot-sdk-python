@@ -53,6 +53,14 @@ class TestAlarm(object):
         assert desired_function.call_count == 1
         desired_function.call_args == mocker.call()
 
+    @pytest.mark.it("Invokes the function immediately if the given alarm time is in the past")
+    def test_alarm_already_expired(self, mocker, desired_function):
+        alarm_time = time.time() - 1
+        a = Alarm(alarm_time=alarm_time, function=desired_function)
+        a.start()
+
+        assert desired_function.call_count == 1
+
     @pytest.mark.it(
         "Does not invoke the given function at the given alarm time if the alarm was cancelled before the given alarm time"
     )
