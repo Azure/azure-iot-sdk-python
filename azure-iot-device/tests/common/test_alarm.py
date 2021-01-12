@@ -6,6 +6,7 @@
 import pytest
 import logging
 import time
+import six
 from azure.iot.device.common.alarm import Alarm
 
 logging.basicConfig(level=logging.DEBUG)
@@ -58,6 +59,10 @@ class TestAlarm(object):
         alarm_time = time.time() - 1
         a = Alarm(alarm_time=alarm_time, function=desired_function)
         a.start()
+
+        if six.PY2:
+            # A slight timing issue in Python 2 only
+            time.sleep(0.1)
 
         assert desired_function.call_count == 1
 
