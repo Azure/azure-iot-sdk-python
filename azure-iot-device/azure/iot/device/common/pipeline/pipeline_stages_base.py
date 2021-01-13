@@ -18,7 +18,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
 from . import pipeline_exceptions
-from azure.iot.device.common import handle_exceptions, transport_exceptions
+from azure.iot.device.common import handle_exceptions, transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
@@ -291,7 +291,7 @@ class SasTokenRenewalStage(PipelineStage):
 
     def __init__(self):
         super(SasTokenRenewalStage, self).__init__()
-        self._token_renewal_timer = None
+        self._token_renewal_alarm = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -299,91 +299,76 @@ class SasTokenRenewalStage(PipelineStage):
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation) and isinstance(
             self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken
         ):
-            self._start_renewal_timer()
+            self._start_renewal_alarm()
             self.send_op_down(op)
         elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
-            self._cancel_token_renewal_timer()
+            self._cancel_token_renewal_alarm()
             self.send_op_down(op)
         else:
             self.send_op_down(op)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _cancel_token_renewal_timer(self):
-        """Cancel and delete any pending renewal timer"""
-        timer = self._token_renewal_timer
-        self._token_renewal_timer = None
-        if timer:
-            logger.debug("Cancelling SAS Token renewal timer")
-            timer.cancel()
+    def _cancel_token_renewal_alarm(self):
+        """Cancel and delete any pending renewal alarm"""
+        old_alarm = self._token_renewal_alarm
+        self._token_renewal_alarm = None
+        if old_alarm:
+            logger.debug("Cancelling SAS Token renewal alarm")
+            old_alarm.cancel()
+            old_alarm = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _start_renewal_timer(self):
-        """Begin a renewal timer.
-        When the timer expires, and the token is renewed, a new timer will be set"""
-        self._cancel_token_renewal_timer()
-        # NOTE: The assumption here is that the SasToken has just been refreshed, so there is
-        # approximately 'TTL' seconds until expiration. In practice this could probably be off
-        # a few seconds given processing time. We could make this more accurate if SasToken
-        # objects had a live TTL value rather than a static one (i.e. "there are n seconds
-        # remaining in the lifespan of this token", rather than "this token was intended to live
-        # for n seconds")
-        seconds_until_renewal = (
-            self.pipeline_root.pipeline_configuration.sastoken.ttl
+    def _start_renewal_alarm(self):
+        """Begin a renewal alarm.
+        When the alarm expires, and the token is renewed, a new alarm will be set"""
+        self._cancel_token_renewal_alarm()
+
+        renew_time = (
+            self.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_RENEWAL_MARGIN
         )
-        if seconds_until_renewal < 0:
-            # This shouldn't happen in correct flow, but it's possible I suppose, if something goes
-            # horribly awry elsewhere in the stack, or if we start allowing for custom
-            # SasToken TTLs or custom Renewal Margins in the future
-            handle_exceptions.handle_background_exception(
-                pipeline_exceptions.PipelineRuntimeError("SasToken TTL less than Renewal Margin!")
-            )
-        else:
-            logger.debug(
-                "Scheduling SAS Token renewal for {} seconds in the future".format(
-                    seconds_until_renewal
+
+        logger.debug("Scheduling SAS Token renewal at epoch time: {}".format(renew_time))
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_reauthorize_complete(op, error):
+            this = self_weakref()
+            if error:
+                logger.info(
+                    "{}({}): reauthorize connection operation failed.  Error={}".format(
+                        this.name, op.name, error
+                    )
                 )
-            )
-            self_weakref = weakref.ref(self)
-
-            @pipeline_thread.runs_on_pipeline_thread
-            def on_reauthorize_complete(op, error):
-                this = self_weakref()
-                if error:
-                    logger.info(
-                        "{}({}): reauthorize connection operation failed.  Error={}".format(
-                            this.name, op.name, error
-                        )
+                handle_exceptions.handle_background_exception(error)
+            else:
+                logger.info(
+                    "{}({}): reauthorize connection operation is complete".format(
+                        this.name, op.name
                     )
-                    handle_exceptions.handle_background_exception(error)
-                else:
-                    logger.info(
-                        "{}({}): reauthorize connection operation is complete".format(
-                            this.name, op.name
-                        )
-                    )
+                )
 
-            @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def renew_token():
-                this = self_weakref()
-                logger.info("Renewing SAS Token")
-                # Renew the token
-                sastoken = this.pipeline_root.pipeline_configuration.sastoken
-                sastoken.refresh()
-                # If the pipeline is already connected, send order to reauthorize the connection
-                # now that token has been renewed
-                if this.pipeline_root.connected:
-                    this.send_op_down(
-                        pipeline_ops_base.ReauthorizeConnectionOperation(
-                            callback=on_reauthorize_complete
-                        )
+        @pipeline_thread.invoke_on_pipeline_thread_nowait
+        def renew_token():
+            this = self_weakref()
+            logger.info("Renewing SAS Token...")
+            # Renew the token
+            sastoken = this.pipeline_root.pipeline_configuration.sastoken
+            sastoken.refresh()
+            # If the pipeline is already connected, send order to reauthorize the connection
+            # now that token has been renewed
+            if this.pipeline_root.connected:
+                this.send_op_down(
+                    pipeline_ops_base.ReauthorizeConnectionOperation(
+                        callback=on_reauthorize_complete
                     )
-                # Once again, start a renewal timer
-                this._start_renewal_timer()
+                )
+            # Once again, start a renewal alarm
+            this._start_renewal_alarm()
 
-            self._token_renewal_timer = threading.Timer(seconds_until_renewal, renew_token)
-            self._token_renewal_timer.daemon = True
-            self._token_renewal_timer.start()
+        self._token_renewal_alarm = alarm.Alarm(renew_time, renew_token)
+        self._token_renewal_alarm.daemon = True
+        self._token_renewal_alarm.start()
 
 
 class AutoConnectStage(PipelineStage):
