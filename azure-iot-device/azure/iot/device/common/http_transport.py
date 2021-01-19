@@ -98,8 +98,10 @@ class HTTPTransport(object):
             logger.debug("HTTP Headers: {}".format(headers))
             logger.debug("HTTP Body: {}".format(body))
 
-            request = urllib.request.Request(method=method, url=url, body=body, headers=headers)
-            with request.urlopen(request, context=self._ssl_context) as response:
+            request = urllib.request.Request(
+                method=method, url=url, data=body.encode("utf-8"), headers=headers
+            )
+            with urllib.request.urlopen(request, context=self._ssl_context) as response:
                 status_code = response.status
                 reason = response.reason
                 response_string = response.read()
