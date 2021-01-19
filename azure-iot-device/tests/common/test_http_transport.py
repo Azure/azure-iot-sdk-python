@@ -128,7 +128,7 @@ class HTTPTransportTestConfig(object):
 
 
 @pytest.mark.describe("HTTPTransport - .request()")
-class TestRequest(HTTPTransportTestConfig):
+class _TestRequest(HTTPTransportTestConfig):
     @pytest.mark.it("Generates a unique HTTP Client connection for each request")
     def test_creates_http_connection_object(self, mocker, mock_http_client_constructor):
         transport = HTTPTransport(hostname=fake_hostname)

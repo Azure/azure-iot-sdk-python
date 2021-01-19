@@ -11,7 +11,7 @@ import json
 import ssl
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
-from six.moves import http_client
+from six.moves import urllib
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +83,6 @@ class HTTPTransport(object):
         # Sends a complete request to the server
         logger.info("sending https {} request to {} .".format(method, path))
         try:
-            logger.debug("creating an https connection")
-            connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
-            logger.debug("connecting to host tcp socket")
-            connection.connect()
-            logger.debug("connection succeeded")
             # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
             # depending on the operation this could have a different hostname, due to different
             # destinations. For now this isn't a problem yet, because no possible client can
@@ -98,19 +93,18 @@ class HTTPTransport(object):
                 path=path,
                 query_params="?" + query_params if query_params else "",
             )
+
             logger.debug("Sending Request to HTTP URL: {}".format(url))
             logger.debug("HTTP Headers: {}".format(headers))
             logger.debug("HTTP Body: {}".format(body))
-            connection.request(method, url, body=body, headers=headers)
-            response = connection.getresponse()
-            status_code = response.status
-            reason = response.reason
-            response_string = response.read()
+
+            request = urllib.request.Request(method=method, url=url, body=body, headers=headers)
+            with request.urlopen(request, context=self._ssl_context) as response:
+                status_code = response.status
+                reason = response.reason
+                response_string = response.read()
 
             logger.debug("response received")
-            logger.debug("closing connection to https host")
-            connection.close()
-            logger.debug("connection closed")
             logger.info(
                 "https {} request sent to {}, and {} response received.".format(
                     method, path, status_code
