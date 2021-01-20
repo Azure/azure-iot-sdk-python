@@ -9,6 +9,7 @@ import uuid
 import threading
 import json
 import ssl
+import six
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 from six.moves import urllib
@@ -98,13 +99,31 @@ class HTTPTransport(object):
             logger.debug("HTTP Headers: {}".format(headers))
             logger.debug("HTTP Body: {}".format(body))
 
-            request = urllib.request.Request(
-                method=method, url=url, data=body.encode("utf-8"), headers=headers
-            )
-            with urllib.request.urlopen(request, context=self._ssl_context) as response:
-                status_code = response.status
-                reason = response.reason
-                response_string = response.read()
+            if six.PY2:
+                request = urllib.request.Request(
+                    url=url, data=body.encode("utf-8"), headers=headers
+                )
+                request.get_method = lambda: method
+            else:
+                request = urllib.request.Request(
+                    method=method, url=url, data=body.encode("utf-8"), headers=headers
+                )
+            response = urllib.request.urlopen(request, context=self._ssl_context)
+            try:
+                if six.PY2:
+                    info = response.info()
+                    status_code = info.status or 200
+                    try:
+                        reason = info.reason
+                    except AttributeError:
+                        reason = ""
+                    response_string = response.read()
+                else:
+                    status_code = response.status
+                    reason = response.reason
+                    response_string = response.read()
+            finally:
+                response.close()
 
             logger.debug("response received")
             logger.info(
@@ -115,7 +134,7 @@ class HTTPTransport(object):
             response_obj = {"status_code": status_code, "reason": reason, "resp": response_string}
             callback(response=response_obj)
         except Exception as e:
-            logger.info("Error in HTTP Transport: {}".format(e))
+            logger.info("Error in HTTP Transport: {}".format(e), exc_info=True)
             callback(
                 error=exceptions.ProtocolClientError(
                     message="Unexpected HTTPS failure during connect", cause=e
