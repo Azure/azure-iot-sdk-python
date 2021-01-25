@@ -10,6 +10,12 @@ Currently we have to do like this so that we don't use exec anywhere"""
 def execute_patch_for_sync():
     from azure.iot.device.iothub.sync_clients import IoTHubDeviceClient as IoTHubDeviceClient
 
+    def shutdown(self):
+        return super(IoTHubDeviceClient, self).shutdown()
+
+    shutdown.__doc__ = IoTHubDeviceClient.shutdown.__doc__
+    setattr(IoTHubDeviceClient, "shutdown", shutdown)
+
     def connect(self):
         return super(IoTHubDeviceClient, self).connect()
 
@@ -112,6 +118,12 @@ def execute_patch_for_sync():
         classmethod(create_from_x509_certificate),
     )
     from azure.iot.device.iothub.sync_clients import IoTHubModuleClient as IoTHubModuleClient
+
+    def shutdown(self):
+        return super(IoTHubModuleClient, self).shutdown()
+
+    shutdown.__doc__ = IoTHubModuleClient.shutdown.__doc__
+    setattr(IoTHubModuleClient, "shutdown", shutdown)
 
     def connect(self):
         return super(IoTHubModuleClient, self).connect()

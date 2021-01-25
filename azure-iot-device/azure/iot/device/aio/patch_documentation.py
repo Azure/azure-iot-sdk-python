@@ -10,6 +10,12 @@ Currently we have to do like this so that we don't use exec anywhere"""
 def execute_patch_for_async():
     from azure.iot.device.iothub.aio.async_clients import IoTHubDeviceClient as IoTHubDeviceClient_
 
+    async def shutdown(self):
+        return await super(IoTHubDeviceClient_, self).shutdown()
+
+    shutdown.__doc__ = IoTHubDeviceClient_.shutdown.__doc__
+    setattr(IoTHubDeviceClient_, "shutdown", shutdown)
+
     async def connect(self):
         return await super(IoTHubDeviceClient_, self).connect()
 
@@ -116,6 +122,12 @@ def execute_patch_for_async():
         classmethod(create_from_x509_certificate),
     )
     from azure.iot.device.iothub.aio.async_clients import IoTHubModuleClient as IoTHubModuleClient_
+
+    async def shutdown(self):
+        return await super(IoTHubModuleClient_, self).shutdown()
+
+    shutdown.__doc__ = IoTHubModuleClient_.shutdown.__doc__
+    setattr(IoTHubModuleClient_, "shutdown", shutdown)
 
     async def connect(self):
         return await super(IoTHubModuleClient_, self).connect()
