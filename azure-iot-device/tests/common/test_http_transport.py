@@ -13,6 +13,7 @@ import pytest
 import logging
 import ssl
 import threading
+import sys
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -128,7 +129,7 @@ class HTTPTransportTestConfig(object):
 
 
 @pytest.mark.describe("HTTPTransport - .request()")
-class _TestRequest(HTTPTransportTestConfig):
+class TestRequest(HTTPTransportTestConfig):
     @pytest.mark.it("Generates a unique HTTP Client connection for each request")
     def test_creates_http_connection_object(self, mocker, mock_http_client_constructor):
         transport = HTTPTransport(hostname=fake_hostname)
@@ -149,6 +150,7 @@ class _TestRequest(HTTPTransportTestConfig):
         assert mock_http_client_constructor.call_args[1]["context"] == transport._ssl_context
 
     @pytest.mark.it("Formats the request URL from the stage's hostname, given a path.")
+    @pytest.mark.skipif(sys.version_info < (3, 5), reason="Part of PY3 code path")
     def test_formats_http_client_request_with_only_method_and_path(
         self, mocker, mock_http_client_constructor
     ):
@@ -169,6 +171,7 @@ class _TestRequest(HTTPTransportTestConfig):
     @pytest.mark.it(
         "Formats the request URL from the stage's hostname, given a path and query parameters."
     )
+    @pytest.mark.skipif(sys.version_info < (3, 5), reason="Part of PY3 code path")
     def test_formats_http_client_request_with_method_path_and_query_params(
         self, mocker, mock_http_client_constructor
     ):
@@ -235,6 +238,7 @@ class _TestRequest(HTTPTransportTestConfig):
             ),
         ],
     )
+    @pytest.mark.skipif(sys.version_info < (3, 5), reason="Part of PY3 code path")
     def test_calls_http_client_request_with_given_parameters(
         self, mocker, mock_http_client_constructor, method, path, query_params, body, headers
     ):
@@ -270,6 +274,7 @@ class _TestRequest(HTTPTransportTestConfig):
     @pytest.mark.it(
         "Creates a response object with a status code, reason, and unformatted HTTP response and returns it via the callback."
     )
+    @pytest.mark.skipif(sys.version_info < (3, 5), reason="Part of PY3 code path")
     def test_returns_response_on_success(self, mocker, mock_http_client_constructor):
         transport = HTTPTransport(hostname=fake_hostname)
         cb = mocker.MagicMock()
@@ -283,6 +288,7 @@ class _TestRequest(HTTPTransportTestConfig):
         assert cb.call_args[1]["response"]["resp"] == "__fake_response_read_value__"
 
     @pytest.mark.it("Raises a ProtocolClientError if request raises an unexpected Exception")
+    @pytest.mark.skipif(sys.version_info < (3, 5), reason="Part of PY3 code path")
     def test_client_raises_unexpected_error(
         self, mocker, mock_http_client_constructor, arbitrary_exception
     ):

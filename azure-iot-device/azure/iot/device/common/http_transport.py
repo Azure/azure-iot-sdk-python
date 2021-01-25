@@ -12,7 +12,7 @@ import ssl
 import six
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
-from six.moves import urllib
+from six.moves import http_client, urllib
 
 logger = logging.getLogger(__name__)
 
@@ -94,23 +94,36 @@ class HTTPTransport(object):
                 path=path,
                 query_params="?" + query_params if query_params else "",
             )
-
             logger.debug("Sending Request to HTTP URL: {}".format(url))
             logger.debug("HTTP Headers: {}".format(headers))
             logger.debug("HTTP Body: {}".format(body))
 
-            if six.PY2:
+            if six.PY3:
+                logger.debug("creating an https connection")
+                connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
+                try:
+                    logger.debug("connecting to host tcp socket")
+                    connection.connect()
+                    logger.debug("connection succeeded")
+
+                    connection.request(method, url, body=body, headers=headers)
+                    response = connection.getresponse()
+                    status_code = response.status
+                    reason = response.reason
+                    response_string = response.read()
+
+                    logger.debug("response received")
+                finally:
+                    logger.debug("closing connection to https host")
+                    connection.close()
+                    logger.debug("connection closed")
+            else:
                 request = urllib.request.Request(
                     url=url, data=body.encode("utf-8"), headers=headers
                 )
                 request.get_method = lambda: method
-            else:
-                request = urllib.request.Request(
-                    method=method, url=url, data=body.encode("utf-8"), headers=headers
-                )
-            response = urllib.request.urlopen(request, context=self._ssl_context)
-            try:
-                if six.PY2:
+                response = urllib.request.urlopen(request, context=self._ssl_context)
+                try:
                     info = response.info()
                     status_code = info.status or 200
                     try:
@@ -118,14 +131,9 @@ class HTTPTransport(object):
                     except AttributeError:
                         reason = ""
                     response_string = response.read()
-                else:
-                    status_code = response.status
-                    reason = response.reason
-                    response_string = response.read()
-            finally:
-                response.close()
+                finally:
+                    response.close()
 
-            logger.debug("response received")
             logger.info(
                 "https {} request sent to {}, and {} response received.".format(
                     method, path, status_code
@@ -134,7 +142,7 @@ class HTTPTransport(object):
             response_obj = {"status_code": status_code, "reason": reason, "resp": response_string}
             callback(response=response_obj)
         except Exception as e:
-            logger.info("Error in HTTP Transport: {}".format(e), exc_info=True)
+            logger.info("Error in HTTP Transport: {}".format(e))
             callback(
                 error=exceptions.ProtocolClientError(
                     message="Unexpected HTTPS failure during connect", cause=e
