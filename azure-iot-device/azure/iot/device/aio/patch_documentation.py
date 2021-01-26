@@ -121,6 +121,19 @@ def execute_patch_for_async():
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
+
+    setattr(IoTHubDeviceClient_, "connected", IoTHubDeviceClient_.connected)
+    setattr(
+        IoTHubDeviceClient_,
+        "on_method_request_received",
+        IoTHubDeviceClient_.on_method_request_received,
+    )
+    setattr(
+        IoTHubDeviceClient_,
+        "on_twin_desired_properties_patch_received",
+        IoTHubDeviceClient_.on_twin_desired_properties_patch_received,
+    )
+
     from azure.iot.device.iothub.aio.async_clients import IoTHubModuleClient as IoTHubModuleClient_
 
     async def shutdown(self):
@@ -234,6 +247,19 @@ def execute_patch_for_async():
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
+
+    setattr(IoTHubModuleClient_, "connected", IoTHubModuleClient_.connected)
+    setattr(
+        IoTHubModuleClient_,
+        "on_method_request_received",
+        IoTHubModuleClient_.on_method_request_received,
+    )
+    setattr(
+        IoTHubModuleClient_,
+        "on_twin_desired_properties_patch_received",
+        IoTHubModuleClient_.on_twin_desired_properties_patch_received,
+    )
+
     from azure.iot.device.provisioning.aio.async_provisioning_device_client import (
         ProvisioningDeviceClient as ProvisioningDeviceClient_,
     )

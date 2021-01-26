@@ -117,6 +117,19 @@ def execute_patch_for_sync():
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
+
+    setattr(IoTHubDeviceClient, "connected", IoTHubDeviceClient.connected)
+    setattr(
+        IoTHubDeviceClient,
+        "on_method_request_received",
+        IoTHubDeviceClient.on_method_request_received,
+    )
+    setattr(
+        IoTHubDeviceClient,
+        "on_twin_desired_properties_patch_received",
+        IoTHubDeviceClient.on_twin_desired_properties_patch_received,
+    )
+
     from azure.iot.device.iothub.sync_clients import IoTHubModuleClient as IoTHubModuleClient
 
     def shutdown(self):
@@ -228,6 +241,19 @@ def execute_patch_for_sync():
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
+
+    setattr(IoTHubModuleClient, "connected", IoTHubModuleClient.connected)
+    setattr(
+        IoTHubModuleClient,
+        "on_method_request_received",
+        IoTHubModuleClient.on_method_request_received,
+    )
+    setattr(
+        IoTHubModuleClient,
+        "on_twin_desired_properties_patch_received",
+        IoTHubModuleClient.on_twin_desired_properties_patch_received,
+    )
+
     from azure.iot.device.provisioning.provisioning_device_client import (
         ProvisioningDeviceClient as ProvisioningDeviceClient,
     )
