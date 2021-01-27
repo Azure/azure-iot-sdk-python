@@ -40,9 +40,6 @@ def add_shims_for_inherited_methods(target_class):
     class_methods = inspect.getmembers(target_class, predicate=inspect.ismethod)
     all_methods = class_functions + class_methods
 
-    # Also get properties
-    class_properties = inspect.getmembers(target_class, predicate=inspect.isdatadescriptor)
-
     # This list of attributes gives us a lot of information, but we only are using it to get
     # the defining class of a given method.
     class_attributes = inspect.classify_class_attrs(target_class)
@@ -144,6 +141,14 @@ def add_shims_for_inherited_methods(target_class):
     # rather than <class_name>.<method_name>, due to the scoping of the definition.
     # This shouldn't matter, but in case it does, I am documenting that fact here.
 
+    # For properties, we have a different strategy. While with methods we dynamically created
+    # redefinitions for each inherited method that called the parent class' implementation of the
+    # method, here we simply set the inherited property attribute directly onto the child.
+    # This will carry over all docstrings implicitly.
+    # We do this because properties, while defined syntactically via methods, actually are not
+    # methods directly on a class, but form a "property" object, which itself contains the
+    # get and set logic. Thus our strategy for methods can't really work here.
+    class_properties = inspect.getmembers(target_class, predicate=inspect.isdatadescriptor)
     for prop in class_properties:
         property_name = prop[0]
         # We can index on 0 here because the list comprehension will always be exactly 1 element
