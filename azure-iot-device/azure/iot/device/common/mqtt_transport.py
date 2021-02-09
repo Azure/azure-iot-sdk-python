@@ -211,6 +211,7 @@ class MQTTTransport(object):
                 cause = _create_error_from_rc_code(rc)
                 if this:
                     this._force_transport_disconnect_and_cleanup()
+                    this._op_manager.fail_all_ops(cause)
 
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
@@ -654,3 +655,11 @@ class OperationManager(object):
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
+
+    def fail_all_ops(self, error):
+        with self._lock:
+            callbacks = self._pending_operation_callbacks
+            self._pending_operation_callbacks = {}
+
+        for callback in callbacks.values():
+            callback(error)

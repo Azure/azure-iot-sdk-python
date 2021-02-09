@@ -9,8 +9,11 @@ import asyncio
 import uuid
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message
+import logging
 
 messages_to_send = 10
+
+logging.basicConfig(level=logging.INFO)
 
 
 async def main():
@@ -31,8 +34,12 @@ async def main():
         msg.custom_properties["tornado-warning"] = "yes"
         msg.content_encoding = "utf-8"
         msg.content_type = "application/json"
-        await device_client.send_message(msg)
-        print("done sending message #" + str(i))
+        try:
+            await device_client.send_message(msg)
+        except Exception as e:
+            print("Message {} raised {}".format(i, str(e) or type(e)))
+        else:
+            print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel
     await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])

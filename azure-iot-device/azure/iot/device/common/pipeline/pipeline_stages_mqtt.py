@@ -221,9 +221,9 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): publishing on {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_published():
+            def on_published(error=None):
                 logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
-                op.complete()
+                op.complete(error=error)
 
             try:
                 self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
