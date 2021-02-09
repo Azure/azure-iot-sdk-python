@@ -12,7 +12,7 @@ This directory contains samples showing how to use the various features of the M
     az iot hub create --resource-group <your resource group> --name <your IoT Hub name>
     ```
 
-    * Note that this operation make take a few minutes.
+    * Note that this operation may take a few minutes.
 
 2. Add the IoT Extension to the Azure CLI, and then [register a device identity](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-create)
 
