@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+
 import asyncio
 from azure.iot.device.aio import ProvisioningDeviceClient
 import os
@@ -12,6 +13,7 @@ from azure.iot.device import Message
 import uuid
 import json
 import random
+
 
 # ensure environment variables are set for your device and IoT Central application credentials
 provisioning_host = os.getenv("PROVISIONING_HOST")
@@ -91,4 +93,3 @@ if __name__ == "__main__":
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(main())
     # loop.close()
-    
