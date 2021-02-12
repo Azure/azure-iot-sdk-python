@@ -20,6 +20,7 @@ id_scope = os.getenv("ID_SCOPE")
 registration_id = os.getenv("DEVICE_ID")
 symmetric_key = os.getenv("DEVICE_KEY")
 
+
 # allows the user to quit the program from the terminal
 def stdin_listener():
     """
