@@ -34,6 +34,7 @@ def _validate_kwargs(exclude=[], **kwargs):
         "proxy_options",
         "sastoken_ttl",
         "keep_alive",
+        "auto_connect",
     ]
 
     for kwarg in kwargs:
@@ -50,6 +51,7 @@ def _get_config_kwargs(**kwargs):
         "server_verification_cert",
         "proxy_options",
         "keep_alive",
+        "auto_connect",
     ]
 
     config_kwargs = {}
@@ -218,6 +220,8 @@ class AbstractIoTHubClient(object):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -287,6 +291,8 @@ class AbstractIoTHubClient(object):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the sastoken parameter is invalid.
@@ -420,6 +426,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -470,6 +478,8 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the provided parameters are invalid.
@@ -543,6 +553,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -688,6 +700,8 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
 
         :raises: TypeError if given an unsupported parameter.
 

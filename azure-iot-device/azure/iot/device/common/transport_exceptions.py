@@ -24,6 +24,12 @@ class ConnectionDroppedError(ChainableException):
     pass
 
 
+class NoConnectionError(ChainableException):
+    """
+    There is no connection
+    """
+
+
 class UnauthorizedError(ChainableException):
     """
     Authorization was rejected

@@ -32,6 +32,7 @@ class BasePipelineConfig(object):
         cipher="",
         proxy_options=None,
         keep_alive=DEFAULT_KEEPALIVE,
+        auto_connect=False,
     ):
         """Initializer for BasePipelineConfig
 
@@ -51,10 +52,15 @@ class BasePipelineConfig(object):
         :type cipher: str or list(str)
         :param proxy_options: Details of proxy configuration
         :type proxy_options: :class:`azure.iot.device.common.models.ProxyOptions`
+        :param int keepalive: Maximum period in seconds between communications with the
+            broker.
+        :param bool auto_connect: Indicates if automatic connects should occur
         """
         # Network
         self.hostname = hostname
         self.gateway_hostname = gateway_hostname
+        self.keep_alive = self._validate_keep_alive(keep_alive)
+        self.auto_connect = auto_connect
 
         # Auth
         self.sastoken = sastoken
@@ -65,7 +71,6 @@ class BasePipelineConfig(object):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
         self.proxy_options = proxy_options
-        self.keep_alive = self._validate_keep_alive(keep_alive)
 
     @staticmethod
     def _sanitize_cipher(cipher):
