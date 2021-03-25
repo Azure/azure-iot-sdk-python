@@ -32,7 +32,7 @@ class BasePipelineConfig(object):
         cipher="",
         proxy_options=None,
         keep_alive=DEFAULT_KEEPALIVE,
-        auto_connect=False,
+        auto_connect=True,
     ):
         """Initializer for BasePipelineConfig
 

@@ -78,11 +78,7 @@ operation_return_codes = [
         "error": errors.ProtocolClientError,
     },
     {"name": "MQTT_ERR_INVAL", "rc": mqtt.MQTT_ERR_INVAL, "error": errors.ProtocolClientError},
-    {
-        "name": "MQTT_ERR_NO_CONN",
-        "rc": mqtt.MQTT_ERR_NO_CONN,
-        "error": errors.ConnectionDroppedError,
-    },
+    {"name": "MQTT_ERR_NO_CONN", "rc": mqtt.MQTT_ERR_NO_CONN, "error": errors.NoConnectionError},
     {
         "name": "MQTT_ERR_CONN_REFUSED",
         "rc": mqtt.MQTT_ERR_CONN_REFUSED,
