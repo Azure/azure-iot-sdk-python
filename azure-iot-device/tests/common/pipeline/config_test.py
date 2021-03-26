@@ -283,3 +283,17 @@ class PipelineConfigInstantiationTestBase(object):
     def test_keep_alive_invalid(self, mocker, required_kwargs, config_cls, sastoken, keep_alive):
         with pytest.raises(ValueError):
             config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+
+    @pytest.mark.it(
+        "Instantiates with the 'auto_connect' attribute set to the provided 'auto_connect' parameter"
+    )
+    def test_auto_connect_set(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, auto_connect=False, **required_kwargs)
+        assert config.auto_connect is False
+
+    @pytest.mark.it(
+        "Instantiates with the 'auto_connect' attribute set to 'None' if no 'auto_connect' parameter is provided"
+    )
+    def test_auto_connect_default(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, **required_kwargs)
+        assert config.auto_connect is True

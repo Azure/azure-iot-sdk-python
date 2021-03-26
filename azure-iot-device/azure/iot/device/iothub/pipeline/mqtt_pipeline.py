@@ -83,15 +83,12 @@ class MQTTPipeline(object):
             # are allowed because IoTHubMQTTTranslationStage removes all the IoTHub-ness from the ops
             #
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
-        )
-        if pipeline_configuration.auto_connect:
             #
             # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
             # and this is the first place in the pipeline wherer we can guaranetee that all network
             # ops are MQTT ops.
             #
-            self._pipeline.append_stage(pipeline_stages_base.AutoConnectStage())
-        (
+            .append_stage(pipeline_stages_base.AutoConnectStage())
             #
             # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
             # the virtually_conencted flag and we want an automatic connection op to set this flag so
@@ -101,7 +98,7 @@ class MQTTPipeline(object):
             # succeeds, and only then will return success to the AutoConnectStage which will
             # allow the publish to continue.
             #
-            self._pipeline.append_stage(pipeline_stages_base.ReconnectStage())
+            .append_stage(pipeline_stages_base.ReconnectStage())
             #
             # ConnectionLockStage needs to be after ReconnectStage because we want any ops that
             # ReconnectStage creates to go through the ConnectionLockStage gate

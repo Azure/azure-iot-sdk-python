@@ -518,6 +518,11 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
                 id="ConnectionFailedError->ConnectionFailedError",
             ),
             pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
                 pipeline_exceptions.UnauthorizedError,
                 client_exceptions.CredentialError,
                 id="UnauthorizedError->CredentialError",
@@ -887,6 +892,11 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
                 id="ConnectionFailedError->ConnectionFailedError",
             ),
             pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
                 pipeline_exceptions.UnauthorizedError,
                 client_exceptions.CredentialError,
                 id="UnauthorizedError->CredentialError",
@@ -977,6 +987,11 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
                 pipeline_exceptions.ConnectionFailedError,
                 client_exceptions.ConnectionFailedError,
                 id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
             ),
             pytest.param(
                 pipeline_exceptions.UnauthorizedError,
@@ -1080,6 +1095,11 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
                 pipeline_exceptions.ConnectionFailedError,
                 client_exceptions.ConnectionFailedError,
                 id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
             ),
             pytest.param(
                 pipeline_exceptions.UnauthorizedError,
@@ -2056,6 +2076,11 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
                 pipeline_exceptions.ConnectionFailedError,
                 client_exceptions.ConnectionFailedError,
                 id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
             ),
             pytest.param(
                 pipeline_exceptions.UnauthorizedError,

@@ -247,6 +247,28 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
 
         assert config.keep_alive == keepalive_value
 
+    @pytest.mark.it(
+        "Sets the 'auto_connect' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_auto_connect_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        auto_connect_value = False
+        client_create_method(*create_method_args, auto_connect=auto_connect_value)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.auto_connect == auto_connect_value
+
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(
         self, option_test_required_patching, client_create_method, create_method_args

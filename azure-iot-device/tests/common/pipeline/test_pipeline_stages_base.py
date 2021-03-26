@@ -615,10 +615,16 @@ class AutoConnectStageTestConfig(object):
         return {}
 
     @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
+    def pl_config(self, mocker):
+        pl_cfg = mocker.MagicMock()
+        pl_cfg.auto_connect = True
+        return pl_cfg
+
+    @pytest.fixture
+    def stage(self, mocker, pl_config, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_configuration=mocker.MagicMock()
+            pipeline_configuration=pl_config
         )
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
@@ -1015,6 +1021,47 @@ class TestAutoConnectStageRunOpWithOpThatDoesNotRequireConnection(
     @pytest.fixture
     def op(self, arbitrary_op):
         assert not arbitrary_op.needs_connection
+        return arbitrary_op
+
+    @pytest.mark.it(
+        "Sends the operation down the pipeline if the pipeline is in a 'connected' state"
+    )
+    def test_connected(self, mocker, stage, op):
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+    @pytest.mark.it(
+        "Sends the operation down the pipeline if the pipeline is in a 'disconnected' state"
+    )
+    def test_disconnected(self, mocker, stage, op):
+        assert not stage.pipeline_root.connected
+
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+
+@pytest.mark.describe(
+    "AutoConnectStage - .run_op() -- Called while pipeline configured to disable Auto Connect"
+)
+class TestAutoConnectStageRunOpWithAutoConnectDisabled(
+    AutoConnectStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def pl_config(self, mocker):
+        pl_cfg = mocker.MagicMock()
+        pl_cfg.auto_connect = False
+        return pl_cfg
+
+    @pytest.fixture(params=["Op requires connection", "Op does NOT require connection"])
+    def op(self, request, arbitrary_op):
+        if request.param == "Op requires connection":
+            arbitrary_op.needs_connection = True
+        else:
+            arbitrary_op.needs_connection = False
         return arbitrary_op
 
     @pytest.mark.it(

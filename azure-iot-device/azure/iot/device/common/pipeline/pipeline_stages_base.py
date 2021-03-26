@@ -381,7 +381,7 @@ class AutoConnectStage(PipelineStage):
     def _run_op(self, op):
         # Any operation that requires a connection can trigger a connection if
         # we're not connected.
-        if op.needs_connection:
+        if op.needs_connection and self.pipeline_root.pipeline_configuration.auto_connect:
             if self.pipeline_root.connected:
 
                 # If we think we're connected, we pass the op down, but we also check the result.
