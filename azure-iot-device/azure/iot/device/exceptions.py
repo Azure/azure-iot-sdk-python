@@ -41,6 +41,12 @@ class ConnectionDroppedError(ClientError):
     pass
 
 
+class NoConnectionError(ClientError):
+    """Operation could not be completed because no connection has been established"""
+
+    pass
+
+
 class CredentialError(ClientError):
     """Could not connect client using given credentials"""
 

@@ -33,7 +33,7 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_NO_CONN: exceptions.ConnectionDroppedError,
+    mqtt.MQTT_ERR_NO_CONN: exceptions.NoConnectionError,
     mqtt.MQTT_ERR_CONN_REFUSED: exceptions.ConnectionFailedError,
     mqtt.MQTT_ERR_NOT_FOUND: exceptions.ConnectionFailedError,
     mqtt.MQTT_ERR_CONN_LOST: exceptions.ConnectionDroppedError,

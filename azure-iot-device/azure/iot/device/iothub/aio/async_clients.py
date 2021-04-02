@@ -35,6 +35,8 @@ async def handle_result(callback):
         raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
     except pipeline_exceptions.ConnectionFailedError as e:
         raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+    except pipeline_exceptions.NoConnectionError as e:
+        raise exceptions.NoConnectionError(message="Client is not connected to IoTHub", cause=e)
     except pipeline_exceptions.UnauthorizedError as e:
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
@@ -283,6 +285,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -346,6 +350,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -375,6 +381,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -407,6 +415,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -635,6 +645,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
