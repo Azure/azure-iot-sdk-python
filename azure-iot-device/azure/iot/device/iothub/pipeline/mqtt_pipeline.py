@@ -105,10 +105,6 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ConnectionLockStage())
             #
-            # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
-            #
-            .append_stage(pipeline_stages_base.RetryStage())
-            #
             # OpTimeoutStage needs to be after RetryStage because OpTimeoutStage returns the timeout
             # errors that RetryStage is watching for.
             #
