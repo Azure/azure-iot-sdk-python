@@ -74,7 +74,17 @@ class IoTHubRegistryManager(object):
         """
         self.amqp_svc_client.disconnect_sync()
 
-    def create_device_with_sas(self, device_id, primary_key, secondary_key, status, iot_edge=False):
+    def create_device_with_sas(
+        self,
+        device_id,
+        primary_key,
+        secondary_key,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Creates a device identity on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
@@ -90,18 +100,32 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
             "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def create_device_with_x509(
-        self, device_id, primary_thumbprint, secondary_thumbprint, status, iot_edge=False
+        self,
+        device_id,
+        primary_thumbprint,
+        secondary_thumbprint,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
     ):
         """Creates a device identity on IoTHub using X509 authentication.
 
@@ -120,6 +144,9 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
@@ -127,12 +154,23 @@ class IoTHubRegistryManager(object):
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
             "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
-    def create_device_with_certificate_authority(self, device_id, status, iot_edge=False):
+    def create_device_with_certificate_authority(
+        self,
+        device_id,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Creates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
@@ -144,17 +182,34 @@ class IoTHubRegistryManager(object):
 
         :returns: Device object containing the created device.
         """
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
             "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
-    def update_device_with_sas(self, device_id, etag, primary_key, secondary_key, status):
+    def update_device_with_sas(
+        self,
+        device_id,
+        etag,
+        primary_key,
+        secondary_key,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Updates a device identity on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
@@ -171,18 +226,34 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device, "*")
 
     def update_device_with_x509(
-        self, device_id, etag, primary_thumbprint, secondary_thumbprint, status
+        self,
+        device_id,
+        etag,
+        primary_thumbprint,
+        secondary_thumbprint,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
     ):
         """Updates a device identity on IoTHub using X509 authentication.
 
@@ -202,6 +273,9 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
@@ -209,12 +283,25 @@ class IoTHubRegistryManager(object):
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
-    def update_device_with_certificate_authority(self, device_id, etag, status):
+    def update_device_with_certificate_authority(
+        self,
+        device_id,
+        etag,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Updates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
@@ -227,11 +314,18 @@ class IoTHubRegistryManager(object):
 
         :returns: The updated Device object containing the created device.
         """
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
             "etag": etag,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
