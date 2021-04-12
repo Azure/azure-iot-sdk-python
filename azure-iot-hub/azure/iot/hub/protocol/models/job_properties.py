@@ -54,6 +54,8 @@ class JobProperties(Model):
      connecting to the storage account. Possible values include: 'keyBased',
      'identityBased'
     :type storage_authentication_type: str or ~protocol.models.enum
+    :param identity:
+    :type identity: ~protocol.models.ManagedIdentity
     :param failure_reason: System genereated.  Ignored at creation. The reason
      for failure, if a failure occurred.
     :type failure_reason: str
@@ -78,6 +80,7 @@ class JobProperties(Model):
         "output_blob_name": {"key": "outputBlobName", "type": "str"},
         "exclude_keys_in_export": {"key": "excludeKeysInExport", "type": "bool"},
         "storage_authentication_type": {"key": "storageAuthenticationType", "type": "str"},
+        "identity": {"key": "identity", "type": "ManagedIdentity"},
         "failure_reason": {"key": "failureReason", "type": "str"},
         "include_configurations": {"key": "includeConfigurations", "type": "bool"},
         "configurations_blob_name": {"key": "configurationsBlobName", "type": "str"},
@@ -97,6 +100,7 @@ class JobProperties(Model):
         self.output_blob_name = kwargs.get("output_blob_name", None)
         self.exclude_keys_in_export = kwargs.get("exclude_keys_in_export", None)
         self.storage_authentication_type = kwargs.get("storage_authentication_type", None)
+        self.identity = kwargs.get("identity", None)
         self.failure_reason = kwargs.get("failure_reason", None)
         self.include_configurations = kwargs.get("include_configurations", None)
         self.configurations_blob_name = kwargs.get("configurations_blob_name", None)
