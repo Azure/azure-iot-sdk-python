@@ -92,6 +92,11 @@ class IoTHubRegistryManager(object):
         :param str secondary_key: Secondary authentication key.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled")
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device.
+        :param str status_reason: The reason for the device identity status.
+        :param str device_scope: The scope of the device.
+            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -134,6 +139,11 @@ class IoTHubRegistryManager(object):
         :param str secondary_thumbprint: Secondary X509 thumbprint.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled")
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device.
+        :param str status_reason: The reason for the device identity status.
+        :param str device_scope: The scope of the device.
+            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -176,6 +186,11 @@ class IoTHubRegistryManager(object):
         :param str device_id: The name (Id) of the device.
         :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device.
+        :param str status_reason: The reason for the device identity status.
+        :param str device_scope: The scope of the device.
+            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -218,6 +233,11 @@ class IoTHubRegistryManager(object):
         :param str secondary_key: Secondary authentication key.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device.
+        :param str status_reason: The reason for the device identity status.
+        :param str device_scope: The scope of the device.
+            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -263,6 +283,11 @@ class IoTHubRegistryManager(object):
         :param str secondary_thumbprint: Secondary X509 thumbprint.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device.
+        :param str status_reason: The reason for the device identity status.
+        :param str device_scope: The scope of the device.
+            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -308,6 +333,11 @@ class IoTHubRegistryManager(object):
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device.
+        :param str status_reason: The reason for the device identity status.
+        :param str device_scope: The scope of the device.
+            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
