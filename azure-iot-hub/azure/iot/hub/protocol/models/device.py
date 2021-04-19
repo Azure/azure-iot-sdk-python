@@ -51,6 +51,9 @@ class Device(Model):
      for edge devices and modifiable in leaf devices to create child/parent
      relationship.
     :type device_scope: str
+    :param parent_scopes: The scopes of the upper level edge devices if
+     applicable. Only available for edge devices.
+    :type parent_scopes: list[str]
     """
 
     _attribute_map = {
@@ -67,6 +70,7 @@ class Device(Model):
         "authentication": {"key": "authentication", "type": "AuthenticationMechanism"},
         "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
         "device_scope": {"key": "deviceScope", "type": "str"},
+        "parent_scopes": {"key": "parentScopes", "type": "[str]"},
     }
 
     def __init__(self, **kwargs):
@@ -84,3 +88,4 @@ class Device(Model):
         self.authentication = kwargs.get("authentication", None)
         self.capabilities = kwargs.get("capabilities", None)
         self.device_scope = kwargs.get("device_scope", None)
+        self.parent_scopes = kwargs.get("parent_scopes", None)
