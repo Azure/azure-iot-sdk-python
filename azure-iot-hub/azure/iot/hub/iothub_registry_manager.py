@@ -95,8 +95,11 @@ class IoTHubRegistryManager(object):
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
         :param str device_scope: The scope of the device. Default value: None
-            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
         :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -142,8 +145,11 @@ class IoTHubRegistryManager(object):
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
         :param str device_scope: The scope of the device. Default value: None
-            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
         :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -189,8 +195,11 @@ class IoTHubRegistryManager(object):
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
         :param str device_scope: The scope of the device. Default value: None
-            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
         :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -236,8 +245,11 @@ class IoTHubRegistryManager(object):
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
         :param str device_scope: The scope of the device. Default value: None
-            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
         :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -286,8 +298,11 @@ class IoTHubRegistryManager(object):
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
         :param str device_scope: The scope of the device. Default value: None
-            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
         :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -336,8 +351,11 @@ class IoTHubRegistryManager(object):
         :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
         :param str status_reason: The reason for the device identity status. Default value: None
         :param str device_scope: The scope of the device. Default value: None
-            (Auto generated and immutable for edge devices and modifiable in leaf devices)
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
         :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
