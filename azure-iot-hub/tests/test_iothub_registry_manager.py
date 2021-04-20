@@ -321,7 +321,7 @@ class TestUpdateDeviceWithSymmetricKey(object):
         (fake_primary_key, fake_secondary_key),
     ]
 
-    @pytest.mark.it("Initializes device with device id, status, etag and sas auth")
+    @pytest.mark.it("Initializes device with device id, status, and sas auth")
     @pytest.mark.parametrize(
         "primary_key, secondary_key", testdata, ids=["Primary Key", "Secondary Key", "Both Keys"]
     )
@@ -349,10 +349,9 @@ class TestUpdateDeviceWithSymmetricKey(object):
         sym_key = auth_mechanism.symmetric_key
         assert sym_key.primary_key == primary_key
         assert sym_key.secondary_key == secondary_key
-        assert mock_device_constructor.call_args[1]["etag"] == fake_etag
 
     @pytest.mark.it(
-        "Calls method from service operations with device id and previously constructed device"
+        "Calls method from service operations with device id, etag, and previously constructed device"
     )
     @pytest.mark.parametrize(
         "primary_key, secondary_key", testdata, ids=["Primary Key", "Secondary Key", "Both Keys"]
@@ -378,6 +377,10 @@ class TestUpdateDeviceWithSymmetricKey(object):
         assert (
             mock_devices_operations.create_or_update_identity.call_args[0][1]
             == mock_device_constructor.return_value
+        )
+        assert (
+            mock_devices_operations.create_or_update_identity.call_args[0][2]
+            == '"' + fake_etag + '"'
         )
 
 
@@ -423,10 +426,9 @@ class TestUpdateDeviceWithX509(object):
         x509_thumbprint = auth_mechanism.x509_thumbprint
         assert x509_thumbprint.primary_thumbprint == primary_thumbprint
         assert x509_thumbprint.secondary_thumbprint == secondary_thumbprint
-        assert mock_device_constructor.call_args[1]["etag"] == fake_etag
 
     @pytest.mark.it(
-        "Calls method from service operations with device id and previously constructed device"
+        "Calls method from service operations with device id, etag, and previously constructed device"
     )
     @pytest.mark.parametrize(
         "primary_thumbprint, secondary_thumbprint",
@@ -455,6 +457,10 @@ class TestUpdateDeviceWithX509(object):
             mock_devices_operations.create_or_update_identity.call_args[0][1]
             == mock_device_constructor.return_value
         )
+        assert (
+            mock_devices_operations.create_or_update_identity.call_args[0][2]
+            == '"' + fake_etag + '"'
+        )
 
 
 @pytest.mark.describe("IoTHubRegistryManager - .update_device_with_certificate_authority()")
@@ -477,10 +483,9 @@ class TestUpdateDeviceWithCA(object):
         assert auth_mechanism.type == "certificateAuthority"
         assert auth_mechanism.x509_thumbprint is None
         assert auth_mechanism.symmetric_key is None
-        assert mock_device_constructor.call_args[1]["etag"] == fake_etag
 
     @pytest.mark.it(
-        "Calls method from service operations with device id and previously constructed device"
+        "Calls method from service operations with device id, etag, and previously constructed device"
     )
     def test_calls_create_or_update_identity_for_certificate_authority(
         self, mock_device_constructor, mock_devices_operations, iothub_registry_manager
@@ -494,6 +499,10 @@ class TestUpdateDeviceWithCA(object):
         assert (
             mock_devices_operations.create_or_update_identity.call_args[0][1]
             == mock_device_constructor.return_value
+        )
+        assert (
+            mock_devices_operations.create_or_update_identity.call_args[0][2]
+            == '"' + fake_etag + '"'
         )
 
 
@@ -514,7 +523,9 @@ class TestDeleteDevice(object):
         iothub_registry_manager.delete_device(fake_device_id)
 
         assert mock_devices_operations.delete_identity.call_count == 1
-        assert mock_devices_operations.delete_identity.call_args == mocker.call(fake_device_id, "*")
+        assert mock_devices_operations.delete_identity.call_args == mocker.call(
+            fake_device_id, '"*"'
+        )
 
     @pytest.mark.it("Deletes device with an etag for the provided device id and etag")
     def test_delete_device_with_etag(
@@ -524,7 +535,7 @@ class TestDeleteDevice(object):
 
         assert mock_devices_operations.delete_identity.call_count == 1
         assert mock_devices_operations.delete_identity.call_args == mocker.call(
-            fake_device_id, fake_etag
+            fake_device_id, '"' + fake_etag + '"'
         )
 
 
@@ -938,7 +949,7 @@ class TestDeleteModule(object):
 
         assert mock_modules_operations.delete_identity.call_count == 1
         assert mock_modules_operations.delete_identity.call_args == mocker.call(
-            fake_device_id, fake_module_id, "*"
+            fake_device_id, fake_module_id, '"*"'
         )
 
     @pytest.mark.it("Deletes module with an etag for the provided device id and etag")
@@ -951,7 +962,7 @@ class TestDeleteModule(object):
 
         assert mock_modules_operations.delete_identity.call_count == 1
         assert mock_modules_operations.delete_identity.call_args == mocker.call(
-            fake_device_id, fake_module_id, fake_etag
+            fake_device_id, fake_module_id, '"' + fake_etag + '"'
         )
 
 
@@ -1062,10 +1073,10 @@ class TestGetTwin(object):
 class TestReplaceTwin(object):
     @pytest.mark.it("Test replace twin")
     def test_replace_twin(self, mocker, mock_devices_operations, iothub_registry_manager):
-        iothub_registry_manager.replace_twin(fake_device_id, fake_device_twin)
+        iothub_registry_manager.replace_twin(fake_device_id, fake_device_twin, fake_etag)
         assert mock_devices_operations.replace_twin.call_count == 1
         assert mock_devices_operations.replace_twin.call_args == mocker.call(
-            fake_device_id, fake_device_twin
+            fake_device_id, fake_device_twin, '"' + fake_etag + '"'
         )
 
 
@@ -1076,7 +1087,7 @@ class TestUpdateTwin(object):
         iothub_registry_manager.update_twin(fake_device_id, fake_device_twin, fake_etag)
         assert mock_devices_operations.update_twin.call_count == 1
         assert mock_devices_operations.update_twin.call_args == mocker.call(
-            fake_device_id, fake_device_twin, fake_etag
+            fake_device_id, fake_device_twin, '"' + fake_etag + '"'
         )
 
 
@@ -1096,11 +1107,11 @@ class TestReplaceModuleTwin(object):
     @pytest.mark.it("Test replace module twin")
     def test_replace_module_twin(self, mocker, mock_modules_operations, iothub_registry_manager):
         iothub_registry_manager.replace_module_twin(
-            fake_device_id, fake_module_id, fake_module_twin
+            fake_device_id, fake_module_id, fake_module_twin, fake_etag
         )
         assert mock_modules_operations.replace_twin.call_count == 1
         assert mock_modules_operations.replace_twin.call_args == mocker.call(
-            fake_device_id, fake_module_id, fake_module_twin
+            fake_device_id, fake_module_id, fake_module_twin, '"' + fake_etag + '"'
         )
 
 
@@ -1113,7 +1124,7 @@ class TestUpdateModuleTwin(object):
         )
         assert mock_modules_operations.update_twin.call_count == 1
         assert mock_modules_operations.update_twin.call_args == mocker.call(
-            fake_device_id, fake_module_id, fake_module_twin, fake_etag
+            fake_device_id, fake_module_id, fake_module_twin, '"' + fake_etag + '"'
         )
 
 
