@@ -22,6 +22,12 @@ from .protocol.models import (
 )
 
 
+def _ensure_quoted(etag):
+    if not isinstance(etag, str) or (len(etag) > 1 and etag[0] == '"' and etag[-1] == '"'):
+        return etag
+    return '"' + etag + '"'
+
+
 class QueryResult(object):
     """The query result.
     :param type: The query result type. Possible values include: 'unknown', 'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment', 'enrollmentGroup', 'deviceRegistration'
@@ -73,11 +79,6 @@ class IoTHubRegistryManager(object):
         Deinitializer for a Registry Manager Service client.
         """
         self.amqp_svc_client.disconnect_sync()
-
-    def __ensure_quoted(self, etag):
-        if not isinstance(etag, str) or (len(etag) > 1 and etag[0] == '"' and etag[-1] == '"'):
-            return etag
-        return '"' + etag + '"'
 
     def create_device_with_sas(
         self,
@@ -281,7 +282,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.devices.create_or_update_identity(
-            device_id, device, self.__ensure_quoted(etag)
+            device_id, device, _ensure_quoted(etag)
         )
 
     def update_device_with_x509(
@@ -342,7 +343,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.devices.create_or_update_identity(
-            device_id, device, self.__ensure_quoted(etag)
+            device_id, device, _ensure_quoted(etag)
         )
 
     def update_device_with_certificate_authority(
@@ -393,7 +394,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.devices.create_or_update_identity(
-            device_id, device, self.__ensure_quoted(etag)
+            device_id, device, _ensure_quoted(etag)
         )
 
     def get_device(self, device_id):
@@ -422,7 +423,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.devices.delete_identity(device_id, self.__ensure_quoted(etag))
+        self.protocol.devices.delete_identity(device_id, _ensure_quoted(etag))
 
     def create_module_with_sas(self, device_id, module_id, managed_by, primary_key, secondary_key):
         """Creates a module identity for a device on IoTHub using SAS authentication.
@@ -535,7 +536,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.modules.create_or_update_identity(
-            device_id, module_id, module, self.__ensure_quoted(etag)
+            device_id, module_id, module, _ensure_quoted(etag)
         )
 
     def update_module_with_x509(
@@ -573,7 +574,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.modules.create_or_update_identity(
-            device_id, module_id, module, self.__ensure_quoted(etag)
+            device_id, module_id, module, _ensure_quoted(etag)
         )
 
     def update_module_with_certificate_authority(self, device_id, module_id, managed_by, etag):
@@ -602,7 +603,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.modules.create_or_update_identity(
-            device_id, module_id, module, self.__ensure_quoted(etag)
+            device_id, module_id, module, _ensure_quoted(etag)
         )
 
     def get_module(self, device_id, module_id):
@@ -645,7 +646,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.modules.delete_identity(device_id, module_id, self.__ensure_quoted(etag))
+        self.protocol.modules.delete_identity(device_id, module_id, _ensure_quoted(etag))
 
     def get_service_statistics(self):
         """Retrieves the IoTHub service statistics.
@@ -763,9 +764,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        return self.protocol.devices.replace_twin(
-            device_id, device_twin, self.__ensure_quoted(etag)
-        )
+        return self.protocol.devices.replace_twin(device_id, device_twin, _ensure_quoted(etag))
 
     def update_twin(self, device_id, device_twin, etag=None):
         """Updates tags and desired properties of a device twin.
@@ -782,7 +781,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        return self.protocol.devices.update_twin(device_id, device_twin, self.__ensure_quoted(etag))
+        return self.protocol.devices.update_twin(device_id, device_twin, _ensure_quoted(etag))
 
     def get_module_twin(self, device_id, module_id):
         """Gets a module twin.
@@ -814,7 +813,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.modules.replace_twin(
-            device_id, module_id, module_twin, self.__ensure_quoted(etag)
+            device_id, module_id, module_twin, _ensure_quoted(etag)
         )
 
     def update_module_twin(self, device_id, module_id, module_twin, etag=None):
@@ -834,7 +833,7 @@ class IoTHubRegistryManager(object):
             etag = "*"
 
         return self.protocol.modules.update_twin(
-            device_id, module_id, module_twin, self.__ensure_quoted(etag)
+            device_id, module_id, module_twin, _ensure_quoted(etag)
         )
 
     def invoke_device_method(self, device_id, direct_method_request):
