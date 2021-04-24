@@ -463,6 +463,10 @@ class MQTTTransport(object):
             # to this error.
             err = _create_error_from_rc_code(rc)
             raise err
+        else:
+            # Clear all pending items in operation manager
+            # TODO: should this be here, or in on_disconnect handler
+            self._op_manager.cancel_all_operations()
 
     def subscribe(self, topic, qos=1, callback=None):
         """
@@ -654,3 +658,34 @@ class OperationManager(object):
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
+
+    def cancel_all_operations(self):
+        """Complete all pending operations with cancellation, removing MID tracking"""
+        logger.debug("Cancelling all pending operations")
+        with self._lock:
+            # Clear pending operations
+            pending_ops = [
+                (mid, callback) for (mid, callback) in self._pending_operation_callbacks.items()
+            ]
+            for pending_op in pending_ops:
+                mid = pending_op[0]
+                del self._pending_operation_callbacks[mid]
+
+            # Clear unknown responses
+            unknown_mids = [mid for mid in self._unknown_operation_completions]
+            for mid in unknown_mids:
+                del self._unknown_operation_completions[mid]
+
+        # Trigger cancel in pending operation callbacks
+        for pending_op in pending_ops:
+            mid = pending_op[0]
+            callback = pending_op[1]
+            if callback:
+                logger.debug("Cancelling {} - Triggering callback".format(mid))
+                try:
+                    callback(cancelled=True)
+                except Exception:
+                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.error(traceback.format_exc())
+            else:
+                logger.debug("Cancelling {} - No callback set for MID".format(mid))

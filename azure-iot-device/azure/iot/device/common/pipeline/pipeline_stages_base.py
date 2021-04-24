@@ -840,7 +840,7 @@ class RetryStage(PipelineStage):
         Return True if this op needs to be retried.  This must be called after
         the op completes.
         """
-        if error:
+        if error and not isinstance(error, pipeline_exceptions.OperationCancelled):
             if self._should_watch_for_retry(op):
                 if isinstance(error, pipeline_exceptions.PipelineTimeoutError):
                     return True
