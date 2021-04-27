@@ -759,6 +759,93 @@ class TestDisconnect(object):
         with pytest.raises(error_params["error"]):
             transport.disconnect()
 
+    @pytest.mark.it("Cancels all pending operations if the clear_pending parameter is True")
+    def test_pending_op_cancellation(self, mocker, mock_mqtt_client, transport):
+        # Set up a pending publish
+        pub_callback = mocker.MagicMock(name="pub cb")
+        pub_mid = "1"
+        message_info = mqtt.MQTTMessageInfo(pub_mid)
+        message_info.rc = fake_rc
+        mock_mqtt_client.publish.return_value = message_info
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=pub_callback)
+
+        # Set up a pending subscribe
+        sub_callback = mocker.MagicMock(name="sub_cb")
+        sub_mid = "2"
+        mock_mqtt_client.subscribe.return_value = (fake_rc, sub_mid)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=sub_callback)
+
+        # Operations are pending
+        assert pub_callback.call_count == 0
+        assert sub_callback.call_count == 0
+
+        # Disconnect and clear pending ops
+        transport.disconnect(clear_pending=True)
+
+        # Pending operations were cancelled
+        assert pub_callback.call_count == 1
+        assert pub_callback.call_args == mocker.call(cancelled=True)
+        assert sub_callback.call_count == 1
+        assert sub_callback.call_args == mocker.call(cancelled=True)
+
+    @pytest.mark.it(
+        "Does not cancel any pending operations if the clear_pending parameter is False"
+    )
+    def test_no_pending_op_cancellation(self, mocker, mock_mqtt_client, transport):
+        # Set up a pending publish
+        pub_callback = mocker.MagicMock(name="pub cb")
+        pub_mid = "1"
+        message_info = mqtt.MQTTMessageInfo(pub_mid)
+        message_info.rc = fake_rc
+        mock_mqtt_client.publish.return_value = message_info
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=pub_callback)
+
+        # Set up a pending subscribe
+        sub_callback = mocker.MagicMock(name="sub_cb")
+        sub_mid = "2"
+        mock_mqtt_client.subscribe.return_value = (fake_rc, sub_mid)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=sub_callback)
+
+        # Operations are pending
+        assert pub_callback.call_count == 0
+        assert sub_callback.call_count == 0
+
+        # Disconnect
+        transport.disconnect(clear_pending=False)
+
+        # No pending operations were cancelled
+        assert pub_callback.call_count == 0
+        assert sub_callback.call_count == 0
+
+    @pytest.mark.it(
+        "Does not cancel any pending operations if the clear_pending parameter is not provided"
+    )
+    def test_default_no_pending_op_cancellation(self, mocker, mock_mqtt_client, transport):
+        # Set up a pending publish
+        pub_callback = mocker.MagicMock(name="pub cb")
+        pub_mid = "1"
+        message_info = mqtt.MQTTMessageInfo(pub_mid)
+        message_info.rc = fake_rc
+        mock_mqtt_client.publish.return_value = message_info
+        transport.publish(topic=fake_topic, payload=fake_payload, callback=pub_callback)
+
+        # Set up a pending subscribe
+        sub_callback = mocker.MagicMock(name="sub_cb")
+        sub_mid = "2"
+        mock_mqtt_client.subscribe.return_value = (fake_rc, sub_mid)
+        transport.subscribe(topic=fake_topic, qos=fake_qos, callback=sub_callback)
+
+        # Operations are pending
+        assert pub_callback.call_count == 0
+        assert sub_callback.call_count == 0
+
+        # Disconnect
+        transport.disconnect()
+
+        # No pending operations were cancelled
+        assert pub_callback.call_count == 0
+        assert sub_callback.call_count == 0
+
     @pytest.mark.it("Stops MQTT Network Loop when disconnect does not raise an exception")
     def test_calls_loop_stop_on_success(self, mocker, mock_mqtt_client, transport):
         transport.disconnect()

@@ -436,7 +436,7 @@ class MQTTTransport(object):
             raise _create_error_from_rc_code(rc)
         self._mqtt_client.loop_start()
 
-    def disconnect(self):
+    def disconnect(self, clear_pending=False):
         """
         Disconnect from the MQTT broker.
 
@@ -464,9 +464,12 @@ class MQTTTransport(object):
             err = _create_error_from_rc_code(rc)
             raise err
         else:
-            # Clear all pending items in operation manager
-            # TODO: should this be here, or in on_disconnect handler
-            self._op_manager.cancel_all_operations()
+            # Clear pending ops if instructed, but only if the disconnect was successful.
+            # Technically the disconnect could still fail upon response, however that would then
+            # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
+            # ops here and now.
+            if clear_pending:
+                self._op_manager.cancel_all_operations()
 
     def subscribe(self, topic, qos=1, callback=None):
         """
