@@ -1,11 +1,11 @@
 repos:
 -   repo: https://github.com/ambv/black
-    rev: 18.9b0
+    rev: 21.4b1
     hooks:
     - id: black
       language_version: python3
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.0.0  # Use the ref you want to point at
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.1  # Use the ref you want to point at
     hooks:
     -   id: flake8
         args: ['--config=.flake8']

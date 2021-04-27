@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 from .iothub_amqp_client import IoTHubAmqpClient as iothub_amqp_client
-from .auth import ConnectionStringAuthentication
+from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 from .protocol.models import (
     Device,
@@ -50,7 +50,7 @@ class IoTHubRegistryManager(object):
     based on top of the auto generated IotHub REST APIs
     """
 
-    def __init__(self, connection_string):
+    def __init__(self, connection_string=None, host=None, auth=None):
         """Initializer for a Registry Manager Service client.
 
         After a successful creation the class has been authenticated with IoTHub and
@@ -62,17 +62,36 @@ class IoTHubRegistryManager(object):
         :returns: Instance of the IoTHubRegistryManager object.
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
-        self.auth = ConnectionStringAuthentication(connection_string)
-        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
-        self.amqp_svc_client = iothub_amqp_client(
-            self.auth["HostName"], self.auth["SharedAccessKeyName"], self.auth["SharedAccessKey"]
-        )
+        if connection_string:
+            self.auth = ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+            self.amqp_svc_client = iothub_amqp_client(
+                self.auth["HostName"],
+                self.auth["SharedAccessKeyName"],
+                self.auth["SharedAccessKey"],
+            )
+        else:
+            self.auth = auth
+            self.protocol = protocol_client(self.auth, "https://" + host)
+            self.amqp_svc_client = None
+
+    @classmethod
+    def from_connection_string(cls, connection_string):
+        return cls(connection_string=connection_string)
+
+    @classmethod
+    def from_token_credential(cls, url, token_credential):
+        host = url
+        # auth = TokenCredentialAuthentication(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential)
+        return cls(host=host, auth=auth)
 
     def __del__(self):
         """
         Deinitializer for a Registry Manager Service client.
         """
-        self.amqp_svc_client.disconnect_sync()
+        # if (self.amqp_svc_client):
+        #     self.amqp_svc_client.disconnect_sync()
 
     def create_device_with_sas(
         self,
@@ -831,4 +850,5 @@ class IoTHubRegistryManager(object):
         :raises: Exception if the Send command is not able to send the message
         """
 
-        self.amqp_svc_client.send_message_to_device(device_id, message, properties)
+        # if (self.amqp_svc_client):
+        #     self.amqp_svc_client.send_message_to_device(device_id, message, properties)

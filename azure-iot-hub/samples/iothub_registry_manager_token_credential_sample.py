@@ -8,9 +8,9 @@ import sys
 import os
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
+from azure.identity import DefaultAzureCredential
 
-iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
-device_id = os.getenv("IOTHUB_DEVICE_ID")
+device_id = "test-device"  # os.getenv("IOTHUB_DEVICE_ID")
 
 
 def print_device_info(title, iothub_device):
@@ -38,6 +38,19 @@ def print_device_info(title, iothub_device):
     print("")
 
 
+# DefaultAzureCredential supports different authentication mechanisms and determines
+# the appropriate credential type based of the environment it is executing in.
+# It attempts to use multiple credential types in an order until it finds a working credential.
+
+# - AZURE_URL: The tenant ID in Azure Active Directory
+url = os.getenv("AZURE_AAD_HOST")
+
+# DefaultAzureCredential expects the following three environment variables:
+# - AZURE_TENANT_ID: The tenant ID in Azure Active Directory
+# - AZURE_CLIENT_ID: The application (client) ID registered in the AAD tenant
+# - AZURE_CLIENT_SECRET: The client secret for the registered application
+credential = DefaultAzureCredential()
+
 # This sample creates and uses device with SAS authentication
 # For other authentication types use the appropriate create and update APIs:
 #   X509:
@@ -48,7 +61,7 @@ def print_device_info(title, iothub_device):
 #       device_updated = iothub_registry_manager.update_device_with_certificate_authority(self, device_id, etag, status):
 try:
     # Create IoTHubRegistryManager
-    iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
+    iothub_registry_manager = IoTHubRegistryManager.from_token_credential(url, credential)
 
     # Create a device
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
