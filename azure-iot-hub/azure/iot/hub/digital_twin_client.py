@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from .auth import ConnectionStringAuthentication
+from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 
 
@@ -12,20 +12,38 @@ class DigitalTwinClient(object):
     based on top of the auto generated IotHub REST APIs
     """
 
-    def __init__(self, connection_string):
+    def __init__(self, connection_string=None, host=None, auth=None):
         """Initializer for a DigitalTwinClient.
 
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
 
         :param str connection_string: The IoTHub connection string used to authenticate connection
-            with IoTHub.
+            with IoTHub if we are using connection_str authentication. Default value: None
+        :param str host: The Azure service url if we are using token credential authentication.
+            Default value: None
+        :param str auth: The Azure authentication object if we are using token credential authentication.
+            Default value: None
 
         :returns: Instance of the DigitalTwinClient object.
         :rtype: :class:`azure.iot.hub.DigitalTwinClient`
         """
-        self.auth = ConnectionStringAuthentication(connection_string)
-        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+        if connection_string:
+            self.auth = ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+        else:
+            self.auth = auth
+            self.protocol = protocol_client(self.auth, "https://" + host)
+
+    @classmethod
+    def from_connection_string(cls, connection_string):
+        return cls(connection_string=connection_string)
+
+    @classmethod
+    def from_token_credential(cls, url, token_credential):
+        host = url
+        auth = AzureIdentityCredentialAdapter(token_credential)
+        return cls(host=host, auth=auth)
 
     def get_digital_twin(self, digital_twin_id):
         """Retrieve the Digital Twin of a given device.

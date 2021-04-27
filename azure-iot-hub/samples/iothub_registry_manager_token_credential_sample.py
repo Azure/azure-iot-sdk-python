@@ -76,54 +76,6 @@ try:
     device = iothub_registry_manager.get_device(device_id)
     print_device_info("get_device", device)
 
-    # Update device information
-    primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    secondary_key = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
-    device_state = "disabled"
-    device_updated = iothub_registry_manager.update_device_with_sas(
-        device_id, device.etag, primary_key, secondary_key, device_state
-    )
-    print_device_info("update_device", device_updated)
-
-    # Get device twin
-    twin = iothub_registry_manager.get_twin(device_id)
-    print(twin)
-    print("")
-
-    additional_props = twin.additional_properties
-    if "modelId" in additional_props:
-        print("Model id for digital twin is")
-        print("ModelId:" + additional_props["modelId"])
-
-    # # Replace twin
-    new_twin = Twin()
-    new_twin = twin
-    new_twin.properties = TwinProperties(desired={"telemetryInterval": 9000})
-    print(new_twin)
-    print("")
-
-    replaced_twin = iothub_registry_manager.replace_twin(device_id, new_twin)
-    print(replaced_twin)
-    print("")
-
-    # Update twin
-    twin_patch = Twin()
-    twin_patch.properties = TwinProperties(desired={"telemetryInterval": 3000})
-    updated_twin = iothub_registry_manager.update_twin(device_id, twin_patch, twin.etag)
-    print(updated_twin)
-    print("The twin patch has been successfully applied")
-
-    # Get devices
-    max_number_of_devices = 10
-    devices = iothub_registry_manager.get_devices(max_number_of_devices)
-    if devices:
-        x = 0
-        for d in devices:
-            print_device_info("Get devices {0}".format(x), d)
-            x += 1
-    else:
-        print("No device found")
-
     # Delete the device
     iothub_registry_manager.delete_device(device_id)
 

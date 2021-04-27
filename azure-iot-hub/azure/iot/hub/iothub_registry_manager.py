@@ -63,7 +63,11 @@ class IoTHubRegistryManager(object):
         it is ready to call the member APIs to communicate with IoTHub.
 
         :param str connection_string: The IoTHub connection string used to authenticate connection
-            with IoTHub.
+            with IoTHub if we are using connection_str authentication. Default value: None
+        :param str host: The Azure service url if we are using token credential authentication.
+            Default value: None
+        :param str auth: The Azure authentication object if we are using token credential authentication.
+            Default value: None
 
         :returns: Instance of the IoTHubRegistryManager object.
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
@@ -88,7 +92,6 @@ class IoTHubRegistryManager(object):
     @classmethod
     def from_token_credential(cls, url, token_credential):
         host = url
-        # auth = TokenCredentialAuthentication(token_credential)
         auth = AzureIdentityCredentialAdapter(token_credential)
         return cls(host=host, auth=auth)
 
@@ -96,8 +99,8 @@ class IoTHubRegistryManager(object):
         """
         Deinitializer for a Registry Manager Service client.
         """
-        # if (self.amqp_svc_client):
-        #     self.amqp_svc_client.disconnect_sync()
+        if self.amqp_svc_client:
+            self.amqp_svc_client.disconnect_sync()
 
     def create_device_with_sas(
         self,
@@ -899,5 +902,5 @@ class IoTHubRegistryManager(object):
         :raises: Exception if the Send command is not able to send the message
         """
 
-        # if (self.amqp_svc_client):
-        #     self.amqp_svc_client.send_message_to_device(device_id, message, properties)
+        if self.amqp_svc_client:
+            self.amqp_svc_client.send_message_to_device(device_id, message, properties)
