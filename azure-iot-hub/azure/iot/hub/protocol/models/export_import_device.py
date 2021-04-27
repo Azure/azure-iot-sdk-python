@@ -48,6 +48,9 @@ class ExportImportDevice(Model):
     :type capabilities: ~protocol.models.DeviceCapabilities
     :param device_scope: The scope of the device.
     :type device_scope: str
+    :param parent_scopes: The scopes of the upper level edge devices if
+     applicable. Only available for edge devices.
+    :type parent_scopes: list[str]
     """
 
     _attribute_map = {
@@ -63,6 +66,7 @@ class ExportImportDevice(Model):
         "properties": {"key": "properties", "type": "PropertyContainer"},
         "capabilities": {"key": "capabilities", "type": "DeviceCapabilities"},
         "device_scope": {"key": "deviceScope", "type": "str"},
+        "parent_scopes": {"key": "parentScopes", "type": "[str]"},
     }
 
     def __init__(self, **kwargs):
@@ -79,3 +83,4 @@ class ExportImportDevice(Model):
         self.properties = kwargs.get("properties", None)
         self.capabilities = kwargs.get("capabilities", None)
         self.device_scope = kwargs.get("device_scope", None)
+        self.parent_scopes = kwargs.get("parent_scopes", None)

@@ -7,7 +7,7 @@
 import sys
 import os
 from azure.iot.hub import IoTHubJobManager
-from azure.iot.hub.models import JobProperties, JobRequest
+from azure.iot.hub.models import JobProperties, JobRequest, ManagedIdentity
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -16,9 +16,16 @@ output_container_uri = os.getenv("JOB_EXPORT_IMPORT_OUTPUT_URI")
 
 def create_export_import_job_properties():
     job_properties = JobProperties()
-    job_properties.authentication_type = "keyBased"
     job_properties.type = "export"
     job_properties.output_blob_container_uri = output_container_uri
+
+    # To use a managed identity (either system assigned or user assigned), change storage_authentication_type from "keyBased" to "identityBased"
+    job_properties.storage_authentication_type = "keyBased"
+
+    # For user assigned managed identities, uncomment the two lines below and add the resource id of the managed identity. storage_authentication_type must be identityBased.
+    # job_properties.identity = ManagedIdentity()
+    # job_properties.identity.user_assigned_identity = "<resource id of user assigned identity>"
+
     return job_properties
 
 
