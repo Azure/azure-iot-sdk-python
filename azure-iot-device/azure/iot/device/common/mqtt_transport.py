@@ -667,9 +667,7 @@ class OperationManager(object):
         logger.debug("Cancelling all pending operations")
         with self._lock:
             # Clear pending operations
-            pending_ops = [
-                (mid, callback) for (mid, callback) in self._pending_operation_callbacks.items()
-            ]
+            pending_ops = list(self._pending_operation_callbacks.items())
             for pending_op in pending_ops:
                 mid = pending_op[0]
                 del self._pending_operation_callbacks[mid]
