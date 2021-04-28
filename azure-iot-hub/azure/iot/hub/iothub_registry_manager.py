@@ -22,6 +22,12 @@ from .protocol.models import (
 )
 
 
+def _ensure_quoted(etag):
+    if not isinstance(etag, str) or (len(etag) > 1 and etag[0] == '"' and etag[-1] == '"'):
+        return etag
+    return '"' + etag + '"'
+
+
 class QueryResult(object):
     """The query result.
     :param type: The query result type. Possible values include: 'unknown', 'twin', 'deviceJob', 'jobResponse', 'raw', 'enrollment', 'enrollmentGroup', 'deviceRegistration'
@@ -74,7 +80,17 @@ class IoTHubRegistryManager(object):
         """
         self.amqp_svc_client.disconnect_sync()
 
-    def create_device_with_sas(self, device_id, primary_key, secondary_key, status, iot_edge=False):
+    def create_device_with_sas(
+        self,
+        device_id,
+        primary_key,
+        secondary_key,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Creates a device identity on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
@@ -82,6 +98,14 @@ class IoTHubRegistryManager(object):
         :param str secondary_key: Secondary authentication key.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled")
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
+        :param str status_reason: The reason for the device identity status. Default value: None
+        :param str device_scope: The scope of the device. Default value: None
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -90,18 +114,32 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
             "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
     def create_device_with_x509(
-        self, device_id, primary_thumbprint, secondary_thumbprint, status, iot_edge=False
+        self,
+        device_id,
+        primary_thumbprint,
+        secondary_thumbprint,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
     ):
         """Creates a device identity on IoTHub using X509 authentication.
 
@@ -110,6 +148,14 @@ class IoTHubRegistryManager(object):
         :param str secondary_thumbprint: Secondary X509 thumbprint.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled")
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
+        :param str status_reason: The reason for the device identity status. Default value: None
+        :param str device_scope: The scope of the device. Default value: None
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -120,6 +166,9 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
@@ -127,34 +176,70 @@ class IoTHubRegistryManager(object):
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
             "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
-    def create_device_with_certificate_authority(self, device_id, status, iot_edge=False):
+    def create_device_with_certificate_authority(
+        self,
+        device_id,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Creates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
         :param str status: Initial state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
+        :param str status_reason: The reason for the device identity status. Default value: None
+        :param str device_scope: The scope of the device. Default value: None
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: Device object containing the created device.
         """
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
             "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
         return self.protocol.devices.create_or_update_identity(device_id, device)
 
-    def update_device_with_sas(self, device_id, etag, primary_key, secondary_key, status):
+    def update_device_with_sas(
+        self,
+        device_id,
+        etag,
+        primary_key,
+        secondary_key,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Updates a device identity on IoTHub using SAS authentication.
 
         :param str device_id: The name (Id) of the device.
@@ -163,6 +248,14 @@ class IoTHubRegistryManager(object):
         :param str secondary_key: Secondary authentication key.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
+        :param str status_reason: The reason for the device identity status. Default value: None
+        :param str device_scope: The scope of the device. Default value: None
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -171,18 +264,38 @@ class IoTHubRegistryManager(object):
         """
         symmetric_key = SymmetricKey(primary_key=primary_key, secondary_key=secondary_key)
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
-            "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
-        return self.protocol.devices.create_or_update_identity(device_id, device, "*")
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.devices.create_or_update_identity(
+            device_id, device, _ensure_quoted(etag)
+        )
 
     def update_device_with_x509(
-        self, device_id, etag, primary_thumbprint, secondary_thumbprint, status
+        self,
+        device_id,
+        etag,
+        primary_thumbprint,
+        secondary_thumbprint,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
     ):
         """Updates a device identity on IoTHub using X509 authentication.
 
@@ -192,6 +305,14 @@ class IoTHubRegistryManager(object):
         :param str secondary_thumbprint: Secondary X509 thumbprint.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
+        :param str status_reason: The reason for the device identity status. Default value: None
+        :param str device_scope: The scope of the device. Default value: None
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
@@ -202,40 +323,79 @@ class IoTHubRegistryManager(object):
             primary_thumbprint=primary_thumbprint, secondary_thumbprint=secondary_thumbprint
         )
 
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
-            "etag": etag,
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
-        return self.protocol.devices.create_or_update_identity(device_id, device)
+        if etag is None:
+            etag = "*"
 
-    def update_device_with_certificate_authority(self, device_id, etag, status):
+        return self.protocol.devices.create_or_update_identity(
+            device_id, device, _ensure_quoted(etag)
+        )
+
+    def update_device_with_certificate_authority(
+        self,
+        device_id,
+        etag,
+        status,
+        iot_edge=False,
+        status_reason=None,
+        device_scope=None,
+        parent_scopes=None,
+    ):
         """Updates a device identity on IoTHub using certificate authority.
 
         :param str device_id: The name (Id) of the device.
         :param str etag: The etag (if_match) value to use for the update operation.
         :param str status: Initital state of the created device.
             (Possible values: "enabled" or "disabled").
+        :param bool iot_edge: Whether or not the created device is an IoT Edge device. Default value: False
+        :param str status_reason: The reason for the device identity status. Default value: None
+        :param str device_scope: The scope of the device. Default value: None
+            Auto generated and immutable for edge devices and modifiable in leaf devices to create child/parent relationship.
+            For leaf devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+        :param Union[list[str], str] parent_scopes: The scopes of the upper level edge devices if applicable. Default value: None
+            For edge devices, the value to set a parent edge device can be retrieved from the parent edge device's device_scope property.
+            For leaf devices, this could be set to the same value as device_scope or left for the service to copy over.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The updated Device object containing the created device.
         """
+        if isinstance(parent_scopes, str):
+            parent_scopes = [parent_scopes]
+
         kwargs = {
             "device_id": device_id,
             "status": status,
-            "etag": etag,
             "authentication": AuthenticationMechanism(type="certificateAuthority"),
+            "capabilities": DeviceCapabilities(iot_edge=iot_edge),
+            "status_reason": status_reason,
+            "device_scope": device_scope,
+            "parent_scopes": parent_scopes,
         }
         device = Device(**kwargs)
 
-        return self.protocol.devices.create_or_update_identity(device_id, device)
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.devices.create_or_update_identity(
+            device_id, device, _ensure_quoted(etag)
+        )
 
     def get_device(self, device_id):
         """Retrieves a device identity from IoTHub.
@@ -263,7 +423,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.devices.delete_identity(device_id, etag)
+        self.protocol.devices.delete_identity(device_id, _ensure_quoted(etag))
 
     def create_module_with_sas(self, device_id, module_id, managed_by, primary_key, secondary_key):
         """Creates a module identity for a device on IoTHub using SAS authentication.
@@ -368,12 +528,16 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "etag": etag,
             "authentication": AuthenticationMechanism(type="sas", symmetric_key=symmetric_key),
         }
         module = Module(**kwargs)
 
-        return self.protocol.modules.create_or_update_identity(device_id, module_id, module, "*")
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.modules.create_or_update_identity(
+            device_id, module_id, module, _ensure_quoted(etag)
+        )
 
     def update_module_with_x509(
         self, device_id, module_id, managed_by, etag, primary_thumbprint, secondary_thumbprint
@@ -400,14 +564,18 @@ class IoTHubRegistryManager(object):
             "device_id": device_id,
             "module_id": module_id,
             "managed_by": managed_by,
-            "etag": etag,
             "authentication": AuthenticationMechanism(
                 type="selfSigned", x509_thumbprint=x509_thumbprint
             ),
         }
         module = Module(**kwargs)
 
-        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.modules.create_or_update_identity(
+            device_id, module_id, module, _ensure_quoted(etag)
+        )
 
     def update_module_with_certificate_authority(self, device_id, module_id, managed_by, etag):
         """Updates a module identity for a device on IoTHub using certificate authority.
@@ -431,7 +599,12 @@ class IoTHubRegistryManager(object):
         }
         module = Module(**kwargs)
 
-        return self.protocol.modules.create_or_update_identity(device_id, module_id, module)
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.modules.create_or_update_identity(
+            device_id, module_id, module, _ensure_quoted(etag)
+        )
 
     def get_module(self, device_id, module_id):
         """Retrieves a module identity for a device from IoTHub.
@@ -473,7 +646,7 @@ class IoTHubRegistryManager(object):
         if etag is None:
             etag = "*"
 
-        self.protocol.modules.delete_identity(device_id, module_id, etag)
+        self.protocol.modules.delete_identity(device_id, module_id, _ensure_quoted(etag))
 
     def get_service_statistics(self):
         """Retrieves the IoTHub service statistics.
@@ -576,20 +749,24 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.devices.get_twin(device_id)
 
-    def replace_twin(self, device_id, device_twin):
+    def replace_twin(self, device_id, device_twin, etag=None):
         """Replaces tags and desired properties of a device twin.
 
         :param str device_id: The name (Id) of the device.
         :param Twin device_twin: The twin info of the device.
+        :param str etag: The etag (if_match) value to use for the replace operation.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The Twin object.
         """
-        return self.protocol.devices.replace_twin(device_id, device_twin)
+        if etag is None:
+            etag = "*"
 
-    def update_twin(self, device_id, device_twin, etag):
+        return self.protocol.devices.replace_twin(device_id, device_twin, _ensure_quoted(etag))
+
+    def update_twin(self, device_id, device_twin, etag=None):
         """Updates tags and desired properties of a device twin.
 
         :param str device_id: The name (Id) of the device.
@@ -601,7 +778,10 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.devices.update_twin(device_id, device_twin, etag)
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.devices.update_twin(device_id, device_twin, _ensure_quoted(etag))
 
     def get_module_twin(self, device_id, module_id):
         """Gets a module twin.
@@ -616,21 +796,27 @@ class IoTHubRegistryManager(object):
         """
         return self.protocol.modules.get_twin(device_id, module_id)
 
-    def replace_module_twin(self, device_id, module_id, module_twin):
+    def replace_module_twin(self, device_id, module_id, module_twin, etag=None):
         """Replaces tags and desired properties of a module twin.
 
         :param str device_id: The name (Id) of the device.
         :param str module_id: The name (Id) of the module.
         :param Twin module_twin: The twin info of the module.
+        :param str etag: The etag (if_match) value to use for the replace operation.
 
         :raises: `HttpOperationError<msrest.exceptions.HttpOperationError>`
             if the HTTP response status is not in [200].
 
         :returns: The Twin object.
         """
-        return self.protocol.modules.replace_twin(device_id, module_id, module_twin)
+        if etag is None:
+            etag = "*"
 
-    def update_module_twin(self, device_id, module_id, module_twin, etag):
+        return self.protocol.modules.replace_twin(
+            device_id, module_id, module_twin, _ensure_quoted(etag)
+        )
+
+    def update_module_twin(self, device_id, module_id, module_twin, etag=None):
         """Updates tags and desired properties of a module twin.
 
         :param str device_id: The name (Id) of the device.
@@ -643,7 +829,12 @@ class IoTHubRegistryManager(object):
 
         :returns: The Twin object.
         """
-        return self.protocol.modules.update_twin(device_id, module_id, module_twin, etag)
+        if etag is None:
+            etag = "*"
+
+        return self.protocol.modules.update_twin(
+            device_id, module_id, module_twin, _ensure_quoted(etag)
+        )
 
     def invoke_device_method(self, device_id, direct_method_request):
         """Invoke a direct method on a device.
