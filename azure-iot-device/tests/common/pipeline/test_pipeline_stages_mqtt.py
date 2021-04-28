@@ -442,7 +442,9 @@ class TestMQTTTransportStageRunOpCalledWithReauthorizeConnectionOperation(
         # New operation is now the pending operation
         assert stage._pending_connection_op is op
 
-    @pytest.mark.it("Performs an MQTT disconnect via the MQTTTransport")
+    @pytest.mark.it(
+        "Performs an MQTT disconnect via the MQTTTransport (does NOT use the 'clear_pending' option)"
+    )
     def test_runs_calls_disconnect(self, mocker, stage, op):
         stage.run_op(op)
         assert stage.transport.disconnect.call_count == 1
@@ -512,11 +514,13 @@ class TestMQTTTransportStageRunOpCalledWithDisconnectOperation(
         # New operation is now the pending operation
         assert stage._pending_connection_op is op
 
-    @pytest.mark.it("Performs an MQTT disconnect via the MQTTTransport")
+    @pytest.mark.it(
+        "Performs an MQTT disconnect via the MQTTTransport, using the 'clear_pending' option"
+    )
     def test_mqtt_connect(self, mocker, stage, op):
         stage.run_op(op)
         assert stage.transport.disconnect.call_count == 1
-        assert stage.transport.disconnect.call_args == mocker.call()
+        assert stage.transport.disconnect.call_args == mocker.call(clear_pending=True)
 
     @pytest.mark.it(
         "Completes the operation unsucessfully if there is a failure disconnecting via the MQTTTransport, using the error raised by the MQTTTransport"
@@ -569,6 +573,21 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         assert op.completed
         assert op.error is None
 
+    @pytest.mark.it(
+        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT unsubuscribe by the MQTTTransport"
+    )
+    def test_complete_with_cancel(self, mocker, stage, op):
+        # Begin unsubscribe
+        stage.run_op(op)
+
+        assert not op.completed
+
+        # Trigger unsubscribe cancellation
+        stage.transport.publish.call_args[1]["callback"](cancelled=True)
+
+        assert op.completed
+        assert isinstance(op.error, pipeline_exceptions.OperationCancelled)
+
     @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
     def test_sends_disconencted_event(self, mocker, stage, op):
         stage.transport.publish.side_effect = transport_exceptions.ConnectionDroppedError
@@ -618,6 +637,21 @@ class TestMQTTTransportStageRunOpCalledWithMQTTSubscribeOperation(
         assert op.completed
         assert op.error is None
 
+    @pytest.mark.it(
+        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT unsubuscribe by the MQTTTransport"
+    )
+    def test_complete_with_cancel(self, mocker, stage, op):
+        # Begin unsubscribe
+        stage.run_op(op)
+
+        assert not op.completed
+
+        # Trigger unsubscribe cancellation
+        stage.transport.subscribe.call_args[1]["callback"](cancelled=True)
+
+        assert op.completed
+        assert isinstance(op.error, pipeline_exceptions.OperationCancelled)
+
     @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
     def test_sends_disconencted_event(self, mocker, stage, op):
         stage.transport.subscribe.side_effect = transport_exceptions.ConnectionDroppedError
@@ -666,6 +700,21 @@ class TestMQTTTransportStageRunOpCalledWithMQTTUnsubscribeOperation(
 
         assert op.completed
         assert op.error is None
+
+    @pytest.mark.it(
+        "Completes the operation with an OperationCancelled error upon cancellation of the MQTT unsubuscribe by the MQTTTransport"
+    )
+    def test_complete_with_cancel(self, mocker, stage, op):
+        # Begin unsubscribe
+        stage.run_op(op)
+
+        assert not op.completed
+
+        # Trigger unsubscribe cancellation
+        stage.transport.unsubscribe.call_args[1]["callback"](cancelled=True)
+
+        assert op.completed
+        assert isinstance(op.error, pipeline_exceptions.OperationCancelled)
 
     @pytest.mark.it("Sends a DisconnectedEvent if there is a ConnectionDroppedError")
     def test_sends_disconencted_event(self, mocker, stage, op):
