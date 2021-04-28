@@ -198,10 +198,25 @@ class MQTTTransportStage(PipelineStage):
                 self._pending_connection_op = None
                 op.complete(error=e)
 
-        elif isinstance(op, pipeline_ops_base.DisconnectOperation) or isinstance(
-            op, pipeline_ops_base.ReauthorizeConnectionOperation
-        ):
-            logger.debug("{}({}): disconnecting or reauthorizing".format(self.name, op.name))
+        elif isinstance(op, pipeline_ops_base.DisconnectOperation):
+            logger.debug("{}({}): disconnecting".format(self.name, op.name))
+
+            self._cancel_pending_connection_op()
+            self._pending_connection_op = op
+            # We don't need a watchdog on disconnect because there's no callback to wait for
+            # and we respond to a watchdog timeout by calling disconnect, which is what we're
+            # already doing.
+
+            try:
+                self.transport.disconnect(clear_pending=True)
+            except Exception as e:
+                logger.info("transport.disconnect raised error while disconnecting")
+                logger.info(traceback.format_exc())
+                self._pending_connection_op = None
+                op.complete(error=e)
+
+        elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
+            logger.debug("{}({}): reauthorizing".format(self.name, op.name))
 
             self._cancel_pending_connection_op()
             self._pending_connection_op = op
@@ -212,7 +227,7 @@ class MQTTTransportStage(PipelineStage):
             try:
                 self.transport.disconnect()
             except Exception as e:
-                logger.info("transport.disconnect raised error")
+                logger.info("transport.disconnect raised error while reauthorizing")
                 logger.info(traceback.format_exc())
                 self._pending_connection_op = None
                 op.complete(error=e)
@@ -221,12 +236,21 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): publishing on {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_published():
-                logger.debug("{}({}): PUBACK received. completing op.".format(self.name, op.name))
-                op.complete()
+            def on_complete(cancelled=False):
+                if cancelled:
+                    op.complete(
+                        error=pipeline_exceptions.OperationCancelled(
+                            "Operation cancelled before PUBACK received"
+                        )
+                    )
+                else:
+                    logger.debug(
+                        "{}({}): PUBACK received. completing op.".format(self.name, op.name)
+                    )
+                    op.complete()
 
             try:
-                self.transport.publish(topic=op.topic, payload=op.payload, callback=on_published)
+                self.transport.publish(topic=op.topic, payload=op.payload, callback=on_complete)
             except transport_exceptions.ConnectionDroppedError:
                 self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 raise
@@ -235,12 +259,21 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_subscribed():
-                logger.debug("{}({}): SUBACK received. completing op.".format(self.name, op.name))
-                op.complete()
+            def on_complete(cancelled=False):
+                if cancelled:
+                    op.complete(
+                        error=pipeline_exceptions.OperationCancelled(
+                            "Operation cancelled before SUBACK received"
+                        )
+                    )
+                else:
+                    logger.debug(
+                        "{}({}): SUBACK received. completing op.".format(self.name, op.name)
+                    )
+                    op.complete()
 
             try:
-                self.transport.subscribe(topic=op.topic, callback=on_subscribed)
+                self.transport.subscribe(topic=op.topic, callback=on_complete)
             except transport_exceptions.ConnectionDroppedError:
                 self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 raise
@@ -249,14 +282,21 @@ class MQTTTransportStage(PipelineStage):
             logger.debug("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
-            def on_unsubscribed():
-                logger.debug(
-                    "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)
-                )
-                op.complete()
+            def on_complete(cancelled=False):
+                if cancelled:
+                    op.complete(
+                        error=pipeline_exceptions.OperationCancelled(
+                            "Operation cancelled before UNSUBACK received"
+                        )
+                    )
+                else:
+                    logger.debug(
+                        "{}({}): UNSUBACK received.  completing op.".format(self.name, op.name)
+                    )
+                    op.complete()
 
             try:
-                self.transport.unsubscribe(topic=op.topic, callback=on_unsubscribed)
+                self.transport.unsubscribe(topic=op.topic, callback=on_complete)
             except transport_exceptions.ConnectionDroppedError:
                 self.send_event_up(pipeline_events_base.DisconnectedEvent())
                 raise
