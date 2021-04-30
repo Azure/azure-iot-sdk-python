@@ -87,10 +87,32 @@ class IoTHubRegistryManager(object):
 
     @classmethod
     def from_connection_string(cls, connection_string):
+        """Classmethod initializer for a Registry Manager Service client.
+        Creates Registry Manager class from connection string.
+
+        After a successful creation the class has been authenticated with IoTHub and
+        it is ready to call the member APIs to communicate with IoTHub.
+
+        :param str connection_string: The IoTHub connection string used to authenticate connection
+            with IoTHub.
+
+        :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
+        """
         return cls(connection_string=connection_string)
 
     @classmethod
     def from_token_credential(cls, url, token_credential):
+        """Classmethod initializer for a Registry Manager Service client.
+        Creates Registry Manager class from host name url and Azure token credential.
+
+        After a successful creation the class has been authenticated with IoTHub and
+        it is ready to call the member APIs to communicate with IoTHub.
+
+        :param str url: The Azure service url (host name).
+        :param str token_credential: The Azure token credential object.
+
+        :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
+        """
         host = url
         auth = AzureIdentityCredentialAdapter(token_credential)
         return cls(host=host, auth=auth)
