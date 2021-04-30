@@ -35,6 +35,8 @@ def _validate_kwargs(exclude=[], **kwargs):
         "sastoken_ttl",
         "keep_alive",
         "auto_connect",
+        "max_connection_retry",
+        "connection_retry_interval",
     ]
 
     for kwarg in kwargs:
@@ -52,6 +54,8 @@ def _get_config_kwargs(**kwargs):
         "proxy_options",
         "keep_alive",
         "auto_connect",
+        "max_connection_retry",
+        "connection_retry_interval",
     ]
 
     config_kwargs = {}

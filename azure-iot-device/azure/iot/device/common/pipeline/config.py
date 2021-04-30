@@ -33,6 +33,8 @@ class BasePipelineConfig(object):
         proxy_options=None,
         keep_alive=DEFAULT_KEEPALIVE,
         auto_connect=True,
+        max_connection_retry=-1,
+        connection_retry_interval=10,
     ):
         """Initializer for BasePipelineConfig
 
@@ -61,6 +63,8 @@ class BasePipelineConfig(object):
         self.gateway_hostname = gateway_hostname
         self.keep_alive = self._validate_keep_alive(keep_alive)
         self.auto_connect = auto_connect
+        self.max_connection_retry = max_connection_retry
+        self.connection_retry_interval = connection_retry_interval
 
         # Auth
         self.sastoken = sastoken
