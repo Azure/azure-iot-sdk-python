@@ -292,29 +292,39 @@ class MQTTTransport(object):
         it may be necessary to write our own Paho thread and stop using thread_start()/thread_stop().
         This is certainly supported by Paho, but the thread that Paho provides works well enough
         (so far) and making our own would be more complex than is currently justified.
+
+        This code also gets called when MQTTTransport.disconnect() is called.  It's a general-
+        purpose "clean up as well as you can" function.
         """
 
         logger.info("Forcing paho disconnect to prevent it from automatically reconnecting")
 
-        # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
+        # Note: We may be calling this inside our on_disconnect() handler, so we might be inside the
         # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
         # loop_forever() function recomment calling disconnect() from a callback to exit the
         # Paho thread/loop.
 
-        self._mqtt_client.disconnect()
+        try:
+            # Don't check that self._mqtt_client is not None.  If it is, we want this exception
+            # handler to be called.
+            self._mqtt_client.disconnect()
+        except Exception as e:
+            logger.error("Ignoring uexpected exception on _mqtt_client.disconnect")
+            logger.error(traceback.format_exc())
+            if self.on_mqtt_disconnected_handler:
+                try:
+                    self.on_mqtt_disconnected_handler(e)
+                except Exception:
+                    logger.error("Unexpected error calling on_mqtt_disconnected_handler")
+                    logger.error(traceback.format_exc())
 
         # Calling disconnect() isn't enough.  We also need to call loop_stop to make sure
         # Paho is as clean as possible.  Our call to disconnect() above is enough to stop the
         # loop and exit the tread, but the call to loop_stop() is necessary to complete the cleanup.
 
-        self._mqtt_client.loop_stop()
-
-        # Finally, because of a bug in Paho, we need to null out the _thread pointer.  This
-        # is necessary because the code that sets _thread to None only gets called if you
-        # call loop_stop from an external thread (and we're still inside the Paho thread here).
-        if threading.current_thread() == self._mqtt_client._thread:
-            logger.debug("in paho thread.  nulling _thread")
-            self._mqtt_client._thread = None
+        if self._mqtt_client:
+            self._mqtt_client.loop_stop()
+            self._mqtt_client = None
 
         logger.debug("Done forcing paho disconnect")
 
@@ -357,7 +367,8 @@ class MQTTTransport(object):
         """Shut down the transport. This is (currently) irreversible."""
         # Remove the disconnect handler from Paho. We don't want to trigger any events in response
         # to the shutdown and confuse the higher level layers of code. Just end it.
-        self._mqtt_client.on_disconnect = None
+        if self._mqtt_client:
+            self._mqtt_client.on_disconnect = None
         # Now disconnect and do some additional cleanup.
         self._force_transport_disconnect_and_cleanup()
 
@@ -380,6 +391,11 @@ class MQTTTransport(object):
         :raises: ProtocolClientError if there is some other client error.
         """
         logger.debug("connecting to mqtt broker")
+
+        # self._mqtt_client gets created inside __init__ but it may have been
+        # set to None since then.
+        if not self._mqtt_client:
+            self._mqtt_client = self._create_mqtt_client()
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
@@ -443,33 +459,14 @@ class MQTTTransport(object):
         :raises: ProtocolClientError if there is some client error.
         """
         logger.info("disconnecting MQTT client")
-        try:
-            rc = self._mqtt_client.disconnect()
-        except Exception as e:
-            raise exceptions.ProtocolClientError(
-                message="Unexpected Paho failure during disconnect", cause=e
-            )
-        finally:
-            self._mqtt_client.loop_stop()
+        self._force_transport_disconnect_and_cleanup()
 
-            if threading.current_thread() == self._mqtt_client._thread:
-                logger.debug("in paho thread.  nulling _thread")
-                self._mqtt_client._thread = None
-
-        logger.debug("_mqtt_client.disconnect returned rc={}".format(rc))
-        if rc:
-            # This could result in ConnectionDroppedError or ProtocolClientError
-            # No matter what, we always raise here to give upper layers a chance to respond
-            # to this error.
-            err = _create_error_from_rc_code(rc)
-            raise err
-        else:
-            # Clear pending ops if instructed, but only if the disconnect was successful.
-            # Technically the disconnect could still fail upon response, however that would then
-            # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
-            # ops here and now.
-            if clear_pending:
-                self._op_manager.cancel_all_operations()
+        # Clear pending ops if instructed.
+        # Technically the disconnect could still fail upon response, however that would then
+        # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
+        # ops here and now.
+        if clear_pending:
+            self._op_manager.cancel_all_operations()
 
     def subscribe(self, topic, qos=1, callback=None):
         """
