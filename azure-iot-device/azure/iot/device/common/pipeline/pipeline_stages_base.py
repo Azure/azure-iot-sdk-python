@@ -922,9 +922,6 @@ class ReconnectStage(PipelineStage):
     def __init__(self):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
-        # Attempts remaining will be initially set to the root's max retry connect value.
-        # Cannot be set here because the root is not yet attached at instantiation
-        self.attempts_remaining = None
         self.state = ReconnectState.LOGICALLY_DISCONNECTED
         # never_connected is important because some errors are handled differently the first time
         # that we're connecting versus later connections.
@@ -961,9 +958,6 @@ class ReconnectStage(PipelineStage):
                     )
                 )
                 self.state = ReconnectState.LOGICALLY_CONNECTED
-                self.attempts_remaining = (
-                    self.pipeline_root.pipeline_configuration.max_connection_retry
-                )
                 # We don't send this op down.  Instead, we send a new connect op down.  This way,
                 # we can distinguish between connect ops that we're handling (they go into the
                 # queue) and connect ops that we are sending down.
@@ -1026,9 +1020,6 @@ class ReconnectStage(PipelineStage):
                 # delayed), then both those paths would need to be maintained as separate
                 # flows
                 self.state = ReconnectState.WAITING_TO_RECONNECT
-                self.attempts_remaining = (
-                    self.pipeline_root.pipeline_configuration.max_connection_retry
-                )
                 self._start_reconnect_timer(0.01)
 
             else:
@@ -1065,7 +1056,6 @@ class ReconnectStage(PipelineStage):
                         this.state = ReconnectState.LOGICALLY_DISCONNECTED
                         this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)
-                        this.attempts_remaining = None
                     elif this._should_reconnect(error):
                         # transient errors can cause a reconnect attempt (if there are remaining reconnect attempts)
                         this.state = ReconnectState.WAITING_TO_RECONNECT
@@ -1077,14 +1067,12 @@ class ReconnectStage(PipelineStage):
                         this.state = ReconnectState.LOGICALLY_DISCONNECTED
                         this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)
-                        this.attempts_remaining = None
                 else:
                     # successfully connected
                     this.never_connected = False
                     this.state = ReconnectState.LOGICALLY_CONNECTED
                     this._clear_reconnect_timer()
                     this._complete_waiting_connect_ops()
-                    this.attempts_remaining = None
 
         logger.debug("{}: sending new connect op down".format(self.name))
         op = pipeline_ops_base.ConnectOperation(callback=on_connect_complete)
@@ -1093,37 +1081,14 @@ class ReconnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _should_reconnect(self, error):
         """Returns True if a reconnect should occur in response to an error, False otherwise"""
-        if type(error) in transient_connect_errors:
-            if self.attempts_remaining > 0:
-                # Decrement the remaining reconnect attempts
-                self.attempts_remaining -= 1
-
-                max_attempts = self.pipeline_root.pipeline_configuration.max_connection_retry
-                curr_attempts = max_attempts - self.attempts_remaining
+        if self.pipeline_root.pipeline_configuration.connection_retry:
+            if type(error) in transient_connect_errors:
                 logger.debug(
-                    "{}: State is {}. Connected={} Starting reconnect timer (reconnect attempt {}/{})".format(
-                        self.name,
-                        self.state,
-                        self.pipeline_root.connected,
-                        curr_attempts,
-                        max_attempts,
-                    )
-                )
-                return True
-            elif self.attempts_remaining == -1:
-                # -1 indicates infinite reconnect
-                logger.debug(
-                    "{}: State is {}. Connected={} Starting reconnect timer (no reconnect limit)".format(
+                    "{}: State is {}. Connected={} Starting retry connection timer".format(
                         self.name, self.state, self.pipeline_root.connected
                     )
                 )
                 return True
-            else:
-                logger.debug(
-                    "{}: State is {}. Connected={} Not reconnecting (reconnect limit reached)".format(
-                        self.name, self.state, self.pipeline_root.connected
-                    )
-                )
         return False
 
     @pipeline_thread.runs_on_pipeline_thread
