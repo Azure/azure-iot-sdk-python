@@ -28,7 +28,7 @@ class DigitalTwinClient(object):
         :returns: Instance of the DigitalTwinClient object.
         :rtype: :class:`azure.iot.hub.DigitalTwinClient`
         """
-        if connection_string:
+        if connection_string is not None:
             self.auth = ConnectionStringAuthentication(connection_string)
             self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
         else:
