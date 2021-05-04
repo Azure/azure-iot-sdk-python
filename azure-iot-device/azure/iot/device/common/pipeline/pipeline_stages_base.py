@@ -1007,7 +1007,13 @@ class ReconnectStage(PipelineStage):
                 )
             )
 
-            if self.pipeline_root.connected and self.state == ReconnectState.LOGICALLY_CONNECTED:
+            # QUESTION: why do we check the pipeline root connected here? Is this necessary or just adding extra edge cases?
+            # In what situation would the pipeline root ever be disconnected while the pipeline state is logically connected?
+            if (
+                self.pipeline_root.pipeline_configuration.connection_retry
+                and self.pipeline_root.connected
+                and self.state == ReconnectState.LOGICALLY_CONNECTED
+            ):
                 # When we get disconnected, we try to reconnect as soon as we can.  We don't want
                 # to reconnect right here because we're in a callback in the middle of being
                 # disconnected and we want things to "settle down" a bit before reconnecting.
@@ -1025,6 +1031,7 @@ class ReconnectStage(PipelineStage):
             else:
                 # If user manually disconnected, ReconnectState will be LOGICALLY_DISCONNECTED, and
                 # no reconnect timer will be created.
+                # If connection retry is not enabled, no reconnect timer will be created
                 pass
 
             self.send_event_up(event)
@@ -1057,7 +1064,7 @@ class ReconnectStage(PipelineStage):
                         this._clear_reconnect_timer()
                         this._complete_waiting_connect_ops(error)
                     elif this._should_reconnect(error):
-                        # transient errors can cause a reconnect attempt (if there are remaining reconnect attempts)
+                        # transient errors can cause a reconnect attempt
                         this.state = ReconnectState.WAITING_TO_RECONNECT
                         this._start_reconnect_timer(
                             this.pipeline_root.pipeline_configuration.connection_retry_interval
