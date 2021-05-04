@@ -627,7 +627,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
                         self.name, op_waiting_for_response.name, request_id
                     )
                 )
-                del (self.pending_responses[request_id])
+                del self.pending_responses[request_id]
                 op_waiting_for_response.complete(error=error)
             else:
                 # request sent.  Nothing to do except wait for the response
@@ -664,7 +664,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
             )
             if event.request_id in self.pending_responses:
                 op = self.pending_responses[event.request_id]
-                del (self.pending_responses[event.request_id])
+                del self.pending_responses[event.request_id]
                 op.status_code = event.status_code
                 op.response_body = event.response_body
                 op.retry_after = event.retry_after
@@ -952,6 +952,7 @@ class ReconnectStage(PipelineStage):
                 )
                 self.waiting_connect_ops.append(op)
             else:
+                # TODO: we are missing test cases for this condition
                 logger.info(
                     "{}({}): State changes {}->LOGICALLY_CONNECTED.  Adding to wait list and sending new connect op down".format(
                         self.name, op.name, self.state
