@@ -7,12 +7,15 @@
 """Provides authentication classes for use with the msrest library
 """
 
-from msrest.authentication import Authentication
+from msrest.authentication import Authentication, BasicTokenAuthentication
 from .connection_string import ConnectionString
 from .connection_string import HOST_NAME, SHARED_ACCESS_KEY_NAME, SHARED_ACCESS_KEY
 from .sastoken import SasToken
+from azure.core.pipeline.policies import BearerTokenCredentialPolicy
+from azure.core.pipeline import PipelineRequest, PipelineContext
+from azure.core.pipeline.transport import HttpRequest
 
-__all__ = ["ConnectionStringAuthentication"]
+__all__ = ["ConnectionStringAuthentication", "AzureIdentityCredentialAdapter"]
 
 
 class ConnectionStringAuthentication(ConnectionString, Authentication):
@@ -58,5 +61,36 @@ class ConnectionStringAuthentication(ConnectionString, Authentication):
         # Authorization header
         sastoken = SasToken(self[HOST_NAME], self[SHARED_ACCESS_KEY], self[SHARED_ACCESS_KEY_NAME])
         session.headers[self.header] = str(sastoken)
-
         return session
+
+
+class AzureIdentityCredentialAdapter(BasicTokenAuthentication):
+    def __init__(self, credential, resource_id="https://iothubs.azure.net/.default", **kwargs):
+        """Adapt any azure-identity credential to work with SDK that needs azure.common.credentials or msrestazure.
+        Default resource is ARM (syntax of endpoint v2)
+        :param credential: Any azure-identity credential (DefaultAzureCredential by default)
+        :param str resource_id: The scope to use to get the token (default ARM)
+        """
+        super(AzureIdentityCredentialAdapter, self).__init__(None)
+        self._policy = BearerTokenCredentialPolicy(credential, resource_id, **kwargs)
+
+    def _make_request(self):
+        return PipelineRequest(
+            HttpRequest("AzureIdentityCredentialAdapter", "https://fakeurl"), PipelineContext(None)
+        )
+
+    def set_token(self):
+        """Ask the azure-core BearerTokenCredentialPolicy policy to get a token.
+        Using the policy gives us for free the caching system of azure-core.
+        We could make this code simpler by using private method, but by definition
+        I can't assure they will be there forever, so mocking a fake call to the policy
+        to extract the token, using 100% public API."""
+        request = self._make_request()
+        self._policy.on_request(request)
+        # Read Authorization, and get the second part after Bearer
+        token = request.http_request.headers["Authorization"].split(" ", 1)[1]
+        self.token = {"access_token": token}
+
+    def signed_session(self, session=None):
+        self.set_token()
+        return super(AzureIdentityCredentialAdapter, self).signed_session(session)
