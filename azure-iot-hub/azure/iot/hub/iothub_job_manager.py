@@ -29,7 +29,7 @@ class IoTHubJobManager(object):
         :returns: Instance of the IoTHubJobManager object.
         :rtype: :class:`azure.iot.hub.IoTHubJobManager`
         """
-        if connection_string:
+        if connection_string is not None:
             self.auth = ConnectionStringAuthentication(connection_string)
             self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
         else:

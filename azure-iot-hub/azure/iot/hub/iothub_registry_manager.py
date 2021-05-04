@@ -72,7 +72,7 @@ class IoTHubRegistryManager(object):
         :returns: Instance of the IoTHubRegistryManager object.
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
-        if connection_string:
+        if connection_string is not None:
             self.auth = ConnectionStringAuthentication(connection_string)
             self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
             self.amqp_svc_client = iothub_amqp_client(
