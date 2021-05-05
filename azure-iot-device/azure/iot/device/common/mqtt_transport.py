@@ -304,25 +304,17 @@ class MQTTTransport(object):
         # loop_forever() function recomment calling disconnect() from a callback to exit the
         # Paho thread/loop.
 
-        try:
-            # Don't check that self._mqtt_client is not None.  If it is, we want this exception
-            # handler to be called.
-            self._mqtt_client.disconnect()
-        except Exception as e:
-            logger.error("Ignoring uexpected exception on _mqtt_client.disconnect")
-            logger.error(traceback.format_exc())
-            if self.on_mqtt_disconnected_handler:
-                try:
-                    self.on_mqtt_disconnected_handler(e)
-                except Exception:
-                    logger.error("Unexpected error calling on_mqtt_disconnected_handler")
-                    logger.error(traceback.format_exc())
-
-        # Calling disconnect() isn't enough.  We also need to call loop_stop to make sure
-        # Paho is as clean as possible.  Our call to disconnect() above is enough to stop the
-        # loop and exit the tread, but the call to loop_stop() is necessary to complete the cleanup.
-
         if self._mqtt_client:
+            try:
+                self._mqtt_client.disconnect()
+            except Exception:
+                logger.error("Ignoring uexpected exception on _mqtt_client.disconnect")
+                logger.error(traceback.format_exc())
+
+            # Calling disconnect() isn't enough.  We also need to call loop_stop to make sure
+            # Paho is as clean as possible.  Our call to disconnect() above is enough to stop the
+            # loop and exit the tread, but the call to loop_stop() is necessary to complete the cleanup.
+
             self._mqtt_client.loop_stop()
             self._mqtt_client = None
 
@@ -459,7 +451,21 @@ class MQTTTransport(object):
         :raises: ProtocolClientError if there is some client error.
         """
         logger.info("disconnecting MQTT client")
-        self._force_transport_disconnect_and_cleanup()
+        try:
+            self._mqtt_client.disconnect()
+        except Exception as e:
+            logger.error("Unexpected Paho failure during disconnect")
+            logger.error(traceback.format_exc())
+            if self.on_mqtt_disconnected_handler:
+                # only call on_mqtt_disconencted_handler on failure.  On success, it gets
+                # called via the on_disconnect callback from Paho.
+                try:
+                    self.on_mqtt_disconnected_handler(e)
+                except Exception:
+                    logger.error("Unexpected error calling on_mqtt_disconnected_handler")
+                    logger.error(traceback.format_exc())
+        finally:
+            self._mqtt_client.loop_stop()
 
         # Clear pending ops if instructed.
         # Technically the disconnect could still fail upon response, however that would then
