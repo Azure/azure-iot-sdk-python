@@ -35,6 +35,8 @@ def _validate_kwargs(exclude=[], **kwargs):
         "sastoken_ttl",
         "keep_alive",
         "auto_connect",
+        "connection_retry",
+        "connection_retry_interval",
     ]
 
     for kwarg in kwargs:
@@ -52,6 +54,8 @@ def _get_config_kwargs(**kwargs):
         "proxy_options",
         "keep_alive",
         "auto_connect",
+        "connection_retry",
+        "connection_retry_interval",
     ]
 
     config_kwargs = {}
@@ -222,6 +226,9 @@ class AbstractIoTHubClient(object):
             If not provided default value of 60 secs will be used.
         :param bool auto_connect: Automatically connect the client to IoTHub when a method is
             invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -293,6 +300,9 @@ class AbstractIoTHubClient(object):
             If not provided default value of 60 secs will be used.
         :param bool auto_connect: Automatically connect the client to IoTHub when a method is
             invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the sastoken parameter is invalid.
@@ -428,6 +438,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             If not provided default value of 60 secs will be used.
         :param bool auto_connect: Automatically connect the client to IoTHub when a method is
             invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -480,6 +493,9 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             If not provided default value of 60 secs will be used.
         :param bool auto_connect: Automatically connect the client to IoTHub when a method is
             invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the provided parameters are invalid.
@@ -555,6 +571,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             If not provided default value of 60 secs will be used.
         :param bool auto_connect: Automatically connect the client to IoTHub when a method is
             invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -702,6 +721,9 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             If not provided default value of 60 secs will be used.
         :param bool auto_connect: Automatically connect the client to IoTHub when a method is
             invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
 

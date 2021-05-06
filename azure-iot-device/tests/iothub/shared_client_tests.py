@@ -269,6 +269,52 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
 
         assert config.auto_connect == auto_connect_value
 
+    @pytest.mark.it(
+        "Sets the 'connection_retry' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_connection_retry_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        connection_retry_value = False
+        client_create_method(*create_method_args, connection_retry=connection_retry_value)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.connection_retry == connection_retry_value
+
+    @pytest.mark.it(
+        "Sets the 'connection_retry_interval' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_connection_retry_interval_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        connection_retry_interval_value = 17
+        client_create_method(
+            *create_method_args, connection_retry_interval=connection_retry_interval_value
+        )
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.connection_retry_interval == connection_retry_interval_value
+
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(
         self, option_test_required_patching, client_create_method, create_method_args
@@ -302,6 +348,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.proxy_options is None
         assert config.server_verification_cert is None
         assert config.keep_alive == DEFAULT_KEEPALIVE
+        assert config.auto_connect is True
+        assert config.connection_retry is True
+        assert config.connection_retry_interval == 10
 
 
 # TODO: consider splitting this test class up into device/module specific test classes to avoid
