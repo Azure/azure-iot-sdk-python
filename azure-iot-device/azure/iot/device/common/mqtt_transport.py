@@ -210,7 +210,15 @@ class MQTTTransport(object):
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
                 if this:
-                    this._force_transport_disconnect_and_cleanup()
+                    # MQTT_ERR_UNKNOWN means we probably got an exception inside Paho
+                    # In that case, set our client to None and create a new one next
+                    # time.  This cleans up some particularly fatal cases
+                    # such as https://github.com/Azure/azure-iot-sdk-python/issues/747
+                    if rc == mqtt.MQTT_ERR_UNKNOWN:
+                        this._mqtt_client.loop_stop()
+                        this._mqtt_client = None
+                    else:
+                        this._force_transport_disconnect_and_cleanup()
 
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
@@ -296,7 +304,7 @@ class MQTTTransport(object):
 
         logger.info("Forcing paho disconnect to prevent it from automatically reconnecting")
 
-        # Note: We are calling this inside our on_disconnect() handler, so we might be inside the
+        # Note: We may be calling this inside our on_disconnect() handler, so we might be inside the
         # Paho thread at this point. This is perfectly valid.  Comments in Paho's client.py
         # loop_forever() function recomment calling disconnect() from a callback to exit the
         # Paho thread/loop.
@@ -305,7 +313,7 @@ class MQTTTransport(object):
 
         # Calling disconnect() isn't enough.  We also need to call loop_stop to make sure
         # Paho is as clean as possible.  Our call to disconnect() above is enough to stop the
-        # loop and exit the tread, but the call to loop_stop() is necessary to complete the cleanup.
+        # loop and exit the thread, but the call to loop_stop() is necessary to complete the cleanup.
 
         self._mqtt_client.loop_stop()
 
@@ -357,7 +365,8 @@ class MQTTTransport(object):
         """Shut down the transport. This is (currently) irreversible."""
         # Remove the disconnect handler from Paho. We don't want to trigger any events in response
         # to the shutdown and confuse the higher level layers of code. Just end it.
-        self._mqtt_client.on_disconnect = None
+        if self._mqtt_client:
+            self._mqtt_client.on_disconnect = None
         # Now disconnect and do some additional cleanup.
         self._force_transport_disconnect_and_cleanup()
 
@@ -380,6 +389,11 @@ class MQTTTransport(object):
         :raises: ProtocolClientError if there is some other client error.
         """
         logger.debug("connecting to mqtt broker")
+
+        # self._mqtt_client gets created inside __init__ but it may have been
+        # set to None since then.
+        if not self._mqtt_client:
+            self._mqtt_client = self._create_mqtt_client()
 
         self._mqtt_client.username_pw_set(username=self._username, password=password)
 
