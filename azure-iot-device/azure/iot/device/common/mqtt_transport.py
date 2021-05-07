@@ -215,8 +215,8 @@ class MQTTTransport(object):
                     # time.  This cleans up some particularly fatal cases
                     # such as https://github.com/Azure/azure-iot-sdk-python/issues/747
                     if rc == mqtt.MQTT_ERR_UNKNOWN:
-                        self._mqtt_client.loop_stop()
-                        self._mqtt_client = None
+                        this._mqtt_client.loop_stop()
+                        this._mqtt_client = None
                     else:
                         this._force_transport_disconnect_and_cleanup()
 
