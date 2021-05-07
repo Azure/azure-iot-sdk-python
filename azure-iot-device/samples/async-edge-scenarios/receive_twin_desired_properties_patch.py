@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import asyncio
+import time
 from six.moves import input
 from azure.iot.device.aio import IoTHubModuleClient
 
@@ -27,10 +28,14 @@ async def main():
     # define behavior for halting the application
     def stdin_listener():
         while True:
-            selection = input("Press Q to quit\n")
-            if selection == "Q" or selection == "q":
-                print("Quitting...")
-                break
+            try:
+                selection = input("Press Q to quit\n")
+                if selection == "Q" or selection == "q":
+                    print("Quitting...")
+                    break
+            except EOFError as err:
+                print("Unexpcted error occured", str(err))
+                time.sleep(100)
 
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
