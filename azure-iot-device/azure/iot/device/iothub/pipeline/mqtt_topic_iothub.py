@@ -296,10 +296,10 @@ def extract_message_properties_from_topic(topic, message_received):
         raise ValueError("topic has incorrect format")
 
     # We do not want to extract values corresponding to these keys
-    ignored_extraction_values = ["iothub-ack", "$.to"]
+    ignored_extraction_values = ["$.to"]
 
     # NOTE: we cannot use urllib.parse.parse_qs because it always decodes '+' as ' ',
-    # and the behavior cannot be overriden. Must parse key/value pairs manually.
+    # and the behavior cannot be overridden. Must parse key/value pairs manually.
 
     if properties:
         key_value_pairs = properties.split("&")
@@ -326,6 +326,8 @@ def extract_message_properties_from_topic(topic, message_received):
                 message_received.content_encoding = value
             elif key == "$.exp":
                 message_received.expiry_time_utc = value
+            elif key == "iothub-ack":
+                message_received.ack = value
             else:
                 message_received.custom_properties[key] = value
 

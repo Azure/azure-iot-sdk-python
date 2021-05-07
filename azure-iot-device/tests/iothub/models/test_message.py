@@ -74,6 +74,11 @@ class TestMessage(object):
         msg = Message("some message")
         assert msg.input_name is None
 
+    @pytest.mark.it("Instantiates with no set ack value")
+    def test_default_ack(self):
+        msg = Message("some message")
+        assert msg.ack is None
+
     @pytest.mark.it("Instantiates with no set iothub_interface_id (i.e. not as a security message)")
     def test_default_security_msg_status(self):
         msg = Message("some message")
