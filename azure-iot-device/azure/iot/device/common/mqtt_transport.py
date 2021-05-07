@@ -204,12 +204,13 @@ class MQTTTransport(object):
             this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
 
-            cause = None
             if rc:  # i.e. if there is an error
                 logger.debug("".join(traceback.format_stack()))
-                cause = _create_error_from_rc_code(rc)
                 if this:
-                    this._force_transport_disconnect_and_cleanup()
+                    if rc == mqtt.MQTT_ERR_UNKNOWN:
+                        self._clean_up_after_fatal_exception()
+                    else:
+                        this._force_transport_disconnect_and_cleanup(rc)
 
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
@@ -219,6 +220,7 @@ class MQTTTransport(object):
                 )
                 client.loop_stop()
             else:
+                cause = _create_error_from_rc_code(rc)
                 this._call_on_mqtt_disconnected_handler(cause)
 
         def on_subscribe(client, userdata, mid, granted_qos):
@@ -290,7 +292,7 @@ class MQTTTransport(object):
         self._mqtt_client = None
         self._call_on_mqtt_disconnected_handler(None)
 
-    def _force_transport_disconnect_and_cleanup(self):
+    def _force_transport_disconnect_and_cleanup(self, cause_rc=0):
         """
         After disconnecting because of an error, Paho was designed to keep the loop running and
         to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
