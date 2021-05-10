@@ -33,6 +33,8 @@ class BasePipelineConfig(object):
         proxy_options=None,
         keep_alive=DEFAULT_KEEPALIVE,
         auto_connect=True,
+        connection_retry=True,
+        connection_retry_interval=10,
     ):
         """Initializer for BasePipelineConfig
 
@@ -55,12 +57,14 @@ class BasePipelineConfig(object):
         :param int keepalive: Maximum period in seconds between communications with the
             broker.
         :param bool auto_connect: Indicates if automatic connects should occur
+        :param bool connection_retry: Indicates if dropped connection should result in attempts to
+            re-establish it
+        :param int connection_retry_interval: Interval (in seconds) between connection retries
         """
         # Network
         self.hostname = hostname
         self.gateway_hostname = gateway_hostname
         self.keep_alive = self._validate_keep_alive(keep_alive)
-        self.auto_connect = auto_connect
 
         # Auth
         self.sastoken = sastoken
@@ -71,6 +75,11 @@ class BasePipelineConfig(object):
         self.websockets = websockets
         self.cipher = self._sanitize_cipher(cipher)
         self.proxy_options = proxy_options
+
+        # Pipeline
+        self.auto_connect = auto_connect
+        self.connection_retry = connection_retry
+        self.connection_retry_interval = connection_retry_interval
 
     @staticmethod
     def _sanitize_cipher(cipher):

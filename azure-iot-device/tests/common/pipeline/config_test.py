@@ -297,3 +297,17 @@ class PipelineConfigInstantiationTestBase(object):
     def test_auto_connect_default(self, config_cls, required_kwargs, sastoken):
         config = config_cls(sastoken=sastoken, **required_kwargs)
         assert config.auto_connect is True
+
+    @pytest.mark.it(
+        "Instantiates with the 'connection_retry' attribute set to the provided 'connection_retry' parameter"
+    )
+    def test_connection_retry_set(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, connection_retry=False, **required_kwargs)
+        assert config.connection_retry is False
+
+    @pytest.mark.it(
+        "Instantiates with the 'connection_retry' attribute set to 'True' if no 'connection_retry' parameter is provided"
+    )
+    def test_connection_retry_default(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, **required_kwargs)
+        assert config.connection_retry is True
