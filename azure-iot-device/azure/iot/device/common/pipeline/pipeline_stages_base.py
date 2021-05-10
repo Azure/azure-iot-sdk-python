@@ -1008,8 +1008,10 @@ class ReconnectStage(PipelineStage):
                 )
             )
 
-            # QUESTION: why do we check the pipeline root connected here? Is this necessary or just adding extra edge cases?
-            # In what situation would the pipeline root ever be disconnected while the pipeline state is logically connected?
+            # Only retry connection if:
+            #   1) Pipeline is configured to do retry
+            #   2) The root has not already realized the connection is dropped
+            #   3) The pipeline is logically connected (i.e. it is SUPPOSED to be connected)
             if (
                 self.pipeline_root.pipeline_configuration.connection_retry
                 and self.pipeline_root.connected
