@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.hub.protocol.models import AuthenticationMechanism
+from azure.iot.hub.protocol.models import AuthenticationMechanism, DeviceCapabilities
 from azure.iot.hub.iothub_registry_manager import IoTHubRegistryManager
 from azure.iot.hub.iothub_amqp_client import IoTHubAmqpClient as iothub_amqp_client
 
@@ -24,6 +24,7 @@ fake_module_id = "Divination"
 fake_managed_by = "Hogwarts"
 fake_etag = "taggedbymisnitryofmagic"
 fake_status = "flying"
+fake_status_reason = "some_reason"
 fake_configuration_id = "fake_configuration"
 fake_configuration = "fake_config"
 fake_max_count = 42
@@ -42,6 +43,8 @@ fake_device_twin = "fake_device_twin"
 fake_module_twin = "fake_module_twin"
 fake_direct_method_request_with_payload_none = "fake_direct_method_request"
 fake_properties = {"fake_key": "fake_value"}
+fake_device_scope = "fake_device_scope"
+fake_parent_scopes = ["fake_parent_scopes"]
 
 
 class Fake_direct_method_request_with_payload:
@@ -155,12 +158,22 @@ class TestCreateDeviceWithSymmetricKey(object):
             status=fake_status,
             primary_key=primary_key,
             secondary_key=secondary_key,
+            iot_edge=False,
+            status_reason=fake_status_reason,
+            device_scope=fake_device_scope,
+            parent_scopes=fake_parent_scopes,
         )
 
         assert mock_device_constructor.call_count == 1
 
         assert mock_device_constructor.call_args[1]["device_id"] == fake_device_id
         assert mock_device_constructor.call_args[1]["status"] == fake_status
+        assert mock_device_constructor.call_args[1]["status_reason"] == fake_status_reason
+        assert mock_device_constructor.call_args[1]["device_scope"] == fake_device_scope
+        assert mock_device_constructor.call_args[1]["parent_scopes"] == fake_parent_scopes
+        assert isinstance(mock_device_constructor.call_args[1]["capabilities"], DeviceCapabilities)
+        device_capabilities = mock_device_constructor.call_args[1]["capabilities"]
+        assert device_capabilities.iot_edge is False
         assert isinstance(
             mock_device_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -227,11 +240,21 @@ class TestCreateDeviceWithX509(object):
             status=fake_status,
             primary_thumbprint=primary_thumbprint,
             secondary_thumbprint=secondary_thumbprint,
+            iot_edge=False,
+            status_reason=fake_status_reason,
+            device_scope=fake_device_scope,
+            parent_scopes=fake_parent_scopes,
         )
 
         assert mock_device_constructor.call_count == 1
         assert mock_device_constructor.call_args[1]["device_id"] == fake_device_id
         assert mock_device_constructor.call_args[1]["status"] == fake_status
+        assert mock_device_constructor.call_args[1]["status_reason"] == fake_status_reason
+        assert mock_device_constructor.call_args[1]["device_scope"] == fake_device_scope
+        assert mock_device_constructor.call_args[1]["parent_scopes"] == fake_parent_scopes
+        assert isinstance(mock_device_constructor.call_args[1]["capabilities"], DeviceCapabilities)
+        device_capabilities = mock_device_constructor.call_args[1]["capabilities"]
+        assert device_capabilities.iot_edge is False
         assert isinstance(
             mock_device_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -280,12 +303,23 @@ class TestCreateDeviceWithCA(object):
         self, mock_device_constructor, iothub_registry_manager
     ):
         iothub_registry_manager.create_device_with_certificate_authority(
-            device_id=fake_device_id, status=fake_status
+            device_id=fake_device_id,
+            status=fake_status,
+            iot_edge=False,
+            status_reason=fake_status_reason,
+            device_scope=fake_device_scope,
+            parent_scopes=fake_parent_scopes,
         )
 
         assert mock_device_constructor.call_count == 1
         assert mock_device_constructor.call_args[1]["device_id"] == fake_device_id
         assert mock_device_constructor.call_args[1]["status"] == fake_status
+        assert mock_device_constructor.call_args[1]["status_reason"] == fake_status_reason
+        assert mock_device_constructor.call_args[1]["device_scope"] == fake_device_scope
+        assert mock_device_constructor.call_args[1]["parent_scopes"] == fake_parent_scopes
+        assert isinstance(mock_device_constructor.call_args[1]["capabilities"], DeviceCapabilities)
+        device_capabilities = mock_device_constructor.call_args[1]["capabilities"]
+        assert device_capabilities.iot_edge is False
         assert isinstance(
             mock_device_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -334,12 +368,22 @@ class TestUpdateDeviceWithSymmetricKey(object):
             etag=fake_etag,
             primary_key=primary_key,
             secondary_key=secondary_key,
+            iot_edge=False,
+            status_reason=fake_status_reason,
+            device_scope=fake_device_scope,
+            parent_scopes=fake_parent_scopes,
         )
 
         assert mock_device_constructor.call_count == 1
 
         assert mock_device_constructor.call_args[1]["device_id"] == fake_device_id
         assert mock_device_constructor.call_args[1]["status"] == fake_status
+        assert mock_device_constructor.call_args[1]["status_reason"] == fake_status_reason
+        assert mock_device_constructor.call_args[1]["device_scope"] == fake_device_scope
+        assert mock_device_constructor.call_args[1]["parent_scopes"] == fake_parent_scopes
+        assert isinstance(mock_device_constructor.call_args[1]["capabilities"], DeviceCapabilities)
+        device_capabilities = mock_device_constructor.call_args[1]["capabilities"]
+        assert device_capabilities.iot_edge is False
         assert isinstance(
             mock_device_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -412,11 +456,21 @@ class TestUpdateDeviceWithX509(object):
             etag=fake_etag,
             primary_thumbprint=primary_thumbprint,
             secondary_thumbprint=secondary_thumbprint,
+            iot_edge=False,
+            status_reason=fake_status_reason,
+            device_scope=fake_device_scope,
+            parent_scopes=fake_parent_scopes,
         )
 
         assert mock_device_constructor.call_count == 1
         assert mock_device_constructor.call_args[1]["device_id"] == fake_device_id
         assert mock_device_constructor.call_args[1]["status"] == fake_status
+        assert mock_device_constructor.call_args[1]["status_reason"] == fake_status_reason
+        assert mock_device_constructor.call_args[1]["device_scope"] == fake_device_scope
+        assert mock_device_constructor.call_args[1]["parent_scopes"] == fake_parent_scopes
+        assert isinstance(mock_device_constructor.call_args[1]["capabilities"], DeviceCapabilities)
+        device_capabilities = mock_device_constructor.call_args[1]["capabilities"]
+        assert device_capabilities.iot_edge is False
         assert isinstance(
             mock_device_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
@@ -470,12 +524,24 @@ class TestUpdateDeviceWithCA(object):
         self, mock_device_constructor, iothub_registry_manager
     ):
         iothub_registry_manager.update_device_with_certificate_authority(
-            device_id=fake_device_id, status=fake_status, etag=fake_etag
+            device_id=fake_device_id,
+            status=fake_status,
+            etag=fake_etag,
+            iot_edge=False,
+            status_reason=fake_status_reason,
+            device_scope=fake_device_scope,
+            parent_scopes=fake_parent_scopes,
         )
 
         assert mock_device_constructor.call_count == 1
         assert mock_device_constructor.call_args[1]["device_id"] == fake_device_id
         assert mock_device_constructor.call_args[1]["status"] == fake_status
+        assert mock_device_constructor.call_args[1]["status_reason"] == fake_status_reason
+        assert mock_device_constructor.call_args[1]["device_scope"] == fake_device_scope
+        assert mock_device_constructor.call_args[1]["parent_scopes"] == fake_parent_scopes
+        assert isinstance(mock_device_constructor.call_args[1]["capabilities"], DeviceCapabilities)
+        device_capabilities = mock_device_constructor.call_args[1]["capabilities"]
+        assert device_capabilities.iot_edge is False
         assert isinstance(
             mock_device_constructor.call_args[1]["authentication"], AuthenticationMechanism
         )
