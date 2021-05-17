@@ -146,7 +146,7 @@ class TestCreateDeviceWithSymmetricKey(object):
         (fake_primary_key, fake_secondary_key),
     ]
 
-    @pytest.mark.it("Initializes device with device id, status and sas auth")
+    @pytest.mark.it("Initializes device with the provided parameters and sas auth")
     @pytest.mark.parametrize(
         "primary_key, secondary_key", testdata, ids=["Primary Key", "Secondary Key", "Both Keys"]
     )
@@ -222,7 +222,7 @@ class TestCreateDeviceWithX509(object):
         (fake_primary_thumbprint, fake_secondary_thumbprint),
     ]
 
-    @pytest.mark.it("Initializes device with device id, status and X509 auth")
+    @pytest.mark.it("Initializes device with the provided parameters and X509 auth")
     @pytest.mark.parametrize(
         "primary_thumbprint, secondary_thumbprint",
         testdata,
@@ -298,7 +298,7 @@ class TestCreateDeviceWithX509(object):
 
 @pytest.mark.describe("IoTHubRegistryManager - .create_device_with_certificate_authority()")
 class TestCreateDeviceWithCA(object):
-    @pytest.mark.it("Initializes device with device id, status and ca auth")
+    @pytest.mark.it("Initializes device with the provided parameters and ca auth")
     def test_initializes_device_with_kwargs_for_certificate_authority(
         self, mock_device_constructor, iothub_registry_manager
     ):
@@ -355,7 +355,7 @@ class TestUpdateDeviceWithSymmetricKey(object):
         (fake_primary_key, fake_secondary_key),
     ]
 
-    @pytest.mark.it("Initializes device with device id, status, and sas auth")
+    @pytest.mark.it("Initializes device with the provided parameters and sas auth")
     @pytest.mark.parametrize(
         "primary_key, secondary_key", testdata, ids=["Primary Key", "Secondary Key", "Both Keys"]
     )
@@ -437,7 +437,7 @@ class TestUpdateDeviceWithX509(object):
         (fake_primary_thumbprint, fake_secondary_thumbprint),
     ]
 
-    @pytest.mark.it("Initializes device with device id, status and X509 auth")
+    @pytest.mark.it("Initializes device with the provided parameters and X509 auth")
     @pytest.mark.parametrize(
         "primary_thumbprint, secondary_thumbprint",
         testdata,
@@ -519,7 +519,7 @@ class TestUpdateDeviceWithX509(object):
 
 @pytest.mark.describe("IoTHubRegistryManager - .update_device_with_certificate_authority()")
 class TestUpdateDeviceWithCA(object):
-    @pytest.mark.it("Initializes device with device id, status and ca auth")
+    @pytest.mark.it("Initializes device with the provided parameters and ca auth")
     def test_initializes_device_with_kwargs_for_certificate_authority(
         self, mock_device_constructor, iothub_registry_manager
     ):
