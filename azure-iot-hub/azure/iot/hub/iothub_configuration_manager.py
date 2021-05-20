@@ -66,7 +66,7 @@ class IoTHubConfigurationManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubConfigurationManager`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential, None, host)
         return cls(host=host, auth=auth)
 
     def get_configuration(self, configuration_id):

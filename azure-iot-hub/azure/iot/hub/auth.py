@@ -65,12 +65,23 @@ class ConnectionStringAuthentication(ConnectionString, Authentication):
 
 
 class AzureIdentityCredentialAdapter(BasicTokenAuthentication):
-    def __init__(self, credential, resource_id="https://iothubs.azure.net/.default", **kwargs):
+    def __init__(self, credential, resource_id=None, service_endpoint=None, **kwargs):
         """Adapt any azure-identity credential to work with SDK that needs azure.common.credentials or msrestazure.
         Default resource is ARM (syntax of endpoint v2)
         :param credential: Any azure-identity credential (DefaultAzureCredential by default)
         :param str resource_id: The scope to use to get the token (default ARM)
+        :param str service_endpont: The endpoint of the IoT Hub
         """
+        if (
+            resource_id is None
+            and service_endpoint is not None
+            and service_endpoint.lower().endswith("azure-devices.us")
+        ):
+            # The US government cloud (Fairfax) has a different audience.
+            resource_id = "https://iothubs.azure.us"
+        elif resource_id is None:
+            resource_id = "https://iothubs.azure.net/.default"
+
         super(AzureIdentityCredentialAdapter, self).__init__(None)
         self._policy = BearerTokenCredentialPolicy(credential, resource_id, **kwargs)
 

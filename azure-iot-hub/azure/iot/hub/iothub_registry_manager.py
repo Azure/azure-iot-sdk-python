@@ -114,7 +114,7 @@ class IoTHubRegistryManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential, None, host)
         return cls(host=host, auth=auth)
 
     def __del__(self):

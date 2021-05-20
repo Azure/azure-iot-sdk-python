@@ -65,7 +65,7 @@ class IoTHubHttpRuntimeManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubHttpRuntimeManager`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential, None, host)
         return cls(host=host, auth=auth)
 
     def receive_feedback_notification(self):

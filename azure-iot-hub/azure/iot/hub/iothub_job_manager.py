@@ -65,7 +65,7 @@ class IoTHubJobManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubJobManager`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential, None, host)
         return cls(host=host, auth=auth)
 
     def create_import_export_job(self, job_properties):

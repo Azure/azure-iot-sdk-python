@@ -64,7 +64,7 @@ class DigitalTwinClient(object):
         :rtype: :class:`azure.iot.hub.DigitalTwinClient`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential, None, host)
         return cls(host=host, auth=auth)
 
     def get_digital_twin(self, digital_twin_id):
