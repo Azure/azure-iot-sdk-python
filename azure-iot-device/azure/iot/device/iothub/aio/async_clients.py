@@ -142,8 +142,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Initiating client shutdown")
         # Note that client disconnect does the following:
         #   - Disconnects the pipeline
-        #   - Resolves all pending handler calls
-        #   - Stops handler threads
+        #   - Resolves all pending receiver handler calls
+        #   - Stops receiver handler threads
         await self.disconnect()
 
         # Note that shutting down does the following:
@@ -156,7 +156,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await handle_result(callback)
         logger.debug("Completed pipeline shutdown operation")
 
-        # Stop the client event handler now that everything else is completed
+        # Stop the Client Event handlers now that everything else is completed
         self._handler_manager.stop(receiver_handlers_only=False)
 
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you

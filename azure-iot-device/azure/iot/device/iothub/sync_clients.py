@@ -9,7 +9,6 @@ Azure IoTHub Device SDK for Python.
 
 import logging
 import deprecation
-from six.moves import queue
 from .abstract_clients import (
     AbstractIoTHubClient,
     AbstractIoTHubDeviceClient,
@@ -151,8 +150,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Initiating client shutdown")
         # Note that client disconnect does the following:
         #   - Disconnects the pipeline
-        #   - Resolves all pending handler calls
-        #   - Stops inbox handler threads
+        #   - Resolves all pending receiver handler calls
+        #   - Stops receiver handler threads
         self.disconnect()
 
         # Note that shutting down the following:
@@ -164,7 +163,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         handle_result(callback)
         logger.debug("Completed pipeline shutdown operation")
 
-        # Stop the client event handler now that everything else is completed
+        # Stop the Client Event handlers now that everything else is completed
         self._handler_manager.stop(receiver_handlers_only=False)
 
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you
@@ -465,7 +464,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         This is a synchronous call, which means the following:
         1. If block=True, this function will block until one of the following happens:
-           * a desired proprety patch is received from the Azure IoT Hub or Azure IoT Edge Hub.
+           * a desired property patch is received from the Azure IoT Hub or Azure IoT Edge Hub.
            * the timeout period, if provided, elapses.  If a timeout happens, this function will
              raise a InboxEmpty exception
         2. If block=False, this function will return any desired property patches which may have
