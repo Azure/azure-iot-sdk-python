@@ -44,7 +44,7 @@ class MQTTPipeline(object):
         # Handlers - Will be set by Client after instantiation of this object
         self.on_connected = None
         self.on_disconnected = None
-        self.on_new_sastoken_required = None
+        # self.on_new_sastoken_required = None
 
         self.on_c2d_message_received = None
         self.on_input_message_received = None

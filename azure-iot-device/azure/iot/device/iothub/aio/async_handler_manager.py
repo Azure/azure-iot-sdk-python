@@ -103,12 +103,12 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     # TODO: Can we call this on the user loop instead?
                     handler_loop = loop_management.get_client_handler_loop()
                     fut = asyncio.run_coroutine_threadsafe(
-                        handler(*event.values_for_user), handler_loop
+                        handler(*event.args_for_user), handler_loop
                     )
                     fut.add_done_callback(_handler_callback)
                 else:
                     # Run a function directly in ThreadPool
-                    fut = tpe.submit(handler, *event.values_for_user)
+                    fut = tpe.submit(handler, *event.args_for_user)
                     fut.add_done_callback(_handler_callback)
             else:
                 logger.debug(

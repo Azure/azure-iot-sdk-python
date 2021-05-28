@@ -226,7 +226,9 @@ class AbstractHandlerManager(object):
                     self._start_handler_runner(CLIENT_EVENT)
                     break
 
-    # Receiver Handlers
+    # ~~~Receiver Handlers~~~
+    # Setting a receiver handler will start a dedicated runner for that handler
+    # Removing a receiver handler will stop the dedicated runner for that handler
     @property
     def on_message_received(self):
         return self._on_message_received
@@ -251,7 +253,10 @@ class AbstractHandlerManager(object):
     def on_twin_desired_properties_patch_received(self, value):
         self._generic_receiver_handler_setter(TWIN_DP_PATCH, value)
 
-    # Client Event Handlers
+    # ~~~Client Event Handlers~~~
+    # Setting any client event handler will start the shared client event handler runner
+    # Removing handlers will NOT stop the client event handler runner - you must use .stop()
+    # Stopping when all client event handlers are removed could be added if necessary.
     @property
     def on_connection_state_change(self):
         return self._on_connection_state_change
@@ -341,7 +346,7 @@ class SyncHandlerManager(AbstractHandlerManager):
                         event, handler
                     )
                 )
-                fut = tpe.submit(handler, *event.values_for_user)
+                fut = tpe.submit(handler, *event.args_for_user)
                 fut.add_done_callback(_handler_callback)
             else:
                 logger.debug(

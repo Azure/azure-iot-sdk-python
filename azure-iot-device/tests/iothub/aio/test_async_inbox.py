@@ -29,7 +29,7 @@ class TestAsyncClientInbox(object):
         assert inbox.empty()
         item = mocker.MagicMock()
         assert item not in inbox
-        inbox._put(item)
+        inbox.put(item)
         assert item in inbox
 
     @pytest.mark.it("Can be checked regarding whether or not it is empty")
@@ -37,7 +37,7 @@ class TestAsyncClientInbox(object):
     async def test_can_check_if_empty(self, mocker):
         inbox = AsyncClientInbox()
         assert inbox.empty()
-        inbox._put(mocker.MagicMock())
+        inbox.put(mocker.MagicMock())
         assert not inbox.empty()
         await inbox.get()
         assert inbox.empty()
@@ -50,9 +50,9 @@ class TestAsyncClientInbox(object):
         item1 = mocker.MagicMock()
         item2 = mocker.MagicMock()
         item3 = mocker.MagicMock()
-        inbox._put(item1)
-        inbox._put(item2)
-        inbox._put(item3)
+        inbox.put(item1)
+        inbox.put(item2)
+        inbox.put(item3)
 
         assert await inbox.get() is item1
         assert await inbox.get() is item2
@@ -61,14 +61,14 @@ class TestAsyncClientInbox(object):
         await asyncio.sleep(0.01)  # Do this to prevent RuntimeWarning from janus
 
 
-@pytest.mark.describe("AsyncClientInbox - ._put()")
+@pytest.mark.describe("AsyncClientInbox - .put()")
 class TestAsyncClientInboxPut(object):
     @pytest.mark.it("Adds the given item to the inbox")
     def test_adds_item_to_inbox(self, mocker):
         inbox = AsyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
-        inbox._put(item)
+        inbox.put(item)
         assert not inbox.empty()
         assert item in inbox
 
@@ -81,7 +81,7 @@ class TestAsyncClientInboxGet(object):
         inbox = AsyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
-        inbox._put(item)
+        inbox.put(item)
         assert not inbox.empty()
         retrieved_item = await inbox.get()
         assert retrieved_item is item
@@ -103,7 +103,7 @@ class TestAsyncClientInboxGet(object):
 
         async def insert_item():
             await asyncio.sleep(1)  # wait before adding item to ensure the above coroutine is first
-            inbox._put(item)
+            inbox.put(item)
 
         await asyncio.gather(wait_for_item(), insert_item())
 
@@ -116,9 +116,9 @@ class TestAsyncClientInboxClear(object):
         item1 = mocker.MagicMock()
         item2 = mocker.MagicMock()
         item3 = mocker.MagicMock()
-        inbox._put(item1)
-        inbox._put(item2)
-        inbox._put(item3)
+        inbox.put(item1)
+        inbox.put(item2)
+        inbox.put(item3)
         assert not inbox.empty()
 
         inbox.clear()

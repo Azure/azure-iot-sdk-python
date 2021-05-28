@@ -77,14 +77,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # **kwargs.
         super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
-        self._handler_manager = async_handler_manager.AsyncHandlerManager(
-            inbox_manager=self._inbox_manager,
-        )
+        self._handler_manager = async_handler_manager.AsyncHandlerManager(self._inbox_manager)
 
         # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = self._on_connected
         self._mqtt_pipeline.on_disconnected = self._on_disconnected
-        self._mqtt_pipeline.on_new_sastoken_required = self._on_new_sastoken_required
+        # self._mqtt_pipeline.on_new_sastoken_required = self._on_new_sastoken_required
 
         # Set pipeline handlers for data receives
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
