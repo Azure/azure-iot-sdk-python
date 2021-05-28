@@ -80,10 +80,7 @@ class AsyncHandlerManager(AbstractHandlerManager):
         tpe = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         event_inbox = self._inbox_manager.get_client_event_inbox()
         while True:
-            loop = loop_management.get_client_internal_loop()
-            event = await asyncio.wrap_future(
-                asyncio.run_coroutine_threadsafe(event_inbox.get(), loop)
-            )
+            event = await event_inbox.get()
             if isinstance(event, HandlerRunnerKillerSentinel):
                 # Exit the runner when a HandlerRunnerKillerSentinel is found
                 logger.debug(
