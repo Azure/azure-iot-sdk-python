@@ -13,6 +13,7 @@ import hashlib
 import hmac
 from uuid import uuid4
 import six.moves.urllib as urllib
+from azure.core.credentials import AccessToken
 
 try:
     from urllib import quote, quote_plus, urlencode  # Py2
@@ -20,6 +21,7 @@ except Exception:
     from urllib.parse import quote, quote_plus, urlencode
 
 import uamqp
+
 
 default_sas_expiry = 30
 
@@ -35,7 +37,12 @@ class IoTHubAmqpClient:
             uri, signature, expiry, sas_name
         )
 
-    def _build_amqp_endpoint(self, hostname, shared_access_key_name, shared_access_key):
+    def _build_amqp_endpoint(
+        self,
+        hostname,
+        shared_access_key_name=None,
+        shared_access_key=None,
+    ):
         hub_name = hostname.split(".")[0]
         endpoint = "{}@sas.root.{}".format(shared_access_key_name, hub_name)
         endpoint = quote_plus(endpoint)
@@ -45,13 +52,36 @@ class IoTHubAmqpClient:
         endpoint = endpoint + ":{}@{}".format(quote_plus(sas_token), hostname)
         return endpoint
 
-    def __init__(self, hostname, shared_access_key_name, shared_access_key):
-        self.endpoint = self._build_amqp_endpoint(
-            hostname, shared_access_key_name, shared_access_key
-        )
-        operation = "/messages/devicebound"
-        target = "amqps://" + self.endpoint + operation
-        self.amqp_client = uamqp.SendClient(target)
+    def __init__(
+        self,
+        hostname,
+        shared_access_key_name=None,
+        shared_access_key=None,
+        token_credential=None,
+        token_scope="https://iothubs.azure.net/.default",
+    ):
+        if shared_access_key_name is not None and shared_access_key is not None:
+            self.endpoint = self._build_amqp_endpoint(
+                hostname, shared_access_key_name, shared_access_key
+            )
+            operation = "/messages/devicebound"
+            target = "amqps://" + self.endpoint + operation
+            self.amqp_client = uamqp.SendClient(target)
+        else:
+
+            def get_token():
+                result = token_credential.get_token(token_scope)
+                return AccessToken("Bearer " + result.token, result.expires_on)
+
+            auth = uamqp.authentication.JWTTokenAuth(
+                audience=token_scope,
+                uri="https://" + hostname,
+                get_token=get_token,
+                token_type=b"bearer",
+            )
+            auth.update_token()
+            target = amqp_service_target = "amqps://" + hostname + "/messages/devicebound"
+            self.amqp_clientsend_client = uamqp.SendClient(target=amqp_service_target, auth=auth)
 
     def disconnect_sync(self):
         """

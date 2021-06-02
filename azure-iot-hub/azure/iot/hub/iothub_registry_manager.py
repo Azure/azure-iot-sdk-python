@@ -56,7 +56,7 @@ class IoTHubRegistryManager(object):
     based on top of the auto generated IotHub REST APIs
     """
 
-    def __init__(self, connection_string=None, host=None, auth=None):
+    def __init__(self, connection_string=None, host=None, token_credential=None):
         """Initializer for a Registry Manager Service client.
 
         After a successful creation the class has been authenticated with IoTHub and
@@ -73,17 +73,20 @@ class IoTHubRegistryManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
         if connection_string is not None:
-            self.auth = ConnectionStringAuthentication(connection_string)
-            self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+            conn_string_auth = ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client(
+                conn_string_auth, "https://" + conn_string_auth["HostName"]
+            )
             self.amqp_svc_client = iothub_amqp_client(
-                self.auth["HostName"],
-                self.auth["SharedAccessKeyName"],
-                self.auth["SharedAccessKey"],
+                conn_string_auth["HostName"],
+                conn_string_auth["SharedAccessKeyName"],
+                conn_string_auth["SharedAccessKey"],
             )
         else:
-            self.auth = auth
-            self.protocol = protocol_client(self.auth, "https://" + host)
-            self.amqp_svc_client = None
+            self.protocol = protocol_client(
+                AzureIdentityCredentialAdapter(token_credential), "https://" + host
+            )
+            self.amqp_svc_client = iothub_amqp_client(host, token_credential=token_credential)
 
     @classmethod
     def from_connection_string(cls, connection_string):
@@ -113,9 +116,9 @@ class IoTHubRegistryManager(object):
 
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
-        host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
-        return cls(host=host, auth=auth)
+        # host = url
+        # auth = AzureIdentityCredentialAdapter(token_credential)
+        return cls(host=url, auth=token_credential)
 
     def __del__(self):
         """
