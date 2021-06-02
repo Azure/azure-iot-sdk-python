@@ -63,8 +63,20 @@ class TestInboxManager(object):
         assert manager.use_unified_msg_mode is False
 
     @pytest.mark.it("Instantiates with an empty unified message inbox")
-    def test_instnatiates_with_empty_unified_msg_inbox(self, manager):
+    def test_instantiates_with_empty_unified_msg_inbox(self, manager):
         assert manager.unified_message_inbox.empty()
+
+    @pytest.mark.it("Instantiates with an empty generic method request inbox")
+    def test_instantiates_with_empty_generic_method_inbox(self, manager):
+        assert manager.generic_method_request_inbox.empty()
+
+    @pytest.mark.it("Instantiates with an empty twin patch inbox")
+    def test_instantiates_with_empty_twin_patch_inbox(self, manager):
+        assert manager.twin_patch_inbox.empty()
+
+    @pytest.mark.it("Instantiates with an empty client event inbox")
+    def test_instantiates_with_empty_client_event_inbox(self, manager):
+        assert manager.client_event_inbox.empty()
 
     @pytest.mark.it("Instantiates with an empty C2D inbox")
     def test_instantiates_with_empty_c2d_inbox(self, manager):
@@ -74,23 +86,15 @@ class TestInboxManager(object):
     def test_instantiates_with_no_input_inboxes(self, manager):
         assert manager.input_message_inboxes == {}
 
-    @pytest.mark.it("Instantiates with an empty generic method request inbox")
-    def test_instantiates_with_empty_generic_method_inbox(self, manager):
-        assert manager.generic_method_request_inbox.empty()
-
     @pytest.mark.it("Instantiates with no specific method request inboxes")
     def test_instantiates_with_no_specific_method_inboxes(self, manager):
         assert manager.named_method_request_inboxes == {}
-
-    @pytest.mark.it("Instantiates with an empty twin patch inbox")
-    def test_instantiates_with_empty_twin_patch_inbox(self, manager):
-        assert manager.twin_patch_inbox.empty()
 
 
 @pytest.mark.describe("InboxManager - .get_c2d_message_inbox()")
 class TestInboxManagerGetC2DMessageInbox(object):
     @pytest.mark.it("Returns an inbox")
-    def test_get_c2d_message_inbox_returns_inbox(self, manager, inbox_type):
+    def test_returns_inbox(self, manager, inbox_type):
         c2d_inbox = manager.get_c2d_message_inbox()
         assert isinstance(c2d_inbox, inbox_type)
 
@@ -104,12 +108,12 @@ class TestInboxManagerGetC2DMessageInbox(object):
 @pytest.mark.describe("InboxManager - .get_unified_message_inbox()")
 class TestInboxManagerGetUnifiedMessageInbox(object):
     @pytest.mark.it("Returns an inbox")
-    def test_get_unified_message_inbox_returns_inbox(self, manager, inbox_type):
+    def test_returns_inbox(self, manager, inbox_type):
         um_inbox = manager.get_unified_message_inbox()
         assert isinstance(um_inbox, inbox_type)
 
     @pytest.mark.it("Returns the same inbox when called multiple times")
-    def test_called_multiple_times_returns_same_inbox(self, manager, inbox_type):
+    def test_called_multiple_times_returns_same_inbox(self, manager):
         um_inbox_ref1 = manager.get_unified_message_inbox()
         um_inbox_ref2 = manager.get_unified_message_inbox()
         assert um_inbox_ref1 is um_inbox_ref2
@@ -204,6 +208,34 @@ class TestInboxManagerGetMethodRequestInbox(object):
         method_inbox = manager.get_method_request_inbox(method_name)
         assert method_name in manager.named_method_request_inboxes.keys()
         assert method_inbox in manager.named_method_request_inboxes.values()
+
+
+@pytest.mark.describe("InboxManager - .get_twin_patch_inbox()")
+class TestInboxManagerGetTwinPatchInbox(object):
+    @pytest.mark.it("Returns an inbox")
+    def test_returns_inbox(self, manager, inbox_type):
+        tp_inbox = manager.get_twin_patch_inbox()
+        assert isinstance(tp_inbox, inbox_type)
+
+    @pytest.mark.it("Returns the same inbox when called multiple times")
+    def test_called_multiple_times_returns_same_inbox(self, manager):
+        tp_inbox_ref1 = manager.get_twin_patch_inbox()
+        tp_inbox_ref2 = manager.get_twin_patch_inbox()
+        assert tp_inbox_ref1 is tp_inbox_ref2
+
+
+@pytest.mark.describe("InboxManager - .get_client_event_inbox()")
+class TestInboxManagerGetClientEventInbox(object):
+    @pytest.mark.it("Returns an inbox")
+    def test_returns_inbox(self, manager, inbox_type):
+        ce_inbox = manager.get_client_event_inbox()
+        assert isinstance(ce_inbox, inbox_type)
+
+    @pytest.mark.it("Returns the same inbox when called multiple times")
+    def test_called_multiple_times_returns_same_inbox(self, manager):
+        ce_inbox_ref1 = manager.get_client_event_inbox()
+        ce_inbox_ref2 = manager.get_client_event_inbox()
+        assert ce_inbox_ref1 is ce_inbox_ref2
 
 
 @pytest.mark.describe("InboxManager - .clear_all_method_requests()")
