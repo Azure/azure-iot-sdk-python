@@ -218,6 +218,7 @@ class PipelineRootStage(PipelineStage):
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
+        self.on_new_sastoken_required_handler = None
         self.connected = False
         self.pipeline_configuration = pipeline_configuration
 
@@ -255,6 +256,7 @@ class PipelineRootStage(PipelineStage):
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
+        # Base events that are common to all pipelines are handled here
         if isinstance(event, pipeline_events_base.ConnectedEvent):
             logger.debug(
                 "{}: ConnectedEvent received. Calling on_connected_handler".format(self.name)
@@ -271,6 +273,19 @@ class PipelineRootStage(PipelineStage):
             if self.on_disconnected_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_disconnected_handler)()
 
+        elif isinstance(event, pipeline_events_base.NewSasTokenRequiredEvent):
+            logger.debug(
+                "{}: NewSasTokenRequiredEvent received. Calling on_new_sastoken_required_handler".format(
+                    self.name
+                )
+            )
+            if self.on_new_sastoken_required_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(
+                    self.on_new_sastoken_required_handler
+                )()
+
+        # Events that are domain-specific and unique to each pipeline are handled by the provided
+        # domain-specific .on_pipeline_event_handler
         else:
             if self.on_pipeline_event_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(self.on_pipeline_event_handler)(

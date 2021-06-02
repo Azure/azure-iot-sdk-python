@@ -139,11 +139,11 @@ class AbstractIoTHubClient(object):
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
 
-    # def _on_new_sastoken_required(self):
-    #     logger.info("New SasToken required from user")
-    #     client_event_inbox = self._inbox_manager.get_client_event_inbox()
-    #     event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
-    #     client_event_inbox.put(event)
+    def _on_new_sastoken_required(self):
+        logger.info("New SasToken required from user")
+        client_event_inbox = self._inbox_manager.get_client_event_inbox()
+        event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
+        client_event_inbox.put(event)
 
     def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""
@@ -424,13 +424,13 @@ class AbstractIoTHubClient(object):
     def on_connection_state_change(self, value):
         self._handler_manager.on_connection_state_change = value
 
-    # @property
-    # def on_new_sastoken_required(self):
-    #     return self._handler_manager.on_new_sastoken_required
+    @property
+    def on_new_sastoken_required(self):
+        return self._handler_manager.on_new_sastoken_required
 
-    # @on_new_sastoken_required.setter
-    # def on_new_sastoken_required(self, value):
-    #     self._handler_manager.on_new_sastoken_required = value
+    @on_new_sastoken_required.setter
+    def on_new_sastoken_required(self, value):
+        self._handler_manager.on_new_sastoken_required = value
 
     # @property
     # def on_background_exception(self):

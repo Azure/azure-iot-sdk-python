@@ -83,9 +83,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
         self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
-        # self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
-        #     self, "_on_new_sastoken_required"
-        # )
+        self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
+            self, "_on_new_sastoken_required"
+        )
 
         # Set pipeline handlers for data receives
         self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(

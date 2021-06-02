@@ -82,6 +82,7 @@ class TestMQTTPipelineInstantiation(object):
         pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline.on_connected is None
         assert pipeline.on_disconnected is None
+        assert pipeline.on_new_sastoken_required is None
         assert pipeline.on_c2d_message_received is None
         assert pipeline.on_input_message_received is None
         assert pipeline.on_method_request_received is None
@@ -889,7 +890,7 @@ class TestMQTTPipelineDisableFeature(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: Connected")
-class TestMQTTPipelineEVENTConnect(object):
+class TestMQTTPipelineOCCURANCEConnect(object):
     @pytest.mark.it("Triggers the 'on_connected' handler")
     def test_with_handler(self, mocker, pipeline):
         # Set the handler
@@ -911,7 +912,7 @@ class TestMQTTPipelineEVENTConnect(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: Disconnected")
-class TestMQTTPipelineEVENTDisconnect(object):
+class TestMQTTPipelineOCCURANCEDisconnect(object):
     @pytest.mark.it("Triggers the 'on_disconnected' handler")
     def test_with_handler(self, mocker, pipeline):
         # Set the handler
@@ -919,7 +920,7 @@ class TestMQTTPipelineEVENTDisconnect(object):
         pipeline.on_disconnected = mock_handler
         assert mock_handler.call_count == 0
 
-        # Trigger the connect
+        # Trigger the disconnect
         pipeline._pipeline.on_disconnected_handler()
 
         assert mock_handler.call_count == 1
@@ -932,8 +933,30 @@ class TestMQTTPipelineEVENTDisconnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
+@pytest.mark.describe("MQTTPipeline - OCCURANCE: New Sastoken Required")
+class TestMQTTPipelineOCCURANCENewSastokenRequired(object):
+    @pytest.mark.it("Triggers the 'on_new_sastoken_required' handler")
+    def test_with_handler(self, mocker, pipeline):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_new_sastoken_required = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Trigger the event
+        pipeline._pipeline.on_new_sastoken_required_handler()
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call()
+
+    @pytest.mark.it("Does nothing if the 'on_new_sastoken_required' handler is not set")
+    def test_without_handler(self, pipeline):
+        pipeline._pipeline.on_new_sastoken_required_handler()
+
+        # No assertions required - not throwing an exception means the test passed
+
+
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: C2D Message Received")
-class TestMQTTPipelineEVENTRecieveC2DMessage(object):
+class TestMQTTPipelineOCCURANCERecieveC2DMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_c2d_message_received' handler, passing the received message as an argument"
     )
@@ -961,7 +984,7 @@ class TestMQTTPipelineEVENTRecieveC2DMessage(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: Input Message Received")
-class TestMQTTPipelineEVENTReceiveInputMessage(object):
+class TestMQTTPipelineOCCURANCEReceiveInputMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_input_message_received' handler, passing the received message as an argument"
     )
@@ -993,7 +1016,7 @@ class TestMQTTPipelineEVENTReceiveInputMessage(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: Method Request Received")
-class TestMQTTPipelineEVENTReceiveMethodRequest(object):
+class TestMQTTPipelineOCCURANCEReceiveMethodRequest(object):
     @pytest.mark.it(
         "Triggers the 'on_method_request_received' handler, passing the received method request as an argument"
     )
@@ -1023,7 +1046,7 @@ class TestMQTTPipelineEVENTReceiveMethodRequest(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURANCE: Twin Desired Properties Patch Received")
-class TestMQTTPipelineEVENTReceiveDesiredPropertiesPatch(object):
+class TestMQTTPipelineOCCURANCEReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it(
         "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"
     )

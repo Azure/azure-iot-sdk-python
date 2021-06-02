@@ -92,6 +92,11 @@ class PipelineRootStageInstantiationTests(PipelineRootStageTestConfig):
         stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
         assert stage.on_disconnected_handler is None
 
+    @pytest.mark.it("Initializes 'on_new_sastoken_required_handler' as None")
+    def test_on_new_sastoken_required_handler(self, init_kwargs):
+        stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
+        assert stage.on_new_sastoken_required_handler is None
+
     @pytest.mark.it("Initializes 'connected' as False")
     def test_connected(self, init_kwargs):
         stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
@@ -179,7 +184,7 @@ class TestPipelineRootStageHandlePipelineEventWithConnectedEvent(
         mock_handler = mocker.MagicMock()
         stage.on_connected_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # CT-TODO / BK-TODO: get rid of this
+        time.sleep(0.1)  # Needs a brief sleep so thread can switch
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -205,7 +210,27 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
         mock_handler = mocker.MagicMock()
         stage.on_disconnected_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # CT-TODO / BK-TODO: get rid of this
+        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call()
+
+
+@pytest.mark.describe(
+    "PipelinerootStage - .handle_pipeline_event() -- Called with NewSasTokenRequiredEvent"
+)
+class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
+    PipelineRootStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def event(self):
+        return pipeline_events_base.NewSasTokenRequiredEvent()
+
+    @pytest.mark.it("Invokes the 'on_new_sastoken_required_handler' handler function, if set")
+    def test_invoke_handler(self, mocker, stage, event):
+        mock_handler = mocker.MagicMock()
+        stage.on_new_sastoken_required_handler = mock_handler
+        stage.handle_pipeline_event(event)
+        time.sleep(0.1)  # Needs a brief sleep so thread can switch
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
 
@@ -225,7 +250,7 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
         mock_handler = mocker.MagicMock()
         stage.on_pipeline_event_handler = mock_handler
         stage.handle_pipeline_event(event)
-        time.sleep(0.1)  # CT-TODO/BK-TODO: get rid of this
+        time.sleep(0.1)  # Needs a brief sleep so thread can switch
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call(event)
 
