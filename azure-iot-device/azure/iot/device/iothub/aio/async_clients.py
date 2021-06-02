@@ -79,9 +79,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
         self._handler_manager = async_handler_manager.AsyncHandlerManager(self._inbox_manager)
 
-        # Set pipeline handlers
+        # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = self._on_connected
         self._mqtt_pipeline.on_disconnected = self._on_disconnected
+        # self._mqtt_pipeline.on_new_sastoken_required = self._on_new_sastoken_required
+
+        # Set pipeline handlers for data receives
         self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
         self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
@@ -137,8 +140,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Initiating client shutdown")
         # Note that client disconnect does the following:
         #   - Disconnects the pipeline
-        #   - Resolves all pending handler calls
-        #   - Stops handler threads
+        #   - Resolves all pending receiver handler calls
+        #   - Stops receiver handler threads
         await self.disconnect()
 
         # Note that shutting down does the following:
@@ -150,6 +153,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await shutdown_async(callback=callback)
         await handle_result(callback)
         logger.debug("Completed pipeline shutdown operation")
+
+        # Stop the Client Event handlers now that everything else is completed
+        self._handler_manager.stop(receiver_handlers_only=False)
 
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you
         # consider that the client-level disconnect causes two pipeline-level disconnects for
@@ -211,7 +217,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Note that in the process of stopping the handlers and resolving pending calls
         # a user-supplied handler may cause a reconnection to occur
         logger.debug("Stopping handlers...")
-        self._handler_manager.stop()
+        self._handler_manager.stop(receiver_handlers_only=True)
         logger.debug("Successfully stopped handlers")
 
         # Disconnect again to ensure disconnection has ocurred due to the issue mentioned above
@@ -460,7 +466,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    def _generic_handler_setter(self, handler_name, feature_name, new_handler):
+    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
         self._check_receive_mode_is_handler()
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)
@@ -494,7 +500,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
-        self._generic_handler_setter(
+        self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", constant.TWIN_PATCHES, value
         )
 
@@ -508,7 +514,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_method_request_received.setter
     def on_method_request_received(self, value):
-        self._generic_handler_setter("on_method_request_received", constant.METHODS, value)
+        self._generic_receive_handler_setter("on_method_request_received", constant.METHODS, value)
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -605,7 +611,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
     @on_message_received.setter
     def on_message_received(self, value):
-        self._generic_handler_setter("on_message_received", constant.C2D_MSG, value)
+        self._generic_receive_handler_setter("on_message_received", constant.C2D_MSG, value)
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -729,4 +735,4 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     @on_message_received.setter
     def on_message_received(self, value):
-        self._generic_handler_setter("on_message_received", constant.INPUT_MSG, value)
+        self._generic_receive_handler_setter("on_message_received", constant.INPUT_MSG, value)

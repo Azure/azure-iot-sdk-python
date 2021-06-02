@@ -28,6 +28,7 @@ class InboxManager(object):
         self.unified_message_inbox = self._create_inbox()
         self.generic_method_request_inbox = self._create_inbox()
         self.twin_patch_inbox = self._create_inbox()
+        self.client_event_inbox = self._create_inbox()
 
         # These inboxes are used only for non-unified receives, using APIs which are now
         # deprecated on the client. However we need to keep them functional for backwards
@@ -40,8 +41,7 @@ class InboxManager(object):
         self.use_unified_msg_mode = False
 
     def get_unified_message_inbox(self):
-        """Retrieve the Inbox for all messages (C2D and Input)
-        """
+        """Retrieve the Inbox for all messages (C2D and Input)"""
         return self.unified_message_inbox
 
     def get_input_message_inbox(self, input_name):
@@ -97,9 +97,15 @@ class InboxManager(object):
         """
         return self.twin_patch_inbox
 
-    def clear_all_method_requests(self):
-        """Delete all method requests currently in inboxes.
+    def get_client_event_inbox(self):
+        """Retrieve the Inbox for events that occur within the client
+
+        :returns: An Inbox for client events
         """
+        return self.client_event_inbox
+
+    def clear_all_method_requests(self):
+        """Delete all method requests currently in inboxes."""
         self.generic_method_request_inbox.clear()
         for inbox in self.named_method_request_inboxes.values():
             inbox.clear()
@@ -114,12 +120,12 @@ class InboxManager(object):
 
         :param incoming_message: The message to be routed.
 
-        :returns: Boolean indicating if message was successfuly routed or not.
+        :returns: Boolean indicating if message was successfully routed or not.
         """
         input_name = incoming_message.input_name
         if self.use_unified_msg_mode:
             # Put in the unified message inbox if in simplified mode
-            self.unified_message_inbox._put(incoming_message)
+            self.unified_message_inbox.put(incoming_message)
             return True
         else:
             # If not in simplified mode, get a specific inbox for the input
@@ -131,7 +137,7 @@ class InboxManager(object):
                 )
                 return False
             else:
-                inbox._put(incoming_message)
+                inbox.put(incoming_message)
                 logger.debug("Input message sent to {} inbox".format(input_name))
                 return True
 
@@ -148,10 +154,10 @@ class InboxManager(object):
         """
         if self.use_unified_msg_mode:
             # Put in the unified message inbox if in simplified mode
-            self.unified_message_inbox._put(incoming_message)
+            self.unified_message_inbox.put(incoming_message)
             return True
         else:
-            self.c2d_message_inbox._put(incoming_message)
+            self.c2d_message_inbox.put(incoming_message)
             logger.debug("C2D message sent to inbox")
             return True
 
@@ -169,7 +175,7 @@ class InboxManager(object):
             inbox = self.named_method_request_inboxes[incoming_method_request.name]
         except KeyError:
             inbox = self.generic_method_request_inbox
-        inbox._put(incoming_method_request)
+        inbox.put(incoming_method_request)
         return True
 
     def route_twin_patch(self, incoming_patch):
@@ -179,6 +185,6 @@ class InboxManager(object):
 
         :returns: Boolean indicating if patch was successfully routed or not.
         """
-        self.twin_patch_inbox._put(incoming_patch)
+        self.twin_patch_inbox.put(incoming_patch)
         logger.debug("twin patch message sent to inbox")
         return True
