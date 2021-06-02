@@ -40,6 +40,8 @@ for i in range(1, 6):
     msg.message_id = uuid.uuid4()
     msg.correlation_id = "correlation-1234"
     msg.custom_properties["tornado-warning"] = "yes"
+    msg.content_encoding = "utf-8"
+    msg.content_type = "application/json"
     device_client.send_message(msg)
     time.sleep(1)
 
@@ -50,5 +52,5 @@ for i in range(6, 11):
     time.sleep(1)
 
 
-# finally, disconnect
-device_client.disconnect()
+# finally, shut down the client
+device_client.shutdown()

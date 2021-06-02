@@ -33,7 +33,7 @@ paho_rc_to_error = {
     mqtt.MQTT_ERR_NOMEM: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_PROTOCOL: exceptions.ProtocolClientError,
     mqtt.MQTT_ERR_INVAL: exceptions.ProtocolClientError,
-    mqtt.MQTT_ERR_NO_CONN: exceptions.ConnectionDroppedError,
+    mqtt.MQTT_ERR_NO_CONN: exceptions.NoConnectionError,
     mqtt.MQTT_ERR_CONN_REFUSED: exceptions.ConnectionFailedError,
     mqtt.MQTT_ERR_NOT_FOUND: exceptions.ConnectionFailedError,
     mqtt.MQTT_ERR_CONN_LOST: exceptions.ConnectionDroppedError,
@@ -210,7 +210,7 @@ class MQTTTransport(object):
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
                 if this:
-                    this._cleanup_transport_on_error()
+                    this._force_transport_disconnect_and_cleanup()
 
             if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
@@ -282,7 +282,7 @@ class MQTTTransport(object):
         logger.debug("Created MQTT protocol client, assigned callbacks")
         return mqtt_client
 
-    def _cleanup_transport_on_error(self):
+    def _force_transport_disconnect_and_cleanup(self):
         """
         After disconnecting because of an error, Paho was designed to keep the loop running and
         to try reconnecting after the reconnect interval. We don't want Paho to reconnect because
@@ -353,6 +353,14 @@ class MQTTTransport(object):
 
         return ssl_context
 
+    def shutdown(self):
+        """Shut down the transport. This is (currently) irreversible."""
+        # Remove the disconnect handler from Paho. We don't want to trigger any events in response
+        # to the shutdown and confuse the higher level layers of code. Just end it.
+        self._mqtt_client.on_disconnect = None
+        # Now disconnect and do some additional cleanup.
+        self._force_transport_disconnect_and_cleanup()
+
     def connect(self, password=None):
         """
         Connect to the MQTT broker, using hostname and username set at instantiation.
@@ -387,7 +395,7 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=self._keep_alive
                 )
         except socket.error as e:
-            self._cleanup_transport_on_error()
+            self._force_transport_disconnect_and_cleanup()
 
             # Only this type will raise a special error
             # To stop it from retrying.
@@ -409,7 +417,7 @@ class MQTTTransport(object):
                 raise exceptions.ConnectionFailedError(cause=e)
 
         except socks.ProxyError as pe:
-            self._cleanup_transport_on_error()
+            self._force_transport_disconnect_and_cleanup()
 
             if isinstance(pe, socks.SOCKS5AuthError):
                 raise exceptions.UnauthorizedError(cause=pe)
@@ -417,7 +425,7 @@ class MQTTTransport(object):
                 raise exceptions.ProtocolProxyError(cause=pe)
 
         except Exception as e:
-            self._cleanup_transport_on_error()
+            self._force_transport_disconnect_and_cleanup()
 
             raise exceptions.ProtocolClientError(
                 message="Unexpected Paho failure during connect", cause=e
@@ -428,7 +436,7 @@ class MQTTTransport(object):
             raise _create_error_from_rc_code(rc)
         self._mqtt_client.loop_start()
 
-    def disconnect(self):
+    def disconnect(self, clear_pending=False):
         """
         Disconnect from the MQTT broker.
 
@@ -455,6 +463,13 @@ class MQTTTransport(object):
             # to this error.
             err = _create_error_from_rc_code(rc)
             raise err
+        else:
+            # Clear pending ops if instructed, but only if the disconnect was successful.
+            # Technically the disconnect could still fail upon response, however that would then
+            # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
+            # ops here and now.
+            if clear_pending:
+                self._op_manager.cancel_all_operations()
 
     def subscribe(self, topic, qos=1, callback=None):
         """
@@ -646,3 +661,32 @@ class OperationManager(object):
             else:
                 # fully expected.  QOS=1 means we might get 2 PUBACKs
                 logger.debug("No callback set for MID: {}".format(mid))
+
+    def cancel_all_operations(self):
+        """Complete all pending operations with cancellation, removing MID tracking"""
+        logger.debug("Cancelling all pending operations")
+        with self._lock:
+            # Clear pending operations
+            pending_ops = list(self._pending_operation_callbacks.items())
+            for pending_op in pending_ops:
+                mid = pending_op[0]
+                del self._pending_operation_callbacks[mid]
+
+            # Clear unknown responses
+            unknown_mids = [mid for mid in self._unknown_operation_completions]
+            for mid in unknown_mids:
+                del self._unknown_operation_completions[mid]
+
+        # Trigger cancel in pending operation callbacks
+        for pending_op in pending_ops:
+            mid = pending_op[0]
+            callback = pending_op[1]
+            if callback:
+                logger.debug("Cancelling {} - Triggering callback".format(mid))
+                try:
+                    callback(cancelled=True)
+                except Exception:
+                    logger.error("Unexpected error calling callback for MID: {}".format(mid))
+                    logger.error(traceback.format_exc())
+            else:
+                logger.debug("Cancelling {} - No callback set for MID".format(mid))

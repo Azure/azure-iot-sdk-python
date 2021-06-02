@@ -42,5 +42,5 @@ while True:
         print("Quitting...")
         break
 
-# finally, disconnect
-module_client.disconnect()
+# finally, shut down the client
+module_client.shutdown()

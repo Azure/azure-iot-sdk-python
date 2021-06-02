@@ -79,7 +79,9 @@ def add_base_pipeline_stage_tests(
 
     @pytest.mark.describe("{} - .send_op_down()".format(stage_class_under_test.__name__))
     class StageSendOpDownTests(StageTestConfig):
-        @pytest.mark.it("Completes the op with failure (PipelineError) if there is no next stage")
+        @pytest.mark.it(
+            "Completes the op with failure (PipelineRuntimeError) if there is no next stage"
+        )
         def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
             stage.next = None
 
@@ -88,7 +90,7 @@ def add_base_pipeline_stage_tests(
             stage.send_op_down(arbitrary_op)
 
             assert arbitrary_op.completed
-            assert type(arbitrary_op.error) is pipeline_exceptions.PipelineError
+            assert type(arbitrary_op.error) is pipeline_exceptions.PipelineRuntimeError
 
         @pytest.mark.it("Passes the op to the next stage's .run_op() method")
         def test_passes_op_to_next_stage(self, mocker, stage, arbitrary_op):
@@ -107,7 +109,7 @@ def add_base_pipeline_stage_tests(
             assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
         @pytest.mark.it(
-            "Sends a PipelineError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
+            "Sends a PipelineRuntimeError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
         )
         def test_no_previous_stage(self, stage, arbitrary_event, mocker):
             stage.previous = None
@@ -118,7 +120,7 @@ def add_base_pipeline_stage_tests(
             assert handle_exceptions.handle_background_exception.call_count == 1
             assert (
                 type(handle_exceptions.handle_background_exception.call_args[0][0])
-                == pipeline_exceptions.PipelineError
+                == pipeline_exceptions.PipelineRuntimeError
             )
 
     setattr(

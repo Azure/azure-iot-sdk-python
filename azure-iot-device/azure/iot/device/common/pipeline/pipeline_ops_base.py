@@ -220,6 +220,14 @@ class InitializePipelineOperation(PipelineOperation):
     pass
 
 
+class ShutdownPipelineOperation(PipelineOperation):
+    """
+    A PipelineOperation for doing teardown of the pipeline.
+    """
+
+    pass
+
+
 class ConnectOperation(PipelineOperation):
     """
     A PipelineOperation object which tells the pipeline to connect to whatever service it needs to connect to.

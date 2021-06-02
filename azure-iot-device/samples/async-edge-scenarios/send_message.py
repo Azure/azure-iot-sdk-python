@@ -15,10 +15,10 @@ messages_to_send = 10
 
 async def main():
     # The client object is used to interact with your Azure IoT hub.
-    device_client = IoTHubModuleClient.create_from_edge_environment()
+    module_client = IoTHubModuleClient.create_from_edge_environment()
 
     # Connect the client.
-    await device_client.connect()
+    await module_client.connect()
 
     async def send_test_message(i):
         print("sending message #" + str(i))
@@ -26,14 +26,14 @@ async def main():
         msg.message_id = uuid.uuid4()
         msg.correlation_id = "correlation-1234"
         msg.custom_properties["tornado-warning"] = "yes"
-        await device_client.send_message(msg)
+        await module_client.send_message(msg)
         print("done sending message #" + str(i))
 
     # send `messages_to_send` messages in parallel
     await asyncio.gather(*[send_test_message(i) for i in range(1, messages_to_send + 1)])
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await module_client.shutdown()
 
 
 if __name__ == "__main__":

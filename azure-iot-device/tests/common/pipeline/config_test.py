@@ -283,3 +283,31 @@ class PipelineConfigInstantiationTestBase(object):
     def test_keep_alive_invalid(self, mocker, required_kwargs, config_cls, sastoken, keep_alive):
         with pytest.raises(ValueError):
             config_cls(sastoken=sastoken, keep_alive=keep_alive, **required_kwargs)
+
+    @pytest.mark.it(
+        "Instantiates with the 'auto_connect' attribute set to the provided 'auto_connect' parameter"
+    )
+    def test_auto_connect_set(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, auto_connect=False, **required_kwargs)
+        assert config.auto_connect is False
+
+    @pytest.mark.it(
+        "Instantiates with the 'auto_connect' attribute set to 'None' if no 'auto_connect' parameter is provided"
+    )
+    def test_auto_connect_default(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, **required_kwargs)
+        assert config.auto_connect is True
+
+    @pytest.mark.it(
+        "Instantiates with the 'connection_retry' attribute set to the provided 'connection_retry' parameter"
+    )
+    def test_connection_retry_set(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, connection_retry=False, **required_kwargs)
+        assert config.connection_retry is False
+
+    @pytest.mark.it(
+        "Instantiates with the 'connection_retry' attribute set to 'True' if no 'connection_retry' parameter is provided"
+    )
+    def test_connection_retry_default(self, config_cls, required_kwargs, sastoken):
+        config = config_cls(sastoken=sastoken, **required_kwargs)
+        assert config.connection_retry is True

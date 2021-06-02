@@ -67,7 +67,6 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
@@ -78,9 +77,7 @@ setup(
         # https://github.com/pypa/pip/issues/988
         # ---requests dependencies---
         # requests 2.22+ does not support urllib3 1.25.0 or 1.25.1 (https://github.com/psf/requests/pull/5092)
-        # requests 2.22+ is not compatible with python34, so we must use 2.20 which is only compat w/ urllib < 1.25
-        "urllib3>1.21.1,<1.26,!=1.25.0,!=1.25.1;python_version!='3.4'",
-        "urllib3>1.21.1,<1.25;python_version=='3.4'",
+        "urllib3>1.21.1,<1.27,!=1.25.0,!=1.25.1",
         # Actual project dependencies
         "deprecation>=2.1.0,<3.0.0",
         "six>=1.12.0,<2.0.0",
@@ -93,7 +90,7 @@ setup(
         "win-inet-pton;python_version == '2.7'",
     ],
     extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
-    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
+    python_requires=">=2.7.9, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.0, !=3.5.1, !=3.5.2, <4",
     packages=find_packages(
         exclude=[
             "tests",

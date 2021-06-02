@@ -27,7 +27,7 @@ device_info_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceI
 # The device "TemperatureController" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
 # and the name user wants to call this Plug and Play device
-model_id = "dtmi:com:example:TemperatureController;1"
+model_id = "dtmi:com:example:TemperatureController;2"
 
 # the components inside this Plug and Play device.
 # there can be multiple components from 1 interface
@@ -412,8 +412,8 @@ async def main():
 
     send_telemetry_task.cancel()
 
-    # finally, disconnect
-    await device_client.disconnect()
+    # Finally, shut down the client
+    await device_client.shutdown()
 
 
 #####################################################

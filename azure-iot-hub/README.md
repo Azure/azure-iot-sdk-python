@@ -23,7 +23,10 @@ Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python
 
 ## Getting help and finding API docs
 
-Our SDK makes use of docstrings which means you can find API documentation directly through Python with use of the [help](https://docs.python.org/3/library/functions.html#help) command:
+
+API documentation for this package is available via [Microsoft Docs](https://docs.microsoft.com/python/api/azure-iot-hub/azure.iot.hub?view=azure-python)
+
+Additionally, the SDK makes use of docstrings which means you can find API documentation directly through Python with use of the [help](https://docs.python.org/3/library/functions.html#help) command:
 
 ```python
 >>> from azure.iot.hub import IoTHubRegistryManager

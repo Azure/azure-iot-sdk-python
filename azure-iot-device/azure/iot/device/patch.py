@@ -140,3 +140,26 @@ def add_shims_for_inherited_methods(target_class):
     # NOTE: the __qualname__ attributes of these new shim methods are merely the method name,
     # rather than <class_name>.<method_name>, due to the scoping of the definition.
     # This shouldn't matter, but in case it does, I am documenting that fact here.
+
+    # For properties, we have a different strategy. While with methods we dynamically created
+    # redefinitions for each inherited method that called the parent class' implementation of the
+    # method, here we simply set the inherited property attribute directly onto the child.
+    # This will carry over all docstrings implicitly.
+    # We do this because properties, while defined syntactically via methods, actually are not
+    # methods directly on a class, but form a "property" object, which itself contains the
+    # get and set logic. Thus our strategy for methods can't really work here.
+    class_properties = inspect.getmembers(target_class, predicate=inspect.isdatadescriptor)
+    for prop in class_properties:
+        property_name = prop[0]
+        # We can index on 0 here because the list comprehension will always be exactly 1 element
+        property_attribute = [att for att in class_attributes if att.name == property_name][0]
+        # The object of the class where the property was originally defined.
+        originating_class_obj = property_attribute.defining_class
+
+        # Simply redefine the same property on the leaf class if it was defined on a parent
+        if property_name[0] != "_" and originating_class_obj != target_class:
+            attach_property_cmdstr = "setattr({leaf_class}, '{property_name}', {leaf_class}.{property_name})".format(
+                leaf_class=classname_alias, property_name=property_name
+            )
+            logger.debug("exec: " + attach_property_cmdstr)
+            # exec(attach_property_cmdstr, shim_scope)

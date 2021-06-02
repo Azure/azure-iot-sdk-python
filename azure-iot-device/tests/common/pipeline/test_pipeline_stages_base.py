@@ -13,7 +13,7 @@ import threading
 import random
 import uuid
 from six.moves import queue
-from azure.iot.device.common import transport_exceptions, handle_exceptions
+from azure.iot.device.common import transport_exceptions, handle_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
@@ -42,6 +42,11 @@ fake_expiry = 12321312
 @pytest.fixture
 def mock_timer(mocker):
     return mocker.patch.object(threading, "Timer")
+
+
+@pytest.fixture
+def mock_alarm(mocker):
+    return mocker.patch.object(alarm, "Alarm")
 
 
 # Not a fixture, but useful for sharing
@@ -129,7 +134,7 @@ class TestPipelineRootStageAppendStage(PipelineRootStageTestConfig):
         assert stage.previous is None
         prev_tail = stage
         root = stage
-        for i in range(0, pipeline_len):
+        for _ in range(0, pipeline_len):
             new_stage = ArbitraryStage()
             stage.append_stage(new_stage)
             assert prev_tail.next is new_stage
@@ -262,10 +267,10 @@ class SasTokenRenewalStageTestConfig(object):
 
 
 class SasTokenRenewalStageInstantationTests(SasTokenRenewalStageTestConfig):
-    @pytest.mark.it("Initializes with the token renewal timer set to 'None'")
+    @pytest.mark.it("Initializes with the token renewal alarm set to 'None'")
     def test_token_renewal_timer(self, init_kwargs):
         stage = pipeline_stages_base.SasTokenRenewalStage(**init_kwargs)
-        assert stage._token_renewal_timer is None
+        assert stage._token_renewal_alarm is None
 
     @pytest.mark.it("Uses 120 seconds as the Renewal Margin by default")
     def test_renewal_margin(self, init_kwargs):
@@ -294,71 +299,50 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
     def op(self, mocker):
         return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
 
-    @pytest.mark.it("Cancels any existing token renewal timer that may have been set")
-    def test_cancels_existing_timer(self, mocker, stage, op):
-        mock_timer = mocker.MagicMock()
-        stage._token_renewal_timer = mock_timer
+    @pytest.mark.it("Cancels any existing token renewal alarm that may have been set")
+    def test_cancels_existing_alarm(self, mocker, mock_alarm, stage, op):
+        stage._token_renewal_alarm = mock_alarm
 
         stage.run_op(op)
 
-        assert mock_timer.cancel.call_count == 1
-        assert mock_timer.cancel.call_args == mocker.call()
+        assert mock_alarm.cancel.call_count == 1
+        assert mock_alarm.cancel.call_args == mocker.call()
 
-    @pytest.mark.it("Resets the token renewal timer to None until a new one is set")
-    # Edge case, since unless something goes wrong, the timer WILL be set, and it's like
+    @pytest.mark.it("Resets the token renewal alarm to None until a new one is set")
+    # Edge case, since unless something goes wrong, the alarm WILL be set, and it's like
     # it was never set to None.
-    def test_timer_set_to_none_in_intermediate(
-        self, mocker, stage, op, mock_timer, arbitrary_exception
+    def test_alarm_set_to_none_in_intermediate(
+        self, mocker, stage, op, mock_alarm, arbitrary_exception
     ):
-        # Set an existing timer
-        stage._token_renewal_timer = mocker.MagicMock()
+        # Set an existing alarm
+        stage._token_renewal_alarm = mocker.MagicMock()
 
-        # Set an error side effect on the timer creation, so when a new timer is created,
+        # Set an error side effect on the alarm creation, so when a new alarm is created,
         # we have an unhandled error causing op failure and early exit
-        mock_timer.side_effect = arbitrary_exception
+        mock_alarm.side_effect = arbitrary_exception
 
         stage.run_op(op)
 
         assert op.complete
         assert op.error is arbitrary_exception
-        assert stage._token_renewal_timer is None
+        assert stage._token_renewal_alarm is None
 
     @pytest.mark.it(
-        "Starts a background renewal timer for 'Renewal Margin' number of seconds prior to SasToken expiration"
+        "Starts a background renewal alarm that will trigger 'Renewal Margin' number of seconds prior to SasToken expiration"
     )
-    def test_sets_timer(self, mocker, stage, op, mock_timer):
-        expected_timer_seconds = (
-            stage.pipeline_root.pipeline_configuration.sastoken.ttl
+    def test_sets_alarm(self, mocker, stage, op, mock_alarm):
+        expected_alarm_time = (
+            stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - pipeline_stages_base.SasTokenRenewalStage.DEFAULT_TOKEN_RENEWAL_MARGIN
         )
 
         stage.run_op(op)
 
-        assert mock_timer.call_count == 1
-        assert mock_timer.call_args[0][0] == expected_timer_seconds
-        assert mock_timer.return_value.daemon is True
-        assert mock_timer.return_value.start.call_count == 1
-        assert mock_timer.return_value.start.call_args == mocker.call()
-
-    @pytest.mark.it(
-        "Sends a PipelineError to the background exception handler and does not set a timer if the SasToken TTL is less than the Renewal Margin (time prior to token expiration triggering renew)"
-    )
-    def test_token_ttl_less_than_renewal_timer(self, mocker, stage, op, mock_timer):
-        # NOTE: this really shouldn't happen in regular flow. This is a total edge case, that is
-        # likely only possible if a bug exists elsewhere in the stack
-        stage.pipeline_root.pipeline_configuration.sastoken.ttl = (
-            pipeline_stages_base.SasTokenRenewalStage.DEFAULT_TOKEN_RENEWAL_MARGIN - 1
-        )
-        mocker.spy(handle_exceptions, "handle_background_exception")
-
-        stage.run_op(op)
-
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert isinstance(
-            handle_exceptions.handle_background_exception.call_args[0][0],
-            pipeline_exceptions.PipelineError,
-        )
-        assert mock_timer.call_count == 0
+        assert mock_alarm.call_count == 1
+        assert mock_alarm.call_args[0][0] == expected_alarm_time
+        assert mock_alarm.return_value.daemon is True
+        assert mock_alarm.return_value.start.call_count == 1
+        assert mock_alarm.return_value.start.call_args == mocker.call()
 
 
 @pytest.mark.describe(
@@ -373,7 +357,8 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
 
     @pytest.fixture(params=["NonRenewableSasToken", "No SAS Token Present"])
     def sastoken(self, request):
-        # Alternate SAS tokens required for these test cases
+        # This fixture overrides the sastoken fixture in the SasTokenRenewalStageTestConfig
+        # Alternate SAS tokens are required for these test cases
         if request.param == "NonRenewableSasToken":
             token_str = "SharedAccessSignature sr={resource}&sig={signature}&se={expiry}".format(
                 resource=fake_uri, signature=fake_signed_data, expiry=fake_expiry
@@ -383,19 +368,50 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
             sastoken = None
         return sastoken
 
-    @pytest.mark.it("Sends the operation down, WITHOUT setting a renewal timer")
-    def test_sends_op_down_no_timer(self, mocker, stage, op):
-        mock_timer = mocker.patch.object(threading, "Timer")
+    @pytest.mark.it("Sends the operation down, WITHOUT setting a renewal alarm")
+    def test_sends_op_down_no_alarm(self, mocker, stage, mock_alarm, op):
+        stage.run_op(op)
+
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+        assert stage._token_renewal_alarm is None
+        assert mock_alarm.call_count == 0
+
+
+@pytest.mark.describe("SasTokenRenewalStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestSasTokenRenewalStageRunOpWithShutdownPipelineOp(
+    SasTokenRenewalStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
+
+    @pytest.mark.it(
+        "Cancels the token renewal alarm, and then sends the operation down, if an alarm exists"
+    )
+    def test_with_timer(self, mocker, stage, op, mock_alarm):
+        stage._token_renewal_alarm = mock_alarm
+        assert mock_alarm.cancel.call_count == 0
+        assert stage.send_op_down.call_count == 0
+
+        stage.run_op(op)
+
+        assert mock_alarm.cancel.call_count == 1
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+    @pytest.mark.it("Simply sends the operation down if no alarm exists")
+    def test_no_timer(self, mocker, stage, op):
+        assert stage._token_renewal_alarm is None
+        assert stage.send_op_down.call_count == 0
 
         stage.run_op(op)
 
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
-        assert stage._token_renewal_timer is None
-        assert mock_timer.call_count == 0
 
 
-@pytest.mark.describe("SasTokenRenewalStage - OCCURANCE: SasToken Renewal Timer expires")
+@pytest.mark.describe("SasTokenRenewalStage - OCCURANCE: SasToken Alarm Timer expires")
 class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConfig):
     @pytest.fixture
     def op(self, mocker):
@@ -409,8 +425,8 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
             pytest.param(False, id="Pipeline not connected"),
         ],
     )
-    def test_refresh_token(self, stage, op, mock_timer, connected):
-        # Apply the timer
+    def test_refresh_token(self, stage, op, mock_alarm, connected):
+        # Apply the alarm
         stage.run_op(op)
 
         # Set connected state
@@ -419,11 +435,11 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
         # Token has not been refreshed
         token = stage.pipeline_root.pipeline_configuration.sastoken
         assert token.refresh.call_count == 0
-        assert mock_timer.call_count == 1
+        assert mock_alarm.call_count == 1
 
-        # Call timer complete callback (as if timer expired)
-        on_timer_complete = mock_timer.call_args[0][1]
-        on_timer_complete()
+        # Call alarm complete callback (as if alarm expired)
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
 
         # Token has now been refreshed
         assert token.refresh.call_count == 1
@@ -431,8 +447,8 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
     @pytest.mark.it(
         "Sends a ReauthorizeConnectionOperation down the pipeline if the pipeline is in a 'connected' state"
     )
-    def test_when_pipeline_connected(self, mocker, stage, op, mock_timer):
-        # Apply the timer and set stage as connected
+    def test_when_pipeline_connected(self, mocker, stage, op, mock_alarm):
+        # Apply the alarm and set stage as connected
         stage.pipeline_root.connected = True
         stage.run_op(op)
 
@@ -443,10 +459,10 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
         # Pipeline is still connected
         assert stage.pipeline_root.connected is True
 
-        # Call timer complete callback (as if timer expired)
-        assert mock_timer.call_count == 1
-        on_timer_complete = mock_timer.call_args[0][1]
-        on_timer_complete()
+        # Call alarm complete callback (as if alarm expired)
+        assert mock_alarm.call_count == 1
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
 
         # ReauthorizeConnectionOperation has now been sent down
         assert stage.send_op_down.call_count == 2
@@ -457,8 +473,8 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
     @pytest.mark.it(
         "Does NOT send a ReauthorizeConnectionOperation down the pipeline if the pipeline is NOT in a 'connected' state"
     )
-    def test_when_pipeline_not_connected(self, mocker, stage, op, mock_timer):
-        # Apply the timer and set stage as connected
+    def test_when_pipeline_not_connected(self, mocker, stage, op, mock_alarm):
+        # Apply the alarm and set stage as connected
         stage.pipeline_root.connected = False
         stage.run_op(op)
 
@@ -469,9 +485,9 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
         # Pipeline is still NOT connected
         assert stage.pipeline_root.connected is False
 
-        # Call timer complete callback (as if timer expired)
-        on_timer_complete = mock_timer.call_args[0][1]
-        on_timer_complete()
+        # Call alarm complete callback (as if alarm expired)
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
 
         # No further ops have been sent down
         assert stage.send_op_down.call_count == 1
@@ -480,18 +496,18 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
         "If the ReauthorizeConnectionOperation is later completed with an error, send the error to the background exception handler"
     )
     def test_reauth_op_error_goes_to_bkg_handler(
-        self, mocker, stage, op, mock_timer, arbitrary_exception
+        self, mocker, stage, op, mock_alarm, arbitrary_exception
     ):
         mocker.spy(handle_exceptions, "handle_background_exception")
 
-        # Apply the timer and set stage as connected
+        # Apply the alarm and set stage as connected
         stage.pipeline_root.connected = True
         stage.run_op(op)
 
-        # Call timer complete callback (as if timer expired)
-        assert mock_timer.call_count == 1
-        on_timer_complete = mock_timer.call_args[0][1]
-        on_timer_complete()
+        # Call alarm complete callback (as if alarm expired)
+        assert mock_alarm.call_count == 1
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
 
         # ReauthorizeConnectionOperation has now been sent down
         assert stage.send_op_down.call_count == 2
@@ -507,7 +523,7 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
             arbitrary_exception
         )
 
-    @pytest.mark.it("Begins a new SasToken renewal timer")
+    @pytest.mark.it("Begins a new SasToken renewal alarm")
     @pytest.mark.parametrize(
         "connected",
         [
@@ -517,30 +533,30 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
     )
     # I am sorry for this test length, but IDK how else to test this...
     # ... other than throwing everything at it at once
-    def test_new_timer(self, mocker, stage, op, mock_timer, connected):
+    def test_new_alarm(self, mocker, stage, op, mock_alarm, connected):
         token = stage.pipeline_root.pipeline_configuration.sastoken
 
         # Set connected state
         stage.pipeline_root.connected = connected
 
-        # Apply the timer
+        # Apply the alarm
         stage.run_op(op)
 
         # op was passed down
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
-        # Only one timer has been created and started. No cancellation.
-        assert mock_timer.call_count == 1
-        assert mock_timer.return_value.start.call_count == 1
-        assert mock_timer.return_value.cancel.call_count == 0
+        # Only one alarm has been created and started. No cancellation.
+        assert mock_alarm.call_count == 1
+        assert mock_alarm.return_value.start.call_count == 1
+        assert mock_alarm.return_value.cancel.call_count == 0
 
-        # Call timer complete callback (as if timer expired)
-        on_timer_complete = mock_timer.call_args[0][1]
-        on_timer_complete()
+        # Call alarm complete callback (as if alarm expired)
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
 
-        # Existing timer was cancelled
-        assert mock_timer.return_value.cancel.call_count == 1
+        # Existing alarm was cancelled
+        assert mock_alarm.return_value.cancel.call_count == 1
 
         # Token was refreshed
         assert token.refresh.call_count == 1
@@ -554,22 +570,22 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
         else:
             assert stage.send_op_down.call_count == 1
 
-        # Another timer was created and started for the expected time
-        assert mock_timer.call_count == 2
-        expected_timer_seconds = (
-            stage.pipeline_root.pipeline_configuration.sastoken.ttl
+        # Another alarm was created and started for the expected time
+        assert mock_alarm.call_count == 2
+        expected_alarm_time = (
+            stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - pipeline_stages_base.SasTokenRenewalStage.DEFAULT_TOKEN_RENEWAL_MARGIN
         )
-        assert mock_timer.call_args[0][0] == expected_timer_seconds
-        assert stage._token_renewal_timer is mock_timer.return_value
-        assert stage._token_renewal_timer.daemon is True
-        assert stage._token_renewal_timer.start.call_count == 2
-        assert stage._token_renewal_timer.start.call_args == mocker.call()
+        assert mock_alarm.call_args[0][0] == expected_alarm_time
+        assert stage._token_renewal_alarm is mock_alarm.return_value
+        assert stage._token_renewal_alarm.daemon is True
+        assert stage._token_renewal_alarm.start.call_count == 2
+        assert stage._token_renewal_alarm.start.call_args == mocker.call()
 
-        # When THAT timer expires, the token is refreshed, and the reauth is sent, etc. etc. etc.
+        # When THAT alarm expires, the token is refreshed, and the reauth is sent, etc. etc. etc.
         # ... recursion :)
-        new_on_timer_complete = mock_timer.call_args[0][1]
-        new_on_timer_complete()
+        new_on_alarm_complete = mock_alarm.call_args[0][1]
+        new_on_alarm_complete()
 
         assert token.refresh.call_count == 2
         if connected:
@@ -580,7 +596,7 @@ class TestSasTokenRenewalStageOCCURANCETimerExpires(SasTokenRenewalStageTestConf
         else:
             assert stage.send_op_down.call_count == 1
 
-        assert mock_timer.call_count == 3
+        assert mock_alarm.call_count == 3
         # .... and on and on for infinity
 
 
@@ -599,10 +615,16 @@ class AutoConnectStageTestConfig(object):
         return {}
 
     @pytest.fixture
-    def stage(self, mocker, cls_type, init_kwargs):
+    def pl_config(self, mocker):
+        pl_cfg = mocker.MagicMock()
+        pl_cfg.auto_connect = True
+        return pl_cfg
+
+    @pytest.fixture
+    def stage(self, mocker, pl_config, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
-            pipeline_configuration=mocker.MagicMock()
+            pipeline_configuration=pl_config
         )
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
@@ -999,6 +1021,47 @@ class TestAutoConnectStageRunOpWithOpThatDoesNotRequireConnection(
     @pytest.fixture
     def op(self, arbitrary_op):
         assert not arbitrary_op.needs_connection
+        return arbitrary_op
+
+    @pytest.mark.it(
+        "Sends the operation down the pipeline if the pipeline is in a 'connected' state"
+    )
+    def test_connected(self, mocker, stage, op):
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+    @pytest.mark.it(
+        "Sends the operation down the pipeline if the pipeline is in a 'disconnected' state"
+    )
+    def test_disconnected(self, mocker, stage, op):
+        assert not stage.pipeline_root.connected
+
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(op)
+
+
+@pytest.mark.describe(
+    "AutoConnectStage - .run_op() -- Called while pipeline configured to disable Auto Connect"
+)
+class TestAutoConnectStageRunOpWithAutoConnectDisabled(
+    AutoConnectStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def pl_config(self, mocker):
+        pl_cfg = mocker.MagicMock()
+        pl_cfg.auto_connect = False
+        return pl_cfg
+
+    @pytest.fixture(params=["Op requires connection", "Op does NOT require connection"])
+    def op(self, request, arbitrary_op):
+        if request.param == "Op requires connection":
+            arbitrary_op.needs_connection = True
+        else:
+            arbitrary_op.needs_connection = False
         return arbitrary_op
 
     @pytest.mark.it(
@@ -2530,7 +2593,7 @@ class TestRetryStageRetryableOperationCompletedWithRetryableError(RetryStageTest
 
 
 @pytest.mark.describe(
-    "RetryStage - OCCURANCE: Retryable operation completes unsucessfully with a non-retryable error after call to .run_op()"
+    "RetryStage - OCCURANCE: Retryable operation completes unsuccessfully with a non-retryable error after call to .run_op()"
 )
 class TestRetryStageRetryableOperationCompletedWithNonRetryableError(RetryStageTestConfig):
     @pytest.fixture(params=retryable_ops, ids=[x[0].__name__ for x in retryable_ops])
@@ -2622,9 +2685,9 @@ class TestRetryStageNonretryableOperationCompleted(RetryStageTestConfig):
         assert mock_timer.call_count == 0
 
     @pytest.mark.it(
-        "Completes normally without retry, if completed unsucessfully with a non-retryable exception"
+        "Completes normally without retry, if completed unsuccessfully with a non-retryable exception"
     )
-    def test_unsucessful_non_retryable_err(
+    def test_unsuccessful_non_retryable_err(
         self, mocker, stage, op, arbitrary_exception, mock_timer
     ):
         stage.run_op(op)
@@ -2635,10 +2698,10 @@ class TestRetryStageNonretryableOperationCompleted(RetryStageTestConfig):
         assert mock_timer.call_count == 0
 
     @pytest.mark.it(
-        "Completes normally without retry, if completed unsucessfully with a retryable exception"
+        "Completes normally without retry, if completed unsuccessfully with a retryable exception"
     )
     @pytest.mark.parametrize("exception", retryable_exceptions)
-    def test_unsucessful_retryable_err(self, mocker, stage, op, exception, mock_timer):
+    def test_unsuccessful_retryable_err(self, mocker, stage, op, exception, mock_timer):
         stage.run_op(op)
         op.complete(error=exception)
 
@@ -2688,11 +2751,6 @@ class ReconnectStageInstantiationTests(ReconnectStageTestConfig):
     def test_waiting_connect_ops(self, cls_type, init_kwargs):
         stage = cls_type(**init_kwargs)
         assert stage.waiting_connect_ops == []
-
-    @pytest.mark.it("Initializes the 'reconnect_delay' attribute/setting to 10 seconds")
-    def test_reconnect_delay(self, cls_type, init_kwargs):
-        stage = cls_type(**init_kwargs)
-        assert stage.reconnect_delay == 10
 
     @pytest.mark.it("Initializes the 'never_connected' attribute/setting to True")
     def test_never_connected(self, cls_type, init_kwargs):
@@ -2761,7 +2819,7 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
             pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED,
         ],
     )
-    @pytest.mark.it("adds the op to the waiting_connect_ops list")
+    @pytest.mark.it("Adds the op to the waiting_connect_ops list")
     def test_adds_to_waiting_connect_ops(
         self, stage, op, state, fake_waiting_connect_ops, never_connected
     ):
@@ -2781,7 +2839,7 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
             pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED,
         ],
     )
-    @pytest.mark.it("does not complete any waiting ops")
+    @pytest.mark.it("Does not complete any waiting ops")
     def test_does_not_complete_waiting_connect_ops(
         self, stage, op, state, fake_waiting_connect_ops, never_connected
     ):
@@ -3028,6 +3086,37 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
             assert op.original_callback.call_count == 0
 
 
+@pytest.mark.describe("ReconnectStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestReconnectStageRunOpWithShutdownPipelineOperation(
+    ReconnectStageTestConfig, StageRunOpTestBase
+):
+    @pytest.fixture
+    def op(self, mocker):
+        return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
+
+    @pytest.mark.it("Clears the reconnect timer, if it exists")
+    def test_with_reconnect_timer(self, stage, op, mock_timer):
+        stage.reconnect_timer = mock_timer
+        assert mock_timer.cancel.call_count == 0
+        stage.run_op(op)
+        assert mock_timer.cancel.call_count == 1
+
+    @pytest.mark.it("Sends the op down")
+    @pytest.mark.parametrize(
+        "has_timer",
+        [
+            pytest.param(True, id="Has reconnect timer"),
+            pytest.param(False, id="No set reconnect timer"),
+        ],
+    )
+    def test_sends_down(self, stage, op, mock_timer, has_timer):
+        if has_timer:
+            stage.reconnect_timer = mock_timer
+        assert stage.send_op_down.call_count == 0
+        stage.run_op(op)
+        assert stage.send_op_down.call_count == 1
+
+
 @pytest.mark.describe("ReconnectStage - .run_op() -- Called with arbitrary other operation")
 class TestReconnectStageRunOpWithArbitraryOperation(ReconnectStageTestConfig, StageRunOpTestBase):
     @pytest.fixture
@@ -3195,6 +3284,7 @@ class TestReconnectStageHandlePipelineEventWithConnectedEvent(
         assert mock_timer.call_count == 0
 
 
+# TODO: Should this be broken up into multiple test classes depending on state/config?
 @pytest.mark.describe(
     "ReconnectStage - .handle_pipeline_event() -- Called with a DisconnectedEvent"
 )
@@ -3224,13 +3314,27 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
     def never_connected(self, request):
         return request.param
 
-    @pytest.fixture(params=[True, False], ids=["currently connected", "currently disconnected"])
+    @pytest.fixture(params=[True, False], ids=["pipeline connected", "pipeline disconnected"])
     def currently_connected(self, request):
+        return request.param
+
+    @pytest.fixture(
+        params=[True, False], ids=["connection retry enabled", "connection retry disabled"]
+    )
+    def connection_retry_enabled(self, request):
         return request.param
 
     @pytest.fixture()
     def stage(
-        self, mocker, cls_type, init_kwargs, state, reconnect_timer, mock_timer, never_connected
+        self,
+        mocker,
+        cls_type,
+        init_kwargs,
+        state,
+        reconnect_timer,
+        mock_timer,
+        never_connected,
+        connection_retry_enabled,
     ):
         # mock_timer fixture is used here so none of these tests create an actual timer.
         stage = cls_type(**init_kwargs)
@@ -3249,27 +3353,40 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
     def event(self):
         return pipeline_events_base.DisconnectedEvent()
 
-    @pytest.mark.parametrize("state", [pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED])
     @pytest.mark.it(
-        "If and only if connected and logically connected, changes the state to WAITING_TO_RECONNECT"
+        "Changes the state to WAITING_TO_RECONNECT if (and only if) in a LOGICALLY_CONNECTED state while the pipeline is connected AND configured for connection retry"
     )
-    def test_changes_state(self, stage, event, state, currently_connected):
+    def test_changes_state(
+        self, stage, event, state, currently_connected, connection_retry_enabled
+    ):
         stage.pipeline_root.connected = currently_connected
+        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
         stage.handle_pipeline_event(event)
-        if currently_connected and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED:
+        if (
+            currently_connected
+            and connection_retry_enabled
+            and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+        ):
             assert stage.state == pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT
         else:
             assert stage.state == state
 
     @pytest.mark.it(
-        "If and only if connected and logically connected, clears the previous reconnect timer if there was one"
+        "Clears the previous reconnect timer (if there was one) if (and only if) in a LOGICALLY_CONNECTED state while the pipeline is connected AND configured for connection retry"
     )
-    def test_clears_reconnect_timer(self, stage, event, state, currently_connected):
+    def test_clears_reconnect_timer(
+        self, stage, event, state, currently_connected, connection_retry_enabled
+    ):
         stage.pipeline_root.connected = currently_connected
+        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
         old_timer = stage.reconnect_timer
         stage.handle_pipeline_event(event)
 
-        if currently_connected and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED:
+        if (
+            currently_connected
+            and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+            and connection_retry_enabled
+        ):
             if old_timer:
                 assert old_timer.cancel.call_count == 1
             assert stage.reconnect_timer is not old_timer
@@ -3279,13 +3396,20 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
             assert stage.reconnect_timer is old_timer
 
     @pytest.mark.it(
-        "If and only if connected and logically connected, sets a new reconnect timer for .01 seconds"
+        "Sets a new reconnect timer for .01 seconds if (and only if) in a LOGICALLY_CONNECTED state while the pipeline is connected AND configured for connection retry"
     )
-    def test_sets_new_reconnect_timer(self, stage, event, mock_timer, state, currently_connected):
+    def test_sets_new_reconnect_timer(
+        self, stage, event, mock_timer, state, currently_connected, connection_retry_enabled
+    ):
         stage.pipeline_root.connected = currently_connected
+        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
         old_reconnect_timer = stage.reconnect_timer
         stage.handle_pipeline_event(event)
-        if currently_connected and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED:
+        if (
+            currently_connected
+            and connection_retry_enabled
+            and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+        ):
             assert mock_timer.call_count == 1
             assert mock_timer.call_args[0][0] == 0.01
             assert stage.reconnect_timer is mock_timer.return_value
@@ -3507,6 +3631,8 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
         )
+        stage.pipeline_root.pipeline_configuration.connection_retry = True
+        stage.pipeline_root.pipeline_configuration.connection_retry_interval = 10
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
@@ -3734,7 +3860,7 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         assert stage.state == pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT
 
     @pytest.mark.it(
-        "Starts a new reconnect timer for 10 seconds if the connection fails with a transient error"
+        "Starts a new reconnect timer for set to the pipeline configuration's 'connection_retry_interval' if the connection fails with a transient error"
     )
     def test_starts_reconnect_timer_on_transient_connect_exception(
         self, stage, connect_op, state, transient_connect_exception, mock_timer
@@ -3743,5 +3869,8 @@ class TestReconnectStageConnectOperationForReconnectIsCompleted(ReconnectStageTe
         stage.never_connected = False
         connect_op.complete(error=transient_connect_exception)
         assert mock_timer.call_count == 1
-        assert mock_timer.call_args[0][0] == 10
+        assert (
+            mock_timer.call_args[0][0]
+            == stage.pipeline_root.pipeline_configuration.connection_retry_interval
+        )
         assert mock_timer.return_value.start.call_count == 1

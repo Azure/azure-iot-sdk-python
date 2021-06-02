@@ -24,10 +24,9 @@ class AbstractInbox:
     """
 
     @abstractmethod
-    def _put(self, item):
+    def put(self, item):
         """Put an item into the Inbox.
 
-        Implementation should block until a free slot is available.
         Implementation MUST be a synchronous function.
         Only to be used by the InboxManager.
 
@@ -56,8 +55,7 @@ class AbstractInbox:
 
     @abstractmethod
     def clear(self):
-        """Remove all items from the inbox.
-        """
+        """Remove all items from the inbox."""
         pass
 
 
@@ -76,10 +74,9 @@ class SyncClientInbox(AbstractInbox):
         with self._queue.mutex:
             return item in self._queue.queue
 
-    def _put(self, item):
+    def put(self, item):
         """Put an item into the inbox.
 
-        Block if necessary until a free slot is available.
         Only to be used by the InboxManager.
 
         :param item: The item to put in the inbox.
@@ -121,7 +118,6 @@ class SyncClientInbox(AbstractInbox):
         return self._queue.join()
 
     def clear(self):
-        """Remove all items from the inbox.
-        """
+        """Remove all items from the inbox."""
         with self._queue.mutex:
             self._queue.queue.clear()

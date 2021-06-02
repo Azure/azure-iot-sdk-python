@@ -39,6 +39,9 @@ class FakeProvisioningPipeline:
     def __init__(self):
         self.responses_enabled = {}
 
+    def shutdown(self, callback):
+        callback()
+
     def connect(self, callback):
         callback()
 

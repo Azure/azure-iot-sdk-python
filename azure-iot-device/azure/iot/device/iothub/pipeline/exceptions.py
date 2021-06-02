@@ -11,6 +11,7 @@ from azure.iot.device.common.pipeline.pipeline_exceptions import *
 from azure.iot.device.common.transport_exceptions import (
     ConnectionFailedError,
     ConnectionDroppedError,
+    NoConnectionError,
     # TODO: UnauthorizedError (the one from transport) should probably not surface out of
     # the pipeline due to confusion with the higher level service UnauthorizedError. It
     # should probably get turned into some other error instead (e.g. ConnectionFailedError).

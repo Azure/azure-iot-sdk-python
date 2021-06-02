@@ -16,6 +16,7 @@ import time
 from . import pipeline
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
+from azure.iot.device.iothub import client_event
 from azure.iot.device import exceptions
 from azure.iot.device.common import auth
 from . import edge_hsm
@@ -34,6 +35,9 @@ def _validate_kwargs(exclude=[], **kwargs):
         "proxy_options",
         "sastoken_ttl",
         "keep_alive",
+        "auto_connect",
+        "connection_retry",
+        "connection_retry_interval",
     ]
 
     for kwarg in kwargs:
@@ -50,6 +54,9 @@ def _get_config_kwargs(**kwargs):
         "server_verification_cert",
         "proxy_options",
         "keep_alive",
+        "auto_connect",
+        "connection_retry",
+        "connection_retry_interval",
     ]
 
     config_kwargs = {}
@@ -94,7 +101,7 @@ RECEIVE_TYPE_API = "api"  # Only use APIs for receive
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubClient(object):
-    """ A superclass representing a generic IoTHub client.
+    """A superclass representing a generic IoTHub client.
     This class needs to be extended for specific clients.
     """
 
@@ -107,24 +114,36 @@ class AbstractIoTHubClient(object):
         self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
 
-        self._inbox_manager = None  # this will be overriden in child class
-        self._handler_manager = None  # this will be overriden in child class
+        self._inbox_manager = None  # this will be overridden in child class
+        self._handler_manager = None  # this will be overridden in child class
         self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_lock = threading.Lock()
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
         logger.info("Connection State - Connected")
+        client_event_inbox = self._inbox_manager.get_client_event_inbox()
+        event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+        client_event_inbox.put(event)
         # Ensure that all handlers are running now that connection is re-established.
         self._handler_manager.ensure_running()
 
     def _on_disconnected(self):
         """Helper handler that is called upon an iothub pipeline disconnect"""
         logger.info("Connection State - Disconnected")
+        client_event_inbox = self._inbox_manager.get_client_event_inbox()
+        event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+        client_event_inbox.put(event)
         # Locally stored method requests on client are cleared.
         # They will be resent by IoTHub on reconnect.
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
+
+    # def _on_new_sastoken_required(self):
+    #     logger.info("New SasToken required from user")
+    #     client_event_inbox = self._inbox_manager.get_client_event_inbox()
+    #     event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
+    #     client_event_inbox.put(event)
 
     def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""
@@ -218,6 +237,11 @@ class AbstractIoTHubClient(object):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: ValueError if given an invalid connection_string.
         :raises: TypeError if given an unsupported parameter.
@@ -287,6 +311,11 @@ class AbstractIoTHubClient(object):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the sastoken parameter is invalid.
@@ -327,6 +356,10 @@ class AbstractIoTHubClient(object):
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
         return cls(mqtt_pipeline, http_pipeline)
+
+    @abc.abstractmethod
+    def shutdown(self):
+        pass
 
     @abc.abstractmethod
     def connect(self):
@@ -383,6 +416,30 @@ class AbstractIoTHubClient(object):
     def on_twin_desired_properties_patch_received(self):
         pass
 
+    @property
+    def on_connection_state_change(self):
+        return self._handler_manager.on_connection_state_change
+
+    @on_connection_state_change.setter
+    def on_connection_state_change(self, value):
+        self._handler_manager.on_connection_state_change = value
+
+    # @property
+    # def on_new_sastoken_required(self):
+    #     return self._handler_manager.on_new_sastoken_required
+
+    # @on_new_sastoken_required.setter
+    # def on_new_sastoken_required(self, value):
+    #     self._handler_manager.on_new_sastoken_required = value
+
+    # @property
+    # def on_background_exception(self):
+    #     return self._handler_manager.on_background_exception
+
+    # @on_background_exception.setter
+    # def on_background_exception(self, value):
+    #     self._handler_manager.on_background_exception = value
+
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
@@ -416,6 +473,11 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
 
@@ -466,6 +528,11 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
         :raises: ValueError if the provided parameters are invalid.
@@ -539,6 +606,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: OSError if the IoT Edge container is not configured correctly.
         :raises: ValueError if debug variables are invalid.
@@ -684,6 +756,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
             If not provided default value of 60 secs will be used.
+        :param bool auto_connect: Automatically connect the client to IoTHub when a method is
+            invoked which requires a connection to be established. (Default: True)
+        :param bool connection_retry: Attempt to re-establish a dropped connection (Default: True)
+        :param int connection_retry_interval: Interval, in seconds, between attempts to
+            re-establish a dropped connection (Default: 10)
 
         :raises: TypeError if given an unsupported parameter.
 

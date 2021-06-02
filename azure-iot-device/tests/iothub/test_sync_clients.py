@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
+from azure.iot.device.common.evented_callback import EventedCallback
 import pytest
 import logging
 import threading
@@ -29,6 +30,7 @@ from azure.iot.device import constant as device_constant
 from .shared_client_tests import (
     SharedIoTHubClientInstantiationTests,
     SharedIoTHubClientPROPERTYHandlerTests,
+    SharedIoTHubClientPROPERTYReceiverHandlerTests,
     SharedIoTHubClientPROPERTYConnectedTests,
     SharedIoTHubClientOCCURANCEConnectTests,
     SharedIoTHubClientOCCURANCEDisconnectTests,
@@ -49,7 +51,7 @@ logging.basicConfig(level=logging.DEBUG)
 # INFRASTRUCTURE #
 ##################
 # TODO: now that there are EventedCallbacks, tests should be updated to test their use
-# (which is much simpler than this infrastructre)
+# (which is much simpler than this infrastructure)
 class WaitsForEventCompletion(object):
     def add_event_completion_checks(self, mocker, pipeline_function, args=[], kwargs={}):
         event_init_mock = mocker.patch.object(threading, "Event")
@@ -88,6 +90,88 @@ def handler():
 #######################
 # SHARED CLIENT TESTS #
 #######################
+class SharedClientShutdownTests(WaitsForEventCompletion):
+    @pytest.mark.it("Performs a client disconnect (and everything that entails)")
+    def test_calls_disconnect(self, mocker, client):
+        # We merely check that disconnect is called here. Doing so does several things, which
+        # are covered by the disconnect tests themselves. Those tests will NOT be duplicated here
+        client.disconnect = mocker.MagicMock()
+        assert client.disconnect.call_count == 0
+
+        client.shutdown()
+
+        assert client.disconnect.call_count == 1
+
+    @pytest.mark.it("Begins a 'shutdown' pipeline operation")
+    def test_calls_pipeline_shutdown(self, mocker, client, mqtt_pipeline):
+        # mock out implicit disconnect
+        client.disconnect = mocker.MagicMock()
+
+        client.shutdown()
+        assert mqtt_pipeline.shutdown.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'shutdown' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb
+    ):
+        self.add_event_completion_checks(
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.shutdown
+        )
+        # mock out implicit disconnect
+        client_manual_cb.disconnect = mocker.MagicMock()
+
+        client_manual_cb.shutdown()
+
+    @pytest.mark.it(
+        "Raises a client error if the `shutdown` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            # The only expected errors are unexpected ones.
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError")
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, pipeline_error, client_error
+    ):
+        # mock out implicit disconnect
+        client_manual_cb.disconnect = mocker.MagicMock()
+
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.shutdown,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.shutdown()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it(
+        "Stops the client event handlers after the `shutdown` pipeline operation is complete"
+    )
+    def test_stops_client_event_handlers(self, mocker, client, mqtt_pipeline):
+        # mock out implicit disconnect
+        client.disconnect = mocker.MagicMock()
+        # Spy on handler manager stop. Note that while it does get called twice in shutdown, it
+        # only happens once here because we have mocked disconnect (where first stoppage) occurs
+        hm_stop_spy = mocker.spy(client._handler_manager, "stop")
+
+        def check_handlers_and_complete(callback):
+            assert hm_stop_spy.call_count == 0
+            callback()
+
+        mqtt_pipeline.shutdown.side_effect = check_handlers_and_complete
+
+        client.shutdown()
+
+        assert hm_stop_spy.call_count == 1
+        assert hm_stop_spy.call_args == mocker.call(receiver_handlers_only=False)
+
+
 class SharedClientConnectTests(WaitsForEventCompletion):
     @pytest.mark.it("Begins a 'connect' pipeline operation")
     def test_calls_pipeline_connect(self, client, mqtt_pipeline):
@@ -158,7 +242,7 @@ class SharedClientConnectTests(WaitsForEventCompletion):
 
 class SharedClientDisconnectTests(WaitsForEventCompletion):
     @pytest.mark.it(
-        "Runs a 'disconnect' pipeline operation, stops the handler manager, then runs a second 'disconnect' pipeline operation"
+        "Runs a 'disconnect' pipeline operation, stops the receiver handlers, then runs a second 'disconnect' pipeline operation"
     )
     def test_calls_pipeline_disconnect(self, mocker, client, mqtt_pipeline):
         manager_mock = mocker.MagicMock()
@@ -171,7 +255,7 @@ class SharedClientDisconnectTests(WaitsForEventCompletion):
         assert client._handler_manager.stop.call_count == 1
         assert manager_mock.mock_calls == [
             mocker.call.disconnect(callback=mocker.ANY),
-            mocker.call.stop(),
+            mocker.call.stop(receiver_handlers_only=True),
             mocker.call.disconnect(callback=mocker.ANY),
         ]
 
@@ -185,7 +269,6 @@ class SharedClientDisconnectTests(WaitsForEventCompletion):
             cb_mock1,
             cb_mock2,
         ]
-        # cb_mock_init = mocker.patch("azure.iot.device.iothub.sync_clients.EventedCallback")
 
         client.disconnect()
 
@@ -457,6 +540,11 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
                 id="ConnectionFailedError->ConnectionFailedError",
             ),
             pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
                 pipeline_exceptions.UnauthorizedError,
                 client_exceptions.CredentialError,
                 id="UnauthorizedError->CredentialError",
@@ -561,8 +649,8 @@ class SharedClientReceiveMethodRequestTests(object):
 
         # Verify Input Messaging enabled if not enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
-            False
-        )  # Method Requests will appear disabled
+            False  # Method Requests will appear disabled
+        )
         client.receive_method_request(method_name)
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.METHODS
@@ -571,8 +659,8 @@ class SharedClientReceiveMethodRequestTests(object):
 
         # Verify Input Messaging not enabled if already enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
-            True
-        )  # Input Messages will appear enabled
+            True  # Input Messages will appear enabled
+        )
         client.receive_method_request(method_name)
         assert mqtt_pipeline.enable_feature.call_count == 0
 
@@ -675,7 +763,7 @@ class SharedClientReceiveMethodRequestTests(object):
 
         def insert_item_after_delay():
             time.sleep(0.01)
-            inbox._put(request)
+            inbox.put(request)
 
         insertion_thread = threading.Thread(target=insert_item_after_delay)
         insertion_thread.start()
@@ -826,6 +914,11 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
                 id="ConnectionFailedError->ConnectionFailedError",
             ),
             pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
                 pipeline_exceptions.UnauthorizedError,
                 client_exceptions.CredentialError,
                 id="UnauthorizedError->CredentialError",
@@ -916,6 +1009,11 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
                 pipeline_exceptions.ConnectionFailedError,
                 client_exceptions.ConnectionFailedError,
                 id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
             ),
             pytest.param(
                 pipeline_exceptions.UnauthorizedError,
@@ -1021,6 +1119,11 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
                 id="ConnectionFailedError->ConnectionFailedError",
             ),
             pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
                 pipeline_exceptions.UnauthorizedError,
                 client_exceptions.CredentialError,
                 id="UnauthorizedError->CredentialError",
@@ -1064,8 +1167,8 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
 
         # Verify twin patches enabled if not enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
-            False
-        )  # twin patches will appear disabled
+            False  # twin patches will appear disabled
+        )
         client.receive_twin_desired_properties_patch()
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN_PATCHES
@@ -1124,7 +1227,7 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
 
         def insert_item_after_delay():
             time.sleep(0.01)
-            twin_patch_inbox._put(twin_patch_desired)
+            twin_patch_inbox.put(twin_patch_desired)
 
         insertion_thread = threading.Thread(target=insert_item_after_delay)
         insertion_thread.start()
@@ -1289,6 +1392,11 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .shutdown()")
+class TestIoTHubDeviceClientShutdown(IoTHubDeviceClientTestsConfig, SharedClientShutdownTests):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .update_sastoken()")
 class TestIoTHubDeviceClientUpdateSasToken(
     IoTHubDeviceClientTestsConfig, SharedClientUpdateSasTokenTests
@@ -1431,7 +1539,7 @@ class TestIoTHubDeviceClientReceiveC2DMessage(
 
         def insert_item_after_delay():
             time.sleep(0.01)
-            c2d_inbox._put(message)
+            c2d_inbox.put(message)
 
         insertion_thread = threading.Thread(target=insert_item_after_delay)
         insertion_thread.start()
@@ -1695,7 +1803,7 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_message_received")
 class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -1708,7 +1816,7 @@ class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_method_request_received")
 class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -1723,7 +1831,7 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
     "IoTHubDeviceClient (Synchronous) - PROPERTY .on_twin_desired_properties_patch_received"
 )
 class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -1732,6 +1840,15 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_connection_state_change")
+class TestIoTHubDeviceClientPROPERTYOnConnectionStateChangeHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_connection_state_change"
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .connected")
@@ -1844,6 +1961,11 @@ class TestIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnv(
 class TestIoTHubModuleClientCreateFromX509Certificate(
     IoTHubModuleClientTestsConfig, SharedIoTHubModuleClientCreateFromX509CertificateTests
 ):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .shutdown()")
+class TestIoTHubModuleClientShutdown(IoTHubModuleClientTestsConfig, SharedClientShutdownTests):
     pass
 
 
@@ -1987,6 +2109,11 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
                 id="ConnectionFailedError->ConnectionFailedError",
             ),
             pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
                 pipeline_exceptions.UnauthorizedError,
                 client_exceptions.CredentialError,
                 id="UnauthorizedError->CredentialError",
@@ -2096,8 +2223,8 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
 
         # Verify Input Messaging enabled if not enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
-            False
-        )  # Input Messages will appear disabled
+            False  # Input Messages will appear disabled
+        )
         client.receive_message_on_input(input_name)
         assert mqtt_pipeline.enable_feature.call_count == 1
         assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.INPUT_MSG
@@ -2106,8 +2233,8 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
 
         # Verify Input Messaging not enabled if already enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = (
-            True
-        )  # Input Messages will appear enabled
+            True  # Input Messages will appear enabled
+        )
         client.receive_message_on_input(input_name)
         assert mqtt_pipeline.enable_feature.call_count == 0
 
@@ -2167,7 +2294,7 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
 
         def insert_item_after_delay():
             time.sleep(0.01)
-            input_inbox._put(message)
+            input_inbox.put(message)
 
         insertion_thread = threading.Thread(target=insert_item_after_delay)
         insertion_thread.start()
@@ -2367,7 +2494,7 @@ class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleCl
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_message_received")
 class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -2380,7 +2507,7 @@ class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_method_request_received")
 class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -2395,7 +2522,7 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
     "IoTHubModuleClient (Synchronous) - PROPERTY .on_twin_desired_properties_patch_received"
 )
 class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -2404,6 +2531,15 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")
+class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_connection_state_change"
 
 
 @pytest.mark.describe("IoTHubModule (Synchronous) - PROPERTY .connected")

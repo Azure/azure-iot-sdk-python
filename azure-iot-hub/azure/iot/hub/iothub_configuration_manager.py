@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from .auth import ConnectionStringAuthentication
+from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 from .protocol.models import Configuration, ConfigurationContent, ConfigurationQueriesTestInput
 
@@ -14,8 +14,33 @@ class IoTHubConfigurationManager(object):
     based on top of the auto generated IotHub REST APIs
     """
 
-    def __init__(self, connection_string):
+    def __init__(self, connection_string=None, host=None, auth=None):
         """Initializer for a Configuration Manager Service client.
+
+        After a successful creation the class has been authenticated with IoTHub and
+        it is ready to call the member APIs to communicate with IoTHub.
+
+        :param str connection_string: The IoTHub connection string used to authenticate connection
+            with IoTHub if we are using connection_str authentication. Default value: None
+        :param str host: The Azure service url if we are using token credential authentication.
+            Default value: None
+        :param str auth: The Azure authentication object if we are using token credential authentication.
+            Default value: None
+
+        :returns: Instance of the IoTHubConfigurationManager object.
+        :rtype: :class:`azure.iot.hub.IoTHubConfigurationManager`
+        """
+        if connection_string is not None:
+            self.auth = ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+        else:
+            self.auth = auth
+            self.protocol = protocol_client(self.auth, "https://" + host)
+
+    @classmethod
+    def from_connection_string(cls, connection_string):
+        """Classmethod initializer for a IoTHubConfigurationManager Service client.
+        Creates IoTHubConfigurationManager class from connection string.
 
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
@@ -23,12 +48,26 @@ class IoTHubConfigurationManager(object):
         :param str connection_string: The IoTHub connection string used to authenticate connection
             with IoTHub.
 
-        :returns: Instance of the IoTHubConfigurationManager object.
         :rtype: :class:`azure.iot.hub.IoTHubConfigurationManager`
         """
+        return cls(connection_string=connection_string)
 
-        self.auth = ConnectionStringAuthentication(connection_string)
-        self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+    @classmethod
+    def from_token_credential(cls, url, token_credential):
+        """Classmethod initializer for a IoTHubConfigurationManager Service client.
+        Creates IoTHubConfigurationManager class from host name url and Azure token credential.
+
+        After a successful creation the class has been authenticated with IoTHub and
+        it is ready to call the member APIs to communicate with IoTHub.
+
+        :param str url: The Azure service url (host name).
+        :param str token_credential: The Azure token credential object.
+
+        :rtype: :class:`azure.iot.hub.IoTHubConfigurationManager`
+        """
+        host = url
+        auth = AzureIdentityCredentialAdapter(token_credential)
+        return cls(host=host, auth=auth)
 
     def get_configuration(self, configuration_id):
         """Retrieves the IoTHub configuration for a particular device.
