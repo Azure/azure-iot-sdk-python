@@ -77,7 +77,8 @@ setup(
         # https://github.com/pypa/pip/issues/988
         # ---requests dependencies---
         # requests 2.22+ does not support urllib3 1.25.0 or 1.25.1 (https://github.com/psf/requests/pull/5092)
-        "urllib3>1.21.1,<1.27,!=1.25.0,!=1.25.1",
+        # Security issue below 1.26.5
+        "urllib3>=1.26.5,<1.27",
         # Actual project dependencies
         "deprecation>=2.1.0,<3.0.0",
         "six>=1.12.0,<2.0.0",
