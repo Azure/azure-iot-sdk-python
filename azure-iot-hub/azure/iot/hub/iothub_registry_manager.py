@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from .iothub_amqp_client import IoTHubAmqpClient as iothub_amqp_client
+from .iothub_amqp_client import IoTHubAmqpClientSharedAccessKeyAuth, IoTHubAmqpClientTokenAuth
 from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 from .protocol.models import (
@@ -77,7 +77,7 @@ class IoTHubRegistryManager(object):
             self.protocol = protocol_client(
                 conn_string_auth, "https://" + conn_string_auth["HostName"]
             )
-            self.amqp_svc_client = iothub_amqp_client(
+            self.amqp_svc_client = IoTHubAmqpClientSharedAccessKeyAuth(
                 conn_string_auth["HostName"],
                 conn_string_auth["SharedAccessKeyName"],
                 conn_string_auth["SharedAccessKey"],
@@ -86,7 +86,7 @@ class IoTHubRegistryManager(object):
             self.protocol = protocol_client(
                 AzureIdentityCredentialAdapter(token_credential), "https://" + host
             )
-            self.amqp_svc_client = iothub_amqp_client(host, token_credential=token_credential)
+            self.amqp_svc_client = IoTHubAmqpClientTokenAuth(host, token_credential)
 
     @classmethod
     def from_connection_string(cls, connection_string):
@@ -118,7 +118,7 @@ class IoTHubRegistryManager(object):
         """
         # host = url
         # auth = AzureIdentityCredentialAdapter(token_credential)
-        return cls(host=url, auth=token_credential)
+        return cls(host=url, token_credential=token_credential)
 
     def __del__(self):
         """
