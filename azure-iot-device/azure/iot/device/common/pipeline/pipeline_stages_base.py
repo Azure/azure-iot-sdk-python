@@ -310,12 +310,21 @@ class SasTokenRenewalStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        # Only use this stage if using a RenewableSasToken
-        if isinstance(op, pipeline_ops_base.InitializePipelineOperation) and isinstance(
-            self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken
-        ):
+        if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
             self._start_renewal_alarm()
             self.send_op_down(op)
+        elif isinstance(op, pipeline_ops_base.ReauthorizeConnectionOperation):
+            # Start a new renewal timer only if a new SasToken has been added
+            renew_time = (
+                self.pipeline_root.pipeline_configuration.sastoken.expiry_time
+                - self.DEFAULT_TOKEN_RENEWAL_MARGIN
+            )
+            if (
+                self._token_renewal_alarm is None
+                or self._token_renewal_alarm.alarm_time != renew_time
+            ):
+                self._start_renewal_alarm()
+                self.send_op_down(op)
         elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
             self._cancel_token_renewal_alarm()
             self.send_op_down(op)
@@ -335,53 +344,77 @@ class SasTokenRenewalStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _start_renewal_alarm(self):
         """Begin a renewal alarm.
-        When the alarm expires, and the token is renewed, a new alarm will be set"""
+        If using a RenewableSasToken, when the alarm expires the token will be automatically
+        renewed, and a new alarm will be set.
+
+        If using a NonRenewableSasToken, when the alarm expires, it will trigger a
+        NewSasTokenRequiredEvent to signal that a new SasToken must be manually provided.
+        """
         self._cancel_token_renewal_alarm()
 
         renew_time = (
             self.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_RENEWAL_MARGIN
         )
-
-        logger.debug("Scheduling SAS Token renewal at epoch time: {}".format(renew_time))
         self_weakref = weakref.ref(self)
 
-        @pipeline_thread.runs_on_pipeline_thread
-        def on_reauthorize_complete(op, error):
-            this = self_weakref()
-            if error:
-                logger.info(
-                    "{}({}): reauthorize connection operation failed.  Error={}".format(
-                        this.name, op.name, error
-                    )
-                )
-                handle_exceptions.handle_background_exception(error)
-            else:
-                logger.info(
-                    "{}({}): reauthorize connection operation is complete".format(
-                        this.name, op.name
-                    )
-                )
+        # For renewable SasTokens, create an alarm that will automatically renew the token,
+        # and then start another alarm.
+        if isinstance(self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken):
+            logger.debug(
+                "Scheduling automatic SAS Token renewal at epoch time: {}".format(renew_time)
+            )
 
-        @pipeline_thread.invoke_on_pipeline_thread_nowait
-        def renew_token():
-            this = self_weakref()
-            logger.info("Renewing SAS Token...")
-            # Renew the token
-            sastoken = this.pipeline_root.pipeline_configuration.sastoken
-            sastoken.refresh()
-            # If the pipeline is already connected, send order to reauthorize the connection
-            # now that token has been renewed
-            if this.pipeline_root.connected:
-                this.send_op_down(
-                    pipeline_ops_base.ReauthorizeConnectionOperation(
-                        callback=on_reauthorize_complete
+            @pipeline_thread.runs_on_pipeline_thread
+            def on_reauthorize_complete(op, error):
+                this = self_weakref()
+                if error:
+                    logger.info(
+                        "{}({}): reauthorize connection operation failed.  Error={}".format(
+                            this.name, op.name, error
+                        )
                     )
-                )
-            # Once again, start a renewal alarm
-            this._start_renewal_alarm()
+                    handle_exceptions.handle_background_exception(error)
+                else:
+                    logger.info(
+                        "{}({}): reauthorize connection operation is complete".format(
+                            this.name, op.name
+                        )
+                    )
 
-        self._token_renewal_alarm = alarm.Alarm(renew_time, renew_token)
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def renew_token():
+                this = self_weakref()
+                logger.info("Renewing SAS Token...")
+                # Renew the token
+                sastoken = this.pipeline_root.pipeline_configuration.sastoken
+                sastoken.refresh()
+                # If the pipeline is already connected, send order to reauthorize the connection
+                # now that token has been renewed
+                if this.pipeline_root.connected:
+                    this.send_op_down(
+                        pipeline_ops_base.ReauthorizeConnectionOperation(
+                            callback=on_reauthorize_complete
+                        )
+                    )
+                # Once again, start a renewal alarm
+                this._start_renewal_alarm()
+
+            self._token_renewal_alarm = alarm.Alarm(renew_time, renew_token)
+
+        # For nonrenewable SasTokens, create an alarm that will issue a NewSasTokenRequiredEvent
+        else:
+            logger.debug("Scheduling manual SAS Token renewal at epoch time: {}".format(renew_time))
+
+            @pipeline_thread.invoke_on_pipeline_thread_nowait
+            def request_new_token():
+                this = self_weakref()
+                logger.info("Requesting new SAS Token....")
+                # Send request
+                this.send_event_up(pipeline_events_base.NewSasTokenRequiredEvent())
+
+            self._token_renewal_alarm = alarm.Alarm(renew_time, request_new_token)
+
         self._token_renewal_alarm.daemon = True
         self._token_renewal_alarm.start()
 
