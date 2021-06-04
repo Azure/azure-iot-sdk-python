@@ -124,8 +124,7 @@ class IoTHubRegistryManager(object):
         """
         Deinitializer for a Registry Manager Service client.
         """
-        if self.amqp_svc_client:
-            self.amqp_svc_client.disconnect_sync()
+        self.amqp_svc_client.disconnect_sync()
 
     def create_device_with_sas(
         self,
@@ -926,6 +925,4 @@ class IoTHubRegistryManager(object):
 
         :raises: Exception if the Send command is not able to send the message
         """
-
-        if self.amqp_svc_client:
-            self.amqp_svc_client.send_message_to_device(device_id, message, properties)
+        self.amqp_svc_client.send_message_to_device(device_id, message, properties)
