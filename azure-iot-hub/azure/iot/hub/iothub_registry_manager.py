@@ -59,6 +59,9 @@ class IoTHubRegistryManager(object):
     def __init__(self, connection_string=None, host=None, token_credential=None):
         """Initializer for a Registry Manager Service client.
 
+        Users should not call this directly. Rather, they should the from_connection_string()
+        or from_token_credential() factory methods.
+
         After a successful creation the class has been authenticated with IoTHub and
         it is ready to call the member APIs to communicate with IoTHub.
 
