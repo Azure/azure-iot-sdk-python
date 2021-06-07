@@ -36,6 +36,8 @@ def handle_result(callback):
         raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
     except pipeline_exceptions.ConnectionFailedError as e:
         raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+    except pipeline_exceptions.NoConnectionError as e:
+        raise exceptions.NoConnectionError(message="Client is not connected to IoTHub", cause=e)
     except pipeline_exceptions.UnauthorizedError as e:
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
@@ -78,9 +80,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
         self._handler_manager = sync_handler_manager.SyncHandlerManager(self._inbox_manager)
 
-        # Set pipeline handlers
+        # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
         self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
+        # self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
+        #     self, "_on_new_sastoken_required"
+        # )
+
+        # Set pipeline handlers for data receives
         self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(
             self._inbox_manager, "route_method_request"
         )
@@ -141,8 +148,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("Initiating client shutdown")
         # Note that client disconnect does the following:
         #   - Disconnects the pipeline
-        #   - Resolves all pending handler calls
-        #   - Stops handler threads
+        #   - Resolves all pending receiver handler calls
+        #   - Stops receiver handler threads
         self.disconnect()
 
         # Note that shutting down the following:
@@ -153,6 +160,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.shutdown(callback=callback)
         handle_result(callback)
         logger.debug("Completed pipeline shutdown operation")
+
+        # Stop the Client Event handlers now that everything else is completed
+        self._handler_manager.stop(receiver_handlers_only=False)
 
         # Yes, that means the pipeline is disconnected twice (well, actually three times if you
         # consider that the client-level disconnect causes two pipeline-level disconnects for
@@ -218,7 +228,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Note that in the process of stopping the handlers and resolving pending calls
         # a user-supplied handler may cause a reconnection to occur
         logger.debug("Stopping handlers...")
-        self._handler_manager.stop()
+        self._handler_manager.stop(receiver_handlers_only=True)
         logger.debug("Successfully stopped handlers")
 
         # Disconnect again to ensure disconnection has ocurred due to the issue mentioned above
@@ -291,6 +301,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -360,6 +372,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -387,6 +401,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -419,6 +435,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -444,7 +462,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         This is a synchronous call, which means the following:
         1. If block=True, this function will block until one of the following happens:
-           * a desired proprety patch is received from the Azure IoT Hub or Azure IoT Edge Hub.
+           * a desired property patch is received from the Azure IoT Hub or Azure IoT Edge Hub.
            * the timeout period, if provided, elapses.  If a timeout happens, this function will
              raise a InboxEmpty exception
         2. If block=False, this function will return any desired property patches which may have
@@ -474,7 +492,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             return None
         return patch
 
-    def _generic_handler_setter(self, handler_name, feature_name, new_handler):
+    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
         self._check_receive_mode_is_handler()
         # Set the handler on the handler manager
         setattr(self._handler_manager, handler_name, new_handler)
@@ -498,7 +516,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
-        self._generic_handler_setter(
+        self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
 
@@ -512,7 +530,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_method_request_received.setter
     def on_method_request_received(self, value):
-        self._generic_handler_setter("on_method_request_received", pipeline_constant.METHODS, value)
+        self._generic_receive_handler_setter(
+            "on_method_request_received", pipeline_constant.METHODS, value
+        )
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -611,7 +631,9 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
     @on_message_received.setter
     def on_message_received(self, value):
-        self._generic_handler_setter("on_message_received", pipeline_constant.C2D_MSG, value)
+        self._generic_receive_handler_setter(
+            "on_message_received", pipeline_constant.C2D_MSG, value
+        )
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -660,6 +682,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -742,4 +766,6 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
 
     @on_message_received.setter
     def on_message_received(self, value):
-        self._generic_handler_setter("on_message_received", pipeline_constant.INPUT_MSG, value)
+        self._generic_receive_handler_setter(
+            "on_message_received", pipeline_constant.INPUT_MSG, value
+        )

@@ -62,22 +62,26 @@ class TestDigitalTwinManager(object):
     )
     def test_instantiates_with_empty_connection_string(self):
         with pytest.raises(ValueError):
-            DigitalTwinClient("")
+            DigitalTwinClient("", None, None)
 
     @pytest.mark.it(
         "Raises a ValueError exception when instantiated with a connection string without HostName"
     )
     def test_instantiates_with_connection_string_no_host_name(self):
-        connection_string = "DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
-            device_id=fake_device_id, skn=fake_shared_access_key_name, sk=fake_shared_access_key
+        connection_string = (
+            "DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                device_id=fake_device_id, skn=fake_shared_access_key_name, sk=fake_shared_access_key
+            )
         )
         with pytest.raises(ValueError):
             DigitalTwinClient(connection_string)
 
     @pytest.mark.it("Instantiates with an connection string without DeviceId")
     def test_instantiates_with_connection_string_no_device_id(self):
-        connection_string = "HostName={hostname};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
-            hostname=fake_hostname, skn=fake_shared_access_key_name, sk=fake_shared_access_key
+        connection_string = (
+            "HostName={hostname};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                hostname=fake_hostname, skn=fake_shared_access_key_name, sk=fake_shared_access_key
+            )
         )
         obj = DigitalTwinClient(connection_string)
         assert isinstance(obj, DigitalTwinClient)
@@ -94,8 +98,10 @@ class TestDigitalTwinManager(object):
         "Raises a ValueError exception when instantiated with a connection string without SharedAccessKey"
     )
     def test_instantiates_with_connection_string_no_shared_access_key(self):
-        connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn}".format(
-            hostname=fake_hostname, device_id=fake_device_id, skn=fake_shared_access_key_name
+        connection_string = (
+            "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn}".format(
+                hostname=fake_hostname, device_id=fake_device_id, skn=fake_shared_access_key_name
+            )
         )
         with pytest.raises(ValueError):
             DigitalTwinClient(connection_string)

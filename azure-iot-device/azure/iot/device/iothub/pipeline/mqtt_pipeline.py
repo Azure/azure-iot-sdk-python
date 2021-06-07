@@ -8,6 +8,7 @@ import logging
 import sys
 from azure.iot.device.common.evented_callback import EventedCallback
 from azure.iot.device.common.pipeline import (
+    pipeline_events_base,
     pipeline_stages_base,
     pipeline_ops_base,
     pipeline_stages_mqtt,
@@ -40,9 +41,11 @@ class MQTTPipeline(object):
             constant.TWIN_PATCHES: False,
         }
 
-        # Event Handlers - Will be set by Client after instantiation of this object
+        # Handlers - Will be set by Client after instantiation of this object
         self.on_connected = None
         self.on_disconnected = None
+        # self.on_new_sastoken_required = None
+
         self.on_c2d_message_received = None
         self.on_input_message_received = None
         self.on_method_request_received = None
@@ -144,6 +147,12 @@ class MQTTPipeline(object):
                     self.on_twin_patch_received(event.patch)
                 else:
                     logger.error("Twin patch event received with no handler. Dropping.")
+
+            # elif isinstance(event, pipeline_events_base.NewSasTokenRequired):
+            #     if self.on_new_sastoken_required:
+            #         self.on_new_sastoken_required()
+            #     else:
+            #         logger.error("New sastoken required event received with no handler. Dropping.")
 
             else:
                 logger.error("Dropping unknown pipeline event {}".format(event.name))
@@ -297,6 +306,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -325,6 +335,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -353,6 +364,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -385,6 +397,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -414,6 +427,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -445,6 +459,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
@@ -483,6 +498,7 @@ class MQTTPipeline(object):
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """

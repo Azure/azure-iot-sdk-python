@@ -6,6 +6,7 @@
 """This module contains tests that are shared between sync/async clients
 i.e. tests for things defined in abstract clients"""
 
+from azure.iot.device.iothub.client_event import ClientEvent
 import pytest
 import logging
 import os
@@ -25,6 +26,7 @@ from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_API,
 )
 from azure.iot.device.iothub import edge_hsm
+from azure.iot.device.iothub import client_event
 from azure.iot.device import ProxyOptions
 from azure.iot.device import exceptions as client_exceptions
 
@@ -247,6 +249,74 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
 
         assert config.keep_alive == keepalive_value
 
+    @pytest.mark.it(
+        "Sets the 'auto_connect' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_auto_connect_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        auto_connect_value = False
+        client_create_method(*create_method_args, auto_connect=auto_connect_value)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.auto_connect == auto_connect_value
+
+    @pytest.mark.it(
+        "Sets the 'connection_retry' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_connection_retry_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        connection_retry_value = False
+        client_create_method(*create_method_args, connection_retry=connection_retry_value)
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.connection_retry == connection_retry_value
+
+    @pytest.mark.it(
+        "Sets the 'connection_retry_interval' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_connection_retry_interval_option(
+        self,
+        option_test_required_patching,
+        client_create_method,
+        create_method_args,
+        mock_mqtt_pipeline_init,
+        mock_http_pipeline_init,
+    ):
+        connection_retry_interval_value = 17
+        client_create_method(
+            *create_method_args, connection_retry_interval=connection_retry_interval_value
+        )
+
+        # Get configuration object, and ensure it was used for both protocol pipelines
+        assert mock_mqtt_pipeline_init.call_count == 1
+        config = mock_mqtt_pipeline_init.call_args[0][0]
+        assert isinstance(config, IoTHubPipelineConfig)
+        assert config == mock_http_pipeline_init.call_args[0][0]
+
+        assert config.connection_retry_interval == connection_retry_interval_value
+
     @pytest.mark.it("Raises a TypeError if an invalid user option parameter is provided")
     def test_invalid_option(
         self, option_test_required_patching, client_create_method, create_method_args
@@ -280,6 +350,9 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         assert config.proxy_options is None
         assert config.server_verification_cert is None
         assert config.keep_alive == DEFAULT_KEEPALIVE
+        assert config.auto_connect is True
+        assert config.connection_retry is True
+        assert config.connection_retry_interval == 10
 
 
 # TODO: consider splitting this test class up into device/module specific test classes to avoid
@@ -465,6 +538,22 @@ class SharedIoTHubClientPROPERTYHandlerTests(object):
         assert getattr(client, handler_name) is handler
         assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
 
+
+class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYHandlerTests):
+    @pytest.mark.it("Can have its value set and retrieved")
+    def test_read_write(self, client, handler, handler_name):
+        assert getattr(client, handler_name) is None
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_name) is handler
+
+    @pytest.mark.it("Reflects the value of the handler manager property of the same name")
+    def test_set_on_handler_manager(self, client, handler, handler_name):
+        assert getattr(client, handler_name) is None
+        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_name) is handler
+        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+
     @pytest.mark.it(
         "Implicitly enables the corresponding feature if not already enabled, when a handler value is set"
     )
@@ -555,6 +644,21 @@ class SharedIoTHubClientPROPERTYConnectedTests(object):
 
 
 class SharedIoTHubClientOCCURANCEConnectTests(object):
+    @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
+    def test_add_client_event(self, client, mocker):
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        inbox_put_spy = mocker.spy(client_event_inbox, "put")
+        assert client_event_inbox.empty()
+
+        client._on_connected()
+
+        assert not client_event_inbox.empty()
+        assert inbox_put_spy.call_count == 1
+        event = inbox_put_spy.call_args[0][0]
+        assert isinstance(event, client_event.ClientEvent)
+        assert event.name == client_event.CONNECTION_STATE_CHANGE
+        assert event.args_for_user == ()
+
     @pytest.mark.it("Ensures that the HandlerManager is running")
     def test_ensure_handler_manager_running_on_connect(self, client, mocker):
         ensure_running_spy = mocker.spy(client._handler_manager, "ensure_running")
@@ -563,6 +667,21 @@ class SharedIoTHubClientOCCURANCEConnectTests(object):
 
 
 class SharedIoTHubClientOCCURANCEDisconnectTests(object):
+    @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
+    def test_add_client_event(self, client, mocker):
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        inbox_put_spy = mocker.spy(client_event_inbox, "put")
+        assert client_event_inbox.empty()
+
+        client._on_disconnected()
+
+        assert not client_event_inbox.empty()
+        assert inbox_put_spy.call_count == 1
+        event = inbox_put_spy.call_args[0][0]
+        assert isinstance(event, client_event.ClientEvent)
+        assert event.name == client_event.CONNECTION_STATE_CHANGE
+        assert event.args_for_user == ()
+
     @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
     def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
         clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")

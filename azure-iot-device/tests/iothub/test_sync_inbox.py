@@ -26,7 +26,7 @@ class TestSyncClientInbox(object):
         assert inbox.empty()
         item = mocker.MagicMock()
         assert item not in inbox
-        inbox._put(item)
+        inbox.put(item)
         assert item in inbox
 
     @pytest.mark.it("Can checked regarding whether or not it is empty")
@@ -34,7 +34,7 @@ class TestSyncClientInbox(object):
         inbox = SyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
-        inbox._put(item)
+        inbox.put(item)
         assert not inbox.empty()
         inbox.get()
         assert inbox.empty()
@@ -45,23 +45,23 @@ class TestSyncClientInbox(object):
         item1 = mocker.MagicMock()
         item2 = mocker.MagicMock()
         item3 = mocker.MagicMock()
-        inbox._put(item1)
-        inbox._put(item2)
-        inbox._put(item3)
+        inbox.put(item1)
+        inbox.put(item2)
+        inbox.put(item3)
 
         assert inbox.get() is item1
         assert inbox.get() is item2
         assert inbox.get() is item3
 
 
-@pytest.mark.describe("SyncClientInbox - ._put()")
+@pytest.mark.describe("SyncClientInbox - .put()")
 class TestSyncClientInboxPut(object):
     @pytest.mark.it("Adds the given item to the inbox")
     def test_adds_item_to_inbox(self, mocker):
         inbox = SyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
-        inbox._put(item)
+        inbox.put(item)
         assert not inbox.empty()
         assert item in inbox
 
@@ -73,7 +73,7 @@ class TestSyncClientInboxGet(object):
         inbox = SyncClientInbox()
         assert inbox.empty()
         item = mocker.MagicMock()
-        inbox._put(item)
+        inbox.put(item)
         assert not inbox.empty()
         retrieved_item = inbox.get()
         assert retrieved_item is item
@@ -89,7 +89,7 @@ class TestSyncClientInboxGet(object):
 
         def insert_item():
             time.sleep(0.01)  # wait before inserting
-            inbox._put(item)
+            inbox.put(item)
 
         insertion_thread = threading.Thread(target=insert_item)
         insertion_thread.start()
@@ -125,9 +125,9 @@ class TestSyncClientInboxClear(object):
         item1 = mocker.MagicMock()
         item2 = mocker.MagicMock()
         item3 = mocker.MagicMock()
-        inbox._put(item1)
-        inbox._put(item2)
-        inbox._put(item3)
+        inbox.put(item1)
+        inbox.put(item2)
+        inbox.put(item3)
         assert not inbox.empty()
 
         inbox.clear()

@@ -41,16 +41,13 @@ class AsyncClientInbox(AbstractInbox):
     def __contains__(self, item):
         """Return True if item is in Inbox, False otherwise"""
         # Note that this function accesses private attributes of janus, thus it is somewhat
-        # dangerous. Unforutnately, it is the only way to implement this functionality.
+        # dangerous. Unfortunately, it is the only way to implement this functionality.
         # However, because this function is only used in tests, I feel it is acceptable.
         with self._queue._sync_mutex:
             return item in self._queue._queue
 
-    def _put(self, item):
+    def put(self, item):
         """Put an item into the Inbox.
-
-        Block if necessary until a free slot is available.
-        Only to be used by the InboxManager.
 
         :param item: The item to be put in the Inbox.
         """
@@ -78,8 +75,7 @@ class AsyncClientInbox(AbstractInbox):
         return self._queue.async_q.empty()
 
     def clear(self):
-        """Remove all items from the inbox.
-        """
+        """Remove all items from the inbox."""
         while True:
             try:
                 self._queue.sync_q.get_nowait()

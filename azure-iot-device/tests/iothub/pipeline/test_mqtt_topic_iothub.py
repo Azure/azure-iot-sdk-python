@@ -857,13 +857,14 @@ class TestExtractMessagePropertiesFromTopic(object):
                 id="C2D message topic, Mandatory system properties",
             ),
             pytest.param(
-                "devices/fake_device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake_corid&%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmessages%2Fdevicebound&%24.ct=fake_content_type&%24.ce=utf-8",
+                "devices/fake_device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake_corid&%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmessages%2Fdevicebound&%24.ct=fake_content_type&%24.ce=utf-8&iothub-ack=positive",
                 {
                     "mid": "6b822696-f75a-46f5-8b02-0680db65abf5",
                     "exp": "3237-07-19T23:06:40.0000000Z",
                     "cid": "fake_corid",
                     "ct": "fake_content_type",
                     "ce": "utf-8",
+                    "iothub-ack": "positive",
                 },
                 {},
                 id="C2D message topic, All system properties",
@@ -881,13 +882,14 @@ class TestExtractMessagePropertiesFromTopic(object):
                 id="Input message topic, Mandatory system properties",
             ),
             pytest.param(
-                "devices/fake_device/modules/fake_module/inputs/fake_input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake_corid&%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake_input&%24.ct=fake_content_type&%24.ce=utf-8",
+                "devices/fake_device/modules/fake_module/inputs/fake_input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake_corid&%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake_input&%24.ct=fake_content_type&%24.ce=utf-8&iothub-ack=positive",
                 {
                     "mid": "6b822696-f75a-46f5-8b02-0680db65abf5",
                     "exp": "3237-07-19T23:06:40.0000000Z",
                     "cid": "fake_corid",
                     "ct": "fake_content_type",
                     "ce": "utf-8",
+                    "iothub-ack": "positive",
                 },
                 {},
                 id="Input message topic, All system properties",
@@ -915,6 +917,9 @@ class TestExtractMessagePropertiesFromTopic(object):
         assert msg.content_type == expected_system_properties.get("ct", None)
         assert msg.content_encoding == expected_system_properties.get("ce", None)
         assert msg.expiry_time_utc == expected_system_properties.get("exp", None)
+        assert msg.ack == expected_system_properties.get(
+            "iothub-ack",
+        )
 
         # Validate custom properties
         assert msg.custom_properties == expected_custom_properties
@@ -924,49 +929,53 @@ class TestExtractMessagePropertiesFromTopic(object):
         "topic, expected_system_properties, expected_custom_properties",
         [
             pytest.param(
-                "devices/fake%24device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake%23corid&%24.mid=message%24id&%24.to=%2Fdevices%2Ffake%24device%2Fmessages%2Fdevicebound&%24.ct=fake%23content%24type&%24.ce=utf-%24&custom%2A=value%23&custom%26=value%24&custom%25=value%40",
+                "devices/fake%24device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake%23corid&%24.mid=message%24id&%24.to=%2Fdevices%2Ffake%24device%2Fmessages%2Fdevicebound&%24.ct=fake%23content%24type&%24.ce=utf-%24&iothub-ack=po%24itive&custom%2A=value%23&custom%26=value%24&custom%25=value%40",
                 {
                     "mid": "message$id",
                     "exp": "3237-07-19T23:06:40.0000000Z",
                     "cid": "fake#corid",
                     "ct": "fake#content$type",
                     "ce": "utf-$",
+                    "iothub-ack": "po$itive",
                 },
                 {"custom*": "value#", "custom&": "value$", "custom%": "value@"},
                 id="C2D message topic, Standard URL decoding",
             ),
             pytest.param(
-                "devices/fake+device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake+corid&%24.mid=message+id&%24.to=%2Fdevices%2Ffake+device%2Fmessages%2Fdevicebound&%24.ct=fake+content+type&%24.ce=utf-+&custom+1=value+1&custom+2=value+2&custom+3=value+3",
+                "devices/fake+device/messages/devicebound/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake+corid&%24.mid=message+id&%24.to=%2Fdevices%2Ffake+device%2Fmessages%2Fdevicebound&%24.ct=fake+content+type&%24.ce=utf-+&iothub-ack=posi+ive&custom+1=value+1&custom+2=value+2&custom+3=value+3",
                 {
                     "mid": "message+id",
                     "exp": "3237-07-19T23:06:40.0000000Z",
                     "cid": "fake+corid",
                     "ct": "fake+content+type",
                     "ce": "utf-+",
+                    "iothub-ack": "posi+ive",
                 },
                 {"custom+1": "value+1", "custom+2": "value+2", "custom+3": "value+3"},
                 id="C2D message topic, does NOT decode '+' character",
             ),
             pytest.param(
-                "devices/fake%24device/modules/fake%23module/inputs/fake%25input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake%23corid&%24.mid=message%24id&%24.to=%2Fdevices%2Ffake%24device%2Fmodules%2Ffake%23module%2Finputs%2Ffake%25input&%24.ct=fake%23content%24type&%24.ce=utf-%24&custom%2A=value%23&custom%26=value%24&custom%25=value%40",
+                "devices/fake%24device/modules/fake%23module/inputs/fake%25input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake%23corid&%24.mid=message%24id&%24.to=%2Fdevices%2Ffake%24device%2Fmodules%2Ffake%23module%2Finputs%2Ffake%25input&%24.ct=fake%23content%24type&%24.ce=utf-%24&iothub-ack=po%24itive&custom%2A=value%23&custom%26=value%24&custom%25=value%40",
                 {
                     "mid": "message$id",
                     "exp": "3237-07-19T23:06:40.0000000Z",
                     "cid": "fake#corid",
                     "ct": "fake#content$type",
                     "ce": "utf-$",
+                    "iothub-ack": "po$itive",
                 },
                 {"custom*": "value#", "custom&": "value$", "custom%": "value@"},
                 id="Input message topic, Standard URL decoding",
             ),
             pytest.param(
-                "devices/fake+device/modules/fake+module/inputs/fake+input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake+corid&%24.mid=message+id&%24.to=%2Fdevices%2Ffake+device%2Fmodules%2Ffake+module%2Finputs%2Ffake+input&%24.ct=fake+content+type&%24.ce=utf-+&custom+1=value+1&custom+2=value+2&custom+3=value+3",
+                "devices/fake+device/modules/fake+module/inputs/fake+input/%24.exp=3237-07-19T23%3A06%3A40.0000000Z&%24.cid=fake+corid&%24.mid=message+id&%24.to=%2Fdevices%2Ffake+device%2Fmodules%2Ffake+module%2Finputs%2Ffake+input&%24.ct=fake+content+type&%24.ce=utf-+&iothub-ack=posi+ive&custom+1=value+1&custom+2=value+2&custom+3=value+3",
                 {
                     "mid": "message+id",
                     "exp": "3237-07-19T23:06:40.0000000Z",
                     "cid": "fake+corid",
                     "ct": "fake+content+type",
                     "ce": "utf-+",
+                    "iothub-ack": "posi+ive",
                 },
                 {"custom+1": "value+1", "custom+2": "value+2", "custom+3": "value+3"},
                 id="Input message topic, does NOT decode '+' character",
@@ -998,10 +1007,6 @@ class TestExtractMessagePropertiesFromTopic(object):
                 "devices/fake_device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmessages%2Fdevicebound",
                 id="$.to",
             ),
-            pytest.param(
-                "devices/fake_device/messages/devicebound/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&iothub-ack=full",
-                id="iothub-ack",
-            ),
         ],
     )
     def test_ignores_on_c2d(self, topic):
@@ -1018,10 +1023,6 @@ class TestExtractMessagePropertiesFromTopic(object):
             pytest.param(
                 "devices/fake_device/modules/fake_module/inputs/fake_input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&%24.to=%2Fdevices%2Ffake_device%2Fmodules%2Ffake_module%2Finputs%2Ffake_input",
                 id="$.to",
-            ),
-            pytest.param(
-                "devices/fake_device/modules/fake_module/inputs/fake_input/%24.mid=6b822696-f75a-46f5-8b02-0680db65abf5&iothub-ack=full",
-                id="iothub-ack",
             ),
         ],
     )

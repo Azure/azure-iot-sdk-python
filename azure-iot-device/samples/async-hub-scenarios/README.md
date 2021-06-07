@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
-* [send_message.py](send_message.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
+* [send_message.py](send_message.py) - Send multiple telemetry messages in parallel from a device to the Azure IoT Hub.
   * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
 
     ```bash

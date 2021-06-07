@@ -79,3 +79,10 @@ class DisconnectedEvent(PipelineEvent):
     """
 
     pass
+
+
+# class NewSasTokenRequired(PipelineEvent):
+#     """
+#     A PipelineEvent object indicating that a new SasToken must be provided.
+#     """
+#     pass
