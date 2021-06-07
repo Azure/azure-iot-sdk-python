@@ -12,7 +12,7 @@ import hashlib
 import copy
 import logging
 import uamqp
-import azure.identity
+from azure.core.credentials import AccessToken
 from azure.iot.hub.iothub_amqp_client import (
     IoTHubAmqpClientSharedAccessKeyAuth,
     IoTHubAmqpClientTokenAuth,
@@ -27,6 +27,8 @@ except Exception:
 
 fake_shared_access_key = "Zm9vYmFy"
 fake_token_scope = "https://token.net/.default"
+fake_token = "fasdjkhg"
+fake_token_expiry = 1584727659
 fake_shared_access_key_name = "test_key_name"
 fake_hostname = "hostname.mytest.net"
 fake_device_id = "device_id"
@@ -51,10 +53,9 @@ def mock_uamqp_SendClient(mocker):
 
 @pytest.fixture(scope="function", autouse=True)
 def mock_azure_identity_DefaultAzureCredential(mocker):
-    mock_azure_identity_DefaultAzureCredential = mocker.patch.object(
-        azure.identity, "DefaultAzureCredential"
-    )
-    return mock_azure_identity_DefaultAzureCredential
+    mock = mocker.MagicMock()
+    mock.get_token.return_value = AccessToken(fake_token, fake_token_expiry)
+    return mock
 
 
 @pytest.mark.describe("IoTHubAmqpClientSharedAccessKeyAuth - Amqp Client Connections")
@@ -110,18 +111,18 @@ class TestIoTHubAmqpClientTokenAuth(object):
     def test_get_token_from_token_credential_object(
         self, mock_azure_identity_DefaultAzureCredential
     ):
-        IoTHubAmqpClientTokenAuth(
-            fake_hostname, azure.identity.DefaultAzureCredential(), fake_token_scope
-        )
+        mock_token_credential = mock_azure_identity_DefaultAzureCredential.return_value
+        IoTHubAmqpClientTokenAuth(fake_hostname, mock_token_credential, fake_token_scope)
         token_credential_obj = mock_azure_identity_DefaultAzureCredential.return_value
-        token_credential_obj.get_token.assert_called_once_with(fake_token_scope)
+        token_credential_obj.get_token.assert_called_once_with("fake_token_scope")
 
     @pytest.mark.it("Send Message To Device")
     def test_send_message_to_device(
         self, mocker, mock_uamqp_SendClient, mock_azure_identity_DefaultAzureCredential
     ):
+        mock_token_credential = mock_azure_identity_DefaultAzureCredential.return_value
         iothub_amqp_client = IoTHubAmqpClientTokenAuth(
-            fake_hostname, azure.identity.DefaultAzureCredential(), fake_token_scope
+            fake_hostname, mock_token_credential, fake_token_scope
         )
         iothub_amqp_client.send_message_to_device(fake_device_id, fake_message, fake_app_prop)
         amqp_client_obj = mock_uamqp_SendClient.return_value
@@ -130,10 +131,11 @@ class TestIoTHubAmqpClientTokenAuth(object):
         assert amqp_client_obj.send_all_messages.call_count == 1
 
     @pytest.mark.it("Send Message To Device system prop")
-    def test_send_message_to_device_sys_props(self, mocker, mock_uamqp_SendClient):
-        iothub_amqp_client = IoTHubAmqpClientTokenAuth(
-            fake_hostname, azure.identity.DefaultAzureCredential()
-        )
+    def test_send_message_to_device_sys_props(
+        self, mocker, mock_uamqp_SendClient, mock_azure_identity_DefaultAzureCredential
+    ):
+        mock_token_credential = mock_azure_identity_DefaultAzureCredential.return_value
+        iothub_amqp_client = IoTHubAmqpClientTokenAuth(fake_hostname, mock_token_credential)
         iothub_amqp_client.send_message_to_device(fake_device_id, fake_message, fake_sys_prop)
         amqp_client_obj = mock_uamqp_SendClient.return_value
 
@@ -141,10 +143,11 @@ class TestIoTHubAmqpClientTokenAuth(object):
         assert amqp_client_obj.send_all_messages.call_count == 1
 
     @pytest.mark.it("Raises an Exception if send_all_messages Fails")
-    def test_raise_exception_on_send_fail(self, mocker, mock_uamqp_SendClient):
-        iothub_amqp_client = IoTHubAmqpClientTokenAuth(
-            fake_hostname, azure.identity.DefaultAzureCredential()
-        )
+    def test_raise_exception_on_send_fail(
+        self, mocker, mock_uamqp_SendClient, mock_azure_identity_DefaultAzureCredential
+    ):
+        mock_token_credential = mock_azure_identity_DefaultAzureCredential.return_value
+        iothub_amqp_client = IoTHubAmqpClientTokenAuth(fake_hostname, mock_token_credential)
         amqp_client_obj = mock_uamqp_SendClient.return_value
         mocker.patch.object(
             amqp_client_obj, "send_all_messages", {uamqp.constants.MessageState.SendFailed}
@@ -153,10 +156,11 @@ class TestIoTHubAmqpClientTokenAuth(object):
             iothub_amqp_client.send_message_to_device(fake_device_id, fake_message, fake_app_prop)
 
     @pytest.mark.it("Disconnect a Device")
-    def test_disconnect_sync(self, mocker, mock_uamqp_SendClient):
-        iothub_amqp_client = IoTHubAmqpClientTokenAuth(
-            fake_hostname, azure.identity.DefaultAzureCredential()
-        )
+    def test_disconnect_sync(
+        self, mocker, mock_uamqp_SendClient, mock_azure_identity_DefaultAzureCredential
+    ):
+        mock_token_credential = mock_azure_identity_DefaultAzureCredential.return_value
+        iothub_amqp_client = IoTHubAmqpClientTokenAuth(fake_hostname, mock_token_credential)
         amqp_client_obj = mock_uamqp_SendClient.return_value
         iothub_amqp_client.disconnect_sync()
 
