@@ -12,7 +12,7 @@ connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 
 try:
     # Create IoTHubRegistryManager
-    registry_manager = IoTHubRegistryManager(connection_str)
+    registry_manager = IoTHubRegistryManager.from_connection_string(connection_str)
 
     print("Conn String: {0}".format(connection_str))
 

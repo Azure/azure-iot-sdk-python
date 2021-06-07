@@ -77,6 +77,14 @@ class IoTHubAmqpClientBase:
 
 
 class IoTHubAmqpClientSharedAccessKeyAuth(IoTHubAmqpClientBase):
+    def __init__(self, hostname, shared_access_key_name, shared_access_key):
+        self.endpoint = self._build_amqp_endpoint(
+            hostname, shared_access_key_name, shared_access_key
+        )
+        operation = "/messages/devicebound"
+        target = "amqps://" + self.endpoint + operation
+        self.amqp_client = uamqp.SendClient(target)
+
     def _generate_auth_token(self, uri, sas_name, sas_value):
         sas = base64.b64decode(sas_value)
         expiry = str(int(time.time() + default_sas_expiry))
@@ -101,14 +109,6 @@ class IoTHubAmqpClientSharedAccessKeyAuth(IoTHubAmqpClientBase):
         )
         endpoint = endpoint + ":{}@{}".format(quote_plus(sas_token), hostname)
         return endpoint
-
-    def __init__(self, hostname, shared_access_key_name, shared_access_key):
-        self.endpoint = self._build_amqp_endpoint(
-            hostname, shared_access_key_name, shared_access_key
-        )
-        operation = "/messages/devicebound"
-        target = "amqps://" + self.endpoint + operation
-        self.amqp_client = uamqp.SendClient(target)
 
 
 class IoTHubAmqpClientTokenAuth(IoTHubAmqpClientBase):

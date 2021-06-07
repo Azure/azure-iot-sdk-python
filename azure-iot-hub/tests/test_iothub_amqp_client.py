@@ -114,7 +114,7 @@ class TestIoTHubAmqpClientTokenAuth(object):
         mock_token_credential = mock_azure_identity_DefaultAzureCredential.return_value
         IoTHubAmqpClientTokenAuth(fake_hostname, mock_token_credential, fake_token_scope)
         token_credential_obj = mock_azure_identity_DefaultAzureCredential.return_value
-        token_credential_obj.get_token.assert_called_once_with("fake_token_scope")
+        token_credential_obj.get_token.assert_called_once_with(fake_token_scope)
 
     @pytest.mark.it("Send Message To Device")
     def test_send_message_to_device(

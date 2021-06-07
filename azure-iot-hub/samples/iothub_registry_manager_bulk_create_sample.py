@@ -39,7 +39,7 @@ def print_device_info(title, iothub_device):
 
 try:
     # Create IoTHubRegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     primary_key1 = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
     secondary_key1 = "111222333444555666777888999000aaabbbcccdddee"
