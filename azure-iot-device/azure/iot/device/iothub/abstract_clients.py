@@ -38,6 +38,7 @@ def _validate_kwargs(exclude=[], **kwargs):
         "auto_connect",
         "connection_retry",
         "connection_retry_interval",
+        "model_id",
     ]
 
     for kwarg in kwargs:
@@ -57,6 +58,7 @@ def _get_config_kwargs(**kwargs):
         "auto_connect",
         "connection_retry",
         "connection_retry_interval",
+        "model_id",
     ]
 
     config_kwargs = {}
@@ -439,6 +441,41 @@ class AbstractIoTHubClient(object):
     # @on_background_exception.setter
     # def on_background_exception(self, value):
     #     self._handler_manager.on_background_exception = value
+
+    @abc.abstractmethod
+    def send_telemetry(self, telemetry_dict, component_name=None):
+        # (dict, str) -> None
+        pass
+
+    @abc.abstractproperty
+    def on_command_received(self):
+        # ((Command) -> None) -> None
+        pass
+
+    @abc.abstractmethod
+    def send_command_response(self, command, payload, status):
+        # (Command, object, int) -> None
+        pass
+
+    @abc.abstractmethod
+    def get_properties(self):
+        # () -> Properties
+        pass
+
+    @abc.abstractmethod
+    def get_writable_properties(self):
+        # () -> WritableProperties
+        pass
+
+    @abc.absractproperty
+    def on_writable_property_patch_received(self):
+        # ((WritableProperties) -> None) -> None
+        pass
+
+    @abc.abstractmethod
+    def send_property_patch(self, property_patch):
+        # (Properties) -> None
+        pass
 
 
 @six.add_metaclass(abc.ABCMeta)
