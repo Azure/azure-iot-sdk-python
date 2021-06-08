@@ -52,7 +52,7 @@ class SharedIotHubAmqpClientSendMessageToDeviceTests(object):
         # Message was configured with properties and destination
         assert str(msg_obj) == fake_message
         assert msg_obj.properties.to == bytes(
-            "/devices/{}/messages/devicebound".format(fake_device_id), "utf-8"
+            str("/devices/" + fake_device_id + "/messages/devicebound").encode("utf-8")
         )
         assert msg_obj.application_properties == fake_app_prop
         # Message was sent
@@ -70,14 +70,18 @@ class SharedIotHubAmqpClientSendMessageToDeviceTests(object):
         # Message was configured with properties and destination
         assert str(msg_obj) == fake_message
         assert msg_obj.properties.to == bytes(
-            "/devices/{}/messages/devicebound".format(fake_device_id), "utf-8"
+            str("/devices/" + fake_device_id + "/messages/devicebound").encode("utf-8")
         )
         assert msg_obj.application_properties == {}
-        assert msg_obj.properties.content_type == bytes(fake_sys_prop["contentType"], "utf-8")
-        assert msg_obj.properties.content_encoding == bytes(
-            fake_sys_prop["contentEncoding"], "utf-8"
+        assert msg_obj.properties.content_type == bytes(
+            str(fake_sys_prop["contentType"]).encode("utf-8")
         )
-        assert msg_obj.properties.correlation_id == bytes(fake_sys_prop["correlationId"], "utf-8")
+        assert msg_obj.properties.content_encoding == bytes(
+            str(fake_sys_prop["contentEncoding"]).encode("utf-8")
+        )
+        assert msg_obj.properties.correlation_id == bytes(
+            str(fake_sys_prop["correlationId"]).encode("utf-8")
+        )
         assert msg_obj.properties.absolute_expiry_time == fake_sys_prop["expiryTimeUtc"]
         assert msg_obj.properties.message_id == fake_sys_prop["messageId"]
         # Message was sent
