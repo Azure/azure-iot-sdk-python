@@ -49,7 +49,7 @@ def print_device_info(title, iothub_device):
 #       device_updated = iothub_registry_manager.update_device_with_certificate_authority(self, device_id, etag, status):
 try:
     # Create IoTHubRegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create a device
     thumbprint = actual_thumbprint

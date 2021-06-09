@@ -43,7 +43,7 @@ def print_module_info(title, iothub_module):
 
 try:
     # RegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create Module
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
