@@ -15,13 +15,13 @@ device_id = os.getenv("IOTHUB_DEVICE_ID")
 
 try:
     # Create DigitalTwinClient
-    digital_twin_client = DigitalTwinClient(iothub_connection_str)
+    digital_twin_client = DigitalTwinClient.from_connection_string(iothub_connection_str)
 
     # If you already have a component thermostat1:
     # patch = [{"op": "replace", "path": "/thermostat1/targetTemperature", "value": 42}]
     patch = [{"op": "add", "path": "/targetTemperature", "value": 42}]
     digital_twin_client.update_digital_twin(device_id, patch)
-    print("Patch has been succesfully applied")
+    print("Patch has been successfully applied")
 
 
 except msrest.exceptions.HttpOperationError as ex:

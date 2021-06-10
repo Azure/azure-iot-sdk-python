@@ -18,7 +18,7 @@ method_payload = "now"
 
 try:
     # Create IoTHubRegistryManager
-    registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     deviceMethod = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
     registry_manager.invoke_device_method(device_id, deviceMethod)

@@ -15,7 +15,7 @@ device_id = os.getenv("IOTHUB_DEVICE_ID")
 
 try:
     # Create DigitalTwinClient
-    digital_twin_client = DigitalTwinClient(iothub_connection_str)
+    digital_twin_client = DigitalTwinClient.from_connection_string(iothub_connection_str)
 
     # Get digital twin and retrieve the modelId from it
     digital_twin = digital_twin_client.get_digital_twin(device_id)

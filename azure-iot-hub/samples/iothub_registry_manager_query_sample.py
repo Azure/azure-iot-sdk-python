@@ -53,7 +53,7 @@ def print_query_result(title, query_result):
 
 try:
     # Create IoTHubRegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     query_specification = QuerySpecification(query="SELECT * FROM devices")
 
