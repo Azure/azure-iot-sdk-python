@@ -395,7 +395,7 @@ class AutoConnectStage(PipelineStage):
                 def check_for_connection_failure(op, error):
                     if error and not self.pipeline_root.connected:
                         logger.debug(
-                            "{}({}): op failed with {} and we're not conencted.  Re-submitting.".format(
+                            "{}({}): op failed with {} and we're not connected.  Re-submitting.".format(
                                 self.name, op.name, error
                             )
                         )
@@ -981,7 +981,7 @@ class ReconnectStage(PipelineStage):
                 self._complete_waiting_connect_ops(
                     pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
                 )
-                op.complete()
+                op.complete()  # TODO: Is this right? Shouldn't the op go all the way down to clean up?
 
             else:
                 logger.info(
@@ -1031,10 +1031,20 @@ class ReconnectStage(PipelineStage):
                 self.state = ReconnectState.WAITING_TO_RECONNECT
                 self._start_reconnect_timer(0.01)
 
+            elif (
+                not self.pipeline_root.pipeline_configuration.connection_retry
+                and self.pipeline_root.connected
+                and self.state == ReconnectState.LOGICALLY_CONNECTED
+            ):
+                # In the case where the disconnect was NOT user-initiated, AND the pipeline is NOT
+                # configured to retry the connection, we send an explicit Disconnect down
+                # (even though already disconnected) in order to clear any in-flight pub/sub/unsub
+                self.state = ReconnectState.LOGICALLY_DISCONNECTED
+                # self.send_op_down(pipeline_ops_base.DisconnectOperation())
+
             else:
                 # If user manually disconnected, ReconnectState will be LOGICALLY_DISCONNECTED, and
                 # no reconnect timer will be created.
-                # If connection retry is not enabled, no reconnect timer will be created
                 pass
 
             self.send_event_up(event)

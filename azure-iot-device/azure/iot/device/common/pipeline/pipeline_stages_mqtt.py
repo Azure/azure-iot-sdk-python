@@ -208,7 +208,7 @@ class MQTTTransportStage(PipelineStage):
             # already doing.
 
             try:
-                self.transport.disconnect(clear_pending=True)
+                self.transport.disconnect(clear_inflight=True)
             except Exception as e:
                 logger.info("transport.disconnect raised error while disconnecting")
                 logger.info(traceback.format_exc())
@@ -377,6 +377,7 @@ class MQTTTransportStage(PipelineStage):
         # we do anything else (in case upper stages have any "are we connected" logic.)
         self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
+        # Clear any pending connection ops
         if self._pending_connection_op:
             # on_mqtt_disconnected will cause any pending connect op to complete.  This is how Paho
             # behaves when there is a connection error, and it also makes sense that on_mqtt_disconnected
@@ -416,3 +417,11 @@ class MQTTTransportStage(PipelineStage):
                 log_msg="Unexpected disconnection.  Safe to ignore since other stages will reconnect.",
                 log_lvl="info",
             )
+
+        # If there is no connection retry, cancel any operations waiting on response
+        if not self.pipeline_root.pipeline_configuration.connection_retry:
+            # TODO: Do not access private attributes
+            # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
+            # given that future development of individual operation cancels might affect the
+            # approach to cancelling inflight ops waiting in the transport.
+            self.transport._op_manager.cancel_all_operations()
