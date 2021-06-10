@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 from .iothub_amqp_client import IoTHubAmqpClientSharedAccessKeyAuth, IoTHubAmqpClientTokenAuth
 from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
+from .constant import IOT_HUB_PUBLIC_TOKEN_SCOPE
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 from .protocol.models import (
     Device,
@@ -56,7 +57,13 @@ class IoTHubRegistryManager(object):
     based on top of the auto generated IotHub REST APIs
     """
 
-    def __init__(self, connection_string=None, host=None, token_credential=None):
+    def __init__(
+        self,
+        connection_string=None,
+        host=None,
+        token_credential=None,
+        token_scope=IOT_HUB_PUBLIC_TOKEN_SCOPE,
+    ):
         """Initializer for a Registry Manager Service client.
 
         Users should not call this directly. Rather, they should the from_connection_string()
@@ -87,9 +94,9 @@ class IoTHubRegistryManager(object):
             )
         else:
             self.protocol = protocol_client(
-                AzureIdentityCredentialAdapter(token_credential), "https://" + host
+                AzureIdentityCredentialAdapter(token_credential, token_scope), "https://" + host
             )
-            self.amqp_svc_client = IoTHubAmqpClientTokenAuth(host, token_credential)
+            self.amqp_svc_client = IoTHubAmqpClientTokenAuth(host, token_credential, token_scope)
 
     @classmethod
     def from_connection_string(cls, connection_string):
@@ -107,7 +114,7 @@ class IoTHubRegistryManager(object):
         return cls(connection_string=connection_string)
 
     @classmethod
-    def from_token_credential(cls, url, token_credential):
+    def from_token_credential(cls, url, token_credential, token_scope=IOT_HUB_PUBLIC_TOKEN_SCOPE):
         """Classmethod initializer for a Registry Manager Service client.
         Creates Registry Manager class from host name url and Azure token credential.
 
@@ -116,10 +123,14 @@ class IoTHubRegistryManager(object):
 
         :param str url: The Azure service url (host name).
         :param str token_credential: The Azure token credential object.
+        :param str token_scope: The scope for the token used to authenticate with the Azure service.
+            For any public cloud and private cloud other than Azure US Government cloud, this can be
+            omitted. IOT_HUB_PUBLIC_TOKEN_SCOPE would be used internally in this case. For Azure US
+            Government cloud, this should be IOT_HUB_US_GOVERNMENT_TOKEN_SCOPE.
 
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
-        return cls(host=url, token_credential=token_credential)
+        return cls(host=url, token_credential=token_credential, token_scope=token_scope)
 
     def __del__(self):
         """

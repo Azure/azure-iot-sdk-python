@@ -112,9 +112,7 @@ class IoTHubAmqpClientSharedAccessKeyAuth(IoTHubAmqpClientBase):
 
 
 class IoTHubAmqpClientTokenAuth(IoTHubAmqpClientBase):
-    def __init__(
-        self, hostname, token_credential, token_scope="https://iothubs.azure.net/.default"
-    ):
+    def __init__(self, hostname, token_credential, token_scope):
         def get_token():
             result = token_credential.get_token(token_scope)
             return AccessToken("Bearer " + result.token, result.expires_on)

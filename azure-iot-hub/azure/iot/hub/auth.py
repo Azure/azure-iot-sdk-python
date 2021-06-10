@@ -65,14 +65,14 @@ class ConnectionStringAuthentication(ConnectionString, Authentication):
 
 
 class AzureIdentityCredentialAdapter(BasicTokenAuthentication):
-    def __init__(self, credential, resource_id="https://iothubs.azure.net/.default", **kwargs):
+    def __init__(self, credential, token_scope, **kwargs):
         """Adapt any azure-identity credential to work with SDK that needs azure.common.credentials or msrestazure.
         Default resource is ARM (syntax of endpoint v2)
         :param credential: Any azure-identity credential (DefaultAzureCredential by default)
-        :param str resource_id: The scope to use to get the token (default ARM)
+        :param str token_scope: The scope to use to get the token (default ARM)
         """
         super(AzureIdentityCredentialAdapter, self).__init__(None)
-        self._policy = BearerTokenCredentialPolicy(credential, resource_id, **kwargs)
+        self._policy = BearerTokenCredentialPolicy(credential, token_scope, **kwargs)
 
     def _make_request(self):
         return PipelineRequest(

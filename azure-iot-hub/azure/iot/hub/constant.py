@@ -7,3 +7,5 @@
 """
 
 VERSION = "2.4.0"
+IOT_HUB_PUBLIC_TOKEN_SCOPE = "https://iothubs.azure.net/.default"
+IOT_HUB_US_GOVERNMENT_TOKEN_SCOPE = "https://iothubs.azure.us/.default"

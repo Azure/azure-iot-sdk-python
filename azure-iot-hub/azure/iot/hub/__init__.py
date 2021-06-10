@@ -8,6 +8,7 @@ from .iothub_configuration_manager import IoTHubConfigurationManager
 from .iothub_job_manager import IoTHubJobManager
 from .iothub_http_runtime_manager import IoTHubHttpRuntimeManager
 from .digital_twin_client import DigitalTwinClient
+from .constant import IOT_HUB_PUBLIC_TOKEN_SCOPE, IOT_HUB_US_GOVERNMENT_TOKEN_SCOPE
 
 __all__ = [
     "IoTHubRegistryManager",
@@ -15,4 +16,6 @@ __all__ = [
     "IoTHubJobManager",
     "IoTHubHttpRuntimeManager",
     "DigitalTwinClient",
+    "IOT_HUB_PUBLIC_TOKEN_SCOPE",
+    "IOT_HUB_US_GOVERNMENT_TOKEN_SCOPE",
 ]

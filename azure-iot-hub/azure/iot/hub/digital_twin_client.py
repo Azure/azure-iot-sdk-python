@@ -4,6 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
+from .constant import IOT_HUB_PUBLIC_TOKEN_SCOPE
 from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 
 
@@ -51,7 +52,7 @@ class DigitalTwinClient(object):
         return cls(connection_string=connection_string)
 
     @classmethod
-    def from_token_credential(cls, url, token_credential):
+    def from_token_credential(cls, url, token_credential, token_scope=IOT_HUB_PUBLIC_TOKEN_SCOPE):
         """Classmethod initializer for a DigitalTwinClient Service client.
         Creates DigitalTwinClient class from host name url and Azure token credential.
 
@@ -60,11 +61,15 @@ class DigitalTwinClient(object):
 
         :param str url: The Azure service url (host name).
         :param str token_credential: The Azure token credential object.
+        :param str token_scope: The scope for the token used to authenticate with the Azure service.
+            For any public cloud and private cloud other than Azure US Government cloud, this can be
+            omitted. IOT_HUB_PUBLIC_TOKEN_SCOPE would be used internally in this case. For Azure US
+            Government cloud, this should be IOT_HUB_US_GOVERNMENT_TOKEN_SCOPE.
 
         :rtype: :class:`azure.iot.hub.DigitalTwinClient`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = AzureIdentityCredentialAdapter(token_credential, token_scope)
         return cls(host=host, auth=auth)
 
     def get_digital_twin(self, digital_twin_id):

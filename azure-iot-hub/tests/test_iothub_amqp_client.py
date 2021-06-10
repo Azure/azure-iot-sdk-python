@@ -214,31 +214,6 @@ class TestIotHubAmqpClientTokenAuthInstantiation(IoTHubAmqpClientTokenAuthTestCo
         )
 
     @pytest.mark.it(
-        "Creates a bearer token with the default token scope of 'https://iothubs.azure.net/.default' and uses it to create an AMQP SendClient if no token scope is provided"
-    )
-    def test_bearer_token_with_default_scope(
-        self, mocker, mock_azure_identity_TokenCredential, mock_uamqp_SendClient
-    ):
-        amqp_token_init_mock = mocker.patch.object(uamqp.authentication, "JWTTokenAuth")
-        amqp_token_mock = amqp_token_init_mock.return_value
-
-        IoTHubAmqpClientTokenAuth(fake_hostname, mock_azure_identity_TokenCredential)
-
-        # Bearer Token Creation
-        assert amqp_token_init_mock.call_count == 1
-        assert amqp_token_init_mock.call_args[1]["uri"] == "https://" + fake_hostname
-        assert amqp_token_init_mock.call_args[1]["audience"] == "https://iothubs.azure.net/.default"
-        assert amqp_token_init_mock.call_args[1]["token_type"] == b"bearer"
-        assert amqp_token_mock.update_token.call_count == 1
-
-        # AMQP SendClient is created
-        assert mock_uamqp_SendClient.call_count == 1
-        expected_target = "amqps://" + fake_hostname + "/messages/devicebound"
-        assert mock_uamqp_SendClient.call_args == mocker.call(
-            target=expected_target, auth=amqp_token_mock
-        )
-
-    @pytest.mark.it(
         "Retrieves the token from the azure-identity TokenCredential using the specified token scope"
     )
     def test_retreive_token_from_azure_identity(self, mock_azure_identity_TokenCredential):
