@@ -376,13 +376,16 @@ class MQTTTransportStage(PipelineStage):
         # If there is no connection retry, cancel any transport operations waiting on response
         # immediately so they do not get stuck
         if not self.pipeline_root.pipeline_configuration.connection_retry:
-            # TODO: Do not access private attributes
+            logger.debug(
+                "{}: Connection Retry disabled - cancelling in-flight operations".format(self.name)
+            )
+            # TODO: Remove private access to the op manager (this layer shouldn't know about it)
             # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
             # given that future development of individual operation cancels might affect the
             # approach to cancelling inflight ops waiting in the transport.
             self.transport._op_manager.cancel_all_operations()
 
-        # TODO: should this be after clearing pending connection ops?
+        # TODO: can this be before the cancel ops above?
         # Send an event to tell other pipeline stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.)
         self.send_event_up(pipeline_events_base.DisconnectedEvent())

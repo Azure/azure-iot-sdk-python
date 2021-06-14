@@ -125,8 +125,13 @@ class SharedClientShutdownTests(object):
     @pytest.mark.parametrize(
         "pipeline_error,client_error",
         [
-            # The only expected errors are unexpected ones.
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError")
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            # The only other expected errors are unexpected ones.
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
     async def test_raises_error_on_pipeline_op_error(
@@ -224,6 +229,11 @@ class SharedClientConnectTests(object):
                 client_exceptions.ClientError,
                 id="ProtocolProxyError->ClientError",
             ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
@@ -299,6 +309,11 @@ class SharedClientDisconnectTests(object):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -423,6 +438,11 @@ class SharedClientUpdateSasTokenTests(object):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -570,6 +590,11 @@ class SharedClientSendD2CMessageTests(object):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -834,6 +859,11 @@ class SharedClientSendMethodResponseTests(object):
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
@@ -930,6 +960,11 @@ class SharedClientGetTwinTests(object):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -1045,6 +1080,11 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -1453,6 +1493,11 @@ class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -1896,6 +1941,11 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig):
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
@@ -2159,6 +2209,11 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
