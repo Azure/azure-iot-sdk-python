@@ -46,7 +46,7 @@ def print_device_info(title, iothub_device):
 #       new_device = iothub_registry_manager.create_device_with_certificate_authority(device_id, status, iot_edge)
 try:
     # Create IoTHubRegistryManager
-    iothub_registry_manager = IoTHubRegistryManager(iothub_connection_str)
+    iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create a device
     primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"

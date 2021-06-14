@@ -7,7 +7,7 @@
 import pytest
 from azure.iot.hub.protocol.models import AuthenticationMechanism, DeviceCapabilities
 from azure.iot.hub.iothub_registry_manager import IoTHubRegistryManager
-from azure.iot.hub.iothub_amqp_client import IoTHubAmqpClient as iothub_amqp_client
+from azure.iot.hub.iothub_amqp_client import IoTHubAmqpClientSharedAccessKeyAuth
 
 """---Constants---"""
 
@@ -128,13 +128,15 @@ def mock_module_constructor(mocker):
 
 @pytest.fixture(scope="function")
 def mock_uamqp_send_message_to_device(mocker):
-    mock_uamqp_send = mocker.patch.object(iothub_amqp_client, "send_message_to_device")
+    mock_uamqp_send = mocker.patch.object(
+        IoTHubAmqpClientSharedAccessKeyAuth, "send_message_to_device"
+    )
     return mock_uamqp_send
 
 
 @pytest.fixture
 def mock_uamqp_disconnect_sync(mocker):
-    return mocker.patch.object(iothub_amqp_client, "disconnect_sync")
+    return mocker.patch.object(IoTHubAmqpClientSharedAccessKeyAuth, "disconnect_sync")
 
 
 @pytest.mark.describe("IoTHubRegistryManager - .create_device_with_sas()")

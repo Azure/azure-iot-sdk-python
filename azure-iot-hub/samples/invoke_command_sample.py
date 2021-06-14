@@ -20,7 +20,7 @@ response_timeout_in_seconds = 7  # Must be within 5-300
 
 try:
     # Create DigitalTwinClient
-    digital_twin_client = DigitalTwinClient(iothub_connection_str)
+    digital_twin_client = DigitalTwinClient.from_connection_string(iothub_connection_str)
 
     # Invoke command
     invoke_command_result = digital_twin_client.invoke_command(
