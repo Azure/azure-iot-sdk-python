@@ -1028,6 +1028,7 @@ class ReconnectStage(PipelineStage):
                 # tests. Likewise, if there were 2 reconnect code paths (one immediate and one
                 # delayed), then both those paths would need to be maintained as separate
                 # flows
+                logger.debug("{}({}): Attempting to reconnect".format(self.name, event.name))
                 self.state = ReconnectState.WAITING_TO_RECONNECT
                 self._start_reconnect_timer(0.01)
 
@@ -1037,15 +1038,22 @@ class ReconnectStage(PipelineStage):
                 and self.state == ReconnectState.LOGICALLY_CONNECTED
             ):
                 # In the case where the disconnect was NOT user-initiated, AND the pipeline is NOT
-                # configured to retry the connection, we send an explicit Disconnect down
-                # (even though already disconnected) in order to clear any in-flight pub/sub/unsub
+                # configured to retry the connection, we allow the disconnection, and no timer will
+                # be created.
+                logger.debug(
+                    "{}({}): Not attempting to reconnect (Reconnect disabled)".format(
+                        self.name, event.name
+                    )
+                )
                 self.state = ReconnectState.LOGICALLY_DISCONNECTED
-                # self.send_op_down(pipeline_ops_base.DisconnectOperation())
-
             else:
                 # If user manually disconnected, ReconnectState will be LOGICALLY_DISCONNECTED, and
                 # no reconnect timer will be created.
-                pass
+                logger.debug(
+                    "{}({}): Not attempting to reconnect (User-initiated disconnect)".format(
+                        self.name, event.name
+                    )
+                )
 
             self.send_event_up(event)
 

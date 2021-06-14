@@ -373,7 +373,17 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
-        # Send an event to tell other pipeilne stages that we're disconnected. Do this before
+        # If there is no connection retry, cancel any transport operations waiting on response
+        # immediately so they do not get stuck
+        if not self.pipeline_root.pipeline_configuration.connection_retry:
+            # TODO: Do not access private attributes
+            # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
+            # given that future development of individual operation cancels might affect the
+            # approach to cancelling inflight ops waiting in the transport.
+            self.transport._op_manager.cancel_all_operations()
+
+        # TODO: should this be after clearing pending connection ops?
+        # Send an event to tell other pipeline stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.)
         self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
@@ -414,14 +424,6 @@ class MQTTTransportStage(PipelineStage):
             e = transport_exceptions.ConnectionDroppedError(cause=cause)
             handle_exceptions.swallow_unraised_exception(
                 e,
-                log_msg="Unexpected disconnection.  Safe to ignore since other stages will reconnect.",
+                log_msg="Unexpected disconnection",
                 log_lvl="info",
             )
-
-        # If there is no connection retry, cancel any operations waiting on response
-        if not self.pipeline_root.pipeline_configuration.connection_retry:
-            # TODO: Do not access private attributes
-            # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
-            # given that future development of individual operation cancels might affect the
-            # approach to cancelling inflight ops waiting in the transport.
-            self.transport._op_manager.cancel_all_operations()
