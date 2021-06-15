@@ -384,30 +384,41 @@ class AutoConnectStage(PipelineStage):
         if op.needs_connection and self.pipeline_root.pipeline_configuration.auto_connect:
             if self.pipeline_root.connected:
 
-                # # If we think we're connected, we pass the op down, but we also check the result.
-                # # If we fail the op and we're not connected when we're done, we run through this
-                # # stage again to connect.  This is more common than you might think because the
-                # # *nix network stack won't detect a dropped connection until the client tries to
-                # # send something, so it's very possible that we're disconnected but don't know
-                # # it yet.
+                # If we think we're connected, we pass the op down, but we also check the result.
+                # If we fail the op and we're not connected when we're done, we run through this
+                # stage again to connect.  This is more common than you might think because the
+                # *nix network stack won't detect a dropped connection until the client tries to
+                # send something, so it's very possible that we're disconnected but don't know
+                # it yet.
+                #
+                # However, we only want to do this for errors - NOT operations that were cancelled.
+                #
+                # QUESTION: Is this necessary as described above? E2E tests pass without this code.
+                # Is this that the tests don't handle this case, or that this isn't necessary?
 
-                # @pipeline_thread.runs_on_pipeline_thread
-                # def check_for_connection_failure(op, error):
-                #     if error and not self.pipeline_root.connected:
-                #         logger.debug(
-                #             "{}({}): op failed with {} and we're not connected.  Re-submitting.".format(
-                #                 self.name, op.name, error
-                #             )
-                #         )
-                #         op.halt_completion()
-                #         self.run_op(op)
+                @pipeline_thread.runs_on_pipeline_thread
+                def check_for_connection_failure(op, error):
+                    # QUESTION: Perhaps this should be checking for specific (connection related)
+                    # errors, rather than excluding certain ones?
+                    if (
+                        error
+                        and not isinstance(error, pipeline_exceptions.OperationCancelled)
+                        and not self.pipeline_root.connected
+                    ):
+                        logger.debug(
+                            "{}({}): op failed with {} and we're not connected.  Re-submitting.".format(
+                                self.name, op.name, error
+                            )
+                        )
+                        op.halt_completion()
+                        self.run_op(op)
 
-                # op.add_callback(check_for_connection_failure)
-                # logger.debug(
-                #     "{}({}): Connected.  Sending down and adding callback to check result".format(
-                #         self.name, op.name
-                #     )
-                # )
+                op.add_callback(check_for_connection_failure)
+                logger.debug(
+                    "{}({}): Connected.  Sending down and adding callback to check result".format(
+                        self.name, op.name
+                    )
+                )
                 self.send_op_down(op)
             else:
                 # operation needs connection, but pipeline is not connected.
@@ -981,7 +992,10 @@ class ReconnectStage(PipelineStage):
                 self._complete_waiting_connect_ops(
                     pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
                 )
-                op.complete()  # TODO: Is this right? Shouldn't the op go all the way down to clean up?
+                # TODO: There is a bug here. If in a WAITING_TO_RECONNECT state, and an explicit
+                # Disconnect occurs, it is completed here rather than going all the way down. This
+                # means that any in-flight operations are NOT cancelled.
+                op.complete()
 
             else:
                 logger.info(
@@ -1008,50 +1022,46 @@ class ReconnectStage(PipelineStage):
                 )
             )
 
-            # Only retry connection if:
-            #   1) Pipeline is configured to do retry
-            #   2) The root has not already realized the connection is dropped
-            #   3) The pipeline is logically connected (i.e. it is SUPPOSED to be connected)
-            if (
-                self.pipeline_root.pipeline_configuration.connection_retry
-                and self.pipeline_root.connected
-                and self.state == ReconnectState.LOGICALLY_CONNECTED
-            ):
-                # When we get disconnected, we try to reconnect as soon as we can.  We don't want
-                # to reconnect right here because we're in a callback in the middle of being
-                # disconnected and we want things to "settle down" a bit before reconnecting.
-                #
-                # We also use a timer to reconnect here because the "reconnect timer expired"
-                # code path is well tested.  If we tried to immediately reconnect here, there
-                # would be an entire set of scenarios that would need to be tested for
-                # this case, and these tests would be identical to the "reconnect timer expired"
-                # tests. Likewise, if there were 2 reconnect code paths (one immediate and one
-                # delayed), then both those paths would need to be maintained as separate
-                # flows
-                logger.debug("{}({}): Attempting to reconnect".format(self.name, event.name))
-                self.state = ReconnectState.WAITING_TO_RECONNECT
-                self._start_reconnect_timer(0.01)
-
-            elif (
-                not self.pipeline_root.pipeline_configuration.connection_retry
-                and self.pipeline_root.connected
-                and self.state == ReconnectState.LOGICALLY_CONNECTED
-            ):
-                # In the case where the disconnect was NOT user-initiated, AND the pipeline is NOT
-                # configured to retry the connection, we allow the disconnection, and no timer will
-                # be created.
-                logger.debug(
-                    "{}({}): Not attempting to reconnect (Reconnect disabled)".format(
-                        self.name, event.name
-                    )
-                )
-                self.state = ReconnectState.LOGICALLY_DISCONNECTED
-            else:
-                # If user manually disconnected, ReconnectState will be LOGICALLY_DISCONNECTED, and
-                # no reconnect timer will be created.
+            # EXPECTED DISCONNECTION (i.e. a DisconnectOperation was previously issued)
+            if self.state == ReconnectState.LOGICALLY_DISCONNECTED and self.pipeline_root.connected:
+                # ReconnectState will remain LOGICALLY_DISCONNECTED
+                # No reconnect timer will be created.
                 logger.debug(
                     "{}({}): Not attempting to reconnect (User-initiated disconnect)".format(
                         self.name, event.name
+                    )
+                )
+
+            # UNEXPECTED DISCONNECTION (i.e. Connection has been lost)
+            elif self.state == ReconnectState.LOGICALLY_CONNECTED and self.pipeline_root.connected:
+                if self.pipeline_root.pipeline_configuration.connection_retry:
+                    # When we get disconnected, we try to reconnect as soon as we can.  We don't want
+                    # to reconnect right here because we're in a callback in the middle of being
+                    # disconnected and we want things to "settle down" a bit before reconnecting.
+                    #
+                    # We also use a timer to reconnect here because the "reconnect timer expired"
+                    # code path is well tested.  If we tried to immediately reconnect here, there
+                    # would be an entire set of scenarios that would need to be tested for
+                    # this case, and these tests would be identical to the "reconnect timer expired"
+                    # tests. Likewise, if there were 2 reconnect code paths (one immediate and one
+                    # delayed), then both those paths would need to be maintained as separate
+                    # flows
+                    logger.debug("{}({}): Attempting to reconnect".format(self.name, event.name))
+                    self.state = ReconnectState.WAITING_TO_RECONNECT
+                    self._start_reconnect_timer(0.01)
+                else:
+                    logger.debug(
+                        "{}({}): Not attempting to reconnect (Reconnect disabled)".format(
+                            self.name, event.name
+                        )
+                    )
+                    self.state = ReconnectState.LOGICALLY_DISCONNECTED
+
+            # BAD STATE (this block should not be reached)
+            else:
+                logger.warning(
+                    "{}: DisconnectEvent received while in unexpected state - {}, Connected: {}".format(
+                        self.name, self.state, self.pipeline_root.connected
                     )
                 )
 

@@ -373,8 +373,12 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
+        # Send an event to tell other pipeline stages that we're disconnected. Do this before
+        # we do anything else (in case upper stages have any "are we connected" logic.)
+        self.send_event_up(pipeline_events_base.DisconnectedEvent())
+
         # If there is no connection retry, cancel any transport operations waiting on response
-        # immediately so they do not get stuck
+        # so that they do not get stuck there.
         if not self.pipeline_root.pipeline_configuration.connection_retry:
             logger.debug(
                 "{}: Connection Retry disabled - cancelling in-flight operations".format(self.name)
@@ -384,11 +388,6 @@ class MQTTTransportStage(PipelineStage):
             # given that future development of individual operation cancels might affect the
             # approach to cancelling inflight ops waiting in the transport.
             self.transport._op_manager.cancel_all_operations()
-
-        # TODO: can this be before the cancel ops above?
-        # Send an event to tell other pipeline stages that we're disconnected. Do this before
-        # we do anything else (in case upper stages have any "are we connected" logic.)
-        self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
         # Clear any pending connection ops
         if self._pending_connection_op:
