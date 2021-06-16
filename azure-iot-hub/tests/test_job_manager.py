@@ -7,8 +7,8 @@
 import pytest
 from azure.iot.hub.protocol.models import AuthenticationMechanism
 from azure.iot.hub.iothub_job_manager import IoTHubJobManager
-from azure.iot.hub.auth import ConnectionStringAuthentication
-from azure.iot.hub.protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs
+import azure.iot.hub.auth
+import azure.iot.hub.protocol.iot_hub_gateway_service_ap_is
 
 """---Constants---"""
 
@@ -50,8 +50,13 @@ def iothub_job_manager():
 class TestJobManager(object):
     @pytest.mark.it("Instantiation sets the auth and protocol attributes")
     def test_instantiates_auth_and_protocol_attributes(self, iothub_job_manager):
-        assert isinstance(iothub_job_manager.auth, ConnectionStringAuthentication)
-        assert isinstance(iothub_job_manager.protocol, IotHubGatewayServiceAPIs)
+        assert isinstance(
+            iothub_job_manager.auth, azure.iot.hub.auth.ConnectionStringAuthentication
+        )
+        assert isinstance(
+            iothub_job_manager.protocol,
+            azure.iot.hub.protocol.iot_hub_gateway_service_ap_is.IotHubGatewayServiceAPIs,
+        )
 
     @pytest.mark.it(
         "Raises a ValueError exception when instantiated with an empty connection string"
@@ -101,6 +106,63 @@ class TestJobManager(object):
         )
         with pytest.raises(ValueError):
             IoTHubJobManager(connection_string)
+
+
+@pytest.mark.describe("IoTHubJobManager - .from_connection_string()")
+class TestFromConnectionString:
+    @pytest.mark.it(
+        "Creates an instance of ConnectionStringAuthentication and passes it to IotHubGatewayServiceAPIs constructor"
+    )
+    def test_connection_string_auth(self, mocker):
+        connection_string_auth_init_mock = mocker.patch.object(
+            azure.iot.hub.auth, "ConnectionStringAuthentication"
+        )
+        connection_string_auth_mock = connection_string_auth_init_mock.return_value
+        connection_string_auth_mock.__getitem__.return_value = fake_hostname
+        protocol_client_init_mock = mocker.patch.object(
+            azure.iot.hub.protocol.iot_hub_gateway_service_ap_is, "IotHubGatewayServiceAPIs"
+        )
+
+        connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+            hostname=fake_hostname,
+            device_id=fake_device_id,
+            skn=fake_shared_access_key_name,
+            sk=fake_shared_access_key,
+        )
+
+        IoTHubJobManager.from_connection_string(connection_string=connection_string)
+
+        assert connection_string_auth_init_mock.call_args == mocker.call(connection_string)
+        assert protocol_client_init_mock.call_args == mocker.call(
+            connection_string_auth_mock, "https://" + connection_string_auth_mock["HostName"]
+        )
+
+
+@pytest.mark.describe("IoTHubJobManager - .from_token_credential()")
+class TestFromTokenCredential:
+    @pytest.mark.it(
+        "Creates an instance of AzureIdentityCredentialAdapter and passes it to IotHubGatewayServiceAPIs constructor"
+    )
+    def test_token_credential_auth(self, mocker):
+        azure_identity_credential_adapter_init_mock = mocker.patch.object(
+            azure.iot.hub.auth, "AzureIdentityCredentialAdapter"
+        )
+        azure_identity_credential_adapter_mock = (
+            azure_identity_credential_adapter_init_mock.return_value
+        )
+        mock_azure_identity_TokenCredential = mocker.Mock()
+        protocol_client_init_mock = mocker.patch.object(
+            azure.iot.hub.protocol.iot_hub_gateway_service_ap_is, "IotHubGatewayServiceAPIs"
+        )
+
+        IoTHubJobManager.from_token_credential(fake_hostname, mock_azure_identity_TokenCredential)
+
+        assert azure_identity_credential_adapter_init_mock.call_args == mocker.call(
+            mock_azure_identity_TokenCredential
+        )
+        assert protocol_client_init_mock.call_args == mocker.call(
+            azure_identity_credential_adapter_mock, "https://" + fake_hostname
+        )
 
 
 @pytest.mark.describe("IoTHubJobManager - .create_import_export_job()")

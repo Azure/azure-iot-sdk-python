@@ -4,10 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import azure.iot.hub.auth
 import pytest
 from azure.iot.hub.protocol.models import AuthenticationMechanism, DeviceCapabilities
 from azure.iot.hub.iothub_registry_manager import IoTHubRegistryManager
-from azure.iot.hub.iothub_amqp_client import IoTHubAmqpClientSharedAccessKeyAuth
+import azure.iot.hub.iothub_amqp_client
 
 """---Constants---"""
 
@@ -129,14 +130,98 @@ def mock_module_constructor(mocker):
 @pytest.fixture(scope="function")
 def mock_uamqp_send_message_to_device(mocker):
     mock_uamqp_send = mocker.patch.object(
-        IoTHubAmqpClientSharedAccessKeyAuth, "send_message_to_device"
+        azure.iot.hub.iothub_amqp_client.IoTHubAmqpClientSharedAccessKeyAuth,
+        "send_message_to_device",
     )
     return mock_uamqp_send
 
 
 @pytest.fixture
 def mock_uamqp_disconnect_sync(mocker):
-    return mocker.patch.object(IoTHubAmqpClientSharedAccessKeyAuth, "disconnect_sync")
+    return mocker.patch.object(
+        azure.iot.hub.iothub_amqp_client.IoTHubAmqpClientSharedAccessKeyAuth, "disconnect_sync"
+    )
+
+
+@pytest.mark.describe("IoTHubRegistryManager - .from_connection_string()")
+class TestFromConnectionString:
+    @pytest.mark.it(
+        "Creates an instance of IotHubGatewayServiceAPIs and IoTHubAmqpClientSharedAccessKeyAuth with the correct arguments"
+    )
+    def test_connection_string_auth(self, mocker):
+        def get_item_side_effect(key):
+            dikt = {
+                "HostName": fake_hostname,
+                "SharedAccessKeyName": fake_shared_access_key_name,
+                "SharedAccessKey": fake_shared_access_key,
+            }
+            return dikt[key]
+
+        connection_string_auth_init_mock = mocker.patch.object(
+            azure.iot.hub.auth, "ConnectionStringAuthentication"
+        )
+        connection_string_auth_mock = connection_string_auth_init_mock.return_value
+        connection_string_auth_mock.__getitem__.side_effect = get_item_side_effect
+        protocol_client_init_mock = mocker.patch.object(
+            azure.iot.hub.protocol.iot_hub_gateway_service_ap_is, "IotHubGatewayServiceAPIs"
+        )
+        amqp_client_init_mock = mocker.patch.object(
+            azure.iot.hub.iothub_amqp_client, "IoTHubAmqpClientSharedAccessKeyAuth"
+        )
+
+        connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+            hostname=fake_hostname,
+            device_id=fake_device_id,
+            skn=fake_shared_access_key_name,
+            sk=fake_shared_access_key,
+        )
+
+        IoTHubRegistryManager.from_connection_string(connection_string=connection_string)
+
+        assert connection_string_auth_init_mock.call_args == mocker.call(connection_string)
+        assert protocol_client_init_mock.call_args == mocker.call(
+            connection_string_auth_mock, "https://" + connection_string_auth_mock["HostName"]
+        )
+        assert amqp_client_init_mock.call_args == mocker.call(
+            connection_string_auth_mock["HostName"],
+            connection_string_auth_mock["SharedAccessKeyName"],
+            connection_string_auth_mock["SharedAccessKey"],
+        )
+
+
+@pytest.mark.describe("IoTHubRegistryManager - .from_token_credential()")
+class TestFromTokenCredential:
+    @pytest.mark.it(
+        "Creates an instance of IotHubGatewayServiceAPIs and IoTHubAmqpClientTokenAuth with the correct arguments"
+    )
+    def test_token_credential_auth(self, mocker):
+        azure_identity_credential_adapter_init_mock = mocker.patch.object(
+            azure.iot.hub.auth, "AzureIdentityCredentialAdapter"
+        )
+        azure_identity_credential_adapter_mock = (
+            azure_identity_credential_adapter_init_mock.return_value
+        )
+        mock_azure_identity_TokenCredential = mocker.Mock()
+        protocol_client_init_mock = mocker.patch.object(
+            azure.iot.hub.protocol.iot_hub_gateway_service_ap_is, "IotHubGatewayServiceAPIs"
+        )
+        amqp_client_init_mock = mocker.patch.object(
+            azure.iot.hub.iothub_amqp_client, "IoTHubAmqpClientTokenAuth"
+        )
+
+        IoTHubRegistryManager.from_token_credential(
+            fake_hostname, mock_azure_identity_TokenCredential
+        )
+
+        assert azure_identity_credential_adapter_init_mock.call_args == mocker.call(
+            mock_azure_identity_TokenCredential
+        )
+        assert protocol_client_init_mock.call_args == mocker.call(
+            azure_identity_credential_adapter_mock, "https://" + fake_hostname
+        )
+        assert amqp_client_init_mock.call_args == mocker.call(
+            fake_hostname, mock_azure_identity_TokenCredential
+        )
 
 
 @pytest.mark.describe("IoTHubRegistryManager - .create_device_with_sas()")

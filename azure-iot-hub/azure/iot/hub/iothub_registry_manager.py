@@ -3,9 +3,9 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from .iothub_amqp_client import IoTHubAmqpClientSharedAccessKeyAuth, IoTHubAmqpClientTokenAuth
-from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
-from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
+from . import iothub_amqp_client
+from . import auth as hub_auth
+from .protocol import iot_hub_gateway_service_ap_is as protocol_client
 from .protocol.models import (
     Device,
     Module,
@@ -76,20 +76,22 @@ class IoTHubRegistryManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
         if connection_string is not None:
-            conn_string_auth = ConnectionStringAuthentication(connection_string)
-            self.protocol = protocol_client(
+            conn_string_auth = hub_auth.ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client.IotHubGatewayServiceAPIs(
                 conn_string_auth, "https://" + conn_string_auth["HostName"]
             )
-            self.amqp_svc_client = IoTHubAmqpClientSharedAccessKeyAuth(
+            self.amqp_svc_client = iothub_amqp_client.IoTHubAmqpClientSharedAccessKeyAuth(
                 conn_string_auth["HostName"],
                 conn_string_auth["SharedAccessKeyName"],
                 conn_string_auth["SharedAccessKey"],
             )
         else:
-            self.protocol = protocol_client(
-                AzureIdentityCredentialAdapter(token_credential), "https://" + host
+            self.protocol = protocol_client.IotHubGatewayServiceAPIs(
+                hub_auth.AzureIdentityCredentialAdapter(token_credential), "https://" + host
             )
-            self.amqp_svc_client = IoTHubAmqpClientTokenAuth(host, token_credential)
+            self.amqp_svc_client = iothub_amqp_client.IoTHubAmqpClientTokenAuth(
+                host, token_credential
+            )
 
     @classmethod
     def from_connection_string(cls, connection_string):

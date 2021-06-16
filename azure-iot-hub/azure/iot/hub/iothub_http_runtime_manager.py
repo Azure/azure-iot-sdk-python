@@ -4,8 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
-from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
+from . import auth as hub_auth
+from .protocol import iot_hub_gateway_service_ap_is as protocol_client
 
 
 class IoTHubHttpRuntimeManager(object):
@@ -30,11 +30,13 @@ class IoTHubHttpRuntimeManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubHttpRuntimeManager`
         """
         if connection_string is not None:
-            self.auth = ConnectionStringAuthentication(connection_string)
-            self.protocol = protocol_client(self.auth, "https://" + self.auth["HostName"])
+            self.auth = hub_auth.ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client.IotHubGatewayServiceAPIs(
+                self.auth, "https://" + self.auth["HostName"]
+            )
         else:
             self.auth = auth
-            self.protocol = protocol_client(self.auth, "https://" + host)
+            self.protocol = protocol_client.IotHubGatewayServiceAPIs(self.auth, "https://" + host)
 
     @classmethod
     def from_connection_string(cls, connection_string):
@@ -65,7 +67,7 @@ class IoTHubHttpRuntimeManager(object):
         :rtype: :class:`azure.iot.hub.IoTHubHttpRuntimeManager`
         """
         host = url
-        auth = AzureIdentityCredentialAdapter(token_credential)
+        auth = hub_auth.AzureIdentityCredentialAdapter(token_credential)
         return cls(host=host, auth=auth)
 
     def receive_feedback_notification(self):
