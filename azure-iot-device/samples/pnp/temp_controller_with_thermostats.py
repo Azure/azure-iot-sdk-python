@@ -11,17 +11,11 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device import MethodResponse
+from azure.iot.device import CommandResponse, Component, ClientProperties
 from datetime import timedelta, datetime
 import pnp_helper
 
 logging.basicConfig(level=logging.ERROR)
-
-# the interfaces that are pulled in to implement the device.
-# User has to know these values as these may change and user can
-# choose to implement different interfaces.
-thermostat_digital_twin_model_identifier = "dtmi:com:example:Thermostat;1"
-device_info_digital_twin_model_identifier = "dtmi:azure:DeviceManagement:DeviceInformation;1"
 
 # The device "TemperatureController" that is getting implemented using the above interfaces.
 # This id can change according to the company the user is from
@@ -95,39 +89,20 @@ class Thermostat(object):
         return response_dict
 
 
-async def reboot_handler(values):
-    if values:
-        print("Rebooting after delay of {delay} secs".format(delay=values))
-    print("Done rebooting")
-
-
-async def max_min_handler(values):
-    if values:
-        print(
-            "Will return the max, min and average temperature from the specified time {since} to the current time".format(
-                since=values
-            )
-        )
-    print("Done generating")
-
-
-# END COMMAND HANDLERS
-#####################################################
-
 #####################################################
 # CREATE RESPONSES TO COMMANDS
 
 
-def create_max_min_report_response(thermostat_name):
+def handle_max_min_report_command(thermostat_name):
     """
     An example function that can create a response to the "getMaxMinReport" command request the way the user wants it.
     Most of the times response is created by a helper function which follows a generic pattern.
     This should be only used when the user wants to give a detailed response back to the Hub.
     :param values: The values that were received as part of the request.
     """
-    if "Thermostat;1" in thermostat_name and THERMOSTAT_1:
+    if thermostat_name == thermostat_1_component_name and THERMOSTAT_1:
         response_dict = THERMOSTAT_1.create_report()
-    elif THERMOSTAT_2:
+    elif thermostat_name == thermostat_2_component_name and THERMOSTAT_2:
         response_dict = THERMOSTAT_2.create_report()
     else:  # This is done to pass certification.
         response_dict = {}
@@ -137,94 +112,63 @@ def create_max_min_report_response(thermostat_name):
         response_dict["startTime"] = datetime.now().isoformat()
         response_dict["endTime"] = datetime.now().isoformat()
 
-    response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
-    print(response_payload)
-    return response_payload
+    return 200, response_dict
+
+
+async def handle_reboot_command(values):
+    if values:
+        print("Rebooting after delay of {delay} secs".format(delay=values))
+    print("Done rebooting")
+    return 200, None
 
 
 # END CREATE RESPONSES TO COMMANDS
 #####################################################
-
-#####################################################
-# TELEMETRY TASKS
-
-
-async def send_telemetry_from_temp_controller(device_client, telemetry_msg, component_name=None):
-    msg = pnp_helper.create_telemetry(telemetry_msg, component_name)
-    await device_client.send_message(msg)
-    print("Sent message")
-    print(msg)
-    await asyncio.sleep(5)
 
 
 #####################################################
 # COMMAND TASKS
 
 
-async def execute_command_listener(
-    device_client,
-    component_name=None,
-    method_name=None,
-    user_command_handler=None,
-    create_user_response_handler=None,
-):
-    """
-    Coroutine for executing listeners. These will listen for command requests.
-    They will take in a user provided handler and call the user provided handler
-    according to the command request received.
-    :param device_client: The device client
-    :param component_name: The name of the device like "sensor"
-    :param method_name: (optional) The specific method name to listen for. Eg could be "blink", "turnon" etc.
-    If not provided the listener will listen for all methods.
-    :param user_command_handler: (optional) The user provided handler that needs to be executed after receiving "command requests".
-    If not provided nothing will be executed on receiving command.
-    :param create_user_response_handler: (optional) The user provided handler that will create a response.
-    If not provided a generic response will be created.
-    :return:
-    """
-    while True:
-        if component_name and method_name:
-            command_name = component_name + "*" + method_name
-        elif method_name:
-            command_name = method_name
-        else:
-            command_name = None
+async def handle_command_received(device_client, command):
+    if command.command_name == "reboot":
+        handle = handle_reboot_command
+    elif command.command_name == "getMaxMinReport":
+        handler = handle_max_min_report_command
+    else:
+        handler = None
 
-        command_request = await device_client.receive_method_request(command_name)
-        print("Command request received with payload")
-        values = command_request.payload
-        print(values)
+    print("Command request received with payload")
+    print(command.payload)
 
-        if user_command_handler:
-            await user_command_handler(values)
-        else:
-            print("No handler provided to execute")
+    if handle:
+        response_status, response_payload = await handler(command.component_name)
+    else:
+        response_status = 404
+        response_payload = None
 
-        (response_status, response_payload) = pnp_helper.create_response_payload_with_status(
-            command_request, method_name, create_user_response=create_user_response_handler
-        )
+    command_response = CommandResponse.create_from_command(
+        command, response_status, response_payload
+    )
 
-        command_response = MethodResponse.create_from_method_request(
-            command_request, response_status, response_payload
-        )
-
-        try:
-            await device_client.send_method_response(command_response)
-        except Exception:
-            print("responding to the {command} command failed".format(command=method_name))
+    try:
+        await device_client.send_command_response(command_response)
+    except Exception:
+        print("responding to the {command} command failed".format(command=command.command_name))
 
 
 #####################################################
 # PROPERTY TASKS
 
 
-async def execute_property_listener(device_client):
+# TODO: device_client will probably not be a parameter to these callbacks.  This just made for an easy port of the sample
+async def handle_writable_property_patch_received(device_client, patch):
     while True:
-        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
         print(patch)
-        properties_dict = pnp_helper.create_reported_properties_from_desired(patch)
+        # TODO: create_reported_properties_from_desired isn't part of our API and I'm not sure if it belongs in the sample.
+        new_patch = pnp_helper.create_reported_properties_from_desired(patch)
 
-        await device_client.patch_twin_reported_properties(properties_dict)
+        await device_client.send_property_patch(new_patch)
 
 
 #####################################################
@@ -284,7 +228,7 @@ async def main():
                 symmetric_key=symmetric_key,
                 hostname=registration_result.registration_state.assigned_hub,
                 device_id=registration_result.registration_state.device_id,
-                product_info=model_id,
+                model_id=model_id,
             )
         else:
             raise RuntimeError(
@@ -295,7 +239,7 @@ async def main():
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
-            conn_str, product_info=model_id
+            conn_str, model_id=model_id
         )
     else:
         raise RuntimeError(
@@ -308,31 +252,28 @@ async def main():
     ################################################
     # Update readable properties from various components
 
-    properties_root = pnp_helper.create_reported_properties(serialNumber=serial_number)
-    properties_thermostat1 = pnp_helper.create_reported_properties(
-        thermostat_1_component_name, maxTempSinceLastReboot=98.34
+    properties = ClientProperties(
+        values={
+            "serialNumber": serial_number,
+        },
+        components={
+            thermostat_1_component_name: Component(values={"maxTempSinceLastReboot": 98.34}),
+            thermostat_2_component_name: Component(values={"maxTempSinceLastReboot": 48.92}),
+            device_information_component_name: Component(
+                values={
+                    "swVersion": "5.5",
+                    "manufacturer": "Contoso Device Corporation",
+                    "model": "Contoso 4762B-turbo",
+                    "osName": "Mac Os",
+                    "processorArchitecture": "x86-64",
+                    "processorManufacturer": "Intel",
+                    "totalStorage": 1024,
+                    "totalMemory": 32,
+                }
+            ),
+        },
     )
-    properties_thermostat2 = pnp_helper.create_reported_properties(
-        thermostat_2_component_name, maxTempSinceLastReboot=48.92
-    )
-    properties_device_info = pnp_helper.create_reported_properties(
-        device_information_component_name,
-        swVersion="5.5",
-        manufacturer="Contoso Device Corporation",
-        model="Contoso 4762B-turbo",
-        osName="Mac Os",
-        processorArchitecture="x86-64",
-        processorManufacturer="Intel",
-        totalStorage=1024,
-        totalMemory=32,
-    )
-
-    property_updates = asyncio.gather(
-        device_client.patch_twin_reported_properties(properties_root),
-        device_client.patch_twin_reported_properties(properties_thermostat1),
-        device_client.patch_twin_reported_properties(properties_thermostat2),
-        device_client.patch_twin_reported_properties(properties_device_info),
-    )
+    await device_client.send_property_patch(properties)
 
     ################################################
     # Get all the listeners running
@@ -343,26 +284,8 @@ async def main():
     THERMOSTAT_1 = Thermostat(thermostat_1_component_name, 10)
     THERMOSTAT_2 = Thermostat(thermostat_2_component_name, 10)
 
-    listeners = asyncio.gather(
-        execute_command_listener(
-            device_client, method_name="reboot", user_command_handler=reboot_handler
-        ),
-        execute_command_listener(
-            device_client,
-            thermostat_1_component_name,
-            method_name="getMaxMinReport",
-            user_command_handler=max_min_handler,
-            create_user_response_handler=create_max_min_report_response,
-        ),
-        execute_command_listener(
-            device_client,
-            thermostat_2_component_name,
-            method_name="getMaxMinReport",
-            user_command_handler=max_min_handler,
-            create_user_response_handler=create_max_min_report_response,
-        ),
-        execute_property_listener(device_client),
-    )
+    device_client.on_writable_property_patch_received = handle_writable_property_patch_received
+    device_client.on_command_received = handle_command_received
 
     ################################################
     # Function to send telemetry every 8 seconds
@@ -375,21 +298,20 @@ async def main():
             THERMOSTAT_1.record(curr_temp_ext)
 
             temperature_msg1 = {"temperature": curr_temp_ext}
-            await send_telemetry_from_temp_controller(
-                device_client, temperature_msg1, thermostat_1_component_name
-            )
+            await device_client.send_telemetry(temperature_msg1, thermostat_1_component_name)
+            await asyncio.sleep(5)
 
             curr_temp_int = random.randrange(10, 50)  # Current temperature in Celsius
             THERMOSTAT_2.record(curr_temp_int)
 
             temperature_msg2 = {"temperature": curr_temp_int}
 
-            await send_telemetry_from_temp_controller(
-                device_client, temperature_msg2, thermostat_2_component_name
-            )
+            await device_client.send_telemetry(temperature_msg2, thermostat_2_component_name)
+            await asyncio.sleep(5)
 
             workingset_msg3 = {"workingSet": random.randrange(1, 100)}
-            await send_telemetry_from_temp_controller(device_client, workingset_msg3)
+            await device_client.send_telemetry(workingset_msg3)
+            await asyncio.sleep(5)
 
     send_telemetry_task = asyncio.ensure_future(send_telemetry())
 
@@ -398,15 +320,6 @@ async def main():
     user_finished = loop.run_in_executor(None, stdin_listener)
     # # Wait for user to indicate they are done listening for method calls
     await user_finished
-
-    if not listeners.done():
-        listeners.set_result("DONE")
-
-    if not property_updates.done():
-        property_updates.set_result("DONE")
-
-    listeners.cancel()
-    property_updates.cancel()
 
     send_telemetry_task.cancel()
 
