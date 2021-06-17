@@ -445,7 +445,7 @@ class AbstractIoTHubClient(object):
     # @abc.abstractmethod
     # def send_telemetry(self, telemetry_dict, component_name=None):
     # (dict, str) -> None
-    # ass
+    # pass
 
     # @abc.abstractproperty
     # def on_command_received(self):

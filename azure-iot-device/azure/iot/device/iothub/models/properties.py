@@ -5,16 +5,15 @@
 # --------------------------------------------------------------------------
 """This module contains classes related to Digital Twin properties and components.
 """
-from typing import Union, Dict, Any
 
 
 class Component(object):
-    def __init__(self, properties: Dict[str, Any] = {}):
+    def __init__(self, properties):
         self.properties = properties
 
 
 class WritablePropertyResponse(object):
-    def __init__(self, value: Any, ac: int, ad: str, version: int) -> None:
+    def __init__(self, value, ac, ad, version):
         self.value = value
         self.ac = ac
         self.ad = ad
@@ -24,9 +23,9 @@ class WritablePropertyResponse(object):
 class ClientProperties(object):
     def __init__(
         self,
-        components: Dict[str, Component] = {},
-        properties: Dict[str, Any] = {},
-        version: Union[int, None] = None,
+        components={},
+        properties={},
+        version=None,
     ):
         self.components = components
         self.properties = properties
@@ -36,8 +35,8 @@ class ClientProperties(object):
 class WritableProperty(object):
     def __init__(
         self,
-        value: Any = None,
-        response: WritablePropertyResponse = None,
+        value=None,
+        response=None,
     ):
         self.value = value
         self.response = response
