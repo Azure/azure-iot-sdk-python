@@ -28,8 +28,8 @@ class ClientProperties(object):
         properties: Dict[str, Any] = {},
         version: Union[int, None] = None,
     ):
-        self.components: Dict[str, Component] = components
-        self.properties: Dict[str, Any] = properties
+        self.components = components
+        self.properties = properties
         self.version = version
 
 
