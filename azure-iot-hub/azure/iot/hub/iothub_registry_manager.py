@@ -4,8 +4,8 @@
 # license information.
 # --------------------------------------------------------------------------
 from . import iothub_amqp_client
-from . import auth as hub_auth
-from .protocol import iot_hub_gateway_service_ap_is as protocol_client
+from .auth import ConnectionStringAuthentication, AzureIdentityCredentialAdapter
+from .protocol.iot_hub_gateway_service_ap_is import IotHubGatewayServiceAPIs as protocol_client
 from .protocol.models import (
     Device,
     Module,
@@ -75,9 +75,10 @@ class IoTHubRegistryManager(object):
         :returns: Instance of the IoTHubRegistryManager object.
         :rtype: :class:`azure.iot.hub.IoTHubRegistryManager`
         """
+        self.amqp_svc_client = None
         if connection_string is not None:
-            conn_string_auth = hub_auth.ConnectionStringAuthentication(connection_string)
-            self.protocol = protocol_client.IotHubGatewayServiceAPIs(
+            conn_string_auth = ConnectionStringAuthentication(connection_string)
+            self.protocol = protocol_client(
                 conn_string_auth, "https://" + conn_string_auth["HostName"]
             )
             self.amqp_svc_client = iothub_amqp_client.IoTHubAmqpClientSharedAccessKeyAuth(
@@ -86,8 +87,8 @@ class IoTHubRegistryManager(object):
                 conn_string_auth["SharedAccessKey"],
             )
         else:
-            self.protocol = protocol_client.IotHubGatewayServiceAPIs(
-                hub_auth.AzureIdentityCredentialAdapter(token_credential), "https://" + host
+            self.protocol = protocol_client(
+                AzureIdentityCredentialAdapter(token_credential), "https://" + host
             )
             self.amqp_svc_client = iothub_amqp_client.IoTHubAmqpClientTokenAuth(
                 host, token_credential
@@ -127,7 +128,8 @@ class IoTHubRegistryManager(object):
         """
         Deinitializer for a Registry Manager Service client.
         """
-        self.amqp_svc_client.disconnect_sync()
+        if self.amqp_svc_client is not None:
+            self.amqp_svc_client.disconnect_sync()
 
     def create_device_with_sas(
         self,
