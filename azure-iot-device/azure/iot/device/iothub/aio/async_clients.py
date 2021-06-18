@@ -282,6 +282,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
+        This method is not compatible with PNP.
+
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
         :type message: :class:`azure.iot.device.Message` or str
@@ -294,10 +296,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using PNP mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
         """
+        self._check_client_mode_is_basic()
+
         if not isinstance(message, Message):
             message = Message(message)
 
@@ -323,6 +328,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         If no method request is yet available, will wait until it is available.
 
+        This method cannot be used when using handlers.
+        This method is not compatible with PNP.
+
         :param str method_name: Optionally provide the name of the method to receive requests for.
             If this parameter is not given, all methods not already being specifically targeted by
             a different call to receive_method will be received.
@@ -331,6 +339,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :rtype: :class:`azure.iot.device.MethodRequest`
         """
         self._check_receive_mode_is_api()
+        self._check_client_mode_is_basic()
 
         if not self._mqtt_pipeline.feature_enabled[constant.METHODS]:
             await self._enable_feature(constant.METHODS)
@@ -348,6 +357,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
+        This method is not compatible with PNP.
+
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
 
@@ -362,6 +373,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
+        self._check_client_mode_is_basic()
+
         logger.info("Sending method response to Hub...")
         send_method_response_async = async_adapter.emulate_async(
             self._mqtt_pipeline.send_method_response
@@ -427,6 +440,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
+        self._check_client_mode_is_basic()
+
         logger.info("Patching twin reported properties")
 
         if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
@@ -453,10 +468,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         If no method request is yet available, will wait until it is available.
 
+        This method cannot be used when using handlers.
+        This method is not compatible with PNP.
+
         :returns: Twin Desired Properties patch as a JSON dict
         :rtype: dict
         """
         self._check_receive_mode_is_api()
+        self._check_client_mode_is_basic()
 
         if not self._mqtt_pipeline.feature_enabled[constant.TWIN_PATCHES]:
             await self._enable_feature(constant.TWIN_PATCHES)
@@ -550,6 +569,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         """Receive a message that has been sent from the Azure IoT Hub.
 
         If no message is yet available, will wait until an item is available.
+
+        This method cannot be used when using handlers.
 
         :returns: Message that was sent from the Azure IoT Hub.
         :rtype: :class:`azure.iot.device.Message`
@@ -696,6 +717,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         """Receive an input message that has been sent from another Module to a specific input.
 
         If no message is yet available, will wait until an item is available.
+
+        This method cannot be used when using handlers.
 
         :param str input_name: The input name to receive a message on.
 

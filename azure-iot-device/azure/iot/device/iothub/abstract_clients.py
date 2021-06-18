@@ -189,6 +189,16 @@ class AbstractIoTHubClient(object):
             else:
                 pass
 
+    def _check_client_mode_is_basic(self):
+        """Call this method first in any feature restricted to a basic client"""
+        if self._client_mode is not CLIENT_MODE_BASIC:
+            raise exceptions.ClientError("This feature is restricted to using a non-PNP client")
+
+    def _check_client_mode_is_pnp(self):
+        """Call this method first when using any feature restricted to a PNP client"""
+        if self._client_mode is not CLIENT_MODE_PNP:
+            raise exceptions.ClientError("This feature is restricted to using PNP")
+
     def _replace_user_supplied_sastoken(self, sastoken_str):
         """
         Replaces the pipeline's NonRenewableSasToken with a new one based on a provided
