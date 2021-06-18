@@ -348,19 +348,24 @@ class SharedClientUpdateSasTokenTests(object):
         return hostname
 
     @pytest.fixture
-    def sas_client(self, client_class, mqtt_pipeline, http_pipeline, sas_config):
+    def sas_client(self, client_class, mqtt_pipeline, http_pipeline, sas_config, client_mode):
         """Client configured as if using user-provided, non-renewable SAS auth"""
         mqtt_pipeline.pipeline_configuration = sas_config
         http_pipeline.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline, http_pipeline)
+        return client_class(mqtt_pipeline, http_pipeline, client_mode)
 
     @pytest.fixture
     def sas_client_manual_cb(
-        self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, sas_config
+        self,
+        client_class,
+        mqtt_pipeline_manual_cb,
+        http_pipeline_manual_cb,
+        sas_config,
+        client_mode,
     ):
         mqtt_pipeline_manual_cb.pipeline_configuration = sas_config
         http_pipeline_manual_cb.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode)
 
     @pytest.fixture
     def new_sas_token_string(self, uri):
@@ -1160,11 +1165,11 @@ class IoTHubDeviceClientTestsConfig(object):
         return IoTHubDeviceClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline, client_mode):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, client_mode)
         yield client
         # We can't await a disconnect here because this is a function, not a coroutine, so some
         # kind of messy loop stuff has to happen.
@@ -1191,9 +1196,9 @@ class TestIoTHubDeviceClientInstantiation(
 ):
     @pytest.mark.it("Sets on_c2d_message_received handler in the MQTTPipeline")
     async def test_sets_on_c2d_message_received_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_c2d_message_received is not None
         assert (
@@ -1644,11 +1649,11 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline, client_mode):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline)
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, client_mode)
         yield client
         # We can't await a disconnect here because this is a function, not a coroutine, so some
         # kind of messy loop stuff has to happen.
@@ -1675,9 +1680,9 @@ class TestIoTHubModuleClientInstantiation(
 ):
     @pytest.mark.it("Sets on_input_message_received handler in the MQTTPipeline")
     async def test_sets_on_input_message_received_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_input_message_received is not None
         assert (

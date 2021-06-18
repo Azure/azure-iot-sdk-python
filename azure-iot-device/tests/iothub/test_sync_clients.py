@@ -336,19 +336,24 @@ class SharedClientUpdateSasTokenTests(WaitsForEventCompletion):
         return hostname
 
     @pytest.fixture
-    def sas_client(self, client_class, mqtt_pipeline, http_pipeline, sas_config):
+    def sas_client(self, client_class, mqtt_pipeline, http_pipeline, sas_config, client_mode):
         """Client configured as if using user-provided, non-renewable SAS auth"""
         mqtt_pipeline.pipeline_configuration = sas_config
         http_pipeline.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline, http_pipeline)
+        return client_class(mqtt_pipeline, http_pipeline, client_mode)
 
     @pytest.fixture
     def sas_client_manual_cb(
-        self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, sas_config
+        self,
+        client_class,
+        mqtt_pipeline_manual_cb,
+        http_pipeline_manual_cb,
+        sas_config,
+        client_mode,
     ):
         mqtt_pipeline_manual_cb.pipeline_configuration = sas_config
         http_pipeline_manual_cb.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode)
 
     @pytest.fixture
     def new_sas_token_string(self, uri):
@@ -1323,18 +1328,18 @@ class IoTHubDeviceClientTestsConfig(object):
         return IoTHubDeviceClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline, client_mode):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
+        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline, client_mode)
 
     @pytest.fixture
-    def client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+    def client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
-        return IoTHubDeviceClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+        return IoTHubDeviceClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode)
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
@@ -1354,9 +1359,9 @@ class TestIoTHubDeviceClientInstantiation(
 ):
     @pytest.mark.it("Sets on_c2d_message_received handler in the MQTTPipeline")
     def test_sets_on_c2d_message_received_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode=client_mode)
 
         assert client._mqtt_pipeline.on_c2d_message_received is not None
         assert (
@@ -1410,13 +1415,6 @@ class TestIoTHubDeviceClientUpdateSasToken(
         device_id = token_uri_pieces[2]
         sas_config = IoTHubPipelineConfig(hostname=hostname, device_id=device_id, sastoken=sastoken)
         return sas_config
-
-    @pytest.fixture
-    def sas_client(self, mqtt_pipeline, http_pipeline, sas_config):
-        """Client configured as if using user-provided, non-renewable SAS auth"""
-        mqtt_pipeline.pipeline_configuration = sas_config
-        http_pipeline.pipeline_configuration = sas_config
-        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
 
     @pytest.fixture
     def uri(self, hostname, device_id):
@@ -1881,18 +1879,18 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline, client_mode):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        return IoTHubModuleClient(mqtt_pipeline, http_pipeline)
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, client_mode)
 
     @pytest.fixture
-    def client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+    def client_manual_cb(self, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode):
         """This client requires manual triggering of the callbacks sent to the pipeline.
         It should only be used for tests where manual control fo a callback is required.
         """
-        return IoTHubModuleClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+        return IoTHubModuleClient(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode)
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
@@ -1912,9 +1910,9 @@ class TestIoTHubModuleClientInstantiation(
 ):
     @pytest.mark.it("Sets on_input_message_received handler in the MQTTPipeline")
     def test_sets_on_input_message_received_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_input_message_received is not None
         assert (

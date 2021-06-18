@@ -23,6 +23,15 @@ from . import edge_hsm
 
 logger = logging.getLogger(__name__)
 
+# Receive Type constant defs
+RECEIVE_TYPE_NONE_SET = "none_set"  # Type of receiving has not been set
+RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
+RECEIVE_TYPE_API = "api"  # Only use APIs for receive
+
+# Client Type constant defs
+CLIENT_MODE_BASIC = "CLIENT_MODE_BASIC"
+CLIENT_MODE_PNP = "CLIENT_MODE_PNP"
+
 
 def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
@@ -68,6 +77,13 @@ def _get_config_kwargs(**kwargs):
     return config_kwargs
 
 
+def _get_client_mode(**kwargs):
+    if kwargs.get("model_id"):
+        return CLIENT_MODE_PNP
+    else:
+        return CLIENT_MODE_BASIC
+
+
 def _form_sas_uri(hostname, device_id, module_id=None):
     if module_id:
         return "{hostname}/devices/{device_id}/modules/{module_id}".format(
@@ -95,23 +111,20 @@ def _extract_sas_uri_values(uri):
     return d
 
 
-# Receive Type constant defs
-RECEIVE_TYPE_NONE_SET = "none_set"  # Type of receiving has not been set
-RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
-RECEIVE_TYPE_API = "api"  # Only use APIs for receive
-
-
 @six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubClient(object):
     """A superclass representing a generic IoTHub client.
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline, client_mode):
         """Initializer for a generic client.
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
+        :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
@@ -119,6 +132,7 @@ class AbstractIoTHubClient(object):
         self._inbox_manager = None  # this will be overridden in child class
         self._handler_manager = None  # this will be overridden in child class
         self._receive_type = RECEIVE_TYPE_NONE_SET
+        self._client_mode = client_mode
         self._client_lock = threading.Lock()
 
     def _on_connected(self):
@@ -289,7 +303,10 @@ class AbstractIoTHubClient(object):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        return cls(mqtt_pipeline, http_pipeline)
+        # Assess client type
+        client_mode = _get_client_mode(**kwargs)
+
+        return cls(mqtt_pipeline, http_pipeline, client_mode)
 
     @classmethod
     def create_from_sastoken(cls, sastoken, **kwargs):
@@ -357,7 +374,10 @@ class AbstractIoTHubClient(object):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        return cls(mqtt_pipeline, http_pipeline)
+        # Assess client type
+        client_mode = _get_client_mode(**kwargs)
+
+        return cls(mqtt_pipeline, http_pipeline, client_mode)
 
     @abc.abstractmethod
     def shutdown(self):
@@ -535,7 +555,10 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        return cls(mqtt_pipeline, http_pipeline)
+        # Assess client type
+        client_mode = _get_client_mode(**kwargs)
+
+        return cls(mqtt_pipeline, http_pipeline, client_mode)
 
     @classmethod
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
@@ -601,7 +624,10 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        return cls(mqtt_pipeline, http_pipeline)
+        # Assess client type
+        client_mode = _get_client_mode(**kwargs)
+
+        return cls(mqtt_pipeline, http_pipeline, client_mode)
 
     @abc.abstractmethod
     def receive_message(self):
@@ -760,7 +786,10 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        return cls(mqtt_pipeline, http_pipeline)
+        # Assess client type
+        client_mode = _get_client_mode(**kwargs)
+
+        return cls(mqtt_pipeline, http_pipeline, client_mode)
 
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
@@ -816,7 +845,11 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         # Pipeline setup
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
-        return cls(mqtt_pipeline, http_pipeline)
+
+        # Assess client type
+        client_mode = _get_client_mode(**kwargs)
+
+        return cls(mqtt_pipeline, http_pipeline, client_mode)
 
     @abc.abstractmethod
     def send_message_to_output(self, message, output_name):
