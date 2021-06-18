@@ -88,7 +88,7 @@ class MQTTPipeline(object):
             .append_stage(pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage())
             #
             # AutoConnectStage comes here because only MQTT ops have the need_connection flag set
-            # and this is the first place in the pipeline wherer we can guaranetee that all network
+            # and this is the first place in the pipeline where we can guaranetee that all network
             # ops are MQTT ops.
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
@@ -97,7 +97,7 @@ class MQTTPipeline(object):
             # the virtually_conencted flag and we want an automatic connection op to set this flag so
             # we can reconnect autoconnect operations.  This is important, for example, if a
             # send_message causes the transport to automatically connect, but that connection fails.
-            # When that happens, the ReconenctState will hold onto the ConnectOperation until it
+            # When that happens, the ReconnectState will hold onto the ConnectOperation until it
             # succeeds, and only then will return success to the AutoConnectStage which will
             # allow the publish to continue.
             #
