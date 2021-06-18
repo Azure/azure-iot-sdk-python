@@ -536,6 +536,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
+        self._check_client_mode_is_basic()
         self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
@@ -550,6 +551,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @on_method_request_received.setter
     def on_method_request_received(self, value):
+        self._check_client_mode_is_basic()
         self._generic_receive_handler_setter(
             "on_method_request_received", pipeline_constant.METHODS, value
         )
