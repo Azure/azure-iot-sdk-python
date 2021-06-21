@@ -51,6 +51,8 @@ async def handle_result(callback):
         )
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError(message="Client has already been shut down", cause=e)
+    except pipeline_exceptions.OperationCancelled as e:
+        raise exceptions.OperationCancelled(message="Could not complete operation", cause=e)
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -128,6 +130,38 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         else:
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
+
+    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
+        """Set a receive handler on the handler manager and enable the corresponding feature.
+
+        This is a synchronous call (yes, even though this is the async client), meaning that this
+        function will not return until the feature has been enabled (if necessary).
+
+        :param str handler_name: The name of the handler on the handler manager to set
+        :param str feature_name: The name of the pipeline feature that corresponds to the handler
+        :param new_handler: The function to be set as the handler
+        """
+        self._check_receive_mode_is_handler()
+        # Set the handler on the handler manager
+        setattr(self._handler_manager, handler_name, new_handler)
+
+        # Enable the feature if necessary
+        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+            # We have to call this on a loop running on a different thread in order to ensure
+            # the setter can be called both within a coroutine (with a running event loop) and
+            # outside of a coroutine (where no event loop is currently running)
+            loop = loop_management.get_client_internal_loop()
+            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
+            fut.result()
+
+        # Disable the feature if necessary
+        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
+            # We have to call this on a loop running on a different thread in order to ensure
+            # the setter can be called both within a coroutine (with a running event loop) and
+            # outside of a coroutine (where no event loop is currently running)
+            loop = loop_management.get_client_internal_loop()
+            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
+            fut.result()
 
     async def shutdown(self):
         """Shut down the client for graceful exit.
@@ -486,58 +520,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
-        self._check_receive_mode_is_handler()
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
-
-        # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._enable_feature(feature_name), loop=loop)
-            fut.result()
-
-        # Disable the feature if necessary
-        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
-            # We have to call this on a loop running on a different thread in order to ensure
-            # the setter can be called both within a coroutine (with a running event loop) and
-            # outside of a coroutine (where no event loop is currently running)
-            loop = loop_management.get_client_internal_loop()
-            fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
-            fut.result()
-
-    @property
-    def on_twin_desired_properties_patch_received(self):
-        """The handler function or coroutine that will be called when a twin desired properties
-        patch is received.
-
-        The function or coroutine definition should take one positional argument (the twin patch
-        in the form of a JSON dictionary object)"""
-        return self._handler_manager.on_twin_desired_properties_patch_received
-
-    @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value):
-        self._check_client_mode_is_basic()
-        self._generic_receive_handler_setter(
-            "on_twin_desired_properties_patch_received", constant.TWIN_PATCHES, value
-        )
-
-    @property
-    def on_method_request_received(self):
-        """The handler function or coroutine that will be called when a method request is received.
-
-        The function or coroutine definition should take one positional argument (the
-        :class:`azure.iot.device.MethodRequest` object)"""
-        return self._handler_manager.on_method_request_received
-
-    @on_method_request_received.setter
-    def on_method_request_received(self, value):
-        self._check_client_mode_is_basic()
-        self._generic_receive_handler_setter("on_method_request_received", constant.METHODS, value)
-
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """An asynchronous device client that connects to an Azure IoT Hub instance.
@@ -629,18 +611,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         await handle_result(callback)
         logger.info("Successfully notified blob upload status")
-
-    @property
-    def on_message_received(self):
-        """The handler function or coroutine that will be called when a message is received.
-
-        The function or coroutine definition should take one positional argument (the
-        :class:`azure.iot.device.Message` object)"""
-        return self._handler_manager.on_message_received
-
-    @on_message_received.setter
-    def on_message_received(self, value):
-        self._generic_receive_handler_setter("on_message_received", constant.C2D_MSG, value)
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -760,15 +730,3 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         method_response = await handle_result(callback)
         logger.info("Successfully invoked method")
         return method_response
-
-    @property
-    def on_message_received(self):
-        """The handler function or coroutine that will be called when an input message is received.
-
-        The function definitionor coroutine should take one positional argument (the
-        :class:`azure.iot.device.Message` object)"""
-        return self._handler_manager.on_message_received
-
-    @on_message_received.setter
-    def on_message_received(self, value):
-        self._generic_receive_handler_setter("on_message_received", constant.INPUT_MSG, value)
