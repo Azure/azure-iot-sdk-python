@@ -360,6 +360,7 @@ class MQTTTransport(object):
         self._mqtt_client.on_disconnect = None
         # Now disconnect and do some additional cleanup.
         self._force_transport_disconnect_and_cleanup()
+        self._op_manager.cancel_all_operations()
 
     def connect(self, password=None):
         """
@@ -436,7 +437,7 @@ class MQTTTransport(object):
             raise _create_error_from_rc_code(rc)
         self._mqtt_client.loop_start()
 
-    def disconnect(self, clear_pending=False):
+    def disconnect(self, clear_inflight=False):
         """
         Disconnect from the MQTT broker.
 
@@ -468,7 +469,7 @@ class MQTTTransport(object):
             # Technically the disconnect could still fail upon response, however that would then
             # cause a force disconnect via the on_disconnect handler, thus it is safe to clear
             # ops here and now.
-            if clear_pending:
+            if clear_inflight:
                 self._op_manager.cancel_all_operations()
 
     def subscribe(self, topic, qos=1, callback=None):
@@ -564,8 +565,7 @@ class MQTTTransport(object):
 
 
 class OperationManager(object):
-    """Tracks pending operations and thier associated callbacks until completion.
-    """
+    """Tracks pending operations and thier associated callbacks until completion."""
 
     def __init__(self):
         # Maps mid->callback for operations where a request has been sent

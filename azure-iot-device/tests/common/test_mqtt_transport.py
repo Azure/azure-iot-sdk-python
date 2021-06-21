@@ -759,7 +759,7 @@ class TestDisconnect(object):
         with pytest.raises(error_params["error"]):
             transport.disconnect()
 
-    @pytest.mark.it("Cancels all pending operations if the clear_pending parameter is True")
+    @pytest.mark.it("Cancels all pending operations if the clear_inflight parameter is True")
     def test_pending_op_cancellation(self, mocker, mock_mqtt_client, transport):
         # Set up a pending publish
         pub_callback = mocker.MagicMock(name="pub cb")
@@ -780,7 +780,7 @@ class TestDisconnect(object):
         assert sub_callback.call_count == 0
 
         # Disconnect and clear pending ops
-        transport.disconnect(clear_pending=True)
+        transport.disconnect(clear_inflight=True)
 
         # Pending operations were cancelled
         assert pub_callback.call_count == 1
@@ -789,7 +789,7 @@ class TestDisconnect(object):
         assert sub_callback.call_args == mocker.call(cancelled=True)
 
     @pytest.mark.it(
-        "Does not cancel any pending operations if the clear_pending parameter is False"
+        "Does not cancel any pending operations if the clear_inflight parameter is False"
     )
     def test_no_pending_op_cancellation(self, mocker, mock_mqtt_client, transport):
         # Set up a pending publish
@@ -811,14 +811,14 @@ class TestDisconnect(object):
         assert sub_callback.call_count == 0
 
         # Disconnect
-        transport.disconnect(clear_pending=False)
+        transport.disconnect(clear_inflight=False)
 
         # No pending operations were cancelled
         assert pub_callback.call_count == 0
         assert sub_callback.call_count == 0
 
     @pytest.mark.it(
-        "Does not cancel any pending operations if the clear_pending parameter is not provided"
+        "Does not cancel any pending operations if the clear_inflight parameter is not provided"
     )
     def test_default_no_pending_op_cancellation(self, mocker, mock_mqtt_client, transport):
         # Set up a pending publish
