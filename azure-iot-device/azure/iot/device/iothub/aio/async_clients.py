@@ -51,6 +51,8 @@ async def handle_result(callback):
         )
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError(message="Client has already been shut down", cause=e)
+    except pipeline_exceptions.OperationCancelled as e:
+        raise exceptions.OperationCancelled(message="Could not complete operation", cause=e)
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
