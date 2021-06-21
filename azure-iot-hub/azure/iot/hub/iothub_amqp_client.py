@@ -11,7 +11,9 @@ import base64
 import time
 import hashlib
 import hmac
+import abc
 from uuid import uuid4
+import six
 import six.moves.urllib as urllib
 from azure.core.credentials import AccessToken
 
@@ -23,17 +25,58 @@ except Exception:
 import uamqp
 
 
-default_sas_expiry = 30
+default_sas_expiry = 3600
 
 
+@six.add_metaclass(abc.ABCMeta)
 class IoTHubAmqpClientBase:
+    def __init__(self):
+        self._amqp_message_send_client = None
+        self._amqp_feedback_receiver_client = None
+        self._amqp_file_notification_receiver_client = None
+        self.auth = None
+
     def disconnect_sync(self):
         """
         Disconnect the Amqp client.
         """
-        if self.amqp_client:
-            self.amqp_client.close()
-            self.amqp_client = None
+        if self._amqp_message_send_client:
+            self._amqp_message_send_client.close()
+            self._amqp_message_send_client = None
+        if self._amqp_feedback_receiver_client:
+            self._amqp_feedback_receiver_client.close()
+            self._amqp_feedback_receiver_client = None
+        if self._amqp_file_notification_receiver_client:
+            self._amqp_file_notification_receiver_client.close()
+            self._amqp_file_notification_receiver_client = None
+
+    @abc.abstractmethod
+    def _get_target(self, operation):
+        pass
+
+    @property
+    def amqp_message_send_client(self):
+        if not self._amqp_message_send_client:
+            self._amqp_message_send_client = uamqp.SendClient(
+                self._get_target("/messages/devicebound"), auth=self.auth
+            )
+        return self._amqp_message_send_client
+
+    @property
+    def amqp_feedback_receiver_client(self):
+        if not self._amqp_feedback_receiver_client:
+            self._amqp_feedback_receiver_client = uamqp.ReceiveClient(
+                self._get_target("/messages/serviceBound/feedback"), auth=self.auth
+            )
+        return self._amqp_feedback_receiver_client
+
+    @property
+    def amqp_file_notification_receiver_client(self):
+        if not self._amqp_file_notification_receiver_client:
+            self._amqp_file_notification_receiver_client = uamqp.ReceiveClient(
+                self._get_target("/messages/serviceBound/filenotifications"), auth=self.auth
+            )
+        return self._amqp_file_notification_receiver_client
 
     def send_message_to_device(self, device_id, message, app_props):
         """Send a message to the specified deivce.
@@ -70,20 +113,24 @@ class IoTHubAmqpClientBase:
         message = uamqp.Message(
             msg_content, properties=msg_props, application_properties=app_properties
         )
-        self.amqp_client.queue_message(message)
-        results = self.amqp_client.send_all_messages(close_on_done=False)
+        self.amqp_message_send_client.queue_message(message)
+        results = self.amqp_message_send_client.send_all_messages(close_on_done=False)
         if uamqp.constants.MessageState.SendFailed in results:
             raise Exception("C2D message send failure")
 
 
 class IoTHubAmqpClientSharedAccessKeyAuth(IoTHubAmqpClientBase):
     def __init__(self, hostname, shared_access_key_name, shared_access_key):
-        self.endpoint = self._build_amqp_endpoint(
-            hostname, shared_access_key_name, shared_access_key
+        super(IoTHubAmqpClientSharedAccessKeyAuth, self).__init__()
+        self.hostname = hostname
+        self.shared_access_key_name = shared_access_key_name
+        self.shared_access_key = shared_access_key
+
+    def _get_target(self, operation):
+        endpoint = self._build_amqp_endpoint(
+            self.hostname, self.shared_access_key_name, self.shared_access_key
         )
-        operation = "/messages/devicebound"
-        target = "amqps://" + self.endpoint + operation
-        self.amqp_client = uamqp.SendClient(target)
+        return "amqps://" + endpoint + operation
 
     def _generate_auth_token(self, uri, sas_name, sas_value):
         sas = base64.b64decode(sas_value)
@@ -115,16 +162,20 @@ class IoTHubAmqpClientTokenAuth(IoTHubAmqpClientBase):
     def __init__(
         self, hostname, token_credential, token_scope="https://iothubs.azure.net/.default"
     ):
+        super(IoTHubAmqpClientSharedAccessKeyAuth, self).__init__()
+        self.hostname = hostname
+
         def get_token():
             result = token_credential.get_token(token_scope)
             return AccessToken("Bearer " + result.token, result.expires_on)
 
-        auth = uamqp.authentication.JWTTokenAuth(
+        self.auth = uamqp.authentication.JWTTokenAuth(
             audience=token_scope,
             uri="https://" + hostname,
             get_token=get_token,
             token_type=b"bearer",
         )
-        auth.update_token()
-        target = "amqps://" + hostname + "/messages/devicebound"
-        self.amqp_client = uamqp.SendClient(target=target, auth=auth)
+        self.auth.update_token()
+
+    def _get_target(self, operation):
+        return "amqps://" + self.hostname + operation
