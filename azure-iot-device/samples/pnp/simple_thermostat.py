@@ -11,7 +11,7 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device import constant, Message, MethodResponse
+from azure.iot.device import constant, ClientProperties, CommandResponse, WritablePropertyResponse
 from datetime import date, timedelta, datetime
 
 logging.basicConfig(level=logging.ERROR)
@@ -76,17 +76,14 @@ def create_max_min_report_response(values):
     This should be only used when the user wants to give a detailed response back to the Hub.
     :param values: The values that were received as part of the request.
     """
-    response_dict = {
+    response = {
         "maxTemp": max_temp,
         "minTemp": min_temp,
         "avgTemp": sum(avg_temp_list) / moving_window_size,
         "startTime": (datetime.now() - timedelta(0, moving_window_size * 8)).isoformat(),
         "endTime": datetime.now().isoformat(),
     }
-    # serialize response dictionary into a JSON formatted str
-    response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
-    print(response_payload)
-    return response_payload
+    return response
 
 
 def create_reboot_response(values):
@@ -98,80 +95,58 @@ def create_reboot_response(values):
 #####################################################
 
 #####################################################
-# TELEMETRY TASKS
-
-
-async def send_telemetry_from_thermostat(device_client, telemetry_msg):
-    msg = Message(json.dumps(telemetry_msg))
-    msg.content_encoding = "utf-8"
-    msg.content_type = "application/json"
-    print("Sent message")
-    await device_client.send_message(msg)
-
-
-# END TELEMETRY TASKS
-#####################################################
-
-#####################################################
 # CREATE COMMAND AND PROPERTY LISTENERS
 
 
-async def execute_command_listener(
-    device_client, method_name, user_command_handler, create_user_response_handler
-):
-    while True:
-        if method_name:
-            command_name = method_name
-        else:
-            command_name = None
+async def handle_command_received(device_client, command):
+    if command.command_name == "reboot":
+        handler = reboot_handler
+        responder = create_reboot_response
+    elif command.command_name == "getMaxMinReport":
+        handler = max_min_handler
+        responder = create_max_min_report_response
+    else:
+        handler = None
+        responder = None
 
-        command_request = await device_client.receive_method_request(command_name)
-        print("Command request received with payload")
-        print(command_request.payload)
+    print("Command request received with payload")
+    print(command.payload)
 
-        values = {}
-        if not command_request.payload:
-            print("Payload was empty.")
-        else:
-            values = command_request.payload
-
-        await user_command_handler(values)
-
+    if handler:
+        await handler(command.payload)
         response_status = 200
-        response_payload = create_user_response_handler(values)
+        response_payload = responder(command.payload)
+    else:
+        response_status = 404
+        response_payload = None
 
-        command_response = MethodResponse.create_from_method_request(
-            command_request, response_status, response_payload
+    command_response = CommandResponse.create_from_command(
+        command, response_status, response_payload
+    )
+
+    try:
+        await device_client.send_command_response(command_response)
+    except Exception:
+        print("responding to the {command} command failed".format(command=command.command_name))
+
+
+async def handle_writable_property_patch_received(device_client, writable_props):
+    # only handles root properties
+
+    print("the data in the desired properties patch was: {}".format(writable_props.to_dict()))
+
+    patch = ClientProperties()
+
+    for prop_name in writable_props.property_values:
+        # TODO: is `value` part of `WritablePropertyResponse`?
+        patch.values[prop_name] = WritablePropertyResponse(
+            ac=200,
+            ad="Successfully executed patch",
+            av=writable_props.version,
+            value=writable_props.property_values[prop_name],
         )
 
-        try:
-            await device_client.send_method_response(command_response)
-        except Exception:
-            print("responding to the {command} command failed".format(command=method_name))
-
-
-async def execute_property_listener(device_client):
-    ignore_keys = ["__t", "$version"]
-    while True:
-        patch = await device_client.receive_twin_desired_properties_patch()  # blocking call
-
-        print("the data in the desired properties patch was: {}".format(patch))
-
-        version = patch["$version"]
-        prop_dict = {}
-
-        for prop_name, prop_value in patch.items():
-            if prop_name in ignore_keys:
-                continue
-            else:
-                prop_dict[prop_name] = {
-                    "ac": 200,
-                    "ad": "Successfully executed patch",
-                    "av": version,
-                    "value": prop_value,
-                }
-
-        await device_client.patch_twin_reported_properties(prop_dict)
+    await device_client.send_property_patch(patch)
 
 
 # END COMMAND AND PROPERTY LISTENERS
@@ -236,7 +211,7 @@ async def main():
                 symmetric_key=symmetric_key,
                 hostname=registration_result.registration_state.assigned_hub,
                 device_id=registration_result.registration_state.device_id,
-                product_info=model_id,
+                model_id=model_id,
             )
         else:
             raise RuntimeError(
@@ -247,7 +222,7 @@ async def main():
         conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
         print("Connecting using Connection String " + conn_str)
         device_client = IoTHubDeviceClient.create_from_connection_string(
-            conn_str, product_info=model_id
+            conn_str, model_id=model_id
         )
     else:
         raise RuntimeError(
@@ -261,27 +236,15 @@ async def main():
     # Set and read desired property (target temperature)
 
     max_temp = 10.96  # Initial Max Temp otherwise will not pass certification
-    await device_client.patch_twin_reported_properties({"maxTempSinceLastReboot": max_temp})
+    await device_client.send_propertyPatch(
+        ClientProperties(values={"maxTempSinceLastReboot": max_temp})
+    )
 
     ################################################
     # Register callback and Handle command (reboot)
     print("Listening for command requests and property updates")
-
-    listeners = asyncio.gather(
-        execute_command_listener(
-            device_client,
-            method_name="reboot",
-            user_command_handler=reboot_handler,
-            create_user_response_handler=create_reboot_response,
-        ),
-        execute_command_listener(
-            device_client,
-            method_name="getMaxMinReport",
-            user_command_handler=max_min_handler,
-            create_user_response_handler=create_max_min_report_response,
-        ),
-        execute_property_listener(device_client),
-    )
+    device_client.on_writable_property_patch_received = handle_writable_property_patch_received
+    device_client.on_command_received = handle_command_received
 
     ################################################
     # Send telemetry (current temperature)
@@ -308,7 +271,7 @@ async def main():
             current_avg_idx = (current_avg_idx + 1) % moving_window_size
 
             temperature_msg1 = {"temperature": current_temp}
-            await send_telemetry_from_thermostat(device_client, temperature_msg1)
+            await device_client.send_telemetry(temperature_msg1)
             await asyncio.sleep(8)
 
     send_telemetry_task = asyncio.create_task(send_telemetry())
@@ -318,11 +281,6 @@ async def main():
     user_finished = loop.run_in_executor(None, stdin_listener)
     # # Wait for user to indicate they are done listening for method calls
     await user_finished
-
-    if not listeners.done():
-        listeners.set_result("DONE")
-
-    listeners.cancel()
 
     send_telemetry_task.cancel()
 
