@@ -2644,18 +2644,6 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_received")
-class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
-    pass
-
-
-@pytest.mark.describe(
-    "IoTHubModuleClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
-)
-class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
-    pass
-
-
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
@@ -2798,6 +2786,18 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler
         assert client.on_twin_desired_properties_patch_received is None
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_received")
+class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
+    pass
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
+)
+class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
+    pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")

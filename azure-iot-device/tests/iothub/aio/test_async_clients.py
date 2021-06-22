@@ -1775,13 +1775,13 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         assert client.on_twin_desired_properties_patch_received is None
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_command_received")
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_command_received")
 class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsConfig):
     pass
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
 )
 class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceived(IoTHubDeviceClientTestsConfig):
     pass
@@ -2463,19 +2463,19 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         assert client.on_twin_desired_properties_patch_received is None
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_received")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_command_received")
 class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
     pass
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
 )
 class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_connection_state_change")
 class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
