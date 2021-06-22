@@ -58,42 +58,44 @@ class SharedIoTHubClientInstantiationTests(object):
     @pytest.mark.it(
         "Stores the MQTTPipeline from the 'mqtt_pipeline' parameter in the '_mqtt_pipeline' attribute"
     )
-    def test_mqtt_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
-        client = client_class(mqtt_pipeline, http_pipeline)
+    def test_mqtt_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline, client_mode):
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline is mqtt_pipeline
 
     @pytest.mark.it(
         "Stores the HTTPPipeline from the 'http_pipeline' parameter in the '_http_pipeline' attribute"
     )
-    def test_sets_http_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
-        client = client_class(mqtt_pipeline, http_pipeline)
+    def test_sets_http_pipeline_attribute(
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
+    ):
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._http_pipeline is http_pipeline
 
     @pytest.mark.it("Sets on_connected handler in the MQTTPipeline")
     def test_sets_on_connected_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_connected is not None
         assert client._mqtt_pipeline.on_connected == client._on_connected
 
     @pytest.mark.it("Sets on_disconnected handler in the MQTTPipeline")
     def test_sets_on_disconnected_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_disconnected is not None
         assert client._mqtt_pipeline.on_disconnected == client._on_disconnected
 
     @pytest.mark.it("Sets on_method_request_received handler in the MQTTPipeline")
     def test_sets_on_method_request_received_handler_in_pipleline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_method_request_received is not None
         assert (
@@ -102,10 +104,16 @@ class SharedIoTHubClientInstantiationTests(object):
         )
 
     @pytest.mark.it("Sets the Receive Mode/Type for the client as yet-unchosen")
-    def test_initial_receive_mode(self, client_class, mqtt_pipeline, http_pipeline):
-        client = client_class(mqtt_pipeline, http_pipeline)
+    def test_initial_receive_mode(self, client_class, mqtt_pipeline, http_pipeline, client_mode):
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._receive_type == RECEIVE_TYPE_NONE_SET
+
+    @pytest.mark.it("Sets the Client Type to the value provided via the 'client_mode' parameter")
+    def test_client_mode(self, client_class, mqtt_pipeline, http_pipeline, client_mode):
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+
+        assert client._client_mode == client_mode
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")

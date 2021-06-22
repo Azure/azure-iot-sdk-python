@@ -24,6 +24,8 @@ from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
     RECEIVE_TYPE_HANDLER,
     RECEIVE_TYPE_API,
+    CLIENT_MODE_PNP,
+    CLIENT_MODE_BASIC,
 )
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
@@ -363,19 +365,24 @@ class SharedClientUpdateSasTokenTests(object):
         return hostname
 
     @pytest.fixture
-    def sas_client(self, client_class, mqtt_pipeline, http_pipeline, sas_config):
+    def sas_client(self, client_class, mqtt_pipeline, http_pipeline, sas_config, client_mode):
         """Client configured as if using user-provided, non-renewable SAS auth"""
         mqtt_pipeline.pipeline_configuration = sas_config
         http_pipeline.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline, http_pipeline)
+        return client_class(mqtt_pipeline, http_pipeline, client_mode)
 
     @pytest.fixture
     def sas_client_manual_cb(
-        self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb, sas_config
+        self,
+        client_class,
+        mqtt_pipeline_manual_cb,
+        http_pipeline_manual_cb,
+        sas_config,
+        client_mode,
     ):
         mqtt_pipeline_manual_cb.pipeline_configuration = sas_config
         http_pipeline_manual_cb.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb)
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode)
 
     @pytest.fixture
     def new_sas_token_string(self, uri):
@@ -540,6 +547,16 @@ class SharedClientUpdateSasTokenTests(object):
 
 
 class SharedClientSendD2CMessageTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_message() is only compatible with BASIC mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_message() is only compatible with BASIC mode, so need to override fixture"""
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+
     @pytest.mark.it("Begins a 'send_message' pipeline operation")
     async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, message):
         await client.send_message(message)
@@ -671,8 +688,21 @@ class SharedClientSendD2CMessageTests(object):
         assert isinstance(sent_message, Message)
         assert sent_message.data == data_input
 
+    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
+    async def test_client_mode_pnp(self, client, mqtt_pipeline, message):
+        client._client_mode = CLIENT_MODE_PNP
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_message(message)
+        assert mqtt_pipeline.send_message.call_count == 0
+
 
 class SharedClientReceiveMethodRequestTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.receive_method_request() is only compatible with BASIC mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
     @pytest.mark.it("Implicitly enables methods feature if not already enabled")
     @pytest.mark.parametrize(
         "method_name",
@@ -802,8 +832,30 @@ class SharedClientReceiveMethodRequestTests(object):
         # Inbox get was not called
         assert inbox_get_mock.call_count == 0
 
+    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
+    @pytest.mark.parametrize(
+        "method_name",
+        [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
+    )
+    async def test_client_mode_pnp(self, client, mqtt_pipeline, method_name):
+        client._client_mode = CLIENT_MODE_PNP
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.receive_method_request(method_name=method_name)
+        assert mqtt_pipeline.send_message.call_count == 0
+
 
 class SharedClientSendMethodResponseTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_method_response() is only compatible with BASIC mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_method_response() is only compatible with BASIC mode, so need to override fixture"""
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+
     @pytest.mark.it("Begins a 'send_method_response' pipeline operation")
     async def test_send_method_response_calls_pipeline(
         self, client, mqtt_pipeline, method_response
@@ -880,6 +932,14 @@ class SharedClientSendMethodResponseTests(object):
             await client.send_method_response(method_response)
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.send_method_response.call_count == 1
+
+    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
+    async def test_client_mode_pnp(self, client, mqtt_pipeline, method_response):
+        client._client_mode = CLIENT_MODE_PNP
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_method_response(method_response)
+        assert mqtt_pipeline.send_method_response.call_count == 0
 
 
 class SharedClientGetTwinTests(object):
@@ -997,6 +1057,20 @@ class SharedClientGetTwinTests(object):
 
 
 class SharedClientPatchTwinReportedPropertiesTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.patch_twin_reported_properties() is only compatible with BASIC mode, so need to override
+        fixture
+        """
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.patch_twin_reported_properties() is only compatible with BASIC mode, so need to override
+        fixture
+        """
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
     async def test_enables_twin_only_if_not_already_enabled(
         self, mocker, client, mqtt_pipeline, twin_patch_reported
@@ -1105,8 +1179,23 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.patch_twin_reported_properties.call_count == 1
 
+    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
+    async def test_client_mode_pnp(self, client, mqtt_pipeline, twin_patch_reported):
+        client._client_mode = CLIENT_MODE_PNP
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.patch_twin_reported_properties(twin_patch_reported)
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 0
+
 
 class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.receive_twin_desired_properties_patch() is only compatible with BASIC mode, so need to override
+        fixture
+        """
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
     @pytest.mark.it("Implicitly enables twin patch messaging feature if not already enabled")
     async def test_enables_c2d_messaging_only_if_not_already_enabled(
         self, mocker, client, mqtt_pipeline
@@ -1190,6 +1279,14 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         # Inbox get was not called
         assert inbox_get_mock.call_count == 0
 
+    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
+    async def test_client_mode_pnp(self, client, mqtt_pipeline):
+        client._client_mode = CLIENT_MODE_PNP
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.receive_twin_desired_properties_patch()
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 0
+
 
 ################
 # DEVICE TESTS #
@@ -1200,11 +1297,11 @@ class IoTHubDeviceClientTestsConfig(object):
         return IoTHubDeviceClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline, client_mode):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, client_mode)
         yield client
         # We can't await a disconnect here because this is a function, not a coroutine, so some
         # kind of messy loop stuff has to happen.
@@ -1231,9 +1328,9 @@ class TestIoTHubDeviceClientInstantiation(
 ):
     @pytest.mark.it("Sets on_c2d_message_received handler in the MQTTPipeline")
     async def test_sets_on_c2d_message_received_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_c2d_message_received is not None
         assert (
@@ -1337,7 +1434,7 @@ class TestIoTHubDeviceClientDisconnect(IoTHubDeviceClientTestsConfig, SharedClie
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_message()")
 class TestIoTHubDeviceClientSendD2CMessage(
-    IoTHubDeviceClientTestsConfig, SharedClientSendD2CMessageTests
+    SharedClientSendD2CMessageTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
@@ -1426,14 +1523,14 @@ class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .receive_method_request()")
 class TestIoTHubDeviceClientReceiveMethodRequest(
-    IoTHubDeviceClientTestsConfig, SharedClientReceiveMethodRequestTests
+    SharedClientReceiveMethodRequestTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_method_response()")
 class TestIoTHubDeviceClientSendMethodResponse(
-    IoTHubDeviceClientTestsConfig, SharedClientSendMethodResponseTests
+    SharedClientSendMethodResponseTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
@@ -1445,7 +1542,7 @@ class TestIoTHubDeviceClientGetTwin(IoTHubDeviceClientTestsConfig, SharedClientG
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .patch_twin_reported_properties()")
 class TestIoTHubDeviceClientPatchTwinReportedProperties(
-    IoTHubDeviceClientTestsConfig, SharedClientPatchTwinReportedPropertiesTests
+    SharedClientPatchTwinReportedPropertiesTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
@@ -1454,7 +1551,7 @@ class TestIoTHubDeviceClientPatchTwinReportedProperties(
     "IoTHubDeviceClient (Asynchronous) - .receive_twin_desired_properties_patch()"
 )
 class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
-    IoTHubDeviceClientTestsConfig, SharedClientReceiveTwinDesiredPropertiesPatchTests
+    SharedClientReceiveTwinDesiredPropertiesPatchTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
@@ -1627,12 +1724,26 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_method_request_received property is only compatible with BASIC mode, so need to
+        override fixture
+        """
+        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
     def handler_name(self):
         return "on_method_request_received"
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.METHODS
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
+    def test_client_mode_pnp(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_method_request_received = handler
+        assert client.on_method_request_received is None
 
 
 @pytest.mark.describe(
@@ -1642,12 +1753,26 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_twin_desired_properties_patch_received property is only compatible with BASIC mode,
+        so need to override fixture
+        """
+        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
     def handler_name(self):
         return "on_twin_desired_properties_patch_received"
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
+    def test_client_mode_pnp(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_twin_desired_properties_patch_received = handler
+        assert client.on_twin_desired_properties_patch_received is None
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_connection_state_change")
@@ -1689,11 +1814,11 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    def client(self, mqtt_pipeline, http_pipeline, client_mode):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
-        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline)
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, client_mode)
         yield client
         # We can't await a disconnect here because this is a function, not a coroutine, so some
         # kind of messy loop stuff has to happen.
@@ -1720,9 +1845,9 @@ class TestIoTHubModuleClientInstantiation(
 ):
     @pytest.mark.it("Sets on_input_message_received handler in the MQTTPipeline")
     async def test_sets_on_input_message_received_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline
+        self, client_class, mqtt_pipeline, http_pipeline, client_mode
     ):
-        client = client_class(mqtt_pipeline, http_pipeline)
+        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
 
         assert client._mqtt_pipeline.on_input_message_received is not None
         assert (
@@ -1880,7 +2005,7 @@ class TestIoTHubModuleClientDisconnectEvent(
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message()")
 class TestIoTHubNModuleClientSendD2CMessage(
-    IoTHubModuleClientTestsConfig, SharedClientSendD2CMessageTests
+    SharedClientSendD2CMessageTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
@@ -2124,14 +2249,14 @@ class TestIoTHubModuleClientReceiveInputMessage(IoTHubModuleClientTestsConfig):
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .receive_method_request()")
 class TestIoTHubModuleClientReceiveMethodRequest(
-    IoTHubModuleClientTestsConfig, SharedClientReceiveMethodRequestTests
+    SharedClientReceiveMethodRequestTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_method_response()")
 class TestIoTHubModuleClientSendMethodResponse(
-    IoTHubModuleClientTestsConfig, SharedClientSendMethodResponseTests
+    SharedClientSendMethodResponseTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
@@ -2143,7 +2268,7 @@ class TestIoTHubModuleClientGetTwin(IoTHubModuleClientTestsConfig, SharedClientG
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .patch_twin_reported_properties()")
 class TestIoTHubModuleClientPatchTwinReportedProperties(
-    IoTHubModuleClientTestsConfig, SharedClientPatchTwinReportedPropertiesTests
+    SharedClientPatchTwinReportedPropertiesTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
@@ -2152,7 +2277,7 @@ class TestIoTHubModuleClientPatchTwinReportedProperties(
     "IoTHubModuleClient (Asynchronous) - .receive_twin_desired_properties_patch()"
 )
 class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
-    IoTHubModuleClientTestsConfig, SharedClientReceiveTwinDesiredPropertiesPatchTests
+    SharedClientReceiveTwinDesiredPropertiesPatchTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
@@ -2255,12 +2380,36 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_method_request_received property is only compatible with BASIC mode, so need to
+        override fixture
+        """
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
     def handler_name(self):
         return "on_method_request_received"
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.METHODS
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
+    def test_client_mode_pnp_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        # Handler is None
+        assert client.on_method_request_received is None
+        # Set analogous PNP handler
+        client.on_command_received = handler
+        # Still None
+        assert client.on_method_request_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
+    def test_client_mode_pnp_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_method_request_received = handler
+        assert client.on_method_request_received is None
 
 
 @pytest.mark.describe(
@@ -2270,12 +2419,36 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_twin_desired_properties_patch_received property is only compatible with BASIC mode,
+        so need to override fixture
+        """
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
     def handler_name(self):
         return "on_twin_desired_properties_patch_received"
 
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
+    def test_client_mode_pnp_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        # Handler is None
+        assert client.on_twin_desired_properties_patch_received is None
+        # Set analogous PNP handler
+        client.on_writable_property_patch_received = handler
+        # Still None
+        assert client.on_twin_desired_properties_patch_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
+    def test_client_mode_pnp_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_twin_desired_properties_patch_received = handler
+        assert client.on_twin_desired_properties_patch_received is None
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")

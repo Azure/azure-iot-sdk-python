@@ -29,6 +29,7 @@ from .client_fixtures import (
     edge_local_debug_environment,
     x509,
     mock_edge_hsm,
+    client_mode,
 )
 
 collect_ignore = []

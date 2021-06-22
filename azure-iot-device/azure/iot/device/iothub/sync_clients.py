@@ -73,6 +73,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The HTTPPipeline used for the client
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -159,6 +160,22 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Disable the feature if necessary
         elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
             self._disable_feature(feature_name)
+
+    @staticmethod
+    def _generate_pnp_handler_translation_wrapper(handler_to_wrap, translation_fn):
+        """Generate a translation wrapper for a PNP-related handler, using the given
+        translation function.
+
+        :param handler_to_wrap: Handler function that will be wrapped
+        :param translation_fn: Function that translates a non-PNP object passed by the handler
+            into the PNP equivalent
+        """
+
+        def translation_wrapper(handler_obj):
+            translated_obj = translation_fn(handler_obj)
+            handler_to_wrap(translated_obj)
+
+        return translation_wrapper
 
     def shutdown(self):
         """Shut down the client for graceful exit.
@@ -315,6 +332,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
+        This method is not compatible with PNP.
+
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
         :type message: :class:`azure.iot.device.Message` or str
@@ -327,10 +346,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using PNP mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
         """
+        self._check_client_mode_is_basic()
+
         if not isinstance(message, Message):
             message = Message(message)
 
@@ -353,6 +375,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
     def receive_method_request(self, method_name=None, block=True, timeout=None):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
+        This method cannot be used when using handlers.
+        This method is not compatible with PNP.
+
         :param str method_name: Optionally provide the name of the method to receive requests for.
             If this parameter is not given, all methods not already being specifically targeted by
             a different request to receive_method will be received.
@@ -363,6 +388,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             no method request has been received by the end of the blocking period.
         """
         self._check_receive_mode_is_api()
+        self._check_client_mode_is_basic()
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.METHODS]:
             self._enable_feature(pipeline_constant.METHODS)
@@ -387,6 +413,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
+        This method is not compatible with PNP.
+
         :param method_response: The MethodResponse to send.
         :type method_response: :class:`azure.iot.device.MethodResponse`
 
@@ -401,6 +429,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
+        self._check_client_mode_is_basic()
+
         logger.info("Sending method response to Hub...")
 
         callback = EventedCallback()
@@ -464,6 +494,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
+        self._check_client_mode_is_basic()
+
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
             self._enable_feature(pipeline_constant.TWIN)
 
@@ -494,6 +526,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
            desired property patches have been received by the pipeline, this function will raise
            an InboxEmpty exception
 
+        This method cannot be used when using handlers.
+        This method is not compatible with PNP.
+
         :param bool block: Indicates if the operation should block until a request is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
 
@@ -502,6 +537,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :rtype: dict or None
         """
         self._check_receive_mode_is_api()
+        self._check_client_mode_is_basic()
 
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN_PATCHES]:
             self._enable_feature(pipeline_constant.TWIN_PATCHES)
@@ -523,7 +559,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline, client_mode):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -531,9 +567,12 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
+        :param http_pipeline: The HTTPPipeline used for the client
+        :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         super(IoTHubDeviceClient, self).__init__(
-            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
+            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode
         )
         self._mqtt_pipeline.on_c2d_message_received = CallableWeakMethod(
             self._inbox_manager, "route_c2d_message"
@@ -546,6 +585,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     )
     def receive_message(self, block=True, timeout=None):
         """Receive a message that has been sent from the Azure IoT Hub.
+
+        This method cannot be used when using handlers.
 
         :param bool block: Indicates if the operation should block until a message is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
@@ -610,7 +651,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline):
+    def __init__(self, mqtt_pipeline, http_pipeline, client_mode):
         """Intializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
@@ -620,9 +661,10 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         super(IoTHubModuleClient, self).__init__(
-            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
+            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode
         )
         self._mqtt_pipeline.on_input_message_received = CallableWeakMethod(
             self._inbox_manager, "route_input_message"
@@ -679,6 +721,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     )
     def receive_message_on_input(self, input_name, block=True, timeout=None):
         """Receive an input message that has been sent from another Module to a specific input.
+
+        This method cannot be used when using handlers.
 
         :param str input_name: The input name to receive a message on.
         :param bool block: Indicates if the operation should block until a message is received.
