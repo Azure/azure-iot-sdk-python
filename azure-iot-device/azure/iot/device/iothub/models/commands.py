@@ -24,6 +24,7 @@ class Command(object):
         """
         self._request_id = request_id
         self._component_name = component_name
+        self._command_name = command_name
         self._payload = payload
 
     @property

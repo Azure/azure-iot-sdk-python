@@ -1990,8 +1990,18 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
     def feature_name(self):
         return pipeline_constant.METHODS
 
+    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
+    def test_client_mode_pnp_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        # Handler is None
+        assert client.on_method_request_received is None
+        # Set analogous PNP handler
+        client.on_command_received = handler
+        # Still None
+        assert client.on_method_request_received is None
+
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp(self, client, handler):
+    def test_client_mode_pnp_set(self, client, handler):
         client._client_mode = CLIENT_MODE_PNP
         with pytest.raises(client_exceptions.ClientError):
             client.on_method_request_received = handler
@@ -2019,8 +2029,18 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
 
+    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
+    def test_client_mode_pnp_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        # Handler is None
+        assert client.on_twin_desired_properties_patch_received is None
+        # Set analogous PNP handler
+        client.on_writable_property_patch_received = handler
+        # Still None
+        assert client.on_twin_desired_properties_patch_received is None
+
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp(self, client, handler):
+    def test_client_mode_pnp_set(self, client, handler):
         client._client_mode = CLIENT_MODE_PNP
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler

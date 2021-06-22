@@ -10,6 +10,7 @@ Azure IoTHub Device SDK for Python.
 import logging
 import asyncio
 import deprecation
+import inspect
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
@@ -162,6 +163,30 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             loop = loop_management.get_client_internal_loop()
             fut = asyncio.run_coroutine_threadsafe(self._disable_feature(feature_name), loop=loop)
             fut.result()
+
+    @staticmethod
+    def _generate_pnp_handler_translation_wrapper(handler_to_wrap, translation_fn):
+        """Generate a translation wrapper for a PNP-related handler, using the given
+        translation function.
+
+        :param handler_to_wrap: Handler function or coroutine that will be wrapped
+        :param translation_fn: Function that translates a non-PNP object passed by the handler
+            into the PNP equivalent
+        """
+        # Since handlers can be functions or coroutines, we need to support both.
+        if inspect.iscoroutinefunction(handler_to_wrap):
+
+            async def translation_wrapper(handler_obj):
+                translated_obj = translation_fn(handler_obj)
+                await handler_to_wrap(translated_obj)
+
+        else:
+
+            def translation_wrapper(handler_obj):
+                translated_obj = translation_fn(handler_obj)
+                handler_to_wrap(translated_obj)
+
+        return translation_wrapper
 
     async def shutdown(self):
         """Shut down the client for graceful exit.

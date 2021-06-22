@@ -17,6 +17,7 @@ from . import pipeline
 from .pipeline import constant as pipeline_constant
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
+from azure.iot.device.iothub.models import pnp_translation
 from azure.iot.device.iothub import client_event
 from azure.iot.device import exceptions
 from azure.iot.device.common import auth
@@ -135,6 +136,11 @@ class AbstractIoTHubClient(object):
         self._receive_type = RECEIVE_TYPE_NONE_SET
         self._client_mode = client_mode
         self._client_lock = threading.Lock()
+
+        # Unwrapped PNP handlers. These are not used within the client (we instead use wrapped
+        # versions), but we cache them so we can return them to the user if they ask for them
+        self._on_command_received_unwrapped = None
+        self._on_writable_property_patch_received_unwrapped = None
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -435,6 +441,31 @@ class AbstractIoTHubClient(object):
     def receive_twin_desired_properties_patch(self):
         pass
 
+    # @abc.abstractmethod
+    # def send_telemetry(self, telemetry_dict, component_name=None):
+    # (dict, str) -> None
+    # pass
+
+    # @abc.abstractmethod
+    # def send_command_response(self, command, payload, status):
+    # (Command, object, int) -> None
+    # pass
+
+    # @abc.abstractmethod
+    # def get_properties(self):
+    # () -> Properties
+    # pass
+
+    # @abc.abstractmethod
+    # def get_writable_properties(self):
+    # () -> WritableProperties
+    # pass
+
+    # @abc.abstractmethod
+    # def send_property_patch(self, property_patch):
+    # (Properties) -> None
+    # pass
+
     @property
     def connected(self):
         """
@@ -477,10 +508,14 @@ class AbstractIoTHubClient(object):
 
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.MethodRequest` object)"""
-        return self._handler_manager.on_method_request_received
+        if self._client_mode is CLIENT_MODE_BASIC:
+            return self._handler_manager.on_method_request_received
+        else:
+            return None
 
     @on_method_request_received.setter
     def on_method_request_received(self, value):
+        self._check_client_mode_is_basic()
         self._generic_receive_handler_setter(
             "on_method_request_received", pipeline_constant.METHODS, value
         )
@@ -492,48 +527,80 @@ class AbstractIoTHubClient(object):
 
         The function or coroutine definition should take one positional argument (the twin patch
         in the form of a JSON dictionary object)"""
-        return self._handler_manager.on_twin_desired_properties_patch_received
+        if self._client_mode is CLIENT_MODE_BASIC:
+            return self._handler_manager.on_twin_desired_properties_patch_received
+        else:
+            return None
 
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
+        self._check_client_mode_is_basic()
         self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
 
-    # @abc.abstractmethod
-    # def send_telemetry(self, telemetry_dict, component_name=None):
-    # (dict, str) -> None
-    # pass
+    @property
+    def on_command_received(self):
+        """The handler function or coroutine that will be called when a command is received.
 
-    # @abc.abstractproperty
-    # def on_command_received(self):
-    # ((Command) -> None) -> None
-    # pass
+        The function or coroutine definition should take one positional argument (the
+        :class:`azure.iot.device.Command` object)
+        """
+        if self._client_mode is CLIENT_MODE_PNP:
+            return self._on_command_received_unwrapped
+        else:
+            return None
 
-    # @abc.abstractmethod
-    # def send_command_response(self, command, payload, status):
-    # (Command, object, int) -> None
-    # pass
+    @on_command_received.setter
+    def on_command_received(self, value):
+        self._check_client_mode_is_pnp()
 
-    # @abc.abstractmethod
-    # def get_properties(self):
-    # () -> Properties
-    # pass
+        # Generate a wrapper around the user provided handler that will turn a MethodRequest into
+        # a Command, then invoke the user's handler
+        translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+            handler_to_wrap=value, translation_fn=pnp_translation.method_request_to_command
+        )
 
-    # @abc.abstractmethod
-    # def get_writable_properties(self):
-    # () -> WritableProperties
-    # pass
+        # Set this wrapper as a handler on the HandlerManager
+        self._generic_receive_handler_setter(
+            "on_method_request_received", pipeline_constant.METHODS, translation_wrapper
+        )
 
-    # @abc.absractproperty
-    # def on_writable_property_patch_received(self):
-    # ((WritableProperties) -> None) -> None
-    # pass
+        # Cache the unwrapped handler so we can return it to user later
+        self._on_command_received_unwrapped = value
 
-    # @abc.abstractmethod
-    # def send_property_patch(self, property_patch):
-    # (Properties) -> None
-    # pass
+    @property
+    def on_writable_property_patch_received(self):
+        """The handler function or coroutine that will be called when a writable property patch
+        is received.
+
+        The function or coroutine definition should take one positional argument (the
+        :class:`azure.iot.device.WritableProperty` object)
+        """
+        if self._client_mode is CLIENT_MODE_PNP:
+            return self._on_writable_property_patch_received_unwrapped
+        else:
+            return None
+
+    @on_writable_property_patch_received.setter
+    def on_writable_property_patch_received(self, value):
+        self._check_client_mode_is_pnp()
+
+        # Generate a wrapper around the user provided handler that will turn a twin patch into
+        # a WritableProperty, then invoke the user's handler
+        translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+            handler_to_wrap=value, translation_fn=pnp_translation.twin_patch_to_writable_property
+        )
+
+        # Set this wrapper as a handler on the HandlerManager
+        self._generic_receive_handler_setter(
+            "on_twin_desired_properties_patch_received",
+            pipeline_constant.TWIN_PATCHES,
+            translation_wrapper,
+        )
+
+        # Cache the unwrapped handler so we can return it to user later
+        self._on_writable_property_patch_received_unwrapped = value
 
 
 @six.add_metaclass(abc.ABCMeta)
