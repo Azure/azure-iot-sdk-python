@@ -142,14 +142,22 @@ class TestFromConnectionString:
     @pytest.mark.parametrize(
         "connection_string",
         [
-            "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
-                hostname=fake_hostname,
-                device_id=fake_device_id,
-                skn=fake_shared_access_key_name,
-                sk=fake_shared_access_key,
+            pytest.param(
+                "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname,
+                    device_id=fake_device_id,
+                    skn=fake_shared_access_key_name,
+                    sk=fake_shared_access_key,
+                ),
+                id="connection string with HostName, DeviceId, SharedAccessKeyName, and SharedAccessKey",
             ),
-            "HostName={hostname};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
-                hostname=fake_hostname, skn=fake_shared_access_key_name, sk=fake_shared_access_key
+            pytest.param(
+                "HostName={hostname};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname,
+                    skn=fake_shared_access_key_name,
+                    sk=fake_shared_access_key,
+                ),
+                id="connection string without DeviceId",
             ),
         ],
     )
