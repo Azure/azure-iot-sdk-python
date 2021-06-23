@@ -42,13 +42,51 @@ def iothub_job_manager():
         skn=fake_shared_access_key_name,
         sk=fake_shared_access_key,
     )
-    iothub_job_manager = IoTHubJobManager(connection_string)
+    iothub_job_manager = IoTHubJobManager.from_connection_string(connection_string)
     return iothub_job_manager
 
 
-@pytest.mark.describe("IoTHubJobManager - Instantiation")
-class TestJobManager(object):
-    @pytest.mark.it("Instantiation sets the auth and protocol attributes")
+@pytest.mark.describe("IoTHubJobManager - .from_connection_string()")
+class TestFromConnectionString:
+    @pytest.mark.parametrize(
+        "connection_string",
+        [
+            pytest.param(
+                "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname,
+                    device_id=fake_device_id,
+                    skn=fake_shared_access_key_name,
+                    sk=fake_shared_access_key,
+                ),
+                id="connection string with HostName, DeviceId, SharedAccessKeyName, and SharedAccessKey",
+            ),
+            pytest.param(
+                "HostName={hostname};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname,
+                    skn=fake_shared_access_key_name,
+                    sk=fake_shared_access_key,
+                ),
+                id="connection string without DeviceId",
+            ),
+            pytest.param(
+                "HostName={hostname};DeviceId={device_id};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname, device_id=fake_device_id, sk=fake_shared_access_key
+                ),
+                id="connection string without SharedAccessKeyName",
+            ),
+        ],
+    )
+    @pytest.mark.it(
+        "Creates an instance of ConnectionStringAuthentication and passes it to IotHubGatewayServiceAPIs constructor"
+    )
+    def test_connection_string_auth(self, connection_string):
+        client = IoTHubJobManager.from_connection_string(connection_string=connection_string)
+
+        assert repr(client.auth) == connection_string
+        assert client.protocol.config.base_url == "https://" + client.auth["HostName"]
+        assert client.protocol.config.credentials == client.auth
+
+    @pytest.mark.it("Sets the auth and protocol attributes")
     def test_instantiates_auth_and_protocol_attributes(self, iothub_job_manager):
         assert isinstance(iothub_job_manager.auth, ConnectionStringAuthentication)
         assert isinstance(iothub_job_manager.protocol, IotHubGatewayServiceAPIs)
@@ -58,7 +96,7 @@ class TestJobManager(object):
     )
     def test_instantiates_with_empty_connection_string(self):
         with pytest.raises(ValueError):
-            IoTHubJobManager("", None, None)
+            IoTHubJobManager.from_connection_string("")
 
     @pytest.mark.it(
         "Raises a ValueError exception when instantiated with a connection string without HostName"
@@ -70,7 +108,7 @@ class TestJobManager(object):
             )
         )
         with pytest.raises(ValueError):
-            IoTHubJobManager(connection_string)
+            IoTHubJobManager.from_connection_string(connection_string)
 
     @pytest.mark.it("Instantiates with an connection string without DeviceId")
     def test_instantiates_with_connection_string_no_device_id(self):
@@ -79,7 +117,7 @@ class TestJobManager(object):
                 hostname=fake_hostname, skn=fake_shared_access_key_name, sk=fake_shared_access_key
             )
         )
-        obj = IoTHubJobManager(connection_string)
+        obj = IoTHubJobManager.from_connection_string(connection_string)
         assert isinstance(obj, IoTHubJobManager)
 
     @pytest.mark.it("Instantiates with an connection string without SharedAccessKeyName")
@@ -87,7 +125,7 @@ class TestJobManager(object):
         connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKey={sk}".format(
             hostname=fake_hostname, device_id=fake_device_id, sk=fake_shared_access_key
         )
-        obj = IoTHubJobManager(connection_string)
+        obj = IoTHubJobManager.from_connection_string(connection_string)
         assert isinstance(obj, IoTHubJobManager)
 
     @pytest.mark.it(
@@ -100,7 +138,24 @@ class TestJobManager(object):
             )
         )
         with pytest.raises(ValueError):
-            IoTHubJobManager(connection_string)
+            IoTHubJobManager.from_connection_string(connection_string)
+
+
+@pytest.mark.describe("IoTHubJobManager - .from_token_credential()")
+class TestFromTokenCredential:
+    @pytest.mark.it(
+        "Creates an instance of AzureIdentityCredentialAdapter and passes it to IotHubGatewayServiceAPIs constructor"
+    )
+    def test_token_credential_auth(self, mocker):
+        mock_azure_identity_TokenCredential = mocker.MagicMock()
+
+        client = IoTHubJobManager.from_token_credential(
+            fake_hostname, mock_azure_identity_TokenCredential
+        )
+
+        assert client.auth._policy._credential == mock_azure_identity_TokenCredential
+        assert client.protocol.config.base_url == "https://" + fake_hostname
+        assert client.protocol.config.credentials == client.auth
 
 
 @pytest.mark.describe("IoTHubJobManager - .create_import_export_job()")
