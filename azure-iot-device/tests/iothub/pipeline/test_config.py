@@ -10,6 +10,7 @@ from azure.iot.device.iothub.pipeline.config import IoTHubPipelineConfig
 
 device_id = "my_device"
 module_id = "my_module"
+model_id = "my_model"
 hostname = "hostname.some-domain.net"
 product_info = "some_info"
 
@@ -70,6 +71,22 @@ class TestIoTHubPipelineConfigInstantiation(PipelineConfigInstantiationTestBase)
     def test_product_info_default(self, sastoken):
         config = IoTHubPipelineConfig(device_id=device_id, hostname=hostname, sastoken=sastoken)
         assert config.product_info == ""
+
+    @pytest.mark.it(
+        "Instantiates with the 'model_id' attribute set to the provided 'model_id' parameter"
+    )
+    def test_model_id_set(self, sastoken):
+        config = IoTHubPipelineConfig(
+            device_id=device_id, hostname=hostname, model_id=model_id, sastoken=sastoken
+        )
+        assert config.model_id == model_id
+
+    @pytest.mark.it(
+        "Instantiates with the 'model_id' attribute defaulting to None if no 'model_id' parameter is provided"
+    )
+    def test_model_id_default(self, sastoken):
+        config = IoTHubPipelineConfig(device_id == device_id, hostname=hostname, sastoken=sastoken)
+        assert config.model_id is None
 
     @pytest.mark.it("Instantiates with the 'blob_upload' attribute set to False")
     def test_blob_upload(self, sastoken):
