@@ -36,6 +36,16 @@ def message():
 
 
 @pytest.fixture
+def telemetry_dict():
+    return {"temperature": 15.6}
+
+
+@pytest.fixture
+def component_name():
+    return "thermostat1"
+
+
+@pytest.fixture
 def method_response():
     return MethodResponse(request_id="1", status=200, payload={"key": "value"})
 

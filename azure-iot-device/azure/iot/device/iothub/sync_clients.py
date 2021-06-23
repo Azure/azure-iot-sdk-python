@@ -8,6 +8,7 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
+import json
 import deprecation
 from .abstract_clients import (
     AbstractIoTHubClient,
@@ -366,6 +367,51 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         handle_result(callback)
 
         logger.info("Successfully sent message to Hub")
+
+    def send_telemetry(self, telemetry_dict, component_name=None):
+        # type: (dict, str) -> None
+        """
+        Sends telemetry following the IoT Plug and Play requirements to the default events endpoint
+        on the Azure IoT Hub or Azure IoT Edge hub instance.
+
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the event.
+
+        :param dict telemetry_dict: A JSON-serializable dict containing the telemetry to send.
+        :param str component_name: The component that corresponds with the telemetry.
+            Default value is None, which results in the telemetry being sent to the default component.
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using basic mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        :raises: ValueError if the message fails size validation.
+        """
+        self._check_client_mode_is_pnp()
+
+        message = Message(
+            json.dumps(telemetry_dict), content_encoding="utf-8", content_type="application/json"
+        )
+        if component_name:
+            message.custom_properties["$.sub"] = component_name
+
+        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
+            raise ValueError("Size of telemetry message can not exceed 256 KB.")
+
+        logger.info("Sending telemetry to Hub...")
+
+        callback = EventedCallback()
+        self._mqtt_pipeline.send_message(message, callback=callback)
+        handle_result(callback)
+
+        logger.info("Successfully sent telemetry to Hub")
 
     @deprecation.deprecated(
         deprecated_in="2.3.0",

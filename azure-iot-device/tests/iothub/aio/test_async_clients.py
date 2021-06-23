@@ -5,6 +5,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+import json
 import pytest
 import asyncio
 import threading
@@ -694,6 +695,133 @@ class SharedClientSendD2CMessageTests(object):
 
         with pytest.raises(client_exceptions.ClientError):
             await client.send_message(message)
+        assert mqtt_pipeline.send_message.call_count == 0
+
+
+class SharedClientSendTelemetryTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_telemetry() is only compatible with PNP mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_telemetry() is only compatible with PNP mode, so need to override fixture"""
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_PNP)
+
+    @pytest.mark.it("Begins a 'send_message' pipeline operation")
+    async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, telemetry_dict):
+        await client.send_telemetry(telemetry_dict)
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Correctly populates the Message object without a component name")
+    async def test_populates_message_without_component(self, client, mqtt_pipeline, telemetry_dict):
+        await client.send_telemetry(telemetry_dict)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        with pytest.raises(KeyError):
+            message.custom_properties["$.sub"]
+
+    @pytest.mark.it("Correctly populates the Message object with a component name")
+    async def test_populates_message_with_component(
+        self, client, mqtt_pipeline, telemetry_dict, component_name
+    ):
+        await client.send_telemetry(telemetry_dict, component_name)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        assert message.custom_properties["$.sub"] == component_name
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_message' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, telemetry_dict
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.send_telemetry(telemetry_dict)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.send_message.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_message` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, telemetry_dict, client_error, pipeline_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_message(message, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.send_message = mocker.MagicMock(side_effect=fail_send_message)
+        with pytest.raises(client_error) as e_info:
+            await client.send_telemetry(telemetry_dict)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
+        data_input = {"bigtext": "serpensortia" * 25600}
+        with pytest.raises(ValueError) as e_info:
+            await client.send_telemetry(data_input)
+        assert "256 KB" in e_info.value.args[0]
+        assert mqtt_pipeline.send_message.call_count == 0
+
+    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
+    async def test_client_mode_pnp(self, client, mqtt_pipeline, telemetry_dict):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_telemetry(telemetry_dict)
         assert mqtt_pipeline.send_message.call_count == 0
 
 
@@ -1439,6 +1567,13 @@ class TestIoTHubDeviceClientSendD2CMessage(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_telemetry()")
+class TestIoTHubDeviceClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .receive_message()")
 class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Implicitly enables C2D messaging feature if not already enabled")
@@ -2004,8 +2139,15 @@ class TestIoTHubModuleClientDisconnectEvent(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message()")
-class TestIoTHubNModuleClientSendD2CMessage(
+class TestIoTHubModuleClientSendD2CMessage(
     SharedClientSendD2CMessageTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_telemetry()")
+class TestIoTHubModuleClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
