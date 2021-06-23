@@ -85,7 +85,7 @@ class TestIoTHubPipelineConfigInstantiation(PipelineConfigInstantiationTestBase)
         "Instantiates with the 'model_id' attribute defaulting to None if no 'model_id' parameter is provided"
     )
     def test_model_id_default(self, sastoken):
-        config = IoTHubPipelineConfig(device_id == device_id, hostname=hostname, sastoken=sastoken)
+        config = IoTHubPipelineConfig(device_id=device_id, hostname=hostname, sastoken=sastoken)
         assert config.model_id is None
 
     @pytest.mark.it("Instantiates with the 'blob_upload' attribute set to False")
