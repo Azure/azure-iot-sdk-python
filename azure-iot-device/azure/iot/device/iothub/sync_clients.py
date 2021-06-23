@@ -6,7 +6,6 @@
 """This module contains user-facing synchronous clients for the
 Azure IoTHub Device SDK for Python.
 """
-
 import logging
 import deprecation
 from .abstract_clients import (
@@ -14,7 +13,7 @@ from .abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from .models import Message
+from .models import pnp_translation, Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -551,6 +550,42 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             logger.info("Did not receive twin patch")
             return None
         return patch
+
+    def send_command_response(self, command_response):
+        """Send a response to a command via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        This is a synchronous event, meaning that this function will not return until the event
+        has been sent to the service and the service has acknowledged receipt of the event.
+
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the event.
+
+        This method is only compatible with PNP.
+
+        :param command_response: The CommandResponse to send.
+        :type command_response: :class:`azure.iot.device.CommandResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        self._check_client_mode_is_pnp()
+
+        logger.info("Sending command response to Hub...")
+
+        method_response = pnp_translation.command_response_to_method_response(command_response)
+        callback = EventedCallback()
+        self._mqtt_pipeline.send_method_response(method_response, callback=callback)
+        handle_result(callback)
+
+        logger.info("Successfully sent command response to Hub")
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):

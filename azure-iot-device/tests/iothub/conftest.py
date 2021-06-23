@@ -12,6 +12,8 @@ from .client_fixtures import (
     message,
     method_response,
     method_request,
+    command,
+    command_response,
     twin_patch_desired,
     twin_patch_reported,
     fake_twin,

@@ -446,10 +446,9 @@ class AbstractIoTHubClient(object):
     # (dict, str) -> None
     # pass
 
-    # @abc.abstractmethod
-    # def send_command_response(self, command, payload, status):
-    # (Command, object, int) -> None
-    # pass
+    @abc.abstractmethod
+    def send_command_response(self, command_response):
+        pass
 
     # @abc.abstractmethod
     # def get_properties(self):
@@ -507,7 +506,10 @@ class AbstractIoTHubClient(object):
         """The handler function or coroutine that will be called when a method request is received.
 
         The function or coroutine definition should take one positional argument (the
-        :class:`azure.iot.device.MethodRequest` object)"""
+        :class:`azure.iot.device.MethodRequest` object)
+
+        This handler is not compatible with PNP.
+        """
         if self._client_mode is CLIENT_MODE_BASIC:
             return self._handler_manager.on_method_request_received
         else:
@@ -526,7 +528,10 @@ class AbstractIoTHubClient(object):
         patch is received.
 
         The function or coroutine definition should take one positional argument (the twin patch
-        in the form of a JSON dictionary object)"""
+        in the form of a JSON dictionary object)
+
+        This handler is not compatible with PNP.
+        """
         if self._client_mode is CLIENT_MODE_BASIC:
             return self._handler_manager.on_twin_desired_properties_patch_received
         else:
@@ -545,6 +550,8 @@ class AbstractIoTHubClient(object):
 
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.Command` object)
+
+        This handler is only compatible with PNP.
         """
         if self._client_mode is CLIENT_MODE_PNP:
             return self._on_command_received_unwrapped
@@ -576,6 +583,8 @@ class AbstractIoTHubClient(object):
 
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.WritableProperty` object)
+
+        This handler is only compatible with PNP.
         """
         if self._client_mode is CLIENT_MODE_PNP:
             return self._on_writable_property_patch_received_unwrapped
@@ -584,6 +593,7 @@ class AbstractIoTHubClient(object):
 
     @on_writable_property_patch_received.setter
     def on_writable_property_patch_received(self, value):
+        # TODO: finish this implementation (if changes necessary). While we have an implementation here it is just for test purposes.
         self._check_client_mode_is_pnp()
 
         # Generate a wrapper around the user provided handler that will turn a twin patch into

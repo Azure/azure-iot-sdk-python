@@ -4,11 +4,12 @@
 # license information.
 # --------------------------------------------------------------------------
 
+from azure.iot.device.iothub.models.commands import CommandResponse
 import pytest
 import time
 from six.moves import urllib
 from azure.iot.device.iothub.pipeline import constant
-from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest
+from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest, Command
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.iothub.abstract_clients import CLIENT_MODE_BASIC, CLIENT_MODE_PNP
 
@@ -43,6 +44,25 @@ def method_response():
 @pytest.fixture
 def method_request():
     return MethodRequest(request_id="1", name="some_method", payload={"key": "value"})
+
+
+@pytest.fixture(params=["Component Command", "Non-Component Command"])
+def command(request):
+    if request.param == "Component Command":
+        component_name = "some_component"
+    else:
+        component_name = None
+    return Command(
+        request_id="1",
+        component_name=component_name,
+        command_name="some_command",
+        payload={"key": "value"},
+    )
+
+
+@pytest.fixture
+def command_response():
+    return CommandResponse(request_id="1", status=200, payload={"key": "value"})
 
 
 """----Shared Twin fixtures----"""

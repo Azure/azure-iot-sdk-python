@@ -19,7 +19,7 @@ from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
-from azure.iot.device.iothub.models import Message, MethodRequest
+from azure.iot.device.iothub.models import pnp_translation, Message, MethodRequest, MethodResponse
 from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
     RECEIVE_TYPE_HANDLER,
@@ -942,6 +942,108 @@ class SharedClientSendMethodResponseTests(object):
         assert mqtt_pipeline.send_method_response.call_count == 0
 
 
+class SharedClientSendCommandResponseTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_method_response() is only compatible with PNP mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.mark.it(
+        "Creates a MethodResponse object from the provided CommandResponse, and begins a 'send_method_response' pipeline operation with it"
+    )
+    async def test_send_method_response_calls_pipeline(
+        self, client, mqtt_pipeline, command_response
+    ):
+        expected_method_response = pnp_translation.command_response_to_method_response(
+            command_response
+        )
+
+        await client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 1
+        method_response = mqtt_pipeline.send_method_response.call_args[0][0]
+        assert isinstance(method_response, MethodResponse)
+        assert method_response.request_id == expected_method_response.request_id
+        assert method_response.status == expected_method_response.status
+        assert method_response.payload == expected_method_response.payload
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_method_response' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, command_response
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.send_command_response(command_response)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.send_method_response.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, command_response, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_method_response(response, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.send_method_response = mocker.MagicMock(side_effect=fail_send_method_response)
+        with pytest.raises(client_error) as e_info:
+            await client.send_command_response(command_response)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.send_method_response.call_count == 1
+
+    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
+    async def test_client_mode_pnp(self, client, mqtt_pipeline, command_response):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 0
+
+
 class SharedClientGetTwinTests(object):
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
     async def test_enables_twin_only_if_not_already_enabled(
@@ -1556,6 +1658,13 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_command_response()")
+class TestIoTHubDeviceClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_storage_info_for_blob()")
 class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
@@ -1777,6 +1886,7 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_command_received")
 class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 
@@ -1784,6 +1894,7 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsCon
     "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
 )
 class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceived(IoTHubDeviceClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 
@@ -2294,6 +2405,13 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_command_response()")
+class TestIoTHubModuleClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
@@ -2465,6 +2583,7 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_command_received")
 class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 
@@ -2472,6 +2591,7 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsCon
     "IoTHubModuleClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
 )
 class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 

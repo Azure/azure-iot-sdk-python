@@ -20,7 +20,7 @@ from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
-from azure.iot.device.iothub.models import Message, MethodRequest
+from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse, pnp_translation
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
 from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
@@ -1050,6 +1050,111 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
         assert mqtt_pipeline.send_method_response.call_count == 0
 
 
+class SharedClientSendCommandResponseTests(WaitsForEventCompletion):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_command_response() is only compatible with PNP mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_command_response() is only compatible with BASIC mode, so need to override fixture"""
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_PNP)
+
+    @pytest.mark.it(
+        "Creates a MethodResponse object from the provided CommandResponse, and begins a 'send_method_response' pipeline operation with it"
+    )
+    def test_send_method_response_calls_pipeline(self, client, mqtt_pipeline, command_response):
+        expected_method_response = pnp_translation.command_response_to_method_response(
+            command_response
+        )
+
+        client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 1
+        method_response = mqtt_pipeline.send_method_response.call_args[0][0]
+        assert isinstance(method_response, MethodResponse)
+        assert method_response.request_id == expected_method_response.request_id
+        assert method_response.status == expected_method_response.status
+        assert method_response.payload == expected_method_response.payload
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_method_response' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, command_response
+    ):
+        self.add_event_completion_checks(
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_method_response
+        )
+        client_manual_cb.send_command_response(command_response)
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self,
+        mocker,
+        client_manual_cb,
+        mqtt_pipeline_manual_cb,
+        command_response,
+        pipeline_error,
+        client_error,
+    ):
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.send_method_response,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.send_command_response(command_response)
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
+    def test_client_mode_pnp(self, client, mqtt_pipeline, command_response):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 0
+
+
 class SharedClientGetTwinTests(WaitsForEventCompletion):
     @pytest.fixture
     def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
@@ -1806,6 +1911,13 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .send_command_response()")
+class TestIoTHubDeviceClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .get_storage_info_for_blob()")
 class TestIoTHubDeviceClientGetStorageInfo(WaitsForEventCompletion, IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
@@ -2049,6 +2161,7 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_command_received")
 class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 
@@ -2056,6 +2169,7 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsCon
     "IoTHubDeviceClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
 )
 class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceived(IoTHubDeviceClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 
@@ -2644,6 +2758,13 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_command_response()")
+class TestIoTHubModuleClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(WaitsForEventCompletion, IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
@@ -2790,6 +2911,7 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_received")
 class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 
@@ -2797,6 +2919,7 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsCon
     "IoTHubModuleClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
 )
 class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
+    # TODO: implement these tests
     pass
 
 

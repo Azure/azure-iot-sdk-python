@@ -17,7 +17,7 @@ from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from azure.iot.device.iothub.models import Message
+from azure.iot.device.iothub.models import pnp_translation, Message
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
@@ -441,7 +441,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = async_adapter.AwaitableCallback()
 
-        # TODO: maybe consolidate method_request, result and status into a new object
         await send_method_response_async(method_response, callback=callback)
         await handle_result(callback)
 
@@ -544,6 +543,44 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         patch = await twin_patch_inbox.get()
         logger.info("twin patch received")
         return patch
+
+    async def send_command_response(self, command_response):
+        """Send a response to a command via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the event.
+
+        This method is only compatible with PNP.
+
+        :param command_response: The CommandResponse to send
+        :type command_response: :class:`azure.iot.device.CommandResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        self._check_client_mode_is_pnp()
+
+        logger.info("Sending command response to Hub...")
+        send_method_response_async = async_adapter.emulate_async(
+            self._mqtt_pipeline.send_method_response
+        )
+
+        method_response = pnp_translation.command_response_to_method_response(command_response)
+
+        callback = async_adapter.AwaitableCallback()
+
+        await send_method_response_async(method_response, callback=callback)
+        await handle_result(callback)
+
+        logger.info("Successfully sent command response to Hub")
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
