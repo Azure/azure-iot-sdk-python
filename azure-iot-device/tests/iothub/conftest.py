@@ -10,6 +10,8 @@ import pytest
 # These fixtures are shared between sync and async clients
 from .client_fixtures import (
     message,
+    telemetry_dict,
+    component_name,
     method_response,
     method_request,
     twin_patch_desired,

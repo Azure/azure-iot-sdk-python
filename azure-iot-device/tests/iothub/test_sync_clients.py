@@ -7,6 +7,7 @@
 from azure.iot.device.common.pipeline.pipeline_exceptions import OperationCancelled
 from azure.iot.device.common.evented_callback import EventedCallback
 import pytest
+import json
 import logging
 import threading
 import time
@@ -684,6 +685,133 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
 
         with pytest.raises(client_exceptions.ClientError):
             client.send_message(message)
+        assert mqtt_pipeline.send_message.call_count == 0
+
+
+class SharedClientSendTelemetryTests(WaitsForEventCompletion):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_telemetry() is only compatible with PNP mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_telemetry() is only compatible with PNP mode, so need to override fixture"""
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_PNP)
+
+    @pytest.mark.it("Begins a 'send_message' MQTTPipeline operation")
+    def test_calls_pipeline_send_message(self, client, mqtt_pipeline, telemetry_dict):
+        client.send_telemetry(telemetry_dict)
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Correctly populates the Message object without a component name")
+    def test_populates_message_without_component(self, client, mqtt_pipeline, telemetry_dict):
+        client.send_telemetry(telemetry_dict)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        with pytest.raises(KeyError):
+            message.custom_properties["$.sub"]
+
+    @pytest.mark.it("Correctly populates the Message object with a component name")
+    def test_populates_message_with_component(
+        self, client, mqtt_pipeline, telemetry_dict, component_name
+    ):
+        client.send_telemetry(telemetry_dict, component_name)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        assert message.custom_properties["$.sub"] == component_name
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_message' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, telemetry_dict
+    ):
+        self.add_event_completion_checks(
+            mocker=mocker, pipeline_function=mqtt_pipeline_manual_cb.send_message
+        )
+        client_manual_cb.send_telemetry(telemetry_dict)
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_message` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self,
+        mocker,
+        client_manual_cb,
+        mqtt_pipeline_manual_cb,
+        telemetry_dict,
+        pipeline_error,
+        client_error,
+    ):
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.send_message,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.send_telemetry(telemetry_dict)
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
+        data_input = {"bigtext": "serpensortia" * 25600}
+        with pytest.raises(ValueError) as e_info:
+            client.send_telemetry(data_input)
+        assert "256 KB" in e_info.value.args[0]
+        assert mqtt_pipeline.send_message.call_count == 0
+
+    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
+    def test_client_mode_basic(self, client, mqtt_pipeline, telemetry_dict):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            client.send_telemetry(telemetry_dict)
         assert mqtt_pipeline.send_message.call_count == 0
 
 
@@ -1619,6 +1747,13 @@ class TestIoTHubDeviceClientSendD2CMessage(
     pass
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .send_telemetry()")
+class TestIoTHubDeviceClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .receive_message()")
 class TestIoTHubDeviceClientReceiveC2DMessage(
     IoTHubDeviceClientTestsConfig, WaitsForEventCompletion
@@ -2269,8 +2404,15 @@ class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClie
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_message()")
-class TestIoTHubNModuleClientSendD2CMessage(
+class TestIoTHubModuleClientSendD2CMessage(
     SharedClientSendD2CMessageTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_telemetry()")
+class TestIoTHubModuleClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
