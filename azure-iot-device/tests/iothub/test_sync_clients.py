@@ -2160,7 +2160,7 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_command_received")
-class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsConfig):
+class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(IoTHubDeviceClientTestsConfig):
     # TODO: implement these tests
     pass
 
@@ -2168,7 +2168,9 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsCon
 @pytest.mark.describe(
     "IoTHubDeviceClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
 )
-class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceived(IoTHubDeviceClientTestsConfig):
+class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceivedHandler(
+    IoTHubDeviceClientTestsConfig
+):
     # TODO: implement these tests
     pass
 
@@ -2910,15 +2912,38 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_received")
-class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
-    # TODO: implement these tests
-    pass
+class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+):
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_twin_desired_properties_patch_received property is only compatible with PNP mode,
+        so need to override fixture
+        """
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_command_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in BASIC Mode")
+    def test_client_mode_basic(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_command_received = handler
+        assert client.on_command_received is None
 
 
 @pytest.mark.describe(
     "IoTHubModuleClient (Synchronous) - PROPERTY .on_writable_property_patch_received"
 )
-class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
+class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceivedHandler(
+    IoTHubModuleClientTestsConfig
+):
     # TODO: implement these tests
     pass
 

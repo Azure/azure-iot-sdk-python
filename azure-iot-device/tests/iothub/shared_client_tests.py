@@ -546,11 +546,11 @@ class SharedIoTHubClientPROPERTYHandlerTests(object):
     #     assert getattr(client, handler_name) is handler
     #     assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
 
-    @pytest.mark.it("Is invoked by the associated trigger event")
-    def test_handler_manager_trigger(self, client, handler, handler_name):
-        assert getattr(client, handler_name) is None
+    # @pytest.mark.it("Is invoked by the associated trigger event")
+    # def test_handler_manager_trigger(self, client, handler, handler_name):
+    #     assert getattr(client, handler_name) is None
 
-        setattr(client, handler_name, handler)
+    #     setattr(client, handler_name, handler)
 
 
 class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYHandlerTests):

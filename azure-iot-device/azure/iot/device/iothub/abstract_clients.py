@@ -562,18 +562,25 @@ class AbstractIoTHubClient(object):
     def on_command_received(self, value):
         self._check_client_mode_is_pnp()
 
-        # Generate a wrapper around the user provided handler that will turn a MethodRequest into
-        # a Command, then invoke the user's handler
-        translation_wrapper = self._generate_pnp_handler_translation_wrapper(
-            handler_to_wrap=value, translation_fn=pnp_translation.method_request_to_command
-        )
+        if value is not None:
+            # Generate a wrapper around the user provided handler that will turn a MethodRequest into
+            # a Command, then invoke the user's handler
+            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+                handler_to_wrap=value, translation_fn=pnp_translation.method_request_to_command
+            )
 
-        # Set this wrapper as a handler on the HandlerManager
-        self._generic_receive_handler_setter(
-            "on_method_request_received", pipeline_constant.METHODS, translation_wrapper
-        )
+            # Set this wrapper as a handler on the HandlerManager
+            self._generic_receive_handler_setter(
+                "on_method_request_received", pipeline_constant.METHODS, translation_wrapper
+            )
+        else:
+            # If setting the handler back to None, there is nothing to wrap
+            self._generic_receive_handler_setter(
+                "on_method_request_received", pipeline_constant.METHODS, value
+            )
 
-        # Cache the unwrapped handler so we can return it to user later
+        # Cache the unwrapped handler so we can return it to user later,
+        # or clear the cached value if being set to None.
         self._on_command_received_unwrapped = value
 
     @property
@@ -596,20 +603,30 @@ class AbstractIoTHubClient(object):
         # TODO: finish this implementation (if changes necessary). While we have an implementation here it is just for test purposes.
         self._check_client_mode_is_pnp()
 
-        # Generate a wrapper around the user provided handler that will turn a twin patch into
-        # a WritableProperty, then invoke the user's handler
-        translation_wrapper = self._generate_pnp_handler_translation_wrapper(
-            handler_to_wrap=value, translation_fn=pnp_translation.twin_patch_to_writable_property
-        )
+        if value is not None:
+            # Generate a wrapper around the user provided handler that will turn a twin patch into
+            # a WritableProperty, then invoke the user's handler
+            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+                handler_to_wrap=value,
+                translation_fn=pnp_translation.twin_patch_to_writable_property,
+            )
 
-        # Set this wrapper as a handler on the HandlerManager
-        self._generic_receive_handler_setter(
-            "on_twin_desired_properties_patch_received",
-            pipeline_constant.TWIN_PATCHES,
-            translation_wrapper,
-        )
+            # Set this wrapper as a handler on the HandlerManager
+            self._generic_receive_handler_setter(
+                "on_twin_desired_properties_patch_received",
+                pipeline_constant.TWIN_PATCHES,
+                translation_wrapper,
+            )
+        else:
+            # If setting the handler back to None, there is nothing to wrap
+            self._generic_receive_handler_setter(
+                "on_twin_desired_properties_patch_received",
+                pipeline_constant.TWIN_PATCHES,
+                value,
+            )
 
-        # Cache the unwrapped handler so we can return it to user later
+        # Cache the unwrapped handler so we can return it to user later,
+        # or clear the cached value if being set to None.
         self._on_writable_property_patch_received_unwrapped = value
 
 

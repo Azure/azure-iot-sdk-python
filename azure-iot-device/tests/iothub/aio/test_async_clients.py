@@ -9,6 +9,7 @@ import pytest
 import asyncio
 import threading
 import time
+import inspect
 import os
 import io
 import sys
@@ -60,19 +61,36 @@ async def create_completed_future(result=None):
 ##########################
 # SHARED CLIENT FIXTURES #
 ##########################
+@pytest.fixture
+def handler_checker():
+    """Can't use Mocks for handlers, but need a way to track if they are called"""
+
+    class HandlerChecker:
+        def __init__(self):
+            self.handler_call_count = 0
+            self.handler_call_args = None
+            self.lock = threading.Lock()
+
+    return HandlerChecker()
+
+
 @pytest.fixture(params=["Handler Function", "Handler Coroutine"])
-def handler(request):
+def handler(mocker, request, handler_checker):
     if request.param == "Handler Function":
 
-        def _handler_function(arg):
-            pass
+        def _handler_function(*args, **kwargs):
+            with handler_checker.lock:
+                handler_checker.handler_call_count += 1
+                handler_checker.handler_call_args = (args, kwargs)
 
         return _handler_function
 
     else:
 
-        async def _handler_coroutine(arg):
-            pass
+        async def _handler_coroutine(*args, **kwargs):
+            with handler_checker.lock:
+                handler_checker.handler_call_count += 1
+                handler_checker.handler_call_args = (args, kwargs)
 
         return _handler_coroutine
 
@@ -1885,7 +1903,7 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_command_received")
-class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsConfig):
+class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(IoTHubDeviceClientTestsConfig):
     # TODO: implement these tests
     pass
 
@@ -1893,7 +1911,9 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceived(IoTHubDeviceClientTestsCon
 @pytest.mark.describe(
     "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
 )
-class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceived(IoTHubDeviceClientTestsConfig):
+class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceivedHandler(
+    IoTHubDeviceClientTestsConfig
+):
     # TODO: implement these tests
     pass
 
@@ -2582,15 +2602,86 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_command_received")
-class TestIoTHubModuleClientPROPERTYOnCommandReceived(IoTHubModuleClientTestsConfig):
-    # TODO: implement these tests
-    pass
+class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_command_received property is only compatible with PNP mode,
+        so need to override fixture
+        """
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_command_received"
+
+    # @pytest.fixture
+    # def handler_manager_trigger_name(self, client):
+    #     return "on_method_request_received"
+
+    @pytest.fixture
+    def handler_manager_trigger(self, client):
+        def _trigger_fn(*args):
+            handler = client._handler_manager.on_method_request_received
+            if inspect.iscoroutinefunction(handler):
+                loop = asyncio.get_event_loop()
+                fut = asyncio.run_coroutine_threadsafe(handler(*args), loop=loop)
+                fut.result()
+            else:
+                handler(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+    # @pytest.mark.it("")
+    # def test_trigger(self, mocker, client, handler, handler_checker, handler_name, handler_manager_trigger_name):
+    #     setattr(client, handler_name, handler)
+
+    #     trigger = getattr(client._handler_manager, handler_manager_trigger_name)
+    #     mock_arg = mocker.MagicMock()
+    #     trigger(mock_arg)
+
+    #     assert handler_checker.handler_call_count == 1
+    #     assert handler_checker.handler_call_args == mocker.call(mock_arg)
+
+    @pytest.mark.it("")
+    async def test_trigger_handler(
+        self,
+        mocker,
+        client,
+        handler,
+        handler_checker,
+        handler_name,
+        handler_manager_trigger,
+        method_request,
+    ):
+        setattr(client, handler_name, handler)
+
+        handler_manager_trigger(method_request)
+        asyncio.sleep(1)
+        assert handler_checker.handler_call_count == 1
+        assert handler_checker.handler_call_args == mocker.call(mocker.ANY)
+        received_command = handler_checker.handler_call_args[0][0]
+        assert received_command.request_id == method_request.request_id
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in BASIC Mode")
+    def test_client_mode_basic(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_command_received = handler
+        assert client.on_command_received is None
 
 
 @pytest.mark.describe(
     "IoTHubModuleClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
 )
-class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceived(IoTHubModuleClientTestsConfig):
+class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceivedHandler(
+    IoTHubModuleClientTestsConfig
+):
     # TODO: implement these tests
     pass
 
