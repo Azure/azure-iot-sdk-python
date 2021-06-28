@@ -191,7 +191,7 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
             expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&model-id={model_id}{custom_product_info}".format(
                 hostname=pipeline_config.hostname,
                 client_id=pipeline_config.device_id,
-                api_version=pkg_constant.IOTHUB_DIGITAL_TWIN_API_VERSION,
+                api_version=pkg_constant.IOTHUB_API_VERSION,
                 user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
                 model_id=urllib.parse.quote(pipeline_config.model_id, safe=""),
                 custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
@@ -293,7 +293,7 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
             expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&model-id={model_id}{custom_product_info}".format(
                 hostname=pipeline_config.hostname,
                 client_id=expected_client_id,
-                api_version=pkg_constant.IOTHUB_DIGITAL_TWIN_API_VERSION,
+                api_version=pkg_constant.IOTHUB_API_VERSION,
                 user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
                 model_id=urllib.parse.quote(pipeline_config.model_id, safe=""),
                 custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),

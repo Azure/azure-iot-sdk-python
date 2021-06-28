@@ -52,18 +52,13 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
             custom_product_info = str(self.pipeline_root.pipeline_configuration.product_info)
 
+            query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
+            query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
             if self.pipeline_root.pipeline_configuration.model_id is not None:
-                # Digital Twin Stuff
-                query_param_seq.append(
-                    ("api-version", pkg_constant.IOTHUB_DIGITAL_TWIN_API_VERSION)
-                )
-                query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
+                # If using Digital Twin, add model-id
                 query_param_seq.append(
                     ("model-id", self.pipeline_root.pipeline_configuration.model_id)
                 )
-            else:
-                query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
-                query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
 
             # NOTE: Client ID (including the device and/or module ids that are in it)
             # is NOT url encoded as part of the username. Neither is the hostname.
