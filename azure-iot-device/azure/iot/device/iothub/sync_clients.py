@@ -334,6 +334,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         if not isinstance(message, Message):
             message = Message(message)
 
+        # NOTE: This is not the right place to do this check. It is not accurate. We need to check
+        # size after we convert it into a packet, so it includes all metadata.
+        # TODO: fix this
         if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             raise ValueError("Size of telemetry message can not exceed 256 KB.")
 
@@ -466,6 +469,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
             self._enable_feature(pipeline_constant.TWIN)
+
+        # NOTE: There is no safety check on max size of a twin here. Max is 64kb. Similar to
+        # messages, it (may?) not be accurate to check here - we likely need to do it farther down
+        # the stack, if for nothing else than consistency with messages
+        # TODO: fix
 
         callback = EventedCallback()
         self._mqtt_pipeline.patch_twin_reported_properties(
@@ -659,6 +667,9 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         if not isinstance(message, Message):
             message = Message(message)
 
+        # NOTE: This is not the right place to do this check. It is not accurate. We need to check
+        # size after we convert it into a packet, so it includes all metadata.
+        # TODO: fix this
         if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
             raise ValueError("Size of message can not exceed 256 KB.")
 
