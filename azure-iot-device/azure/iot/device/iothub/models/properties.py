@@ -1,5 +1,4 @@
-# -------------------------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# ------------------------------------------------------------------------- # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
@@ -7,36 +6,39 @@
 """
 
 
-class Component(object):
-    def __init__(self, properties):
-        self.properties = properties
+def WritablePropertyResponse(value, ack_code, ack_description, ack_version):
+    return {
+        "value": value,
+        "ac": ack_code,
+        "ad": ack_description,
+        "av": ack_version,
+    }
 
 
-class WritablePropertyResponse(object):
-    def __init__(self, value, ac, ad, version):
-        self.value = value
-        self.ac = ac
-        self.ad = ad
-        self.version = version
+class PropertiesCollection(object):
+    def __init__(self):
+        self.backing_object = {}
+
+    @property
+    def version(self):
+        return self.backing_object.get("$version")
+
+    def set_property(self, property_name, property_value):
+        self.backing_object[property_name] = property_value
+
+    def get_property(self, property_name, default=None):
+        return self.backing_object.get(property_name, default=default)
+
+    def set_component_property(self, component_name, property_name, property_value):
+        if component_name not in self.backing_object:
+            self.backing_object[component_name] = {"__t": "c"}
+        self.backing_object[component_name][property_name] = property_value
+
+    def get_component_property(self, component_name, property_name, default=None):
+        return self.backing_object.get(component_name, {}).get(property_name, default=default)
 
 
-class ClientProperties(object):
-    def __init__(
-        self,
-        components={},
-        properties={},
-        version=None,
-    ):
-        self.components = components
-        self.properties = properties
-        self.version = version
-
-
-class WritableProperty(object):
-    def __init__(
-        self,
-        value=None,
-        response=None,
-    ):
-        self.value = value
-        self.response = response
+class ClientProperties(PropertiesCollection):
+    def __init__(self):
+        super(self, ClientProperties).__init__()
+        self.writable_properties_requests = PropertiesCollection()

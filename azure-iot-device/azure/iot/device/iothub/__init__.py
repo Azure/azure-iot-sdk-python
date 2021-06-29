@@ -11,8 +11,20 @@ from .models import (
     MethodResponse,
     Command,
     CommandResponse,
-    WritableProperty,
+    ClientProperties,
+    PropertiesCollection,
     WritablePropertyResponse,
 )
 
-__all__ = ["IoTHubDeviceClient", "IoTHubModuleClient", "Message", "MethodRequest", "MethodResponse"]
+__all__ = [
+    "IoTHubDeviceClient",
+    "IoTHubModuleClient",
+    "Message",
+    "MethodRequest",
+    "MethodResponse",
+    "Command",
+    "CommandResponse",
+    "ClientProperties",
+    "PropertiesCollection",
+    "WritablePropertyResponse",
+]
