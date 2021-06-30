@@ -12,6 +12,7 @@ from .client_fixtures import (
     message,
     method_response,
     method_request,
+    method_request_command,
     command,
     command_response,
     twin_patch_desired,

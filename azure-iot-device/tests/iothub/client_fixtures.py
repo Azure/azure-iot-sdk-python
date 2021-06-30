@@ -47,6 +47,16 @@ def method_request():
 
 
 @pytest.fixture(params=["Component Command", "Non-Component Command"])
+def method_request_command(request):
+    # Method Request object containing Command info
+    if request.param == "Component Command":
+        name = "some_component*some_command"
+    else:
+        name = "some_command"
+    return MethodRequest(request_id="1", name=name, payload={"key": "value"})
+
+
+@pytest.fixture(params=["Component Command", "Non-Component Command"])
 def command(request):
     if request.param == "Component Command":
         component_name = "some_component"

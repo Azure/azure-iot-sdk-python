@@ -14,13 +14,19 @@ import os
 import io
 import six
 import six.moves.urllib as urllib
-from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient, client_event
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
-from azure.iot.device.iothub.models import Message, MethodRequest, MethodResponse, pnp_translation
+from azure.iot.device.iothub.models import (
+    Message,
+    MethodRequest,
+    MethodResponse,
+    Command,
+    pnp_translation,
+)
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
 from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
@@ -83,9 +89,28 @@ class WaitsForEventCompletion(object):
 # SHARED CLIENT FIXTURES #
 ##########################
 @pytest.fixture
-def handler():
-    def _handler_function(arg):
-        pass
+def handler_checker():
+    """Can't use Mocks for handlers, but need a way to track if they are called"""
+
+    class HandlerChecker:
+        def __init__(self):
+            self.handler_call_count = 0
+            self.handler_call_args = None
+            self.lock = threading.Lock()
+
+    return HandlerChecker()
+
+
+@pytest.fixture()
+def handler(mocker, request, handler_checker):
+    # NOTE: You might ask "why not just use a mock instead of this weird business with a
+    # handler_checker?" and the answer is "because that would mean the handler would not
+    # actually be a function, it would be a mock object, and that will mess up the code due to
+    # the use of type-checking"
+    def _handler_function(*args, **kwargs):
+        with handler_checker.lock:
+            handler_checker.handler_call_count += 1
+            handler_checker.handler_call_args = (args, kwargs)
 
     return _handler_function
 
@@ -2082,6 +2107,17 @@ class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
     def feature_name(self):
         return pipeline_constant.C2D_MSG
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_c2d_message(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, message):
+        return [message]
+
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_method_request_received")
 class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
@@ -2101,6 +2137,17 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
     @pytest.fixture
     def feature_name(self):
         return pipeline_constant.METHODS
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request):
+        return [method_request]
 
     @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
     def test_client_mode_pnp_get(self, client, handler):
@@ -2141,6 +2188,17 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_twin_patch(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, twin_patch_desired):
+        return [twin_patch_desired]
+
     @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
     def test_client_mode_pnp_get(self, client, handler):
         client._client_mode = CLIENT_MODE_PNP
@@ -2160,9 +2218,75 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_command_received")
-class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(IoTHubDeviceClientTestsConfig):
-    # TODO: implement these tests
-    pass
+class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+):
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_command_received property is only compatible with PNP mode,
+        so need to override fixture
+        """
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_command_received"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request_command):
+        return [method_request_command]
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+    @pytest.mark.it(
+        "Is invoked with a PNP object derived from the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self, client, handler, handler_checker, handler_name, handler_trigger, handler_trigger_args
+    ):
+        # NOTE: This test function overrides an inherited one in order to test object translation
+        setattr(client, handler_name, handler)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        method_request = handler_trigger_args[0]
+        assert isinstance(method_request, MethodRequest)
+        command = handler_checker.handler_call_args[0][0]
+        assert isinstance(command, Command)
+        expected_command = pnp_translation.method_request_to_command(method_request)
+        assert command.request_id == expected_command.request_id
+        assert command.component_name == expected_command.component_name
+        assert command.command_name == expected_command.command_name
+        assert command.payload == expected_command.payload
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in BASIC Mode")
+    def test_client_mode_basic_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        # Handler is None
+        assert client.on_command_received is None
+        # Set analogous BASIC handler
+        client.on_method_request_received = handler
+        # Still None
+        assert client.on_command_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in BASIC Mode")
+    def test_client_mode_basic_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_command_received = handler
+        assert client.on_command_received is None
 
 
 @pytest.mark.describe(
@@ -2182,6 +2306,20 @@ class TestIoTHubDeviceClientPROPERTYOnConnectionStateChangeHandler(
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client_event_inbox = client._inbox_manager.get_client_event_inbox()
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self):
+        # Invoked with no args
+        return []
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .connected")
@@ -2854,6 +2992,17 @@ class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
     def feature_name(self):
         return pipeline_constant.INPUT_MSG
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_input_message(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, message):
+        return [message]
+
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_method_request_received")
 class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
@@ -2874,8 +3023,29 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
     def feature_name(self):
         return pipeline_constant.METHODS
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request):
+        return [method_request]
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
+    def test_client_mode_pnp_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        # Handler is None
+        assert client.on_method_request_received is None
+        # Set analogous PNP handler
+        client.on_command_received = handler
+        # Still None
+        assert client.on_method_request_received is None
+
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp(self, client, handler):
+    def test_client_mode_pnp_set(self, client, handler):
         client._client_mode = CLIENT_MODE_PNP
         with pytest.raises(client_exceptions.ClientError):
             client.on_method_request_received = handler
@@ -2900,11 +3070,32 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         return "on_twin_desired_properties_patch_received"
 
     @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_twin_patch(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, twin_patch_desired):
+        return [twin_patch_desired]
+
+    @pytest.fixture
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
 
+    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
+    def test_client_mode_pnp_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_PNP
+        # Handler is None
+        assert client.on_twin_desired_properties_patch_received is None
+        # Set analogous PNP handler
+        client.on_writable_property_patch_received = handler
+        # Still None
+        assert client.on_twin_desired_properties_patch_received is None
+
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp(self, client, handler):
+    def test_client_mode_pnp_set(self, client, handler):
         client._client_mode = CLIENT_MODE_PNP
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler
@@ -2930,8 +3121,53 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
     def feature_name(self):
         return pipeline_constant.METHODS
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.mark.it(
+        "Is invoked with a PNP object derived from the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self, client, handler, handler_checker, handler_name, handler_trigger, handler_trigger_args
+    ):
+        # NOTE: This test function overrides an inherited one in order to test object translation
+        setattr(client, handler_name, handler)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        method_request = handler_trigger_args[0]
+        assert isinstance(method_request, MethodRequest)
+        command = handler_checker.handler_call_args[0][0]
+        assert isinstance(command, Command)
+        expected_command = pnp_translation.method_request_to_command(method_request)
+        assert command.request_id == expected_command.request_id
+        assert command.component_name == expected_command.component_name
+        assert command.command_name == expected_command.command_name
+        assert command.payload == expected_command.payload
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request_command):
+        return [method_request_command]
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in BASIC Mode")
+    def test_client_mode_basic_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        # Handler is None
+        assert client.on_command_received is None
+        # Set analogous BASIC handler
+        client.on_method_request_received = handler
+        # Still None
+        assert client.on_command_received is None
+
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in BASIC Mode")
-    def test_client_mode_basic(self, client, handler):
+    def test_client_mode_basic_set(self, client, handler):
         client._client_mode = CLIENT_MODE_BASIC
         with pytest.raises(client_exceptions.ClientError):
             client.on_command_received = handler
@@ -2955,6 +3191,20 @@ class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client_event_inbox = client._inbox_manager.get_client_event_inbox()
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self):
+        # Invoked with no args
+        return []
 
 
 @pytest.mark.describe("IoTHubModule (Synchronous) - PROPERTY .connected")
