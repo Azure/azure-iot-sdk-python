@@ -82,7 +82,7 @@ def print_job_response(title, job):
 
 try:
     # Create IoTHubJobManager
-    iothub_job_manager = IoTHubJobManager(iothub_connection_str)
+    iothub_job_manager = IoTHubJobManager.from_connection_string(iothub_connection_str)
 
     # Get all export/import jobs
     export_import_jobs = iothub_job_manager.get_import_export_jobs()

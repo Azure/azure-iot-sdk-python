@@ -208,7 +208,7 @@ class MQTTTransportStage(PipelineStage):
             # already doing.
 
             try:
-                self.transport.disconnect(clear_pending=True)
+                self.transport.disconnect(clear_inflight=True)
             except Exception as e:
                 logger.info("transport.disconnect raised error while disconnecting")
                 logger.info(traceback.format_exc())
@@ -373,10 +373,11 @@ class MQTTTransportStage(PipelineStage):
         else:
             logger.info("{}: _on_mqtt_disconnect called".format(self.name))
 
-        # Send an event to tell other pipeilne stages that we're disconnected. Do this before
+        # Send an event to tell other pipeline stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.)
         self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
+        # Complete any pending connection ops
         if self._pending_connection_op:
             # on_mqtt_disconnected will cause any pending connect op to complete.  This is how Paho
             # behaves when there is a connection error, and it also makes sense that on_mqtt_disconnected
@@ -393,6 +394,13 @@ class MQTTTransportStage(PipelineStage):
             ):
                 # Swallow any errors if we intended to disconnect - even if something went wrong, we
                 # got to the state we wanted to be in!
+                #
+                # NOTE: ReauthorizeConnectionOperation currently completes on disconnect, not when
+                # the connection is re-established (it leaves connection retry to automatically
+                # re-establish). This needs to change because it is inaccurate and means that if
+                # a SASToken expires while connection retry is disabled, a reauthorization cannot
+                # complete (!!!!)
+                # TODO: Fix that!
                 if cause:
                     handle_exceptions.swallow_unraised_exception(
                         cause,
@@ -408,11 +416,26 @@ class MQTTTransportStage(PipelineStage):
                     )
         else:
             logger.info("{}: disconnection was unexpected".format(self.name))
-            # Regardless of cause, it is now a ConnectionDroppedError.  log it and swallow it.
-            # Higher layers will see that we're disconencted and reconnect as necessary.
+
+            # If there is no connection retry, cancel any transport operations waiting on response
+            # so that they do not get stuck there.
+            if not self.pipeline_root.pipeline_configuration.connection_retry:
+                logger.debug(
+                    "{}: Connection Retry disabled - cancelling in-flight operations".format(
+                        self.name
+                    )
+                )
+                # TODO: Remove private access to the op manager (this layer shouldn't know about it)
+                # This is a stopgap. I didn't want to invest too much infrastructure into a cancel flow
+                # given that future development of individual operation cancels might affect the
+                # approach to cancelling inflight ops waiting in the transport.
+                self.transport._op_manager.cancel_all_operations()
+
+            # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
+            # Higher layers will see that we're disconencted and may reconnect as necessary.
             e = transport_exceptions.ConnectionDroppedError(cause=cause)
             handle_exceptions.swallow_unraised_exception(
                 e,
-                log_msg="Unexpected disconnection.  Safe to ignore since other stages will reconnect.",
+                log_msg="Unexpected disconnection",
                 log_lvl="info",
             )

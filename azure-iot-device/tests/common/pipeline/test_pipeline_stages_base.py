@@ -701,7 +701,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
 
-    @pytest.mark.it("Allows the op to complete successfully")
+    @pytest.mark.it("Allows the successful completion of the operation later on")
     def test_success(self, mocker, stage, op):
         callback = op.callback_stack[0]
         stage.pipeline_root.connected = True
@@ -722,7 +722,7 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
         assert callback.call_args == mocker.call(op=op, error=None)
 
     @pytest.mark.it(
-        "Does not complete the operation if the op fails and the transport is no longer connected"
+        "Does not allow failure completion of the operation if the op fails and the transport is no longer connected"
     )
     def test_failure_and_disconnect_no_complete(self, mocker, stage, op, arbitrary_exception):
         stage.pipeline_root.connected = True
@@ -793,7 +793,9 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
         assert stage.send_op_down.call_count == 3
         assert stage.send_op_down.call_args[0][0] is op
 
-    @pytest.mark.it("Fails the op if the op fails and the transport is still connected")
+    @pytest.mark.it(
+        "Allows failure completion of the op if the op fails and the transport is still connected"
+    )
     def test_failure_still_connected(self, mocker, stage, op, arbitrary_exception):
         callback = op.callback_stack[0]
         stage.pipeline_root.connected = True
@@ -811,6 +813,34 @@ class TestAutoConnectStageRunOpWithOpThatRequiresConnectionPipelineConnected(
         assert op.completed
         assert op.error == arbitrary_exception
         assert callback.call_args == mocker.call(op=op, error=arbitrary_exception)
+
+    @pytest.mark.it("Allows cancellation completion of the op if the op is cancelled")
+    @pytest.mark.parametrize(
+        "connected",
+        [
+            pytest.param(True, id="Transport connected during cancellation"),
+            pytest.param(False, id="Transport disconnected during cancellation"),
+        ],
+    )
+    def test_cancellation(self, mocker, stage, op, connected):
+        callback = op.callback_stack[0]
+        stage.pipeline_root.connected = True
+
+        stage.run_op(op)
+
+        # make sure our call went down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args[0][0] is op
+
+        # cancel
+        stage.pipeline_root.connected = connected
+        cancellation = pipeline_exceptions.OperationCancelled()
+        op.complete(cancellation)
+
+        # assert that the op cancel went back to the caller
+        assert op.completed
+        assert op.error == cancellation
+        assert callback.call_args == mocker.call(op=op, error=cancellation)
 
 
 @pytest.mark.describe(
@@ -3309,11 +3339,10 @@ class TestReconnectStageHandlePipelineEventWithConnectedEvent(
         assert mock_timer.call_count == 0
 
 
-# TODO: Should this be broken up into multiple test classes depending on state/config?
 @pytest.mark.describe(
-    "ReconnectStage - .handle_pipeline_event() -- Called with a DisconnectedEvent"
+    "ReconnectStage - .handle_pipeline_event() -- Called with a DisconnectedEvent (Expected)"
 )
-class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
+class TestReconnectStageHandlePipelineEventWithDisconnectedEventExpected(
     ReconnectStageTestConfig, StageHandlePipelineEventTestBase
 ):
     @pytest.fixture(
@@ -3324,24 +3353,6 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
             return mocker.MagicMock()
         else:
             return None
-
-    @pytest.fixture(
-        params=[
-            pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT,
-            pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED,
-            pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED,
-        ]
-    )
-    def state(self, request):
-        return request.param
-
-    @pytest.fixture(params=[False, True], ids=["previously connected", "never connected"])
-    def never_connected(self, request):
-        return request.param
-
-    @pytest.fixture(params=[True, False], ids=["pipeline connected", "pipeline disconnected"])
-    def currently_connected(self, request):
-        return request.param
 
     @pytest.fixture(
         params=[True, False], ids=["connection retry enabled", "connection retry disabled"]
@@ -3355,10 +3366,7 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
         mocker,
         cls_type,
         init_kwargs,
-        state,
         reconnect_timer,
-        mock_timer,
-        never_connected,
         connection_retry_enabled,
     ):
         # mock_timer fixture is used here so none of these tests create an actual timer.
@@ -3366,8 +3374,10 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
             pipeline_configuration=mocker.MagicMock()
         )
-        stage.state = state
-        stage.never_connected = never_connected
+        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
+        stage.pipeline_root.connected = True
+        stage.state = pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED
+        stage.never_connected = False
         stage.reconnect_timer = reconnect_timer
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
@@ -3378,72 +3388,150 @@ class TestReconnectStageHandlePipelineEventWithDisconnectedEvent(
     def event(self):
         return pipeline_events_base.DisconnectedEvent()
 
-    @pytest.mark.it(
-        "Changes the state to WAITING_TO_RECONNECT if (and only if) in a LOGICALLY_CONNECTED state while the pipeline is connected AND configured for connection retry"
-    )
-    def test_changes_state(
-        self, stage, event, state, currently_connected, connection_retry_enabled
-    ):
-        stage.pipeline_root.connected = currently_connected
-        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
-        stage.handle_pipeline_event(event)
-        if (
-            currently_connected
-            and connection_retry_enabled
-            and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
-        ):
-            assert stage.state == pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT
-        else:
-            assert stage.state == state
+    @pytest.mark.it("Does not change the state from LOGICALLY_DISCONNECTED")
+    def test_state(self, stage, event):
+        assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED
 
-    @pytest.mark.it(
-        "Clears the previous reconnect timer (if there was one) if (and only if) in a LOGICALLY_CONNECTED state while the pipeline is connected AND configured for connection retry"
+        stage.handle_pipeline_event(event)
+
+        assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED
+
+    @pytest.mark.it("Does not start a reconnect timer")
+    def test_reconnect_timer(self, stage, event, mock_timer):
+        stage.handle_pipeline_event(event)
+
+        assert mock_timer.call_count == 0
+
+    @pytest.mark.it("Sends the event up")
+    def test_sends_event_up(self, stage, event, mocker):
+        stage.handle_pipeline_event(event)
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
+
+
+@pytest.mark.describe(
+    "ReconnectStage - .handle_pipeline_event() -- Called with a DisconnectedEvent (Unexpected) when connection retry is enabled"
+)
+class TestReconnectStageHandlePipelineEventWithDisconnectedEventUnexpectedWithRetry(
+    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture(
+        params=[True, False], ids=["Existing Reconnect Timer", "No Existing Reconnect Timer"]
     )
-    def test_clears_reconnect_timer(
-        self, stage, event, state, currently_connected, connection_retry_enabled
+    def reconnect_timer(self, request, mocker):
+        if request.param:
+            return mocker.MagicMock()
+        else:
+            return None
+
+    @pytest.fixture()
+    def stage(
+        self,
+        mocker,
+        cls_type,
+        init_kwargs,
+        reconnect_timer,
     ):
-        stage.pipeline_root.connected = currently_connected
-        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
+        # mock_timer fixture is used here so none of these tests create an actual timer.
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
+        stage.pipeline_root.pipeline_configuration.connection_retry = True
+        stage.pipeline_root.connected = True
+        stage.state = pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+        stage.never_connected = False
+        stage.reconnect_timer = reconnect_timer
+        mocker.spy(stage, "run_op")
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+    @pytest.fixture
+    def event(self):
+        return pipeline_events_base.DisconnectedEvent()
+
+    @pytest.mark.it("Changes the state to WAITING_TO_RECONNECT")
+    def test_state(self, stage, event):
+        assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.state == pipeline_stages_base.ReconnectState.WAITING_TO_RECONNECT
+
+    @pytest.mark.it("Clears any previous reconnect timer")
+    def test_existing_reconnect_timer(self, stage, event):
         old_timer = stage.reconnect_timer
+
         stage.handle_pipeline_event(event)
 
-        if (
-            currently_connected
-            and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
-            and connection_retry_enabled
-        ):
-            if old_timer:
-                assert old_timer.cancel.call_count == 1
-            assert stage.reconnect_timer is not old_timer
-        else:
-            if old_timer:
-                assert old_timer.cancel.call_count == 0
-            assert stage.reconnect_timer is old_timer
+        if old_timer:
+            assert old_timer.cancel.call_count == 1
+        assert stage.reconnect_timer is not old_timer
 
-    @pytest.mark.it(
-        "Sets a new reconnect timer for .01 seconds if (and only if) in a LOGICALLY_CONNECTED state while the pipeline is connected AND configured for connection retry"
-    )
-    def test_sets_new_reconnect_timer(
-        self, stage, event, mock_timer, state, currently_connected, connection_retry_enabled
-    ):
-        stage.pipeline_root.connected = currently_connected
-        stage.pipeline_root.pipeline_configuration.connection_retry = connection_retry_enabled
+    @pytest.mark.it("Sets a new reconnect timer for .01 seconds")
+    def test_new_reconnect_timer(self, stage, event, mock_timer):
         old_reconnect_timer = stage.reconnect_timer
+
         stage.handle_pipeline_event(event)
-        if (
-            currently_connected
-            and connection_retry_enabled
-            and state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
-        ):
-            assert mock_timer.call_count == 1
-            assert mock_timer.call_args[0][0] == 0.01
-            assert stage.reconnect_timer is mock_timer.return_value
-            assert stage.reconnect_timer.start.call_count == 1
-        else:
-            assert mock_timer.call_count == 0
-            assert stage.reconnect_timer is old_reconnect_timer
-            if stage.reconnect_timer:
-                assert stage.reconnect_timer.start.call_count == 0
+
+        assert mock_timer.call_count == 1
+        assert mock_timer.call_args[0][0] == 0.01
+        assert stage.reconnect_timer is mock_timer.return_value is not old_reconnect_timer
+        assert stage.reconnect_timer.start.call_count == 1
+
+    @pytest.mark.it("Sends the event up")
+    def test_sends_event_up(self, stage, event, mocker):
+        stage.handle_pipeline_event(event)
+        assert stage.send_event_up.call_count == 1
+        assert stage.send_event_up.call_args == mocker.call(event)
+
+
+@pytest.mark.describe(
+    "ReconnectStage - .handle_pipeline_event() -- Called with a DisconnectedEvent (Unexpected) when connection retry is disabled"
+)
+class TestReconnectStageHandlePipelineEventWithDisconnectedEventUnexpectedWithoutRetry(
+    ReconnectStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture()
+    def stage(
+        self,
+        mocker,
+        cls_type,
+        init_kwargs,
+    ):
+        # mock_timer fixture is used here so none of these tests create an actual timer.
+        stage = cls_type(**init_kwargs)
+        stage.pipeline_root = pipeline_stages_base.PipelineRootStage(
+            pipeline_configuration=mocker.MagicMock()
+        )
+        stage.pipeline_root.pipeline_configuration.connection_retry = False
+        stage.pipeline_root.connected = True
+        stage.state = pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+        stage.never_connected = False
+        stage.reconnect_timer = None
+        mocker.spy(stage, "run_op")
+        stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        return stage
+
+    @pytest.fixture
+    def event(self):
+        return pipeline_events_base.DisconnectedEvent()
+
+    @pytest.mark.it("Changes the state to LOGICALLY_DISCONNECTED")
+    def test_state(self, stage, event):
+        assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_CONNECTED
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.state == pipeline_stages_base.ReconnectState.LOGICALLY_DISCONNECTED
+
+    @pytest.mark.it("Does not start a reconnect timer")
+    def test_reconnect_timer(self, stage, event, mock_timer):
+        stage.handle_pipeline_event(event)
+
+        assert mock_timer.call_count == 0
 
     @pytest.mark.it("Sends the event up")
     def test_sends_event_up(self, stage, event, mocker):

@@ -45,7 +45,7 @@ def create_configuration(config_id):
 
 try:
     # Create IoTHubConfigurationManager
-    iothub_configuration = IoTHubConfigurationManager(iothub_connection_str)
+    iothub_configuration = IoTHubConfigurationManager.from_connection_string(iothub_connection_str)
 
     # Create configuration
     config_id = "sample_config"
