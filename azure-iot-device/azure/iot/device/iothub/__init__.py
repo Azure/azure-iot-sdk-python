@@ -12,7 +12,7 @@ from .models import (
     Command,
     CommandResponse,
     ClientProperties,
-    PropertiesCollection,
+    ClientPropertyCollection,
     WritablePropertyResponse,
 )
 
@@ -25,6 +25,6 @@ __all__ = [
     "Command",
     "CommandResponse",
     "ClientProperties",
-    "PropertiesCollection",
+    "ClientPropertyCollection",
     "WritablePropertyResponse",
 ]

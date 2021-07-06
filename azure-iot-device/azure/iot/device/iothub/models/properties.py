@@ -15,7 +15,7 @@ def WritablePropertyResponse(value, ack_code, ack_description, ack_version):
     }
 
 
-class PropertiesCollection(object):
+class ClientPropertyCollection(object):
     def __init__(self):
         self.backing_object = {}
 
@@ -38,7 +38,7 @@ class PropertiesCollection(object):
         return self.backing_object.get(component_name, {}).get(property_name, default=default)
 
 
-class ClientProperties(PropertiesCollection):
+class ClientProperties(ClientPropertyCollection):
     def __init__(self):
         super(self, ClientProperties).__init__()
-        self.writable_properties_requests = PropertiesCollection()
+        self.writable_properties_requests = ClientPropertyCollection()

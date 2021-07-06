@@ -11,7 +11,7 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device import CommandResponse, PropertiesCollection, WritablePropertyResponse
+from azure.iot.device import CommandResponse, ClientPropertyCollection, WritablePropertyResponse
 from datetime import timedelta, datetime
 
 logging.basicConfig(level=logging.ERROR)
@@ -151,11 +151,11 @@ class ThermostatApp(object):
     #####################################################
     # PROPERTY TASKS
 
-    async def handle_writable_properties_udpate_request_received(self, writable_props):
+    async def handle_writable_property_update_request_received(self, writable_props):
         while True:
             print(writable_props.backing_object)
 
-            properties = PropertiesCollection()
+            properties = ClientPropertyCollection()
 
             for component_name in [thermostat_1_component_name, thermostat_2_component_name]:
                 component_props = writable_props.get(component_name, {})
@@ -171,7 +171,7 @@ class ThermostatApp(object):
                         ),
                     )
 
-            await self.device_client.send_properties_udpate(properties)
+            await self.device_client.send_client_property_update(properties)
 
     #####################################################
     # An # END KEYBOARD INPUT LISTENER to quit application
@@ -252,7 +252,7 @@ class ThermostatApp(object):
         ################################################
         # Update readable properties from various components
 
-        properties = PropertiesCollection()
+        properties = ClientPropertyCollection()
         properties.set_property("serialNumber", serial_number)
         properties.set_compoent_property(
             thermostat_1_component_name, "maxTempSinceLastReboot", 98.34
@@ -276,7 +276,7 @@ class ThermostatApp(object):
         )
         properties.set_component_property(device_information_component_name, "totalStorage", 1024)
         properties.set_component_property(device_information_component_name, "totalMemory", 32)
-        await self.device_client.send_properties_update(properties)
+        await self.device_client.send_client_property_update(properties)
 
         ################################################
         # Get all the listeners running
@@ -285,8 +285,8 @@ class ThermostatApp(object):
         self.thermostat_1 = Thermostat(thermostat_1_component_name, 10)
         self.thermostat_2 = Thermostat(thermostat_2_component_name, 10)
 
-        self.device_client.on_writable_properties_update_request_received = (
-            self.handle_writable_properties_update_request_received
+        self.device_client.on_writable_property_update_request_received = (
+            self.handle_writable_property_update_request_received
         )
         self.device_client.on_command_received = self.handle_command_received
 

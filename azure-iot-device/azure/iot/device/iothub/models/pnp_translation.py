@@ -8,7 +8,7 @@ into PNP objects
 """
 
 from .commands import Command
-from .properties import PropertiesCollection, ClientProperties
+from .properties import ClientPropertyCollection, ClientProperties
 
 
 def method_request_to_command(method_request):
@@ -22,9 +22,9 @@ def method_request_to_command(method_request):
     # )
 
 
-def twin_patch_to_properties_collection(twin_patch):
-    """Given a Twin Patch (`dict`), returns a `PropertiesCollection` object"""
-    obj = PropertiesCollection()
+def twin_patch_to_client_property_collection(twin_patch):
+    """Given a Twin Patch (`dict`), returns a `ClientPropertyCollection` object"""
+    obj = ClientPropertyCollection()
     obj.backing_object = twin_patch
     return obj
 
@@ -36,6 +36,6 @@ def twin_to_client_properties(twin):
     obj.writable_properties_requests.backing_object = twin.desired_properties
 
 
-def properties_collection_to_twin_patch(properties_collection):
-    """Given a `PropertiesCollection` object, return a twin patch (`dict`)"""
-    return properties_collection.backing_object
+def client_property_collection_to_twin_patch(client_property_collection):
+    """Given a `ClientPropertyCollection` object, return a twin patch (`dict`)"""
+    return client_property_collection.backing_object

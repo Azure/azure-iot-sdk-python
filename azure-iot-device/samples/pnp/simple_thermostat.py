@@ -13,7 +13,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import (
     constant,
-    PropertiesCollection,
+    ClientPropertyCollection,
     WritablePropertyResponse,
     CommandResponse,
 )
@@ -124,7 +124,7 @@ class ThermostatApp(object):
         except Exception:
             print("responding to the {command} command failed".format(command=command.command_name))
 
-    async def handle_writable_properties_update_request_received(self, writable_props):
+    async def handle_writable_property_update_request_received(self, writable_props):
         # only handles root properties
 
         print(
@@ -133,7 +133,7 @@ class ThermostatApp(object):
             )
         )
 
-        properties = PropertiesCollection()
+        properties = ClientPropertyCollection()
 
         for prop_name in writable_props.backing_object:
             properties.set_pproperty(
@@ -146,7 +146,7 @@ class ThermostatApp(object):
                 ),
             )
 
-        await self.device_client.send_properties_udpate(properties)
+        await self.device_client.send_client_properties_udpate(properties)
 
     # END COMMAND AND PROPERTY LISTENERS
     #####################################################
@@ -233,15 +233,15 @@ class ThermostatApp(object):
         # Set and read desired property (target temperature)
 
         max_temp = 10.96  # Initial Max Temp otherwise will not pass certification
-        properties = PropertiesCollection()
+        properties = ClientPropertyCollection()
         properties.set_property_value("maxTempSinceLastReboot", max_temp)
-        await self.device_client.send_properties_udpate(properties)
+        await self.device_client.send_client_property_update(properties)
 
         ################################################
         # Register callback and Handle command (reboot)
         print("Listening for command requests and property updates")
-        self.device_client.on_writable_properties_update_request_received = (
-            self.handle_writable_properties_update_request_received
+        self.device_client.on_writable_property_update_request_received = (
+            self.handle_writable_property_update_request_received
         )
         self.device_client.on_command_received = self.handle_command_received
 

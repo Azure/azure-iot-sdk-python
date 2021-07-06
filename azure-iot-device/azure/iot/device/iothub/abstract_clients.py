@@ -140,7 +140,7 @@ class AbstractIoTHubClient(object):
         # Unwrapped PNP handlers. These are not used within the client (we instead use wrapped
         # versions), but we cache them so we can return them to the user if they ask for them
         self._on_command_received_unwrapped = None
-        self._on_writable_properties_update_request_received_unwrapped = None
+        self._on_writable_property_update_request_received_unwrapped = None
 
     def _on_connected(self):
         """Helper handler that is called upon an iothub pipeline connect"""
@@ -457,8 +457,8 @@ class AbstractIoTHubClient(object):
     # pass
 
     # @abc.abstractmethod
-    # def send_properties_update(self, properties):
-    # (PropertiesCollection) -> None
+    # def send_client_property_updates(self, property_collection):
+    # (ClientPropertyCollection) -> None
     # pass
 
     @property
@@ -565,27 +565,27 @@ class AbstractIoTHubClient(object):
         self._on_command_received_unwrapped = value
 
     @property
-    def on_writable_properties_update_request_received(self):
+    def on_writable_property_update_request_received(self):
         """The handler function or coroutine that will be called when a writable property patch
         is received.
 
         The function or coroutine definition should take one positional argument (the
-        :class:`azure.iot.device.PropertiesCollection` object)
+        :class:`azure.iot.device.ClientPropertyCollection` object)
         """
         if self._client_mode is CLIENT_MODE_PNP:
-            return self._on_writable_properties_update_request_received_unwrapped
+            return self._on_writable_property_update_request_received_unwrapped
         else:
             return None
 
-    @on_writable_properties_update_request_received.setter
-    def on_writable_properties_update_request_received(self, value):
+    @on_writable_property_update_request_received.setter
+    def on_writable_property_update_request_received(self, value):
         self._check_client_mode_is_pnp()
 
         # Generate a wrapper around the user provided handler that will turn a twin patch into
         # a PropertiesCollection, then invoke the user's handler
         translation_wrapper = self._generate_pnp_handler_translation_wrapper(
             handler_to_wrap=value,
-            translation_fn=pnp_translation.twin_patch_to_properties_collection,
+            translation_fn=pnp_translation.twin_patch_to_client_property_collection,
         )
 
         # Set this wrapper as a handler on the HandlerManager
@@ -596,7 +596,7 @@ class AbstractIoTHubClient(object):
         )
 
         # Cache the unwrapped handler so we can return it to user later
-        self._on_writable_properties_update_request_received_unwrapped = value
+        self._on_writable_property_update_request_received_unwrapped = value
 
 
 @six.add_metaclass(abc.ABCMeta)
