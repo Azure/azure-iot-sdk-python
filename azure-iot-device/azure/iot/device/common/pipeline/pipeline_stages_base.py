@@ -300,12 +300,12 @@ class PipelineRootStage(PipelineStage):
 # pipeline-related structure. What's odd about it as a stage is that it doesn't really respond
 # to operations or events so much as it spawns them on a timer.
 # Perhaps some kind of... Pipeline Daemon?
-class SasTokenRenewalStage(PipelineStage):
+class SasTokenStage(PipelineStage):
     # Amount of time, in seconds, prior to token expiration to trigger alarm
     DEFAULT_TOKEN_UPDATE_MARGIN = 120
 
     def __init__(self):
-        super(SasTokenRenewalStage, self).__init__()
+        super(SasTokenStage, self).__init__()
         self._token_update_alarm = None
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -342,17 +342,17 @@ class SasTokenRenewalStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_token_update_alarm(self):
-        """Cancel and delete any pending renewal alarm"""
+        """Cancel and delete any pending update alarm"""
         old_alarm = self._token_update_alarm
         self._token_update_alarm = None
         if old_alarm:
-            logger.debug("Cancelling SAS Token renewal alarm")
+            logger.debug("Cancelling SAS Token update alarm")
             old_alarm.cancel()
             old_alarm = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_token_update_alarm(self):
-        """Begin a renewal alarm.
+        """Begin an update alarm.
         If using a RenewableSasToken, when the alarm expires the token will be automatically
         renewed, and a new alarm will be set.
 
@@ -361,7 +361,7 @@ class SasTokenRenewalStage(PipelineStage):
         """
         self._cancel_token_update_alarm()
 
-        renew_time = (
+        update_time = (
             self.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_UPDATE_MARGIN
         )
@@ -371,7 +371,7 @@ class SasTokenRenewalStage(PipelineStage):
         # and then start another alarm.
         if isinstance(self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken):
             logger.debug(
-                "Scheduling automatic SAS Token renewal at epoch time: {}".format(renew_time)
+                "Scheduling automatic SAS Token renewal at epoch time: {}".format(update_time)
             )
 
             @pipeline_thread.runs_on_pipeline_thread
@@ -409,11 +409,13 @@ class SasTokenRenewalStage(PipelineStage):
                 # Once again, start a renewal alarm
                 this._start_token_update_alarm()
 
-            self._token_update_alarm = alarm.Alarm(renew_time, renew_token)
+            self._token_update_alarm = alarm.Alarm(update_time, renew_token)
 
         # For nonrenewable SasTokens, create an alarm that will issue a NewSasTokenRequiredEvent
         else:
-            logger.debug("Scheduling manual SAS Token renewal at epoch time: {}".format(renew_time))
+            logger.debug(
+                "Scheduling manual SAS Token renewal at epoch time: {}".format(update_time)
+            )
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def request_new_token():
@@ -422,7 +424,7 @@ class SasTokenRenewalStage(PipelineStage):
                 # Send request
                 this.send_event_up(pipeline_events_base.NewSasTokenRequiredEvent())
 
-            self._token_update_alarm = alarm.Alarm(renew_time, request_new_token)
+            self._token_update_alarm = alarm.Alarm(update_time, request_new_token)
 
         self._token_update_alarm.daemon = True
         self._token_update_alarm.start()

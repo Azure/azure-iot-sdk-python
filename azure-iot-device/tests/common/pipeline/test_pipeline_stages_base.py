@@ -260,10 +260,10 @@ class TestPipelineRootStageHandlePipelineEventWithArbitraryEvent(
 ###########################
 
 
-class SasTokenRenewalStageTestConfig(object):
+class SasTokenStageTestConfig(object):
     @pytest.fixture
     def cls_type(self):
-        return pipeline_stages_base.SasTokenRenewalStage
+        return pipeline_stages_base.SasTokenStage
 
     @pytest.fixture
     def init_kwargs(self, mocker):
@@ -282,10 +282,10 @@ class SasTokenRenewalStageTestConfig(object):
         return stage
 
 
-class SasTokenRenewalStageInstantationTests(SasTokenRenewalStageTestConfig):
+class SasTokenStageInstantationTests(SasTokenStageTestConfig):
     @pytest.mark.it("Initializes with the token update alarm set to 'None'")
-    def test_token_renewal_timer(self, init_kwargs):
-        stage = pipeline_stages_base.SasTokenRenewalStage(**init_kwargs)
+    def test_token_update_timer(self, init_kwargs):
+        stage = pipeline_stages_base.SasTokenStage(**init_kwargs)
         assert stage._token_update_alarm is None
 
     @pytest.mark.it("Uses 120 seconds as the Update Margin by default")
@@ -293,23 +293,23 @@ class SasTokenRenewalStageInstantationTests(SasTokenRenewalStageTestConfig):
         # NOTE: currently, update margin isn't set as an instance attribute really, it just uses
         # a constant defined on the class in all cases. Eventually this logic may be expanded to
         # be more dynamic, and this test will need to change
-        stage = pipeline_stages_base.SasTokenRenewalStage(**init_kwargs)
+        stage = pipeline_stages_base.SasTokenStage(**init_kwargs)
         assert stage.DEFAULT_TOKEN_UPDATE_MARGIN == 120
 
 
 pipeline_stage_test.add_base_pipeline_stage_tests(
     test_module=this_module,
-    stage_class_under_test=pipeline_stages_base.SasTokenRenewalStage,
-    stage_test_config_class=SasTokenRenewalStageTestConfig,
-    extended_stage_instantiation_test_class=SasTokenRenewalStageInstantationTests,
+    stage_class_under_test=pipeline_stages_base.SasTokenStage,
+    stage_test_config_class=SasTokenStageTestConfig,
+    extended_stage_instantiation_test_class=SasTokenStageInstantationTests,
 )
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - .run_op() -- Called with InitializePipelineOperation (Pipeline configured for SAS authentication)"
+    "SasTokenStage - .run_op() -- Called with InitializePipelineOperation (Pipeline configured for SAS authentication)"
 )
-class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
-    SasTokenRenewalStageTestConfig, StageRunOpTestBase
+class TestSasTokenStageRunOpWithInitializePipelineOpSasTokenConfig(
+    SasTokenStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -363,7 +363,7 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
     def test_sets_alarm(self, mocker, stage, op, mock_alarm):
         expected_alarm_time = (
             stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
-            - pipeline_stages_base.SasTokenRenewalStage.DEFAULT_TOKEN_UPDATE_MARGIN
+            - pipeline_stages_base.SasTokenStage.DEFAULT_TOKEN_UPDATE_MARGIN
         )
 
         stage.run_op(op)
@@ -376,10 +376,10 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpSasTokenConfig(
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - .run_op() -- Called with InitializePipelineOperation (Pipeline not configured for SAS authentication)"
+    "SasTokenStage - .run_op() -- Called with InitializePipelineOperation (Pipeline not configured for SAS authentication)"
 )
-class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
-    SasTokenRenewalStageTestConfig, StageRunOpTestBase
+class TestSasTokenStageRunOpWithInitializePipelineOpNoSasTokenConfig(
+    SasTokenStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -400,10 +400,10 @@ class TestSasTokenRenewalStageRunOpWithInitializePipelineOpNoSasTokenConfig(
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - .run_op() -- Called with ReauthorizeConnectionOperation (Pipeline configured for SAS authentication)"
+    "SasTokenStage - .run_op() -- Called with ReauthorizeConnectionOperation (Pipeline configured for SAS authentication)"
 )
-class TestSasTokenRenewalStageRunOpWithReauthorizeConnectionOperationPipelineOpSasTokenConfig(
-    SasTokenRenewalStageTestConfig, StageRunOpTestBase
+class TestSasTokenStageRunOpWithReauthorizeConnectionOperationPipelineOpSasTokenConfig(
+    SasTokenStageTestConfig, StageRunOpTestBase
 ):
     @pytest.fixture
     def op(self, mocker):
@@ -461,7 +461,7 @@ class TestSasTokenRenewalStageRunOpWithReauthorizeConnectionOperationPipelineOpS
     def test_sets_alarm(self, mocker, stage, op, mock_alarm):
         expected_alarm_time = (
             stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
-            - pipeline_stages_base.SasTokenRenewalStage.DEFAULT_TOKEN_UPDATE_MARGIN
+            - pipeline_stages_base.SasTokenStage.DEFAULT_TOKEN_UPDATE_MARGIN
         )
 
         stage.run_op(op)
@@ -474,10 +474,10 @@ class TestSasTokenRenewalStageRunOpWithReauthorizeConnectionOperationPipelineOpS
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - .run_op() -- Called with ReauthorizeConnectionOperation (Pipeline not configured for SAS authentication)"
+    "SasTokenStage - .run_op() -- Called with ReauthorizeConnectionOperation (Pipeline not configured for SAS authentication)"
 )
-class TestSasTokenRenewalStageRunOpWithReauthorizeConnectionOperationPipelineOpNoSasTokenConfig(
-    SasTokenRenewalStageTestConfig, StageRunOpTestBase
+class TestSasTokenStageRunOpWithReauthorizeConnectionOperationPipelineOpNoSasTokenConfig(
+    SasTokenStageTestConfig, StageRunOpTestBase
 ):
     # NOTE: In practice this case will never happen. Currently ReauthorizeConnectionOperations only
     # occur for SAS-based auth. Still, we test this combination of configurations for completeness
@@ -503,10 +503,8 @@ class TestSasTokenRenewalStageRunOpWithReauthorizeConnectionOperationPipelineOpN
         assert mock_alarm.call_count == 0
 
 
-@pytest.mark.describe("SasTokenRenewalStage - .run_op() -- Called with ShutdownPipelineOperation")
-class TestSasTokenRenewalStageRunOpWithShutdownPipelineOp(
-    SasTokenRenewalStageTestConfig, StageRunOpTestBase
-):
+@pytest.mark.describe("SasTokenStage - .run_op() -- Called with ShutdownPipelineOperation")
+class TestSasTokenStageRunOpWithShutdownPipelineOp(SasTokenStageTestConfig, StageRunOpTestBase):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.ShutdownPipelineOperation(callback=mocker.MagicMock())
@@ -559,9 +557,9 @@ class TestSasTokenRenewalStageRunOpWithShutdownPipelineOp(
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - OCCURANCE: SasToken Update Alarm expires (Renew Token - RenewableSasToken)"
+    "SasTokenStage - OCCURANCE: SasToken Update Alarm expires (Renew Token - RenewableSasToken)"
 )
-class TestSasTokenRenewalStageOCCURANCEUpdateAlarmExpiresRenewToken(SasTokenRenewalStageTestConfig):
+class TestSasTokenStageOCCURANCEUpdateAlarmExpiresRenewToken(SasTokenStageTestConfig):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
@@ -732,7 +730,7 @@ class TestSasTokenRenewalStageOCCURANCEUpdateAlarmExpiresRenewToken(SasTokenRene
         assert mock_alarm.call_count == 2
         expected_alarm_time = (
             stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
-            - pipeline_stages_base.SasTokenRenewalStage.DEFAULT_TOKEN_UPDATE_MARGIN
+            - pipeline_stages_base.SasTokenStage.DEFAULT_TOKEN_UPDATE_MARGIN
         )
         assert mock_alarm.call_args[0][0] == expected_alarm_time
         assert stage._token_update_alarm is mock_alarm.return_value
@@ -759,11 +757,9 @@ class TestSasTokenRenewalStageOCCURANCEUpdateAlarmExpiresRenewToken(SasTokenRene
 
 
 @pytest.mark.describe(
-    "SasTokenRenewalStage - OCCURANCE: SasToken Update Alarm expires (Replace Token - NonRenewableSasToken)"
+    "SasTokenStage - OCCURANCE: SasToken Update Alarm expires (Replace Token - NonRenewableSasToken)"
 )
-class TestSasTokenRenewalStageOCCURANCEUpdateAlarmExpiresReplaceToken(
-    SasTokenRenewalStageTestConfig
-):
+class TestSasTokenStageOCCURANCEUpdateAlarmExpiresReplaceToken(SasTokenStageTestConfig):
     @pytest.fixture
     def op(self, mocker):
         return pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())

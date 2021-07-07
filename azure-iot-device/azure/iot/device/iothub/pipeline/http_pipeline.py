@@ -39,7 +39,7 @@ class HTTPPipeline(object):
         :param pipeline_configuration: The configuration generated based on user inputs
         """
         # NOTE: This pipeline DOES NOT handle SasToken management!
-        # (i.e. using a SasTokenRenewalStage)
+        # (i.e. using a SasTokenStage)
         # It instead relies on the parallel MQTT pipeline to handle that.
         #
         # Because they share a pipeline configuration, and MQTT has renewal logic we can be sure

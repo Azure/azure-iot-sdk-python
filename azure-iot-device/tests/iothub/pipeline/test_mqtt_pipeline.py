@@ -39,6 +39,7 @@ def pipeline_configuration(mocker):
         device_id="my_device", hostname="my.host.name", sastoken=mocker.MagicMock()
     )
     mock_config.sastoken.ttl = 1232  # set for compat
+    mock_config.sastoken.expiry_time = 1232131  # set for compat
     return mock_config
 
 
@@ -102,7 +103,7 @@ class TestMQTTPipelineInstantiation(object):
 
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
-            pipeline_stages_base.SasTokenRenewalStage,
+            pipeline_stages_base.SasTokenStage,
             pipeline_stages_iothub.EnsureDesiredPropertiesStage,
             pipeline_stages_iothub.TwinRequestResponseStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,

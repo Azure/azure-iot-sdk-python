@@ -59,10 +59,10 @@ class MQTTPipeline(object):
             #
             pipeline_stages_base.PipelineRootStage(pipeline_configuration)
             #
-            # SasTokenRenewalStage comes near the root by default because it should be as close
+            # SasTokenStage comes near the root by default because it should be as close
             # to the top of the pipeline as possible, and does not need to be after anything.
             #
-            .append_stage(pipeline_stages_base.SasTokenRenewalStage())
+            .append_stage(pipeline_stages_base.SasTokenStage())
             #
             # EnsureDesiredPropertiesStage needs to be above TwinRequestResponseStage because it
             # sends GetTwinOperation ops and that stage handles those ops.
