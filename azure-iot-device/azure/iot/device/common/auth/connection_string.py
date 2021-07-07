@@ -30,8 +30,7 @@ _valid_keys = [
 
 
 def _parse_connection_string(connection_string):
-    """Return a dictionary of values contained in a given connection string
-    """
+    """Return a dictionary of values contained in a given connection string"""
     try:
         cs_args = connection_string.split(CS_DELIMITER)
     except (AttributeError, TypeError):
@@ -53,8 +52,7 @@ def _parse_connection_string(connection_string):
 
 
 def _validate_keys(d):
-    """Raise ValueError if incorrect combination of keys in dict d
-    """
+    """Raise ValueError if incorrect combination of keys in dict d"""
     host_name = d.get(HOST_NAME)
     shared_access_key_name = d.get(SHARED_ACCESS_KEY_NAME)
     shared_access_key = d.get(SHARED_ACCESS_KEY)

@@ -10,7 +10,7 @@ from six.moves import urllib
 
 
 def urlencode(query, quote_via=urllib.parse.quote_plus, safe=""):
-    """ Custom implementation of urllib.parse.urlencode().
+    """Custom implementation of urllib.parse.urlencode().
 
     This is necessary because prior to Python 3.5, urlencode() always encodes via
     quote_plus() rather than quote(). This is generally not desirable for MQTT, as

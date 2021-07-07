@@ -418,13 +418,13 @@ class AbstractIoTHubClient(object):
     def on_connection_state_change(self, value):
         self._handler_manager.on_connection_state_change = value
 
-    # @property
-    # def on_new_sastoken_required(self):
-    #     return self._handler_manager.on_new_sastoken_required
+    @property
+    def on_new_sastoken_required(self):
+        return self._handler_manager.on_new_sastoken_required
 
-    # @on_new_sastoken_required.setter
-    # def on_new_sastoken_required(self, value):
-    #     self._handler_manager.on_new_sastoken_required = value
+    @on_new_sastoken_required.setter
+    def on_new_sastoken_required(self, value):
+        self._handler_manager.on_new_sastoken_required = value
 
     # @property
     # def on_background_exception(self):
@@ -467,30 +467,6 @@ class AbstractIoTHubClient(object):
         self._generic_receive_handler_setter(
             "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
         )
-
-    @property
-    def on_connection_state_change(self):
-        return self._handler_manager.on_connection_state_change
-
-    @on_connection_state_change.setter
-    def on_connection_state_change(self, value):
-        self._handler_manager.on_connection_state_change = value
-
-    @property
-    def on_new_sastoken_required(self):
-        return self._handler_manager.on_new_sastoken_required
-
-    @on_new_sastoken_required.setter
-    def on_new_sastoken_required(self, value):
-        self._handler_manager.on_new_sastoken_required = value
-
-    # @property
-    # def on_background_exception(self):
-    #     return self._handler_manager.on_background_exception
-
-    # @on_background_exception.setter
-    # def on_background_exception(self, value):
-    #     self._handler_manager.on_background_exception = value
 
 
 @six.add_metaclass(abc.ABCMeta)

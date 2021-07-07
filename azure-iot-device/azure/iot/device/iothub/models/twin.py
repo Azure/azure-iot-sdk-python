@@ -22,7 +22,6 @@ class Twin(object):
     # OPEN QUESTION: can desired_properties and reported_properties only be dict, or can they be any JSON-compatible value?
 
     def __init__(self):
-        """Initializer for a Twin object
-        """
+        """Initializer for a Twin object"""
         self.desiried_properties = None
         self.reported_properties = None

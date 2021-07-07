@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class IoTHubPipelineConfig(BasePipelineConfig):
-    """A class for storing all configurations/options for IoTHub clients in the Azure IoT Python Device Client Library.
-    """
+    """A class for storing all configurations/options for IoTHub clients in the Azure IoT Python Device Client Library."""
 
     def __init__(self, hostname, device_id, module_id=None, product_info="", **kwargs):
         """Initializer for IoTHubPipelineConfig which passes all unrecognized keyword-args down to BasePipelineConfig
