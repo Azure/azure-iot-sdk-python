@@ -165,7 +165,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             fut.result()
 
     @staticmethod
-    def _generate_pnp_handler_translation_wrapper(handler_to_wrap, translation_fn):
+    def _generate_digital_twin_handler_translation_wrapper(handler_to_wrap, translation_fn):
         """Generate a translation wrapper for a Digital Twin (DT)-related handler, using the given
         translation function.
 
@@ -567,7 +567,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
-        self._check_client_mode_is_pnp()
+        self._check_client_mode_is_digital_twin()
 
         logger.info("Sending command response to Hub...")
         send_method_response_async = async_adapter.emulate_async(

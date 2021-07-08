@@ -204,7 +204,7 @@ class AbstractIoTHubClient(object):
                 "This feature is not compatible with Azure IoT Digital Twins"
             )
 
-    def _check_client_mode_is_pnp(self):
+    def _check_client_mode_is_digital_twin(self):
         """Call this method first when using any feature restricted to a Digital Twin client"""
         if self._client_mode is not CLIENT_MODE_DIGITAL_TWIN:
             raise exceptions.ClientError(
@@ -565,12 +565,12 @@ class AbstractIoTHubClient(object):
 
     @on_command_received.setter
     def on_command_received(self, value):
-        self._check_client_mode_is_pnp()
+        self._check_client_mode_is_digital_twin()
 
         if value is not None:
             # Generate a wrapper around the user provided handler that will turn a MethodRequest into
             # a Command, then invoke the user's handler
-            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+            translation_wrapper = self._generate_digital_twin_handler_translation_wrapper(
                 handler_to_wrap=value,
                 translation_fn=digital_twin_translation.method_request_to_command,
             )
@@ -607,12 +607,12 @@ class AbstractIoTHubClient(object):
     @on_writable_property_patch_received.setter
     def on_writable_property_patch_received(self, value):
         # TODO: finish this implementation (if changes necessary). While we have an implementation here it is just for test purposes.
-        self._check_client_mode_is_pnp()
+        self._check_client_mode_is_digital_twin()
 
         if value is not None:
             # Generate a wrapper around the user provided handler that will turn a twin patch into
             # a WritableProperty, then invoke the user's handler
-            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+            translation_wrapper = self._generate_digital_twin_handler_translation_wrapper(
                 handler_to_wrap=value,
                 translation_fn=digital_twin_translation.twin_patch_to_writable_property,
             )

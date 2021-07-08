@@ -708,7 +708,7 @@ class SharedClientSendD2CMessageTests(object):
         assert sent_message.data == data_input
 
     @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, message):
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, message):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
@@ -863,7 +863,7 @@ class SharedClientReceiveMethodRequestTests(object):
         "method_name",
         [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
     )
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, method_name):
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, method_name):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
@@ -962,7 +962,7 @@ class SharedClientSendMethodResponseTests(object):
         assert mqtt_pipeline.send_method_response.call_count == 1
 
     @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, method_response):
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, method_response):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
@@ -1071,7 +1071,7 @@ class SharedClientSendCommandResponseTests(object):
         assert mqtt_pipeline.send_method_response.call_count == 1
 
     @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, command_response):
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, command_response):
         client._client_mode = CLIENT_MODE_BASIC
 
         with pytest.raises(client_exceptions.ClientError):
@@ -1317,7 +1317,7 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         assert mqtt_pipeline.patch_twin_reported_properties.call_count == 1
 
     @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, twin_patch_reported):
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, twin_patch_reported):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
@@ -1424,7 +1424,7 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert inbox_get_mock.call_count == 0
 
     @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline):
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
@@ -1919,7 +1919,7 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
         return [method_request]
 
     @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
-    def test_client_mode_pnp_get(self, client, handler):
+    def test_client_mode_digital_twin_get(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         # Handler is None
         assert client.on_method_request_received is None
@@ -1929,7 +1929,7 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
         assert client.on_method_request_received is None
 
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
-    def test_client_mode_pnp(self, client, handler):
+    def test_client_mode_digital_twin(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_method_request_received = handler
@@ -1976,7 +1976,7 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         return [twin_patch_desired]
 
     @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
-    def test_client_mode_pnp_get(self, client, handler):
+    def test_client_mode_digital_twin_get(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         # Handler is None
         assert client.on_twin_desired_properties_patch_received is None
@@ -1986,7 +1986,7 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         assert client.on_twin_desired_properties_patch_received is None
 
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
-    def test_client_mode_pnp_set(self, client, handler):
+    def test_client_mode_digital_twin_set(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler
@@ -2752,7 +2752,7 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
         return [method_request]
 
     @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
-    def test_client_mode_pnp_get(self, client, handler):
+    def test_client_mode_digital_twin_get(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         # Handler is None
         assert client.on_method_request_received is None
@@ -2762,7 +2762,7 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
         assert client.on_method_request_received is None
 
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
-    def test_client_mode_pnp_set(self, client, handler):
+    def test_client_mode_digital_twin_set(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_method_request_received = handler
@@ -2809,7 +2809,7 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         return [twin_patch_desired]
 
     @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
-    def test_client_mode_pnp_get(self, client, handler):
+    def test_client_mode_digital_twin_get(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         # Handler is None
         assert client.on_twin_desired_properties_patch_received is None
@@ -2819,7 +2819,7 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         assert client.on_twin_desired_properties_patch_received is None
 
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
-    def test_client_mode_pnp_set(self, client, handler):
+    def test_client_mode_digital_twin_set(self, client, handler):
         client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler
