@@ -8,7 +8,6 @@ Azure IoTHub Device SDK for Python.
 """
 
 import logging
-import json
 import asyncio
 import deprecation
 import inspect
@@ -18,7 +17,7 @@ from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from azure.iot.device.iothub.models import Message
+from azure.iot.device.iothub.models import digital_twin_translation, Message
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
@@ -74,7 +73,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The HTTPPipeline used for the client
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -166,13 +165,13 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             fut.result()
 
     @staticmethod
-    def _generate_pnp_handler_translation_wrapper(handler_to_wrap, translation_fn):
-        """Generate a translation wrapper for a PNP-related handler, using the given
+    def _generate_digital_twin_handler_translation_wrapper(handler_to_wrap, translation_fn):
+        """Generate a translation wrapper for a Digital Twin (DT)-related handler, using the given
         translation function.
 
         :param handler_to_wrap: Handler function or coroutine that will be wrapped
-        :param translation_fn: Function that translates a non-PNP object passed by the handler
-            into the PNP equivalent
+        :param translation_fn: Function that translates a non-DT object passed by the handler
+            into the DT equivalent
         """
         # Since handlers can be functions or coroutines, we need to support both.
         if inspect.iscoroutinefunction(handler_to_wrap):
@@ -342,7 +341,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
@@ -356,7 +355,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using PNP mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -378,52 +377,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent message to Hub")
 
-    async def send_telemetry(self, telemetry_dict, component_name=None):
-        # type: (dict, str) -> None
-        """
-        Sends telemetry following the IoT Plug and Play requirements to the default events endpoint
-        on the Azure IoT Hub or Azure IoT Edge hub instance.
-
-        If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
-
-        :param dict telemetry_dict: A JSON-serializable dict containing the telemetry to send.
-        :param str component_name: The component that corresponds with the telemetry.
-            Default value is None, which results in the telemetry being sent to the default component.
-
-        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
-            and a connection cannot be established.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
-            connection results in failure.
-        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
-            during execution.
-        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
-            connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using basic mode
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
-            during execution.
-        :raises: ValueError if the message fails size validation.
-        """
-        self._check_client_mode_is_pnp()
-
-        message = Message(
-            json.dumps(telemetry_dict), content_encoding="utf-8", content_type="application/json"
-        )
-        if component_name:
-            message.custom_properties["$.sub"] = component_name
-
-        if message.get_size() > device_constant.TELEMETRY_MESSAGE_SIZE_LIMIT:
-            raise ValueError("Size of telemetry message can not exceed 256 KB.")
-
-        logger.info("Sending telemetry to Hub...")
-        send_message_async = async_adapter.emulate_async(self._mqtt_pipeline.send_message)
-
-        callback = async_adapter.AwaitableCallback()
-        await send_message_async(message, callback=callback)
-        await handle_result(callback)
-
-        logger.info("Successfully sent telemetry to Hub")
-
     @deprecation.deprecated(
         deprecated_in="2.3.0",
         current_version=device_constant.VERSION,
@@ -435,7 +388,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If no method request is yet available, will wait until it is available.
 
         This method cannot be used when using handlers.
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
             If this parameter is not given, all methods not already being specifically targeted by
@@ -461,9 +414,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Send a response to a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
+        function will open the connection before sending the response.
 
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
@@ -476,6 +429,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -488,7 +442,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         callback = async_adapter.AwaitableCallback()
 
-        # TODO: maybe consolidate method_request, result and status into a new object
         await send_method_response_async(method_response, callback=callback)
         await handle_result(callback)
 
@@ -575,7 +528,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If no method request is yet available, will wait until it is available.
 
         This method cannot be used when using handlers.
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :returns: Twin Desired Properties patch as a JSON dict
         :rtype: dict
@@ -591,6 +544,46 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         patch = await twin_patch_inbox.get()
         logger.info("twin patch received")
         return patch
+
+    async def send_command_response(self, command_response):
+        """Send a response to a command via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the response.
+
+        This method is only compatible with Azure IoT Digital Twins.
+
+        :param command_response: The CommandResponse to send
+        :type command_response: :class:`azure.iot.device.CommandResponse`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        self._check_client_mode_is_digital_twin()
+
+        logger.info("Sending command response to Hub...")
+        send_method_response_async = async_adapter.emulate_async(
+            self._mqtt_pipeline.send_method_response
+        )
+
+        method_response = digital_twin_translation.command_response_to_method_response(
+            command_response
+        )
+
+        callback = async_adapter.AwaitableCallback()
+
+        await send_method_response_async(method_response, callback=callback)
+        await handle_result(callback)
+
+        logger.info("Successfully sent command response to Hub")
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
@@ -609,7 +602,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         super().__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode
@@ -701,7 +694,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         super().__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode

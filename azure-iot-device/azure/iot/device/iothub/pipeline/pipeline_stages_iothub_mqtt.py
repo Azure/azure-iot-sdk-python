@@ -51,13 +51,18 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
             # Apply query parameters (i.e. key1=value1&key2=value2...&keyN=valueN format)
             custom_product_info = str(self.pipeline_root.pipeline_configuration.product_info)
-
-            query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
-            query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
-            if self.pipeline_root.pipeline_configuration.model_id is not None:
-                # If using Digital Twin, add model-id
+            if custom_product_info.startswith(
+                pkg_constant.DIGITAL_TWIN_PREFIX
+            ):  # Digital Twin Stuff
+                query_param_seq.append(("api-version", pkg_constant.DIGITAL_TWIN_API_VERSION))
+                query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
                 query_param_seq.append(
-                    ("model-id", self.pipeline_root.pipeline_configuration.model_id)
+                    (pkg_constant.DIGITAL_TWIN_QUERY_HEADER, custom_product_info)
+                )
+            else:
+                query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
+                query_param_seq.append(
+                    ("DeviceClientType", user_agent.get_iothub_user_agent() + custom_product_info)
                 )
 
             # NOTE: Client ID (including the device and/or module ids that are in it)
@@ -66,13 +71,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # keys and values URL encoded.
             # See the repo wiki article for details:
             # https://github.com/Azure/azure-iot-sdk-python/wiki/URL-Encoding-(MQTT)
-            username = "{hostname}/{client_id}/?{query_params}{product_info}".format(
+            username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=self.pipeline_root.pipeline_configuration.hostname,
                 client_id=client_id,
                 query_params=version_compat.urlencode(
                     query_param_seq, quote_via=urllib.parse.quote
                 ),
-                product_info=urllib.parse.quote(custom_product_info, safe=""),
             )
 
             # Dynamically attach the derived MQTT values to the InitalizePipelineOperation

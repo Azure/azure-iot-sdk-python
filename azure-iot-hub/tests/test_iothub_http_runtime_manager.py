@@ -38,13 +38,53 @@ def iothub_http_runtime_manager():
         skn=fake_shared_access_key_name,
         sk=fake_shared_access_key,
     )
-    iothub_http_runtime_manager = IoTHubHttpRuntimeManager(connection_string)
+    iothub_http_runtime_manager = IoTHubHttpRuntimeManager.from_connection_string(connection_string)
     return iothub_http_runtime_manager
 
 
-@pytest.mark.describe("IoTHubHttpRuntimeManager")
-class TestIoTHubHttpRuntimeManager(object):
-    @pytest.mark.it("Instantiation sets the auth and protocol attributes")
+@pytest.mark.describe("IoTHubHttpRuntimeManager - .from_connection_string()")
+class TestFromConnectionString:
+    @pytest.mark.parametrize(
+        "connection_string",
+        [
+            pytest.param(
+                "HostName={hostname};DeviceId={device_id};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname,
+                    device_id=fake_device_id,
+                    skn=fake_shared_access_key_name,
+                    sk=fake_shared_access_key,
+                ),
+                id="connection string with HostName, DeviceId, SharedAccessKeyName, and SharedAccessKey",
+            ),
+            pytest.param(
+                "HostName={hostname};SharedAccessKeyName={skn};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname,
+                    skn=fake_shared_access_key_name,
+                    sk=fake_shared_access_key,
+                ),
+                id="connection string without DeviceId",
+            ),
+            pytest.param(
+                "HostName={hostname};DeviceId={device_id};SharedAccessKey={sk}".format(
+                    hostname=fake_hostname, device_id=fake_device_id, sk=fake_shared_access_key
+                ),
+                id="connection string without SharedAccessKeyName",
+            ),
+        ],
+    )
+    @pytest.mark.it(
+        "Creates an instance of ConnectionStringAuthentication and passes it to IotHubGatewayServiceAPIs constructor"
+    )
+    def test_connection_string_auth(self, connection_string):
+        client = IoTHubHttpRuntimeManager.from_connection_string(
+            connection_string=connection_string
+        )
+
+        assert repr(client.auth) == connection_string
+        assert client.protocol.config.base_url == "https://" + client.auth["HostName"]
+        assert client.protocol.config.credentials == client.auth
+
+    @pytest.mark.it("Sets the auth and protocol attributes")
     def test_instantiates_auth_and_protocol_attributes(self, iothub_http_runtime_manager):
         assert isinstance(iothub_http_runtime_manager.auth, ConnectionStringAuthentication)
         assert isinstance(iothub_http_runtime_manager.protocol, IotHubGatewayServiceAPIs)
@@ -54,7 +94,7 @@ class TestIoTHubHttpRuntimeManager(object):
     )
     def test_instantiates_with_empty_connection_string(self):
         with pytest.raises(ValueError):
-            IoTHubHttpRuntimeManager("", None, None)
+            IoTHubHttpRuntimeManager.from_connection_string("")
 
     @pytest.mark.it(
         "Raises a ValueError exception when instantiated with a connection string without HostName"
@@ -66,7 +106,7 @@ class TestIoTHubHttpRuntimeManager(object):
             )
         )
         with pytest.raises(ValueError):
-            IoTHubHttpRuntimeManager(connection_string)
+            IoTHubHttpRuntimeManager.from_connection_string(connection_string)
 
     @pytest.mark.it("Instantiates with an connection string without DeviceId")
     def test_instantiates_with_connection_string_no_device_id(self):
@@ -75,7 +115,7 @@ class TestIoTHubHttpRuntimeManager(object):
                 hostname=fake_hostname, skn=fake_shared_access_key_name, sk=fake_shared_access_key
             )
         )
-        obj = IoTHubHttpRuntimeManager(connection_string)
+        obj = IoTHubHttpRuntimeManager.from_connection_string(connection_string)
         assert isinstance(obj, IoTHubHttpRuntimeManager)
 
     @pytest.mark.it("Instantiates with an connection string without SharedAccessKeyName")
@@ -83,7 +123,7 @@ class TestIoTHubHttpRuntimeManager(object):
         connection_string = "HostName={hostname};DeviceId={device_id};SharedAccessKey={sk}".format(
             hostname=fake_hostname, device_id=fake_device_id, sk=fake_shared_access_key
         )
-        obj = IoTHubHttpRuntimeManager(connection_string)
+        obj = IoTHubHttpRuntimeManager.from_connection_string(connection_string)
         assert isinstance(obj, IoTHubHttpRuntimeManager)
 
     @pytest.mark.it(
@@ -96,7 +136,24 @@ class TestIoTHubHttpRuntimeManager(object):
             )
         )
         with pytest.raises(ValueError):
-            IoTHubHttpRuntimeManager(connection_string)
+            IoTHubHttpRuntimeManager.from_connection_string(connection_string)
+
+
+@pytest.mark.describe("IoTHubHttpRuntimeManager - .from_token_credential()")
+class TestFromTokenCredential:
+    @pytest.mark.it(
+        "Creates an instance of AzureIdentityCredentialAdapter and passes it to IotHubGatewayServiceAPIs constructor"
+    )
+    def test_token_credential_auth(self, mocker):
+        mock_azure_identity_TokenCredential = mocker.MagicMock()
+
+        client = IoTHubHttpRuntimeManager.from_token_credential(
+            fake_hostname, mock_azure_identity_TokenCredential
+        )
+
+        assert client.auth._policy._credential == mock_azure_identity_TokenCredential
+        assert client.protocol.config.base_url == "https://" + fake_hostname
+        assert client.protocol.config.credentials == client.auth
 
 
 @pytest.mark.describe("IoTHubHttpRuntimeManager - .receive_feedback_notification()")
