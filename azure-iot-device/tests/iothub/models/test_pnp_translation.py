@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.iothub.models.pnp_translation import (
+from azure.iot.device.iothub.models.digital_twin_translation import (
     command_response_to_method_response,
     method_request_to_command,
 )

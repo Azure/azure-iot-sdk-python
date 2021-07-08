@@ -13,7 +13,7 @@ from .abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from .models import pnp_translation, Message
+from .models import digital_twin_translation, Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox, InboxEmpty
 from . import sync_handler_manager
@@ -72,7 +72,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The HTTPPipeline used for the client
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -162,12 +162,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @staticmethod
     def _generate_pnp_handler_translation_wrapper(handler_to_wrap, translation_fn):
-        """Generate a translation wrapper for a PNP-related handler, using the given
+        """Generate a translation wrapper for Digital Twin (DT)-related handler, using the given
         translation function.
 
         :param handler_to_wrap: Handler function that will be wrapped
-        :param translation_fn: Function that translates a non-PNP object passed by the handler
-            into the PNP equivalent
+        :param translation_fn: Function that translates a non-DT object passed by the handler
+            into the DT equivalent
         """
 
         def translation_wrapper(handler_obj):
@@ -331,7 +331,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
@@ -345,7 +345,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using PNP mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -375,7 +375,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """Receive a method request via the Azure IoT Hub or Azure IoT Edge Hub.
 
         This method cannot be used when using handlers.
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
             If this parameter is not given, all methods not already being specifically targeted by
@@ -410,9 +410,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         has been sent to the service and the service has acknowledged receipt of the event.
 
         If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
+        function will open the connection before sending the response.
 
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param method_response: The MethodResponse to send.
         :type method_response: :class:`azure.iot.device.MethodResponse`
@@ -425,6 +425,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -526,7 +527,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
            an InboxEmpty exception
 
         This method cannot be used when using handlers.
-        This method is not compatible with PNP.
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param bool block: Indicates if the operation should block until a request is received.
         :param int timeout: Optionally provide a number of seconds until blocking times out.
@@ -558,9 +559,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         has been sent to the service and the service has acknowledged receipt of the event.
 
         If the connection to the service has not previously been opened by a call to connect, this
-        function will open the connection before sending the event.
+        function will open the connection before sending the response.
 
-        This method is only compatible with PNP.
+        This method is only compatible with Azure IoT Digital Twins.
 
         :param command_response: The CommandResponse to send.
         :type command_response: :class:`azure.iot.device.CommandResponse`
@@ -573,6 +574,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if not using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -580,7 +582,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Sending command response to Hub...")
 
-        method_response = pnp_translation.command_response_to_method_response(command_response)
+        method_response = digital_twin_translation.command_response_to_method_response(
+            command_response
+        )
         callback = EventedCallback()
         self._mqtt_pipeline.send_method_response(method_response, callback=callback)
         handle_result(callback)
@@ -604,7 +608,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The HTTPPipeline used for the client
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         super(IoTHubDeviceClient, self).__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode
@@ -696,7 +700,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         super(IoTHubModuleClient, self).__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode

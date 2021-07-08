@@ -11,7 +11,7 @@ from six.moves import urllib
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest, Command
 from azure.iot.device.common.models.x509 import X509
-from azure.iot.device.iothub.abstract_clients import CLIENT_MODE_BASIC, CLIENT_MODE_PNP
+from azure.iot.device.iothub.abstract_clients import CLIENT_MODE_BASIC, CLIENT_MODE_DIGITAL_TWIN
 
 
 """---Constants---"""
@@ -320,6 +320,6 @@ def mock_http_pipeline_init(mocker):
     return mocker.patch("azure.iot.device.iothub.pipeline.HTTPPipeline")
 
 
-@pytest.fixture(params=[CLIENT_MODE_BASIC, CLIENT_MODE_PNP])
+@pytest.fixture(params=[CLIENT_MODE_BASIC, CLIENT_MODE_DIGITAL_TWIN])
 def client_mode(request):
     return request.param

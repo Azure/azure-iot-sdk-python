@@ -17,7 +17,7 @@ from . import pipeline
 from .pipeline import constant as pipeline_constant
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
-from azure.iot.device.iothub.models import pnp_translation
+from azure.iot.device.iothub.models import digital_twin_translation
 from azure.iot.device.iothub import client_event
 from azure.iot.device import exceptions
 from azure.iot.device.common import auth
@@ -32,7 +32,7 @@ RECEIVE_TYPE_API = "api"  # Only use APIs for receive
 
 # Client Type constant defs
 CLIENT_MODE_BASIC = "CLIENT_MODE_BASIC"
-CLIENT_MODE_PNP = "CLIENT_MODE_PNP"
+CLIENT_MODE_DIGITAL_TWIN = "CLIENT_MODE_DIGITAL_TWIN"
 
 
 def _validate_kwargs(exclude=[], **kwargs):
@@ -81,7 +81,7 @@ def _get_config_kwargs(**kwargs):
 
 def _get_client_mode(**kwargs):
     if kwargs.get("model_id"):
-        return CLIENT_MODE_PNP
+        return CLIENT_MODE_DIGITAL_TWIN
     else:
         return CLIENT_MODE_BASIC
 
@@ -126,7 +126,7 @@ class AbstractIoTHubClient(object):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
         """
         self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
@@ -137,8 +137,9 @@ class AbstractIoTHubClient(object):
         self._client_mode = client_mode
         self._client_lock = threading.Lock()
 
-        # Unwrapped PNP handlers. These are not used within the client (we instead use wrapped
-        # versions), but we cache them so we can return them to the user if they ask for them
+        # Unwrapped Digital Twin handlers. These are not used within the client (we instead use
+        # wrapped versions), but we cache them so we can return them to the user if they ask for
+        # them
         self._on_command_received_unwrapped = None
         self._on_writable_property_patch_received_unwrapped = None
 
@@ -199,12 +200,16 @@ class AbstractIoTHubClient(object):
     def _check_client_mode_is_basic(self):
         """Call this method first in any feature restricted to a basic client"""
         if self._client_mode is not CLIENT_MODE_BASIC:
-            raise exceptions.ClientError("This feature is restricted to using a non-PNP client")
+            raise exceptions.ClientError(
+                "This feature is not compatible with Azure IoT Digital Twins"
+            )
 
     def _check_client_mode_is_pnp(self):
-        """Call this method first when using any feature restricted to a PNP client"""
-        if self._client_mode is not CLIENT_MODE_PNP:
-            raise exceptions.ClientError("This feature is restricted to using PNP")
+        """Call this method first when using any feature restricted to a Digital Twin client"""
+        if self._client_mode is not CLIENT_MODE_DIGITAL_TWIN:
+            raise exceptions.ClientError(
+                "This feature is only compatible with Azure IoT Digital Twins"
+            )
 
     def _replace_user_supplied_sastoken(self, sastoken_str):
         """
@@ -508,7 +513,7 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.MethodRequest` object)
 
-        This handler is not compatible with PNP.
+        This handler is not compatible with Azure IoT Digital Twins.
         """
         if self._client_mode is CLIENT_MODE_BASIC:
             return self._handler_manager.on_method_request_received
@@ -530,7 +535,7 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the twin patch
         in the form of a JSON dictionary object)
 
-        This handler is not compatible with PNP.
+        This handler is not compatible with Azure IoT Digital Twins.
         """
         if self._client_mode is CLIENT_MODE_BASIC:
             return self._handler_manager.on_twin_desired_properties_patch_received
@@ -551,9 +556,9 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.Command` object)
 
-        This handler is only compatible with PNP.
+        This handler is only compatible with Azure IoT Digital Twins.
         """
-        if self._client_mode is CLIENT_MODE_PNP:
+        if self._client_mode is CLIENT_MODE_DIGITAL_TWIN:
             return self._on_command_received_unwrapped
         else:
             return None
@@ -566,7 +571,8 @@ class AbstractIoTHubClient(object):
             # Generate a wrapper around the user provided handler that will turn a MethodRequest into
             # a Command, then invoke the user's handler
             translation_wrapper = self._generate_pnp_handler_translation_wrapper(
-                handler_to_wrap=value, translation_fn=pnp_translation.method_request_to_command
+                handler_to_wrap=value,
+                translation_fn=digital_twin_translation.method_request_to_command,
             )
 
             # Set this wrapper as a handler on the HandlerManager
@@ -591,9 +597,9 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.WritableProperty` object)
 
-        This handler is only compatible with PNP.
+        This handler is only compatible with Azure IoT Digital Twins.
         """
-        if self._client_mode is CLIENT_MODE_PNP:
+        if self._client_mode is CLIENT_MODE_DIGITAL_TWIN:
             return self._on_writable_property_patch_received_unwrapped
         else:
             return None
@@ -608,7 +614,7 @@ class AbstractIoTHubClient(object):
             # a WritableProperty, then invoke the user's handler
             translation_wrapper = self._generate_pnp_handler_translation_wrapper(
                 handler_to_wrap=value,
-                translation_fn=pnp_translation.twin_patch_to_writable_property,
+                translation_fn=digital_twin_translation.twin_patch_to_writable_property,
             )
 
             # Set this wrapper as a handler on the HandlerManager
