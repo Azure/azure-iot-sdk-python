@@ -583,7 +583,7 @@ class TestConnect(object):
         assert mock_mqtt_client._thread is not None
 
 
-@pytest.mark.describe("MQTTTransport - OCCURANCE: Connect Completed")
+@pytest.mark.describe("MQTTTransport - OCCURRENCE: Connect Completed")
 class TestEventConnectComplete(object):
     @pytest.mark.it(
         "Triggers on_mqtt_connected_handler event handler upon successful connect completion"
@@ -642,7 +642,7 @@ class TestEventConnectComplete(object):
         assert e_info.value is arbitrary_base_exception
 
 
-@pytest.mark.describe("MQTTTransport - OCCURANCE: Connection Failure")
+@pytest.mark.describe("MQTTTransport - OCCURRENCE: Connection Failure")
 class TestEventConnectionFailure(object):
     @pytest.mark.parametrize(
         "error_params",
@@ -908,7 +908,7 @@ class TestDisconnect(object):
         assert mock_mqtt_client._thread is not None
 
 
-@pytest.mark.describe("MQTTTransport - OCCURANCE: Disconnect Completed")
+@pytest.mark.describe("MQTTTransport - OCCURRENCE: Disconnect Completed")
 class TestEventDisconnectCompleted(object):
     @pytest.fixture
     def collected_transport_weakref(self, mock_mqtt_client):
@@ -2008,7 +2008,7 @@ class TestPublish(object):
             transport.publish(topic=fake_topic, payload=fake_payload, callback=None)
 
 
-@pytest.mark.describe("MQTTTransport - OCCURANCE: Message Received")
+@pytest.mark.describe("MQTTTransport - OCCURRENCE: Message Received")
 class TestMessageReceived(object):
     @pytest.fixture()
     def message(self):

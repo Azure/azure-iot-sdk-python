@@ -888,7 +888,7 @@ class TestMQTTPipelineDisableFeature(object):
         assert cb.call_args == mocker.call(error=arbitrary_exception)
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURANCE: Connected")
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Connected")
 class TestMQTTPipelineEVENTConnect(object):
     @pytest.mark.it("Triggers the 'on_connected' handler")
     def test_with_handler(self, mocker, pipeline):
@@ -910,7 +910,7 @@ class TestMQTTPipelineEVENTConnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURANCE: Disconnected")
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Disconnected")
 class TestMQTTPipelineEVENTDisconnect(object):
     @pytest.mark.it("Triggers the 'on_disconnected' handler")
     def test_with_handler(self, mocker, pipeline):
@@ -932,7 +932,7 @@ class TestMQTTPipelineEVENTDisconnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURANCE: C2D Message Received")
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: C2D Message Received")
 class TestMQTTPipelineEVENTRecieveC2DMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_c2d_message_received' handler, passing the received message as an argument"
@@ -960,7 +960,7 @@ class TestMQTTPipelineEVENTRecieveC2DMessage(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURANCE: Input Message Received")
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Input Message Received")
 class TestMQTTPipelineEVENTReceiveInputMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_input_message_received' handler, passing the received message as an argument"
@@ -992,7 +992,7 @@ class TestMQTTPipelineEVENTReceiveInputMessage(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURANCE: Method Request Received")
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Method Request Received")
 class TestMQTTPipelineEVENTReceiveMethodRequest(object):
     @pytest.mark.it(
         "Triggers the 'on_method_request_received' handler, passing the received method request as an argument"
@@ -1022,7 +1022,7 @@ class TestMQTTPipelineEVENTReceiveMethodRequest(object):
         # No assertions required - not throwing an exception means the test passed
 
 
-@pytest.mark.describe("MQTTPipeline - OCCURANCE: Twin Desired Properties Patch Received")
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Twin Desired Properties Patch Received")
 class TestMQTTPipelineEVENTReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it(
         "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"

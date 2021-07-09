@@ -643,7 +643,7 @@ class SharedIoTHubClientPROPERTYConnectedTests(object):
         assert not client.connected
 
 
-class SharedIoTHubClientOCCURANCEConnectTests(object):
+class SharedIoTHubClientOCCURRENCEConnectTests(object):
     @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
     def test_add_client_event(self, client, mocker):
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
@@ -666,7 +666,7 @@ class SharedIoTHubClientOCCURANCEConnectTests(object):
         assert ensure_running_spy.call_count == 1
 
 
-class SharedIoTHubClientOCCURANCEDisconnectTests(object):
+class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
     @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
     def test_add_client_event(self, client, mocker):
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
