@@ -93,6 +93,14 @@ def fake_twin():
     return {"fake_twin": True}
 
 
+"""----Shared Digital Twin fixtures"""
+
+
+@pytest.fixture
+def telemetry_dict():
+    return {"temperature": 15.6}
+
+
 """----Shared connection string fixtures----"""
 
 device_connection_string_format = (

@@ -18,6 +18,7 @@ from .client_fixtures import (
     twin_patch_desired,
     twin_patch_reported,
     fake_twin,
+    telemetry_dict,
     mqtt_pipeline,
     mqtt_pipeline_manual_cb,
     http_pipeline,

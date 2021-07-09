@@ -446,10 +446,9 @@ class AbstractIoTHubClient(object):
     def receive_twin_desired_properties_patch(self):
         pass
 
-    # @abc.abstractmethod
-    # def send_telemetry(self, telemetry_dict, component_name=None):
-    # (dict, str) -> None
-    # pass
+    @abc.abstractmethod
+    def send_telemetry(self, telemetry_dict, component_name=None):
+        pass
 
     @abc.abstractmethod
     def send_command_response(self, command_response):
