@@ -171,7 +171,7 @@ class TestIoTHubAmqpClientSharedAccessKeyAuthDisconnectSync(
 class IoTHubAmqpClientTokenAuthTestConfig(object):
     @pytest.fixture
     def mock_azure_identity_TokenCredential(self, mocker):
-        mock = mocker.Mock()
+        mock = mocker.MagicMock()
         mock.get_token.return_value = AccessToken(fake_token, fake_token_expiry)
         return mock
 

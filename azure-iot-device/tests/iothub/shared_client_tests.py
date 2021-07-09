@@ -538,29 +538,52 @@ class SharedIoTHubClientPROPERTYHandlerTests(object):
         setattr(client, handler_name, handler)
         assert getattr(client, handler_name) is handler
 
-    @pytest.mark.it("Reflects the value of the handler manager property of the same name")
-    def test_set_on_handler_manager(self, client, handler, handler_name):
-        assert getattr(client, handler_name) is None
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+    @pytest.mark.it("Is invoked each time the corresponding event occurs in the client")
+    def test_trigger_handler(
+        self,
+        client,
+        handler,
+        handler_checker,
+        handler_name,
+        handler_trigger,
+        handler_trigger_args,
+    ):
         setattr(client, handler_name, handler)
-        assert getattr(client, handler_name) is handler
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 2
 
 
 class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYHandlerTests):
-    @pytest.mark.it("Can have its value set and retrieved")
-    def test_read_write(self, client, handler, handler_name):
-        assert getattr(client, handler_name) is None
+    @pytest.mark.it(
+        "Is invoked with the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self,
+        mocker,
+        client,
+        handler,
+        handler_checker,
+        handler_name,
+        handler_trigger,
+        handler_trigger_args,
+    ):
+        # NOTE: THIS TEST FUNCTION MUST BE OVERRIDDEN IF HANDLER USES
+        # DIGITAL TWIN TRANSLATIONS
         setattr(client, handler_name, handler)
-        assert getattr(client, handler_name) is handler
 
-    @pytest.mark.it("Reflects the value of the handler manager property of the same name")
-    def test_set_on_handler_manager(self, client, handler, handler_name):
-        assert getattr(client, handler_name) is None
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
-        setattr(client, handler_name, handler)
-        assert getattr(client, handler_name) is handler
-        assert getattr(client, handler_name) is getattr(client._handler_manager, handler_name)
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+        assert handler_checker.handler_call_args == mocker.call(*handler_trigger_args)
 
     @pytest.mark.it(
         "Implicitly enables the corresponding feature if not already enabled, when a handler value is set"
