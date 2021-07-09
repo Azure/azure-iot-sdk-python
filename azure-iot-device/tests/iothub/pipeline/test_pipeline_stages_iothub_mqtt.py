@@ -155,53 +155,47 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnDevice
         "cust_product_info",
         [
             pytest.param("", id="No custom product info"),
-            pytest.param("my-product-info", id="With custom product info"),
+            pytest.param(
+                "my-product-info", id="With custom product info (No URL encoding required)"
+            ),
             pytest.param("my$product$info", id="With custom product info (URL encoding required)"),
         ],
     )
-    def test_username(self, stage, op, pipeline_config, cust_product_info):
-        pipeline_config.product_info = cust_product_info
-        assert not hasattr(op, "username")
-        stage.run_op(op)
-
-        expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}{custom_product_info}".format(
-            hostname=pipeline_config.hostname,
-            client_id=pipeline_config.device_id,
-            api_version=pkg_constant.IOTHUB_API_VERSION,
-            user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
-        )
-        assert op.username == expected_username
-
-    @pytest.mark.it(
-        "Derives the MQTT username, and sets it on the op for digital twin specific scenarios"
-    )
     @pytest.mark.parametrize(
-        "digital_twin_product_info",
+        "model_id",
         [
+            pytest.param(None, id="No model id"),
             pytest.param(
-                pkg_constant.DIGITAL_TWIN_PREFIX + ":com:example:ClimateSensor;1",
-                id="With custom product info",
+                "dtmi:com:example:ClimateSensor;1", id="With model id (No URL encoding required)"
             ),
             pytest.param(
-                pkg_constant.DIGITAL_TWIN_PREFIX + ":com:example:$Climate$Sensor;1",
-                id="With custom product info (URL encoding required)",
+                "dtmi:com:example:$Climate$Sensor;1", id="With model_id (URL encoding required)"
             ),
         ],
     )
-    def test_username_for_digital_twin(self, stage, op, pipeline_config, digital_twin_product_info):
-        pipeline_config.product_info = digital_twin_product_info
+    def test_username(self, stage, op, pipeline_config, cust_product_info, model_id):
+        pipeline_config.product_info = cust_product_info
+        pipeline_config.model_id = model_id
         assert not hasattr(op, "username")
         stage.run_op(op)
 
-        expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&{digital_twin_prefix}={custom_product_info}".format(
-            hostname=pipeline_config.hostname,
-            client_id=pipeline_config.device_id,
-            api_version=pkg_constant.DIGITAL_TWIN_API_VERSION,
-            user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
-            digital_twin_prefix=pkg_constant.DIGITAL_TWIN_QUERY_HEADER,
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
-        )
+        if model_id is None:
+            expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}{custom_product_info}".format(
+                hostname=pipeline_config.hostname,
+                client_id=pipeline_config.device_id,
+                api_version=pkg_constant.IOTHUB_API_VERSION,
+                user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
+                custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            )
+        else:
+            expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&model-id={model_id}{custom_product_info}".format(
+                hostname=pipeline_config.hostname,
+                client_id=pipeline_config.device_id,
+                api_version=pkg_constant.IOTHUB_API_VERSION,
+                user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
+                model_id=urllib.parse.quote(pipeline_config.model_id, safe=""),
+                custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            )
         assert op.username == expected_username
 
     @pytest.mark.it(
@@ -260,58 +254,50 @@ class TestIoTHubMQTTTranslationStageRunOpWithInitializePipelineOperationOnModule
         "cust_product_info",
         [
             pytest.param("", id="No custom product info"),
-            pytest.param("my-product-info", id="With custom product info"),
+            pytest.param(
+                "my-product-info", id="With custom product info (No URL encoding required)"
+            ),
             pytest.param("my$product$info", id="With custom product info (URL encoding required)"),
         ],
     )
-    def test_username(self, stage, op, pipeline_config, cust_product_info):
-        pipeline_config.product_info = cust_product_info
-        stage.run_op(op)
-
-        expected_client_id = "{device_id}/{module_id}".format(
-            device_id=pipeline_config.device_id, module_id=pipeline_config.module_id
-        )
-        expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}{custom_product_info}".format(
-            hostname=pipeline_config.hostname,
-            client_id=expected_client_id,
-            api_version=pkg_constant.IOTHUB_API_VERSION,
-            user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
-        )
-        assert op.username == expected_username
-
-    @pytest.mark.it(
-        "Derives the MQTT username, and sets it on the op for digital twin specific scenarios"
-    )
     @pytest.mark.parametrize(
-        "digital_twin_product_info",
+        "model_id",
         [
+            pytest.param(None, id="No model id"),
             pytest.param(
-                pkg_constant.DIGITAL_TWIN_PREFIX + ":com:example:ClimateSensor;1",
-                id="With custom product info",
+                "dtmi:com:example:ClimateSensor;1", id="With model id (No URL encoding required)"
             ),
             pytest.param(
-                pkg_constant.DIGITAL_TWIN_PREFIX + ":com:example:$Climate$Sensor;1",
-                id="With custom product info (URL encoding required)",
+                "dtmi:com:example:$Climate$Sensor;1", id="With model_id (URL encoding required)"
             ),
         ],
     )
-    def test_username_for_digital_twin(self, stage, op, pipeline_config, digital_twin_product_info):
-        pipeline_config.product_info = digital_twin_product_info
-        assert not hasattr(op, "username")
+    def test_username(self, stage, op, pipeline_config, cust_product_info, model_id):
+        pipeline_config.product_info = cust_product_info
+        pipeline_config.model_id = model_id
         stage.run_op(op)
 
         expected_client_id = "{device_id}/{module_id}".format(
             device_id=pipeline_config.device_id, module_id=pipeline_config.module_id
         )
-        expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&{digital_twin_prefix}={custom_product_info}".format(
-            hostname=pipeline_config.hostname,
-            client_id=expected_client_id,
-            api_version=pkg_constant.DIGITAL_TWIN_API_VERSION,
-            user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
-            digital_twin_prefix=pkg_constant.DIGITAL_TWIN_QUERY_HEADER,
-            custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
-        )
+
+        if model_id is None:
+            expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}{custom_product_info}".format(
+                hostname=pipeline_config.hostname,
+                client_id=expected_client_id,
+                api_version=pkg_constant.IOTHUB_API_VERSION,
+                user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
+                custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            )
+        else:
+            expected_username = "{hostname}/{client_id}/?api-version={api_version}&DeviceClientType={user_agent}&model-id={model_id}{custom_product_info}".format(
+                hostname=pipeline_config.hostname,
+                client_id=expected_client_id,
+                api_version=pkg_constant.IOTHUB_API_VERSION,
+                user_agent=urllib.parse.quote(user_agent.get_iothub_user_agent(), safe=""),
+                model_id=urllib.parse.quote(pipeline_config.model_id, safe=""),
+                custom_product_info=urllib.parse.quote(pipeline_config.product_info, safe=""),
+            )
         assert op.username == expected_username
 
     @pytest.mark.it(
