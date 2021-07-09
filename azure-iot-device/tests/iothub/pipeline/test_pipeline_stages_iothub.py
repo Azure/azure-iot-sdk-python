@@ -161,7 +161,7 @@ class TestEnsureDesiredPropertiesStageRunOpWithEnableFeatureOperation(
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
-@pytest.mark.describe("EnsureDesiredPropertiesStage - OCCURANCE: ConnectedEvent received")
+@pytest.mark.describe("EnsureDesiredPropertiesStage - OCCURRENCE: ConnectedEvent received")
 class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
     EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
 ):
@@ -223,7 +223,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
 
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - OCCURANCE: TwinDesiredPropertiesPatchEvent received"
+    "EnsureDesiredPropertiesStage - OCCURRENCE: TwinDesiredPropertiesPatchEvent received"
 )
 class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceived(
     EnsureDesiredPropertiesStageTestConfig, StageHandlePipelineEventTestBase
@@ -261,7 +261,7 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
 
 
 @pytest.mark.describe(
-    "EnsureDesiredPropertiesStage - OCCURANCE: GetTwinOperation that was sent down by this stage completes"
+    "EnsureDesiredPropertiesStage - OCCURRENCE: GetTwinOperation that was sent down by this stage completes"
 )
 class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
     EnsureDesiredPropertiesStageTestConfig
@@ -523,7 +523,7 @@ class TestTwinRequestResponseStageRunOpWithArbitraryOperation(
 
 # TODO: Provide a more accurate set of status codes for tests
 @pytest.mark.describe(
-    "TwinRequestResponseStage - OCCURANCE: RequestAndResponseOperation created from GetTwinOperation is completed"
+    "TwinRequestResponseStage - OCCURRENCE: RequestAndResponseOperation created from GetTwinOperation is completed"
 )
 class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperationCompleted(
     TwinRequestResponseStageTestConfig
@@ -665,7 +665,7 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
 
 
 @pytest.mark.describe(
-    "TwinRequestResponseStage - OCCURANCE: RequestAndResponseOperation created from PatchTwinReportedPropertiesOperation is completed"
+    "TwinRequestResponseStage - OCCURRENCE: RequestAndResponseOperation created from PatchTwinReportedPropertiesOperation is completed"
 )
 class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromPatchTwinReportedPropertiesOperation(
     TwinRequestResponseStageTestConfig
