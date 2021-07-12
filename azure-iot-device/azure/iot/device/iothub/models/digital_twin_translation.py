@@ -9,6 +9,7 @@ into Digital Twin objects
 
 from .methods import MethodResponse
 from .commands import Command
+from .properties import ClientPropertyCollection, ClientProperties
 
 
 def method_request_to_command(method_request):
@@ -37,7 +38,20 @@ def command_response_to_method_response(command_response):
     )
 
 
-# TODO: this is probably the wrong name and docstring
-def twin_patch_to_writable_property(twin_patch):
-    """Given a Twin Patch (dict), returns a WritableProperty"""
-    pass
+def twin_patch_to_client_property_collection(twin_patch):
+    """Given a Twin Patch (`dict`), returns a `ClientPropertyCollection` object"""
+    obj = ClientPropertyCollection()
+    obj.backing_object = twin_patch
+    return obj
+
+
+def twin_to_client_properties(twin):
+    """Given a `Twin` object, return a `ClientProperties` object"""
+    obj = ClientProperties()
+    obj.backing_object = twin.reported_properties
+    obj.writable_properties_requests.backing_object = twin.desired_properties
+
+
+def client_property_collection_to_twin_patch(client_property_collection):
+    """Given a `ClientPropertyCollection` object, return a twin patch (`dict`)"""
+    return client_property_collection.backing_object
