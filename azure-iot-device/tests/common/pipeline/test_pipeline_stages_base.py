@@ -2339,10 +2339,6 @@ retryable_ops = [
         pipeline_ops_mqtt.MQTTUnsubscribeOperation,
         {"topic": "fake_topic", "callback": fake_callback},
     ),
-    (
-        pipeline_ops_mqtt.MQTTPublishOperation,
-        {"topic": "fake_topic", "payload": "fake_payload", "callback": fake_callback},
-    ),
 ]
 
 retryable_exceptions = [pipeline_exceptions.PipelineTimeoutError]
@@ -2372,13 +2368,12 @@ class RetryStageTestConfig(object):
 class RetryStageInstantiationTests(RetryStageTestConfig):
     # TODO: this will no longer be necessary once these are implemented as part of a more robust retry policy
     @pytest.mark.it(
-        "Sets default retry intervals to 20 seconds for MQTTSubscribeOperation, MQTTUnsubscribeOperation, and MQTTPublishOperation"
+        "Sets default retry intervals to 20 seconds for MQTTSubscribeOperation and MQTTUnsubscribeOperation"
     )
     def test_retry_intervals(self, init_kwargs):
         stage = pipeline_stages_base.RetryStage(**init_kwargs)
         assert stage.retry_intervals[pipeline_ops_mqtt.MQTTSubscribeOperation] == 20
         assert stage.retry_intervals[pipeline_ops_mqtt.MQTTUnsubscribeOperation] == 20
-        assert stage.retry_intervals[pipeline_ops_mqtt.MQTTPublishOperation] == 20
 
     @pytest.mark.it("Initializes 'ops_waiting_to_retry' as an empty list")
     def test_ops_waiting_to_retry(self, init_kwargs):
@@ -2543,13 +2538,13 @@ class TestRetryStageRetryableOperationCompletedWithRetryableError(RetryStageTest
     @pytest.mark.it("Supports multiple simultaneous operations retrying")
     def test_multiple_retries(self, mocker, stage, mock_timer):
         op1 = pipeline_ops_mqtt.MQTTSubscribeOperation(
-            topic="fake_topic", callback=mocker.MagicMock()
+            topic="fake_topic_1", callback=mocker.MagicMock()
         )
-        op2 = pipeline_ops_mqtt.MQTTPublishOperation(
-            topic="fake_topic", payload="fake_payload", callback=mocker.MagicMock()
+        op2 = pipeline_ops_mqtt.MQTTSubscribeOperation(
+            topic="fake_topic_2", callback=mocker.MagicMock()
         )
         op3 = pipeline_ops_mqtt.MQTTUnsubscribeOperation(
-            topic="fake_topic", callback=mocker.MagicMock()
+            topic="fake_topic_3", callback=mocker.MagicMock()
         )
 
         stage.run_op(op1)
