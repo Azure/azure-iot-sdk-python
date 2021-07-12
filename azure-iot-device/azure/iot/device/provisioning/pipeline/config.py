@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProvisioningPipelineConfig(BasePipelineConfig):
-    """A class for storing all configurations/options for Provisioning clients in the Azure IoT Python Device Client Library.
-    """
+    """A class for storing all configurations/options for Provisioning clients in the Azure IoT Python Device Client Library."""
 
     def __init__(self, hostname, registration_id, id_scope, **kwargs):
         """Initializer for ProvisioningPipelineConfig which passes all unrecognized keyword-args down to BasePipelineConfig

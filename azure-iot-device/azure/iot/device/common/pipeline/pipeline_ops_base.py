@@ -89,7 +89,7 @@ class PipelineOperation(object):
 
     @pipeline_thread.runs_on_pipeline_thread
     def complete(self, error=None):
-        """ Complete the operation, and trigger all callbacks in LIFO order.
+        """Complete the operation, and trigger all callbacks in LIFO order.
 
         The operation is completed successfully be default, or completed unsucessfully if an error
         is provided.

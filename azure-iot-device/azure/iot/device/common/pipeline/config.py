@@ -83,8 +83,7 @@ class BasePipelineConfig(object):
 
     @staticmethod
     def _sanitize_cipher(cipher):
-        """Sanitize the cipher input and convert to a string in OpenSSL list format
-        """
+        """Sanitize the cipher input and convert to a string in OpenSSL list format"""
         if isinstance(cipher, list):
             cipher = ":".join(cipher)
 

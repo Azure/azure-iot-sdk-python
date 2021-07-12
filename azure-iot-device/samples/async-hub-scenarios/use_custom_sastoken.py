@@ -4,14 +4,9 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
 import asyncio
-import time
 from six.moves import input
 from azure.iot.device.aio import IoTHubDeviceClient
-
-# Interval (in seconds) of how often to provide a new sastoken
-NEW_TOKEN_INTERVAL = 1800
 
 
 # NOTE: This code needs to be completed in order to work.
@@ -41,8 +36,17 @@ async def main():
         print("content Type: {0}".format(message.content_type))
         print("")
 
+    # define behavior for updating sastoken
+    async def sastoken_update_handler():
+        print("Updating SAS Token...")
+        sastoken = get_new_sastoken()
+        await device_client.update_sastoken(sastoken)
+        print("SAS Token updated")
+
     # set the mesage received handler on the client
     device_client.on_message_received = message_received_handler
+    # set the sastoken update handler on the client
+    device_client.on_new_sastoken_required = sastoken_update_handler
 
     # define behavior for halting the application
     def stdin_listener():
@@ -52,25 +56,12 @@ async def main():
                 print("Quitting...")
                 break
 
-    # define behavior for providing new sastokens to prevent expiry
-    async def sastoken_keepalive():
-        while True:
-            await asyncio.sleep(NEW_TOKEN_INTERVAL)
-            sastoken = get_new_sastoken()
-            await device_client.update_sastoken(sastoken)
-
     # Run the stdin listener in the event loop
     loop = asyncio.get_running_loop()
     user_finished = loop.run_in_executor(None, stdin_listener)
 
-    # Also run the sastoken keepalive in the event loop
-    keepalive_task = asyncio.create_task(sastoken_keepalive())
-
     # Wait for user to indicate they are done listening for messages
     await user_finished
-
-    # Cancel the sastoken update task
-    keepalive_task.cancel()
 
     # Finally, shut down the client
     await device_client.shutdown()

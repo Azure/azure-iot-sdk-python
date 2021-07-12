@@ -35,6 +35,7 @@ from ..shared_client_tests import (
     SharedIoTHubClientPROPERTYConnectedTests,
     SharedIoTHubClientOCCURRENCEConnectTests,
     SharedIoTHubClientOCCURRENCEDisconnectTests,
+    SharedIoTHubClientOCCURRENCENewSastokenRequired,
     SharedIoTHubClientCreateFromConnectionStringTests,
     SharedIoTHubDeviceClientCreateFromSastokenTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
@@ -1659,6 +1660,15 @@ class TestIoTHubDeviceClientPROPERTYOnConnectionStateChangeHandler(
         return "on_connection_state_change"
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_new_sastoken_required")
+class TestIoTHubDeviceClientPROPERTYOnNewSastokenRequiredHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_new_sastoken_required"
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .connected")
 class TestIoTHubDeviceClientPROPERTYConnected(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYConnectedTests
@@ -1676,6 +1686,13 @@ class TestIoTHubDeviceClientOCCURRENCEConnect(
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - OCCURRENCE: Disconnect")
 class TestIoTHubDeviceClientOCCURRENCEDisconnect(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEDisconnectTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURRENCE: New Sastoken Required")
+class TestIoTHubDeviceClientOCCURRENCENewSastokenRequired(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
 ):
     pass
 
@@ -1868,13 +1885,6 @@ class TestIoTHubModuleClientConnect(IoTHubModuleClientTestsConfig, SharedClientC
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .disconnect()")
 class TestIoTHubModuleClientDisconnect(IoTHubModuleClientTestsConfig, SharedClientDisconnectTests):
-    pass
-
-
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURRENCE: Disconnect")
-class TestIoTHubModuleClientDisconnectEvent(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCEDisconnectTests
-):
     pass
 
 
@@ -2278,13 +2288,22 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         return pipeline_constant.TWIN_PATCHES
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_connection_state_change")
 class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_new_sastoken_required")
+class TestIoTHubModuleClientPROPERTYOnNewSastokenRequiredHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_new_sastoken_required"
 
 
 @pytest.mark.describe("IoTHubModule (Asynchronous) - PROPERTY .connected")
@@ -2304,5 +2323,12 @@ class TestIoTHubModuleClientOCCURRENCEConnect(
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURRENCE: Disconnect")
 class TestIoTHubModuleClientOCCURRENCEDisconnect(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCEDisconnectTests
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURRENCE: New Sastoken Required")
+class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
 ):
     pass

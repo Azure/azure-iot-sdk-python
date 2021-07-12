@@ -39,6 +39,7 @@ def pipeline_configuration(mocker):
         device_id="my_device", hostname="my.host.name", sastoken=mocker.MagicMock()
     )
     mock_config.sastoken.ttl = 1232  # set for compat
+    mock_config.sastoken.expiry_time = 1232131  # set for compat
     return mock_config
 
 
@@ -82,6 +83,7 @@ class TestMQTTPipelineInstantiation(object):
         pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline.on_connected is None
         assert pipeline.on_disconnected is None
+        assert pipeline.on_new_sastoken_required is None
         assert pipeline.on_c2d_message_received is None
         assert pipeline.on_input_message_received is None
         assert pipeline.on_method_request_received is None
@@ -101,7 +103,7 @@ class TestMQTTPipelineInstantiation(object):
 
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
-            pipeline_stages_base.SasTokenRenewalStage,
+            pipeline_stages_base.SasTokenStage,
             pipeline_stages_iothub.EnsureDesiredPropertiesStage,
             pipeline_stages_iothub.TwinRequestResponseStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,
@@ -889,7 +891,7 @@ class TestMQTTPipelineDisableFeature(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURRENCE: Connected")
-class TestMQTTPipelineEVENTConnect(object):
+class TestMQTTPipelineOCCURRENCEConnect(object):
     @pytest.mark.it("Triggers the 'on_connected' handler")
     def test_with_handler(self, mocker, pipeline):
         # Set the handler
@@ -911,7 +913,7 @@ class TestMQTTPipelineEVENTConnect(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURRENCE: Disconnected")
-class TestMQTTPipelineEVENTDisconnect(object):
+class TestMQTTPipelineOCCURRENCEDisconnect(object):
     @pytest.mark.it("Triggers the 'on_disconnected' handler")
     def test_with_handler(self, mocker, pipeline):
         # Set the handler
@@ -919,7 +921,7 @@ class TestMQTTPipelineEVENTDisconnect(object):
         pipeline.on_disconnected = mock_handler
         assert mock_handler.call_count == 0
 
-        # Trigger the connect
+        # Trigger the disconnect
         pipeline._pipeline.on_disconnected_handler()
 
         assert mock_handler.call_count == 1
@@ -932,8 +934,30 @@ class TestMQTTPipelineEVENTDisconnect(object):
         # No assertions required - not throwing an exception means the test passed
 
 
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: New Sastoken Required")
+class TestMQTTPipelineOCCURRENCENewSastokenRequired(object):
+    @pytest.mark.it("Triggers the 'on_new_sastoken_required' handler")
+    def test_with_handler(self, mocker, pipeline):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_new_sastoken_required = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Trigger the event
+        pipeline._pipeline.on_new_sastoken_required_handler()
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call()
+
+    @pytest.mark.it("Does nothing if the 'on_new_sastoken_required' handler is not set")
+    def test_without_handler(self, pipeline):
+        pipeline._pipeline.on_new_sastoken_required_handler()
+
+        # No assertions required - not throwing an exception means the test passed
+
+
 @pytest.mark.describe("MQTTPipeline - OCCURRENCE: C2D Message Received")
-class TestMQTTPipelineEVENTRecieveC2DMessage(object):
+class TestMQTTPipelineOCCURRENCEReceiveC2DMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_c2d_message_received' handler, passing the received message as an argument"
     )
@@ -961,7 +985,7 @@ class TestMQTTPipelineEVENTRecieveC2DMessage(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURRENCE: Input Message Received")
-class TestMQTTPipelineEVENTReceiveInputMessage(object):
+class TestMQTTPipelineOCCURRENCEReceiveInputMessage(object):
     @pytest.mark.it(
         "Triggers the 'on_input_message_received' handler, passing the received message as an argument"
     )
@@ -993,7 +1017,7 @@ class TestMQTTPipelineEVENTReceiveInputMessage(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURRENCE: Method Request Received")
-class TestMQTTPipelineEVENTReceiveMethodRequest(object):
+class TestMQTTPipelineOCCURRENCEReceiveMethodRequest(object):
     @pytest.mark.it(
         "Triggers the 'on_method_request_received' handler, passing the received method request as an argument"
     )
@@ -1023,7 +1047,7 @@ class TestMQTTPipelineEVENTReceiveMethodRequest(object):
 
 
 @pytest.mark.describe("MQTTPipeline - OCCURRENCE: Twin Desired Properties Patch Received")
-class TestMQTTPipelineEVENTReceiveDesiredPropertiesPatch(object):
+class TestMQTTPipelineOCCURRENCEReceiveDesiredPropertiesPatch(object):
     @pytest.mark.it(
         "Triggers the 'on_twin_patch_received' handler, passing the received twin patch as an argument"
     )
