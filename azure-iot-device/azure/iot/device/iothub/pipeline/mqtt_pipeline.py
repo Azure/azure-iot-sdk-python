@@ -44,7 +44,7 @@ class MQTTPipeline(object):
         # Handlers - Will be set by Client after instantiation of this object
         self.on_connected = None
         self.on_disconnected = None
-        # self.on_new_sastoken_required = None
+        self.on_new_sastoken_required = None
 
         self.on_c2d_message_received = None
         self.on_input_message_received = None
@@ -59,10 +59,10 @@ class MQTTPipeline(object):
             #
             pipeline_stages_base.PipelineRootStage(pipeline_configuration)
             #
-            # SasTokenRenewalStage comes near the root by default because it should be as close
+            # SasTokenStage comes near the root by default because it should be as close
             # to the top of the pipeline as possible, and does not need to be after anything.
             #
-            .append_stage(pipeline_stages_base.SasTokenRenewalStage())
+            .append_stage(pipeline_stages_base.SasTokenStage())
             #
             # EnsureDesiredPropertiesStage needs to be above TwinRequestResponseStage because it
             # sends GetTwinOperation ops and that stage handles those ops.
@@ -123,6 +123,7 @@ class MQTTPipeline(object):
             .append_stage(pipeline_stages_mqtt.MQTTTransportStage())
         )
 
+        # Define behavior for domain-specific events
         def _on_pipeline_event(event):
             if isinstance(event, pipeline_events_iothub.C2DMessageEvent):
                 if self.on_c2d_message_received:
@@ -160,15 +161,26 @@ class MQTTPipeline(object):
         def _on_connected():
             if self.on_connected:
                 self.on_connected()
+            else:
+                logger.debug("IoTHub Pipeline was connected, but no handler was set")
 
         def _on_disconnected():
             if self.on_disconnected:
                 self.on_disconnected()
+            else:
+                logger.debug("IoTHub Pipeline was disconnected, but no handler was set")
+
+        def _on_new_sastoken_required():
+            if self.on_new_sastoken_required:
+                self.on_new_sastoken_required()
+            else:
+                logger.debug("IoTHub Pipeline requires new SASToken, but no handler was set")
 
         # Set internal event handlers
         self._pipeline.on_pipeline_event_handler = _on_pipeline_event
         self._pipeline.on_connected_handler = _on_connected
         self._pipeline.on_disconnected_handler = _on_disconnected
+        self._pipeline.on_new_sastoken_required_handler = _on_new_sastoken_required
 
         # Initialize the pipeline
         callback = EventedCallback()

@@ -34,12 +34,10 @@ def emulate_async(fn):
 
 
 class AwaitableCallback(object):
-    """A sync callback whose completion can be waited upon.
-    """
+    """A sync callback whose completion can be waited upon."""
 
     def __init__(self, return_arg_name=None):
-        """Creates an instance of an AwaitableCallback
-        """
+        """Creates an instance of an AwaitableCallback"""
 
         # LBYL because this mistake doesn't cause an exception until the callback
         # which is much later and very difficult to trace back to here.
@@ -81,8 +79,7 @@ class AwaitableCallback(object):
         self.callback = wrapping_callback
 
     def __call__(self, *args, **kwargs):
-        """Calls the callback. Returns the result.
-        """
+        """Calls the callback. Returns the result."""
         return self.callback(*args, **kwargs)
 
     async def completion(self):

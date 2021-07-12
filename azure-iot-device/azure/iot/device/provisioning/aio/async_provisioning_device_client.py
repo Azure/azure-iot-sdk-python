@@ -93,8 +93,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
         return result
 
     async def _enable_responses(self):
-        """Enable to receive responses from Device Provisioning Service.
-        """
+        """Enable to receive responses from Device Provisioning Service."""
         logger.info("Enabling reception of response from Device Provisioning Service...")
         subscribe_async = async_adapter.emulate_async(self._pipeline.enable_responses)
 

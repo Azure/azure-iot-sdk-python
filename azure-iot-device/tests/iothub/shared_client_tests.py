@@ -89,6 +89,15 @@ class SharedIoTHubClientInstantiationTests(object):
         assert client._mqtt_pipeline.on_disconnected is not None
         assert client._mqtt_pipeline.on_disconnected == client._on_disconnected
 
+    @pytest.mark.it("Sets on_new_sastoken_required handler in the MQTTPipeline")
+    def test_sets_on_new_sastoken_required_handler_in_pipeline(
+        self, client_class, mqtt_pipeline, http_pipeline
+    ):
+        client = client_class(mqtt_pipeline, http_pipeline)
+
+        assert client._mqtt_pipeline.on_new_sastoken_required is not None
+        assert client._mqtt_pipeline.on_new_sastoken_required == client._on_new_sastoken_required
+
     @pytest.mark.it("Sets on_method_request_received handler in the MQTTPipeline")
     def test_sets_on_method_request_received_handler_in_pipleline(
         self, client_class, mqtt_pipeline, http_pipeline
@@ -687,6 +696,23 @@ class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
         clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
         client._on_disconnected()
         assert clear_method_request_spy.call_count == 1
+
+
+class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
+    @pytest.mark.it("Adds a NEW_SASTOKEN_REQUIRED ClientEvent to the Client Event Inbox")
+    def test_add_client_event(self, client, mocker):
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        inbox_put_spy = mocker.spy(client_event_inbox, "put")
+        assert client_event_inbox.empty()
+
+        client._on_new_sastoken_required()
+
+        assert not client_event_inbox.empty()
+        assert inbox_put_spy.call_count == 1
+        event = inbox_put_spy.call_args[0][0]
+        assert isinstance(event, client_event.ClientEvent)
+        assert event.name == client_event.NEW_SASTOKEN_REQUIRED
+        assert event.args_for_user == ()
 
 
 ##############################
