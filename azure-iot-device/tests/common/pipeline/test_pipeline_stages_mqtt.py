@@ -52,8 +52,6 @@ def fake_callback():
 # MQTT TRANSPORT STAGE #
 ########################
 
-WATCHDOG_INTERVAL = 10
-
 
 class MQTTTransportStageTestConfig(object):
     @pytest.fixture
@@ -334,7 +332,7 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
         stage.run_op(op)
 
         assert mock_timer.call_count == 1
-        assert mock_timer.call_args == mocker.call(WATCHDOG_INTERVAL, mocker.ANY)
+        assert mock_timer.call_args == mocker.call(60, mocker.ANY)
         assert mock_timer.return_value.daemon is True
         assert mock_timer.return_value.start.call_count == 1
 
