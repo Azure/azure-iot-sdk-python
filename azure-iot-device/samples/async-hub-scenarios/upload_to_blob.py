@@ -54,7 +54,7 @@ X509_PASS_PHRASE = os.getenv("PASS_PHRASE")
 
 
 async def upload_via_storage_blob(blob_info):
-    """ Helper function written to perform Storage Blob V12 Upload Tasks
+    """Helper function written to perform Storage Blob V12 Upload Tasks
 
     Arguments:
     blob_info - an object containing the information needed to generate a sas_url for creating a blob client
