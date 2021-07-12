@@ -68,7 +68,10 @@ async def main():
     module_client.on_twin_desired_properties_patch_received = twin_patch_handler
     module_client.on_method_request_received = method_handler
 
-    # This will trigger when a MethodRequest for "shutdown" is sent
+    # This will trigger when a Direct Method Request for "shutdown" is sent.
+    # NOTE: This sample will NOT exit until a Direct Method Request is sent.
+    # Send one using the Azure IoT Explorer or the Azure IoT CLI
+    # (https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-direct-methods)
     finished.wait()
     # Once it is received, shut down the client
     await module_client.shutdown()
