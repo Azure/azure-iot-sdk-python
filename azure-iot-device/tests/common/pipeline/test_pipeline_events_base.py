@@ -27,3 +27,24 @@ pipeline_event_test.add_event_test(
     positional_arguments=["request_id", "status_code", "response_body"],
     keyword_arguments={},
 )
+
+pipeline_event_test.add_event_test(
+    cls=pipeline_events_base.ConnectedEvent,
+    module=this_module,
+    positional_arguments=[],
+    keyword_arguments={},
+)
+
+pipeline_event_test.add_event_test(
+    cls=pipeline_events_base.DisconnectedEvent,
+    module=this_module,
+    positional_arguments=[],
+    keyword_arguments={},
+)
+
+pipeline_event_test.add_event_test(
+    cls=pipeline_events_base.NewSasTokenRequiredEvent,
+    module=this_module,
+    positional_arguments=[],
+    keyword_arguments={},
+)

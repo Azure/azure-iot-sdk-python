@@ -126,8 +126,10 @@ def add_shims_for_inherited_methods(target_class):
 
             # Add shim function to leaf/child class as a classmethod if the method being shimmed is a classmethod
             if inspect.ismethod(method_obj):
-                attach_shim_cmdstr = "setattr({leaf_class}, '{method_name}', classmethod({method_name}))".format(
-                    leaf_class=classname_alias, method_name=method_name
+                attach_shim_cmdstr = (
+                    "setattr({leaf_class}, '{method_name}', classmethod({method_name}))".format(
+                        leaf_class=classname_alias, method_name=method_name
+                    )
                 )
             # Add shim function to leaf/child class as a method if the method being shimmed is an instance method
             else:
@@ -158,8 +160,10 @@ def add_shims_for_inherited_methods(target_class):
 
         # Simply redefine the same property on the leaf class if it was defined on a parent
         if property_name[0] != "_" and originating_class_obj != target_class:
-            attach_property_cmdstr = "setattr({leaf_class}, '{property_name}', {leaf_class}.{property_name})".format(
-                leaf_class=classname_alias, property_name=property_name
+            attach_property_cmdstr = (
+                "setattr({leaf_class}, '{property_name}', {leaf_class}.{property_name})".format(
+                    leaf_class=classname_alias, property_name=property_name
+                )
             )
             logger.debug("exec: " + attach_property_cmdstr)
             # exec(attach_property_cmdstr, shim_scope)
