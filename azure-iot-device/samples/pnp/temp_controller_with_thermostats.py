@@ -89,9 +89,9 @@ class ThermostatApp(object):
     #####################################################
     # CREATE RESPONSES TO COMMANDS
 
-    def handle_max_min_report_command(self, thermostat_name):
+    def handle_max_min_report_command_request(self, thermostat_name):
         """
-        An example function that can create a response to the "getMaxMinReport" command request the way the user wants it.
+        An example function that can create a response to the "getMaxMinReport" command_request the way the user wants it.
         Most of the times response is created by a helper function which follows a generic pattern.
         This should be only used when the user wants to give a detailed response back to the Hub.
         :param values: The values that were received as part of the request.
@@ -110,7 +110,7 @@ class ThermostatApp(object):
 
         return 200, response_dict
 
-    async def handle_reboot_command(self, values):
+    async def handle_reboot_command_request(self, values):
         if values:
             print("Rebooting after delay of {delay} secs".format(delay=values))
         print("Done rebooting")
@@ -122,31 +122,35 @@ class ThermostatApp(object):
     #####################################################
     # COMMAND TASKS
 
-    async def handle_command_received(self, command):
-        if command.command_name == "reboot":
-            handle = self.handle_reboot_command
-        elif command.command_name == "getMaxMinReport":
-            handler = self.handle_max_min_report_command
+    async def handle_command_received(self, command_request):
+        if command_request.command_name == "reboot":
+            handle = self.handle_reboot_command_request
+        elif command_request.command_name == "getMaxMinReport":
+            handler = self.handle_max_min_report_command_request
         else:
             handler = None
 
         print("Command request received with payload")
-        print(command.payload)
+        print(command_request.payload)
 
         if handle:
-            response_status, response_payload = await handler(command.component_name)
+            response_status, response_payload = await handler(command_request.component_name)
         else:
             response_status = 404
             response_payload = None
 
-        command_response = CommandResponse.create_from_command(
-            command, response_status, response_payload
+        command_response = CommandResponse.create_from_command_request(
+            command_request, response_status, response_payload
         )
 
         try:
             await self.device_client.send_command_response(command_response)
         except Exception:
-            print("responding to the {command} command failed".format(command=command.command_name))
+            print(
+                "responding to the {command_name} command failed".format(
+                    command_name=command_request.command_name
+                )
+            )
 
     #####################################################
     # PROPERTY TASKS
@@ -171,7 +175,7 @@ class ThermostatApp(object):
                         ),
                     )
 
-            await self.device_client.send_client_property_update(properties)
+            await self.device_client.update_client_properties(properties)
 
     #####################################################
     # An # END KEYBOARD INPUT LISTENER to quit application
@@ -276,7 +280,7 @@ class ThermostatApp(object):
         )
         properties.set_component_property(device_information_component_name, "totalStorage", 1024)
         properties.set_component_property(device_information_component_name, "totalMemory", 32)
-        await self.device_client.send_client_property_update(properties)
+        await self.device_client.update_client_propertieupdate_client_properties(properties)
 
         ################################################
         # Get all the listeners running
@@ -288,7 +292,7 @@ class ThermostatApp(object):
         self.device_client.on_writable_property_update_request_received = (
             self.handle_writable_property_update_request_received
         )
-        self.device_client.on_command_received = self.handle_command_received
+        self.device_client.on_command_request_received = self.handle_command_received
 
         ################################################
         # Function to send telemetry every 8 seconds

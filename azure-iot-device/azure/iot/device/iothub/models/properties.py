@@ -39,7 +39,7 @@ class ClientPropertyCollection(object):
         return self.backing_object.get(component_name, {}).get(property_name, default=default)
 
 
-class ClientProperties(ClientPropertyCollection):
+class ClientProperties(object):
     def __init__(self):
-        super(self, ClientProperties).__init__()
         self.writable_properties_requests = ClientPropertyCollection()
+        self.reported_from_device = ClientPropertyCollection()

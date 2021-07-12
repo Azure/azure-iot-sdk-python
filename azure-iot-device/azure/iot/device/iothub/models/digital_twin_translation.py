@@ -8,12 +8,12 @@ into Digital Twin objects
 """
 
 from .methods import MethodResponse
-from .commands import Command
+from .commands import CommandRequest
 from .properties import ClientPropertyCollection, ClientProperties
 
 
-def method_request_to_command(method_request):
-    """Given a MethodRequest, returns a Command"""
+def method_request_to_command_request(method_request):
+    """Given a MethodRequest, returns a CommandRequest"""
     method_name_tokens = method_request.name.split("*")
     if len(method_name_tokens) > 1:
         component_name = method_name_tokens[0]
@@ -22,7 +22,7 @@ def method_request_to_command(method_request):
         component_name = None
         command_name = method_name_tokens[0]
 
-    return Command(
+    return CommandRequest(
         request_id=method_request.request_id,
         component_name=component_name,
         command_name=command_name,
@@ -48,7 +48,7 @@ def twin_patch_to_client_property_collection(twin_patch):
 def twin_to_client_properties(twin):
     """Given a `Twin` object, return a `ClientProperties` object"""
     obj = ClientProperties()
-    obj.backing_object = twin.reported_properties
+    obj.reported_from_device.backing_object = twin.reported_properties
     obj.writable_properties_requests.backing_object = twin.desired_properties
 
 

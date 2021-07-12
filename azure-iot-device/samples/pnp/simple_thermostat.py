@@ -69,7 +69,7 @@ class ThermostatApp(object):
 
     def create_max_min_report_response(self, values):
         """
-        An example function that can create a response to the "getMaxMinReport" command request the way the user wants it.
+        An example function that can create a response to the "getMaxMinReport" command_request the way the user wants it.
         Most of the times response is created by a helper function which follows a generic pattern.
         This should be only used when the user wants to give a detailed response back to the Hub.
         :param values: The values that were received as part of the request.
@@ -93,11 +93,11 @@ class ThermostatApp(object):
     #####################################################
     # CREATE COMMAND AND PROPERTY LISTENERS
 
-    async def handle_command_received(self, command):
-        if command.command_name == "reboot":
+    async def handle_command_request_received(self, command_request):
+        if command_request.command_name == "reboot":
             handler = self.reboot_handler
             responder = self.create_reboot_response
-        elif command.command_name == "getMaxMinReport":
+        elif command_request.command_name == "getMaxMinReport":
             handler = self.max_min_handler
             responder = self.create_max_min_report_response
         else:
@@ -105,24 +105,28 @@ class ThermostatApp(object):
             responder = None
 
         print("Command request received with payload")
-        print(command.payload)
+        print(command_request.payload)
 
         if handler:
-            await handler(command.payload)
+            await handler(command_request.payload)
             response_status = 200
-            response_payload = responder(command.payload)
+            response_payload = responder(command_request.payload)
         else:
             response_status = 404
             response_payload = None
 
-        command_response = CommandResponse.create_from_command(
-            command, response_status, response_payload
+        command_response = CommandResponse.create_from_command_request(
+            command_request, response_status, response_payload
         )
 
         try:
             await self.device_client.send_command_response(command_response)
         except Exception:
-            print("responding to the {command} command failed".format(command=command.command_name))
+            print(
+                "responding to the {command_name} command failed".format(
+                    command_name=command_request.command_name
+                )
+            )
 
     async def handle_writable_property_update_request_received(self, writable_props):
         # only handles root properties
@@ -136,7 +140,7 @@ class ThermostatApp(object):
         properties = ClientPropertyCollection()
 
         for prop_name in writable_props.backing_object:
-            properties.set_pproperty(
+            properties.set_property(
                 prop_name,
                 WritablePropertyResponse(
                     ack_code=200,
@@ -146,7 +150,7 @@ class ThermostatApp(object):
                 ),
             )
 
-        await self.device_client.send_client_properties_udpate(properties)
+        await self.device_client.update_client_properties(properties)
 
     # END COMMAND AND PROPERTY LISTENERS
     #####################################################
@@ -235,7 +239,7 @@ class ThermostatApp(object):
         max_temp = 10.96  # Initial Max Temp otherwise will not pass certification
         properties = ClientPropertyCollection()
         properties.set_property_value("maxTempSinceLastReboot", max_temp)
-        await self.device_client.send_client_property_update(properties)
+        await self.device_client.update_client_propertieupdate_client_properties(properties)
 
         ################################################
         # Register callback and Handle command (reboot)
@@ -243,7 +247,7 @@ class ThermostatApp(object):
         self.device_client.on_writable_property_update_request_received = (
             self.handle_writable_property_update_request_received
         )
-        self.device_client.on_command_received = self.handle_command_received
+        self.device_client.on_command_request_received = self.handle_command_request_received
 
         ################################################
         # Send telemetry (current temperature)

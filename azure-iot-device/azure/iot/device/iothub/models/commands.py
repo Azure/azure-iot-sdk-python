@@ -7,11 +7,13 @@
 """
 
 
-class Command(object):
-    """Represents a request to invoke a direct method.
+class CommandRequest(object):
+    """Represents a request to invoke a Digital Twin command.
 
     :ivar str request_id: The request id.
-    :ivar str name: The name of the method to be invoked.
+    :ivar str component_name: The name of the component with the command to be invoked.
+        Set to None if the command is on the root component.
+    :ivar str command_name: The name of the command to be invoked.
     :ivar dict payload: The JSON payload being sent with the request.
     """
 
@@ -19,7 +21,9 @@ class Command(object):
         """Initializer for a MethodRequest.
 
         :param str request_id: The request id.
-        :param str name: The name of the method to be invoked
+        :param str component_name: The name of the component with the command to be invoked.
+            Set to None if the command is on the root component.
+        :param str command_name: The name of the command to be invoked.
         :param dict payload: The JSON payload being sent with the request.
         """
         self._request_id = request_id
@@ -45,19 +49,19 @@ class Command(object):
 
 
 class CommandResponse(object):
-    """Represents a response to a direct method.
+    """Represents a response to a Digital Twin command.
 
-    :ivar str request_id: The request id of the MethodRequest being responded to.
-    :ivar int status: The status of the execution of the MethodRequest.
+    :ivar str request_id: The request id of the CommandRequest being responded to.
+    :ivar int status: The status of the execution of the CommandRequest.
     :ivar payload: The JSON payload to be sent with the response.
     :type payload: dict, str, int, float, bool, or None (JSON compatible values)
     """
 
     def __init__(self, request_id, status, payload=None):
-        """Initializer for MethodResponse.
+        """Initializer for CommandResponse.
 
-        :param str request_id: The request id of the MethodRequest being responded to.
-        :param int status: The status of the execution of the MethodRequest.
+        :param str request_id: The request id of the CommandRequest being responded to.
+        :param int status: The status of the execution of the CommandRequest.
         :param payload: The JSON payload to be sent with the response. (OPTIONAL)
         :type payload: dict, str, int, float, bool, or None (JSON compatible values)
         """
@@ -66,12 +70,12 @@ class CommandResponse(object):
         self.payload = payload
 
     @classmethod
-    def create_from_command(cls, command, status, payload=None):
-        """Factory method for creating a MethodResponse from a MethodRequest.
+    def create_from_command_request(cls, command_request, status, payload=None):
+        """Factory method for creating a CommandResopnse from a CommandRequest.
 
-        :param method_request: The MethodRequest object to respond to.
-        :type method_request: MethodRequest.
-        :param int status: The status of the execution of the MethodRequest.
+        :param command_request: The CommandRequest object to respond to.
+        :type command_request: CommandRequest.
+        :param int status: The status of the execution of the CommandRequest.
         :type payload: dict, str, int, float, bool, or None (JSON compatible values)
         """
-        return cls(request_id=command.request_id, status=status, payload=payload)
+        return cls(request_id=command_request.request_id, status=status, payload=payload)

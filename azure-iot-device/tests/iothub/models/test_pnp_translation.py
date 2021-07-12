@@ -6,19 +6,19 @@
 
 from azure.iot.device.iothub.models.digital_twin_translation import (
     command_response_to_method_response,
-    method_request_to_command,
+    method_request_to_command_request,
 )
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from azure.iot.device.iothub.models import Command, CommandResponse
+from azure.iot.device.iothub.models import CommandRequest, CommandResponse
 import pytest
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-@pytest.mark.describe("method_request_to_command()")
+@pytest.mark.describe("method_request_to_command_request()")
 class TestMethodRequestToCommand(object):
-    @pytest.mark.it("Returns a Command with values derived from the given MethodRequest")
+    @pytest.mark.it("Returns a CommandRequest with values derived from the given MethodRequest")
     @pytest.mark.parametrize(
         "request_name, expected_component_name, expected_command_name",
         [
@@ -35,13 +35,13 @@ class TestMethodRequestToCommand(object):
     )
     def test_translation(self, request_name, expected_component_name, expected_command_name):
         method_request = MethodRequest(request_id="1", name=request_name, payload={"key": "value"})
-        command = method_request_to_command(method_request)
+        command_request = method_request_to_command_request(method_request)
 
-        assert isinstance(command, Command)
-        assert command.request_id == method_request.request_id
-        assert command.payload == method_request.payload
-        assert command.component_name == expected_component_name
-        assert command.command_name == expected_command_name
+        assert isinstance(command_request, CommandRequest)
+        assert command_request.request_id == method_request.request_id
+        assert command_request.payload == method_request.payload
+        assert command_request.component_name == expected_component_name
+        assert command_request.command_name == expected_command_name
 
 
 @pytest.mark.describe("command_response_to_method_response()")

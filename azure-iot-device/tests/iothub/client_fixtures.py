@@ -9,7 +9,7 @@ import pytest
 import time
 from six.moves import urllib
 from azure.iot.device.iothub.pipeline import constant
-from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest, Command
+from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest, CommandRequest
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.iothub.abstract_clients import CLIENT_MODE_BASIC, CLIENT_MODE_DIGITAL_TWIN
 
@@ -46,23 +46,23 @@ def method_request():
     return MethodRequest(request_id="1", name="some_method", payload={"key": "value"})
 
 
-@pytest.fixture(params=["Component Command", "Non-Component Command"])
+@pytest.fixture(params=["Component CommandRequest", "Non-Component CommandRequest"])
 def method_request_command(request):
-    # Method Request object containing Command info
-    if request.param == "Component Command":
+    # Method Request object containing CommandRequest info
+    if request.param == "Component CommandRequest":
         name = "some_component*some_command"
     else:
         name = "some_command"
     return MethodRequest(request_id="1", name=name, payload={"key": "value"})
 
 
-@pytest.fixture(params=["Component Command", "Non-Component Command"])
-def command(request):
-    if request.param == "Component Command":
+@pytest.fixture(params=["Component CommandRequest", "Non-Component CommandRequest"])
+def command_request(request):
+    if request.param == "Component CommandRequest":
         component_name = "some_component"
     else:
         component_name = None
-    return Command(
+    return CommandRequest(
         request_id="1",
         component_name=component_name,
         command_name="some_command",

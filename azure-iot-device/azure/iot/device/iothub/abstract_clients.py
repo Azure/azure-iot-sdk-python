@@ -140,7 +140,7 @@ class AbstractIoTHubClient(object):
         # Unwrapped Digital Twin handlers. These are not used within the client (we instead use
         # wrapped versions), but we cache them so we can return them to the user if they ask for
         # them
-        self._on_command_received_unwrapped = None
+        self._on_command_request_received_unwrapped = None
         self._on_writable_property_update_request_received_unwrapped = None
 
     def _on_connected(self):
@@ -460,7 +460,7 @@ class AbstractIoTHubClient(object):
     # pass
 
     # @abc.abstractmethod
-    # def send_client_property_updates(self, property_collection):
+    # def update_client_properties(self, property_collection):
     # (ClientPropertyCollection) -> None
     # pass
 
@@ -544,29 +544,29 @@ class AbstractIoTHubClient(object):
         )
 
     @property
-    def on_command_received(self):
+    def on_command_request_received(self):
         """The handler function or coroutine that will be called when a command is received.
 
         The function or coroutine definition should take one positional argument (the
-        :class:`azure.iot.device.Command` object)
+        :class:`azure.iot.device.CommandRequest` object)
 
         This handler is only compatible with Azure IoT Digital Twins.
         """
         if self._client_mode is CLIENT_MODE_DIGITAL_TWIN:
-            return self._on_command_received_unwrapped
+            return self._on_command_request_received_unwrapped
         else:
             return None
 
-    @on_command_received.setter
-    def on_command_received(self, value):
+    @on_command_request_received.setter
+    def on_command_request_received(self, value):
         self._check_client_mode_is_digital_twin()
 
         if value is not None:
             # Generate a wrapper around the user provided handler that will turn a MethodRequest into
-            # a Command, then invoke the user's handler
+            # a CommandRequest, then invoke the user's handler
             translation_wrapper = self._generate_digital_twin_handler_translation_wrapper(
                 handler_to_wrap=value,
-                translation_fn=digital_twin_translation.method_request_to_command,
+                translation_fn=digital_twin_translation.method_request_to_command_request,
             )
 
             # Set this wrapper as a handler on the HandlerManager
@@ -581,7 +581,7 @@ class AbstractIoTHubClient(object):
 
         # Cache the unwrapped handler so we can return it to user later,
         # or clear the cached value if being set to None.
-        self._on_command_received_unwrapped = value
+        self._on_command_request_received_unwrapped = value
 
     @property
     def on_writable_property_update_request_received(self):

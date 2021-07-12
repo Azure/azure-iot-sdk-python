@@ -25,7 +25,7 @@ from azure.iot.device.iothub.models import (
     Message,
     MethodRequest,
     MethodResponse,
-    Command,
+    CommandRequest,
     digital_twin_translation,
 )
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
@@ -2293,7 +2293,7 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
         # Handler is None
         assert client.on_method_request_received is None
         # Set analogous Digital Twin handler
-        client.on_command_received = handler
+        client.on_command_request_received = handler
         # Still None
         assert client.on_method_request_received is None
 
@@ -2355,20 +2355,20 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         assert client.on_twin_desired_properties_patch_received is None
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_command_received")
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_command_request_received")
 class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
-        """.on_command_received property is only compatible with Digital Twin Mode,
+        """.on_command_request_received property is only compatible with Digital Twin Mode,
         so need to override fixture
         """
         return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
 
     @pytest.fixture
     def handler_name(self):
-        return "on_command_received"
+        return "on_command_request_received"
 
     @pytest.fixture
     def handler_trigger(self, client):
@@ -2401,30 +2401,32 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
 
         method_request = handler_trigger_args[0]
         assert isinstance(method_request, MethodRequest)
-        command = handler_checker.handler_call_args[0][0]
-        assert isinstance(command, Command)
-        expected_command = digital_twin_translation.method_request_to_command(method_request)
-        assert command.request_id == expected_command.request_id
-        assert command.component_name == expected_command.component_name
-        assert command.command_name == expected_command.command_name
-        assert command.payload == expected_command.payload
+        command_request = handler_checker.handler_call_args[0][0]
+        assert isinstance(command_request, CommandRequest)
+        expected_command_request = digital_twin_translation.method_request_to_command_request(
+            method_request
+        )
+        assert command_request.request_id == expected_command_request.request_id
+        assert command_request.component_name == expected_command_request.component_name
+        assert command_request.command_name == expected_command_request.command_name
+        assert command_request.payload == expected_command_request.payload
 
     @pytest.mark.it("Returns None if trying to get the value from a client in Basic Mode")
     def test_client_mode_basic_get(self, client, handler):
         client._client_mode = CLIENT_MODE_BASIC
         # Handler is None
-        assert client.on_command_received is None
+        assert client.on_command_request_received is None
         # Set analogous BASIC handler
         client.on_method_request_received = handler
         # Still None
-        assert client.on_command_received is None
+        assert client.on_command_request_received is None
 
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in Basic Mode")
     def test_client_mode_basic_set(self, client, handler):
         client._client_mode = CLIENT_MODE_BASIC
         with pytest.raises(client_exceptions.ClientError):
-            client.on_command_received = handler
-        assert client.on_command_received is None
+            client.on_command_request_received = handler
+        assert client.on_command_request_received is None
 
 
 @pytest.mark.describe(
@@ -3185,7 +3187,7 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
         # Handler is None
         assert client.on_method_request_received is None
         # Set analogous Digital Twin handler
-        client.on_command_received = handler
+        client.on_command_request_received = handler
         # Still None
         assert client.on_method_request_received is None
 
@@ -3247,7 +3249,7 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
         assert client.on_twin_desired_properties_patch_received is None
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_received")
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_command_request_received")
 class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
@@ -3260,7 +3262,7 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
 
     @pytest.fixture
     def handler_name(self):
-        return "on_command_received"
+        return "on_command_request_received"
 
     @pytest.fixture
     def feature_name(self):
@@ -3289,13 +3291,15 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
 
         method_request = handler_trigger_args[0]
         assert isinstance(method_request, MethodRequest)
-        command = handler_checker.handler_call_args[0][0]
-        assert isinstance(command, Command)
-        expected_command = digital_twin_translation.method_request_to_command(method_request)
-        assert command.request_id == expected_command.request_id
-        assert command.component_name == expected_command.component_name
-        assert command.command_name == expected_command.command_name
-        assert command.payload == expected_command.payload
+        command_request = handler_checker.handler_call_args[0][0]
+        assert isinstance(command_request, CommandRequest)
+        expected_command_request = digital_twin_translation.method_request_to_command_request(
+            method_request
+        )
+        assert command_request.request_id == expected_command_request.request_id
+        assert command_request.component_name == expected_command_request.component_name
+        assert command_request.command_name == expected_command_request.command_name
+        assert command_request.payload == expected_command_request.payload
 
     @pytest.fixture
     def handler_trigger_args(self, method_request_command):
@@ -3305,18 +3309,18 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
     def test_client_mode_basic_get(self, client, handler):
         client._client_mode = CLIENT_MODE_BASIC
         # Handler is None
-        assert client.on_command_received is None
+        assert client.on_command_request_received is None
         # Set analogous BASIC handler
         client.on_method_request_received = handler
         # Still None
-        assert client.on_command_received is None
+        assert client.on_command_request_received is None
 
     @pytest.mark.it("Raises a ClientError if trying to set value on a client in Basic Mode")
     def test_client_mode_basic_set(self, client, handler):
         client._client_mode = CLIENT_MODE_BASIC
         with pytest.raises(client_exceptions.ClientError):
-            client.on_command_received = handler
-        assert client.on_command_received is None
+            client.on_command_request_received = handler
+        assert client.on_command_request_received is None
 
 
 @pytest.mark.describe(

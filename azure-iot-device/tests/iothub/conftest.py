@@ -13,7 +13,7 @@ from .client_fixtures import (
     method_response,
     method_request,
     method_request_command,
-    command,
+    command_request,
     command_response,
     twin_patch_desired,
     twin_patch_reported,
