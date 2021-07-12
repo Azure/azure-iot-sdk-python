@@ -4,12 +4,14 @@
 # license information.
 # --------------------------------------------------------------------------
 
+from azure.iot.device.iothub.models.commands import Command
 import logging
-import json
 import pytest
 import asyncio
 import threading
 import time
+import json
+import inspect
 import os
 import io
 import sys
@@ -20,14 +22,20 @@ from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
-from azure.iot.device.iothub.models import Message, MethodRequest
+from azure.iot.device.iothub.models import (
+    digital_twin_translation,
+    Message,
+    MethodRequest,
+    MethodResponse,
+)
 from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
     RECEIVE_TYPE_HANDLER,
     RECEIVE_TYPE_API,
-    CLIENT_MODE_PNP,
+    CLIENT_MODE_DIGITAL_TWIN,
     CLIENT_MODE_BASIC,
 )
+from azure.iot.device.iothub import client_event
 from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
 from azure.iot.device.common import async_adapter
 from azure.iot.device import constant as device_constant
@@ -61,19 +69,41 @@ async def create_completed_future(result=None):
 ##########################
 # SHARED CLIENT FIXTURES #
 ##########################
+@pytest.fixture
+def handler_checker():
+    """Can't use Mocks for handlers, but need a way to track if they are called"""
+
+    class HandlerChecker:
+        def __init__(self):
+            self.handler_call_count = 0
+            self.handler_call_args = None
+            self.lock = threading.Lock()
+
+    return HandlerChecker()
+
+
 @pytest.fixture(params=["Handler Function", "Handler Coroutine"])
-def handler(request):
+def handler(mocker, request, handler_checker):
+    # NOTE: You might ask "why not just use a mock instead of this weird business with a
+    # handler_checker?" and the answer is "because that would mean the handler would not
+    # actually be a function, it would be a mock object, and that will mess up the code due to
+    # the use of type-checking". Then the additional follow-up answer would be "Also mocking
+    # coroutines is difficult due to needing to be compatible across multiple versions of Python 3"
     if request.param == "Handler Function":
 
-        def _handler_function(arg):
-            pass
+        def _handler_function(*args, **kwargs):
+            with handler_checker.lock:
+                handler_checker.handler_call_count += 1
+                handler_checker.handler_call_args = (args, kwargs)
 
         return _handler_function
 
     else:
 
-        async def _handler_coroutine(arg):
-            pass
+        async def _handler_coroutine(*args, **kwargs):
+            with handler_checker.lock:
+                handler_checker.handler_call_count += 1
+                handler_checker.handler_call_args = (args, kwargs)
 
         return _handler_coroutine
 
@@ -373,19 +403,6 @@ class SharedClientUpdateSasTokenTests(object):
         return client_class(mqtt_pipeline, http_pipeline, client_mode)
 
     @pytest.fixture
-    def sas_client_manual_cb(
-        self,
-        client_class,
-        mqtt_pipeline_manual_cb,
-        http_pipeline_manual_cb,
-        sas_config,
-        client_mode,
-    ):
-        mqtt_pipeline_manual_cb.pipeline_configuration = sas_config
-        http_pipeline_manual_cb.pipeline_configuration = sas_config
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, client_mode)
-
-    @pytest.fixture
     def new_sas_token_string(self, uri):
         # New SASToken String that matches old device id, module_id and hostname
         signature = "AvCQCS7uVk8Lxau7rBs/jek4iwENIwLwpEV7NIJySc0="
@@ -550,13 +567,15 @@ class SharedClientUpdateSasTokenTests(object):
 class SharedClientSendD2CMessageTests(object):
     @pytest.fixture
     def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.send_message() is only compatible with BASIC mode, so need to override fixture"""
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
-
-    @pytest.fixture
-    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
-        """.send_message() is only compatible with BASIC mode, so need to override fixture"""
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+        """.send_message() is only compatible with Basic Mode, so need to override fixture"""
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.mark.it("Begins a 'send_message' pipeline operation")
     async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, message):
@@ -689,147 +708,27 @@ class SharedClientSendD2CMessageTests(object):
         assert isinstance(sent_message, Message)
         assert sent_message.data == data_input
 
-    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, message):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, message):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
             await client.send_message(message)
         assert mqtt_pipeline.send_message.call_count == 0
 
 
-class SharedClientSendTelemetryTests(object):
-    @pytest.fixture
-    def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.send_telemetry() is only compatible with PNP mode, so need to override fixture"""
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_PNP)
-
-    @pytest.fixture
-    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
-        """.send_telemetry() is only compatible with PNP mode, so need to override fixture"""
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_PNP)
-
-    @pytest.mark.it("Begins a 'send_message' pipeline operation")
-    async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, telemetry_dict):
-        await client.send_telemetry(telemetry_dict)
-        assert mqtt_pipeline.send_message.call_count == 1
-
-    @pytest.mark.it("Correctly populates the Message object without a component name")
-    async def test_populates_message_without_component(self, client, mqtt_pipeline, telemetry_dict):
-        await client.send_telemetry(telemetry_dict)
-        message = mqtt_pipeline.send_message.call_args[0][0]
-
-        assert isinstance(message, Message)
-        assert message.content_encoding == "utf-8"
-        assert message.content_type == "application/json"
-        assert str(message) == json.dumps(telemetry_dict)
-        with pytest.raises(KeyError):
-            message.custom_properties["$.sub"]
-
-    @pytest.mark.it("Correctly populates the Message object with a component name")
-    async def test_populates_message_with_component(
-        self, client, mqtt_pipeline, telemetry_dict, component_name
-    ):
-        await client.send_telemetry(telemetry_dict, component_name)
-        message = mqtt_pipeline.send_message.call_args[0][0]
-
-        assert isinstance(message, Message)
-        assert message.content_encoding == "utf-8"
-        assert message.content_type == "application/json"
-        assert str(message) == json.dumps(telemetry_dict)
-        assert message.custom_properties["$.sub"] == component_name
-
-    @pytest.mark.it(
-        "Waits for the completion of the 'send_message' pipeline operation before returning"
-    )
-    async def test_waits_for_pipeline_op_completion(
-        self, mocker, client, mqtt_pipeline, telemetry_dict
-    ):
-        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
-        cb_mock.completion.return_value = await create_completed_future(None)
-
-        await client.send_telemetry(telemetry_dict)
-
-        # Assert callback is sent to pipeline
-        assert mqtt_pipeline.send_message.call_args[1]["callback"] is cb_mock
-        # Assert callback completion is waited upon
-        assert cb_mock.completion.call_count == 1
-
-    @pytest.mark.it(
-        "Raises a client error if the `send_message` pipeline operation calls back with a pipeline error"
-    )
-    @pytest.mark.parametrize(
-        "pipeline_error,client_error",
-        [
-            pytest.param(
-                pipeline_exceptions.ConnectionDroppedError,
-                client_exceptions.ConnectionDroppedError,
-                id="ConnectionDroppedError->ConnectionDroppedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ConnectionFailedError,
-                client_exceptions.ConnectionFailedError,
-                id="ConnectionFailedError->ConnectionFailedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.NoConnectionError,
-                client_exceptions.NoConnectionError,
-                id="NoConnectionError->NoConnectionError",
-            ),
-            pytest.param(
-                pipeline_exceptions.UnauthorizedError,
-                client_exceptions.CredentialError,
-                id="UnauthorizedError->CredentialError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ProtocolClientError,
-                client_exceptions.ClientError,
-                id="ProtocolClientError->ClientError",
-            ),
-            pytest.param(
-                pipeline_exceptions.OperationCancelled,
-                client_exceptions.OperationCancelled,
-                id="OperationCancelled -> OperationCancelled",
-            ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
-        ],
-    )
-    async def test_raises_error_on_pipeline_op_error(
-        self, mocker, client, mqtt_pipeline, telemetry_dict, client_error, pipeline_error
-    ):
-        my_pipeline_error = pipeline_error()
-
-        def fail_send_message(message, callback):
-            callback(error=my_pipeline_error)
-
-        mqtt_pipeline.send_message = mocker.MagicMock(side_effect=fail_send_message)
-        with pytest.raises(client_error) as e_info:
-            await client.send_telemetry(telemetry_dict)
-        assert e_info.value.__cause__ is my_pipeline_error
-        assert mqtt_pipeline.send_message.call_count == 1
-
-    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
-        data_input = {"bigtext": "serpensortia" * 25600}
-        with pytest.raises(ValueError) as e_info:
-            await client.send_telemetry(data_input)
-        assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_message.call_count == 0
-
-    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, telemetry_dict):
-        client._client_mode = CLIENT_MODE_BASIC
-
-        with pytest.raises(client_exceptions.ClientError):
-            await client.send_telemetry(telemetry_dict)
-        assert mqtt_pipeline.send_message.call_count == 0
-
-
 class SharedClientReceiveMethodRequestTests(object):
     @pytest.fixture
     def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.receive_method_request() is only compatible with BASIC mode, so need to override fixture"""
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        """.receive_method_request() is only compatible with Basic Mode, so need to override fixture"""
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.mark.it("Implicitly enables methods feature if not already enabled")
     @pytest.mark.parametrize(
@@ -960,13 +859,13 @@ class SharedClientReceiveMethodRequestTests(object):
         # Inbox get was not called
         assert inbox_get_mock.call_count == 0
 
-    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
+    @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
     @pytest.mark.parametrize(
         "method_name",
         [pytest.param(None, id="Generic Method"), pytest.param("method_x", id="Named Method")],
     )
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, method_name):
-        client._client_mode = CLIENT_MODE_PNP
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, method_name):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
             await client.receive_method_request(method_name=method_name)
@@ -976,13 +875,15 @@ class SharedClientReceiveMethodRequestTests(object):
 class SharedClientSendMethodResponseTests(object):
     @pytest.fixture
     def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.send_method_response() is only compatible with BASIC mode, so need to override fixture"""
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
-
-    @pytest.fixture
-    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
-        """.send_method_response() is only compatible with BASIC mode, so need to override fixture"""
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+        """.send_method_response() is only compatible with Basic Mode, so need to override fixture"""
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.mark.it("Begins a 'send_method_response' pipeline operation")
     async def test_send_method_response_calls_pipeline(
@@ -1061,12 +962,249 @@ class SharedClientSendMethodResponseTests(object):
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.send_method_response.call_count == 1
 
-    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, method_response):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, method_response):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
             await client.send_method_response(method_response)
+        assert mqtt_pipeline.send_method_response.call_count == 0
+
+
+class SharedClientSendTelemetryTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_telemetry() is only compatible with Digital Twin Mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_telemetry() is only compatible with Digital Twin Mode, so need to override fixture"""
+        return client_class(
+            mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_DIGITAL_TWIN
+        )
+
+    @pytest.mark.it("Begins a 'send_message' pipeline operation")
+    async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, telemetry_dict):
+        await client.send_telemetry(telemetry_dict)
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Correctly populates the Message object without a component name")
+    async def test_populates_message_without_component(self, client, mqtt_pipeline, telemetry_dict):
+        await client.send_telemetry(telemetry_dict)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        with pytest.raises(KeyError):
+            message.custom_properties["$.sub"]
+
+    @pytest.mark.it("Correctly populates the Message object with a component name")
+    async def test_populates_message_with_component(self, client, mqtt_pipeline, telemetry_dict):
+        component_name = "some_component"
+        await client.send_telemetry(telemetry_dict, component_name)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        assert message.custom_properties["$.sub"] == component_name
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_message' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, telemetry_dict
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.send_telemetry(telemetry_dict)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.send_message.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_message` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, telemetry_dict, client_error, pipeline_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_message(message, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.send_message = mocker.MagicMock(side_effect=fail_send_message)
+        with pytest.raises(client_error) as e_info:
+            await client.send_telemetry(telemetry_dict)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
+        data_input = {"bigtext": "serpensortia" * 25600}
+        with pytest.raises(ValueError) as e_info:
+            await client.send_telemetry(data_input)
+        assert "256 KB" in e_info.value.args[0]
+        assert mqtt_pipeline.send_message.call_count == 0
+
+    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
+    async def test_client_mode_basic(self, client, mqtt_pipeline, telemetry_dict):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_telemetry(telemetry_dict)
+        assert mqtt_pipeline.send_message.call_count == 0
+
+
+class SharedClientSendCommandResponseTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_method_response() is only compatible with Digital Twin Mode, so need to override fixture"""
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.mark.it(
+        "Creates a MethodResponse object from the provided CommandResponse, and begins a 'send_method_response' pipeline operation with it"
+    )
+    async def test_send_method_response_calls_pipeline(
+        self, client, mqtt_pipeline, command_response
+    ):
+        expected_method_response = digital_twin_translation.command_response_to_method_response(
+            command_response
+        )
+
+        await client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 1
+        method_response = mqtt_pipeline.send_method_response.call_args[0][0]
+        assert isinstance(method_response, MethodResponse)
+        assert method_response.request_id == expected_method_response.request_id
+        assert method_response.status == expected_method_response.status
+        assert method_response.payload == expected_method_response.payload
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_method_response' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, command_response
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.send_command_response(command_response)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.send_method_response.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, command_response, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_method_response(response, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.send_method_response = mocker.MagicMock(side_effect=fail_send_method_response)
+        with pytest.raises(client_error) as e_info:
+            await client.send_command_response(command_response)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.send_method_response.call_count == 1
+
+    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, command_response):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_command_response(command_response)
         assert mqtt_pipeline.send_method_response.call_count == 0
 
 
@@ -1187,17 +1325,17 @@ class SharedClientGetTwinTests(object):
 class SharedClientPatchTwinReportedPropertiesTests(object):
     @pytest.fixture
     def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.patch_twin_reported_properties() is only compatible with BASIC mode, so need to override
+        """.patch_twin_reported_properties() is only compatible with Basic Mode, so need to override
         fixture
         """
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
-
-    @pytest.fixture
-    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
-        """.patch_twin_reported_properties() is only compatible with BASIC mode, so need to override
-        fixture
-        """
-        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
     async def test_enables_twin_only_if_not_already_enabled(
@@ -1307,9 +1445,9 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
         assert e_info.value.__cause__ is my_pipeline_error
         assert mqtt_pipeline.patch_twin_reported_properties.call_count == 1
 
-    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline, twin_patch_reported):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, twin_patch_reported):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
             await client.patch_twin_reported_properties(twin_patch_reported)
@@ -1319,10 +1457,17 @@ class SharedClientPatchTwinReportedPropertiesTests(object):
 class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
     @pytest.fixture
     def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.receive_twin_desired_properties_patch() is only compatible with BASIC mode, so need to override
+        """.receive_twin_desired_properties_patch() is only compatible with Basic Mode, so need to override
         fixture
         """
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.mark.it("Implicitly enables twin patch messaging feature if not already enabled")
     async def test_enables_c2d_messaging_only_if_not_already_enabled(
@@ -1407,9 +1552,9 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         # Inbox get was not called
         assert inbox_get_mock.call_count == 0
 
-    @pytest.mark.it("Raises a ClientError if called with a client in PNP mode")
-    async def test_client_mode_pnp(self, client, mqtt_pipeline):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
 
         with pytest.raises(client_exceptions.ClientError):
             await client.receive_twin_desired_properties_patch()
@@ -1567,13 +1712,6 @@ class TestIoTHubDeviceClientSendD2CMessage(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_telemetry()")
-class TestIoTHubDeviceClientSendTelemetry(
-    SharedClientSendTelemetryTests, IoTHubDeviceClientTestsConfig
-):
-    pass
-
-
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .receive_message()")
 class TestIoTHubDeviceClientReceiveC2DMessage(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Implicitly enables C2D messaging feature if not already enabled")
@@ -1687,6 +1825,20 @@ class TestIoTHubDeviceClientPatchTwinReportedProperties(
 )
 class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     SharedClientReceiveTwinDesiredPropertiesPatchTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_telemetry()")
+class TestIoTHubDeviceClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_command_response()")
+class TestIoTHubDeviceClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
@@ -1853,6 +2005,17 @@ class TestIoTHubDeviceClientPROPERTYOnMessageReceivedHandler(
     def feature_name(self):
         return pipeline_constant.C2D_MSG
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_c2d_message(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, message):
+        return [message]
+
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_method_request_received")
 class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
@@ -1860,10 +2023,17 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
 ):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
-        """.on_method_request_received property is only compatible with BASIC mode, so need to
+        """.on_method_request_received property is only compatible with Basic Mode, so need to
         override fixture
         """
-        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def handler_name(self):
@@ -1873,9 +2043,30 @@ class TestIoTHubDeviceClientPROPERTYOnMethodRequestReceivedHandler(
     def feature_name(self):
         return pipeline_constant.METHODS
 
-    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp(self, client, handler):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request):
+        return [method_request]
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
+        # Handler is None
+        assert client.on_method_request_received is None
+        # Set analogous Digital Twin handler
+        client.on_command_received = handler
+        # Still None
+        assert client.on_method_request_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
+    def test_client_mode_digital_twin(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_method_request_received = handler
         assert client.on_method_request_received is None
@@ -1889,10 +2080,17 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 ):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
-        """.on_twin_desired_properties_patch_received property is only compatible with BASIC mode,
+        """.on_twin_desired_properties_patch_received property is only compatible with Basic Mode,
         so need to override fixture
         """
-        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def handler_name(self):
@@ -1902,12 +2100,122 @@ class TestIoTHubDeviceClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
 
-    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp(self, client, handler):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_twin_patch(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, twin_patch_desired):
+        return [twin_patch_desired]
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
+        # Handler is None
+        assert client.on_twin_desired_properties_patch_received is None
+        # Set analogous Digital Twin handler
+        client.on_writable_property_patch_received = handler
+        # Still None
+        assert client.on_twin_desired_properties_patch_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler
         assert client.on_twin_desired_properties_patch_received is None
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_command_received")
+class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+):
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_command_received property is only compatible with Digital Twin Mode,
+        so need to override fixture
+        """
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_command_received"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request_command):
+        return [method_request_command]
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+    @pytest.mark.it(
+        "Is invoked with a Digital Twin object derived from the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self, client, handler, handler_checker, handler_name, handler_trigger, handler_trigger_args
+    ):
+        # NOTE: This test function overrides an inherited one in order to test object translation
+        setattr(client, handler_name, handler)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        method_request = handler_trigger_args[0]
+        assert isinstance(method_request, MethodRequest)
+        command = handler_checker.handler_call_args[0][0]
+        assert isinstance(command, Command)
+        expected_command = digital_twin_translation.method_request_to_command(method_request)
+        assert command.request_id == expected_command.request_id
+        assert command.component_name == expected_command.component_name
+        assert command.command_name == expected_command.command_name
+        assert command.payload == expected_command.payload
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Basic Mode")
+    def test_client_mode_basic_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        # Handler is None
+        assert client.on_command_received is None
+        # Set analogous BASIC handler
+        client.on_method_request_received = handler
+        # Still None
+        assert client.on_command_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Basic Mode")
+    def test_client_mode_basic_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_command_received = handler
+        assert client.on_command_received is None
+
+
+@pytest.mark.describe(
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
+)
+class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceivedHandler(
+    IoTHubDeviceClientTestsConfig
+):
+    # TODO: implement these tests
+    pass
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_connection_state_change")
@@ -1917,6 +2225,20 @@ class TestIoTHubDeviceClientPROPERTYOnConnectionStateChangeHandler(
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client_event_inbox = client._inbox_manager.get_client_event_inbox()
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self):
+        # Invoked with no args
+        return []
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .connected")
@@ -2139,15 +2461,8 @@ class TestIoTHubModuleClientDisconnectEvent(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_message()")
-class TestIoTHubModuleClientSendD2CMessage(
+class TestIoTHubNModuleClientSendD2CMessage(
     SharedClientSendD2CMessageTests, IoTHubModuleClientTestsConfig
-):
-    pass
-
-
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_telemetry()")
-class TestIoTHubModuleClientSendTelemetry(
-    SharedClientSendTelemetryTests, IoTHubModuleClientTestsConfig
 ):
     pass
 
@@ -2424,6 +2739,20 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_telemetry()")
+class TestIoTHubModuleClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_command_response()")
+class TestIoTHubModuleClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
@@ -2516,6 +2845,17 @@ class TestIoTHubModuleClientPROPERTYOnMessageReceivedHandler(
     def feature_name(self):
         return pipeline_constant.INPUT_MSG
 
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_input_message(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, message):
+        return [message]
+
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_method_request_received")
 class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
@@ -2523,10 +2863,17 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
 ):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
-        """.on_method_request_received property is only compatible with BASIC mode, so need to
+        """.on_method_request_received property is only compatible with Basic Mode, so need to
         override fixture
         """
-        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def handler_name(self):
@@ -2536,19 +2883,30 @@ class TestIoTHubModuleClientPROPERTYOnMethodRequestReceivedHandler(
     def feature_name(self):
         return pipeline_constant.METHODS
 
-    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
-    def test_client_mode_pnp_get(self, client, handler):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request):
+        return [method_request]
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         # Handler is None
         assert client.on_method_request_received is None
-        # Set analogous PNP handler
+        # Set analogous Digital Twin handler
         client.on_command_received = handler
         # Still None
         assert client.on_method_request_received is None
 
-    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp_set(self, client, handler):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_method_request_received = handler
         assert client.on_method_request_received is None
@@ -2562,10 +2920,17 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
 ):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline):
-        """.on_twin_desired_properties_patch_received property is only compatible with BASIC mode,
+        """.on_twin_desired_properties_patch_received property is only compatible with Basic Mode,
         so need to override fixture
         """
-        return IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
 
     @pytest.fixture
     def handler_name(self):
@@ -2575,31 +2940,145 @@ class TestIoTHubModuleClientPROPERTYOnTwinDesiredPropertiesPatchReceivedHandler(
     def feature_name(self):
         return pipeline_constant.TWIN_PATCHES
 
-    @pytest.mark.it("Returns None if trying to get the value from a client in PNP Mode")
-    def test_client_mode_pnp_get(self, client, handler):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_twin_patch(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, twin_patch_desired):
+        return [twin_patch_desired]
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         # Handler is None
         assert client.on_twin_desired_properties_patch_received is None
-        # Set analogous PNP handler
+        # Set analogous Digital Twin handler
         client.on_writable_property_patch_received = handler
         # Still None
         assert client.on_twin_desired_properties_patch_received is None
 
-    @pytest.mark.it("Raises a ClientError if trying to set value on a client in PNP Mode")
-    def test_client_mode_pnp_set(self, client, handler):
-        client._client_mode = CLIENT_MODE_PNP
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Digital Twin Mode")
+    def test_client_mode_digital_twin_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
         with pytest.raises(client_exceptions.ClientError):
             client.on_twin_desired_properties_patch_received = handler
         assert client.on_twin_desired_properties_patch_received is None
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_connection_state_change")
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_command_received")
+class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
+):
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_command_received property is only compatible with Digital Twin Mode,
+        so need to override fixture
+        """
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_command_received"
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.METHODS
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_method_request(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, method_request_command):
+        return [method_request_command]
+
+    @pytest.mark.it(
+        "Is invoked with a Digital Twin object derived from the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self, client, handler, handler_checker, handler_name, handler_trigger, handler_trigger_args
+    ):
+        # NOTE: This test function overrides an inherited one in order to test object translation
+        setattr(client, handler_name, handler)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        method_request = handler_trigger_args[0]
+        assert isinstance(method_request, MethodRequest)
+        command = handler_checker.handler_call_args[0][0]
+        assert isinstance(command, Command)
+        expected_command = digital_twin_translation.method_request_to_command(method_request)
+        assert command.request_id == expected_command.request_id
+        assert command.component_name == expected_command.component_name
+        assert command.command_name == expected_command.command_name
+        assert command.payload == expected_command.payload
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Basic Mode")
+    def test_client_mode_basic_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        # Handler is None
+        assert client.on_command_received is None
+        # Set analogous BASIC handler
+        client.on_method_request_received = handler
+        # Still None
+        assert client.on_command_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Basic Mode")
+    def test_client_mode_basic_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_command_received = handler
+        assert client.on_command_received is None
+
+
+@pytest.mark.describe(
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
+)
+class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceivedHandler(
+    IoTHubModuleClientTestsConfig
+):
+    # TODO: implement these tests
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_connection_state_change")
 class TestIoTHubModuleClientPROPERTYOnConnectionStateChangeHandler(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
         return "on_connection_state_change"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client_event_inbox = client._inbox_manager.get_client_event_inbox()
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self):
+        # Invoked with no args
+        return []
 
 
 @pytest.mark.describe("IoTHubModule (Asynchronous) - PROPERTY .connected")
