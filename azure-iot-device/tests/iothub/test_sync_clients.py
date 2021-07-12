@@ -33,8 +33,8 @@ from .shared_client_tests import (
     SharedIoTHubClientPROPERTYHandlerTests,
     SharedIoTHubClientPROPERTYReceiverHandlerTests,
     SharedIoTHubClientPROPERTYConnectedTests,
-    SharedIoTHubClientOCCURANCEConnectTests,
-    SharedIoTHubClientOCCURANCEDisconnectTests,
+    SharedIoTHubClientOCCURRENCEConnectTests,
+    SharedIoTHubClientOCCURRENCEDisconnectTests,
     SharedIoTHubClientCreateFromConnectionStringTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromSastokenTests,
@@ -1909,16 +1909,16 @@ class TestIoTHubDeviceClientPROPERTYConnected(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURANCE: Connect")
-class TestIoTHubDeviceClientOCCURANCEConnect(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURANCEConnectTests
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURRENCE: Connect")
+class TestIoTHubDeviceClientOCCURRENCEConnect(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEConnectTests
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURANCE: Disconnect")
-class TestIoTHubDeviceClientOCCURANCEDisconnect(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURRENCE: Disconnect")
+class TestIoTHubDeviceClientOCCURRENCEDisconnect(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEDisconnectTests
 ):
     pass
 
@@ -2610,15 +2610,15 @@ class TestIoTHubModuleClientPROPERTYConnected(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURANCE: Connect")
-class TestIoTHubModuleClientOCCURANCEConnect(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEConnectTests
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: Connect")
+class TestIoTHubModuleClientOCCURRENCEConnect(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCEConnectTests
 ):
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURANCE: Disconnect")
-class TestIoTHubModuleClientOCCURANCEDisconnect(
-    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURANCEDisconnectTests
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: Disconnect")
+class TestIoTHubModuleClientOCCURRENCEDisconnect(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCEDisconnectTests
 ):
     pass
