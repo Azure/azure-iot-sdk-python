@@ -456,8 +456,7 @@ class AbstractIoTHubClient(object):
 
     # @abc.abstractmethod
     # def get_client_properties(self):
-    # () -> ClientProperties
-    # pass
+    #     pass
 
     # @abc.abstractmethod
     # def update_client_properties(self, property_collection):

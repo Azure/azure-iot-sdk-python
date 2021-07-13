@@ -1209,6 +1209,20 @@ class SharedClientSendCommandResponseTests(object):
 
 
 class SharedClientGetTwinTests(object):
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_method_request_received property is only compatible with Basic Mode, so need to
+        override fixture
+        """
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
     async def test_enables_twin_only_if_not_already_enabled(
         self, mocker, client, mqtt_pipeline, fake_twin
@@ -1809,7 +1823,7 @@ class TestIoTHubDeviceClientSendMethodResponse(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_twin()")
-class TestIoTHubDeviceClientGetTwin(IoTHubDeviceClientTestsConfig, SharedClientGetTwinTests):
+class TestIoTHubDeviceClientGetTwin(SharedClientGetTwinTests, IoTHubDeviceClientTestsConfig):
     pass
 
 
@@ -2721,7 +2735,7 @@ class TestIoTHubModuleClientSendMethodResponse(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .get_twin()")
-class TestIoTHubModuleClientGetTwin(IoTHubModuleClientTestsConfig, SharedClientGetTwinTests):
+class TestIoTHubModuleClientGetTwin(SharedClientGetTwinTests, IoTHubModuleClientTestsConfig):
     pass
 
 

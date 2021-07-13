@@ -1212,7 +1212,7 @@ class SharedClientSendCommandResponseTests(WaitsForEventCompletion):
 
     @pytest.fixture
     def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
-        """.send_command_response() is only compatible with Basic Mode, so need to override fixture"""
+        """.send_command_response() is only compatible with Digital Twin Mode, so need to override fixture"""
         return client_class(
             mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_DIGITAL_TWIN
         )
@@ -1312,6 +1312,16 @@ class SharedClientSendCommandResponseTests(WaitsForEventCompletion):
 
 
 class SharedClientGetTwinTests(WaitsForEventCompletion):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.get_twin() is only compatible with Basic Mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_BASIC)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.get_twin() is only compatible with Basic Mode, so need to override fixture"""
+        return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
+
     @pytest.fixture
     def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
         def immediate_callback(callback):
@@ -1417,6 +1427,14 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
         )
         returned_twin = client_manual_cb.get_twin()
         assert returned_twin == fake_twin
+
+    @pytest.mark.it("Raises a ClientError if called with a client in Digital Twin Mode")
+    def test_client_mode_digital_twin(self, client, mqtt_pipeline):
+        client._client_mode = CLIENT_MODE_DIGITAL_TWIN
+
+        with pytest.raises(client_exceptions.ClientError):
+            client.get_twin()
+        assert mqtt_pipeline.get_twin.call_count == 0
 
 
 class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
@@ -2049,7 +2067,7 @@ class TestIoTHubDeviceClientSendMethodResponse(
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .get_twin()")
-class TestIoTHubDeviceClientGetTwin(IoTHubDeviceClientTestsConfig, SharedClientGetTwinTests):
+class TestIoTHubDeviceClientGetTwin(SharedClientGetTwinTests, IoTHubDeviceClientTestsConfig):
     pass
 
 
@@ -3020,7 +3038,7 @@ class TestIoTHubModuleClientSendMethodResponse(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .get_twin()")
-class TestIoTHubModuleClientGetTwin(IoTHubModuleClientTestsConfig, SharedClientGetTwinTests):
+class TestIoTHubModuleClientGetTwin(SharedClientGetTwinTests, IoTHubModuleClientTestsConfig):
     pass
 
 

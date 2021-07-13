@@ -463,10 +463,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
         logger.info("Getting twin")
+        self._check_client_mode_is_basic()
 
         if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
             await self._enable_feature(constant.TWIN)
