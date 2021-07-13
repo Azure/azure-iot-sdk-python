@@ -973,374 +973,6 @@ class SharedClientSendMethodResponseTests(object):
         assert mqtt_pipeline.send_method_response.call_count == 0
 
 
-class SharedClientSendTelemetryTests(object):
-    @pytest.fixture
-    def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.send_telemetry() is only compatible with Digital Twin Mode, so need to override fixture"""
-        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
-
-    @pytest.fixture
-    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
-        """.send_telemetry() is only compatible with Digital Twin Mode, so need to override fixture"""
-        return client_class(
-            mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_DIGITAL_TWIN
-        )
-
-    @pytest.mark.it("Begins a 'send_message' pipeline operation")
-    async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, telemetry_dict):
-        await client.send_telemetry(telemetry_dict)
-        assert mqtt_pipeline.send_message.call_count == 1
-
-    @pytest.mark.it("Correctly populates the Message object without a component name")
-    async def test_populates_message_without_component(self, client, mqtt_pipeline, telemetry_dict):
-        await client.send_telemetry(telemetry_dict)
-        message = mqtt_pipeline.send_message.call_args[0][0]
-
-        assert isinstance(message, Message)
-        assert message.content_encoding == "utf-8"
-        assert message.content_type == "application/json"
-        assert str(message) == json.dumps(telemetry_dict)
-        with pytest.raises(KeyError):
-            message.custom_properties["$.sub"]
-
-    @pytest.mark.it("Correctly populates the Message object with a component name")
-    async def test_populates_message_with_component(self, client, mqtt_pipeline, telemetry_dict):
-        component_name = "some_component"
-        await client.send_telemetry(telemetry_dict, component_name)
-        message = mqtt_pipeline.send_message.call_args[0][0]
-
-        assert isinstance(message, Message)
-        assert message.content_encoding == "utf-8"
-        assert message.content_type == "application/json"
-        assert str(message) == json.dumps(telemetry_dict)
-        assert message.custom_properties["$.sub"] == component_name
-
-    @pytest.mark.it(
-        "Waits for the completion of the 'send_message' pipeline operation before returning"
-    )
-    async def test_waits_for_pipeline_op_completion(
-        self, mocker, client, mqtt_pipeline, telemetry_dict
-    ):
-        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
-        cb_mock.completion.return_value = await create_completed_future(None)
-
-        await client.send_telemetry(telemetry_dict)
-
-        # Assert callback is sent to pipeline
-        assert mqtt_pipeline.send_message.call_args[1]["callback"] is cb_mock
-        # Assert callback completion is waited upon
-        assert cb_mock.completion.call_count == 1
-
-    @pytest.mark.it(
-        "Raises a client error if the `send_message` pipeline operation calls back with a pipeline error"
-    )
-    @pytest.mark.parametrize(
-        "pipeline_error,client_error",
-        [
-            pytest.param(
-                pipeline_exceptions.ConnectionDroppedError,
-                client_exceptions.ConnectionDroppedError,
-                id="ConnectionDroppedError->ConnectionDroppedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ConnectionFailedError,
-                client_exceptions.ConnectionFailedError,
-                id="ConnectionFailedError->ConnectionFailedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.NoConnectionError,
-                client_exceptions.NoConnectionError,
-                id="NoConnectionError->NoConnectionError",
-            ),
-            pytest.param(
-                pipeline_exceptions.UnauthorizedError,
-                client_exceptions.CredentialError,
-                id="UnauthorizedError->CredentialError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ProtocolClientError,
-                client_exceptions.ClientError,
-                id="ProtocolClientError->ClientError",
-            ),
-            pytest.param(
-                pipeline_exceptions.OperationCancelled,
-                client_exceptions.OperationCancelled,
-                id="OperationCancelled -> OperationCancelled",
-            ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
-        ],
-    )
-    async def test_raises_error_on_pipeline_op_error(
-        self, mocker, client, mqtt_pipeline, telemetry_dict, client_error, pipeline_error
-    ):
-        my_pipeline_error = pipeline_error()
-
-        def fail_send_message(message, callback):
-            callback(error=my_pipeline_error)
-
-        mqtt_pipeline.send_message = mocker.MagicMock(side_effect=fail_send_message)
-        with pytest.raises(client_error) as e_info:
-            await client.send_telemetry(telemetry_dict)
-        assert e_info.value.__cause__ is my_pipeline_error
-        assert mqtt_pipeline.send_message.call_count == 1
-
-    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
-    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
-        data_input = {"bigtext": "serpensortia" * 25600}
-        with pytest.raises(ValueError) as e_info:
-            await client.send_telemetry(data_input)
-        assert "256 KB" in e_info.value.args[0]
-        assert mqtt_pipeline.send_message.call_count == 0
-
-    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
-    async def test_client_mode_basic(self, client, mqtt_pipeline, telemetry_dict):
-        client._client_mode = CLIENT_MODE_BASIC
-
-        with pytest.raises(client_exceptions.ClientError):
-            await client.send_telemetry(telemetry_dict)
-        assert mqtt_pipeline.send_message.call_count == 0
-
-
-class SharedClientSendCommandResponseTests(object):
-    @pytest.fixture
-    def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.send_method_response() is only compatible with Digital Twin Mode, so need to override fixture"""
-        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
-        yield client
-        # We can't await a disconnect here because this is a function, not a coroutine, so some
-        # kind of messy loop stuff has to happen.
-        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
-        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(client.disconnect())
-
-    @pytest.mark.it(
-        "Creates a MethodResponse object from the provided CommandResponse, and begins a 'send_method_response' pipeline operation with it"
-    )
-    async def test_send_method_response_calls_pipeline(
-        self, client, mqtt_pipeline, command_response
-    ):
-        expected_method_response = digital_twin_translation.command_response_to_method_response(
-            command_response
-        )
-
-        await client.send_command_response(command_response)
-        assert mqtt_pipeline.send_method_response.call_count == 1
-        method_response = mqtt_pipeline.send_method_response.call_args[0][0]
-        assert isinstance(method_response, MethodResponse)
-        assert method_response.request_id == expected_method_response.request_id
-        assert method_response.status == expected_method_response.status
-        assert method_response.payload == expected_method_response.payload
-
-    @pytest.mark.it(
-        "Waits for the completion of the 'send_method_response' pipeline operation before returning"
-    )
-    async def test_waits_for_pipeline_op_completion(
-        self, mocker, client, mqtt_pipeline, command_response
-    ):
-        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
-        cb_mock.completion.return_value = await create_completed_future(None)
-
-        await client.send_command_response(command_response)
-
-        # Assert callback is sent to pipeline
-        assert mqtt_pipeline.send_method_response.call_args[1]["callback"] is cb_mock
-        # Assert callback completion is waited upon
-        assert cb_mock.completion.call_count == 1
-
-    @pytest.mark.it(
-        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
-    )
-    @pytest.mark.parametrize(
-        "pipeline_error,client_error",
-        [
-            pytest.param(
-                pipeline_exceptions.ConnectionDroppedError,
-                client_exceptions.ConnectionDroppedError,
-                id="ConnectionDroppedError->ConnectionDroppedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ConnectionFailedError,
-                client_exceptions.ConnectionFailedError,
-                id="ConnectionFailedError->ConnectionFailedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.NoConnectionError,
-                client_exceptions.NoConnectionError,
-                id="NoConnectionError->NoConnectionError",
-            ),
-            pytest.param(
-                pipeline_exceptions.UnauthorizedError,
-                client_exceptions.CredentialError,
-                id="UnauthorizedError->CredentialError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ProtocolClientError,
-                client_exceptions.ClientError,
-                id="ProtocolClientError->ClientError",
-            ),
-            pytest.param(
-                pipeline_exceptions.OperationCancelled,
-                client_exceptions.OperationCancelled,
-                id="OperationCancelled -> OperationCancelled",
-            ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
-        ],
-    )
-    async def test_raises_error_on_pipeline_op_error(
-        self, mocker, client, mqtt_pipeline, command_response, pipeline_error, client_error
-    ):
-        my_pipeline_error = pipeline_error()
-
-        def fail_send_method_response(response, callback):
-            callback(error=my_pipeline_error)
-
-        mqtt_pipeline.send_method_response = mocker.MagicMock(side_effect=fail_send_method_response)
-        with pytest.raises(client_error) as e_info:
-            await client.send_command_response(command_response)
-        assert e_info.value.__cause__ is my_pipeline_error
-        assert mqtt_pipeline.send_method_response.call_count == 1
-
-    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
-    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, command_response):
-        client._client_mode = CLIENT_MODE_BASIC
-
-        with pytest.raises(client_exceptions.ClientError):
-            await client.send_command_response(command_response)
-        assert mqtt_pipeline.send_method_response.call_count == 0
-
-
-class SharedClientGetClientPropertiesTests(object):
-    @pytest.fixture
-    def client(self, client_class, mqtt_pipeline, http_pipeline):
-        """.get_client_properties() is only compatible with Digital Twin Mode, so need to override fixture"""
-        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
-        yield client
-        # We can't await a disconnect here because this is a function, not a coroutine, so some
-        # kind of messy loop stuff has to happen.
-        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
-        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(client.disconnect())
-
-    @pytest.fixture(autouse=True)
-    def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
-        def immediate_callback(callback):
-            callback(twin=fake_twin)
-
-        mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
-
-    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
-    async def test_enables_twin_only_if_not_already_enabled(
-        self, client, mqtt_pipeline
-    ):  # fake_twin, mocker):
-        # Verify twin enabled if not enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
-        await client.get_client_properties()
-        assert mqtt_pipeline.enable_feature.call_count == 1
-        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
-
-        mqtt_pipeline.enable_feature.reset_mock()
-
-        # Verify twin not enabled if already enabled
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
-        await client.get_client_properties()
-        assert mqtt_pipeline.enable_feature.call_count == 0
-
-    @pytest.mark.it("Begins a 'get_twin' pipeline operation")
-    async def test_get_twin_calls_pipeline(self, client, mqtt_pipeline):
-        await client.get_client_properties()
-        assert mqtt_pipeline.get_twin.call_count == 1
-
-    @pytest.mark.it(
-        "Waits for the completion of the 'get_twin' pipeline operation before returning"
-    )
-    async def test_waits_for_pipeline_op_completion(self, mocker, client, mqtt_pipeline, fake_twin):
-        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
-        cb_mock.completion.return_value = await create_completed_future(fake_twin)
-        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
-
-        await client.get_client_properties()
-
-        # Assert callback is sent to pipeline
-        assert mqtt_pipeline.get_twin.call_args[1]["callback"] is cb_mock
-        # Assert callback completion is waited upon
-        assert cb_mock.completion.call_count == 1
-
-    @pytest.mark.it(
-        "Raises a client error if the `get_twin` pipeline operation calls back with a pipeline error"
-    )
-    @pytest.mark.parametrize(
-        "pipeline_error,client_error",
-        [
-            pytest.param(
-                pipeline_exceptions.ConnectionDroppedError,
-                client_exceptions.ConnectionDroppedError,
-                id="ConnectionDroppedError->ConnectionDroppedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ConnectionFailedError,
-                client_exceptions.ConnectionFailedError,
-                id="ConnectionFailedError->ConnectionFailedError",
-            ),
-            pytest.param(
-                pipeline_exceptions.NoConnectionError,
-                client_exceptions.NoConnectionError,
-                id="NoConnectionError->NoConnectionError",
-            ),
-            pytest.param(
-                pipeline_exceptions.UnauthorizedError,
-                client_exceptions.CredentialError,
-                id="UnauthorizedError->CredentialError",
-            ),
-            pytest.param(
-                pipeline_exceptions.ProtocolClientError,
-                client_exceptions.ClientError,
-                id="ProtocolClientError->ClientError",
-            ),
-            pytest.param(
-                pipeline_exceptions.OperationCancelled,
-                client_exceptions.OperationCancelled,
-                id="OperationCancelled -> OperationCancelled",
-            ),
-            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
-        ],
-    )
-    async def test_raises_error_on_pipeline_op_error(
-        self, mocker, client, mqtt_pipeline, pipeline_error, client_error
-    ):
-        my_pipeline_error = pipeline_error()
-
-        def fail_send_method_response(callback):
-            callback(error=my_pipeline_error)
-
-        mqtt_pipeline.get_twin = mocker.MagicMock(side_effect=fail_send_method_response)
-
-        with pytest.raises(client_error) as e_info:
-            await client.get_client_properties()
-        assert e_info.value.__cause__ is my_pipeline_error
-
-    @pytest.mark.it("Returns a ClientProperties derived from the twin that the pipeline returned")
-    async def test_returns_client_properties(self, client, fake_twin):
-        returned_client_properties = await client.get_client_properties()
-        assert isinstance(returned_client_properties, ClientProperties)
-        assert (
-            returned_client_properties.writable_properties_requests.backing_object
-            == fake_twin["desired"]
-        )
-        assert (
-            returned_client_properties.reported_from_device.backing_object == fake_twin["reported"]
-        )
-
-    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
-    async def test_client_mode_digital_twin(self, client, mqtt_pipeline):
-        client._client_mode = CLIENT_MODE_BASIC
-
-        with pytest.raises(client_exceptions.ClientError):
-            await client.get_client_properties()
-        assert mqtt_pipeline.get_twin.call_count == 0
-
-
 class SharedClientGetTwinTests(object):
     @pytest.fixture
     def client(self, mqtt_pipeline, http_pipeline, client_class):
@@ -1708,6 +1340,517 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert mqtt_pipeline.patch_twin_reported_properties.call_count == 0
 
 
+class SharedClientSendTelemetryTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_telemetry() is only compatible with Digital Twin Mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.send_telemetry() is only compatible with Digital Twin Mode, so need to override fixture"""
+        return client_class(
+            mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_DIGITAL_TWIN
+        )
+
+    @pytest.mark.it("Begins a 'send_message' pipeline operation")
+    async def test_calls_pipeline_send_message(self, client, mqtt_pipeline, telemetry_dict):
+        await client.send_telemetry(telemetry_dict)
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Correctly populates the Message object without a component name")
+    async def test_populates_message_without_component(self, client, mqtt_pipeline, telemetry_dict):
+        await client.send_telemetry(telemetry_dict)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        with pytest.raises(KeyError):
+            message.custom_properties["$.sub"]
+
+    @pytest.mark.it("Correctly populates the Message object with a component name")
+    async def test_populates_message_with_component(self, client, mqtt_pipeline, telemetry_dict):
+        component_name = "some_component"
+        await client.send_telemetry(telemetry_dict, component_name)
+        message = mqtt_pipeline.send_message.call_args[0][0]
+
+        assert isinstance(message, Message)
+        assert message.content_encoding == "utf-8"
+        assert message.content_type == "application/json"
+        assert str(message) == json.dumps(telemetry_dict)
+        assert message.custom_properties["$.sub"] == component_name
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_message' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, telemetry_dict
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.send_telemetry(telemetry_dict)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.send_message.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_message` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, telemetry_dict, client_error, pipeline_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_message(message, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.send_message = mocker.MagicMock(side_effect=fail_send_message)
+        with pytest.raises(client_error) as e_info:
+            await client.send_telemetry(telemetry_dict)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.send_message.call_count == 1
+
+    @pytest.mark.it("Raises error when message data size is greater than 256 KB")
+    async def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
+        data_input = {"bigtext": "serpensortia" * 25600}
+        with pytest.raises(ValueError) as e_info:
+            await client.send_telemetry(data_input)
+        assert "256 KB" in e_info.value.args[0]
+        assert mqtt_pipeline.send_message.call_count == 0
+
+    @pytest.mark.it("Raises a ClientError if called with a client in BASIC mode")
+    async def test_client_mode_basic(self, client, mqtt_pipeline, telemetry_dict):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_telemetry(telemetry_dict)
+        assert mqtt_pipeline.send_message.call_count == 0
+
+
+class SharedClientSendCommandResponseTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.send_method_response() is only compatible with Digital Twin Mode, so need to override fixture"""
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.mark.it(
+        "Creates a MethodResponse object from the provided CommandResponse, and begins a 'send_method_response' pipeline operation with it"
+    )
+    async def test_calls_pipeline_send_method_response(
+        self, client, mqtt_pipeline, command_response
+    ):
+        expected_method_response = digital_twin_translation.command_response_to_method_response(
+            command_response
+        )
+
+        await client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 1
+        method_response = mqtt_pipeline.send_method_response.call_args[0][0]
+        assert isinstance(method_response, MethodResponse)
+        assert method_response.request_id == expected_method_response.request_id
+        assert method_response.status == expected_method_response.status
+        assert method_response.payload == expected_method_response.payload
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'send_method_response' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, command_response
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+
+        await client.send_command_response(command_response)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.send_method_response.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `send_method_response` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, command_response, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_method_response(response, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.send_method_response = mocker.MagicMock(side_effect=fail_send_method_response)
+        with pytest.raises(client_error) as e_info:
+            await client.send_command_response(command_response)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.send_method_response.call_count == 1
+
+    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline, command_response):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.send_command_response(command_response)
+        assert mqtt_pipeline.send_method_response.call_count == 0
+
+
+class SharedClientGetClientPropertiesTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.get_client_properties() is only compatible with Digital Twin Mode, so need to override fixture"""
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.fixture(autouse=True)
+    def patch_get_twin_to_return_fake_twin_components(
+        self, fake_twin_components, mocker, mqtt_pipeline
+    ):
+        def immediate_callback(callback):
+            callback(twin=fake_twin_components)
+
+        mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
+
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    async def test_enables_twin_only_if_not_already_enabled(
+        self, client, mqtt_pipeline
+    ):  # fake_twin_components, mocker):
+        # Verify twin enabled if not enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        await client.get_client_properties()
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
+
+        mqtt_pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        await client.get_client_properties()
+        assert mqtt_pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it("Begins a 'get_twin' pipeline operation")
+    async def test_calls_pipeline_get_twin(self, client, mqtt_pipeline):
+        await client.get_client_properties()
+        assert mqtt_pipeline.get_twin.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'get_twin' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, fake_twin_components
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(fake_twin_components)
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+
+        await client.get_client_properties()
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.get_twin.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `get_twin` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self, mocker, client, mqtt_pipeline, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_send_method_response(callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.get_twin = mocker.MagicMock(side_effect=fail_send_method_response)
+
+        with pytest.raises(client_error) as e_info:
+            await client.get_client_properties()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it("Returns a ClientProperties derived from the twin that the pipeline returned")
+    async def test_returns_client_properties(self, client, fake_twin_components):
+        returned_client_properties = await client.get_client_properties()
+        assert isinstance(returned_client_properties, ClientProperties)
+        assert (
+            returned_client_properties.writable_properties_requests.backing_object
+            == fake_twin_components["desired"]
+        )
+        assert (
+            returned_client_properties.reported_from_device.backing_object
+            == fake_twin_components["reported"]
+        )
+
+    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
+    async def test_client_mode_digital_twin(self, client, mqtt_pipeline):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.get_client_properties()
+        assert mqtt_pipeline.get_twin.call_count == 0
+
+
+class SharedClientUpdateClientPropertiesTests(object):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.update_client_properties() is only compatible with Digital Twin Mode, so need to override
+        fixture
+        """
+        client = client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    async def test_enables_twin_only_if_not_already_enabled(
+        self, mocker, client, mqtt_pipeline, client_property_collection
+    ):
+        # Verify twin enabled if not enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        await client.update_client_properties(client_property_collection)
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
+
+        mqtt_pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        await client.update_client_properties(client_property_collection)
+        assert mqtt_pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it(
+        "Creates a twin patch from the provided ClientPropertyCollection, and begins a 'patch_twin_reported_properties' pipeline operation with it"
+    )
+    async def test_patch_twin_reported_properties_calls_pipeline(
+        self, client, mqtt_pipeline, client_property_collection
+    ):
+        expected_twin_patch = digital_twin_translation.client_property_collection_to_twin_patch(
+            client_property_collection
+        )
+
+        await client.update_client_properties(client_property_collection)
+
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 1
+        twin_patch = mqtt_pipeline.patch_twin_reported_properties.call_args[1]["patch"]
+        assert isinstance(twin_patch, dict)
+        assert twin_patch == expected_twin_patch
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'patch_twin_reported_properties' pipeline operation before returning"
+    )
+    async def test_waits_for_pipeline_op_completion(
+        self, mocker, client, mqtt_pipeline, client_property_collection
+    ):
+        cb_mock = mocker.patch.object(async_adapter, "AwaitableCallback").return_value
+        cb_mock.completion.return_value = await create_completed_future(None)
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+
+        await client.update_client_properties(client_property_collection)
+
+        # Assert callback is sent to pipeline
+        assert mqtt_pipeline.patch_twin_reported_properties.call_args[1]["callback"] is cb_mock
+        # Assert callback completion is waited upon
+        assert cb_mock.completion.call_count == 1
+
+    @pytest.mark.it(
+        "Raises a client error if the `patch_twin_reported_properties` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    async def test_raises_error_on_pipeline_op_error(
+        self,
+        mocker,
+        client,
+        mqtt_pipeline,
+        client_property_collection,
+        pipeline_error,
+        client_error,
+    ):
+        my_pipeline_error = pipeline_error()
+
+        def fail_patch_twin_reported_properties(patch, callback):
+            callback(error=my_pipeline_error)
+
+        mqtt_pipeline.patch_twin_reported_properties = mocker.MagicMock(
+            side_effect=fail_patch_twin_reported_properties
+        )
+        with pytest.raises(client_error) as e_info:
+            await client.update_client_properties(client_property_collection)
+        assert e_info.value.__cause__ is my_pipeline_error
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 1
+
+    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
+    async def test_client_mode_digital_twin(
+        self, client, mqtt_pipeline, client_property_collection
+    ):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            await client.update_client_properties(client_property_collection)
+        assert mqtt_pipeline.patch_twin_reported_properties.call_count == 0
+
+
 ################
 # DEVICE TESTS #
 ################
@@ -1976,27 +2119,6 @@ class TestIoTHubDeviceClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_telemetry()")
-class TestIoTHubDeviceClientSendTelemetry(
-    SharedClientSendTelemetryTests, IoTHubDeviceClientTestsConfig
-):
-    pass
-
-
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_command_response()")
-class TestIoTHubDeviceClientSendCommandResponse(
-    SharedClientSendCommandResponseTests, IoTHubDeviceClientTestsConfig
-):
-    pass
-
-
-@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_client_properties()")
-class TestIoTHubDeviceClientGetClientProperties(
-    SharedClientGetClientPropertiesTests, IoTHubDeviceClientTestsConfig
-):
-    pass
-
-
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_storage_info_for_blob()")
 class TestIoTHubDeviceClientGetStorageInfo(IoTHubDeviceClientTestsConfig):
     @pytest.mark.it("Begins a 'get_storage_info_for_blob' HTTPPipeline operation")
@@ -2145,6 +2267,34 @@ class TestIoTHubDeviceClientNotifyBlobUploadStatus(IoTHubDeviceClientTestsConfig
                 correlation_id, is_success, status_code, status_description
             )
             assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_telemetry()")
+class TestIoTHubDeviceClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .send_command_response()")
+class TestIoTHubDeviceClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .get_client_properties()")
+class TestIoTHubDeviceClientGetClientProperties(
+    SharedClientGetClientPropertiesTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .update_client_properties()")
+class TestIoTHubDeviceClientUpdateClientProperties(
+    SharedClientUpdateClientPropertiesTests, IoTHubDeviceClientTestsConfig
+):
+    pass
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_message_received")
@@ -2968,27 +3118,6 @@ class TestIoTHubModuleClientReceiveTwinDesiredPropertiesPatch(
     pass
 
 
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_telemetry()")
-class TestIoTHubModuleClientSendTelemetry(
-    SharedClientSendTelemetryTests, IoTHubModuleClientTestsConfig
-):
-    pass
-
-
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_command_response()")
-class TestIoTHubModuleClientSendCommandResponse(
-    SharedClientSendCommandResponseTests, IoTHubModuleClientTestsConfig
-):
-    pass
-
-
-@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .get_client_properties()")
-class TestIoTHubModuleClientGetClientProperties(
-    SharedClientGetClientPropertiesTests, IoTHubModuleClientTestsConfig
-):
-    pass
-
-
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) -.invoke_method()")
 class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
     @pytest.mark.it("Begins a 'invoke_method' HTTPPipeline operation where the target is a device")
@@ -3067,6 +3196,34 @@ class TestIoTHubModuleClientInvokeMethod(IoTHubModuleClientTestsConfig):
             await client.invoke_method(method_params, device_id, module_id=module_id)
 
         assert e_info.value.__cause__ is my_pipeline_error
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_telemetry()")
+class TestIoTHubModuleClientSendTelemetry(
+    SharedClientSendTelemetryTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .send_command_response()")
+class TestIoTHubModuleClientSendCommandResponse(
+    SharedClientSendCommandResponseTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .get_client_properties()")
+class TestIoTHubModuleClientGetClientProperties(
+    SharedClientGetClientPropertiesTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .update_client_properties()")
+class TestIoTHubModuleClientUpdateClientProperties(
+    SharedClientUpdateClientPropertiesTests, IoTHubModuleClientTestsConfig
+):
+    pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_message_received")
