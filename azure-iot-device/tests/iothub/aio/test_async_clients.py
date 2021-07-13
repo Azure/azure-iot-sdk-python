@@ -27,6 +27,7 @@ from azure.iot.device.iothub.models import (
     Message,
     MethodRequest,
     MethodResponse,
+    ClientPropertyCollection,
 )
 from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
@@ -2152,7 +2153,7 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
         """.on_command_request_received property is only compatible with Digital Twin Mode,
         so need to override fixture
         """
-        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
         yield client
         # We can't await a disconnect here because this is a function, not a coroutine, so some
         # kind of messy loop stuff has to happen.
@@ -2225,13 +2226,86 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
 
 
 @pytest.mark.describe(
-    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
+    "IoTHubDeviceClient (Asynchronous) - PROPERTY .on_writable_property_update_request_received"
 )
-class TestIoTHubDeviceClientPROPERTYOnWritablePropertyReceivedHandler(
-    IoTHubDeviceClientTestsConfig
+class TestIoTHubDeviceClientPROPERTYOnWritablePropertyUpdateRequestReceivedHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
-    # TODO: implement these tests
-    pass
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_writable_property_update_request_received property is only compatible with
+        Digital Twin Mode, so need to override fixture
+        """
+        client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_writable_property_update_request_received"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_twin_patch(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, twin_patch_desired):
+        return [twin_patch_desired]
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.TWIN_PATCHES
+
+    @pytest.mark.it(
+        "Is invoked with a Digital Twin object derived from the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self, client, handler, handler_checker, handler_name, handler_trigger, handler_trigger_args
+    ):
+        # NOTE: This test function overrides an inherited one in order to test object translation
+        setattr(client, handler_name, handler)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        twin_patch = handler_trigger_args[0]
+        assert isinstance(twin_patch, dict)
+        client_property_collection = handler_checker.handler_call_args[0][0]
+        assert isinstance(client_property_collection, ClientPropertyCollection)
+        expected_client_property_collection = (
+            digital_twin_translation.twin_patch_to_client_property_collection(twin_patch)
+        )
+        assert (
+            client_property_collection.backing_object
+            == expected_client_property_collection.backing_object
+        )
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Basic Mode")
+    def test_client_mode_basic_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        # Handler is None
+        assert client.on_writable_property_update_request_received is None
+        # Set analogous BASIC handler
+        client.on_twin_desired_properties_patch_received = handler
+        # Still None
+        assert client.on_writable_property_update_request_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Basic Mode")
+    def test_client_mode_basic_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_writable_property_update_request_received = handler
+        assert client.on_writable_property_update_request_received is None
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - PROPERTY .on_connection_state_change")
@@ -3067,13 +3141,86 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
 
 
 @pytest.mark.describe(
-    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_writable_property_patch_received"
+    "IoTHubModuleClient (Asynchronous) - PROPERTY .on_writable_property_update_request_received"
 )
-class TestIoTHubModuleClientPROPERTYOnWritablePropertyReceivedHandler(
-    IoTHubModuleClientTestsConfig
+class TestIoTHubModuleClientPROPERTYOnWritablePropertyUpdateRequestReceivedHandler(
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYReceiverHandlerTests
 ):
-    # TODO: implement these tests
-    pass
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """.on_writable_property_update_request_received property is only compatible with
+        Digital Twin Mode, so need to override fixture
+        """
+        client = IoTHubModuleClient(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+        yield client
+        # We can't await a disconnect here because this is a function, not a coroutine, so some
+        # kind of messy loop stuff has to happen.
+        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
+        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(client.disconnect())
+
+    @pytest.fixture
+    def handler_name(self):
+        return "on_writable_property_update_request_received"
+
+    @pytest.fixture
+    def handler_trigger(self, client):
+        def _trigger_fn(*args):
+            client._inbox_manager.route_twin_patch(*args)
+
+        return _trigger_fn
+
+    @pytest.fixture
+    def handler_trigger_args(self, twin_patch_desired):
+        return [twin_patch_desired]
+
+    @pytest.fixture
+    def feature_name(self):
+        return pipeline_constant.TWIN_PATCHES
+
+    @pytest.mark.it(
+        "Is invoked with a Digital Twin object derived from the received object when the receive event occurs in the client"
+    )
+    def test_received_object(
+        self, client, handler, handler_checker, handler_name, handler_trigger, handler_trigger_args
+    ):
+        # NOTE: This test function overrides an inherited one in order to test object translation
+        setattr(client, handler_name, handler)
+
+        handler_trigger(*handler_trigger_args)
+        time.sleep(0.1)
+
+        assert handler_checker.handler_call_count == 1
+
+        twin_patch = handler_trigger_args[0]
+        assert isinstance(twin_patch, dict)
+        client_property_collection = handler_checker.handler_call_args[0][0]
+        assert isinstance(client_property_collection, ClientPropertyCollection)
+        expected_client_property_collection = (
+            digital_twin_translation.twin_patch_to_client_property_collection(twin_patch)
+        )
+        assert (
+            client_property_collection.backing_object
+            == expected_client_property_collection.backing_object
+        )
+
+    @pytest.mark.it("Returns None if trying to get the value from a client in Basic Mode")
+    def test_client_mode_basic_get(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        # Handler is None
+        assert client.on_writable_property_update_request_received is None
+        # Set analogous BASIC handler
+        client.on_twin_desired_properties_patch_received = handler
+        # Still None
+        assert client.on_writable_property_update_request_received is None
+
+    @pytest.mark.it("Raises a ClientError if trying to set value on a client in Basic Mode")
+    def test_client_mode_basic_set(self, client, handler):
+        client._client_mode = CLIENT_MODE_BASIC
+        with pytest.raises(client_exceptions.ClientError):
+            client.on_writable_property_update_request_received = handler
+        assert client.on_writable_property_update_request_received is None
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_connection_state_change")
