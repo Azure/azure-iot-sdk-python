@@ -90,7 +90,10 @@ def twin_patch_reported():
 
 @pytest.fixture
 def fake_twin():
-    return {"fake_twin": True}
+    return {
+        "desired": {"key1": "value1", "key2": "value2", "$version": 4},
+        "reported": {"$version": 1},
+    }
 
 
 """----Shared Digital Twin fixtures"""

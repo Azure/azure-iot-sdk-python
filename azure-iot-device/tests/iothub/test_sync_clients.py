@@ -27,6 +27,7 @@ from azure.iot.device.iothub.models import (
     MethodResponse,
     CommandRequest,
     ClientPropertyCollection,
+    ClientProperties,
     digital_twin_translation,
 )
 from azure.iot.device.iothub.sync_inbox import SyncClientInbox
@@ -1312,6 +1313,139 @@ class SharedClientSendCommandResponseTests(WaitsForEventCompletion):
         assert mqtt_pipeline.send_method_response.call_count == 0
 
 
+class SharedClientGetClientPropertiesTests(WaitsForEventCompletion):
+    @pytest.fixture
+    def client(self, client_class, mqtt_pipeline, http_pipeline):
+        """.get_client_properties() is only compatible with Digital Twin Mode, so need to override fixture"""
+        return client_class(mqtt_pipeline, http_pipeline, CLIENT_MODE_DIGITAL_TWIN)
+
+    @pytest.fixture
+    def client_manual_cb(self, client_class, mqtt_pipeline_manual_cb, http_pipeline_manual_cb):
+        """.get_client_properties() is only compatible with Digital Twin Mode, so need to override fixture"""
+        return client_class(
+            mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_DIGITAL_TWIN
+        )
+
+    @pytest.fixture(autouse=True)
+    def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
+        def immediate_callback(callback):
+            callback(twin=fake_twin)
+
+        mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
+
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    def test_enables_twin_only_if_not_already_enabled(self, client, mqtt_pipeline):
+        # Verify twin enabled if not enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
+        client.get_client_properties()
+        assert mqtt_pipeline.enable_feature.call_count == 1
+        assert mqtt_pipeline.enable_feature.call_args[0][0] == pipeline_constant.TWIN
+
+        mqtt_pipeline.enable_feature.reset_mock()
+
+        # Verify twin not enabled if already enabled
+        mqtt_pipeline.feature_enabled.__getitem__.return_value = True  # twin will appear enabled
+        client.get_client_properties()
+        assert mqtt_pipeline.enable_feature.call_count == 0
+
+    @pytest.mark.it("Begins a 'get_twin' pipeline operation")
+    def test_get_twin_calls_pipeline(self, client, mqtt_pipeline):
+        client.get_client_properties()
+        assert mqtt_pipeline.get_twin.call_count == 1
+
+    @pytest.mark.it(
+        "Waits for the completion of the 'get_twin' pipeline operation before returning"
+    )
+    def test_waits_for_pipeline_op_completion(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, fake_twin
+    ):
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.get_twin,
+            kwargs={"twin": fake_twin},
+        )
+        client_manual_cb.get_client_properties()
+
+    @pytest.mark.it(
+        "Raises a client error if the `get_twin` pipeline operation calls back with a pipeline error"
+    )
+    @pytest.mark.parametrize(
+        "pipeline_error,client_error",
+        [
+            pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.NoConnectionError,
+                client_exceptions.NoConnectionError,
+                id="NoConnectionError->NoConnectionError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolClientError,
+                client_exceptions.ClientError,
+                id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationCancelled,
+                client_exceptions.OperationCancelled,
+                id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
+        ],
+    )
+    def test_raises_error_on_pipeline_op_error(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, pipeline_error, client_error
+    ):
+        my_pipeline_error = pipeline_error()
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.get_twin,
+            kwargs={"error": my_pipeline_error},
+        )
+        with pytest.raises(client_error) as e_info:
+            client_manual_cb.get_client_properties()
+        assert e_info.value.__cause__ is my_pipeline_error
+
+    @pytest.mark.it("Returns a ClientProperties derived from the twin that the pipeline returned")
+    def test_returns_client_properties(
+        self, mocker, client_manual_cb, mqtt_pipeline_manual_cb, fake_twin
+    ):
+        self.add_event_completion_checks(
+            mocker=mocker,
+            pipeline_function=mqtt_pipeline_manual_cb.get_twin,
+            kwargs={"twin": fake_twin},
+        )
+        returned_client_properties = client_manual_cb.get_client_properties()
+        assert isinstance(returned_client_properties, ClientProperties)
+        assert (
+            returned_client_properties.writable_properties_requests.backing_object
+            == fake_twin["desired"]
+        )
+        assert (
+            returned_client_properties.reported_from_device.backing_object == fake_twin["reported"]
+        )
+
+    @pytest.mark.it("Raises a ClientError if called with a client in Basic Mode")
+    def test_client_mode_digital_twin(self, client, mqtt_pipeline):
+        client._client_mode = CLIENT_MODE_BASIC
+
+        with pytest.raises(client_exceptions.ClientError):
+            client.get_client_properties()
+        assert mqtt_pipeline.get_twin.call_count == 0
+
+
 class SharedClientGetTwinTests(WaitsForEventCompletion):
     @pytest.fixture
     def client(self, client_class, mqtt_pipeline, http_pipeline):
@@ -2096,6 +2230,13 @@ class TestIoTHubDeviceClientSendTelemetry(
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .send_command_response()")
 class TestIoTHubDeviceClientSendCommandResponse(
     SharedClientSendCommandResponseTests, IoTHubDeviceClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - .get_client_properties()")
+class TestIoTHubDeviceClientGetClientProperties(
+    SharedClientGetClientPropertiesTests, IoTHubDeviceClientTestsConfig
 ):
     pass
 
@@ -3133,6 +3274,13 @@ class TestIoTHubModuleClientSendTelemetry(
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - .send_command_response()")
 class TestIoTHubModuleClientSendCommandResponse(
     SharedClientSendCommandResponseTests, IoTHubModuleClientTestsConfig
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - .get_client_properties()")
+class TestIoTHubModuleClientGetClientProperties(
+    SharedClientGetClientPropertiesTests, IoTHubModuleClientTestsConfig
 ):
     pass
 

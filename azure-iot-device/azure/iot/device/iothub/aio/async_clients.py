@@ -452,6 +452,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         """
         Gets the device or module twin from the Azure IoT Hub or Azure IoT Edge Hub service.
 
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the response.
+
         :returns: Complete Twin as a JSON dict
         :rtype: dict
 
@@ -635,6 +638,44 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await handle_result(callback)
 
         logger.info("Successfully sent command response to Hub")
+
+    # Digital Twin
+    async def get_client_properties(self):
+        """
+        Gets the client properties the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the response.
+
+        This method is only compatible with Azure IoT Digital Twins.
+
+        :returns: The ClientProperties requested
+        :rtype: :class:`azure.iot.device.ClientProperties`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        self._check_client_mode_is_digital_twin()
+
+        if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
+            await self._enable_feature(constant.TWIN)
+
+        get_twin_async = async_adapter.emulate_async(self._mqtt_pipeline.get_twin)
+        callback = async_adapter.AwaitableCallback(return_arg_name="twin")
+        await get_twin_async(callback=callback)
+        twin = await handle_result(callback)
+
+        client_properties = digital_twin_translation.twin_to_client_properties(twin)
+        return client_properties
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):

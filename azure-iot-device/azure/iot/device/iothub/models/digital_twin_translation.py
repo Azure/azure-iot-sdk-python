@@ -46,10 +46,11 @@ def twin_patch_to_client_property_collection(twin_patch):
 
 
 def twin_to_client_properties(twin):
-    """Given a `Twin` object, return a `ClientProperties` object"""
+    """Given a Twin JSON, return a `ClientProperties` object"""
     obj = ClientProperties()
-    obj.reported_from_device.backing_object = twin.reported_properties
-    obj.writable_properties_requests.backing_object = twin.desired_properties
+    obj.reported_from_device.backing_object = twin["reported"]
+    obj.writable_properties_requests.backing_object = twin["desired"]
+    return obj
 
 
 def client_property_collection_to_twin_patch(client_property_collection):
