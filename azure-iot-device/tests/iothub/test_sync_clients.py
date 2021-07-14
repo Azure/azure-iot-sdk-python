@@ -1089,7 +1089,7 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
         """.get_twin() is only compatible with Basic Mode, so need to override fixture"""
         return client_class(mqtt_pipeline_manual_cb, http_pipeline_manual_cb, CLIENT_MODE_BASIC)
 
-    @pytest.fixture
+    @pytest.fixture(autouse=True)
     def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
         def immediate_callback(callback):
             callback(twin=fake_twin)
@@ -1097,9 +1097,7 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
         mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
 
     @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
-    def test_enables_twin_only_if_not_already_enabled(
-        self, mocker, client, mqtt_pipeline, patch_get_twin_to_return_fake_twin, fake_twin
-    ):
+    def test_enables_twin_only_if_not_already_enabled(self, client, mqtt_pipeline):
         # Verify twin enabled if not enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
         client.get_twin()

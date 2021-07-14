@@ -988,16 +988,16 @@ class SharedClientGetTwinTests(object):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(client.disconnect())
 
-    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
-    async def test_enables_twin_only_if_not_already_enabled(
-        self, mocker, client, mqtt_pipeline, fake_twin
-    ):
+    @pytest.fixture(autouse=True)
+    def patch_get_twin_to_return_fake_twin(self, fake_twin, mocker, mqtt_pipeline):
         # patch this so get_twin won't block
         def immediate_callback(callback):
             callback(twin=fake_twin)
 
         mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
 
+    @pytest.mark.it("Implicitly enables twin messaging feature if not already enabled")
+    async def test_enables_twin_only_if_not_already_enabled(self, client, mqtt_pipeline):
         # Verify twin enabled if not enabled
         mqtt_pipeline.feature_enabled.__getitem__.return_value = False  # twin will appear disabled
         await client.get_twin()
@@ -1012,11 +1012,7 @@ class SharedClientGetTwinTests(object):
         assert mqtt_pipeline.enable_feature.call_count == 0
 
     @pytest.mark.it("Begins a 'get_twin' pipeline operation")
-    async def test_get_twin_calls_pipeline(self, client, mqtt_pipeline, mocker, fake_twin):
-        def immediate_callback(callback):
-            callback(twin=fake_twin)
-
-        mocker.patch.object(mqtt_pipeline, "get_twin", side_effect=immediate_callback)
+    async def test_get_twin_calls_pipeline(self, client, mqtt_pipeline):
         await client.get_twin()
         assert mqtt_pipeline.get_twin.call_count == 1
 
