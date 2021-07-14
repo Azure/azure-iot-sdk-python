@@ -5,11 +5,19 @@
 # --------------------------------------------------------------------------
 
 from azure.iot.device.iothub.models.digital_twin_translation import (
+    client_property_collection_to_twin_patch,
     command_response_to_method_response,
     method_request_to_command_request,
+    twin_patch_to_client_property_collection,
+    twin_to_client_properties,
 )
 from azure.iot.device.iothub.models.methods import MethodRequest, MethodResponse
-from azure.iot.device.iothub.models import CommandRequest, CommandResponse
+from azure.iot.device.iothub.models import (
+    CommandRequest,
+    CommandResponse,
+    ClientPropertyCollection,
+    ClientProperties,
+)
 import pytest
 import logging
 
@@ -55,3 +63,58 @@ class TestCommandResponseToMethodResponse(object):
         assert method_response.request_id == command_response.request_id
         assert method_response.status == command_response.status
         assert method_response.payload == command_response.payload
+
+
+@pytest.mark.describe("twin_patch_to_client_property_collection()")
+class TestTwinPatchToClientPropertyCollection(object):
+    @pytest.mark.it(
+        "Returns a ClientPropertyCollection with values derived from the given twin patch"
+    )
+    def test_translation(self):
+        twin_patch = {
+            "component1": {
+                "__t": "c",
+                "component_property1": "foo",
+                "component_property2": "bar",
+            },
+            "property1": "buz",
+            "property2": "baz",
+            "$version": 12,
+        }
+        cpc = twin_patch_to_client_property_collection(twin_patch)
+        assert isinstance(cpc, ClientPropertyCollection)
+        assert cpc.backing_object is twin_patch
+
+
+@pytest.mark.describe("twin_to_client_properties()")
+class TestTwinToClientProperties(object):
+    @pytest.mark.it("Returns a ClientProperties with values derived from the given twin")
+    def test_translation(self, fake_twin):
+        client_properties = twin_to_client_properties(fake_twin)
+        assert isinstance(client_properties, ClientProperties)
+        assert isinstance(client_properties.reported_from_device, ClientPropertyCollection)
+        assert client_properties.reported_from_device.backing_object is fake_twin["reported"]
+        assert isinstance(client_properties.writable_properties_requests, ClientPropertyCollection)
+        assert client_properties.writable_properties_requests.backing_object is fake_twin["desired"]
+
+
+@pytest.mark.describe("client_property_collection_to_twin_patch()")
+class TestClientPropertyCollectionToTwinPatch(object):
+    @pytest.mark.it(
+        "Returns a twin patch with values derived from the given ClientPropertyCollection"
+    )
+    def test_translation(self):
+        source_twin_patch = {
+            "component1": {
+                "__t": "c",
+                "component_property1": "foo",
+                "component_property2": "bar",
+            },
+            "property1": "buz",
+            "property2": "baz",
+        }
+        cpc = ClientPropertyCollection()
+        cpc.backing_object = source_twin_patch
+
+        twin_patch = client_property_collection_to_twin_patch(cpc)
+        assert twin_patch is cpc.backing_object

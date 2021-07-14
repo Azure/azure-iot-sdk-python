@@ -104,12 +104,12 @@ def telemetry_dict():
 
 @pytest.fixture
 def twin_patch_desired():
-    return {"properties": {"desired": {"foo": 1}}}
+    return {"foo": 23, "$version": 3}
 
 
 @pytest.fixture
 def twin_patch_reported():
-    return {"properties": {"reported": {"bar": 2}}}
+    return {"foo": 12, "bar": 2}
 
 
 @pytest.fixture
