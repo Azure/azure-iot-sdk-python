@@ -576,7 +576,7 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         handler_trigger_args,
     ):
         # NOTE: THIS TEST FUNCTION MUST BE OVERRIDDEN IF HANDLER USES
-        # DIGITAL TWIN TRANSLATIONS
+        # PNP TRANSLATIONS
         setattr(client, handler_name, handler)
 
         handler_trigger(*handler_trigger_args)
