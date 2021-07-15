@@ -7,7 +7,7 @@
 """
 
 
-def WritablePropertyResponse(value, ack_code, ack_description, ack_version):
+def generate_writable_property_response(value, ack_code, ack_description, ack_version):
     return {
         "value": value,
         "ac": ack_code,
@@ -28,7 +28,7 @@ class ClientPropertyCollection(object):
         self.backing_object[property_name] = property_value
 
     def get_property(self, property_name, default=None):
-        return self.backing_object.get(property_name, default=default)
+        return self.backing_object.get(property_name, default)
 
     def set_component_property(self, component_name, property_name, property_value):
         if component_name not in self.backing_object:
@@ -36,7 +36,7 @@ class ClientPropertyCollection(object):
         self.backing_object[component_name][property_name] = property_value
 
     def get_component_property(self, component_name, property_name, default=None):
-        return self.backing_object.get(component_name, {}).get(property_name, default=default)
+        return self.backing_object.get(component_name, {}).get(property_name, default)
 
 
 class ClientProperties(object):

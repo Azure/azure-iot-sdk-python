@@ -447,6 +447,11 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         This is a synchronous call, meaning that this function will not return until the twin
         has been retrieved from the service.
 
+        If the connection to the service has not previously been opened by a call to connect, this
+        function will open the connection before sending the response.
+
+        This method is not compatible with Azure IoT Digital Twins.
+
         :returns: Complete Twin as a JSON dict
         :rtype: dict
 
@@ -458,9 +463,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
+        self._check_client_mode_is_basic()
+
         if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
             self._enable_feature(pipeline_constant.TWIN)
 
@@ -480,6 +488,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         If the service returns an error on the patch operation, this function will raise the
         appropriate error.
+
+        This method is not compatible with Azure IoT Digital Twins.
 
         :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
         :type reported_properties_patch: dict
@@ -562,6 +572,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
+        This method is only compatible with Azure IoT Digital Twins.
+
         :param dict telemetry_dict: A JSON-serializable dict containing the telemetry to send.
         :param str component_name: The component that corresponds with the telemetry.
             Default value is None, which results in the telemetry being sent to the default component.
@@ -637,6 +649,83 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         handle_result(callback)
 
         logger.info("Successfully sent command response to Hub")
+
+    # Digital Twin
+    def get_client_properties(self):
+        """Gets the client properties the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the twin
+        has been retrieved from the service.
+
+        This method is only compatible with Azure IoT Digital Twins.
+
+        :returns: The ClientProperties requested
+        :rtype: :class:`azure.iot.device.ClientProperties`
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if not using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        self._check_client_mode_is_digital_twin()
+
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            self._enable_feature(pipeline_constant.TWIN)
+
+        callback = EventedCallback(return_arg_name="twin")
+        self._mqtt_pipeline.get_twin(callback=callback)
+        twin = handle_result(callback)
+        client_properties = digital_twin_translation.twin_to_client_properties(twin)
+
+        return client_properties
+
+    # Digital Twin
+    def update_client_properties(self, property_collection):
+        """Update client properties with the Azure IoT Hub or Azure IoT Edge Hub service.
+
+        This is a synchronous call, meaning that this function will not return until the patch
+        has been sent to the service and acknowledged.
+
+        If the service returns an error on the update operation, this function will raise the
+        appropriate error.
+
+        This method is only compatible with Azure IoT Digital Twins.
+
+        :param property_collection: Twin Reported Properties patch as a JSON dict
+        :type property_collection: :class:`azure.iot.device.ClientPropertyCollection
+
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a establishing a
+            connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
+            connected (and there is no auto-connect enabled)
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
+            during execution.
+        """
+        self._check_client_mode_is_digital_twin()
+
+        reported_properties_patch = (
+            digital_twin_translation.client_property_collection_to_twin_patch(property_collection)
+        )
+
+        if not self._mqtt_pipeline.feature_enabled[pipeline_constant.TWIN]:
+            self._enable_feature(pipeline_constant.TWIN)
+
+        callback = EventedCallback()
+        self._mqtt_pipeline.patch_twin_reported_properties(
+            patch=reported_properties_patch, callback=callback
+        )
+        handle_result(callback)
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):

@@ -454,15 +454,13 @@ class AbstractIoTHubClient(object):
     def send_command_response(self, command_response):
         pass
 
-    # @abc.abstractmethod
-    # def get_client_properties(self):
-    # () -> ClientProperties
-    # pass
+    @abc.abstractmethod
+    def get_client_properties(self):
+        pass
 
-    # @abc.abstractmethod
-    # def update_client_properties(self, property_collection):
-    # (ClientPropertyCollection) -> None
-    # pass
+    @abc.abstractmethod
+    def update_client_properties(self, property_collection):
+        pass
 
     @property
     def connected(self):
@@ -600,12 +598,11 @@ class AbstractIoTHubClient(object):
 
     @on_writable_property_update_request_received.setter
     def on_writable_property_update_request_received(self, value):
-        # TODO: finish this implementation (if changes necessary). While we have an implementation here it is just for test purposes.
         self._check_client_mode_is_digital_twin()
 
         if value is not None:
             # Generate a wrapper around the user provided handler that will turn a twin patch into
-            # a PropertiesCollection, then invoke the user's handler
+            # a ClientPropertyCollection, then invoke the user's handler
             translation_wrapper = self._generate_digital_twin_handler_translation_wrapper(
                 handler_to_wrap=value,
                 translation_fn=digital_twin_translation.twin_patch_to_client_property_collection,

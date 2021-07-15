@@ -4,12 +4,18 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.iothub.models.commands import CommandResponse
 import pytest
 import time
 from six.moves import urllib
 from azure.iot.device.iothub.pipeline import constant
-from azure.iot.device.iothub.models import Message, MethodResponse, MethodRequest, CommandRequest
+from azure.iot.device.iothub.models import (
+    Message,
+    MethodResponse,
+    MethodRequest,
+    CommandRequest,
+    CommandResponse,
+    ClientPropertyCollection,
+)
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.iothub.abstract_clients import CLIENT_MODE_BASIC, CLIENT_MODE_DIGITAL_TWIN
 
@@ -75,30 +81,67 @@ def command_response():
     return CommandResponse(request_id="1", status=200, payload={"key": "value"})
 
 
-"""----Shared Twin fixtures----"""
-
-
-@pytest.fixture
-def twin_patch_desired():
-    return {"properties": {"desired": {"foo": 1}}}
-
-
-@pytest.fixture
-def twin_patch_reported():
-    return {"properties": {"reported": {"bar": 2}}}
-
-
-@pytest.fixture
-def fake_twin():
-    return {"fake_twin": True}
-
-
-"""----Shared Digital Twin fixtures"""
+@pytest.fixture(
+    params=["Component ClientPropertyCollection", "Non-Component ClientPropertyCollection"]
+)
+def client_property_collection(request):
+    cpc = ClientPropertyCollection()
+    cpc.set_property("property1", "value1")
+    cpc.set_property("property2", "value2")
+    if request.param == "Component ClientPropertyCollection":
+        cpc.set_component_property("component1", "property3", "value3")
+        cpc.set_component_property("component2", "property4", "value4")
+    return cpc
 
 
 @pytest.fixture
 def telemetry_dict():
     return {"temperature": 15.6}
+
+
+"""----Shared Twin fixtures----"""
+
+
+@pytest.fixture
+def twin_patch_desired():
+    return {"foo": 23, "$version": 3}
+
+
+@pytest.fixture
+def twin_patch_reported():
+    return {"foo": 12, "bar": 2}
+
+
+@pytest.fixture
+def fake_twin():
+    return {
+        "desired": {"key1": "value1", "key2": "value2", "$version": 4},
+        "reported": {"$version": 1},
+    }
+
+
+@pytest.fixture
+def fake_twin_components():
+    return {
+        "desired": {
+            "some_component": {
+                "__t": "c",
+                "component_key1": "component_value1",
+                "component_key2": "component_value2",
+            },
+            "key1": "value1",
+            "key2": "value2",
+            "$version": 4,
+        },
+        "reported": {
+            "some_other_component": {
+                "__t": "c",
+                "component_key3": "component_value3",
+                "component_key4": "component_value4",
+            },
+            "$version": 1,
+        },
+    }
 
 
 """----Shared connection string fixtures----"""
