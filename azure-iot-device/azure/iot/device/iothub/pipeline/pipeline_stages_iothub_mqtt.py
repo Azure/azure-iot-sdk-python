@@ -55,7 +55,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             query_param_seq.append(("api-version", pkg_constant.IOTHUB_API_VERSION))
             query_param_seq.append(("DeviceClientType", user_agent.get_iothub_user_agent()))
             if self.pipeline_root.pipeline_configuration.model_id is not None:
-                # If using Digital Twin, add model-id
+                # If using Plug and Play, add model-id
                 query_param_seq.append(
                     ("model-id", self.pipeline_root.pipeline_configuration.model_id)
                 )

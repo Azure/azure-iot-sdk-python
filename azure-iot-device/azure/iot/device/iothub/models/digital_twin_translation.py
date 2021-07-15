@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 """This module contains utility functions to translate basic IoTHub objects
-into Digital Twin objects
+into Plug and Play objects
 """
 
 from .methods import MethodResponse

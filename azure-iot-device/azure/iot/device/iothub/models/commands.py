@@ -8,7 +8,7 @@
 
 
 class CommandRequest(object):
-    """Represents a request to invoke a Digital Twin command.
+    """Represents a request to invoke a Plug and Play command.
 
     :ivar str request_id: The request id.
     :ivar str component_name: The name of the component with the command to be invoked.
@@ -49,7 +49,7 @@ class CommandRequest(object):
 
 
 class CommandResponse(object):
-    """Represents a response to a Digital Twin command.
+    """Represents a response to a Plug and Play command.
 
     :ivar str request_id: The request id of the CommandRequest being responded to.
     :ivar int status: The status of the execution of the CommandRequest.

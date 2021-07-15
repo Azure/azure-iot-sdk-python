@@ -32,7 +32,7 @@ RECEIVE_TYPE_API = "api"  # Only use APIs for receive
 
 # Client Type constant defs
 CLIENT_MODE_BASIC = "CLIENT_MODE_BASIC"
-CLIENT_MODE_DIGITAL_TWIN = "CLIENT_MODE_DIGITAL_TWIN"
+CLIENT_MODE_PNP = "CLIENT_MODE_PNP"
 
 
 def _validate_kwargs(exclude=[], **kwargs):
@@ -81,7 +81,7 @@ def _get_config_kwargs(**kwargs):
 
 def _get_client_mode(**kwargs):
     if kwargs.get("model_id"):
-        return CLIENT_MODE_DIGITAL_TWIN
+        return CLIENT_MODE_PNP
     else:
         return CLIENT_MODE_BASIC
 
@@ -126,7 +126,7 @@ class AbstractIoTHubClient(object):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
@@ -137,7 +137,7 @@ class AbstractIoTHubClient(object):
         self._client_mode = client_mode
         self._client_lock = threading.Lock()
 
-        # Unwrapped Digital Twin handlers. These are not used within the client (we instead use
+        # Unwrapped Plug and Play handlers. These are not used within the client (we instead use
         # wrapped versions), but we cache them so we can return them to the user if they ask for
         # them
         self._on_command_request_received_unwrapped = None
@@ -201,14 +201,14 @@ class AbstractIoTHubClient(object):
         """Call this method first in any feature restricted to a basic client"""
         if self._client_mode is not CLIENT_MODE_BASIC:
             raise exceptions.ClientError(
-                "This feature is not compatible with Azure IoT Digital Twins"
+                "This feature is not compatible with Azure IoT Plug and Play"
             )
 
     def _check_client_mode_is_digital_twin(self):
-        """Call this method first when using any feature restricted to a Digital Twin client"""
-        if self._client_mode is not CLIENT_MODE_DIGITAL_TWIN:
+        """Call this method first when using any feature restricted to a Plug and Play client"""
+        if self._client_mode is not CLIENT_MODE_PNP:
             raise exceptions.ClientError(
-                "This feature is only compatible with Azure IoT Digital Twins"
+                "This feature is only compatible with Azure IoT Plug and Play"
             )
 
     def _replace_user_supplied_sastoken(self, sastoken_str):
@@ -505,7 +505,7 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.MethodRequest` object)
 
-        This handler is not compatible with Azure IoT Digital Twins.
+        This handler is not compatible with Azure IoT Plug and Play.
         """
         if self._client_mode is CLIENT_MODE_BASIC:
             return self._handler_manager.on_method_request_received
@@ -527,7 +527,7 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the twin patch
         in the form of a JSON dictionary object)
 
-        This handler is not compatible with Azure IoT Digital Twins.
+        This handler is not compatible with Azure IoT Plug and Play.
         """
         if self._client_mode is CLIENT_MODE_BASIC:
             return self._handler_manager.on_twin_desired_properties_patch_received
@@ -548,9 +548,9 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.CommandRequest` object)
 
-        This handler is only compatible with Azure IoT Digital Twins.
+        This handler is only compatible with Azure IoT Plug and Play.
         """
-        if self._client_mode is CLIENT_MODE_DIGITAL_TWIN:
+        if self._client_mode is CLIENT_MODE_PNP:
             return self._on_command_request_received_unwrapped
         else:
             return None
@@ -589,9 +589,9 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.ClientPropertyCollection` object)
 
-        This handler is only compatible with Azure IoT Digital Twins.
+        This handler is only compatible with Azure IoT Plug and Play.
         """
-        if self._client_mode is CLIENT_MODE_DIGITAL_TWIN:
+        if self._client_mode is CLIENT_MODE_PNP:
             return self._on_writable_property_update_request_received_unwrapped
         else:
             return None

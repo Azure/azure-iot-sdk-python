@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module contains classes related to Digital Twin properties and components.
+"""This module contains classes related to Plug and Play properties and components.
 """
 
 

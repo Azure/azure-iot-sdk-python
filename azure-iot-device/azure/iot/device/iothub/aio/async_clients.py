@@ -74,7 +74,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The HTTPPipeline used for the client
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         # Depending on the subclass calling this __init__, there could be different arguments,
         # and the super() call could call a different class, due to the different MROs
@@ -167,12 +167,12 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
     @staticmethod
     def _generate_digital_twin_handler_translation_wrapper(handler_to_wrap, translation_fn):
-        """Generate a translation wrapper for a Digital Twin (DT)-related handler, using the given
+        """Generate a translation wrapper for a Plug and Play (PNP)-related handler, using the given
         translation function.
 
         :param handler_to_wrap: Handler function or coroutine that will be wrapped
-        :param translation_fn: Function that translates a non-DT object passed by the handler
-            into the DT equivalent
+        :param translation_fn: Function that translates a non-PNP object passed by the handler
+            into the PNP equivalent
         """
         # Since handlers can be functions or coroutines, we need to support both.
         if inspect.iscoroutinefunction(handler_to_wrap):
@@ -342,7 +342,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        This method is not compatible with Azure IoT Digital Twins.
+        This method is not compatible with Azure IoT Plug and Play.
 
         :param message: The actual message to send. Anything passed that is not an instance of the
             Message class will be converted to Message object.
@@ -356,7 +356,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -389,7 +389,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If no method request is yet available, will wait until it is available.
 
         This method cannot be used when using handlers.
-        This method is not compatible with Azure IoT Digital Twins.
+        This method is not compatible with Azure IoT Plug and Play.
 
         :param str method_name: Optionally provide the name of the method to receive requests for.
             If this parameter is not given, all methods not already being specifically targeted by
@@ -417,7 +417,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the response.
 
-        This method is not compatible with Azure IoT Digital Twins.
+        This method is not compatible with Azure IoT Plug and Play.
 
         :param method_response: The MethodResponse to send
         :type method_response: :class:`azure.iot.device.MethodResponse`
@@ -430,7 +430,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -455,7 +455,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the response.
 
-        This method is not compatible with Azure IoT Digital Twins.
+        This method is not compatible with Azure IoT Plug and Play.
 
         :returns: Complete Twin as a JSON dict
         :rtype: dict
@@ -468,7 +468,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -493,7 +493,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the service returns an error on the patch operation, this function will raise the
         appropriate error.
 
-        This method is not compatible with Azure IoT Digital Twins.
+        This method is not compatible with Azure IoT Plug and Play.
 
         :param reported_properties_patch: Twin Reported Properties patch as a JSON dict
         :type reported_properties_patch: dict
@@ -538,7 +538,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If no method request is yet available, will wait until it is available.
 
         This method cannot be used when using handlers.
-        This method is not compatible with Azure IoT Digital Twins.
+        This method is not compatible with Azure IoT Plug and Play.
 
         :returns: Twin Desired Properties patch as a JSON dict
         :rtype: dict
@@ -555,7 +555,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         logger.info("twin patch received")
         return patch
 
-    # Digital Twin
+    # Plug and Play
     async def send_telemetry(self, telemetry_dict, component_name=None):
         """
         Sends telemetry following the IoT Plug and Play requirements to the default events endpoint
@@ -564,7 +564,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        This method is only compatible with Azure IoT Digital Twins
+        This method is only compatible with Azure IoT Plug and Play
 
         :param dict telemetry_dict: A JSON-serializable dict containing the telemetry to send.
         :param str component_name: The component that corresponds with the telemetry.
@@ -578,7 +578,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` not using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` not using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         :raises: ValueError if the message fails size validation.
@@ -603,14 +603,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent telemetry to Hub")
 
-    # Digital Twin
+    # Plug and Play
     async def send_command_response(self, command_response):
         """Send a response to a command via the Azure IoT Hub or Azure IoT Edge Hub.
 
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the response.
 
-        This method is only compatible with Azure IoT Digital Twins.
+        This method is only compatible with Azure IoT Plug and Play.
 
         :param command_response: The CommandResponse to send
         :type command_response: :class:`azure.iot.device.CommandResponse`
@@ -623,7 +623,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` not using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` not using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -645,14 +645,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
         logger.info("Successfully sent command response to Hub")
 
-    # Digital Twin
+    # Plug and Play
     async def get_client_properties(self):
         """Gets the client properties the Azure IoT Hub or Azure IoT Edge Hub service.
 
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the response.
 
-        This method is only compatible with Azure IoT Digital Twins.
+        This method is only compatible with Azure IoT Plug and Play.
 
         :returns: The ClientProperties requested
         :rtype: :class:`azure.iot.device.ClientProperties`
@@ -665,7 +665,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -682,7 +682,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         client_properties = digital_twin_translation.twin_to_client_properties(twin)
         return client_properties
 
-    # Digital Twin
+    # Plug and Play
     async def update_client_properties(self, property_collection):
         """Update client properties with the Azure IoT Hub or Azure IoT Edge Hub service.
 
@@ -692,7 +692,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the service returns an error on the update operation, this function will raise the
         appropriate error.
 
-        This method is only compatible with Azure IoT Digital Twins.
+        This method is only compatible with Azure IoT Plug and Play.
 
         :param property_collection: Twin Reported Properties patch as a JSON dict
         :type property_collection: :class:`azure.iot.device.ClientPropertyCollection
@@ -705,7 +705,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
-        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Digital Twins mode
+        :raises: :class:`azure.iot.device.exceptions.ClientError` if using Azure IoT Plug and Play mode
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -743,7 +743,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         super().__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode
@@ -835,7 +835,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_DIGITAL_TWIN)
+        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         super().__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline, client_mode=client_mode
