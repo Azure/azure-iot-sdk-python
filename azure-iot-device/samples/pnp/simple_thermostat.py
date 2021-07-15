@@ -14,7 +14,7 @@ from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import (
     constant,
     ClientPropertyCollection,
-    WritablePropertyResponse,
+    generate_writable_property_response,
     CommandResponse,
 )
 from datetime import date, timedelta, datetime
@@ -142,7 +142,7 @@ class ThermostatApp(object):
         for prop_name in writable_props.backing_object:
             properties.set_property(
                 prop_name,
-                WritablePropertyResponse(
+                generate_writable_property_response(
                     ack_code=200,
                     ack_description="Successfully executed patch",
                     ack_version=writable_props.version,

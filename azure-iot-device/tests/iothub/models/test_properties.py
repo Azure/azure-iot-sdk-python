@@ -3,9 +3,29 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from azure.iot.device.iothub.models.properties import ClientProperties
 import pytest
-from azure.iot.device.iothub.models import ClientPropertyCollection
+from azure.iot.device.iothub.models import (
+    ClientPropertyCollection,
+    ClientProperties,
+    generate_writable_property_response,
+)
+
+
+@pytest.mark.describe("generate_writable_property_response()")
+class TestGenerateWritablePropertyResponse(object):
+    @pytest.mark.it("Returns a dictionary with keys mapping to the provided values")
+    def test_dictionary(self):
+        value = "some_value"
+        ack_code = 200
+        ack_description = "Success"
+        ack_version = 12
+        writable_prop_response = generate_writable_property_response(
+            value, ack_code, ack_description, ack_version
+        )
+        assert writable_prop_response["value"] == value
+        assert writable_prop_response["ac"] == ack_code
+        assert writable_prop_response["ad"] == ack_description
+        assert writable_prop_response["av"] == ack_version
 
 
 @pytest.mark.describe("ClientPropertyCollection")

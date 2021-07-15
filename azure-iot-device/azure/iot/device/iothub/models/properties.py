@@ -7,7 +7,7 @@
 """
 
 
-def WritablePropertyResponse(value, ack_code, ack_description, ack_version):
+def generate_writable_property_response(value, ack_code, ack_description, ack_version):
     return {
         "value": value,
         "ac": ack_code,

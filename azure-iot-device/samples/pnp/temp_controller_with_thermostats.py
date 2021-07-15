@@ -11,7 +11,11 @@ import json
 
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
-from azure.iot.device import CommandResponse, ClientPropertyCollection, WritablePropertyResponse
+from azure.iot.device import (
+    CommandResponse,
+    ClientPropertyCollection,
+    generate_writable_property_response,
+)
 from datetime import timedelta, datetime
 
 logging.basicConfig(level=logging.ERROR)
@@ -167,9 +171,9 @@ class ThermostatApp(object):
                     properties.set_component_property(
                         component_name,
                         property_name,
-                        WritablePropertyResponse(
+                        generate_writable_property_response(
                             ack_code=200,
-                            ck_description="Successfully executed patch",
+                            ack_description="Successfully executed patch",
                             ack_version=writable_props.version,
                             value=component_props[property_name],
                         ),
