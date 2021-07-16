@@ -23,7 +23,7 @@ from azure.iot.device.iothub.pipeline import constant as pipeline_constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
 from azure.iot.device.iothub.models import (
-    digital_twin_translation,
+    pnp_translation,
     Message,
     MethodRequest,
     MethodResponse,
@@ -1481,7 +1481,7 @@ class SharedClientSendCommandResponseTests(object):
     async def test_calls_pipeline_send_method_response(
         self, client, mqtt_pipeline, command_response
     ):
-        expected_method_response = digital_twin_translation.command_response_to_method_response(
+        expected_method_response = pnp_translation.command_response_to_method_response(
             command_response
         )
 
@@ -1745,7 +1745,7 @@ class SharedClientUpdateClientPropertiesTests(object):
     async def test_patch_twin_reported_properties_calls_pipeline(
         self, client, mqtt_pipeline, client_property_collection
     ):
-        expected_twin_patch = digital_twin_translation.client_property_collection_to_twin_patch(
+        expected_twin_patch = pnp_translation.client_property_collection_to_twin_patch(
             client_property_collection
         )
 
@@ -2480,9 +2480,7 @@ class TestIoTHubDeviceClientPROPERTYOnCommandReceivedHandler(
         assert isinstance(method_request, MethodRequest)
         command_request = handler_checker.handler_call_args[0][0]
         assert isinstance(command_request, CommandRequest)
-        expected_command_request = digital_twin_translation.method_request_to_command_request(
-            method_request
-        )
+        expected_command_request = pnp_translation.method_request_to_command_request(method_request)
         assert command_request.request_id == expected_command_request.request_id
         assert command_request.component_name == expected_command_request.component_name
         assert command_request.command_name == expected_command_request.command_name
@@ -2564,7 +2562,7 @@ class TestIoTHubDeviceClientPROPERTYOnWritablePropertyUpdateRequestReceivedHandl
         client_property_collection = handler_checker.handler_call_args[0][0]
         assert isinstance(client_property_collection, ClientPropertyCollection)
         expected_client_property_collection = (
-            digital_twin_translation.twin_patch_to_client_property_collection(twin_patch)
+            pnp_translation.twin_patch_to_client_property_collection(twin_patch)
         )
         assert (
             client_property_collection.backing_object
@@ -3409,9 +3407,7 @@ class TestIoTHubModuleClientPROPERTYOnCommandReceivedHandler(
         assert isinstance(method_request, MethodRequest)
         command_request = handler_checker.handler_call_args[0][0]
         assert isinstance(command_request, CommandRequest)
-        expected_command_request = digital_twin_translation.method_request_to_command_request(
-            method_request
-        )
+        expected_command_request = pnp_translation.method_request_to_command_request(method_request)
         assert command_request.request_id == expected_command_request.request_id
         assert command_request.component_name == expected_command_request.component_name
         assert command_request.command_name == expected_command_request.command_name
@@ -3493,7 +3489,7 @@ class TestIoTHubModuleClientPROPERTYOnWritablePropertyUpdateRequestReceivedHandl
         client_property_collection = handler_checker.handler_call_args[0][0]
         assert isinstance(client_property_collection, ClientPropertyCollection)
         expected_client_property_collection = (
-            digital_twin_translation.twin_patch_to_client_property_collection(twin_patch)
+            pnp_translation.twin_patch_to_client_property_collection(twin_patch)
         )
         assert (
             client_property_collection.backing_object

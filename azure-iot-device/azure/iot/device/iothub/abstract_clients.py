@@ -17,7 +17,7 @@ from . import pipeline
 from .pipeline import constant as pipeline_constant
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
-from azure.iot.device.iothub.models import digital_twin_translation
+from azure.iot.device.iothub.models import pnp_translation
 from azure.iot.device.iothub import client_event
 from azure.iot.device import exceptions
 from azure.iot.device.common import auth
@@ -204,7 +204,7 @@ class AbstractIoTHubClient(object):
                 "This feature is not compatible with Azure IoT Plug and Play"
             )
 
-    def _check_client_mode_is_digital_twin(self):
+    def _check_client_mode_is_pnp(self):
         """Call this method first when using any feature restricted to a Plug and Play client"""
         if self._client_mode is not CLIENT_MODE_PNP:
             raise exceptions.ClientError(
@@ -557,14 +557,14 @@ class AbstractIoTHubClient(object):
 
     @on_command_request_received.setter
     def on_command_request_received(self, value):
-        self._check_client_mode_is_digital_twin()
+        self._check_client_mode_is_pnp()
 
         if value is not None:
             # Generate a wrapper around the user provided handler that will turn a MethodRequest into
             # a CommandRequest, then invoke the user's handler
-            translation_wrapper = self._generate_digital_twin_handler_translation_wrapper(
+            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
                 handler_to_wrap=value,
-                translation_fn=digital_twin_translation.method_request_to_command_request,
+                translation_fn=pnp_translation.method_request_to_command_request,
             )
 
             # Set this wrapper as a handler on the HandlerManager
@@ -598,14 +598,14 @@ class AbstractIoTHubClient(object):
 
     @on_writable_property_update_request_received.setter
     def on_writable_property_update_request_received(self, value):
-        self._check_client_mode_is_digital_twin()
+        self._check_client_mode_is_pnp()
 
         if value is not None:
             # Generate a wrapper around the user provided handler that will turn a twin patch into
             # a ClientPropertyCollection, then invoke the user's handler
-            translation_wrapper = self._generate_digital_twin_handler_translation_wrapper(
+            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
                 handler_to_wrap=value,
-                translation_fn=digital_twin_translation.twin_patch_to_client_property_collection,
+                translation_fn=pnp_translation.twin_patch_to_client_property_collection,
             )
 
             # Set this wrapper as a handler on the HandlerManager
