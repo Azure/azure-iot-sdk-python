@@ -4,7 +4,7 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.iothub.models.digital_twin_translation import (
+from azure.iot.device.iothub.models.pnp_translation import (
     client_property_collection_to_twin_patch,
     command_response_to_method_response,
     method_request_to_command_request,

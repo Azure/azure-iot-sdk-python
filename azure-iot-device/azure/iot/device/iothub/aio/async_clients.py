@@ -18,7 +18,7 @@ from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubDeviceClient,
     AbstractIoTHubModuleClient,
 )
-from azure.iot.device.iothub.models import digital_twin_translation, Message
+from azure.iot.device.iothub.models import pnp_translation, Message
 from azure.iot.device.iothub.pipeline import constant
 from azure.iot.device.iothub.pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
@@ -166,7 +166,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             fut.result()
 
     @staticmethod
-    def _generate_digital_twin_handler_translation_wrapper(handler_to_wrap, translation_fn):
+    def _generate_pnp_handler_translation_wrapper(handler_to_wrap, translation_fn):
         """Generate a translation wrapper for a Plug and Play (PNP)-related handler, using the given
         translation function.
 
@@ -583,7 +583,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             during execution.
         :raises: ValueError if the message fails size validation.
         """
-        self._check_client_mode_is_digital_twin()
+        self._check_client_mode_is_pnp()
 
         message = Message(
             json.dumps(telemetry_dict), content_encoding="utf-8", content_type="application/json"
@@ -627,16 +627,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
-        self._check_client_mode_is_digital_twin()
+        self._check_client_mode_is_pnp()
 
         logger.info("Sending command response to Hub...")
         send_method_response_async = async_adapter.emulate_async(
             self._mqtt_pipeline.send_method_response
         )
 
-        method_response = digital_twin_translation.command_response_to_method_response(
-            command_response
-        )
+        method_response = pnp_translation.command_response_to_method_response(command_response)
 
         callback = async_adapter.AwaitableCallback()
 
@@ -669,7 +667,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
-        self._check_client_mode_is_digital_twin()
+        self._check_client_mode_is_pnp()
 
         if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
             await self._enable_feature(constant.TWIN)
@@ -679,7 +677,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         await get_twin_async(callback=callback)
         twin = await handle_result(callback)
 
-        client_properties = digital_twin_translation.twin_to_client_properties(twin)
+        client_properties = pnp_translation.twin_to_client_properties(twin)
         return client_properties
 
     # Plug and Play
@@ -709,10 +707,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
-        self._check_client_mode_is_digital_twin()
+        self._check_client_mode_is_pnp()
 
-        reported_properties_patch = (
-            digital_twin_translation.client_property_collection_to_twin_patch(property_collection)
+        reported_properties_patch = pnp_translation.client_property_collection_to_twin_patch(
+            property_collection
         )
 
         if not self._mqtt_pipeline.feature_enabled[constant.TWIN]:
