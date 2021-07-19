@@ -11,22 +11,6 @@ connect to the Azure IoT Hub ecosystem.
 
 *If you're looking for the v1.x.x client library, it is now preserved in the [v1-deprecated](https://github.com/Azure/azure-iot-sdk-python/tree/v1-deprecated) branch.*
 
-## Critical Upcoming Change Notice
-
-All Azure IoT SDK users are advised to be aware of upcoming certificate changes for IoT hub and Device Provisioning Service 
-that will impact the SDK's ability to connect. In October 2022, both services will migrate from the current 
-[Baltimore CyberTrust CA Root](https://baltimore-cybertrust-root.chain-demos.digicert.com/info/index.html) to the 
-[DigiCert Global G2 CA root](https://global-root-g2.chain-demos.digicert.com/info/index.html). There will be a 
-transition period beforehand where your IoT devices must have both the Baltimore and Digicert public certificates 
-installed in their certificate store in order to prevent connectivity issues. 
-
-**Devices with only the Baltimore public certificate installed will lose the ability to connect to IoT hub and Device Provisioning Service in October 2022.**
-
-To prepare for this change, make sure your device's certificate store has both of these public certificates installed.
-
-For a more in depth explanation as to why the service is doing this, please see
-[this article](https://techcommunity.microsoft.com/t5/internet-of-things/azure-iot-tls-critical-changes-are-almost-here-and-why-you/ba-p/2393169).
-
 ## Azure IoT SDK for Python
 
 This repository contains the following libraries:
@@ -38,6 +22,22 @@ This repository contains the following libraries:
      * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-hub)
 
 * Coming Soon: Azure IoT Device Provisioning Service Library
+
+## Critical Upcoming Change Notice
+
+All Azure IoT SDK users are advised to be aware of upcoming TLS certificate changes for Azure IoT Hub and Device Provisioning Service 
+that will impact the SDK's ability to connect to these services. In October 2022, both services will migrate from the current 
+[Baltimore CyberTrust CA Root](https://baltimore-cybertrust-root.chain-demos.digicert.com/info/index.html) to the 
+[DigiCert Global G2 CA root](https://global-root-g2.chain-demos.digicert.com/info/index.html). There will be a 
+transition period beforehand where your IoT devices must have both the Baltimore and Digicert public certificates 
+installed in their certificate store in order to prevent connectivity issues. 
+
+**Devices with only the Baltimore public certificate installed will lose the ability to connect to Azure IoT hub and Device Provisioning Service in October 2022.**
+
+To prepare for this change, make sure your device's certificate store has both of these public certificates installed.
+
+For a more in depth explanation as to why the IoT services are doing this, please see
+[this article](https://techcommunity.microsoft.com/t5/internet-of-things/azure-iot-tls-critical-changes-are-almost-here-and-why-you/ba-p/2393169).
 
 ## Installing the libraries
 
