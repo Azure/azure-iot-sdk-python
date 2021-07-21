@@ -30,9 +30,9 @@ RECEIVE_TYPE_NONE_SET = "none_set"  # Type of receiving has not been set
 RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
 RECEIVE_TYPE_API = "api"  # Only use APIs for receive
 
-# Client Type constant defs
-CLIENT_MODE_BASIC = "CLIENT_MODE_BASIC"
-CLIENT_MODE_PNP = "CLIENT_MODE_PNP"
+# Handler Mode constant defs
+HANDLER_MODE_BASIC = "HANDLER_MODE_BASIC"
+HANDLER_MODE_PNP = "HANDLER_MODE_PNP"
 
 
 def _validate_kwargs(exclude=[], **kwargs):
@@ -79,13 +79,6 @@ def _get_config_kwargs(**kwargs):
     return config_kwargs
 
 
-def _get_client_mode(**kwargs):
-    if kwargs.get("model_id"):
-        return CLIENT_MODE_PNP
-    else:
-        return CLIENT_MODE_BASIC
-
-
 def _form_sas_uri(hostname, device_id, module_id=None):
     if module_id:
         return "{hostname}/devices/{device_id}/modules/{module_id}".format(
@@ -119,22 +112,24 @@ class AbstractIoTHubClient(object):
     This class needs to be extended for specific clients.
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline, client_mode):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a generic client.
 
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
-        :param str client_mode: The client mode (CLIENT_MODE_BASIC or CLIENT_MODE_PNP)
         """
         self._mqtt_pipeline = mqtt_pipeline
         self._http_pipeline = http_pipeline
 
         self._inbox_manager = None  # this will be overridden in child class
         self._handler_manager = None  # this will be overridden in child class
+
         self._receive_type = RECEIVE_TYPE_NONE_SET
-        self._client_mode = client_mode
+        self._handler_mode_methods = None  # This will be set based on user behavior
+        self._handler_mode_twin_patch = None  # This will be set based on user behavior
+
         self._client_lock = threading.Lock()
 
         # Unwrapped Plug and Play handlers. These are not used within the client (we instead use
@@ -196,20 +191,6 @@ class AbstractIoTHubClient(object):
                 )
             else:
                 pass
-
-    def _check_client_mode_is_basic(self):
-        """Call this method first in any feature restricted to a basic client"""
-        if self._client_mode is not CLIENT_MODE_BASIC:
-            raise exceptions.ClientError(
-                "This feature is not compatible with Azure IoT Plug and Play"
-            )
-
-    def _check_client_mode_is_pnp(self):
-        """Call this method first when using any feature restricted to a Plug and Play client"""
-        if self._client_mode is not CLIENT_MODE_PNP:
-            raise exceptions.ClientError(
-                "This feature is only compatible with Azure IoT Plug and Play"
-            )
 
     def _replace_user_supplied_sastoken(self, sastoken_str):
         """
@@ -330,10 +311,7 @@ class AbstractIoTHubClient(object):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        # Assess client type
-        client_mode = _get_client_mode(**kwargs)
-
-        return cls(mqtt_pipeline, http_pipeline, client_mode)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_sastoken(cls, sastoken, **kwargs):
@@ -401,10 +379,7 @@ class AbstractIoTHubClient(object):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        # Assess client type
-        client_mode = _get_client_mode(**kwargs)
-
-        return cls(mqtt_pipeline, http_pipeline, client_mode)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def shutdown(self):
@@ -505,19 +480,32 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.MethodRequest` object)
 
-        This handler is not compatible with Azure IoT Plug and Play.
+        This handler cannot be used at the same time as the '.on_command_request_received handler'.
         """
-        if self._client_mode is CLIENT_MODE_BASIC:
+        if self._handler_mode_methods is HANDLER_MODE_BASIC:
             return self._handler_manager.on_method_request_received
         else:
             return None
 
     @on_method_request_received.setter
     def on_method_request_received(self, value):
-        self._check_client_mode_is_basic()
-        self._generic_receive_handler_setter(
-            "on_method_request_received", pipeline_constant.METHODS, value
-        )
+        # If the Handler Mode for this feature has not yet been set, set it to Basic Mode
+        if self._handler_mode_methods is None:
+            self._handler_mode_methods = HANDLER_MODE_BASIC
+
+        # If already in Basic Mode, set up the handler
+        if self._handler_mode_methods is HANDLER_MODE_BASIC:
+            self._generic_receive_handler_setter(
+                "on_method_request_received", pipeline_constant.METHODS, value
+            )
+            # Unset the Handler Mode if setting to a value of None (unsetting the handler)
+            if value is None:
+                self._handler_mode_methods = None
+        # If not in Basic Mode (i.e. the analogous PNP handler has previously been set), throw
+        else:
+            raise exceptions.ClientError(
+                "'.on_method_request_received' and '.on_command_request_received' handlers are mutually exclusive"
+            )
 
     @property
     def on_twin_desired_properties_patch_received(self):
@@ -527,19 +515,33 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the twin patch
         in the form of a JSON dictionary object)
 
-        This handler is not compatible with Azure IoT Plug and Play.
+        This handler cannot be used at the same time as the
+        '.on_writable_property_update_request_received' handler.
         """
-        if self._client_mode is CLIENT_MODE_BASIC:
+        if self._handler_mode_twin_patch is HANDLER_MODE_BASIC:
             return self._handler_manager.on_twin_desired_properties_patch_received
         else:
             return None
 
     @on_twin_desired_properties_patch_received.setter
     def on_twin_desired_properties_patch_received(self, value):
-        self._check_client_mode_is_basic()
-        self._generic_receive_handler_setter(
-            "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
-        )
+        # If the Handler Mode for this feature has not yet been set, set it to Basic Mode
+        if self._handler_mode_twin_patch is None:
+            self._handler_mode_twin_patch = HANDLER_MODE_BASIC
+
+        # If already in Basic Mode, set up the handler
+        if self._handler_mode_twin_patch is HANDLER_MODE_BASIC:
+            self._generic_receive_handler_setter(
+                "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
+            )
+            # Unset the Handler Mode if setting to a value of None (unsetting the handler)
+            if value is None:
+                self._handler_mode_twin_patch = None
+        # If not in Basic Mode (i.e. the analogous PNP handler has previously been set), throw
+        else:
+            raise exceptions.ClientError(
+                "'.on_twin_desired_properties_patch_received' and '.on_writable_property_update_request_received' handlers are mutually exclusive"
+            )
 
     @property
     def on_command_request_received(self):
@@ -548,38 +550,50 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.CommandRequest` object)
 
-        This handler is only compatible with Azure IoT Plug and Play.
+        This handler cannot be used at the same time as the '.on_method_request_received' handler.
+        This handler is only intended for use with Azure IoT Plug and Play.
         """
-        if self._client_mode is CLIENT_MODE_PNP:
+        if self._handler_mode_methods is HANDLER_MODE_PNP:
             return self._on_command_request_received_unwrapped
         else:
             return None
 
     @on_command_request_received.setter
     def on_command_request_received(self, value):
-        self._check_client_mode_is_pnp()
+        # If the Handler Mode for this feature has not yet been set, set it to PNP Mode
+        if self._handler_mode_methods is None:
+            self._handler_mode_methods = HANDLER_MODE_PNP
 
-        if value is not None:
-            # Generate a wrapper around the user provided handler that will turn a MethodRequest into
-            # a CommandRequest, then invoke the user's handler
-            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
-                handler_to_wrap=value,
-                translation_fn=pnp_translation.method_request_to_command_request,
-            )
+        # If already in PNP Mode, set up the handler
+        if self._handler_mode_methods is HANDLER_MODE_PNP:
+            if value is not None:
+                # Generate a wrapper around the user provided handler that will turn a MethodRequest into
+                # a CommandRequest, then invoke the user's handler
+                translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+                    handler_to_wrap=value,
+                    translation_fn=pnp_translation.method_request_to_command_request,
+                )
 
-            # Set this wrapper as a handler on the HandlerManager
-            self._generic_receive_handler_setter(
-                "on_method_request_received", pipeline_constant.METHODS, translation_wrapper
-            )
+                # Set this wrapper as a handler on the HandlerManager
+                self._generic_receive_handler_setter(
+                    "on_method_request_received", pipeline_constant.METHODS, translation_wrapper
+                )
+            else:
+                # If setting the handler back to None, there is nothing to wrap
+                self._generic_receive_handler_setter(
+                    "on_method_request_received", pipeline_constant.METHODS, value
+                )
+                # Set the Handler Mode for this feature back to None as well
+                self._handler_mode_methods = None
+
+            # Cache the unwrapped handler so we can return it to user later,
+            # or clear the cached value if being set to None.
+            self._on_command_request_received_unwrapped = value
+        # If not in PNP Mode (i.e. the analogous Basic Handler has previously been set), throw
         else:
-            # If setting the handler back to None, there is nothing to wrap
-            self._generic_receive_handler_setter(
-                "on_method_request_received", pipeline_constant.METHODS, value
+            raise exceptions.ClientError(
+                "'.on_command_request_received' and '.on_method_request_received' handlers are mutually exclusive"
             )
-
-        # Cache the unwrapped handler so we can return it to user later,
-        # or clear the cached value if being set to None.
-        self._on_command_request_received_unwrapped = value
 
     @property
     def on_writable_property_update_request_received(self):
@@ -589,42 +603,55 @@ class AbstractIoTHubClient(object):
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.ClientPropertyCollection` object)
 
-        This handler is only compatible with Azure IoT Plug and Play.
+        This handler cannot be used at the same time as the
+        '.on_twin_desired_properties_patch_received' handler.
+        This handler is only intended for use with Azure IoT Plug and Play.
         """
-        if self._client_mode is CLIENT_MODE_PNP:
+        if self._handler_mode_twin_patch is HANDLER_MODE_PNP:
             return self._on_writable_property_update_request_received_unwrapped
         else:
             return None
 
     @on_writable_property_update_request_received.setter
     def on_writable_property_update_request_received(self, value):
-        self._check_client_mode_is_pnp()
+        # If the Handler Mode for this feature has not yet been set, set it to PNP Mode
+        if self._handler_mode_twin_patch is None:
+            self._handler_mode_twin_patch = HANDLER_MODE_PNP
 
-        if value is not None:
-            # Generate a wrapper around the user provided handler that will turn a twin patch into
-            # a ClientPropertyCollection, then invoke the user's handler
-            translation_wrapper = self._generate_pnp_handler_translation_wrapper(
-                handler_to_wrap=value,
-                translation_fn=pnp_translation.twin_patch_to_client_property_collection,
-            )
+        # If already in PNP Mode, set up the handler
+        if self._handler_mode_twin_patch is HANDLER_MODE_PNP:
+            if value is not None:
+                # Generate a wrapper around the user provided handler that will turn a twin patch into
+                # a ClientPropertyCollection, then invoke the user's handler
+                translation_wrapper = self._generate_pnp_handler_translation_wrapper(
+                    handler_to_wrap=value,
+                    translation_fn=pnp_translation.twin_patch_to_client_property_collection,
+                )
 
-            # Set this wrapper as a handler on the HandlerManager
-            self._generic_receive_handler_setter(
-                "on_twin_desired_properties_patch_received",
-                pipeline_constant.TWIN_PATCHES,
-                translation_wrapper,
-            )
+                # Set this wrapper as a handler on the HandlerManager
+                self._generic_receive_handler_setter(
+                    "on_twin_desired_properties_patch_received",
+                    pipeline_constant.TWIN_PATCHES,
+                    translation_wrapper,
+                )
+            else:
+                # If setting the handler back to None, there is nothing to wrap
+                self._generic_receive_handler_setter(
+                    "on_twin_desired_properties_patch_received",
+                    pipeline_constant.TWIN_PATCHES,
+                    value,
+                )
+                # Set the Handler Mode for this feature back to None as well
+                self._handler_mode_twin_patch = None
+
+            # Cache the unwrapped handler so we can return it to user later,
+            # or clear the cached value if being set to None.
+            self._on_writable_property_update_request_received_unwrapped = value
+            # If not in PNP Mode (i.e. the analogous Basic Handler has previously been set), throw
         else:
-            # If setting the handler back to None, there is nothing to wrap
-            self._generic_receive_handler_setter(
-                "on_twin_desired_properties_patch_received",
-                pipeline_constant.TWIN_PATCHES,
-                value,
+            raise exceptions.ClientError(
+                "'.on_writable_property_update_request_received' and '.on_twin_desired_properties_patch_received' handlers are mutually exclusive"
             )
-
-        # Cache the unwrapped handler so we can return it to user later,
-        # or clear the cached value if being set to None.
-        self._on_writable_property_update_request_received_unwrapped = value
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -684,10 +711,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        # Assess client type
-        client_mode = _get_client_mode(**kwargs)
-
-        return cls(mqtt_pipeline, http_pipeline, client_mode)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
@@ -753,10 +777,7 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        # Assess client type
-        client_mode = _get_client_mode(**kwargs)
-
-        return cls(mqtt_pipeline, http_pipeline, client_mode)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def receive_message(self):
@@ -929,10 +950,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        # Assess client type
-        client_mode = _get_client_mode(**kwargs)
-
-        return cls(mqtt_pipeline, http_pipeline, client_mode)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
@@ -989,10 +1007,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
         http_pipeline = pipeline.HTTPPipeline(pipeline_configuration)
         mqtt_pipeline = pipeline.MQTTPipeline(pipeline_configuration)
 
-        # Assess client type
-        client_mode = _get_client_mode(**kwargs)
-
-        return cls(mqtt_pipeline, http_pipeline, client_mode)
+        return cls(mqtt_pipeline, http_pipeline)
 
     @abc.abstractmethod
     def send_message_to_output(self, message, output_name):
