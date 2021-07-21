@@ -560,12 +560,8 @@ class AbstractIoTHubClient(object):
 
     @on_command_request_received.setter
     def on_command_request_received(self, value):
-        # If the Handler Mode for this feature has not yet been set, set it to PNP Mode
-        if self._handler_mode_methods is None:
-            self._handler_mode_methods = HANDLER_MODE_PNP
-
-        # If already in PNP Mode, set up the handler
-        if self._handler_mode_methods is HANDLER_MODE_PNP:
+        # If already in PNP Mode, or Handler Mode has not yet been set, set up the handler
+        if self._handler_mode_methods is HANDLER_MODE_PNP or self._handler_mode_methods is None:
             if value is not None:
                 # Generate a wrapper around the user provided handler that will turn a MethodRequest into
                 # a CommandRequest, then invoke the user's handler
@@ -578,6 +574,8 @@ class AbstractIoTHubClient(object):
                 self._generic_receive_handler_setter(
                     "on_method_request_received", pipeline_constant.METHODS, translation_wrapper
                 )
+                # Set the Handler Mode for this feature since it has been successfully set
+                self._handler_mode_methods = HANDLER_MODE_PNP
             else:
                 # If setting the handler back to None, there is nothing to wrap
                 self._generic_receive_handler_setter(
