@@ -612,12 +612,11 @@ class AbstractIoTHubClient(object):
 
     @on_writable_property_update_request_received.setter
     def on_writable_property_update_request_received(self, value):
-        # If the Handler Mode for this feature has not yet been set, set it to PNP Mode
-        if self._handler_mode_twin_patch is None:
-            self._handler_mode_twin_patch = HANDLER_MODE_PNP
-
-        # If already in PNP Mode, set up the handler
-        if self._handler_mode_twin_patch is HANDLER_MODE_PNP:
+        # If already in PNP Mode, or Handler Mode has not yet been set, set up the handler
+        if (
+            self._handler_mode_twin_patch is HANDLER_MODE_PNP
+            or self._handler_mode_twin_patch is None
+        ):
             if value is not None:
                 # Generate a wrapper around the user provided handler that will turn a twin patch into
                 # a ClientPropertyCollection, then invoke the user's handler
@@ -632,6 +631,8 @@ class AbstractIoTHubClient(object):
                     pipeline_constant.TWIN_PATCHES,
                     translation_wrapper,
                 )
+                # Set the Handler Mode for this feature since it has been successfully set
+                self._handler_mode_twin_patch = HANDLER_MODE_PNP
             else:
                 # If setting the handler back to None, there is nothing to wrap
                 self._generic_receive_handler_setter(
