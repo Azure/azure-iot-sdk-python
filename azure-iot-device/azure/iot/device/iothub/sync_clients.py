@@ -548,7 +548,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         If the connection to the service has not previously been opened by a call to connect, this
         function will open the connection before sending the event.
 
-        This method is only compatible with Azure IoT Plug and Play.
+        This method is only intended for use with Azure IoT Plug and Play.
 
         :param dict telemetry_dict: A JSON-serializable dict containing the telemetry to send.
         :param str component_name: The component that corresponds with the telemetry.
