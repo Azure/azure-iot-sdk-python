@@ -12,6 +12,7 @@ import asyncio
 import deprecation
 import inspect
 import json
+from uuid import uuid4
 from azure.iot.device.common import async_adapter
 from azure.iot.device.iothub.abstract_clients import (
     AbstractIoTHubClient,
@@ -586,7 +587,10 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._check_client_mode_is_pnp()
 
         message = Message(
-            json.dumps(telemetry_dict), content_encoding="utf-8", content_type="application/json"
+            json.dumps(telemetry_dict),
+            message_id=str(uuid4()),
+            content_encoding="utf-8",
+            content_type="application/json",
         )
         if component_name:
             message.custom_properties["$.sub"] = component_name

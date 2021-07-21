@@ -1536,6 +1536,7 @@ class SharedClientSendTelemetryTests(WaitsForEventCompletion):
         assert isinstance(message, Message)
         assert message.content_encoding == "utf-8"
         assert message.content_type == "application/json"
+        assert message.message_id is not None
         assert str(message) == json.dumps(telemetry_dict)
         with pytest.raises(KeyError):
             message.custom_properties["$.sub"]
@@ -1549,6 +1550,7 @@ class SharedClientSendTelemetryTests(WaitsForEventCompletion):
         assert isinstance(message, Message)
         assert message.content_encoding == "utf-8"
         assert message.content_type == "application/json"
+        assert message.message_id is not None
         assert str(message) == json.dumps(telemetry_dict)
         assert message.custom_properties["$.sub"] == component_name
 
