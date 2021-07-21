@@ -696,7 +696,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline, client_mode):
+    def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
 
         This initializer should not be called directly.
@@ -707,7 +707,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
-        super().__init__(mqtt_pipeline, http_pipeline)
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     @deprecation.deprecated(
@@ -785,8 +785,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
     Intended for usage with Python 3.5.3+
     """
 
-    def __init__(self, mqtt_pipeline, http_pipeline, client_mode):
-        """Intializer for a IoTHubModuleClient.
+    def __init__(self, mqtt_pipeline, http_pipeline):
+        """Initializer for a IoTHubModuleClient.
 
         This initializer should not be called directly.
         Instead, use one of the 'create_from_' classmethods to instantiate
@@ -796,7 +796,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
-        super().__init__(mqtt_pipeline, http_pipeline)
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     async def send_message_to_output(self, message, output_name):
