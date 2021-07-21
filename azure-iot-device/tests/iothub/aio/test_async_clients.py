@@ -187,6 +187,9 @@ class SharedClientShutdownTests(object):
             await client.shutdown()
         assert e_info.value.__cause__ is my_pipeline_error
 
+        # Reset the shutdown side effect to allow for cleanup
+        mqtt_pipeline.shutdown.side_effect = None
+
     @pytest.mark.it(
         "Stops the client event handlers after the `shutdown` pipeline operation is complete"
     )
@@ -208,6 +211,9 @@ class SharedClientShutdownTests(object):
 
         assert hm_stop_spy.call_count == 1
         assert hm_stop_spy.call_args == mocker.call(receiver_handlers_only=False)
+
+        # Reset the shutdown side effect to allow for cleanup
+        mqtt_pipeline.shutdown.side_effect = None
 
 
 class SharedClientConnectTests(object):
@@ -1661,7 +1667,7 @@ class IoTHubDeviceClientTestsConfig(object):
         # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
         # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(client.disconnect())
+        loop.run_until_complete(client.shutdown())
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
