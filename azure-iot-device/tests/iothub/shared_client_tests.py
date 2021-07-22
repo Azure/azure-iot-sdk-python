@@ -24,6 +24,8 @@ from azure.iot.device.iothub.abstract_clients import (
     RECEIVE_TYPE_NONE_SET,
     RECEIVE_TYPE_HANDLER,
     RECEIVE_TYPE_API,
+    HANDLER_MODE_BASIC,
+    HANDLER_MODE_PNP,
 )
 from azure.iot.device.iothub import edge_hsm
 from azure.iot.device.iothub import client_event
@@ -58,44 +60,42 @@ class SharedIoTHubClientInstantiationTests(object):
     @pytest.mark.it(
         "Stores the MQTTPipeline from the 'mqtt_pipeline' parameter in the '_mqtt_pipeline' attribute"
     )
-    def test_mqtt_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline, client_mode):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+    def test_mqtt_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._mqtt_pipeline is mqtt_pipeline
 
     @pytest.mark.it(
         "Stores the HTTPPipeline from the 'http_pipeline' parameter in the '_http_pipeline' attribute"
     )
-    def test_sets_http_pipeline_attribute(
-        self, client_class, mqtt_pipeline, http_pipeline, client_mode
-    ):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+    def test_sets_http_pipeline_attribute(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._http_pipeline is http_pipeline
 
     @pytest.mark.it("Sets on_connected handler in the MQTTPipeline")
     def test_sets_on_connected_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline, client_mode
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._mqtt_pipeline.on_connected is not None
         assert client._mqtt_pipeline.on_connected == client._on_connected
 
     @pytest.mark.it("Sets on_disconnected handler in the MQTTPipeline")
     def test_sets_on_disconnected_handler_in_pipeline(
-        self, client_class, mqtt_pipeline, http_pipeline, client_mode
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._mqtt_pipeline.on_disconnected is not None
         assert client._mqtt_pipeline.on_disconnected == client._on_disconnected
 
     @pytest.mark.it("Sets on_method_request_received handler in the MQTTPipeline")
-    def test_sets_on_method_request_received_handler_in_pipleline(
-        self, client_class, mqtt_pipeline, http_pipeline, client_mode
+    def test_sets_on_method_request_received_handler_in_pipeline(
+        self, client_class, mqtt_pipeline, http_pipeline
     ):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._mqtt_pipeline.on_method_request_received is not None
         assert (
@@ -104,16 +104,10 @@ class SharedIoTHubClientInstantiationTests(object):
         )
 
     @pytest.mark.it("Sets the Receive Mode/Type for the client as yet-unchosen")
-    def test_initial_receive_mode(self, client_class, mqtt_pipeline, http_pipeline, client_mode):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
+    def test_initial_receive_mode(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
 
         assert client._receive_type == RECEIVE_TYPE_NONE_SET
-
-    @pytest.mark.it("Sets the Client Type to the value provided via the 'client_mode' parameter")
-    def test_client_mode(self, client_class, mqtt_pipeline, http_pipeline, client_mode):
-        client = client_class(mqtt_pipeline, http_pipeline, client_mode)
-
-        assert client._client_mode == client_mode
 
 
 @pytest.mark.usefixtures("mock_mqtt_pipeline_init", "mock_http_pipeline_init")
@@ -532,6 +526,8 @@ class SharedIoTHubClientCreateFromConnectionStringTests(
 
 
 class SharedIoTHubClientPROPERTYHandlerTests(object):
+    """These tests are used for client properties"""
+
     @pytest.mark.it("Can have its value set and retrieved")
     def test_read_write(self, client, handler, handler_name):
         assert getattr(client, handler_name) is None
@@ -562,6 +558,8 @@ class SharedIoTHubClientPROPERTYHandlerTests(object):
 
 
 class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYHandlerTests):
+    """These tests are used for a subset of client properties that are Receiver Handlers"""
+
     @pytest.mark.it(
         "Is invoked with the received object when the receive event occurs in the client"
     )
@@ -648,7 +646,7 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
         assert client._receive_type is RECEIVE_TYPE_HANDLER
 
     @pytest.mark.it(
-        "Raises a ClientError and does nothing else if the client receive mode has already been set to  API Receive Mode"
+        "Raises a ClientError and does nothing else, if the client receive mode has already been set to API Receive Mode"
     )
     def test_receive_mode_set_api(self, client, handler, handler_name, mqtt_pipeline):
         client._receive_type = RECEIVE_TYPE_API
@@ -657,6 +655,108 @@ class SharedIoTHubClientPROPERTYReceiverHandlerTests(SharedIoTHubClientPROPERTYH
             setattr(client, handler_name, handler)
         # Feature was not enabled
         assert mqtt_pipeline.enable_feature.call_count == 0
+        # Receive Mode was not changed
+        client._receive_type = RECEIVE_TYPE_API
+
+
+class SharedIoTHubClientPROPERTYReceiverHandlerBasicModeOnlyTests(
+    SharedIoTHubClientPROPERTYReceiverHandlerTests
+):
+    """These tests are used for a subset of Receiver Handler client properties that require a
+    Handler Mode to be set to Basic Mode while set
+    """
+
+    @pytest.mark.it(
+        "Sets the handler mode to HANDLER_MODE_BASIC when the value is set to a non-None value"
+    )
+    def test_handler_mode_set(self, client, handler_name, handler_mode_name, handler):
+        assert getattr(client, handler_mode_name) is None
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_mode_name) == HANDLER_MODE_BASIC
+
+    @pytest.mark.it("Sets the handler mode back to None when the value is set to None")
+    def test_handler_mode_set_none(self, client, handler_name, handler_mode_name, handler):
+        assert getattr(client, handler_mode_name) is None
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_mode_name) == HANDLER_MODE_BASIC
+        setattr(client, handler_name, None)
+        assert getattr(client, handler_mode_name) is None
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else, if trying to set the value once the handler mode has been set to HANDLER_MODE_PNP"
+    )
+    def test_set_with_analogous_pnp_handler_set(
+        self, client, handler, handler_name, handler_mode_name, mqtt_pipeline
+    ):
+        assert client._receive_type == RECEIVE_TYPE_NONE_SET
+        setattr(client, handler_mode_name, HANDLER_MODE_PNP)
+        # Error raised
+        with pytest.raises(client_exceptions.ClientError):
+            setattr(client, handler_name, handler)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Receive Mode was not changed
+        assert client._receive_type == RECEIVE_TYPE_NONE_SET
+        # Handler Mode was not changed
+        assert getattr(client, handler_mode_name) == HANDLER_MODE_PNP
+
+    @pytest.mark.it("Returns None if trying to get the value while not in HANDLER_MODE_BASIC")
+    @pytest.mark.parametrize(
+        "handler_mode", [pytest.param(HANDLER_MODE_PNP), pytest.param(None, id="No Handler Mode")]
+    )
+    def test_get_with_analogous_pnp_handler_set(
+        self, client, handler_mode, handler_mode_name, handler_name
+    ):
+        setattr(client, handler_mode_name, handler_mode)
+        assert getattr(client, handler_name) is None
+
+
+class SharedIoTHubClientPROPERTYReceiverHandlerPnpModeOnlyTests(
+    SharedIoTHubClientPROPERTYReceiverHandlerTests
+):
+    @pytest.mark.it(
+        "Sets the handler mode to HANDLER_MODE_PNP when the value is set to a non-None value"
+    )
+    def test_handler_mode_set(self, client, handler_name, handler_mode_name, handler):
+        assert getattr(client, handler_mode_name) is None
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_mode_name) == HANDLER_MODE_PNP
+
+    @pytest.mark.it("Sets the handler mode back to None when the value is set to None")
+    def test_handler_mode_set_none(self, client, handler_name, handler_mode_name, handler):
+        assert getattr(client, handler_mode_name) is None
+        setattr(client, handler_name, handler)
+        assert getattr(client, handler_mode_name) == HANDLER_MODE_PNP
+        setattr(client, handler_name, None)
+        assert getattr(client, handler_mode_name) is None
+
+    @pytest.mark.it(
+        "Raises a ClientError and does nothing else, if trying to set the value once the handler mode has been set to HANDLER_MODE_BASIC"
+    )
+    def test_set_with_analogous_pnp_handler_set(
+        self, client, handler, handler_name, handler_mode_name, mqtt_pipeline
+    ):
+        assert client._receive_type == RECEIVE_TYPE_NONE_SET
+        setattr(client, handler_mode_name, HANDLER_MODE_BASIC)
+        # Error raised
+        with pytest.raises(client_exceptions.ClientError):
+            setattr(client, handler_name, handler)
+        # Feature was not enabled
+        assert mqtt_pipeline.enable_feature.call_count == 0
+        # Receive Mode was not changed
+        assert client._receive_type == RECEIVE_TYPE_NONE_SET
+        # Handler Mode was not changed
+        assert getattr(client, handler_mode_name) == HANDLER_MODE_BASIC
+
+    @pytest.mark.it("Returns None if trying to get the value while not in HANDLER_MODE_PNP")
+    @pytest.mark.parametrize(
+        "handler_mode", [pytest.param(HANDLER_MODE_BASIC), pytest.param(None, id="No Handler Mode")]
+    )
+    def test_get_with_analogous_pnp_handler_set(
+        self, client, handler_mode, handler_mode_name, handler_name
+    ):
+        setattr(client, handler_mode_name, handler_mode)
+        assert getattr(client, handler_name) is None
 
 
 # NOTE: If more properties are added, this class should become a general purpose properties testclass
