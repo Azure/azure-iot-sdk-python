@@ -439,57 +439,19 @@ class AutoConnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         # Any operation that requires a connection can trigger a connection if
-        # we're not connected.
-        if op.needs_connection and self.pipeline_root.pipeline_configuration.auto_connect:
-            if self.pipeline_root.connected:
-
-                # If we think we're connected, we pass the op down, but we also check the result.
-                # If we fail the op and we're not connected when we're done, we run through this
-                # stage again to connect.  This is more common than you might think because the
-                # *nix network stack won't detect a dropped connection until the client tries to
-                # send something, so it's very possible that we're disconnected but don't know
-                # it yet.
-                #
-                # However, we only want to do this for errors - NOT operations that were cancelled.
-                #
-                # QUESTION: Is this necessary as described above? E2E tests pass without this code.
-                # Is this that the tests don't handle this case, or that this isn't necessary?
-
-                @pipeline_thread.runs_on_pipeline_thread
-                def check_for_connection_failure(op, error):
-                    # QUESTION: Perhaps this should be checking for specific (connection related)
-                    # errors, rather than excluding certain ones?
-                    if (
-                        error
-                        and not isinstance(error, pipeline_exceptions.OperationCancelled)
-                        and not self.pipeline_root.connected
-                    ):
-                        logger.debug(
-                            "{}({}): op failed with {} and we're not connected.  Re-submitting.".format(
-                                self.name, op.name, error
-                            )
-                        )
-                        op.halt_completion()
-                        self.run_op(op)
-
-                op.add_callback(check_for_connection_failure)
-                logger.debug(
-                    "{}({}): Connected.  Sending down and adding callback to check result".format(
-                        self.name, op.name
-                    )
+        # we're not connected and the auto-connect feature is enabled.
+        if (
+            op.needs_connection
+            and not self.pipeline_root.connected
+            and self.pipeline_root.pipeline_configuration.auto_connect
+        ):
+            logger.debug(
+                "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
+                    self.name, op.name
                 )
-                self.send_op_down(op)
-            else:
-                # operation needs connection, but pipeline is not connected.
-                logger.debug(
-                    "{}({}): Op needs connection.  Queueing this op and starting a ConnectionOperation".format(
-                        self.name, op.name
-                    )
-                )
-                self._do_connect(op)
+            )
+            self._do_connect(op)
 
-        # Finally, if this stage doesn't need to do anything else with this operation,
-        # it just passes it down.
         else:
             self.send_op_down(op)
 
@@ -1012,10 +974,10 @@ class ReconnectStage(PipelineStage):
         # worked in the past, so we assume it's a temporary error.
         self.never_connected = True
 
-        # Waiting connect ops are operations that will establish a connection, which are waiting upon
+        # Waiting ops are operations that will establish a connection, which are waiting upon
         # some other op or process which will also establish a connection. This means they can be
         # auto-completed upon the resolution of the other connection.
-        self.waiting_connect_ops = []
+        self.waiting_ops = []
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -1024,41 +986,33 @@ class ReconnectStage(PipelineStage):
             if isinstance(op, pipeline_ops_base.ConnectOperation):
                 if self.state == ReconnectState.LOGICALLY_CONNECTED:
                     logger.debug(
-                        "{}({}): State is already LOGICALLY_CONNECTED. Adding to connection wait list and sending new connect op down".format(
+                        "{}({}): State is already LOGICALLY_CONNECTED. Sending op down".format(
                             self.name, op.name
                         )
                     )
-                    self.waiting_connect_ops.append(op)
-                    self._send_new_connect_op_down()
+                    self.send_op_down(op)
                 elif self.state == ReconnectState.LOGICALLY_DISCONNECTED:
                     logger.debug(
-                        "{}({}): State changes LOGICALLY_DISCONNECTED->LOGICALLY_CONNECTED. Adding to connection wait list and sending new connect op down".format(
+                        "{}({}): State changes LOGICALLY_DISCONNECTED->LOGICALLY_CONNECTED. Sending op down".format(
                             self.name, op.name
                         )
                     )
                     self.state = ReconnectState.LOGICALLY_CONNECTED
-                    # We don't send this op down.  Instead, we send a new connect op down.  This way,
-                    # we can distinguish between connect ops that we're handling (they go into the
-                    # queue) and connect ops that we are sending down.
-                    #
-                    # Once we finally connect, we only have to complete the ops in the queue and we
-                    # never have to worry about completing the op that we sent down. The code is much
-                    # cleaner this way, especially when you take retries into account, trust me.
-                    self.waiting_connect_ops.append(op)
-                    self._send_new_connect_op_down()
+                    self.send_op_down(op)
                 elif self.state == ReconnectState.WAITING_TO_RECONNECT:
                     # TODO: perhaps just force this to a connected state?
                     logger.debug(
                         "{}({}): State is WAITING_TO_RECONNECT. Process must complete. Adding to connection wait list"
                     )
-                    self.waiting_connect_ops.append(op)
+                    self.waiting_ops.append(op)
                 elif self.state == ReconnectState.REAUTHORIZING:
+                    # TODO: perhaps just force this to a connected state?
                     logger.debug(
-                        "{}({}): State is REAUTHORIZING. Process must complete. Adding to wait list".format(
+                        "{}({}): State is REAUTHORIZING. Process must complete. Adding to connection wait list".format(
                             self.name, op.name
                         )
                     )
-                    self.waiting_connect_ops.append(op)
+                    self.waiting_ops.append(op)
                 else:
                     # This should be impossible to reach
                     logger.warning(
@@ -1089,21 +1043,21 @@ class ReconnectStage(PipelineStage):
                     )
                     self.state = ReconnectState.LOGICALLY_DISCONNECTED
                     self._clear_reconnect_timer()
-                    self._complete_waiting_connect_ops(
+                    self._complete_waiting_ops(
                         pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
                     )
-                    # TODO: There is a bug here. If in a WAITING_TO_RECONNECT state, and an explicit
-                    # Disconnect occurs, it is completed here rather than going all the way down. This
-                    # means that any in-flight operations are NOT cancelled.
-                    op.complete()  # TODO: this should not complete, it should just send disconnect down, yeah?
+                    self.send_op_down(op)
                 elif self.state == ReconnectState.REAUTHORIZING:
                     logger.debug(
                         "{}({}): State changes REAUTHORIZING->LOGICALLY_DISCONNECTED. Cancelling waiting connection ops and sending down.".format(
                             self.name, op.name
                         )
                     )
+                    # TODO: is this even the right behavior?
+                    # Should it clear these, or allow the reauth to finish and clear them then?
+                    # We can't really cancel the reauth, so it will complete one way or the other
                     self._clear_reconnect_timer()
-                    self._complete_waiting_connect_ops(
+                    self._complete_waiting_ops(
                         pipeline_exceptions.OperationCancelled("Explicit disconnect invoked")
                     )
                     self.send_op_down(op)
@@ -1121,35 +1075,31 @@ class ReconnectStage(PipelineStage):
                         )
                     )
                     self.state = ReconnectState.REAUTHORIZING
+                    # TODO: if this op fails, we will have to set the reconnect state to disconnected
                     self.send_op_down(op)
                 elif self.state == ReconnectState.LOGICALLY_DISCONNECTED:
                     logger.debug(
-                        "{}({}): State changes LOGICALLY_DISCONNECTED->LOGICALLY CONNECTED. Adding to connection wait list and sending new connect_op_down".format(
+                        "{}({}): State changes LOGICALLY_DISCONNECTED->LOGICALLY_CONNECTED. Adding to connection wait list and sending new connect_op_down".format(
                             self.name, op.name
                         )
                     )
-                    # A reauthorization while disconnected, should simply connect instead as the
-                    # credential reauthorization is implicit - the connect will occur using the new
-                    # credentials, which have already been set. When this connection is complete,
-                    # the reauthorization will also be considered to be complete
-                    # TODO: why not just send the op down?
+                    # TODO: what happens if the connect fails? should set back to disconnected
                     self.state = ReconnectState.LOGICALLY_CONNECTED
-                    self.waiting_connect_ops.append(op)
-                    self._send_new_connect_op_down()
+                    self.send_op_down(op)
                 elif self.state == ReconnectState.WAITING_TO_RECONNECT:
                     logger.debug(
                         "{}({}): State is WAITING_TO_RECONNECT. Process must complete. Adding to connection wait list".format(
                             self.name, op.name
                         )
                     )
-                    self.waiting_connect_ops.append(op)
+                    self.waiting_ops.append(op)
                 elif self.state == ReconnectState.REAUTHORIZING:
                     logger.debug(
                         "{}({}): State is already REAUTHORIZING. Adding to connection wait list".format(
                             self.name, op.name
                         )
                     )
-                    self.waiting_connect_ops.append(op)
+                    self.waiting_ops.append(op)
                 else:
                     # This should be impossible to reach
                     logger.warning(
@@ -1171,31 +1121,21 @@ class ReconnectStage(PipelineStage):
     def _handle_pipeline_event(self, event):
         # Connection Retry Enabled
         if self.pipeline_root.pipeline_configuration.connection_retry:
-            if isinstance(event, pipeline_events_base.DisconnectedEvent):
+            if isinstance(event, pipeline_events_base.ConnectedEvent):
+                # NOTE: It would be really nice if we could handle ConnectedEvents here, but a
+                # ConnectedEvent is only fired in the case of a success. As we need to handle failure
+                # cases as well, we actually do all that below, in the callback for ConnectOperation
+                # applied via the _send_new_connect_op_down method instead.
+                self.send_event_up(event)
+            elif isinstance(event, pipeline_events_base.DisconnectedEvent):
                 logger.debug(
                     "{}({}): State is {} Connected is {}.".format(
                         self.name, event.name, self.state, self.pipeline_root.connected
                     )
                 )
 
-                # EXPECTED DISCONNECTION (i.e. a DisconnectOperation was previously issued)
-                if (
-                    self.state == ReconnectState.LOGICALLY_DISCONNECTED
-                    and self.pipeline_root.connected
-                ):
-                    # ReconnectState will remain LOGICALLY_DISCONNECTED
-                    # No reconnect timer will be created.
-                    logger.debug(
-                        "{}({}): Not attempting to reconnect (User-initiated disconnect)".format(
-                            self.name, event.name
-                        )
-                    )
-
                 # UNEXPECTED DISCONNECTION (i.e. Connection has been lost)
-                elif (
-                    self.state == ReconnectState.LOGICALLY_CONNECTED
-                    and self.pipeline_root.connected
-                ):
+                if self.state == ReconnectState.LOGICALLY_CONNECTED:
                     # When we get disconnected, we try to reconnect as soon as we can.  We don't want
                     # to reconnect right here because we're in a callback in the middle of being
                     # disconnected and we want things to "settle down" a bit before reconnecting.
@@ -1207,9 +1147,33 @@ class ReconnectStage(PipelineStage):
                     # tests. Likewise, if there were 2 reconnect code paths (one immediate and one
                     # delayed), then both those paths would need to be maintained as separate
                     # flows
-                    logger.debug("{}({}): Attempting to reconnect".format(self.name, event.name))
+                    logger.debug(
+                        "{}({}): State changes LOGICALLY_CONNECTED->WAITING_TO_RECONNECT. Attempting to reconnect".format(
+                            self.name, event.name
+                        )
+                    )
                     self.state = ReconnectState.WAITING_TO_RECONNECT
                     self._start_reconnect_timer(0.01)
+
+                # EXPECTED DISCONNECTION (DisconnectOperation was previously issued)
+                elif self.state == ReconnectState.LOGICALLY_DISCONNECTED:
+                    # ReconnectState will remain LOGICALLY_DISCONNECTED
+                    # No reconnect timer will be created.
+                    logger.debug(
+                        "{}({}): Not attempting to reconnect (User-initiated disconnect)".format(
+                            self.name, event.name
+                        )
+                    )
+
+                # EXPECTED DISCONNECTION (Reauthorization process)
+                elif self.state == ReconnectState.REAUTHORIZING:
+                    # ReconnectState will remain REAUTHORIZING until completion of the process
+                    # upon re-establishing the connection
+                    logger.debug(
+                        "{}({}): Not attempting to reconnect (Reauthorization in progress)".format(
+                            self.name, event.name
+                        )
+                    )
 
                 # BAD STATE (this block should not be reached)
                 else:
@@ -1228,7 +1192,7 @@ class ReconnectStage(PipelineStage):
             self.send_event_up(event)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _send_new_connect_op_down(self):
+    def _reconnect(self):
         self_weakref = weakref.ref(self)
 
         @pipeline_thread.runs_on_pipeline_thread
@@ -1248,9 +1212,9 @@ class ReconnectStage(PipelineStage):
                 if error:
                     if this.never_connected:
                         # any error on a first connection is assumed to be permanent error
-                        this.state = ReconnectState.LOGICALLY_DISCONNECTED
+                        this.state = ReconnectState.LOGICALLY_DISCONNECTED  # TODO: unnecessary?
                         this._clear_reconnect_timer()
-                        this._complete_waiting_connect_ops(error)
+                        this._complete_waiting_ops(error)
                     elif this._should_reconnect(error):
                         # transient errors can cause a reconnect attempt
                         this.state = ReconnectState.WAITING_TO_RECONNECT
@@ -1259,15 +1223,15 @@ class ReconnectStage(PipelineStage):
                         )
                     else:
                         # all others are permanent errors
-                        this.state = ReconnectState.LOGICALLY_DISCONNECTED
+                        this.state = ReconnectState.LOGICALLY_DISCONNECTED  # TODO: unnecessary?
                         this._clear_reconnect_timer()
-                        this._complete_waiting_connect_ops(error)
+                        this._complete_waiting_ops(error)
                 else:
                     # successfully connected
                     this.never_connected = False
                     this.state = ReconnectState.LOGICALLY_CONNECTED
                     this._clear_reconnect_timer()
-                    this._complete_waiting_connect_ops()
+                    this._complete_waiting_ops()
 
         logger.debug("{}: sending new connect op down".format(self.name))
         op = pipeline_ops_base.ConnectOperation(callback=on_connect_complete)
@@ -1311,7 +1275,7 @@ class ReconnectStage(PipelineStage):
             ):
                 # if we're waiting to reconnect and not connected, we try again
                 this.state = ReconnectState.LOGICALLY_CONNECTED
-                this._send_new_connect_op_down()
+                this._reconnect()
 
         self.reconnect_timer = threading.Timer(delay, on_reconnect_timer_expired)
         self.reconnect_timer.start()
@@ -1327,7 +1291,7 @@ class ReconnectStage(PipelineStage):
             self.reconnect_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _complete_waiting_connect_ops(self, error=None):
+    def _complete_waiting_ops(self, error=None):
         """
         A note of explanation: when we are waiting to reconnect, we need to keep a list of
         all connect ops that come through here.  We do this for 2 reasons:
@@ -1347,7 +1311,7 @@ class ReconnectStage(PipelineStage):
         this stage should be taking care of that.
         """
         logger.debug("{}: completing waiting ops with error={}".format(self.name, error))
-        list_copy = self.waiting_connect_ops
-        self.waiting_connect_ops = []
+        list_copy = self.waiting_ops
+        self.waiting_ops = []
         for op in list_copy:
             op.complete(error)
