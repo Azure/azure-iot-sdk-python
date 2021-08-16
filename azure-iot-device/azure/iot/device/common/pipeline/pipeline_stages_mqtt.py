@@ -60,7 +60,7 @@ class MQTTTransportStage(PipelineStage):
             # If this block does execute, there is a bug in the codebase.
             if not error:
                 error = pipeline_exceptions.OperationCancelled(
-                    "Cancelling because new ConnectOperation, DisconnectOperation, or ReauthorizeConnectionOperation was issued"
+                    "Cancelling because new ConnectOperation or DisconnectOperationwas issued"
                 )
             self._cancel_connection_watchdog(op)
             op.complete(error=error)
@@ -228,14 +228,25 @@ class MQTTTransportStage(PipelineStage):
                     self.name, op.name
                 )
             )
+            self_weakref = weakref.ref(self)
+            reauth_op = op  # rename for clarity
 
-            # Spawn workers to Disconnect -> Connect
-            worker_connect = op.spawn_worker_op(pipeline_ops_base.ConnectOperation)
-            worker_disconnect = worker_connect.spawn_worker_op(
-                pipeline_ops_base.DisconnectOperation
-            )
-            worker_disconnect.hard = False  # Don't clear inflight ops
-            self.run_op(worker_disconnect)
+            def on_disconnect_complete(op, error):
+                this = self_weakref()
+                if error:
+                    # Failing a disconnect should still get us disconnected, so can proceed anyway
+                    logger.debug(
+                        "Disconnect failed during reauthorization, continuing with connect"
+                    )
+                connect_op = reauth_op.spawn_worker_op(pipeline_ops_base.ConnectOperation)
+
+                # the problem is this doens't unset the disconnect from being the pending op before continuing
+                this.run_op(connect_op)
+
+            disconnect_op = pipeline_ops_base.DisconnectOperation(callback=on_disconnect_complete)
+            disconnect_op.hard = False
+
+            self.run_op(disconnect_op)
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTPublishOperation):
             logger.debug("{}({}): publishing on {}".format(self.name, op.name, op.topic))
@@ -338,14 +349,6 @@ class MQTTTransportStage(PipelineStage):
             self._cancel_connection_watchdog(op)
             self._pending_connection_op = None
             op.complete()
-        elif isinstance(
-            self._pending_connection_op, pipeline_ops_base.ReauthorizeConnectionOperation
-        ):
-            logger.debug("{}: completing reauthorization op".format(self.name))
-            op = self._pending_connection_op
-            self._cancel_connection_watchdog(op)
-            self._pending_connection_op = None
-            op.complete()
         else:
             # This should indicate something odd is going on.
             # If this occurs, either a connect was completed while there was no pending op,
@@ -407,9 +410,9 @@ class MQTTTransportStage(PipelineStage):
                         cause,
                         log_msg="Unexpected error while disconnecting - swallowing error",
                     )
-                op.complete()
                 # Disconnect complete, no longer pending
                 self._pending_connection_op = None
+                op.complete()
 
             else:
                 logger.debug(
@@ -417,15 +420,16 @@ class MQTTTransportStage(PipelineStage):
                         self.name, op.name
                     )
                 )
+                # Cancel any potential connection watchdog, and clear the pending op
+                self._cancel_connection_watchdog(op)
+                self._pending_connection_op = None
+                # Complete
                 if cause:
                     op.complete(error=cause)
                 else:
                     op.complete(
                         error=transport_exceptions.ConnectionDroppedError("transport disconnected")
                     )
-                # Cancel any potential connection watchdog, and clear the pending op
-                self._cancel_connection_watchdog(op)
-                self._pending_connection_op = None
         else:
             logger.info("{}: Unexpected disconnect (no pending connection op)".format(self.name))
 
