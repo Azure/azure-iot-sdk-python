@@ -1369,10 +1369,26 @@ class ReconnectStage(PipelineStage):
             def on_reauth_complete(op, error):
                 this = self_weakref()
                 if error:
-                    logger.debug("Reauth failed, setting to logically disconnected")
-                    this.state = ReconnectState.LOGICALLY_DISCONNECTED
-                    this._clear_reconnect_timer()
-                    this._complete_waiting_ops(error)
+                    # logger.debug("Reauth failed, setting to logically disconnected")
+                    # this.state = ReconnectState.LOGICALLY_DISCONNECTED
+                    # this._clear_reconnect_timer()
+                    # this._complete_waiting_ops(error)
+                    if this.never_connected:
+                        # any error on a first connection is assumed to be permanent error
+                        this.state = ReconnectState.LOGICALLY_DISCONNECTED  # TODO: unnecessary?
+                        this._clear_reconnect_timer()
+                        this._complete_waiting_ops(error)
+                    elif this._should_reconnect(error):
+                        # transient errors can cause a reconnect attempt
+                        this.state = ReconnectState.WAITING_TO_RECONNECT
+                        this._start_reconnect_timer(
+                            this.pipeline_root.pipeline_configuration.connection_retry_interval
+                        )
+                    else:
+                        # all others are permanent errors
+                        this.state = ReconnectState.LOGICALLY_DISCONNECTED  # TODO: unnecessary?
+                        this._clear_reconnect_timer()
+                        this._complete_waiting_ops(error)
                 else:
                     logger.debug("Reauth succeeded")
                     this.never_connected = False
