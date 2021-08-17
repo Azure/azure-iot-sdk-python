@@ -1006,7 +1006,9 @@ class ReconnectStage(PipelineStage):
                 elif self.state == ReconnectState.WAITING_TO_RECONNECT:
                     # TODO: perhaps just force this to a connected state?
                     logger.debug(
-                        "{}({}): State is WAITING_TO_RECONNECT. Process must complete. Adding to connection wait list"
+                        "{}({}): State is WAITING_TO_RECONNECT. Process must complete. Adding to connection wait list".format(
+                            self.name, op.name
+                        )
                     )
                     self.waiting_ops.append(op)
                 elif self.state == ReconnectState.REAUTHORIZING:
