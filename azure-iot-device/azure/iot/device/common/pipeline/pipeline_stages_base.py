@@ -1109,7 +1109,9 @@ class ReconnectStage(PipelineStage):
                             self.name, op.name
                         )
                     )
-                    self.waiting_ops.append(op)
+                    self.waiting_ops.append(
+                        op
+                    )  # TODO: is this right? What if the other op went on the wire before this one changed the credentials?
                 else:
                     # This should be impossible to reach
                     logger.warning(
