@@ -949,6 +949,8 @@ class ReconnectState(object):
     WAITING_TO_RECONNECT = "WAITING_TO_RECONNECT"
     LOGICALLY_CONNECTED = "LOGICALLY_CONNECTED"
     LOGICALLY_DISCONNECTED = "LOGICALLY_DISCONNECTED"
+    CONNECTING = "CONNECTING"
+    DISCONNECTING = "DISCONNECTING"
     REAUTHORIZING = "REAUTHORIZING"
 
 
@@ -990,7 +992,7 @@ class ReconnectStage(PipelineStage):
                             self.name, op.name
                         )
                     )
-                    # TODO: remove the need for this callback
+                    # TODO: add failure callback isntead
                     self._add_callback(op)
                     self.send_op_down(op)
                 elif self.state == ReconnectState.LOGICALLY_DISCONNECTED:
@@ -1000,7 +1002,7 @@ class ReconnectStage(PipelineStage):
                         )
                     )
                     self.state = ReconnectState.LOGICALLY_CONNECTED
-                    # TODO: remove the need for this callback
+                    # TODO: add failure callback instead
                     self._add_callback(op)
                     self.send_op_down(op)
                 elif self.state == ReconnectState.WAITING_TO_RECONNECT:
@@ -1011,16 +1013,9 @@ class ReconnectStage(PipelineStage):
                         )
                     )
                     self.waiting_ops.append(op)
-                elif self.state == ReconnectState.REAUTHORIZING:
-                    # TODO: perhaps just force this to a connected state?
-                    logger.debug(
-                        "{}({}): State is REAUTHORIZING. Process must complete. Adding to connection wait list".format(
-                            self.name, op.name
-                        )
-                    )
-                    self.waiting_ops.append(op)
                 else:
-                    # This should be impossible to reach
+                    # CONNECTING, DISCONNECTING, REAUTHORIZING
+                    # This should be impossible to reach due to ConnectionLockStage
                     logger.warning(
                         "{}({}): Invalid State - {}".format(self.name, op.name, self.state)
                     )
@@ -1327,6 +1322,24 @@ class ReconnectStage(PipelineStage):
         self.waiting_ops = []
         for op in list_copy:
             op.complete(error)
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _add_failure_callback(self, op):
+        """Adds callback to op passing through to change connection state upon failure"""
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_complete(op, error):
+            if error:
+                this = self_weakref()
+                logger.debug(
+                    "{}({}): failed, state change {} -> LOGICALLY_DISCONNECTED".format(
+                        this.name, op.name, this.state
+                    )
+                )
+                this.state = ReconnectState.LOGICALLY_DISCONNECTED
+
+        op.add_callback(on_complete)
 
     # TODO: remove this stopgap. Unnecessary with connecting/disconnecting states
     @pipeline_thread.runs_on_pipeline_thread
