@@ -40,6 +40,7 @@ def mock_x509():
 def pipeline_configuration(mocker):
     mock_config = mocker.MagicMock()
     mock_config.sastoken.ttl = 1232  # set for compat
+    mock_config.sastoken.expiry_time = 1232131  # set for compat
     mock_config.registration_id = "MyPensieve"
     return mock_config
 
@@ -93,7 +94,7 @@ class TestMQTTPipelineInstantiation(object):
 
         expected_stage_order = [
             pipeline_stages_base.PipelineRootStage,
-            pipeline_stages_base.SasTokenRenewalStage,
+            pipeline_stages_base.SasTokenStage,
             pipeline_stages_provisioning.RegistrationStage,
             pipeline_stages_provisioning.PollingStatusStage,
             pipeline_stages_base.CoordinateRequestAndResponseStage,

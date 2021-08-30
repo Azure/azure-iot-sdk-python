@@ -10,9 +10,6 @@ import threading
 import time
 from azure.iot.device import IoTHubDeviceClient
 
-# Interval (in seconds) of how often to provide a new sastoken
-NEW_TOKEN_INTERVAL = 1800
-
 
 # NOTE: This code needs to be completed in order to work.
 # Fill out the get_new_sastoken() method to return a NEW custom sastoken from your solution.
@@ -39,23 +36,18 @@ def message_handler(message):
     print(message.custom_properties)
 
 
+# define behavior for updating sastoken
+def sastoken_update_handler():
+    print("Updating SAS Token...")
+    sastoken = get_new_sastoken()
+    device_client.update_sastoken(sastoken)
+    print("SAS Token updated")
+
+
 # set the message handler on the client
 device_client.on_message_received = message_handler
+device_client.on_new_sastoken_required = sastoken_update_handler
 
-
-# define behavior for providing new sastokens to prevent expiry
-def sastoken_keepalive():
-    while True:
-        time.sleep(NEW_TOKEN_INTERVAL)
-        sastoken = get_new_sastoken()
-        print("New sastoken: {}".format(sastoken))
-        device_client.update_sastoken(sastoken)
-
-
-# run the sastoken keepalive in a new daemon thread
-t = threading.Thread(target=sastoken_keepalive)
-t.daemon = True
-t.start()
 
 # Wait for user to indicate they are done listening for messages
 while True:

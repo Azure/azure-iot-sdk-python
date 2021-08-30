@@ -25,7 +25,8 @@ from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 logger = logging.getLogger(__name__)
 
 # Maximum amount of time we wait for ConnectOperation to complete
-WATCHDOG_INTERVAL = 10
+# TODO: This whole logic of timeout should probably be handled in the TimeoutStage
+WATCHDOG_INTERVAL = 60
 
 
 class MQTTTransportStage(PipelineStage):
@@ -91,6 +92,8 @@ class MQTTTransportStage(PipelineStage):
                         "Transport timeout on connection operation"
                     )
                 )
+            else:
+                logger.debug("Connection watchdog expired, but pending op is not the same op")
 
         connection_op.watchdog_timer = threading.Timer(WATCHDOG_INTERVAL, watchdog_function)
         connection_op.watchdog_timer.daemon = True

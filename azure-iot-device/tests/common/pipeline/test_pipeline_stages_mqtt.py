@@ -52,8 +52,6 @@ def fake_callback():
 # MQTT TRANSPORT STAGE #
 ########################
 
-WATCHDOG_INTERVAL = 10
-
 
 class MQTTTransportStageTestConfig(object):
     @pytest.fixture
@@ -334,7 +332,7 @@ class TestMQTTTransportStageRunOpCalledWithConnectOperation(
         stage.run_op(op)
 
         assert mock_timer.call_count == 1
-        assert mock_timer.call_args == mocker.call(WATCHDOG_INTERVAL, mocker.ANY)
+        assert mock_timer.call_args == mocker.call(60, mocker.ANY)
         assert mock_timer.return_value.daemon is True
         assert mock_timer.return_value.start.call_count == 1
 
@@ -749,7 +747,7 @@ class TestMQTTTransportStageRunOpCalledWithArbitraryOperation(
         assert stage.send_op_down.call_args == mocker.call(op)
 
 
-@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT message received")
+@pytest.mark.describe("MQTTTransportStage - OCCURRENCE: MQTT message received")
 class TestMQTTTransportStageProtocolClientEvents(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Sends an IncomingMQTTMessageEvent event up the pipeline")
     def test_incoming_message_handler(self, stage, mocker):
@@ -773,7 +771,7 @@ class TestMQTTTransportStageProtocolClientEvents(MQTTTransportStageTestConfigCom
         assert event.topic == fake_topic
 
 
-@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT connected")
+@pytest.mark.describe("MQTTTransportStage - OCCURRENCE: MQTT connected")
 class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Sends a ConnectedEvent up the pipeline")
     @pytest.mark.parametrize(
@@ -905,7 +903,7 @@ class TestMQTTTransportStageOnConnected(MQTTTransportStageTestConfigComplex):
         assert mock_timer.return_value.cancel.call_count == 0
 
 
-@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT connection failure")
+@pytest.mark.describe("MQTTTransportStage - OCCURRENCE: MQTT connection failure")
 class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComplex):
     @pytest.mark.it("Does not send any events up the pipeline")
     @pytest.mark.parametrize(
@@ -1070,7 +1068,7 @@ class TestMQTTTransportStageOnConnectionFailure(MQTTTransportStageTestConfigComp
 
 
 # TODO: this stage should probably be split into expected/non-expected units
-@pytest.mark.describe("MQTTTransportStage - OCCURANCE: MQTT disconnected")
+@pytest.mark.describe("MQTTTransportStage - OCCURRENCE: MQTT disconnected")
 class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
     @pytest.fixture(params=[False, True], ids=["No error cause", "With error cause"])
     def cause(self, request, arbitrary_exception):
@@ -1302,7 +1300,7 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         assert mock_cancel.call_count == 0
 
 
-@pytest.mark.describe("MQTTTransportStage - OCCURANCE: Connection watchdog expired")
+@pytest.mark.describe("MQTTTransportStage - OCCURRENCE: Connection watchdog expired")
 class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex):
     @pytest.fixture(params=[pipeline_ops_base.ConnectOperation], ids=["Pending ConnectOperation"])
     def pending_op(self, request, mocker):

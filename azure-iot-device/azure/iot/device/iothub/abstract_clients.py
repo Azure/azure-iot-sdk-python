@@ -14,6 +14,7 @@ import os
 import io
 import time
 from . import pipeline
+from .pipeline import constant as pipeline_constant
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub import client_event
@@ -139,11 +140,11 @@ class AbstractIoTHubClient(object):
         self._inbox_manager.clear_all_method_requests()
         logger.info("Cleared all pending method requests due to disconnect")
 
-    # def _on_new_sastoken_required(self):
-    #     logger.info("New SasToken required from user")
-    #     client_event_inbox = self._inbox_manager.get_client_event_inbox()
-    #     event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
-    #     client_event_inbox.put(event)
+    def _on_new_sastoken_required(self):
+        logger.info("New SasToken required from user")
+        client_event_inbox = self._inbox_manager.get_client_event_inbox()
+        event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
+        client_event_inbox.put(event)
 
     def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""
@@ -211,6 +212,11 @@ class AbstractIoTHubClient(object):
         # NOTE: We only need to set this on MQTT because this is a reference to the same object
         # that is stored in HTTP. The HTTP pipeline is updated implicitly.
         self._mqtt_pipeline.pipeline_configuration.sastoken = new_token_o
+
+    @abc.abstractmethod
+    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
+        # Will be implemented differently in child classes, but define here for static analysis
+        pass
 
     @classmethod
     def create_from_connection_string(cls, connection_string, **kwargs):
@@ -404,18 +410,6 @@ class AbstractIoTHubClient(object):
         """
         return self._mqtt_pipeline.connected
 
-    @abc.abstractproperty
-    def on_message_received(self):
-        pass
-
-    @abc.abstractproperty
-    def on_method_request_received(self):
-        pass
-
-    @abc.abstractproperty
-    def on_twin_desired_properties_patch_received(self):
-        pass
-
     @property
     def on_connection_state_change(self):
         return self._handler_manager.on_connection_state_change
@@ -424,13 +418,13 @@ class AbstractIoTHubClient(object):
     def on_connection_state_change(self, value):
         self._handler_manager.on_connection_state_change = value
 
-    # @property
-    # def on_new_sastoken_required(self):
-    #     return self._handler_manager.on_new_sastoken_required
+    @property
+    def on_new_sastoken_required(self):
+        return self._handler_manager.on_new_sastoken_required
 
-    # @on_new_sastoken_required.setter
-    # def on_new_sastoken_required(self, value):
-    #     self._handler_manager.on_new_sastoken_required = value
+    @on_new_sastoken_required.setter
+    def on_new_sastoken_required(self, value):
+        self._handler_manager.on_new_sastoken_required = value
 
     # @property
     # def on_background_exception(self):
@@ -439,6 +433,40 @@ class AbstractIoTHubClient(object):
     # @on_background_exception.setter
     # def on_background_exception(self, value):
     #     self._handler_manager.on_background_exception = value
+
+    @abc.abstractproperty
+    def on_message_received(self):
+        # Defined below on AbstractIoTHubDeviceClient / AbstractIoTHubModuleClient
+        pass
+
+    @property
+    def on_method_request_received(self):
+        """The handler function or coroutine that will be called when a method request is received.
+
+        The function or coroutine definition should take one positional argument (the
+        :class:`azure.iot.device.MethodRequest` object)"""
+        return self._handler_manager.on_method_request_received
+
+    @on_method_request_received.setter
+    def on_method_request_received(self, value):
+        self._generic_receive_handler_setter(
+            "on_method_request_received", pipeline_constant.METHODS, value
+        )
+
+    @property
+    def on_twin_desired_properties_patch_received(self):
+        """The handler function or coroutine that will be called when a twin desired properties
+        patch is received.
+
+        The function or coroutine definition should take one positional argument (the twin patch
+        in the form of a JSON dictionary object)"""
+        return self._handler_manager.on_twin_desired_properties_patch_received
+
+    @on_twin_desired_properties_patch_received.setter
+    def on_twin_desired_properties_patch_received(self, value):
+        self._generic_receive_handler_setter(
+            "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
+        )
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -579,6 +607,20 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         self, correlation_id, is_success, status_code, status_description
     ):
         pass
+
+    @property
+    def on_message_received(self):
+        """The handler function or coroutine that will be called when a message is received.
+
+        The function or coroutine definition should take one positional argument (the
+        :class:`azure.iot.device.Message` object)"""
+        return self._handler_manager.on_message_received
+
+    @on_message_received.setter
+    def on_message_received(self, value):
+        self._generic_receive_handler_setter(
+            "on_message_received", pipeline_constant.C2D_MSG, value
+        )
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -792,3 +834,17 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
     @abc.abstractmethod
     def invoke_method(self, method_params, device_id, module_id=None):
         pass
+
+    @property
+    def on_message_received(self):
+        """The handler function or coroutine that will be called when an input message is received.
+
+        The function definition or coroutine should take one positional argument (the
+        :class:`azure.iot.device.Message` object)"""
+        return self._handler_manager.on_message_received
+
+    @on_message_received.setter
+    def on_message_received(self, value):
+        self._generic_receive_handler_setter(
+            "on_message_received", pipeline_constant.INPUT_MSG, value
+        )

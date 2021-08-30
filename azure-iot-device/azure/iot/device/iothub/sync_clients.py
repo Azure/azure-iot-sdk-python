@@ -85,9 +85,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # Set pipeline handlers for client events
         self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
         self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
-        # self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
-        #     self, "_on_new_sastoken_required"
-        # )
+        self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
+            self, "_on_new_sastoken_required"
+        )
 
         # Set pipeline handlers for data receives
         self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(
@@ -137,6 +137,28 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         else:
             # This branch shouldn't be reached, but in case it is, log it
             logger.info("Feature ({}) already disabled - skipping".format(feature_name))
+
+    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
+        """Set a receive handler on the handler manager and enable the corresponding feature.
+
+        This is a synchronous call, meaning that this function will not return until the feature
+        has been enabled (if necessary).
+
+        :param str handler_name: The name of the handler on the handler manager to set
+        :param str feature_name: The name of the pipeline feature that corresponds to the handler
+        :param new_handler: The function to be set as the handler
+        """
+        self._check_receive_mode_is_handler()
+        # Set the handler on the handler manager
+        setattr(self._handler_manager, handler_name, new_handler)
+
+        # Enable the feature if necessary
+        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
+            self._enable_feature(feature_name)
+
+        # Disable the feature if necessary
+        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
+            self._disable_feature(feature_name)
 
     def shutdown(self):
         """Shut down the client for graceful exit.
@@ -494,48 +516,6 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             return None
         return patch
 
-    def _generic_receive_handler_setter(self, handler_name, feature_name, new_handler):
-        self._check_receive_mode_is_handler()
-        # Set the handler on the handler manager
-        setattr(self._handler_manager, handler_name, new_handler)
-
-        # Enable the feature if necessary
-        if new_handler is not None and not self._mqtt_pipeline.feature_enabled[feature_name]:
-            self._enable_feature(feature_name)
-
-        # Disable the feature if necessary
-        elif new_handler is None and self._mqtt_pipeline.feature_enabled[feature_name]:
-            self._disable_feature(feature_name)
-
-    @property
-    def on_twin_desired_properties_patch_received(self):
-        """The handler function that will be called when a twin desired properties patch
-        is received.
-
-        The function definition should take one positional argument (the twin patch in the form
-        of a JSON dictionary object)"""
-        return self._handler_manager.on_twin_desired_properties_patch_received
-
-    @on_twin_desired_properties_patch_received.setter
-    def on_twin_desired_properties_patch_received(self, value):
-        self._generic_receive_handler_setter(
-            "on_twin_desired_properties_patch_received", pipeline_constant.TWIN_PATCHES, value
-        )
-
-    @property
-    def on_method_request_received(self):
-        """The handler function that will be called when a method request is received.
-
-        The function definition should take one positional argument (the
-        :class:`azure.iot.device.MethodRequest` object)"""
-        return self._handler_manager.on_method_request_received
-
-    @on_method_request_received.setter
-    def on_method_request_received(self, value):
-        self._generic_receive_handler_setter(
-            "on_method_request_received", pipeline_constant.METHODS, value
-        )
-
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
     """A synchronous device client that connects to an Azure IoT Hub instance.
@@ -622,20 +602,6 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         )
         handle_result(callback)
         logger.info("Successfully notified blob upload status")
-
-    @property
-    def on_message_received(self):
-        """The handler function that will be called when a message is received.
-
-        The function definition should take one positional argument (the
-        :class:`azure.iot.device.Message` object)"""
-        return self._handler_manager.on_message_received
-
-    @on_message_received.setter
-    def on_message_received(self, value):
-        self._generic_receive_handler_setter(
-            "on_message_received", pipeline_constant.C2D_MSG, value
-        )
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
@@ -757,17 +723,3 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         invoke_method_response = handle_result(callback)
         logger.info("Successfully invoked method")
         return invoke_method_response
-
-    @property
-    def on_message_received(self):
-        """The handler function that will be called when an input message is received.
-
-        The function definition should take one positional argument (the
-        :class:`azure.iot.device.Message` object)"""
-        return self._handler_manager.on_message_received
-
-    @on_message_received.setter
-    def on_message_received(self, value):
-        self._generic_receive_handler_setter(
-            "on_message_received", pipeline_constant.INPUT_MSG, value
-        )
