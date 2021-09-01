@@ -92,11 +92,6 @@ class MQTTPipeline(object):
             # ops are MQTT ops.
             #
             .append_stage(pipeline_stages_base.AutoConnectStage())
-            # #
-            # ConnectionLockStage goes both before and after the ReconnectStage, as the ReconnectStage
-            # both reacts to, and generates ConnectOperations.
-            #
-            .append_stage(pipeline_stages_base.ConnectionLockStage())
             #
             # ReconnectStage needs to be after AutoConnectStage because ReconnectStage sets/clears
             # the virtually_conencted flag and we want an automatic connection op to set this flag so

@@ -56,7 +56,7 @@ class MQTTTransportStage(PipelineStage):
         op = self._pending_connection_op
         if op:
             # NOTE: This code path should NOT execute in normal flow. There should never already be a pending
-            # connection op when another is added, due to the SerializeConnectOps stage.
+            # connection op when another is added, due to the ConnectionLock stage.
             # If this block does execute, there is a bug in the codebase.
             if not error:
                 error = pipeline_exceptions.OperationCancelled(
