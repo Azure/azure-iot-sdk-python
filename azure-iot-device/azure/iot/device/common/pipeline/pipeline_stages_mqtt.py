@@ -393,6 +393,8 @@ class MQTTTransportStage(PipelineStage):
 
         # Send an event to tell other pipeline stages that we're disconnected. Do this before
         # we do anything else (in case upper stages have any "are we connected" logic.)
+        # NOTE: Other stages rely on the fact that this occurs before any op that may be in
+        # progress is completed. Be careful with changing the order things occur here.
         self.send_event_up(pipeline_events_base.DisconnectedEvent())
 
         if self._pending_connection_op:
