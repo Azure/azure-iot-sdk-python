@@ -20,9 +20,6 @@ from . import pipeline_thread
 from . import pipeline_exceptions
 from azure.iot.device.common import handle_exceptions, transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
-
-from azure.iot.device.common import pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -933,26 +930,13 @@ transient_connect_errors = [
 class ReconnectState(object):
     """
     Class which holds reconnect states as class variables.  Created to make code that reads like an enum without using an enum.
-
-    WAITING_TO_RECONNECT: This stage is in a waiting period before reconnecting.  This state implies
-    that the user wants the pipeline to be connected.  ie. After a successful connection, the
-    state will change to CONNECTED
-
-    CONNECTED: The client wants the pipeline to be connected.  This state is independent
-    of the actual connection state since the pipeline could be logically connected but
-    physically disconnected (this is a temporary condition though.  If we're logically connected
-    and physically disconnected, then we should be waiting to reconnect.
-
-    DISCONNECTED: The client does not want the pipeline to be connected or the pipeline had
-    a permanent errors error and was forced to disconnect.  If the state is DISCONNECTED, then the pipeline
-    should be physically disconnected since there is no reason to leave the pipeline connected in this state.
     """
 
-    CONNECTED = "CONNECTED"
-    DISCONNECTED = "DISCONNECTED"
-    CONNECTING = "CONNECTING"
-    DISCONNECTING = "DISCONNECTING"
-    REAUTHORIZING = "REAUTHORIZING"
+    CONNECTED = "CONNECTED"  # Client is connected (as far as it knows)
+    DISCONNECTED = "DISCONNECTED"  # Client is disconnected
+    CONNECTING = "CONNECTING"  # Client is in the process of connecting
+    DISCONNECTING = "DISCONNECTING"  # Client is in the process of disconnecting
+    REAUTHORIZING = "REAUTHORIZING"  # Client is in the process of reauthorizing (disconn->conn)
 
 
 class ReconnectStage(PipelineStage):
