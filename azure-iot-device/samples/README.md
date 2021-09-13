@@ -105,7 +105,7 @@ Further samples with more complex IoT Hub scenarios are contained in the [async-
 * Receive Cloud-to-Device (C2D) messages on a Device
 * Send and receive updates to device twin
 * Receive direct method invocations
-* Upload file into linked Azure storage container
+* Upload file into an associated Azure storage account 
 
 Further samples with more complex IoT Edge scenarios involving IoT Edge modules and downstream devices are contained in the [async-edge-scenarios](async-edge-scenarios) directory, including:
 
