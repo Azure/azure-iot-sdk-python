@@ -9,7 +9,7 @@ import uuid
 import asyncio
 from azure.iot.device.aio import IoTHubDeviceClient
 import pprint
-from azure.storage.blob import  BlobClient
+from azure.storage.blob import BlobClient
 from azure.core.exceptions import ResourceExistsError
 import logging
 
@@ -40,6 +40,7 @@ https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-file-upload
 
 """
 IOTHUB_DEVICE_CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+
 
 async def upload_via_storage_blob(blob_info):
     """Helper function written to perform Storage Blob V12 Upload Tasks
@@ -83,7 +84,7 @@ async def upload_via_storage_blob(blob_info):
 
 
 async def main():
-    conn_str = IOTHUB_DEVICE_CONNECTION_STRING  
+    conn_str = IOTHUB_DEVICE_CONNECTION_STRING
     device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
     # Connect the client.
@@ -96,7 +97,7 @@ async def main():
 
     # Using the Storage Blob V12 API, perform the blob upload.
     try:
-        upload_result = await upload_via_storage_blob(storage_info)        
+        upload_result = await upload_via_storage_blob(storage_info)      
         if hasattr(upload_result, "error_code"):
             result = {
                 "status_code": upload_result.error_code,
