@@ -39,10 +39,7 @@ You can learn more about File Upload with IoT Hub here:
 https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-file-upload
 
 """
-IOTHUB_CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
-
-# Host is in format "<iothub name>.azure-devices.net"
-
+IOTHUB_DEVICE_CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
 async def upload_via_storage_blob(blob_info):
     """Helper function written to perform Storage Blob V12 Upload Tasks
@@ -86,7 +83,7 @@ async def upload_via_storage_blob(blob_info):
 
 
 async def main():
-    conn_str = IOTHUB_CONNECTION_STRING  
+    conn_str = IOTHUB_DEVICE_CONNECTION_STRING  
     device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
 
     # Connect the client.
