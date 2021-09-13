@@ -97,7 +97,7 @@ async def main():
 
     # Using the Storage Blob V12 API, perform the blob upload.
     try:
-        upload_result = await upload_via_storage_blob(storage_info)    
+        upload_result = await upload_via_storage_blob(storage_info)
         if hasattr(upload_result, "error_code"):
             result = {
                 "status_code": upload_result.error_code,
