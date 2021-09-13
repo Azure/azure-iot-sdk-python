@@ -52,7 +52,7 @@ In order to use these samples, you **must** set your Device Connection String in
   * You can see the changes reflected in your device twin by using the following Azure CLI command:
 
     ```bash
-    az iot hub device-twin show --device-id <your device id> --hub-name <yoru IoT Hub name>
+    az iot hub device-twin show --device-id <your device id> --hub-name <your IoT Hub name>
     ```
 
 * [upload_to_blob](upload_to_blob.py) - Upload file into the linked Azure storage account
