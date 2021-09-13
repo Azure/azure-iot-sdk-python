@@ -42,7 +42,7 @@ In order to use these samples, you **must** set your Device Connection String in
     ```
 
 * [receive_twin_desired_properties_patch](receive_twin_desired_properties_patch.py) - Receive an update patch of changes made to the device twin's desired properties
-  * In order to send a update patch to a device twin's reported properties, use the following Azure CLI command:
+  * In order to send a update patch to a device twin's desired properties, use the following Azure CLI command:
 
     ```bash
     az iot hub device-twin update --device-id <your device id> --hub-name <your IoT Hub name> --set properties.desired.<property name>=<value>
