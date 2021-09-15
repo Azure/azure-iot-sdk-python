@@ -7,9 +7,12 @@
 import os
 import uuid
 import asyncio
-from azure.iot.device.aio import IoTHubDeviceClient
+from azure.iot.device.aio import IoTHubDeviceClient, IoTHubModuleClient
+from azure.iot.device import X509
+import http.client
 import pprint
-from azure.storage.blob import BlobClient
+import json
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 from azure.core.exceptions import ResourceExistsError
 import logging
 
@@ -39,7 +42,15 @@ You can learn more about File Upload with IoT Hub here:
 https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-file-upload
 
 """
-IOTHUB_DEVICE_CONNECTION_STRING = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+
+IOTHUB_HOSTNAME = os.getenv("IOTHUB_HOSTNAME")
+IOTHUB_DEVICE_ID = os.getenv("IOTHUB_DEVICE_ID")
+
+X509_CERT_FILE = os.getenv("X509_CERT_FILE")
+X509_KEY_FILE = os.getenv("X509_KEY_FILE")
+X509_PASS_PHRASE = os.getenv("PASS_PHRASE")
+
+# Host is in format "<iothub name>.azure-devices.net"
 
 
 async def upload_via_storage_blob(blob_info):
@@ -84,8 +95,14 @@ async def upload_via_storage_blob(blob_info):
 
 
 async def main():
-    conn_str = IOTHUB_DEVICE_CONNECTION_STRING
-    device_client = IoTHubDeviceClient.create_from_connection_string(conn_str)
+    hostname = IOTHUB_HOSTNAME
+    device_id = IOTHUB_DEVICE_ID
+    x509 = X509(cert_file=X509_CERT_FILE, key_file=X509_KEY_FILE, pass_phrase=X509_PASS_PHRASE)
+
+    # Create the Device Client.
+    device_client = IoTHubDeviceClient.create_from_x509_certificate(
+        hostname=hostname, device_id=device_id, x509=x509
+    )
 
     # Connect the client.
     await device_client.connect()
@@ -114,7 +131,6 @@ async def main():
 
     pp = pprint.PrettyPrinter(indent=4)
     pp.pprint(result)
-
     if result["status_code"] == 200:
         await device_client.notify_blob_upload_status(
             storage_info["correlationId"], True, result["status_code"], result["status_description"]
