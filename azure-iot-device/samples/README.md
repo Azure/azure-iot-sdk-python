@@ -6,7 +6,7 @@ This directory contains samples showing how to use the various features of the M
 
 **Note that this sample is configured for Python 3.7+.** To ensure that your Python version is up to date, run `python --version`. If you have both Python 2 and Python 3 installed (and are using a Python 3 environment for this SDK), then install all libraries using `pip3` as opposed to `pip`. This ensures that the libraries are installed to your Python 3 runtime. 
 
-1. Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) (or use the [Azure Cloud Shell](https://shell.azure.com/)) and use it to [create an Azure IoT Hub](https://docs.microsoft.com/en-us/cli/azure/iot/hub?view=azure-cli-latest#az-iot-hub-create).
+1. Install the [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli?view=azure-cli-latest) (or use the [Azure Cloud Shell](https://shell.azure.com/)) and use it to [create an Azure IoT Hub](https://docs.microsoft.com/cli/azure/iot/hub?view=azure-cli-latest#az_iot_hub_create).
 
     ```bash
     az iot hub create --resource-group <your resource group> --name <your IoT Hub name>
@@ -14,17 +14,17 @@ This directory contains samples showing how to use the various features of the M
 
     * Note that this operation may take a few minutes.
 
-2. Add the IoT Extension to the Azure CLI, and then [register a device identity](https://docs.microsoft.com/en-us/cli/azure/ext/azure-iot/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-create)
+2. Add the IoT Extension to the Azure CLI, and then [register a device identity](https://docs.microsoft.com/cli/azure/iot/hub/device-identity?view=azure-cli-latest#az_iot_hub_device_identity_create)
 
     ```bash
     az extension add --name azure-iot
     az iot hub device-identity create --hub-name <your IoT Hub name> --device-id <your device id>
     ```
 
-3. [Retrieve your Device Connection String](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub/device-identity?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-device-identity-show-connection-string) using the Azure CLI
+3. [Retrieve your Device Connection String](https://docs.microsoft.com/cli/azure/iot/hub/device-identity/connection-string?view=azure-cli-latest#az_iot_hub_device_identity_connection_string_show) using the Azure CLI
 
     ```bash
-    az iot hub device-identity show-connection-string --device-id <your device id> --hub-name <your IoT Hub name>
+    az iot hub device-identity connection-string show --device-id <your device id> --hub-name <your IoT Hub name>
     ```
 
     It should be in the format:
@@ -33,13 +33,13 @@ This directory contains samples showing how to use the various features of the M
     HostName=<your IoT Hub name>.azure-devices.net;DeviceId=<your device id>;SharedAccessKey=<some value>
     ```
 
-4. [Begin monitoring for telemetry](https://docs.microsoft.com/en-us/cli/azure/ext/azure-cli-iot-ext/iot/hub?view=azure-cli-latest#ext-azure-cli-iot-ext-az-iot-hub-monitor-events) on your IoT Hub using the Azure CLI
+4. [Begin monitoring for telemetry](https://docs.microsoft.com/cli/azure/iot/hub?view=azure-cli-latest#az_iot_hub_monitor_events) on your IoT Hub using the Azure CLI
 
     ```bash
     az iot hub monitor-events --hub-name <your IoT Hub name> --output json
     ```
 
-5. On your device, set the Device Connection String as an enviornment variable called `IOTHUB_DEVICE_CONNECTION_STRING`.
+5. On your device, set the Device Connection String as an environment variable called `IOTHUB_DEVICE_CONNECTION_STRING`.
 
     **Windows (cmd)**
 
@@ -78,8 +78,8 @@ This directory contains samples showing how to use the various features of the M
         await device_client.send_message("This is a message that is being sent")
         print("Message successfully sent!")
 
-        # finally, disconnect
-        await device_client.disconnect()
+        # finally, shut down the client
+        await device_client.shutdown()
 
 
     if __name__ == "__main__":
@@ -114,3 +114,5 @@ Further samples with more complex IoT Edge scenarios involving IoT Edge modules 
 * Send messages to IoT Edge from a downstream or 'leaf' device
 
 Samples for the synchronous clients, intended for use with Python 2.7 or compatibility scenarios for Python 3.5+ are contained in the [sync-samples](sync-samples) directory.
+
+Samples for use of Azure IoT Plug and Play are contained in the [pnp](pnp) directory.

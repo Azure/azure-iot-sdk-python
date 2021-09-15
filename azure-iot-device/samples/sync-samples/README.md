@@ -8,7 +8,7 @@ This directory contains samples showing how to use the various features of Azure
 
 In order to use these samples, you **must** set your Device Connection String in the environment variable `IOTHUB_DEVICE_CONNECTION_STRING`.
 
-* [send_message.py](send_message.py) - Send multiple telmetry messages in parallel from a device to the Azure IoT Hub.
+* [send_message.py](send_message.py) - Send multiple telemetry messages in parallel from a device to the Azure IoT Hub.
   * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
 
     ```Shell
@@ -29,7 +29,7 @@ In order to use these samples, you **must** set your Device Connection String in
     ```
 
 * [receive_twin_desired_properties_patch](receive_twin_desired_properties_patch.py) - Receive an update patch of changes made to the device twin's desired properties
-  * In order to send a update patch to a device twin's reported properties, use the following Azure CLI command:
+  * In order to send a update patch to a device twin's desired properties, use the following Azure CLI command:
 
     ```Shell
     az iot hub device-twin update --device-id <your device id> --hub-name <your IoT Hub name> --set properties.desired.<property name>=<value>
@@ -39,7 +39,7 @@ In order to use these samples, you **must** set your Device Connection String in
   * You can see the changes reflected in your device twin by using the following Azure CLI command:
   
     ```Shell
-    az iot hub device-twin show --device-id <your device id> --hub-name <yoru IoT Hub name>
+    az iot hub device-twin show --device-id <your device id> --hub-name <your IoT Hub name>
     ```
 
 ## IoT Edge Module Samples
