@@ -2720,7 +2720,7 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
         return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it(
-        "Adds the operation to the `waiting_ops` queue and does nothing else if the stage is in an 'in-progress' state"
+        "Adds the operation to the `waiting_ops` queue and does nothing else if the stage is in an intermediate state"
     )
     @pytest.mark.parametrize(
         "state",
@@ -2730,7 +2730,7 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
             ReconnectState.REAUTHORIZING,
         ],
     )
-    def test_in_progress_state(self, stage, op, state):
+    def test_intermediate_state(self, stage, op, state):
         stage.state = state
         assert stage.waiting_ops.empty()
 
@@ -2888,7 +2888,7 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
         return pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it(
-        "Adds the operation to the `waiting_ops` queue and does nothing else if the stage is in an 'in-progress' state"
+        "Adds the operation to the `waiting_ops` queue and does nothing else if the stage is in an intermediate state"
     )
     @pytest.mark.parametrize(
         "state",
@@ -2898,7 +2898,7 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
             ReconnectState.REAUTHORIZING,
         ],
     )
-    def test_in_progress_state(self, stage, op, state):
+    def test_intermediate_state(self, stage, op, state):
         stage.state = state
         assert stage.waiting_ops.empty()
 
@@ -3082,7 +3082,7 @@ class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
         return pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
 
     @pytest.mark.it(
-        "Adds the operation to the `waiting_ops` queue and does nothing else if the stage is in an 'in-progress' state"
+        "Adds the operation to the `waiting_ops` queue and does nothing else if the stage is in an intermediate state"
     )
     @pytest.mark.parametrize(
         "state",
@@ -3092,7 +3092,7 @@ class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
             ReconnectState.REAUTHORIZING,
         ],
     )
-    def test_in_progress_state(self, stage, op, state):
+    def test_intermediate_state(self, stage, op, state):
         stage.state = state
         assert stage.waiting_ops.empty()
 
@@ -3275,6 +3275,36 @@ class TestReconnectStageRunOpWithShutdownPipelineOperation(
 
         assert timer_mock.cancel.call_count == 1
         assert stage.reconnect_timer is None
+
+    @pytest.mark.it("Cancels any operations in the `waiting_ops` queue")
+    @pytest.mark.parametrize(
+        "state",
+        [
+            ReconnectState.CONNECTING,
+            ReconnectState.CONNECTED,
+            ReconnectState.DISCONNECTING,
+            ReconnectState.DISCONNECTED,
+            ReconnectState.REAUTHORIZING,
+        ],
+    )
+    def test_waiting_ops(self, mocker, op, stage, state):
+        stage.state = state
+        waiting_op1 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
+        waiting_op2 = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
+        waiting_op3 = pipeline_ops_base.ReauthorizeConnectionOperation(callback=mocker.MagicMock())
+        stage.waiting_ops.put_nowait(waiting_op1)
+        stage.waiting_ops.put_nowait(waiting_op2)
+        stage.waiting_ops.put_nowait(waiting_op3)
+
+        stage.run_op(op)
+
+        assert stage.waiting_ops.empty()
+        assert waiting_op1.completed
+        assert isinstance(waiting_op1.error, pipeline_exceptions.OperationCancelled)
+        assert waiting_op2.completed
+        assert isinstance(waiting_op2.error, pipeline_exceptions.OperationCancelled)
+        assert waiting_op3.completed
+        assert isinstance(waiting_op3.error, pipeline_exceptions.OperationCancelled)
 
     @pytest.mark.it("Sends the operation down the pipeline without changing the state")
     @pytest.mark.parametrize(
@@ -3698,7 +3728,7 @@ class TestReconnectStageOCCURRENCEReconnectTimerExpires(ReconnectStageTestConfig
         assert stage.reconnect_timer is None
 
     @pytest.mark.it(
-        "Start a new reconnect timer for the interval specified by the pipeline config, but do not change the state or send anything down the pipeline, if the timer expires and the state is an in-progress state (i.e. punt until later)"
+        "Start a new reconnect timer for the interval specified by the pipeline config, but do not change the state or send anything down the pipeline, if the timer expires and the state is an intermediate state (i.e. punt until later)"
     )
     @pytest.mark.parametrize(
         "state",
@@ -3708,7 +3738,7 @@ class TestReconnectStageOCCURRENCEReconnectTimerExpires(ReconnectStageTestConfig
             ReconnectState.REAUTHORIZING,
         ],
     )
-    def test_in_progress_state(
+    def test_intermediate_state(
         self, mocker, stage, trigger_stage_retry_timer_completion, state, mock_timer
     ):
         stage.state = state
