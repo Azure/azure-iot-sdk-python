@@ -105,18 +105,10 @@ class ReauthorizeConnectionOperationTestConfig(object):
         return kwargs
 
 
-class ReauthorizeConnectionOperationInstantiationTests(ReauthorizeConnectionOperationTestConfig):
-    @pytest.mark.it("Initializes 'watchdog_timer' attribute to 'None'")
-    def test_retry_timer(self, cls_type, init_kwargs):
-        op = cls_type(**init_kwargs)
-        assert op.watchdog_timer is None
-
-
 pipeline_ops_test.add_operation_tests(
     test_module=this_module,
     op_class_under_test=pipeline_ops_base.ReauthorizeConnectionOperation,
     op_test_config_class=ReauthorizeConnectionOperationTestConfig,
-    extended_op_instantiation_test_class=ReauthorizeConnectionOperationInstantiationTests,
 )
 
 

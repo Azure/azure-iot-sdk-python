@@ -461,7 +461,7 @@ class AutoConnectStage(PipelineStage):
         """
         # Alias to avoid overload within the callback below
         # CT-TODO: remove the need for this with better callback semantics
-        op_needs_complete = op
+        op_needs_connect = op
 
         # function that gets called after we're connected.
         @pipeline_thread.runs_on_pipeline_thread
@@ -469,20 +469,20 @@ class AutoConnectStage(PipelineStage):
             if error:
                 logger.debug(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
-                        self.name, op_needs_complete.name, error
+                        self.name, op_needs_connect.name, error
                     )
                 )
-                op_needs_complete.complete(error=error)
+                op_needs_connect.complete(error=error)
             else:
                 logger.debug(
                     "{}({}): connection is complete.  Running op that triggered connection.".format(
-                        self.name, op_needs_complete.name
+                        self.name, op_needs_connect.name
                     )
                 )
                 # use run_op instead of send_op_down because we want the check_for_connection_failure logic
                 # above to run.  Just because we just connected, it doesn't mean the connection won't drop
                 # before we're done sending.  (This does actually happen in stress scenarios)
-                self.run_op(op_needs_complete)
+                self.run_op(op_needs_connect)
 
         # call down to the next stage to connect.
         logger.debug("{}({}): calling down with Connect operation".format(self.name, op.name))
@@ -961,12 +961,14 @@ class ReconnectStage(PipelineStage):
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        # Connection Retry Enabled
+        # NOTE: Connection Retry == Reconnect. These terms are used interchangably. 'reconnect' is a
+        # more accurate term for the process happening internally here, but the feature is called
+        # 'connection retry' when facing the end user.
         if self.pipeline_root.pipeline_configuration.connection_retry:
 
             # NOTE: manual lock is used here rather than with context manager for structural
-            # reasons. We want the lock while checking the conditional, but not for what occurs
-            # as a result of the condition.
+            # reasons. We want the lock while checking the conditional, but not for everything that
+            # occurs as a result of the condition.
             self.state_lock.acquire()
 
             # If receiving a connection op while one is already in progress, wait for the current
@@ -976,7 +978,7 @@ class ReconnectStage(PipelineStage):
             # We need a way to wait ops without letting them pass through and affect the connection
             # state in order to address edge cases e.g. a user-initiated connect and a automatic
             # reconnect connect happen at approximately the same time.
-            if self.state in self.progress_states and op in self.connection_ops:
+            if self.state in self.progress_states and type(op) in self.connection_ops:
                 logger.debug(
                     "{}({}): State is {} - waiting for in-progress operation to finish".format(
                         self.name, op.name, self.state
@@ -1059,6 +1061,7 @@ class ReconnectStage(PipelineStage):
 
                 elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
                     self._clear_reconnect_timer()
+                    # TODO: should this also clear the waiting ops list?
 
                 # In all cases the op gets sent down, but make sure to release the lock first
                 self.state_lock.release()
@@ -1103,6 +1106,12 @@ class ReconnectStage(PipelineStage):
                                 self.name, self.state, self.pipeline_root.connected
                             )
                         )
+                        logger.debug(
+                            "{}({}): State changes {} -> CONNECTED. Unexpected connection".format(
+                                self.name, event.name, self.state
+                            )
+                        )
+                        self.state = ReconnectState.CONNECTED
 
             elif isinstance(event, pipeline_events_base.DisconnectedEvent):
                 with self.state_lock:
@@ -1116,6 +1125,9 @@ class ReconnectStage(PipelineStage):
                                 self.name, event.name
                             )
                         )
+                        # Set the state change before starting the timer in order to make sure
+                        # there's no issues when the timer expires. The state_lock should already
+                        # be preventing any weirdness with timing, but can't hurt to do this as well.
                         self.state = ReconnectState.DISCONNECTED
                         self._start_reconnect_timer(0.01)
 
@@ -1154,6 +1166,12 @@ class ReconnectStage(PipelineStage):
                                 self.name, self.state, self.pipeline_root.connected
                             )
                         )
+                        logger.debug(
+                            "{}({}): State changes {} -> DISONNECTED. Unexpected disconnect in unexpected state".format(
+                                self.name, event.name, self.state
+                            )
+                        )
+                        self.state = ReconnectState.DISCONNECTED
 
             # In all cases the event is sent up
             self.send_event_up(event)
@@ -1306,7 +1324,7 @@ class ReconnectStage(PipelineStage):
                 self._reconnect()
             elif this.state in self.progress_states:
                 # If another connection op is in progress, just wait and try again later to avoid
-                # any extra confusion.
+                # any extra confusion (i.e. punt the reconnection)
                 logger.debug(
                     "{}: Other connection operation in-progress, setting a new reconnection timer".format(
                         this.name
