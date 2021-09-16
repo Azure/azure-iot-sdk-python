@@ -89,9 +89,9 @@ class Thermostat(object):
         response_dict["minTemp"] = self.min
         response_dict["avgTemp"] = self.avg
         response_dict["startTime"] = (
-            datetime.now() - timedelta(0, self.moving_window * 8)
-        ).isoformat()
-        response_dict["endTime"] = datetime.now().isoformat()
+            (datetime.now() - timedelta(0, self.moving_window * 8)).astimezone().isoformat()
+        )
+        response_dict["endTime"] = datetime.now().astimezone().isoformat()
         return response_dict
 
 
@@ -134,12 +134,11 @@ def create_max_min_report_response(thermostat_name):
         response_dict["maxTemp"] = 0
         response_dict["minTemp"] = 0
         response_dict["avgTemp"] = 0
-        response_dict["startTime"] = datetime.now().isoformat()
-        response_dict["endTime"] = datetime.now().isoformat()
+        response_dict["startTime"] = datetime.now().astimezone().isoformat()
+        response_dict["endTime"] = datetime.now().astimezone().isoformat()
 
-    response_payload = json.dumps(response_dict, default=lambda o: o.__dict__, sort_keys=True)
-    print(response_payload)
-    return response_payload
+    print(response_dict)
+    return response_dict
 
 
 # END CREATE RESPONSES TO COMMANDS

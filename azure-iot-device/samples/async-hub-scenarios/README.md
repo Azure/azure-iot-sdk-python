@@ -42,7 +42,7 @@ In order to use these samples, you **must** set your Device Connection String in
     ```
 
 * [receive_twin_desired_properties_patch](receive_twin_desired_properties_patch.py) - Receive an update patch of changes made to the device twin's desired properties
-  * In order to send a update patch to a device twin's reported properties, use the following Azure CLI command:
+  * In order to send a update patch to a device twin's desired properties, use the following Azure CLI command:
 
     ```bash
     az iot hub device-twin update --device-id <your device id> --hub-name <your IoT Hub name> --set properties.desired.<property name>=<value>
@@ -52,8 +52,11 @@ In order to use these samples, you **must** set your Device Connection String in
   * You can see the changes reflected in your device twin by using the following Azure CLI command:
 
     ```bash
-    az iot hub device-twin show --device-id <your device id> --hub-name <yoru IoT Hub name>
+    az iot hub device-twin show --device-id <your device id> --hub-name <your IoT Hub name>
     ```
+
+* [upload_to_blob](upload_to_blob.py) - Upload file into the linked Azure storage account
+  * You must associate an Azure storage account to the IoT Hub instance. [Learn more](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-configure-file-upload)
 
 ### DPS Samples
 
@@ -81,3 +84,4 @@ In order to use these samples, you **must** have the following environment varia
 
 * [provision_symmetric_key_group.py](provision_symmetric_key_group.py) - Provision multiple devices to IoTHub by registering them to the Device Provisioning Service using derived symmetric keys, then send telemetry to IoTHub from these devices. For this you must have knowledge of the group symmetric key and must have the environment variables PROVISIONING_DEVICE_ID_1, PROVISIONING_DEVICE_ID_2, PROVISIONING_DEVICE_ID_3.
   * NOTE : Group symmetric key must NEVER be stored and all the device keys must be computationally derived prior to using this sample.
+
