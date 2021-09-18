@@ -84,6 +84,7 @@ class TestMQTTPipelineInstantiation(object):
         assert pipeline.on_connected is None
         assert pipeline.on_disconnected is None
         assert pipeline.on_new_sastoken_required is None
+        assert pipeline.on_background_exception is None
         assert pipeline.on_c2d_message_received is None
         assert pipeline.on_input_message_received is None
         assert pipeline.on_method_request_received is None
@@ -208,7 +209,7 @@ class TestMQTTPipelineShutdown(object):
         assert cb.call_args == mocker.call(error=None)
 
     @pytest.mark.it(
-        "Calls the callback with the error upon unscessful completion of the ShutdownPipelineOperation"
+        "Calls the callback with the error upon unsuccessful completion of the ShutdownPipelineOperation"
     )
     def test_op_fail(self, mocker, pipeline, arbitrary_exception):
         cb = mocker.MagicMock()
@@ -952,6 +953,28 @@ class TestMQTTPipelineOCCURRENCENewSastokenRequired(object):
     @pytest.mark.it("Does nothing if the 'on_new_sastoken_required' handler is not set")
     def test_without_handler(self, pipeline):
         pipeline._pipeline.on_new_sastoken_required_handler()
+
+        # No assertions required - not throwing an exception means the test passed
+
+
+@pytest.mark.describe("MQTTPipeline - OCCURRENCE: Background Exception")
+class TestMQTTPipelineOCCURRENCEBackgroundException(object):
+    @pytest.mark.it("Triggers the 'on_background_exception' handler")
+    def test_with_handler(self, mocker, pipeline, arbitrary_exception):
+        # Set the handler
+        mock_handler = mocker.MagicMock()
+        pipeline.on_background_exception = mock_handler
+        assert mock_handler.call_count == 0
+
+        # Trigger the background exception
+        pipeline._pipeline.on_background_exception_handler(arbitrary_exception)
+
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(arbitrary_exception)
+
+    @pytest.mark.it("Does nothing if the 'on_background_exception' handler is not set")
+    def test_without_handler(self, pipeline, arbitrary_exception):
+        pipeline._pipeline.on_background_exception_handler(arbitrary_exception)
 
         # No assertions required - not throwing an exception means the test passed
 

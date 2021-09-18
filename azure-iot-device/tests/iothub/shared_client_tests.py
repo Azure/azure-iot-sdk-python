@@ -98,8 +98,15 @@ class SharedIoTHubClientInstantiationTests(object):
         assert client._mqtt_pipeline.on_new_sastoken_required is not None
         assert client._mqtt_pipeline.on_new_sastoken_required == client._on_new_sastoken_required
 
+    @pytest.mark.it("Sets on_background_exception handler in the MQTTPipeline")
+    def test_sets_on_background_exception_handler(self, client_class, mqtt_pipeline, http_pipeline):
+        client = client_class(mqtt_pipeline, http_pipeline)
+
+        assert client._mqtt_pipeline.on_background_exception is not None
+        assert client._mqtt_pipeline.on_background_exception == client._on_background_exception
+
     @pytest.mark.it("Sets on_method_request_received handler in the MQTTPipeline")
-    def test_sets_on_method_request_received_handler_in_pipleline(
+    def test_sets_on_method_request_received_handler_in_pipeline(
         self, client_class, mqtt_pipeline, http_pipeline
     ):
         client = client_class(mqtt_pipeline, http_pipeline)
@@ -108,6 +115,17 @@ class SharedIoTHubClientInstantiationTests(object):
         assert (
             client._mqtt_pipeline.on_method_request_received
             == client._inbox_manager.route_method_request
+        )
+
+    @pytest.mark.it("Sets on_twin_patch_received handler in the MQTTPipeline")
+    def test_sets_on_twin_patch_received_handler_in_pipeline(
+        self, client_class, mqtt_pipeline, http_pipeline
+    ):
+        client = client_class(mqtt_pipeline, http_pipeline)
+
+        assert client._mqtt_pipeline.on_twin_patch_received is not None
+        assert (
+            client._mqtt_pipeline.on_twin_patch_received == client._inbox_manager.route_twin_patch
         )
 
     @pytest.mark.it("Sets the Receive Mode/Type for the client as yet-unchosen")
@@ -713,6 +731,25 @@ class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
         assert isinstance(event, client_event.ClientEvent)
         assert event.name == client_event.NEW_SASTOKEN_REQUIRED
         assert event.args_for_user == ()
+
+
+class SharedIoTHubClientOCCURRENCEBackgroundException(object):
+    @pytest.mark.it(
+        "Adds a BACKGROUND_EXCEPTION ClientEvent (containing the exception) to the ClientEvent Inbox"
+    )
+    def test_add_client_event(self, client, mocker, arbitrary_exception):
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        inbox_put_spy = mocker.spy(client_event_inbox, "put")
+        assert client_event_inbox.empty()
+
+        client._on_background_exception(arbitrary_exception)
+
+        assert not client_event_inbox.empty()
+        assert inbox_put_spy.call_count == 1
+        event = inbox_put_spy.call_args[0][0]
+        assert isinstance(event, client_event.ClientEvent)
+        assert event.name == client_event.BACKGROUND_EXCEPTION
+        assert event.args_for_user == (arbitrary_exception,)
 
 
 ##############################

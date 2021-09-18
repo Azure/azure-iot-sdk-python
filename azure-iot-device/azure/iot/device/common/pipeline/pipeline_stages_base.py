@@ -193,6 +193,23 @@ class PipelineStage(object):
             )
             handle_exceptions.handle_background_exception(error)
 
+    @pipeline_thread.runs_on_pipeline_thread
+    def raise_background_exception(self, e):
+        """
+        Raise an exception up the pipeline that ocurred in a background thread.
+        These would typically be in response to unsolicited actions, such as receiving data, which
+        cannot be caught because they ocurred on a non-application thread (so there is nobody to
+        catch them).
+
+        Note that this function leverages pipeline event flow, which means that any background
+        exceptions in the core event flow itself become problematic (it's a good thing it's well
+        tested then!)
+
+        :param Exception e: The exception that ocurred in the background
+        """
+        event = pipeline_events_base.BackgroundExceptionEvent(e)
+        self.send_event_up(event)
+
 
 class PipelineRootStage(PipelineStage):
     """
@@ -219,6 +236,7 @@ class PipelineRootStage(PipelineStage):
         self.on_connected_handler = None
         self.on_disconnected_handler = None
         self.on_new_sastoken_required_handler = None
+        self.on_background_exception_handler = None
         self.connected = False
         self.pipeline_configuration = pipeline_configuration
 
@@ -282,6 +300,17 @@ class PipelineRootStage(PipelineStage):
             if self.on_new_sastoken_required_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(
                     self.on_new_sastoken_required_handler
+                )()
+
+        elif isinstance(event, pipeline_events_base.BackgroundExceptionEvent):
+            logger.debug(
+                "{}: BackgroundExceptionEvent received. Calling on_background_exception_handler".format(
+                    self.name
+                )
+            )
+            if self.on_background_exception_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(
+                    self.on_background_exception_handler
                 )()
 
         # Events that are domain-specific and unique to each pipeline are handled by the provided

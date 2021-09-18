@@ -97,6 +97,11 @@ class PipelineRootStageInstantiationTests(PipelineRootStageTestConfig):
         stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
         assert stage.on_new_sastoken_required_handler is None
 
+    @pytest.mark.it("Initializes 'on_background_exception_handler' as None")
+    def test_on_background_exception_handler(self, init_kwargs):
+        stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
+        assert stage.on_background_exception_handler is None
+
     @pytest.mark.it("Initializes 'connected' as False")
     def test_connected(self, init_kwargs):
         stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
@@ -216,7 +221,7 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
 
 
 @pytest.mark.describe(
-    "PipelinerootStage - .handle_pipeline_event() -- Called with NewSasTokenRequiredEvent"
+    "PipelineRootStage - .handle_pipeline_event() -- Called with NewSasTokenRequiredEvent"
 )
 class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
     PipelineRootStageTestConfig, StageHandlePipelineEventTestBase
@@ -229,6 +234,26 @@ class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
     def test_invoke_handler(self, mocker, stage, event):
         mock_handler = mocker.MagicMock()
         stage.on_new_sastoken_required_handler = mock_handler
+        stage.handle_pipeline_event(event)
+        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call()
+
+
+@pytest.mark.describe(
+    "PipelineRootStage - .handle_pipeline_event() -- Called with BackgroundExceptionEvent"
+)
+class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
+    PipelineRootStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def event(self, arbitrary_exception):
+        return pipeline_events_base.BackgroundExceptionEvent(arbitrary_exception)
+
+    @pytest.mark.it("Invokes the 'on_background_exception_handler' handler function, if set")
+    def test_invoke_handler(self, mocker, stage, event):
+        mock_handler = mocker.MagicMock()
+        stage.on_background_exception_handler = mock_handler
         stage.handle_pipeline_event(event)
         time.sleep(0.1)  # Needs a brief sleep so thread can switch
         assert mock_handler.call_count == 1

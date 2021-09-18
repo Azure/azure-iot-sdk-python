@@ -141,9 +141,17 @@ class AbstractIoTHubClient(object):
         logger.info("Cleared all pending method requests due to disconnect")
 
     def _on_new_sastoken_required(self):
+        """Helper handler that is called upon the iothub pipeline needing new SAS token"""
         logger.info("New SasToken required from user")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
         event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
+        client_event_inbox.put(event)
+
+    def _on_background_exception(self, e):
+        """Helper handler that is called upon an iothub pipeline background exception"""
+        logger.info("Background exception ({}) occurred in pipeline".format(type(e)))
+        client_event_inbox = self._inbox_manager.get_client_event_inbox()
+        event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
         client_event_inbox.put(event)
 
     def _check_receive_mode_is_api(self):
@@ -426,13 +434,17 @@ class AbstractIoTHubClient(object):
     def on_new_sastoken_required(self, value):
         self._handler_manager.on_new_sastoken_required = value
 
-    # @property
-    # def on_background_exception(self):
-    #     return self._handler_manager.on_background_exception
+    @property
+    def on_background_exception(self):
+        """The handler function or coroutine will be called when a background exception occurs.
 
-    # @on_background_exception.setter
-    # def on_background_exception(self, value):
-    #     self._handler_manager.on_background_exception = value
+        The function or coroutine definition should take one positional argument (the exception
+        object)"""
+        return self._handler_manager.on_background_exception
+
+    @on_background_exception.setter
+    def on_background_exception(self, value):
+        self._handler_manager.on_background_exception = value
 
     @abc.abstractproperty
     def on_message_received(self):

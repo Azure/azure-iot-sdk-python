@@ -37,6 +37,7 @@ from .shared_client_tests import (
     SharedIoTHubClientOCCURRENCEConnectTests,
     SharedIoTHubClientOCCURRENCEDisconnectTests,
     SharedIoTHubClientOCCURRENCENewSastokenRequired,
+    SharedIoTHubClientOCCURRENCEBackgroundException,
     SharedIoTHubClientCreateFromConnectionStringTests,
     SharedIoTHubDeviceClientCreateFromSymmetricKeyTests,
     SharedIoTHubDeviceClientCreateFromSastokenTests,
@@ -1913,6 +1914,15 @@ class TestIoTHubDeviceClientPROPERTYOnNewSastokenRequiredHandler(
         return "on_new_sastoken_required"
 
 
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .on_background_exception")
+class TestIoTHubDeviceClientPROPERTYOnBackgroundExceptionHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_background_exception"
+
+
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - PROPERTY .connected")
 class TestIoTHubDeviceClientPROPERTYConnected(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYConnectedTests
@@ -1937,6 +1947,13 @@ class TestIoTHubDeviceClientOCCURRENCEDisconnect(
 @pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURRENCE: New Sastoken Required")
 class TestIoTHubDeviceClientOCCURRENCENewSastokenRequired(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubDeviceClient (Synchronous) - OCCURRENCE: Background Exception")
+class TestIoTHubDeviceClientOCCURRENCEBackgroundException(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):
     pass
 
@@ -2630,6 +2647,15 @@ class TestIoTHubModuleClientPROPERTYOnNewSastokenRequiredHandler(
         return "on_new_sastoken_required"
 
 
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - PROPERTY .on_background_exception")
+class TestIoTHubModuleClientPROPERTYOnBackgroundExceptionHandler(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+):
+    @pytest.fixture
+    def handler_name(self):
+        return "on_background_exception"
+
+
 @pytest.mark.describe("IoTHubModule (Synchronous) - PROPERTY .connected")
 class TestIoTHubModuleClientPROPERTYConnected(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYConnectedTests
@@ -2654,5 +2680,12 @@ class TestIoTHubModuleClientOCCURRENCEDisconnect(
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: New Sastoken Required")
 class TestIoTHubModuleClientOCURRENCENewSastokenRequired(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
+):
+    pass
+
+
+@pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: Background Exception")
+class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
+    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):
     pass
