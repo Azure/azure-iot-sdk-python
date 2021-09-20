@@ -66,13 +66,17 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
-    install_requires=["msrest", "uamqp", "azure.core"],
+    install_requires=[
+        "msrest>=0.6.21,<1.0.0",
+        # NOTE: Python 2.7, 3.5 support dropped >= 1.4.0
+        "uamqp>=1.2.14,<2.0.0",
+        "azure-core>=1.10.0,<2.0.0",
+    ],
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3*, <4",
     packages=find_packages(
         exclude=[
