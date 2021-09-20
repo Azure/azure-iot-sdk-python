@@ -123,7 +123,6 @@ In order to run the device samples you will first need the following prerequisit
 
 Set the Device Connection String as an environment variable called `IOTHUB_DEVICE_CONNECTION_STRING`. 
 
-*in bash*
 ```bash
 export IOTHUB_DEVICE_CONNECTION_STRING="<YourIoTHubConnectionString>"
 ```
