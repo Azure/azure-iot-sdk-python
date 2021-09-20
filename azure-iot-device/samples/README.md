@@ -97,6 +97,45 @@ This directory contains samples showing how to use the various features of the M
 
 8. Your device is now able to connect to Azure IoT Hub!
 
+
+
+
+## Read this if you want to run the sample using GitHub Codespaces
+
+You can use Github Codespaces to be up and running quickly! Here are the steps to follow.
+
+**1) Make sure you have the prerequisites**
+
+In order to run the device samples you will first need the following prerequisites:
+
+* An Azure IoT Hub instance. [Link if you don't.](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-create-through-portal)
+* A device identity for your device. [Link if you don't.](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-create-through-portal#register-a-new-device-in-the-iot-hub)
+
+**2) Create and open Codespace**
+
+* Select the Codespaces tab and the "New codespace" button
+
+  ![screen shot of create codespace](./media/codespace.png)
+
+* Once the Codespace is open, all required packages to run the samples will be setup for you
+
+**3) Set the DEVICE_CONNECTION_STRING environment variable**
+
+Set the Device Connection String as an environment variable called `IOTHUB_DEVICE_CONNECTION_STRING`. 
+
+```bash
+export IOTHUB_DEVICE_CONNECTION_STRING="<YourIoTHubConnectionString>"
+```
+
+**4) Run it**
+
+Run the sample using the following commands:
+
+```bash
+cd azure-iot-device/samples
+python3 simple_send_message.py
+```
+
 ## Additional Samples
 
 Further samples with more complex IoT Hub scenarios are contained in the [async-hub-scenarios](async-hub-scenarios) directory, including:
