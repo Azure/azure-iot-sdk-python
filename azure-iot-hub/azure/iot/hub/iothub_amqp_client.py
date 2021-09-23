@@ -23,7 +23,7 @@ except Exception:
 import uamqp
 
 
-default_sas_expiry = 30
+default_sas_expiry = 3600
 
 
 class IoTHubAmqpClientBase:
@@ -78,37 +78,29 @@ class IoTHubAmqpClientBase:
 
 class IoTHubAmqpClientSharedAccessKeyAuth(IoTHubAmqpClientBase):
     def __init__(self, hostname, shared_access_key_name, shared_access_key):
-        self.endpoint = self._build_amqp_endpoint(
-            hostname, shared_access_key_name, shared_access_key
-        )
-        operation = "/messages/devicebound"
-        target = "amqps://" + self.endpoint + operation
-        self.amqp_client = uamqp.SendClient(target)
+        def get_token():
+            expiry = int(time.time() + default_sas_expiry)
+            sas = base64.b64decode(shared_access_key)
+            string_to_sign = (hostname + "\n" + str(expiry)).encode("utf-8")
+            signed_hmac_sha256 = hmac.HMAC(sas, string_to_sign, hashlib.sha256)
+            signature = urllib.parse.quote(base64.b64encode(signed_hmac_sha256.digest()))
+            return AccessToken(
+                "SharedAccessSignature sr={}&sig={}&se={}&skn={}".format(
+                    hostname, signature, expiry, shared_access_key_name
+                ),
+                expiry,
+            )
 
-    def _generate_auth_token(self, uri, sas_name, sas_value):
-        sas = base64.b64decode(sas_value)
-        expiry = str(int(time.time() + default_sas_expiry))
-        string_to_sign = (uri + "\n" + expiry).encode("utf-8")
-        signed_hmac_sha256 = hmac.HMAC(sas, string_to_sign, hashlib.sha256)
-        signature = urllib.parse.quote(base64.b64encode(signed_hmac_sha256.digest()))
-        return "SharedAccessSignature sr={}&sig={}&se={}&skn={}".format(
-            uri, signature, expiry, sas_name
+        auth = uamqp.authentication.JWTTokenAuth(
+            audience="https://" + hostname,
+            uri="https://" + hostname,
+            get_token=get_token,
+            token_type=b"servicebus.windows.net:sastoken",
         )
-
-    def _build_amqp_endpoint(
-        self,
-        hostname,
-        shared_access_key_name=None,
-        shared_access_key=None,
-    ):
-        hub_name = hostname.split(".")[0]
-        endpoint = "{}@sas.root.{}".format(shared_access_key_name, hub_name)
-        endpoint = quote_plus(endpoint)
-        sas_token = self._generate_auth_token(
-            hostname, shared_access_key_name, shared_access_key + "="
+        auth.update_token()
+        self.amqp_client = uamqp.SendClient(
+            target="amqps://" + hostname + "/messages/devicebound", auth=auth
         )
-        endpoint = endpoint + ":{}@{}".format(quote_plus(sas_token), hostname)
-        return endpoint
 
 
 class IoTHubAmqpClientTokenAuth(IoTHubAmqpClientBase):
