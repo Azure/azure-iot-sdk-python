@@ -1011,7 +1011,7 @@ class ReconnectStage(PipelineStage):
 
                 elif isinstance(op, pipeline_ops_base.DisconnectOperation):
                     # First, always clear any reconnect timer. Because a manual disconnection is
-                    # ocurring, we won't want to be reconnecting any more.
+                    # occurring, we won't want to be reconnecting any more.
                     self._clear_reconnect_timer()
 
                     if self.state is ReconnectState.CONNECTED:
@@ -1156,7 +1156,7 @@ class ReconnectStage(PipelineStage):
 
                     # NOTE: There is a ~small~ chance of a false positive here if an unexpected
                     # disconnection occurs while a ReauthorizationOperation is in flight.
-                    # However, it will sort itself out - the ensuing connect that ocurrs as part
+                    # However, it will sort itself out - the ensuing connect that occurs as part
                     # of the reauthorization will restore connection (no harm done) or it will
                     # fail, at which point the failure was a result of a manual operation and
                     # reconnection is not supposed to occur. So either way, we end up where we want
