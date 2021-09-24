@@ -61,8 +61,3 @@ def fake_non_pipeline_thread():
     this_thread.name = "not pipeline"
     yield
     this_thread.name = old_name
-
-
-@pytest.fixture
-def unhandled_error_handler(mocker):
-    return mocker.patch.object(handle_exceptions, "handle_background_exception")

@@ -15,7 +15,7 @@ import six
 import socks
 import time
 import six.moves.urllib as urllib
-from azure.iot.device.common import auth
+from azure.iot.device.common import auth, handle_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.iothub.pipeline import IoTHubPipelineConfig
@@ -734,6 +734,15 @@ class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
 
 
 class SharedIoTHubClientOCCURRENCEBackgroundException(object):
+    @pytest.mark.it("Sends the exception to the handle_exceptions module")
+    def test_handle_exceptions_module(self, client, mocker, arbitrary_exception):
+        background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
+
+        client._on_background_exception(arbitrary_exception)
+
+        assert background_exc_spy.call_count == 1
+        assert background_exc_spy.call_args == mocker.call(arbitrary_exception)
+
     @pytest.mark.it(
         "Adds a BACKGROUND_EXCEPTION ClientEvent (containing the exception) to the ClientEvent Inbox"
     )

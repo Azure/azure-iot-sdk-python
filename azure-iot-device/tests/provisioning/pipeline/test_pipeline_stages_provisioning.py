@@ -139,7 +139,15 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
         op = pipeline_ops_provisioning.RegisterOperation(
             request_payload, fake_registration_id, callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
     def request_body(self, request_payload):
@@ -160,9 +168,6 @@ class TestRegistrationStageWithRegisterOperation(StageRunOpTestBase, Registratio
         assert new_op.method == "PUT"
         assert new_op.resource_location == "/"
         assert new_op.request_body == request_body
-
-        # kill the timer
-        new_op.complete()
 
 
 @pytest.mark.describe("RegistrationStage - .run_op() -- Called with other arbitrary operation")
@@ -192,7 +197,15 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         op = pipeline_ops_provisioning.RegisterOperation(
             request_payload, fake_registration_id, callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, send_registration_op):
@@ -429,9 +442,18 @@ class TestRegistrationStageWithRetryOfRegisterOperation(RetryStageConfig):
 
     @pytest.fixture
     def op(self, stage, mocker, request_payload):
-        return pipeline_ops_provisioning.RegisterOperation(
+        op = pipeline_ops_provisioning.RegisterOperation(
             request_payload, fake_registration_id, callback=mocker.MagicMock()
         )
+        yield op
+
+        # Clean up any timers set on it
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
     def request_body(self, request_payload):
@@ -487,7 +509,15 @@ class TestRegistrationStageWithTimeoutOfRegisterOperation(
         op = pipeline_ops_provisioning.RegisterOperation(
             " ", fake_registration_id, callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
     def mock_timer(self, mocker):
@@ -550,6 +580,8 @@ class TestRegistrationStageWithTimeoutOfRegisterOperation(
 
         # Complete the next operation
         new_op = stage.send_op_down.call_args[0][0]
+        new_op.status_code = 200
+        new_op.response_body = "{}".encode("utf-8")
         new_op.complete()
 
         # Timer is now cancelled and cleared
@@ -589,7 +621,15 @@ class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingS
         op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.polling_timer:
+            op.polling_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.mark.it(
         "Sends a new RequestAndResponseOperation down the pipeline, configured to request a registration from provisioning service"
@@ -604,9 +644,6 @@ class TestPollingStatusStageWithPollStatusOperation(StageRunOpTestBase, PollingS
         assert new_op.method == "GET"
         assert new_op.resource_location == "/"
         assert new_op.request_body == " "
-
-        # kill the timer
-        new_op.complete()
 
 
 @pytest.mark.describe("PollingStatusStage - .run_op() -- Called with other arbitrary operation")
@@ -632,7 +669,15 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.polling_timer:
+            op.polling_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
     def stage(self, mocker, cls_type, init_kwargs, send_query_op):
@@ -812,7 +857,15 @@ class TestPollingStatusStageWithPollStatusRetryOperation(RetryStageConfig):
         op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.polling_timer:
+            op.polling_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.mark.it(
         "Decodes, deserializes the response from RequestAndResponseOperation and retries the op if the status code > 429"
@@ -894,7 +947,15 @@ class TestPollingStageWithTimeoutOfQueryOperation(StageRunOpTestBase, PollingSta
         op = pipeline_ops_provisioning.PollStatusOperation(
             fake_operation_id, " ", callback=mocker.MagicMock()
         )
-        return op
+        yield op
+
+        # Clean up any timers set on it
+        if op.polling_timer:
+            op.polling_timer.cancel()
+        if op.retry_after_timer:
+            op.retry_after_timer.cancel()
+        if op.provisioning_timeout_timer:
+            op.provisioning_timeout_timer.cancel()
 
     @pytest.fixture
     def mock_timer(self, mocker):
@@ -957,6 +1018,8 @@ class TestPollingStageWithTimeoutOfQueryOperation(StageRunOpTestBase, PollingSta
 
         # Complete the next operation
         new_op = stage.send_op_down.call_args[0][0]
+        new_op.status_code = 200
+        new_op.response_body = "{}".encode("utf-8")
         new_op.complete()
 
         # Timer is now cancelled and cleared

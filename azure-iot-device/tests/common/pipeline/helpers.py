@@ -40,9 +40,9 @@ class StageRunOpTestBase(object):
         assert op.error is arbitrary_exception
 
     @pytest.mark.it(
-        "Allows any BaseException that was raised during execution of the operation to propogate"
+        "Allows any BaseException that was raised during execution of the operation to propagate"
     )
-    def test_base_exception_propogates(self, mocker, stage, op, arbitrary_base_exception):
+    def test_base_exception_propagates(self, mocker, stage, op, arbitrary_base_exception):
         stage._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
@@ -56,21 +56,20 @@ class StageHandlePipelineEventTestBase(object):
     """
 
     @pytest.mark.it(
-        "Sends any unexpected Exceptions raised during handling of the event to the background exception handler"
+        "Sends any unexpected Exceptions raised during handling of the event up the pipeline in a BackgroundExceptionEvent"
     )
     def test_uses_background_exception_handler(self, mocker, stage, event, arbitrary_exception):
         stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
-        mocker.spy(handle_exceptions, "handle_background_exception")
 
         stage.handle_pipeline_event(event)
 
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
-            arbitrary_exception
-        )
+        assert stage.send_event_up.call_count == 1
+        bg_exc_event = stage.send_event_up.call_args[0][0]
+        assert isinstance(bg_exc_event, pipeline_events_base.BackgroundExceptionEvent)
+        assert bg_exc_event.e is arbitrary_exception
 
-    @pytest.mark.it("Allows any BaseException raised during handling of the event to propogate")
-    def test_base_exception_propogates(self, mocker, stage, event, arbitrary_base_exception):
+    @pytest.mark.it("Allows any BaseException raised during handling of the event to propagate")
+    def test_base_exception_propagates(self, mocker, stage, event, arbitrary_base_exception):
         stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:

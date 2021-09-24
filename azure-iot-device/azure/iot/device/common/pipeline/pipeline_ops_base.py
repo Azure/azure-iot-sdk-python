@@ -3,12 +3,9 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import sys
 import logging
-import traceback
 from . import pipeline_exceptions
 from . import pipeline_thread
-from azure.iot.device.common import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +88,7 @@ class PipelineOperation(object):
     def complete(self, error=None):
         """Complete the operation, and trigger all callbacks in LIFO order.
 
-        The operation is completed successfully be default, or completed unsucessfully if an error
+        The operation is completed successfully be default, or completed unsuccessfully if an error
         is provided.
 
         An operation that is already fully completed, or in the process of completion cannot be
@@ -100,8 +97,13 @@ class PipelineOperation(object):
         This process can be halted if a callback for the operation invokes the .halt_completion()
         method on this Operation.
 
+        Note that if an error is raised the operation may not be able to be completed.
+
         :param error: Optionally provide an Exception object indicating the error that caused
-            the completion. Providing an error indicates that the operation was unsucessful.
+            the completion. Providing an error indicates that the operation was unsuccessful.
+
+        :raises: OperationError if the operation cannot properly reach a completed state
+        :raises: OperationError if an error occurs in resolving any callbacks
         """
         if error:
             logger.debug("{}: completing with error {}".format(self.name, error))
@@ -109,12 +111,9 @@ class PipelineOperation(object):
             logger.debug("{}: completing without error".format(self.name))
 
         if self.completed or self.completing:
-            e = pipeline_exceptions.OperationError(
+            raise pipeline_exceptions.OperationError(
                 "Attempting to complete an already-completed operation: {}".format(self.name)
             )
-            # This could happen in a foreground or background thread, so err on the side of caution
-            # and send it to the background handler.
-            handle_exceptions.handle_background_exception(e)
         else:
             # Operation is now in the process of completing
             self.completing = True
@@ -127,13 +126,12 @@ class PipelineOperation(object):
                 if self.completed:
                     # This block should never be reached - this is an invalid state.
                     # If this block is reached, there is a bug in the code.
-                    e = pipeline_exceptions.OperationError(
+                    self.halt_completion()
+                    raise pipeline_exceptions.OperationError(
                         "Operation reached fully completed state while still resolving completion: {}".format(
                             self.name
                         )
                     )
-                    handle_exceptions.handle_background_exception(e)
-                    break
 
                 callback = self.callback_stack.pop()
                 try:
@@ -142,9 +140,8 @@ class PipelineOperation(object):
                     logger.warning(
                         "Unhandled error while triggering callback for {}".format(self.name)
                     )
-                    # This could happen in a foreground or background thread, so err on the side of caution
-                    # and send it to the background handler.
-                    handle_exceptions.handle_background_exception(e)
+                    self.halt_completion()
+                    raise e
 
             if self.completing:
                 # Operation is now completed, no longer in the process of completing
@@ -167,16 +164,15 @@ class PipelineOperation(object):
         from the Operation.
         """
         if not self.completing:
-            e = pipeline_exceptions.OperationError(
+            raise pipeline_exceptions.OperationError(
                 "Attempting to halt completion of an operation not in the process of completion: {}".format(
                     self.name
                 )
             )
-            handle_exceptions.handle_background_exception(e)
         else:
-            logger.debug("{}: Halting completion...".format(self.name))
             self.completing = False
             self.error = None
+            logger.debug("{}: Operation completion halted".format(self.name))
 
     @pipeline_thread.runs_on_pipeline_thread
     def spawn_worker_op(self, worker_op_type, **kwargs):

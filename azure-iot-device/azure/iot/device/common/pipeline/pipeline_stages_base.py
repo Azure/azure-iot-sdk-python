@@ -140,9 +140,9 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            # Do not use exc_info parameter on logger.* calls.  This causes pytest to save the traceback which saves stack frames which shows up as a leak
             logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
-            handle_exceptions.handle_background_exception(e)
+            self.raise_background_exception(e)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -188,10 +188,11 @@ class PipelineStage(object):
         if self.previous:
             self.previous.handle_pipeline_event(event)
         else:
-            error = pipeline_exceptions.PipelineRuntimeError(
+            logger.critical(
                 "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
             )
-            handle_exceptions.handle_background_exception(error)
+            # Can't raise the error because there is no previous stage to raise to. Nothing to do
+            # but log it. This should never happen anyway.
 
     @pipeline_thread.runs_on_pipeline_thread
     def raise_background_exception(self, e):
@@ -412,7 +413,7 @@ class SasTokenStage(PipelineStage):
                             this.name, op.name, error
                         )
                     )
-                    handle_exceptions.handle_background_exception(error)
+                    self.raise_background_exception(error)
                 else:
                     logger.info(
                         "{}({}): reauthorize connection operation is complete".format(

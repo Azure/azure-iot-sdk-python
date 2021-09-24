@@ -49,12 +49,6 @@ def op_error(request, arbitrary_exception):
         return None
 
 
-@pytest.fixture
-def mock_handle_background_exception(mocker):
-    mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
-    return mock_handler
-
-
 #########################################
 # ENSURE DESIRED PROPERTIES STAGE STAGE #
 #########################################

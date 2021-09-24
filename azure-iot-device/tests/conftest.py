@@ -26,7 +26,7 @@ You may (and should!) still use exceptions defined elsewhere for specific, non-a
 """
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture  # (scope="function")
 def arbitrary_exception():
     class ArbitraryException(Exception):
         pass

@@ -9,12 +9,13 @@ Device Provisioning Service.
 """
 
 import abc
+from azure.iot.device.common.handle_exceptions import handle_background_exception
 import six
 import logging
 from azure.iot.device.provisioning import pipeline
 
 from azure.iot.device.common.auth import sastoken as st
-from azure.iot.device.common import auth
+from azure.iot.device.common import auth, handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,8 @@ class AbstractProvisioningDeviceClient(object):
         """
         self._pipeline = pipeline
         self._provisioning_payload = None
+
+        self._pipeline.on_background_exception = handle_exceptions.handle_background_exception
 
     @classmethod
     def create_from_symmetric_key(

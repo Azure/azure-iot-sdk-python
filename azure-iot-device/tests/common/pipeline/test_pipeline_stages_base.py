@@ -304,6 +304,7 @@ class SasTokenStageTestConfig(object):
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -674,13 +675,11 @@ class TestSasTokenStageOCCURRENCEUpdateAlarmExpiresRenewToken(SasTokenStageTestC
         assert stage.send_op_down.call_count == 1
 
     @pytest.mark.it(
-        "If the ReauthorizeConnectionOperation is later completed with an error, send the error to the background exception handler"
+        "If the ReauthorizeConnectionOperation is later completed with an error, raise a background exception"
     )
     def test_reauth_op_error_goes_to_bkg_handler(
         self, mocker, stage, op, mock_alarm, arbitrary_exception
     ):
-        mocker.spy(handle_exceptions, "handle_background_exception")
-
         # Apply the alarm and set stage as connected
         stage.pipeline_root.connected = True
         stage.run_op(op)
@@ -699,10 +698,8 @@ class TestSasTokenStageOCCURRENCEUpdateAlarmExpiresRenewToken(SasTokenStageTestC
         reauth_op.complete(error=arbitrary_exception)
 
         # Error was sent to background handler
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
-            arbitrary_exception
-        )
+        assert stage.raise_background_exception.call_count == 1
+        assert stage.raise_background_exception.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it("Begins a new SasToken update alarm")
     @pytest.mark.parametrize(
@@ -1734,7 +1731,6 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
     @pytest.mark.it("Unblocks the ConnectionLockStage prior to re-running any pending operations")
     def test_unblocks_before_rerun(self, mocker, blocked_stage, blocking_op, pending_ops):
         stage = blocked_stage
-        mocker.spy(handle_exceptions, "handle_background_exception")
         assert stage.blocked
 
         def run_op_override(op):
@@ -1753,9 +1749,6 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
 
         # Verify that the mock .run_op() was indeed called
         assert stage.run_op.call_count == len(pending_ops)
-
-        # Verify that no assertions from the mock .run_op() turned up False
-        assert handle_exceptions.handle_background_exception.call_count == 0
 
     @pytest.mark.it(
         "Requeues subsequent operations, retaining their original order, if one of the re-run operations returns the ConnectionLockStage to a blocking state"
@@ -1843,7 +1836,6 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
         self, mocker, blocked_stage, pending_ops, blocking_op, arbitrary_exception
     ):
         stage = blocked_stage
-        mocker.spy(handle_exceptions, "handle_background_exception")
         assert stage.blocked
 
         def complete_override(error=None):
@@ -1865,9 +1857,6 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
         # Verify that the mock completion was called for the pending ops
         for op in pending_ops:
             assert op.complete.call_count == 1
-
-        # Verify that no assertions from the mock .complete() calls turned up False
-        assert handle_exceptions.handle_background_exception.call_count == 0
 
 
 #########################################

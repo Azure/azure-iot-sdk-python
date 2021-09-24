@@ -108,20 +108,8 @@ def add_base_pipeline_stage_tests(
             assert stage.previous.handle_pipeline_event.call_count == 1
             assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
-        @pytest.mark.it(
-            "Sends a PipelineRuntimeError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
-        )
-        def test_no_previous_stage(self, stage, arbitrary_event, mocker):
-            stage.previous = None
-            mocker.spy(handle_exceptions, "handle_background_exception")
-
-            stage.send_event_up(arbitrary_event)
-
-            assert handle_exceptions.handle_background_exception.call_count == 1
-            assert (
-                type(handle_exceptions.handle_background_exception.call_args[0][0])
-                == pipeline_exceptions.PipelineRuntimeError
-            )
+        # Note that if there is no previous stage, it logs the error, but there isn't much of a way
+        # to test that
 
     setattr(
         test_module,

@@ -33,6 +33,7 @@ class MQTTPipeline(object):
         # Event Handlers - Will be set by Client after instantiation of pipeline
         self.on_connected = None
         self.on_disconnected = None
+        self.on_background_exception = None
         self.on_message_received = None
         self._registration_id = pipeline_configuration.registration_id
 
@@ -113,6 +114,10 @@ class MQTTPipeline(object):
         def _on_disconnected():
             if self.on_disconnected:
                 self.on_disconnected("disconnected")
+
+        def _on_background_exception():
+            if self.on_background_exception:
+                self.on_background_exception
 
         self._pipeline.on_pipeline_event_handler = _on_pipeline_event
         self._pipeline.on_connected_handler = _on_connected

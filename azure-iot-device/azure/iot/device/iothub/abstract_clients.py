@@ -19,7 +19,7 @@ from azure.iot.device.common.auth import connection_string as cs
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub import client_event
 from azure.iot.device import exceptions
-from azure.iot.device.common import auth
+from azure.iot.device.common import auth, handle_exceptions
 from . import edge_hsm
 
 logger = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ class AbstractIoTHubClient(object):
 
     def _on_background_exception(self, e):
         """Helper handler that is called upon an iothub pipeline background exception"""
-        logger.info("Background exception ({}) occurred in pipeline".format(type(e)))
+        handle_exceptions.handle_background_exception(e)
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
         event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
         client_event_inbox.put(event)
