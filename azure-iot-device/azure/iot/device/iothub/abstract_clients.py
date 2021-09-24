@@ -412,6 +412,10 @@ class AbstractIoTHubClient(object):
 
     @property
     def on_connection_state_change(self):
+        """The handler function or coroutine that will be called when the connection state changes.
+
+        The function or coroutine definition should take no positional arguments.
+        """
         return self._handler_manager.on_connection_state_change
 
     @on_connection_state_change.setter
@@ -420,6 +424,14 @@ class AbstractIoTHubClient(object):
 
     @property
     def on_new_sastoken_required(self):
+        """The handler function or coroutine that will be called when a user-provided SAS token is
+        about to expire, and a new one is required.
+
+        The new token can be provided in your function or coroutine via use of the client's
+        .update_sastoken() method.
+
+        The function or coroutine definition should take no positional arguments.
+        """
         return self._handler_manager.on_new_sastoken_required
 
     @on_new_sastoken_required.setter
@@ -442,6 +454,9 @@ class AbstractIoTHubClient(object):
     @property
     def on_method_request_received(self):
         """The handler function or coroutine that will be called when a method request is received.
+
+        Remember to acknowledge the method request in your function or coroutine via use of the
+        client's .send_method_response() method.
 
         The function or coroutine definition should take one positional argument (the
         :class:`azure.iot.device.MethodRequest` object)"""
