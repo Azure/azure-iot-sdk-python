@@ -1003,7 +1003,7 @@ class ReconnectStage(PipelineStage):
                         self.state = ReconnectState.CONNECTING
                         self._add_connection_op_callback(op)
                     else:
-                        # This should be impossible to reach. If the state were intermeidate, it
+                        # This should be impossible to reach. If the state were intermediate, it
                         # would have been added to the waiting ops queue above.
                         logger.warning(
                             "{}({}): Invalid State - {}".format(self.name, op.name, self.state)
@@ -1033,7 +1033,7 @@ class ReconnectStage(PipelineStage):
                         # doing autocompletes based on connection status. When it is revisited,
                         # this logic may need to be updated.
                     else:
-                        # This should be impossible to reach. If the state were intermeidate, it
+                        # This should be impossible to reach. If the state were intermediate, it
                         # would have been added to the waiting ops queue above.
                         logger.warning(
                             "{}({}): Invalid State - {}".format(self.name, op.name, self.state)
@@ -1057,7 +1057,7 @@ class ReconnectStage(PipelineStage):
                         self.state = ReconnectState.REAUTHORIZING
                         self._add_connection_op_callback(op)
                     else:
-                        # This should be impossible to reach. If the state were intermeidate, it
+                        # This should be impossible to reach. If the state were intermediate, it
                         # would have been added to the waiting ops queue above.
                         logger.warning(
                             "{}({}): Invalid State - {}".format(self.name, op.name, self.state)
