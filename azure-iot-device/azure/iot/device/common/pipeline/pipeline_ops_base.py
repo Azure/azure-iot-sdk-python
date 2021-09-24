@@ -250,10 +250,6 @@ class ReauthorizeConnectionOperation(PipelineOperation):
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
-    def __init__(self, callback):
-        self.watchdog_timer = None
-        super(ReauthorizeConnectionOperation, self).__init__(callback)
-
     pass
 
 
@@ -266,7 +262,9 @@ class DisconnectOperation(PipelineOperation):
     Even though this is an base operation, it will most likely be handled by a more specific stage (such as an IoTHub or MQTT stage).
     """
 
-    pass
+    def __init__(self, callback):
+        self.hard = True  # Indicates if this is a "hard" disconnect that kills in-flight ops
+        super(DisconnectOperation, self).__init__(callback)
 
 
 class EnableFeatureOperation(PipelineOperation):

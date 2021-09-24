@@ -4,7 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-
 from azure.iot.device.common.pipeline.pipeline_exceptions import OperationCancelled
 from azure.iot.device.common.evented_callback import EventedCallback
 import pytest
