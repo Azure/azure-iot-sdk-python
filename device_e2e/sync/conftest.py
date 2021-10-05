@@ -5,15 +5,39 @@ import pytest
 import functools
 import time
 import e2e_settings
+import test_config
 from service_helper_sync import ServiceHelperSync
-from azure.iot.device.iothub import IoTHubDeviceClient
+from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 
 
 @pytest.fixture(scope="function")
 def brand_new_client(client_kwargs):
-    return IoTHubDeviceClient.create_from_connection_string(
-        e2e_settings.DEVICE_CONNECTION_STRING, **client_kwargs
-    )
+    client = None
+
+    if test_config.config.identity == test_config.IDENTITY_DEVICE_CLIENT:
+        ClientClass = IoTHubDeviceClient
+    elif test_config.config.identity == test_config.IDENTITY_MODULE_CLIENT:
+        ClientClass = IoTHubModuleClient
+    else:
+        raise Exception("config.identity invalid")
+
+    if test_config.config.transport not in test_config.TRANSPORT_CHOICES:
+        raise Exception("config.transport invalid")
+    websockets = test_config.config.transport == test_config.TRANSPORT_MQTT_WS
+    if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
+        # TODO: This is currently using a connection string stored in _e2e_settings.xml.  This will move to be a dynamically created identity similar to the way node's device_identity_helper.js works.
+        client = ClientClass.create_from_connection_string(
+            e2e_settings.DEVICE_CONNECTION_STRING, websockets=websockets, **client_kwargs
+        )
+    elif test_config.config.auth == test_config.X509:
+        # need to implement
+        raise Exception("X509 Auth not yet implemented")
+    else:
+        raise Exception("config.auth invalid")
+
+    yield client
+
+    client.shutdown()
 
 
 @pytest.fixture(scope="function")
@@ -23,8 +47,6 @@ def client(brand_new_client):
     client.connect()
 
     yield client
-
-    client.shutdown()
 
 
 @pytest.fixture(scope="module")

@@ -4,6 +4,7 @@
 import pytest
 import logging
 import concurrent.futures
+import test_config
 
 # noqa: F401 defined in .flake8 file in root of repo
 
@@ -35,9 +36,39 @@ logging.getLogger("azure.iot").setLevel(level=logging.INFO)
 
 @pytest.fixture(scope="module")
 def transport():
-    return "mqtt"
+    return test_config.config.transport
 
 
 @pytest.fixture(scope="module")
 def executor():
     return concurrent.futures.ThreadPoolExecutor()
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--transport",
+        help="Transport to use for tests",
+        type=str,
+        choices=test_config.TRANSPORT_CHOICES,
+        default=test_config.TRANSPORT_MQTT,
+    )
+    parser.addoption(
+        "--auth",
+        help="Auth to use for tests",
+        type=str,
+        choices=test_config.AUTH_CHOICES,
+        default=test_config.AUTH_CONNECTION_STRING,
+    )
+    parser.addoption(
+        "--identity",
+        help="Identity (client type) to use for tests",
+        type=str,
+        choices=test_config.IDENTITY_CHOICES,
+        default=test_config.IDENTITY_DEVICE_CLIENT,
+    )
+
+
+def pytest_configure(config):
+    test_config.config.transport = config.getoption("transport")
+    test_config.config.auth = config.getoption("auth")
+    test_config.config.identity = config.getoption("identity")
