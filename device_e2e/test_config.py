@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
+import pytest
 
 TRANSPORT_MQTT = "mqtt"
 TRANSPORT_MQTT_WS = "mqttws"
@@ -23,3 +24,19 @@ class Config(object):
 
 
 config = Config()
+
+connection_retry_disabled_and_enabled = [
+    "connection_retry",
+    [
+        pytest.param(True, id="connection_retry enabled"),
+        pytest.param(False, id="connection_retry disabled"),
+    ],
+]
+
+auto_connect_off_and_on = [
+    "auto_connect",
+    [
+        pytest.param(True, id="auto_connect enabled"),
+        pytest.param(False, id="auto_connect disabled"),
+    ],
+]

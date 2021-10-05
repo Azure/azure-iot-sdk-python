@@ -14,11 +14,6 @@ from utils import get_random_message, get_random_dict
 from azure.iot.device.iothub import IoTHubDeviceClient
 
 
-@pytest.fixture(scope="class")
-def client_kwargs():
-    return {}
-
-
 @pytest.fixture(scope="function")
 def device_id(brand_new_client):
     # TODO: suggest adding device_id and module_id to client object
@@ -45,6 +40,30 @@ def watches_events(service_helper, device_id, module_id):
 @pytest.fixture(scope="function")
 def random_message():
     return get_random_message()
+
+
+@pytest.fixture(scope="function")
+def connection_retry():
+    return True
+
+
+@pytest.fixture(scope="function")
+def auto_connect():
+    return True
+
+
+@pytest.fixture(scope="function")
+def extra_client_kwargs():
+    return {}
+
+
+@pytest.fixture(scope="function")
+def client_kwargs(extra_client_kwargs, auto_connect, connection_retry):
+    kwargs = copy.copy(extra_client_kwargs)
+    kwargs["auto_connect"] = auto_connect
+    kwargs["connection_retry"] = connection_retry
+    print("---------------------------------KWARGS={}".format(kwargs))
+    return kwargs
 
 
 collect_ignore = []

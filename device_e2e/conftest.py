@@ -21,6 +21,9 @@ from pnp_fixtures import (
 )
 from client_fixtures import (
     client_kwargs,
+    extra_client_kwargs,
+    auto_connect,
+    connection_retry,
     device_id,
     module_id,
     reported_props,
