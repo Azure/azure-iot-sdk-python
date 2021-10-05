@@ -49,7 +49,7 @@ class TestMethods(object):
         method_response_status,
         include_request_payload,
         include_response_payload,
-        service_client,
+        service_helper,
     ):
         actual_request = None
 
@@ -78,7 +78,7 @@ class TestMethods(object):
         await asyncio.sleep(1)  # wait for subscribe, etc, to complete
 
         # invoke the method call
-        method_response = await service_client.invoke_method(
+        method_response = await service_helper.invoke_method(
             device_id, module_id, method_name, request_payload
         )
 

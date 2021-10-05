@@ -141,7 +141,7 @@ class TestReportedPropertiesDroppedConnection(object):
 @pytest.mark.describe("Device Client Desired Properties")
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
-    async def test_simple_patch(self, client, event_loop, service_client, device_id, module_id):
+    async def test_simple_patch(self, client, event_loop, service_helper, device_id, module_id):
 
         received_patch = None
         received = asyncio.Event()
@@ -155,7 +155,7 @@ class TestDesiredProperties(object):
         client.on_twin_desired_properties_patch_received = handle_on_patch_received
 
         random_dict = get_random_dict()
-        await service_client.set_desired_properties(
+        await service_helper.set_desired_properties(
             device_id,
             module_id,
             {const.TEST_CONTENT: random_dict},

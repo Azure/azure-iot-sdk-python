@@ -1,14 +1,14 @@
 # Copyright (c) Microsoft. All rights reserved.
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
-from service_inproc import ServiceInproc as ServiceInprocSync
+from service_helper_sync import ServiceHelperSync
 
 
-class ServiceInprocAsync:
+class ServiceHelper:
     def __init__(self, event_loop, executor):
         self.event_loop = event_loop
         self.executor = executor
-        self.inner_object = ServiceInprocSync()
+        self.inner_object = ServiceHelperSync()
 
     @property
     def device_id(self):

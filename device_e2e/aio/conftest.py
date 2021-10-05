@@ -6,7 +6,7 @@ import asyncio
 import functools
 import time
 import e2e_settings
-from service_inproc_async import ServiceInprocAsync
+from service_helper import ServiceHelper
 from azure.iot.device.iothub.aio import IoTHubDeviceClient
 
 
@@ -37,23 +37,23 @@ async def client(brand_new_client):
 
 # TODO: scope to run, along with executor
 @pytest.fixture(scope="module")
-async def service_client(event_loop, executor):
-    service_client = ServiceInprocAsync(event_loop, executor)
+async def service_helper(event_loop, executor):
+    service_helper = ServiceHelper(event_loop, executor)
     time.sleep(1)
-    yield service_client
+    yield service_helper
     print("shutting down")
-    await service_client.shutdown()
+    await service_helper.shutdown()
 
 
 @pytest.fixture(scope="function")
 def get_next_eventhub_arrival(
-    event_loop, executor, service_client, device_id, module_id, watches_events  # noqa: F811
+    event_loop, executor, service_helper, device_id, module_id, watches_events  # noqa: F811
 ):
-    yield functools.partial(service_client.get_next_eventhub_arrival, device_id, module_id)
+    yield functools.partial(service_helper.get_next_eventhub_arrival, device_id, module_id)
 
 
 @pytest.fixture(scope="function")
 def get_next_reported_patch_arrival(
-    event_loop, executor, service_client, device_id, module_id, watches_events  # noqa: F811
+    event_loop, executor, service_helper, device_id, module_id, watches_events  # noqa: F811
 ):
-    yield functools.partial(service_client.get_next_reported_patch_arrival, device_id, module_id)
+    yield functools.partial(service_helper.get_next_reported_patch_arrival, device_id, module_id)

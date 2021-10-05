@@ -19,7 +19,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("Device Client C2d")
 class TestSendMessage(object):
     @pytest.mark.it("Can receive C2D")
-    async def test_send_message(self, client, service_client, device_id, module_id, event_loop):
+    async def test_send_message(self, client, service_helper, device_id, module_id, event_loop):
         message = json.dumps(get_random_dict())
 
         received_message = None
@@ -33,7 +33,7 @@ class TestSendMessage(object):
 
         client.on_message_received = handle_on_message_received
 
-        await service_client.send_c2d(device_id, module_id, message, {})
+        await service_helper.send_c2d(device_id, module_id, message, {})
 
         await asyncio.wait_for(received.wait(), 10)
 

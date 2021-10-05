@@ -141,7 +141,7 @@ class ClientList(object):
             return client_data.incoming_patch_queue
 
 
-class ServiceInproc(object):
+class ServiceHelperSync(object):
     def __init__(self):
         self._client_list = ClientList()
         self._executor = ThreadPoolExecutor()

@@ -58,7 +58,7 @@ class TestPnpCommands(object):
         include_component_name,
         include_request_payload,
         include_response_payload,
-        service_client,
+        service_helper,
         device_id,
         module_id,
     ):
@@ -93,7 +93,7 @@ class TestPnpCommands(object):
         await asyncio.sleep(1)  # wait for subscribe, etc, to complete
 
         # invoke the command
-        command_response = await service_client.invoke_pnp_command(
+        command_response = await service_helper.invoke_pnp_command(
             device_id, module_id, pnp_component_name, pnp_command_name, request_payload
         )
 

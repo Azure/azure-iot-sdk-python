@@ -42,13 +42,13 @@ class TestPnpConnect(object):
         assert client.connected
 
     @pytest.mark.it("Shows up as a PNP device in the service client")
-    async def test_model_id_in_service_client(
-        self, client, pnp_model_id, device_id, module_id, service_client
+    async def test_model_id_in_service_helper(
+        self, client, pnp_model_id, device_id, module_id, service_helper
     ):
 
         assert client._mqtt_pipeline.pipeline_configuration.model_id == pnp_model_id
         assert client.connected
 
-        props = await service_client.get_pnp_properties(device_id, module_id)
+        props = await service_helper.get_pnp_properties(device_id, module_id)
 
         assert props["$metadata"]["$model"] == pnp_model_id

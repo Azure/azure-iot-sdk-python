@@ -11,7 +11,6 @@ import sys
 import const
 from azure.iot.device.iothub import Message
 from utils import get_random_message, get_random_dict
-from service_inproc import ServiceInproc
 from azure.iot.device.iothub import IoTHubDeviceClient
 
 
@@ -37,10 +36,10 @@ def reported_props():
 
 
 @pytest.fixture(scope="function")
-def watches_events(service_client, device_id, module_id):
-    service_client.start_watching(device_id, module_id)
+def watches_events(service_helper, device_id, module_id):
+    service_helper.start_watching(device_id, module_id)
     yield
-    service_client.stop_watching(device_id, module_id)
+    service_helper.stop_watching(device_id, module_id)
 
 
 @pytest.fixture(scope="function")

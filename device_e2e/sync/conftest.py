@@ -5,7 +5,7 @@ import pytest
 import functools
 import time
 import e2e_settings
-from service_inproc import ServiceInproc
+from service_helper_sync import ServiceHelperSync
 from azure.iot.device.iothub import IoTHubDeviceClient
 
 
@@ -28,18 +28,18 @@ def client(brand_new_client):
 
 
 @pytest.fixture(scope="module")
-def service_client():
-    service_client = ServiceInproc()
+def service_helper():
+    service_helper = ServiceHelperSync()
     time.sleep(1)
-    yield service_client
-    service_client.shutdown()
+    yield service_helper
+    service_helper.shutdown()
 
 
 @pytest.fixture(scope="function")
-def get_next_eventhub_arrival(service_client, device_id, module_id, watches_events):
-    yield functools.partial(service_client.get_next_eventhub_arrival, device_id, module_id)
+def get_next_eventhub_arrival(service_helper, device_id, module_id, watches_events):
+    yield functools.partial(service_helper.get_next_eventhub_arrival, device_id, module_id)
 
 
 @pytest.fixture(scope="function")
-def get_next_reported_patch_arrival(executor, service_client, device_id, module_id, watches_events):
-    yield functools.partial(service_client.get_next_reported_patch_arrival, device_id, module_id)
+def get_next_reported_patch_arrival(executor, service_helper, device_id, module_id, watches_events):
+    yield functools.partial(service_helper.get_next_reported_patch_arrival, device_id, module_id)
