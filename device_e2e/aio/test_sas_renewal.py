@@ -5,7 +5,6 @@ import asyncio
 import pytest
 import json
 import logging
-from utils import get_random_message
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -22,8 +21,7 @@ class TestSasRenewalReconnectEnabled(object):
 
     @pytest.mark.it("Renews and reconnects before expiry")
     # TODO: rename incoming_event_queue becaues it conflicts wiht event_loop
-    async def test_sas_renews(self, client, event_loop, get_next_eventhub_arrival):
-        test_message = get_random_message()
+    async def test_sas_renews(self, client, event_loop, get_next_eventhub_arrival, random_message):
 
         connected_event = asyncio.Event()
         token_at_connect_time = None
@@ -58,12 +56,12 @@ class TestSasRenewalReconnectEnabled(object):
         assert not token_before_connect == token_at_connect_time
 
         # and verify that we can send
-        await client.send_message(test_message)
+        await client.send_message(random_message)
 
         # and verify that the message arrived at the service
         # TODO incoming_event_queue.get should check thread future
         event = await get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
 
 @pytest.mark.describe("Device Client with reconnect disabled")
@@ -74,8 +72,7 @@ class TestSasRenewalReconnectDisabled(object):
         return {"sastoken_ttl": 130, "connection_retry": False}
 
     @pytest.mark.it("Renews and reconnects before expiry")
-    async def test_sas_renews(self, client, event_loop, get_next_eventhub_arrival):
-        test_message = get_random_message()
+    async def test_sas_renews(self, client, event_loop, get_next_eventhub_arrival, random_message):
 
         connected_event = asyncio.Event()
         token_at_connect_time = None
@@ -110,8 +107,8 @@ class TestSasRenewalReconnectDisabled(object):
         assert not token_before_connect == token_at_connect_time
 
         # and verify that we can send
-        await client.send_message(test_message)
+        await client.send_message(random_message)
 
         # and verify that the message arrived at the service
         event = await get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data

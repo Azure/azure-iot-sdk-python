@@ -24,7 +24,7 @@ from client_fixtures import (
     module_id,
     reported_props,
     watches_events,
-    test_message,
+    random_message,
 )
 
 logging.basicConfig(level=logging.WARNING)

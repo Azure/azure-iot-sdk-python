@@ -5,7 +5,6 @@ import pytest
 import json
 import logging
 import threading
-from utils import get_random_message
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -19,8 +18,7 @@ class _TestSasRenewalReconnectEnabled(object):
         return {"sastoken_ttl": 130}
 
     @pytest.mark.it("Renews and reconnects before expiry")
-    def test_sas_renews(self, client, get_next_eventhub_arrival):
-        test_message = get_random_message()
+    def test_sas_renews(self, client, get_next_eventhub_arrival, random_message):
 
         connected_event = threading.Event()
 
@@ -57,12 +55,12 @@ class _TestSasRenewalReconnectEnabled(object):
         assert not token_before_connect == token_at_connect_time
 
         # and verify that we can send
-        client.send_message(test_message)
+        client.send_message(random_message)
 
         # and verify that the message arrived at the service
         # TODO incoming_event_queue.get should check thread future
         event = get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
 
 @pytest.mark.describe("Device Client with reconnect disabled")
@@ -73,8 +71,7 @@ class _TestSasRenewalReconnectDisabled(object):
         return {"sastoken_ttl": 130, "connection_retry": False}
 
     @pytest.mark.it("Renews and reconnects before expiry")
-    def test_sas_renews(self, client, get_next_eventhub_arrival):
-        test_message = get_random_message()
+    def test_sas_renews(self, client, get_next_eventhub_arrival, random_message):
 
         connected_event = threading.Event()
 
@@ -111,8 +108,8 @@ class _TestSasRenewalReconnectDisabled(object):
         assert not token_before_connect == token_at_connect_time
 
         # and verify that we can send
-        client.send_message(test_message)
+        client.send_message(random_message)
 
         # and verify that the message arrived at the service
         event = get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data

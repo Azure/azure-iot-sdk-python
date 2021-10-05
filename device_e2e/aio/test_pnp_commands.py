@@ -107,6 +107,7 @@ class TestPnpCommands(object):
             assert not actual_request.payload
 
         # and make sure the response came back successfully
-        # Currently no way to check the command response status code.
+        # Currently no way to check the command response status code because the DigitalTwinClient A
+        # object in the service SDK does not return this to the caller.
         # assert command_response[Fields.COMMAND_RESPONSE_STATUS_CODE] == command_response_status
         assert command_response == response_payload

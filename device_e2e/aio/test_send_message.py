@@ -15,24 +15,24 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("Device Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
-    async def test_send_message(self, client, test_message, get_next_eventhub_arrival):
+    async def test_send_message(self, client, random_message, get_next_eventhub_arrival):
 
-        await client.send_message(test_message)
+        await client.send_message(random_message)
 
         event = await get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Connects the transport if necessary")
-    async def test_connect_if_necessary(self, client, test_message, get_next_eventhub_arrival):
+    async def test_connect_if_necessary(self, client, random_message, get_next_eventhub_arrival):
 
         await client.disconnect()
         assert not client.connected
 
-        await client.send_message(test_message)
+        await client.send_message(random_message)
         assert client.connected
 
         event = await get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
 
 @pytest.mark.dropped_connection
@@ -44,13 +44,13 @@ class TestSendMessageDroppedConnection(object):
 
     @pytest.mark.it("Sends if connection drops before sending")
     async def test_sends_if_drop_before_sending(
-        self, client, test_message, dropper, get_next_eventhub_arrival
+        self, client, random_message, dropper, get_next_eventhub_arrival
     ):
 
         assert client.connected
 
         dropper.drop_outgoing()
-        send_task = asyncio.create_task(client.send_message(test_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         while client.connected:
             await asyncio.sleep(1)
@@ -64,17 +64,17 @@ class TestSendMessageDroppedConnection(object):
         await send_task
 
         event = await get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Sends if connection rejects send")
     async def test_sends_if_reject_before_sending(
-        self, client, test_message, dropper, get_next_eventhub_arrival
+        self, client, random_message, dropper, get_next_eventhub_arrival
     ):
 
         assert client.connected
 
         dropper.reject_outgoing()
-        send_task = asyncio.create_task(client.send_message(test_message))
+        send_task = asyncio.create_task(client.send_message(random_message))
 
         while client.connected:
             await asyncio.sleep(1)
@@ -88,4 +88,4 @@ class TestSendMessageDroppedConnection(object):
         await send_task
 
         event = await get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data

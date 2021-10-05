@@ -43,7 +43,7 @@ def watches_events(service_helper, device_id, module_id):
 
 
 @pytest.fixture(scope="function")
-def test_message():
+def random_message():
     return get_random_message()
 
 

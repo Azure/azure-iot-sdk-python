@@ -13,24 +13,24 @@ logger.setLevel(level=logging.INFO)
 @pytest.mark.describe("Device Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
-    def test_send_message(self, client, test_message, get_next_eventhub_arrival):
+    def test_send_message(self, client, random_message, get_next_eventhub_arrival):
 
-        client.send_message(test_message)
+        client.send_message(random_message)
 
         event = get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Connects the transport if necessary")
-    def test_connect_if_necessary(self, client, test_message, get_next_eventhub_arrival):
+    def test_connect_if_necessary(self, client, random_message, get_next_eventhub_arrival):
 
         client.disconnect()
         assert not client.connected
 
-        client.send_message(test_message)
+        client.send_message(random_message)
         assert client.connected
 
         event = get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
 
 @pytest.mark.dropped_connection
@@ -42,13 +42,13 @@ class TestSendMessageDroppedConnection(object):
 
     @pytest.mark.it("Sends if connection drops before sending")
     def test_sends_if_drop_before_sending(
-        self, client, test_message, dropper, get_next_eventhub_arrival, executor
+        self, client, random_message, dropper, get_next_eventhub_arrival, executor
     ):
 
         assert client.connected
 
         dropper.drop_outgoing()
-        send_task = executor.submit(client.send_message, test_message)
+        send_task = executor.submit(client.send_message, random_message)
 
         while client.connected:
             time.sleep(1)
@@ -62,17 +62,17 @@ class TestSendMessageDroppedConnection(object):
         send_task.result()
 
         event = get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Sends if connection rejects send")
     def test_sends_if_reject_before_sending(
-        self, client, test_message, dropper, get_next_eventhub_arrival, executor
+        self, client, random_message, dropper, get_next_eventhub_arrival, executor
     ):
 
         assert client.connected
 
         dropper.reject_outgoing()
-        send_task = executor.submit(client.send_message, test_message)
+        send_task = executor.submit(client.send_message, random_message)
 
         while client.connected:
             time.sleep(1)
@@ -86,4 +86,4 @@ class TestSendMessageDroppedConnection(object):
         send_task.result()
 
         event = get_next_eventhub_arrival()
-        assert json.dumps(event.message_body) == test_message.data
+        assert json.dumps(event.message_body) == random_message.data
