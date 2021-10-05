@@ -7,8 +7,12 @@ import functools
 import time
 import e2e_settings
 import test_config
+import logging
 from service_helper import ServiceHelper
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
+
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 
 @pytest.fixture(scope="module")
@@ -29,13 +33,15 @@ async def brand_new_client(client_kwargs):
     else:
         raise Exception("config.identity invalid")
 
-    if test_config.config.transport not in test_config.TRANSPORT_CHOICES:
-        raise Exception("config.transport invalid")
-    websockets = test_config.config.transport == test_config.TRANSPORT_MQTT_WS
     if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
         # TODO: This is currently using a connection string stored in _e2e_settings.xml.  This will move to be a dynamically created identity similar to the way node's device_identity_helper.js works.
+        logger.info(
+            "Creating {} using create_from_connection_string with kwargs={}".format(
+                ClientClass, client_kwargs
+            )
+        )
         client = ClientClass.create_from_connection_string(
-            e2e_settings.DEVICE_CONNECTION_STRING, websockets=websockets, **client_kwargs
+            e2e_settings.DEVICE_CONNECTION_STRING, **client_kwargs
         )
     elif test_config.config.auth == test_config.X509:
         # need to implement

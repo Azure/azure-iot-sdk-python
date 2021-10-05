@@ -24,6 +24,7 @@ from client_fixtures import (
     extra_client_kwargs,
     auto_connect,
     connection_retry,
+    websockets,
     device_id,
     module_id,
     reported_props,

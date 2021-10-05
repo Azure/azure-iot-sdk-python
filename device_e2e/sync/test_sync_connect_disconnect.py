@@ -4,6 +4,7 @@
 import pytest
 import logging
 import time
+import test_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -12,8 +13,11 @@ logger.setLevel(level=logging.INFO)
 @pytest.mark.describe("Device Client")
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
-    def test_connect_disconnect(self, client):
-        assert client
+    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    def test_connect_disconnect(self, brand_new_client):
+        client = brand_new_client
+
         client.connect()
         assert client.connected
 

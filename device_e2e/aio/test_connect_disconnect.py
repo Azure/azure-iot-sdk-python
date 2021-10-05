@@ -4,6 +4,7 @@
 import asyncio
 import pytest
 import logging
+import test_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -14,7 +15,11 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("Device Client")
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
-    async def test_connect_disconnect(self, client):
+    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    async def test_connect_disconnect(self, brand_new_client):
+        client = brand_new_client
+
         assert client
         await client.connect()
         assert client.connected

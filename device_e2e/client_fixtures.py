@@ -9,6 +9,7 @@ import functools
 import time
 import sys
 import const
+import test_config
 from azure.iot.device.iothub import Message
 from utils import get_random_message, get_random_dict
 from azure.iot.device.iothub import IoTHubDeviceClient
@@ -53,16 +54,21 @@ def auto_connect():
 
 
 @pytest.fixture(scope="function")
+def websockets():
+    return test_config.config.transport == test_config.TRANSPORT_MQTT_WS
+
+
+@pytest.fixture(scope="function")
 def extra_client_kwargs():
     return {}
 
 
 @pytest.fixture(scope="function")
-def client_kwargs(extra_client_kwargs, auto_connect, connection_retry):
+def client_kwargs(extra_client_kwargs, auto_connect, connection_retry, websockets):
     kwargs = copy.copy(extra_client_kwargs)
     kwargs["auto_connect"] = auto_connect
     kwargs["connection_retry"] = connection_retry
-    print("---------------------------------KWARGS={}".format(kwargs))
+    kwargs["websockets"] = websockets
     return kwargs
 
 
