@@ -28,14 +28,14 @@ class TestMethods(object):
         "include_request_payload",
         [
             pytest.param(True, id="with request payload"),
-            pytest.param(False, id="wihout request payload"),
+            pytest.param(False, id="without request payload"),
         ],
     )
     @pytest.mark.parametrize(
         "include_response_payload",
         [
             pytest.param(True, id="with response payload"),
-            pytest.param(False, id="wihout response payload"),
+            pytest.param(False, id="without response payload"),
         ],
     )
     def test_handle_method_call(
