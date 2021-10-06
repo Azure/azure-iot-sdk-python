@@ -32,7 +32,7 @@ class TestConnectDisconnect(object):
 @pytest.mark.describe("Device Client with dropped connection")
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.fixture(scope="class")
-    def client_kwargs(self):
+    def extra_client_kwargs(self):
         return {"keep_alive": 5}
 
     @pytest.mark.it("disconnects when network drops all outgoing packets")

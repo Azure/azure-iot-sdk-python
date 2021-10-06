@@ -82,7 +82,7 @@ class TestReportedProperties(object):
 @pytest.mark.describe("Device Client Reported Properties with dropped connection")
 class TestReportedPropertiesDroppedConnection(object):
     @pytest.fixture(scope="class")
-    def client_kwargs(self):
+    def extra_client_kwargs(self):
         return {"keep_alive": 5}
 
     # TODO: split drop tests between first and second patches

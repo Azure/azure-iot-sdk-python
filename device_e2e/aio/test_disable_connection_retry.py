@@ -16,7 +16,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("Device Client send_message with reconnect disabled")
 class TestSendMessageRetryDisabled(object):
     @pytest.fixture(scope="class")
-    def client_kwargs(self):
+    def extra_client_kwargs(self):
         return {"keep_alive": 5, "connection_retry": False}
 
     @pytest.fixture(scope="function", autouse=True)

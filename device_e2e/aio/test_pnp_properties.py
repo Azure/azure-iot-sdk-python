@@ -23,7 +23,7 @@ except AttributeError:
 
 
 @pytest.fixture(scope="class")
-def client_kwargs(pnp_model_id):
+def extra_client_kwargs(pnp_model_id):
     return {"model_id": pnp_model_id}
 
 

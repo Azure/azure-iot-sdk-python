@@ -39,7 +39,7 @@ class TestSendMessage(object):
 @pytest.mark.describe("Device Client send_message method with dropped connections")
 class TestSendMessageDroppedConnection(object):
     @pytest.fixture(scope="class")
-    def client_kwargs(self):
+    def extra_client_kwargs(self):
         return {"keep_alive": 5}
 
     @pytest.mark.it("Sends if connection drops before sending")

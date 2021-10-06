@@ -65,10 +65,12 @@ def extra_client_kwargs():
 
 @pytest.fixture(scope="function")
 def client_kwargs(extra_client_kwargs, auto_connect, connection_retry, websockets):
-    kwargs = copy.copy(extra_client_kwargs)
+    kwargs = {}
     kwargs["auto_connect"] = auto_connect
     kwargs["connection_retry"] = connection_retry
     kwargs["websockets"] = websockets
+    for key, value in extra_client_kwargs.items():
+        kwargs[key] = value
     return kwargs
 
 
