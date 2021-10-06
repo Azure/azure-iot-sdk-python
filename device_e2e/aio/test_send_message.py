@@ -64,7 +64,13 @@ class TestSendMessageDroppedConnection(object):
         await send_task
 
         event = await get_next_eventhub_arrival()
+
+        logger.info("sent from device= {}".format(random_message.data))
+        logger.info("received at eventhub = {}".format(event.message_body))
+
         assert json.dumps(event.message_body) == random_message.data
+
+        logger.info("Success")
 
     @pytest.mark.it("Sends if connection rejects send")
     async def test_sends_if_reject_before_sending(
@@ -88,4 +94,10 @@ class TestSendMessageDroppedConnection(object):
         await send_task
 
         event = await get_next_eventhub_arrival()
+
+        logger.info("sent from device= {}".format(random_message.data))
+        logger.info("received at eventhub = {}".format(event.message_body))
+
         assert json.dumps(event.message_body) == random_message.data
+
+        logger.info("Success")

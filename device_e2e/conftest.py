@@ -35,7 +35,7 @@ from client_fixtures import (
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
-logging.getLogger("azure.iot").setLevel(level=logging.INFO)
+logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
 
 
 @pytest.fixture(scope="module")
