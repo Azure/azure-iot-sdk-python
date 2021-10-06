@@ -149,12 +149,6 @@ class MQTTPipeline(object):
                 else:
                     logger.error("Twin patch event received with no handler. Dropping.")
 
-            # elif isinstance(event, pipeline_events_base.NewSasTokenRequired):
-            #     if self.on_new_sastoken_required:
-            #         self.on_new_sastoken_required()
-            #     else:
-            #         logger.error("New sastoken required event received with no handler. Dropping.")
-
             else:
                 logger.error("Dropping unknown pipeline event {}".format(event.name))
 
