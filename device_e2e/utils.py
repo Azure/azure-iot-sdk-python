@@ -6,7 +6,13 @@ import string
 import json
 import uuid
 import const
+import test_config
+import e2e_settings
+import logging
 from azure.iot.device.iothub import Message
+
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 
 def get_random_dict():
@@ -40,3 +46,59 @@ def make_pnp_desired_property_patch(component_name, property_name, property_valu
         ]
     else:
         return [{"op": "add", "path": "/{}".format(property_name), "value": property_value}]
+
+
+def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
+
+    if test_config.config.identity in [
+        test_config.IDENTITY_DEVICE,
+        test_config.IDENTITY_EDGE_LEAF_DEVICE,
+    ]:
+        ClientClass = DeviceClass
+    elif test_config.config.identity in [
+        test_config.IDENTITY_MODULE,
+        test_config.IDENTITY_EDGE_MODULE,
+    ]:
+        ClientClass = ModuleClass
+    else:
+        raise Exception("config.identity invalid")
+
+    if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
+        logger.info(
+            "Creating {} using create_from_connection_string with kwargs={}".format(
+                ClientClass, client_kwargs
+            )
+        )
+
+        client = ClientClass.create_from_connection_string(
+            device_desc.connection_string, **client_kwargs
+        )
+    elif test_config.config.auth == test_config.AUTH_SYMMETRIC_KEY:
+        logger.info(
+            "Creating {} using create_from_symmetric_key with kwargs={}".format(
+                ClientClass, client_kwargs
+            )
+        )
+
+        client = ClientClass.create_from_symmetric_key(
+            device_desc.primary_key,
+            device_desc.device_id,
+            e2e_settings.IOTHUB_HOSTnAME,
+            **client_kwargs
+        )
+    elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
+        logger.info(
+            "Creating {} using create_from_sastoken with kwargs={}".format(
+                ClientClass, client_kwargs
+            )
+        )
+
+        client = ClientClass.create_from_sastoken(device_desc.sas_token, **client_kwargs)
+
+    elif test_config.config.auth in test_config.AUTH_CHOICES:
+        # need to implement
+        raise Exception("{} Auth not yet implemented".format(test_config.config.auth))
+    else:
+        raise Exception("config.auth invalid")
+
+    return client

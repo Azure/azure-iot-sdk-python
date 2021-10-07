@@ -24,8 +24,6 @@ while secrets is None:
             raise Exception("_e2e_settings.json not found in {} or parent".format(this_file_path))
         test_path = new_test_path
 
-# Device ID used when running tests
-DEVICE_ID = secrets.get("deviceId", None)
 
 # Connection string for the iothub instance
 IOTHUB_CONNECTION_STRING = secrets.get("iothubConnectionString", None)
@@ -38,9 +36,7 @@ EVENTHUB_CONSUMER_GROUP = secrets.get("eventhubConsumerGroup", None)
 
 # Name of iothub.  Probably DNS name for the hub without the azure-devices.net suffix
 IOTHUB_NAME = secrets.get("iothubName", None)
-
-# Connection string for device under test
-DEVICE_CONNECTION_STRING = secrets.get("deviceConnectionString", None)
+IOTHUB_HOSTNAME = IOTHUB_NAME + ".azure-devices.net"
 
 # Set default values
 if not EVENTHUB_CONSUMER_GROUP:

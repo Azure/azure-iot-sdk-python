@@ -5,6 +5,9 @@ import pytest
 import logging
 import concurrent.futures
 import test_config
+import device_identity_helper
+import const
+from utils import get_random_message, get_random_dict
 
 # noqa: F401 defined in .flake8 file in root of repo
 
@@ -27,15 +30,16 @@ from client_fixtures import (
     websockets,
     device_id,
     module_id,
-    reported_props,
     watches_events,
-    random_message,
 )
 
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
 logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(level=logging.INFO)
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +50,42 @@ def transport():
 @pytest.fixture(scope="module")
 def executor():
     return concurrent.futures.ThreadPoolExecutor()
+
+
+@pytest.fixture(scope="function")
+def random_message():
+    return get_random_message()
+
+
+@pytest.fixture(scope="function")
+def random_reported_props():
+    return {const.TEST_CONTENT: get_random_dict()}
+
+
+@pytest.fixture(scope="session")
+def device_desc():
+
+    if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
+        device_desc = device_identity_helper.create_device_with_symmetric_key()
+        logger.info(
+            "Created connection string device with deviceId = {}".format(device_desc.device_id)
+        )
+    elif test_config.config.auth == test_config.AUTH_SYMMETRIC_KEY:
+        device_desc = device_identity_helper.create_device_with_symmetric_key()
+        logger.info("Created symmetric key device with deviceId = {}".format(device_desc.device_id))
+    elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
+        device_desc = device_identity_helper.create_device_with_sas()
+        logger.info("Created sas token device with deviceId = {}".format(device_desc.device_id))
+    elif test_config.config.auth in test_config.AUTH_CHOICES:
+        # need to implement
+        raise Exception("{} Auth not yet implemented".format(test_config.config.auth))
+    else:
+        raise Exception("config.auth invalid")
+
+    yield device_desc
+
+    logger.info("Deleting device with deviceId = {}".format(device_desc.device_id))
+    device_identity_helper.delete_device(device_desc.device_id)
 
 
 def pytest_addoption(parser):
@@ -68,7 +108,7 @@ def pytest_addoption(parser):
         help="Identity (client type) to use for tests",
         type=str,
         choices=test_config.IDENTITY_CHOICES,
-        default=test_config.IDENTITY_DEVICE_CLIENT,
+        default=test_config.IDENTITY_DEVICE,
     )
 
 
