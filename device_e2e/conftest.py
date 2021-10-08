@@ -7,6 +7,7 @@ import concurrent.futures
 import test_config
 import device_identity_helper
 import const
+import sys
 from utils import get_random_message, get_random_dict
 
 # noqa: F401 defined in .flake8 file in root of repo
@@ -36,7 +37,7 @@ from client_fixtures import (
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
-logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
+logging.getLogger("azure.iot").setLevel(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -116,3 +117,10 @@ def pytest_configure(config):
     test_config.config.transport = config.getoption("transport")
     test_config.config.auth = config.getoption("auth")
     test_config.config.identity = config.getoption("identity")
+
+
+collect_ignore = ["test_settings.py"]
+
+# Ignore Async tests if below Python 3.5
+if sys.version_info < (3, 5):
+    collect_ignore.append("aio")

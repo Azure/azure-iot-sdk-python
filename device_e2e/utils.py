@@ -82,8 +82,8 @@ def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
 
         client = ClientClass.create_from_symmetric_key(
             device_desc.primary_key,
+            e2e_settings.IOTHUB_HOSTNAME,
             device_desc.device_id,
-            e2e_settings.IOTHUB_HOSTnAME,
             **client_kwargs
         )
     elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
