@@ -128,6 +128,9 @@ def pytest_runtest_setup(item):
         for x in item.iter_markers("uses_iptables"):
             pytest.skip("test uses iptables")
             return
+        for x in item.iter_markers("dropped_connection"):
+            pytest.skip("test uses iptables")
+            return
 
     item.leak_tracker = leak_tracker.LeakTracker()
     item.leak_tracker.add_tracked_module("azure.iot.device")

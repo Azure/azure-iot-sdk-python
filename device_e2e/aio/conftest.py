@@ -45,7 +45,7 @@ async def client(brand_new_client):
 @pytest.fixture(scope="module")
 async def service_helper(event_loop, executor):
     service_helper = ServiceHelper(event_loop, executor)
-    await asyncio.sleep(5)
+    await asyncio.sleep(3)
     yield service_helper
     print("shutting down")
     await service_helper.shutdown()
