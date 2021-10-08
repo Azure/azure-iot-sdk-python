@@ -590,7 +590,7 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         )
 
     @pytest.mark.it(
-        "Sucessfully completes the operation, upon successful completion of the MQTT publish by the MQTTTransport"
+        "Successfully completes the operation, upon successful completion of the MQTT publish by the MQTTTransport"
     )
     def test_complete(self, mocker, stage, op):
         # Begin publish

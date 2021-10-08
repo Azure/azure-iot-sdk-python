@@ -305,7 +305,11 @@ class SasTokenStage(PipelineStage):
 
     def __init__(self):
         super(SasTokenStage, self).__init__()
+        # Indicates when token needs to be updated
         self._token_update_alarm = None
+        # Indicates when to retry a failed reauthorization attempt
+        # (only used with renewable SAS auth)
+        self._reauth_retry_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -335,6 +339,7 @@ class SasTokenStage(PipelineStage):
             self.send_op_down(op)
         elif isinstance(op, pipeline_ops_base.ShutdownPipelineOperation):
             self._cancel_token_update_alarm()
+            self._cancel_reauth_retry_timer()
             self.send_op_down(op)
         else:
             self.send_op_down(op)
@@ -348,6 +353,16 @@ class SasTokenStage(PipelineStage):
             logger.debug("Cancelling SAS Token update alarm")
             old_alarm.cancel()
             old_alarm = None
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _cancel_reauth_retry_timer(self):
+        """Cancel and delete any pending reauth retry timer"""
+        old_reauth_retry_timer = self._reauth_retry_timer
+        self._reauth_retry_timer = None
+        if old_reauth_retry_timer:
+            logger.debug("Cancelling reauthorization retry timer")
+            old_reauth_retry_timer.cancel()
+            old_reauth_retry_timer = None
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_token_update_alarm(self):
@@ -370,41 +385,27 @@ class SasTokenStage(PipelineStage):
         # and then start another alarm.
         if isinstance(self.pipeline_root.pipeline_configuration.sastoken, st.RenewableSasToken):
             logger.debug(
-                "Scheduling automatic SAS Token renewal at epoch time: {}".format(update_time)
+                "{}: Scheduling automatic SAS Token renewal at epoch time: {}".format(
+                    self.name, update_time
+                )
             )
-
-            @pipeline_thread.runs_on_pipeline_thread
-            def on_reauthorize_complete(op, error):
-                this = self_weakref()
-                if error:
-                    logger.info(
-                        "{}({}): reauthorize connection operation failed.  Error={}".format(
-                            this.name, op.name, error
-                        )
-                    )
-                    handle_exceptions.handle_background_exception(error)
-                else:
-                    logger.info(
-                        "{}({}): reauthorize connection operation is complete".format(
-                            this.name, op.name
-                        )
-                    )
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def renew_token():
                 this = self_weakref()
+                # Cancel any token reauth retry timer in progress (from a previous renewal)
+                this._cancel_reauth_retry_timer()
                 logger.info("Renewing SAS Token...")
                 # Renew the token
                 sastoken = this.pipeline_root.pipeline_configuration.sastoken
                 sastoken.refresh()
                 # If the pipeline is already connected, send order to reauthorize the connection
-                # now that token has been renewed
+                # now that token has been renewed. If the pipeline is not currently connected,
+                # there is no need to do this, as the next connection will be using the new
+                # credentials.
                 if this.pipeline_root.connected:
-                    this.send_op_down(
-                        pipeline_ops_base.ReauthorizeConnectionOperation(
-                            callback=on_reauthorize_complete
-                        )
-                    )
+                    this._reauthorize()
+
                 # Once again, start a renewal alarm
                 this._start_token_update_alarm()
 
@@ -427,6 +428,57 @@ class SasTokenStage(PipelineStage):
 
         self._token_update_alarm.daemon = True
         self._token_update_alarm.start()
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def _reauthorize(self):
+        self_weakref = weakref.ref(self)
+
+        @pipeline_thread.runs_on_pipeline_thread
+        def on_reauthorize_complete(op, error):
+            this = self_weakref()
+            if error:
+                logger.info(
+                    "{}: Connection reauthorization failed.  Error={}".format(this.name, error)
+                )
+                handle_exceptions.handle_background_exception(error)
+                # If connection has not been somehow re-established, we need to keep trying
+                # because for the reauthorization to originally have been issued, we were in
+                # a connected state.
+                # NOTE: we only do this if connection retry is enabled on the pipeline. If it is,
+                # we have a contract to maintain a connection. If it has been disabled, we have
+                # a contract to not do so.
+                # NOTE: We can't rely on the ReconnectStage to do this because 1) the pipeline
+                # stages should stand on their own, and 2) if the reauth failed, the ReconnectStage
+                # wouldn't know to reconnect, because the expected state of a failed reauth is
+                # to be disconnected.
+                if (
+                    not this.pipeline_root.connected
+                    and this.pipeline_root.pipeline_configuration.connection_retry
+                ):
+                    logger.info("{}: Retrying connection reauthorization".format(this.name))
+                    # No need to cancel the timer, because if this is running, it has already ended
+
+                    def retry_reauthorize():
+                        # We need to check this when the timer expires as well as before creating
+                        # the timer in case connection has been re-established while timer was
+                        # running
+                        if not this.pipeline_root.connected:
+                            this._reauthorize()
+
+                    this._reauth_retry_timer = threading.Timer(
+                        this.pipeline_root.pipeline_configuration.connection_retry_interval,
+                        retry_reauthorize,
+                    )
+                    this._reauth_retry_timer.daemon = True
+                    this._reauth_retry_timer.start()
+
+            else:
+                logger.info("{}: Connection reauthorization successful".format(this.name))
+
+        logger.info("{}: Starting reauthorization process for new SAS token".format(self.name))
+        self.send_op_down(
+            pipeline_ops_base.ReauthorizeConnectionOperation(callback=on_reauthorize_complete)
+        )
 
 
 class AutoConnectStage(PipelineStage):
