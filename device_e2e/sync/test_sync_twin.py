@@ -20,29 +20,31 @@ reset_reported_props = {const.TEST_CONTENT: None}
 @pytest.mark.describe("Device Client Reported Properties")
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
-    def test_simple_patch(self, client, reported_props, get_next_reported_patch_arrival):
+    def test_simple_patch(self, client, random_reported_props, get_next_reported_patch_arrival):
 
         # patch properties
-        client.patch_twin_reported_properties(reported_props)
+        client.patch_twin_reported_properties(random_reported_props)
 
         # wait for patch to arrive at service and verify
         received_patch = get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
         # get twin from the service and verify content
         twin = client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
     @pytest.mark.it("Can clear a reported property")
-    def test_clear_property(self, client, reported_props, get_next_reported_patch_arrival):
+    def test_clear_property(self, client, random_reported_props, get_next_reported_patch_arrival):
 
         # patch properties and verify that the service received the patch
-        client.patch_twin_reported_properties(reported_props)
+        client.patch_twin_reported_properties(random_reported_props)
         received_patch = get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
         # send a patch clearing properties and verify that the service received that patch
@@ -58,21 +60,24 @@ class TestReportedProperties(object):
         assert const.TEST_CONTENT not in twin[const.REPORTED]
 
     @pytest.mark.it("Connects the transport if necessary")
-    def test_connect_if_necessary(self, client, reported_props, get_next_reported_patch_arrival):
+    def test_connect_if_necessary(
+        self, client, random_reported_props, get_next_reported_patch_arrival
+    ):
 
         client.disconnect()
 
         assert not client.connected
-        client.patch_twin_reported_properties(reported_props)
+        client.patch_twin_reported_properties(random_reported_props)
         assert client.connected
 
         received_patch = get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
         twin = client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
 
 @pytest.mark.dropped_connection
@@ -86,13 +91,13 @@ class TestReportedPropertiesDroppedConnection(object):
 
     @pytest.mark.it("Sends if connection drops before sending")
     def test_sends_if_drop_before_sending(
-        self, client, reported_props, dropper, get_next_reported_patch_arrival, executor
+        self, client, random_reported_props, dropper, get_next_reported_patch_arrival, executor
     ):
 
         assert client.connected
         dropper.drop_outgoing()
 
-        send_task = executor.submit(client.patch_twin_reported_properties, reported_props)
+        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
         while client.connected:
             time.sleep(1)
 
@@ -106,18 +111,19 @@ class TestReportedPropertiesDroppedConnection(object):
 
         received_patch = get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
     @pytest.mark.it("Sends if connection rejects send")
     def test_sends_if_reject_before_sending(
-        self, client, reported_props, dropper, get_next_reported_patch_arrival, executor
+        self, client, random_reported_props, dropper, get_next_reported_patch_arrival, executor
     ):
 
         assert client.connected
         dropper.reject_outgoing()
 
-        send_task = executor.submit(client.patch_twin_reported_properties, reported_props)
+        send_task = executor.submit(client.patch_twin_reported_properties, random_reported_props)
         while client.connected:
             time.sleep(1)
 
@@ -131,7 +137,8 @@ class TestReportedPropertiesDroppedConnection(object):
 
         received_patch = get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
 

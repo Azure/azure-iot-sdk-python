@@ -1,0 +1,62 @@
+name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
+
+jobs:
+- job: 'Test_Windows'
+  pool:
+    vmImage: 'windows-latest'
+
+  strategy:
+    matrix:
+      py27_mqtt:              { pv: '2.7', transport: 'mqtt' }
+      py37_mqtt_ws:           { pv: '3.7', transport: 'mqttws' }
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: $(pv)
+        architecture: 'x64'
+
+    - script: 'python env_setup.py --no_dev'
+      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+    - script: |
+        cd $(Build.SourcesDirectory)/device_e2e
+        pytest --transport=$(transport) --junitxml=junit/python-e2e-test-results.xml
+      displayName: 'E2E Device Client MQTT Connection String'
+      env:
+        IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
+        EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+
+- job: 'Test_Linux'
+  pool:
+    vmImage: 'Ubuntu 20.04'
+
+  strategy:
+    matrix:
+      py37_mqtt:              { pv: '3.7', transport: 'mqtt' }
+      py27_mqtt_ws:           { pv: '2.7', transport: 'mqttws' }
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: $(pv)
+        architecture: 'x64'
+
+    - script: 'python env_setup.py --no_dev'
+      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+    - script: |
+        cd $(Build.SourcesDirectory)/device_e2e
+        pytest --transport=$(transport) --junitxml=junit/python-e2e-test-results.xml --junit_suite_name=$(Agent.JobName)
+      displayName: 'E2E Device Client MQTT Connection String'
+      env:
+        IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
+        EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()

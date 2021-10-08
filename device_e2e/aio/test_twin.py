@@ -21,29 +21,35 @@ reset_reported_props = {const.TEST_CONTENT: None}
 @pytest.mark.describe("Device Client Reported Properties")
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
-    async def test_simple_patch(self, client, reported_props, get_next_reported_patch_arrival):
+    async def test_simple_patch(
+        self, client, random_reported_props, get_next_reported_patch_arrival
+    ):
 
         # patch properties
-        await client.patch_twin_reported_properties(reported_props)
+        await client.patch_twin_reported_properties(random_reported_props)
 
         # wait for patch to arrive at service and verify
         received_patch = await get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
         # get twin from the service and verify content
         twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
     @pytest.mark.it("Can clear a reported property")
-    async def test_clear_property(self, client, reported_props, get_next_reported_patch_arrival):
+    async def test_clear_property(
+        self, client, random_reported_props, get_next_reported_patch_arrival
+    ):
 
         # patch properties and verify that the service received the patch
-        await client.patch_twin_reported_properties(reported_props)
+        await client.patch_twin_reported_properties(random_reported_props)
         received_patch = await get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
         # send a patch clearing properties and verify that the service received that patch
@@ -60,22 +66,23 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Connects the transport if necessary")
     async def test_connect_if_necessary(
-        self, client, reported_props, get_next_reported_patch_arrival
+        self, client, random_reported_props, get_next_reported_patch_arrival
     ):
 
         await client.disconnect()
 
         assert not client.connected
-        await client.patch_twin_reported_properties(reported_props)
+        await client.patch_twin_reported_properties(random_reported_props)
         assert client.connected
 
         received_patch = await get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
         twin = await client.get_twin()
-        assert twin[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+        assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
 
 @pytest.mark.dropped_connection
@@ -89,13 +96,15 @@ class TestReportedPropertiesDroppedConnection(object):
 
     @pytest.mark.it("Sends if connection drops before sending")
     async def test_sends_if_drop_before_sending(
-        self, client, reported_props, dropper, get_next_reported_patch_arrival
+        self, client, random_reported_props, dropper, get_next_reported_patch_arrival
     ):
 
         assert client.connected
         dropper.drop_outgoing()
 
-        send_task = asyncio.create_task(client.patch_twin_reported_properties(reported_props))
+        send_task = asyncio.create_task(
+            client.patch_twin_reported_properties(random_reported_props)
+        )
         while client.connected:
             await asyncio.sleep(1)
 
@@ -109,18 +118,21 @@ class TestReportedPropertiesDroppedConnection(object):
 
         received_patch = await get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
     @pytest.mark.it("Sends if connection rejects send")
     async def test_sends_if_reject_before_sending(
-        self, client, reported_props, dropper, get_next_reported_patch_arrival
+        self, client, random_reported_props, dropper, get_next_reported_patch_arrival
     ):
 
         assert client.connected
         dropper.reject_outgoing()
 
-        send_task = asyncio.create_task(client.patch_twin_reported_properties(reported_props))
+        send_task = asyncio.create_task(
+            client.patch_twin_reported_properties(random_reported_props)
+        )
         while client.connected:
             await asyncio.sleep(1)
 
@@ -134,7 +146,8 @@ class TestReportedPropertiesDroppedConnection(object):
 
         received_patch = await get_next_reported_patch_arrival()
         assert (
-            received_patch[const.REPORTED][const.TEST_CONTENT] == reported_props[const.TEST_CONTENT]
+            received_patch[const.REPORTED][const.TEST_CONTENT]
+            == random_reported_props[const.TEST_CONTENT]
         )
 
 
