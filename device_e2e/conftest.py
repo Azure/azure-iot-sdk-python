@@ -8,7 +8,7 @@ import test_config
 import device_identity_helper
 import const
 import sys
-from utils import get_random_message, get_random_dict
+from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo
 
@@ -117,6 +117,14 @@ def pytest_configure(config):
     test_config.config.transport = config.getoption("transport")
     test_config.config.auth = config.getoption("auth")
     test_config.config.identity = config.getoption("identity")
+
+
+def pytest_runtest_setup(item):
+    # tests that use iptables need to be skipped on Windows
+    if is_windows():
+        for x in item.iter_markers("uses_iptables"):
+            pytest.skip("test uses iptables")
+            break
 
 
 collect_ignore = ["test_settings.py"]

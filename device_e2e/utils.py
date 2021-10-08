@@ -9,6 +9,7 @@ import const
 import test_config
 import e2e_settings
 import logging
+import sys
 from azure.iot.device.iothub import Message
 
 logger = logging.getLogger(__name__)
@@ -102,3 +103,7 @@ def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
         raise Exception("config.auth invalid")
 
     return client
+
+
+def is_windows():
+    return sys.platform.startswith("win")

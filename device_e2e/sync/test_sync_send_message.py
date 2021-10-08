@@ -42,6 +42,7 @@ class TestSendMessageDroppedConnection(object):
         return {"keep_alive": 5}
 
     @pytest.mark.it("Sends if connection drops before sending")
+    @pytest.mark.uses_iptables
     def test_sends_if_drop_before_sending(
         self, client, random_message, dropper, get_next_eventhub_arrival, executor
     ):
@@ -66,6 +67,7 @@ class TestSendMessageDroppedConnection(object):
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Sends if connection rejects send")
+    @pytest.mark.uses_iptables
     def test_sends_if_reject_before_sending(
         self, client, random_message, dropper, get_next_eventhub_arrival, executor
     ):
@@ -123,6 +125,7 @@ class TestSendMessageRetryDisabled(object):
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
+    @pytest.mark.uses_iptables
     def test_connects_after_automatic_disconnect(
         self, client, random_message, dropper, get_next_eventhub_arrival
     ):
@@ -142,6 +145,7 @@ class TestSendMessageRetryDisabled(object):
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Fails if connection disconnects before sending")
+    @pytest.mark.uses_iptables
     def test_fails_if_disconnect_before_sending(self, client, random_message, dropper, executor):
 
         assert client.connected
@@ -156,6 +160,7 @@ class TestSendMessageRetryDisabled(object):
             send_task.result()
 
     @pytest.mark.it("Fails if connection drops before sending")
+    @pytest.mark.uses_iptables
     def test_fails_if_drop_before_sending(self, client, random_message, dropper):
 
         assert client.connected
