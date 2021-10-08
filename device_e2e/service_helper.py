@@ -24,16 +24,6 @@ class ServiceHelper:
     def stop_watching(self, device_id, module_id):
         return self.inner_object.stop_watching(device_id, module_id)
 
-    async def get_next_incoming_event(self, device_id, module_id, block=True, timeout=None):
-        return await self.event_loop.run_in_executor(
-            self.executor,
-            self.inner_object.get_next_incoming_event,
-            device_id,
-            module_id,
-            block,
-            timeout,
-        )
-
     async def set_desired_properties(self, device_id, module_id, desired_props):
         return await self.event_loop.run_in_executor(
             self.executor,
@@ -100,7 +90,7 @@ class ServiceHelper:
             self.executor, self.inner_object.send_c2d, device_id, module_id, payload, properties
         )
 
-    async def get_next_eventhub_arrival(self, device_id, module_id, block=True, timeout=None):
+    async def get_next_eventhub_arrival(self, device_id, module_id, block=True, timeout=20):
         return await self.event_loop.run_in_executor(
             self.executor,
             self.inner_object.get_next_eventhub_arrival,
@@ -110,7 +100,7 @@ class ServiceHelper:
             timeout,
         )
 
-    async def get_next_reported_patch_arrival(self, device_id, module_id, block=True, timeout=None):
+    async def get_next_reported_patch_arrival(self, device_id, module_id, block=True, timeout=20):
         return await self.event_loop.run_in_executor(
             self.executor,
             self.inner_object.get_next_reported_patch_arrival,

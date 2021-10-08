@@ -164,9 +164,6 @@ class ServiceHelperSync(object):
     def stop_watching(self, device_id, module_id):
         self._client_list.remove(device_id, module_id)
 
-    def get_next_incoming_event(self, device_id, module_id, block=True, timeout=None):
-        return self._client_list.get_incoming_event_queue.get(block=block, timeout=timeout)
-
     def set_desired_properties(self, device_id, module_id, desired_props):
         if module_id:
             self._registry_manager.update_module_twin(
@@ -244,12 +241,12 @@ class ServiceHelperSync(object):
         assert not module_id  # TODO
         self._registry_manager.send_c2d_message(device_id, payload, properties)
 
-    def get_next_eventhub_arrival(self, device_id, module_id, block=True, timeout=None):
+    def get_next_eventhub_arrival(self, device_id, module_id, block=True, timeout=20):
         return self._client_list.get_incoming_event_queue(device_id, module_id).get(
             block=block, timeout=timeout
         )
 
-    def get_next_reported_patch_arrival(self, device_id, module_id, block=True, timeout=None):
+    def get_next_reported_patch_arrival(self, device_id, module_id, block=True, timeout=20):
         return self._client_list.get_incoming_patch_queue(device_id, module_id).get(
             block=block, timeout=timeout
         )
