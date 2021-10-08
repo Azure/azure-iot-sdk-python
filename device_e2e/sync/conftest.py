@@ -38,7 +38,7 @@ def client(brand_new_client):
 @pytest.fixture(scope="module")
 def service_helper():
     service_helper = ServiceHelperSync()
-    time.sleep(1)
+    time.sleep(5)
     yield service_helper
     service_helper.shutdown()
 
