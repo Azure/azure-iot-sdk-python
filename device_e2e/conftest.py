@@ -8,6 +8,7 @@ import test_config
 import device_identity_helper
 import const
 import sys
+import leak_tracker
 from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo
@@ -126,7 +127,23 @@ def pytest_runtest_setup(item):
     if is_windows():
         for x in item.iter_markers("uses_iptables"):
             pytest.skip("test uses iptables")
-            break
+            return
+
+    item.leak_tracker = leak_tracker.LeakTracker()
+    item.leak_tracker.add_tracked_module("azure.iot.device")
+    item.leak_tracker.set_baseline()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    print("CHECKING FOR LEAKS")
+    if hasattr(item, "leak_tracker"):
+        # Get rid of our fixtures so they don't cause leaks.
+        # These 2 lines copied from `runtestprotocol` in pytest's `runner.py`
+        item._request = False
+        item.funcargs = None
+        item.leak_tracker.check_for_new_leaks()
+        del item.leak_tracker
 
 
 collect_ignore = ["test_settings.py"]
