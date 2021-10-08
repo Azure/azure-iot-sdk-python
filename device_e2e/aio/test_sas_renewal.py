@@ -13,8 +13,12 @@ logger.setLevel(level=logging.INFO)
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.mark.skipif(
+    test_config.config.auth not in test_config.AUTH_WITH_RENEWING_TOKEN,
+    reason="{} auth does not support token renewal".format(test_config.config.auth),
+)
 @pytest.mark.describe("Client sas renewal code")
-class TestSasRenewalReconnectEnabled(object):
+class TestSasRenewal(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
         # should renew after 10 seconds

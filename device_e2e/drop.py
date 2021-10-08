@@ -3,6 +3,7 @@
 # full license information.
 import logging
 import subprocess
+from utils import is_windows
 
 logger = logging.getLogger("e2e.{}".format(__name__))
 
@@ -81,17 +82,20 @@ def reconnect_all(transport):
     Reconnect all disconnects for all ports used by all transports.  Effectively, clean up
     anyting that this module may have done.
     """
-    port = transport_to_port(transport)
-    for disconnect_type in all_disconnect_types:
-        # sudo -n iptables -L OUTPUT -n -v --line-numbers
-        lines = run_shell_command(
-            "{}iptables -L OUTPUT -n -v --line-numbers".format(get_sudo_prefix())
-        )
-        # do the lines in reverse because deleting an entry changes the line numbers of all entries after that.
-        lines.reverse()
-        for line in lines:
-            if disconnect_type in line and str(port) in line:
-                line_number = line.split(" ")[0]
-                logger.info("Removing {} from [{}]".format(line_number, line))
-                # sudo -n iptables -D OUTPUT 1
-                run_shell_command("{}iptables -D OUTPUT {}".format(get_sudo_prefix(), line_number))
+    if not is_windows():
+        port = transport_to_port(transport)
+        for disconnect_type in all_disconnect_types:
+            # sudo -n iptables -L OUTPUT -n -v --line-numbers
+            lines = run_shell_command(
+                "{}iptables -L OUTPUT -n -v --line-numbers".format(get_sudo_prefix())
+            )
+            # do the lines in reverse because deleting an entry changes the line numbers of all entries after that.
+            lines.reverse()
+            for line in lines:
+                if disconnect_type in line and str(port) in line:
+                    line_number = line.split(" ")[0]
+                    logger.info("Removing {} from [{}]".format(line_number, line))
+                    # sudo -n iptables -D OUTPUT 1
+                    run_shell_command(
+                        "{}iptables -D OUTPUT {}".format(get_sudo_prefix(), line_number)
+                    )

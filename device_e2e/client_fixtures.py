@@ -8,11 +8,7 @@ import json
 import functools
 import time
 import sys
-import const
 import test_config
-from azure.iot.device.iothub import Message
-from utils import get_random_message, get_random_dict
-from azure.iot.device.iothub import IoTHubDeviceClient
 
 
 @pytest.fixture(scope="function")
@@ -27,20 +23,10 @@ def module_id(brand_new_client):
 
 
 @pytest.fixture(scope="function")
-def reported_props():
-    return {const.TEST_CONTENT: get_random_dict()}
-
-
-@pytest.fixture(scope="function")
 def watches_events(service_helper, device_id, module_id):
     service_helper.start_watching(device_id, module_id)
     yield
     service_helper.stop_watching(device_id, module_id)
-
-
-@pytest.fixture(scope="function")
-def random_message():
-    return get_random_message()
 
 
 @pytest.fixture(scope="function")

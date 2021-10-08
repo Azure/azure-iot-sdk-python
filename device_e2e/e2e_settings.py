@@ -8,44 +8,46 @@ import json
 if six.PY2:
     FileNotFoundError = IOError
 
-secrets = None
+IOTHUB_CONNECTION_STRING = None
+EVENTHUB_CONNECTION_STRING = None
+IOTHUB_HOSTNAME = None
+IOTHUB_NAME = None
 
-this_file_path = os.path.dirname(os.path.realpath(__file__))
-test_path = this_file_path
-while secrets is None:
-    filename = os.path.join(test_path, "_e2e_settings.json")
-    try:
-        with open(filename, "r") as f:
-            secrets = json.load(f)
-        print("settings loaded from {}".format(filename))
-    except FileNotFoundError:
-        new_test_path = os.path.dirname(test_path)
-        if new_test_path == test_path:
-            raise Exception("_e2e_settings.json not found in {} or parent".format(this_file_path))
-        test_path = new_test_path
 
-# Device ID used when running tests
-DEVICE_ID = secrets.get("deviceId", None)
+def get_secrets():
+    global IOTHUB_CONNECTION_STRING, EVENTHUB_CONNECTION_STRING, IOTHUB_HOSTNAME, IOTHUB_NAME
 
-# Connection string for the iothub instance
-IOTHUB_CONNECTION_STRING = secrets.get("iothubConnectionString", None)
+    secrets = None
 
-# Connection string for the eventhub instance
-EVENTHUB_CONNECTION_STRING = secrets.get("eventhubConnectionString", None)
+    this_file_path = os.path.dirname(os.path.realpath(__file__))
+    test_path = this_file_path
+    while secrets is None:
+        filename = os.path.join(test_path, "_e2e_settings.json")
+        try:
+            with open(filename, "r") as f:
+                secrets = json.load(f)
+            print("settings loaded from {}".format(filename))
+        except FileNotFoundError:
+            new_test_path = os.path.dirname(test_path)
+            if new_test_path == test_path:
+                break
+            test_path = new_test_path
 
-# Consumer group used when monitoring eventhub events
-EVENTHUB_CONSUMER_GROUP = secrets.get("eventhubConsumerGroup", None)
+    if secrets:
+        IOTHUB_CONNECTION_STRING = secrets.get("iothubConnectionString", None)
+        EVENTHUB_CONNECTION_STRING = secrets.get("eventhubConnectionString", None)
+    else:
+        IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_CONNECTION_STRING"]
+        EVENTHUB_CONNECTION_STRING = os.environ["EVENTHUB_CONNECTION_STRING"]
 
-# Name of iothub.  Probably DNS name for the hub without the azure-devices.net suffix
-IOTHUB_NAME = secrets.get("iothubName", None)
+    parts = {}
+    for key_and_value in IOTHUB_CONNECTION_STRING.split(";"):
+        key, value = key_and_value.split("=", 1)
+        parts[key] = value
 
-# Connection string for device under test
-DEVICE_CONNECTION_STRING = secrets.get("deviceConnectionString", None)
+    IOTHUB_HOSTNAME = parts["HostName"]
+    IOTHUB_NAME = IOTHUB_HOSTNAME.split(".")[0]
 
-# Set default values
-if not EVENTHUB_CONSUMER_GROUP:
-    EVENTHUB_CONSUMER_GROUP = "$default"
 
-del secrets
-del this_file_path
-del test_path
+get_secrets()
+EVENTHUB_CONSUMER_GROUP = "$default"
