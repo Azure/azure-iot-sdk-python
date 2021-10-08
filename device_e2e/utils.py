@@ -49,7 +49,7 @@ def make_pnp_desired_property_patch(component_name, property_name, property_valu
         return [{"op": "add", "path": "/{}".format(property_name), "value": property_value}]
 
 
-def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
+def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClass):
 
     if test_config.config.identity in [
         test_config.IDENTITY_DEVICE,
@@ -72,7 +72,7 @@ def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
         )
 
         client = ClientClass.create_from_connection_string(
-            device_desc.connection_string, **client_kwargs
+            device_identity.connection_string, **client_kwargs
         )
     elif test_config.config.auth == test_config.AUTH_SYMMETRIC_KEY:
         logger.info(
@@ -82,9 +82,9 @@ def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
         )
 
         client = ClientClass.create_from_symmetric_key(
-            device_desc.primary_key,
+            device_identity.primary_key,
             e2e_settings.IOTHUB_HOSTNAME,
-            device_desc.device_id,
+            device_identity.device_id,
             **client_kwargs
         )
     elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
@@ -94,7 +94,7 @@ def create_client_object(device_desc, client_kwargs, DeviceClass, ModuleClass):
             )
         )
 
-        client = ClientClass.create_from_sastoken(device_desc.sas_token, **client_kwargs)
+        client = ClientClass.create_from_sastoken(device_identity.sas_token, **client_kwargs)
 
     elif test_config.config.auth in test_config.AUTH_CHOICES:
         # need to implement

@@ -16,9 +16,9 @@ logger.setLevel(level=logging.INFO)
 
 
 @pytest.fixture(scope="function")
-def brand_new_client(device_desc, client_kwargs):
+def brand_new_client(device_identity, client_kwargs):
     client = create_client_object(
-        device_desc, client_kwargs, IoTHubDeviceClient, IoTHubModuleClient
+        device_identity, client_kwargs, IoTHubDeviceClient, IoTHubModuleClient
     )
 
     yield client

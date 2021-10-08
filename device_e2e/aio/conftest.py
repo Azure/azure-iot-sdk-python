@@ -24,9 +24,9 @@ def event_loop():
 
 
 @pytest.fixture(scope="function")
-async def brand_new_client(device_desc, client_kwargs):
+async def brand_new_client(device_identity, client_kwargs):
     client = create_client_object(
-        device_desc, client_kwargs, IoTHubDeviceClient, IoTHubModuleClient
+        device_identity, client_kwargs, IoTHubDeviceClient, IoTHubModuleClient
     )
 
     yield client

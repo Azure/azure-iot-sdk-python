@@ -64,29 +64,31 @@ def random_reported_props():
 
 
 @pytest.fixture(scope="session")
-def device_desc():
+def device_identity():
 
     if test_config.config.auth == test_config.AUTH_CONNECTION_STRING:
-        device_desc = device_identity_helper.create_device_with_symmetric_key()
+        device_identity = device_identity_helper.create_device_with_symmetric_key()
         logger.info(
-            "Created connection string device with deviceId = {}".format(device_desc.device_id)
+            "Created connection string device with deviceId = {}".format(device_identity.device_id)
         )
     elif test_config.config.auth == test_config.AUTH_SYMMETRIC_KEY:
-        device_desc = device_identity_helper.create_device_with_symmetric_key()
-        logger.info("Created symmetric key device with deviceId = {}".format(device_desc.device_id))
+        device_identity = device_identity_helper.create_device_with_symmetric_key()
+        logger.info(
+            "Created symmetric key device with deviceId = {}".format(device_identity.device_id)
+        )
     elif test_config.config.auth == test_config.AUTH_SAS_TOKEN:
-        device_desc = device_identity_helper.create_device_with_sas()
-        logger.info("Created sas token device with deviceId = {}".format(device_desc.device_id))
+        device_identity = device_identity_helper.create_device_with_sas()
+        logger.info("Created sas token device with deviceId = {}".format(device_identity.device_id))
     elif test_config.config.auth in test_config.AUTH_CHOICES:
         # need to implement
         raise Exception("{} Auth not yet implemented".format(test_config.config.auth))
     else:
         raise Exception("config.auth invalid")
 
-    yield device_desc
+    yield device_identity
 
-    logger.info("Deleting device with deviceId = {}".format(device_desc.device_id))
-    device_identity_helper.delete_device(device_desc.device_id)
+    logger.info("Deleting device with deviceId = {}".format(device_identity.device_id))
+    device_identity_helper.delete_device(device_identity.device_id)
 
 
 def pytest_addoption(parser):
