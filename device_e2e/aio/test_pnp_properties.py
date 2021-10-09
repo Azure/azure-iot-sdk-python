@@ -44,8 +44,6 @@ class TestPnpSetProperties(object):
         pnp_component_name,
         is_component_property,
         service_helper,
-        device_id,
-        module_id,
     ):
         random_property_value = get_random_dict()
         assert client.connected
@@ -62,7 +60,7 @@ class TestPnpSetProperties(object):
         await client.update_client_properties(patch)
 
         while True:
-            properties = await service_helper.get_pnp_properties(device_id, module_id)
+            properties = await service_helper.get_pnp_properties()
 
             if is_component_property:
                 actual_value = properties.get(pnp_component_name, {}).get(
@@ -137,8 +135,6 @@ class TestPnpSetProperties(object):
         pnp_writable_property_name,
         is_component_property,
         service_helper,
-        device_id,
-        module_id,
     ):
         random_property_value = get_random_dict()
         received = asyncio.Event()
@@ -156,7 +152,7 @@ class TestPnpSetProperties(object):
             pnp_writable_property_name,
             random_property_value,
         )
-        await service_helper.update_pnp_properties(device_id, module_id, props)
+        await service_helper.update_pnp_properties(props)
 
         # wait for the desired property patch to arrive at the client
         # We don't actually check the contents of the patch, but the
@@ -196,8 +192,6 @@ class TestPnpSetProperties(object):
         pnp_ack_code,
         pnp_ack_description,
         service_helper,
-        device_id,
-        module_id,
     ):
         random_property_value = get_random_dict()
         received_patch = None
@@ -218,7 +212,7 @@ class TestPnpSetProperties(object):
             pnp_writable_property_name,
             random_property_value,
         )
-        await service_helper.update_pnp_properties(device_id, module_id, props)
+        await service_helper.update_pnp_properties(props)
         logger.info("patch sent. Waiting for desired proprety")
 
         # wait for the desired property patch to arrive at the client
@@ -254,7 +248,7 @@ class TestPnpSetProperties(object):
         await client.update_client_properties(update_patch)
 
         # verify that the reported value via digital_twin_client.get_digital_twin()
-        props = await service_helper.get_pnp_properties(device_id, module_id)
+        props = await service_helper.get_pnp_properties()
         if is_component_property:
             props = props[pnp_component_name]
 

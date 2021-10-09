@@ -59,8 +59,6 @@ class TestPnpCommands(object):
         include_request_payload,
         include_response_payload,
         service_helper,
-        device_id,
-        module_id,
     ):
         actual_request = None
 
@@ -94,7 +92,7 @@ class TestPnpCommands(object):
 
         # invoke the command
         command_response = await service_helper.invoke_pnp_command(
-            device_id, module_id, pnp_component_name, pnp_command_name, request_payload
+            pnp_component_name, pnp_command_name, request_payload
         )
 
         # verify that the method request arrived correctly

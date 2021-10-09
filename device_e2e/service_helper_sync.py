@@ -157,14 +157,24 @@ class ServiceHelperSync(object):
         )
 
         self._eventhub_future = self._executor.submit(self._eventhub_thread)
+        self.default_device_id = None
+        self.default_module_id = None
 
     def start_watching(self, device_id, module_id):
+        self.default_device_id = device_id
+        self.default_module_id = module_id
         self._client_list.get_or_create(device_id, module_id)
 
     def stop_watching(self, device_id, module_id):
+        if self.default_device_id == device_id and self.default_module_id == module_id:
+            self.default_device_id = None
+            self.default_module_id = None
         self._client_list.remove(device_id, module_id)
 
-    def set_desired_properties(self, device_id, module_id, desired_props):
+    def set_desired_properties(self, desired_props, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         if module_id:
             self._registry_manager.update_module_twin(
                 device_id, module_id, Twin(properties=TwinProperties(desired=desired_props)), "*"
@@ -176,13 +186,16 @@ class ServiceHelperSync(object):
 
     def invoke_method(
         self,
-        device_id,
-        module_id,
         method_name,
         payload,
+        device_id=None,
+        module_id=None,
         connect_timeout_in_seconds=None,
         response_timeout_in_seconds=None,
     ):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         request = CloudToDeviceMethod(
             method_name=method_name,
             payload=payload,
@@ -202,14 +215,17 @@ class ServiceHelperSync(object):
 
     def invoke_pnp_command(
         self,
-        device_id,
-        module_id,
         component_name,
         command_name,
         payload,
+        device_id=None,
+        module_id=None,
         connect_timeout_in_seconds=None,
         response_timeout_in_seconds=None,
     ):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         if component_name:
             return self._digital_twin_client.invoke_component_command(
@@ -229,24 +245,41 @@ class ServiceHelperSync(object):
                 response_timeout_in_seconds,
             )
 
-    def get_pnp_properties(self, device_id, module_id):
+    def get_pnp_properties(self, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         return self._digital_twin_client.get_digital_twin(device_id)
 
-    def update_pnp_properties(self, device_id, module_id, properties):
+    def update_pnp_properties(self, properties, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         return self._digital_twin_client.update_digital_twin(device_id, properties)
 
-    def send_c2d(self, device_id, module_id, payload, properties):
+    def send_c2d(self, payload, properties, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         self._registry_manager.send_c2d_message(device_id, payload, properties)
 
-    def get_next_eventhub_arrival(self, device_id, module_id, block=True, timeout=20):
+    def get_next_eventhub_arrival(self, device_id=None, module_id=None, block=True, timeout=20):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         return self._client_list.get_incoming_event_queue(device_id, module_id).get(
             block=block, timeout=timeout
         )
 
-    def get_next_reported_patch_arrival(self, device_id, module_id, block=True, timeout=20):
+    def get_next_reported_patch_arrival(
+        self, device_id=None, module_id=None, block=True, timeout=20
+    ):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         return self._client_list.get_incoming_patch_queue(device_id, module_id).get(
             block=block, timeout=timeout
         )

@@ -42,8 +42,6 @@ class TestMethods(object):
         self,
         client,
         method_name,
-        device_id,
-        module_id,
         method_response_status,
         include_request_payload,
         include_response_payload,
@@ -77,9 +75,7 @@ class TestMethods(object):
         time.sleep(1)  # wait for subscribe, etc, to complete
 
         # invoke the method call
-        method_response = service_helper.invoke_method(
-            device_id, module_id, method_name, request_payload
-        )
+        method_response = service_helper.invoke_method(method_name, request_payload)
 
         # verify that the method request arrived correctly
         actual_request = nonlocal_py27_hack["actual_request"]

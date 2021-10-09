@@ -145,7 +145,7 @@ class TestReportedPropertiesDroppedConnection(object):
 @pytest.mark.describe("Device Client Desired Properties")
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
-    def test_simple_patch(self, client, service_helper, device_id, module_id):
+    def test_simple_patch(self, client, service_helper):
 
         received = threading.Event()
 
@@ -161,8 +161,6 @@ class TestDesiredProperties(object):
 
         random_dict = get_random_dict()
         service_helper.set_desired_properties(
-            device_id,
-            module_id,
             {const.TEST_CONTENT: random_dict},
         )
 

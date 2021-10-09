@@ -32,7 +32,6 @@ from client_fixtures import (
     websockets,
     device_id,
     module_id,
-    watches_events,
 )
 
 logging.basicConfig(level=logging.WARNING)
