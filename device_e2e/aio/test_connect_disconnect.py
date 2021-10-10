@@ -33,7 +33,10 @@ class TestConnectDisconnect(object):
     @pytest.mark.it("Can reconnect inside on_disconnected")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
-    async def test_reconnect_in_the_middle_of_disconnect(self, brand_new_client, event_loop):
+    @pytest.mark.slow
+    async def test_reconnect_in_the_middle_of_disconnect(
+        self, brand_new_client, event_loop, service_helper, random_message
+    ):
         """
         Explanation: People will call connect() inside on_disconnected handlers.  We have
         to make sure that we can handle this without getting stuck in a bad state
@@ -71,9 +74,77 @@ class TestConnectDisconnect(object):
         await asyncio.sleep(3)
         assert client.connected
 
-        # TODO: send a message to verify that we're actually connected
+        # finally, send a message to makes reu we're _really_ connected
+        await client.send_message(random_message)
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert event
 
-    # TODO: Add a test that disconnets inside of an on_conncted handler
+    @pytest.mark.it("Can disconnect inside on_connected")
+    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.parametrize(
+        "first_connect",
+        [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
+    )
+    @pytest.mark.slow
+    @pytest.mark.xfail(reason="bug in code")
+    async def test_disconnect_in_the_middle_of_connect(
+        self, brand_new_client, event_loop, service_helper, random_message, first_connect
+    ):
+        """
+        Explanation: People will call connect() inside on_disconnected handlers.  We have
+        to make sure that we can handle this without getting stuck in a bad state
+        """
+        client = brand_new_client
+        assert client
+        disconnect_on_next_connect_event = False
+
+        disconnected_event = asyncio.Event()
+
+        async def handle_on_connection_state_change():
+            nonlocal disconnected_event
+            if client.connected:
+                if disconnect_on_next_connect_event:
+                    logger.info("connected.  disconnecitng now")
+                    await client.disconnect()
+                    event_loop.call_soon_threadsafe(disconnected_event.set)
+                else:
+                    logger.info("connected, but nothing to do")
+            else:
+                logger.info("disconnected.  nothing to do")
+
+        client.on_connection_state_change = handle_on_connection_state_change
+
+        if not first_connect:
+            # connect
+            await client.connect()
+            assert client.connected
+
+            # disconnet.
+            await client.disconnect()
+
+        assert not client.connected
+
+        # now, connect (maybe for the second time), and disconnect inside the on_connected handler
+        disconnect_on_next_connect_event = True
+        disconnected_event.clear()
+        await client.connect()
+
+        # and wait for us to disconnect
+        await disconnected_event.wait()
+        assert not client.connected
+
+        # sleep a while and make sure that we're still disconnected.
+        await asyncio.sleep(3)
+        assert not client.connected
+
+        # finally, connect and make sure we can send a message
+        await client.connect()
+        assert client.connected
+
+        await client.send_message(random_message)
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
+        assert event
 
     # TODO: Add connect/disconnect stress, multiple times with connect inside disconnect and disconnect inside connect.
 
