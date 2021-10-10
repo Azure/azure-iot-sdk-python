@@ -92,6 +92,10 @@ def device_identity():
 
 
 def pytest_addoption(parser):
+    """
+    This hook runs before parsing command line args.
+    We use this to add args.
+    """
     parser.addoption(
         "--transport",
         help="Transport to use for tests",
@@ -122,6 +126,12 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
+    """
+    Ths hook runs after parsing the command line, and before collecting tests.
+
+    We use this to save command line options because these can affect which
+    tests run and which tests get skipped.
+    """
     test_config.config.transport = config.getoption("transport")
     test_config.config.auth = config.getoption("auth")
     test_config.config.identity = config.getoption("identity")
@@ -130,6 +140,16 @@ def pytest_configure(config):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
+    """
+    This hook runs for every test (after paramratizing), as part of the test setup.
+
+    If a single function has parameters that make it run 8 times with different options,
+    then this function will be called 8 times.
+
+    We use this to skip tests based on command line args and to take our leak-check
+    snapshot.
+    """
+
     # tests that use iptables need to be skipped on Windows or if we're trying to go fast
     if test_config.config.fast_iteration or is_windows():
         for x in item.iter_markers("uses_iptables"):
@@ -156,8 +176,14 @@ def pytest_runtest_setup(item):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_pyfunc_call(pyfuncitem):
+    """
+    This hook is where the actual test runs.  We use hookwrapper=true because we
+    want this hook to be a wrapper around other hooks.
 
-    # hookwrapper=True makes this hook into a wrapper that wraps other hooks.
+    We use this to check the result of the test and "turn off" leak checking if the
+    test fails.
+    """
+
     # this yield runs the actual test.
     outcome = yield
 
@@ -173,12 +199,33 @@ def pytest_pyfunc_call(pyfuncitem):
 
 @pytest.hookimpl(trylast=True)
 def pytest_runtest_teardown(item, nextitem):
+    """
+    This hook runs after the test is done tearing down.
+
+    We use this to check for leaks.
+    """
     if hasattr(item, "leak_tracker"):
         logger.info("CHECKING FOR LEAKS")
         # Get rid of our fixtures so they don't cause leaks.
+        #
+        # We need to do this because we have fixtures like `client`, which is an
+        # example of the kind of object we're tracking.  If we leave any references
+        # to the client object, it will show up as a leak.  `item._request` is
+        # where the fixture values are stored, so, if we set item._request to False,
+        # it gives the garbage collector a chance to collect everything used by
+        # our fixtures, including, in this example. `client`.
+        #
+        # This is a bit of a hack, but we don't have a better place to do this, and
+        # these 2 fields get set immediately after this hook returns, so we're not
+        # hurting anything by doing this.
+
         # These 2 lines copied from `runtestprotocol` in pytest's `runner.py`
         item._request = False
         item.funcargs = None
+
+        # now that fixtures are gone, we can check for leaks.  `check_for_new_leaks` will
+        # call into the garbage collector to make sure everything is cleaned up before
+        # we check.
         item.leak_tracker.check_for_new_leaks()
         del item.leak_tracker
         logger.info("DONE CHECKING FOR LEAKS")
