@@ -92,15 +92,15 @@ class ServiceHelper:
             self.executor, self.inner_object.send_c2d, payload, properties, device_id, module_id
         )
 
-    async def get_next_eventhub_arrival(
-        self, device_id=None, module_id=None, block=True, timeout=20
+    async def wait_for_eventhub_arrival(
+        self, message_id, device_id=None, module_id=None, timeout=20
     ):
         return await self.event_loop.run_in_executor(
             self.executor,
-            self.inner_object.get_next_eventhub_arrival,
+            self.inner_object.wait_for_eventhub_arrival,
+            message_id,
             device_id,
             module_id,
-            block,
             timeout,
         )
 

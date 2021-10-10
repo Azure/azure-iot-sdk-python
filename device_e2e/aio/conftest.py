@@ -53,13 +53,3 @@ async def service_helper(event_loop, executor):
     yield service_helper
     print("shutting down")
     await service_helper.shutdown()
-
-
-@pytest.fixture(scope="function")
-def get_next_eventhub_arrival(event_loop, executor, service_helper):  # noqa: F811
-    yield service_helper.get_next_eventhub_arrival
-
-
-@pytest.fixture(scope="function")
-def get_next_reported_patch_arrival(event_loop, executor, service_helper):  # noqa: F811
-    yield service_helper.get_next_reported_patch_arrival

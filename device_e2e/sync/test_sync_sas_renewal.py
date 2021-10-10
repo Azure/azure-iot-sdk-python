@@ -16,6 +16,7 @@ logger.setLevel(level=logging.INFO)
     reason="{} auth does not support token renewal".format(test_config.config.auth),
 )
 @pytest.mark.describe("Client sas renewal code")
+@pytest.mark.slow
 class TestSasRenewal(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
@@ -25,7 +26,7 @@ class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
-    def test_sas_renews(self, client, get_next_eventhub_arrival, random_message):
+    def test_sas_renews(self, client, service_helper, random_message):
 
         connected_event = threading.Event()
         disconnected_event = threading.Event()
@@ -76,5 +77,5 @@ class TestSasRenewal(object):
         client.send_message(random_message)
 
         # and verify that the message arrived at the service
-        event = get_next_eventhub_arrival()
+        event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data

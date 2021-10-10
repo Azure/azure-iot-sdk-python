@@ -18,6 +18,7 @@ pytestmark = pytest.mark.asyncio
     reason="{} auth does not support token renewal".format(test_config.config.auth),
 )
 @pytest.mark.describe("Client sas renewal code")
+@pytest.mark.slow
 class TestSasRenewal(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
@@ -27,7 +28,7 @@ class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
-    async def test_sas_renews(self, client, event_loop, get_next_eventhub_arrival, random_message):
+    async def test_sas_renews(self, client, event_loop, service_helper, random_message):
 
         connected_event = asyncio.Event()
         disconnected_event = asyncio.Event()
@@ -80,5 +81,5 @@ class TestSasRenewal(object):
 
         # and verify that the message arrived at the service
         # TODO incoming_event_queue.get should check thread future
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data

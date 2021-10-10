@@ -45,13 +45,3 @@ def service_helper():
     time.sleep(3)
     yield service_helper
     service_helper.shutdown()
-
-
-@pytest.fixture(scope="function")
-def get_next_eventhub_arrival(service_helper):
-    yield service_helper.get_next_eventhub_arrival
-
-
-@pytest.fixture(scope="function")
-def get_next_reported_patch_arrival(service_helper):
-    yield service_helper.get_next_reported_patch_arrival

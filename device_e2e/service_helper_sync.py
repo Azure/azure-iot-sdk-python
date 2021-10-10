@@ -242,21 +242,28 @@ class ServiceHelperSync(object):
         assert not module_id  # TODO
         self._registry_manager.send_c2d_message(device_id, payload, properties)
 
-    def get_next_eventhub_arrival(self, device_id=None, module_id=None, block=True, timeout=20):
-        # TODO: remove block
+    def wait_for_eventhub_arrival(self, message_id, device_id=None, module_id=None, timeout=20):
         device_id = device_id or self.default_device_id
         module_id = module_id or self.default_module_id
 
         client_data = self._client_list.try_get(device_id, module_id)
 
         def get_event():
-            if len(client_data.incoming_eventhub_events):
-                key = list(client_data.incoming_eventhub_events.keys())[0]
-                value = client_data.incoming_eventhub_events[key]
-                del client_data.incoming_eventhub_events[key]
-                return value
-            else:
-                return None
+            with client_data.cv:
+                arrivals = client_data.incoming_eventhub_events
+
+                # if message_id is not set, return any message
+                if not message_id and len(arrivals):
+                    id = list(arrivals.keys())[0]
+                else:
+                    id = message_id
+
+                if id and (id in arrivals):
+                    value = arrivals[id]
+                    del arrivals[id]
+                    return value
+                else:
+                    return None
 
         if client_data:
             with client_data.cv:

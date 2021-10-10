@@ -113,17 +113,25 @@ def pytest_addoption(parser):
         choices=test_config.IDENTITY_CHOICES,
         default=test_config.IDENTITY_DEVICE,
     )
+    parser.addoption(
+        "--fast_iteration",
+        help="only run fast tests, useful for quick iteration",
+        action="store_true",
+        default=False,
+    )
 
 
 def pytest_configure(config):
     test_config.config.transport = config.getoption("transport")
     test_config.config.auth = config.getoption("auth")
     test_config.config.identity = config.getoption("identity")
+    test_config.config.fast_iteration = config.getoption("fast_iteration")
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
-    # tests that use iptables need to be skipped on Windows
-    if is_windows():
+    # tests that use iptables need to be skipped on Windows or if we're trying to go fast
+    if test_config.config.fast_iteration or is_windows():
         for x in item.iter_markers("uses_iptables"):
             pytest.skip("test uses iptables")
             return
@@ -131,21 +139,49 @@ def pytest_runtest_setup(item):
             pytest.skip("test uses iptables")
             return
 
-    item.leak_tracker = leak_tracker.LeakTracker()
-    item.leak_tracker.add_tracked_module("azure.iot.device")
-    item.leak_tracker.set_baseline()
+    if test_config.config.fast_iteration:
+        for x in item.iter_markers("slow"):
+            pytest.skip("test is slow and we're trying to iterate quickly")
+            return
+        for x in item.iter_markers("not_default"):
+            pytest.skip("test is for non-default and we're trying to iterate quickly")
+            return
+
+    if not test_config.config.fast_iteration:
+        # Don't track leaks if we're trying to iterate quickly
+        item.leak_tracker = leak_tracker.LeakTracker()
+        item.leak_tracker.add_tracked_module("azure.iot.device")
+        item.leak_tracker.set_baseline()
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem):
+
+    # hookwrapper=True makes this hook into a wrapper that wraps other hooks.
+    # this yield runs the actual test.
+    outcome = yield
+
+    try:
+        # this will raise if the outcome was an exception
+        outcome.get_result()
+    except Exception as e:
+        if hasattr(pyfuncitem, "leak_tracker"):
+            logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
+            del pyfuncitem.leak_tracker
+        raise
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_runtest_teardown(item, nextitem):
-    print("CHECKING FOR LEAKS")
     if hasattr(item, "leak_tracker"):
+        logger.info("CHECKING FOR LEAKS")
         # Get rid of our fixtures so they don't cause leaks.
         # These 2 lines copied from `runtestprotocol` in pytest's `runner.py`
         item._request = False
         item.funcargs = None
         item.leak_tracker.check_for_new_leaks()
         del item.leak_tracker
+        logger.info("DONE CHECKING FOR LEAKS")
 
 
 collect_ignore = ["test_settings.py"]

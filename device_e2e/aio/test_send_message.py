@@ -16,16 +16,16 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("Device Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
-    async def test_send_message(self, client, random_message, get_next_eventhub_arrival):
+    async def test_send_message(self, client, random_message, service_helper):
 
         await client.send_message(random_message)
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert event.system_properties["message-id"] == random_message.message_id
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Connects the transport if necessary")
-    async def test_connect_if_necessary(self, client, random_message, get_next_eventhub_arrival):
+    async def test_connect_if_necessary(self, client, random_message, service_helper):
 
         await client.disconnect()
         assert not client.connected
@@ -33,7 +33,7 @@ class TestSendMessage(object):
         await client.send_message(random_message)
         assert client.connected
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
 
@@ -47,7 +47,7 @@ class TestSendMessageDroppedConnection(object):
     @pytest.mark.it("Sends if connection drops before sending")
     @pytest.mark.uses_iptables
     async def test_sends_if_drop_before_sending(
-        self, client, random_message, dropper, get_next_eventhub_arrival
+        self, client, random_message, dropper, service_helper
     ):
 
         assert client.connected
@@ -66,7 +66,7 @@ class TestSendMessageDroppedConnection(object):
 
         await send_task
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
         logger.info("sent from device= {}".format(random_message.data))
         logger.info("received at eventhub = {}".format(event.message_body))
@@ -78,7 +78,7 @@ class TestSendMessageDroppedConnection(object):
     @pytest.mark.it("Sends if connection rejects send")
     @pytest.mark.uses_iptables
     async def test_sends_if_reject_before_sending(
-        self, client, random_message, dropper, get_next_eventhub_arrival
+        self, client, random_message, dropper, service_helper
     ):
 
         assert client.connected
@@ -97,7 +97,7 @@ class TestSendMessageDroppedConnection(object):
 
         await send_task
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
         logger.info("sent from device= {}".format(random_message.data))
         logger.info("received at eventhub = {}".format(event.message_body))
@@ -108,6 +108,7 @@ class TestSendMessageDroppedConnection(object):
 
 
 @pytest.mark.describe("Device Client send_message with reconnect disabled")
+@pytest.mark.not_default
 class TestSendMessageRetryDisabled(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
@@ -121,14 +122,14 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
     @pytest.mark.it("Can send a simple message")
-    async def test_send_message(self, client, random_message, get_next_eventhub_arrival):
+    async def test_send_message(self, client, random_message, service_helper):
         await client.send_message(random_message)
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
-    async def test_connect_if_necessary(self, client, random_message, get_next_eventhub_arrival):
+    async def test_connect_if_necessary(self, client, random_message, service_helper):
 
         await client.disconnect()
         assert not client.connected
@@ -136,13 +137,13 @@ class TestSendMessageRetryDisabled(object):
         await client.send_message(random_message)
         assert client.connected
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
     @pytest.mark.uses_iptables
     async def test_connects_after_automatic_disconnect(
-        self, client, random_message, dropper, get_next_eventhub_arrival
+        self, client, random_message, dropper, service_helper
     ):
 
         assert client.connected
@@ -156,7 +157,7 @@ class TestSendMessageRetryDisabled(object):
         await client.send_message(random_message)
         assert client.connected
 
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Fails if connection disconnects before sending")

@@ -26,11 +26,11 @@ def extra_client_kwargs(pnp_model_id):
 @pytest.mark.describe("Pnp Telemetry")
 class TestPnpTelemetry(object):
     @pytest.mark.it("Can send a telemetry message")
-    async def test_send_pnp_telemetry(self, client, pnp_model_id, get_next_eventhub_arrival):
+    async def test_send_pnp_telemetry(self, client, pnp_model_id, service_helper):
         telemetry = get_random_dict()
 
         await client.send_telemetry(telemetry)
-        event = await get_next_eventhub_arrival()
+        event = await service_helper.wait_for_eventhub_arrival(None)
 
         logger.info(pprint.pformat(event))
 

@@ -31,14 +31,14 @@ class TestPnpCommands(object):
         "include_request_payload",
         [
             pytest.param(True, id="with request payload"),
-            pytest.param(False, id="without request payload"),
+            pytest.param(False, id="without request payload", marks=pytest.mark.not_default),
         ],
     )
     @pytest.mark.parametrize(
         "include_response_payload",
         [
             pytest.param(True, id="with response payload"),
-            pytest.param(False, id="without response payload"),
+            pytest.param(False, id="without response payload", marks=pytest.mark.not_default),
         ],
     )
     @pytest.mark.parametrize(
