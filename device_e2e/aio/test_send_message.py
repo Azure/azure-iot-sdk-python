@@ -21,6 +21,7 @@ class TestSendMessage(object):
         await client.send_message(random_message)
 
         event = await get_next_eventhub_arrival()
+        assert event.system_properties["message-id"] == random_message.message_id
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Connects the transport if necessary")
