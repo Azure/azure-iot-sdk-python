@@ -33,8 +33,7 @@ jobs:
 
 - job: 'Test_Linux'
   pool:
-    name: 'Hosted Ubuntu 1604'
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 20.04'
 
   strategy:
     matrix:
@@ -64,8 +63,7 @@ jobs:
 
 - job: 'Test_Canary'
   pool:
-    name: 'Hosted Ubuntu 1604'
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 20.04'
 
   strategy:
     matrix:
