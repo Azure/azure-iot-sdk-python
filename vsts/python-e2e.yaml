@@ -61,3 +61,34 @@ jobs:
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       condition: always()
+
+- job: 'Test_Canary'
+  pool:
+    name: 'Hosted Ubuntu 1604'
+    vmImage: 'Ubuntu 16.04'
+
+  strategy:
+    matrix:
+      py39_mqtt:              { pv: '3.9', transport: 'mqtt' }
+      py39_mqtt_ws:           { pv: '3.9', transport: 'mqttws' }
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: $(pv)
+        architecture: 'x64'
+
+    - script: 'python env_setup.py --no_dev'
+      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+    - script: |
+        cd $(Build.SourcesDirectory)/device_e2e
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+      displayName: 'E2E Device Client MQTT Connection String'
+      env:
+        IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
+        EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
