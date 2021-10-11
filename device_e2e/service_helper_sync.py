@@ -5,6 +5,7 @@ import logging
 import threading
 from six.moves import queue
 import copy
+import time
 from concurrent.futures import ThreadPoolExecutor
 from azure.iot.hub import IoTHubRegistryManager, DigitalTwinClient
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
@@ -266,8 +267,22 @@ class ServiceHelperSync(object):
                     return None
 
         if client_data:
+            # this should use return client_data.cv.wait_for(get_event, timeout=timeout)
+            # Replace this when we don't support py27 anymore
+            if timeout:
+                end_time = time.time() + timeout
+            else:
+                end_time = None
             with client_data.cv:
-                return client_data.cv.wait_for(get_event, timeout=timeout)
+                while True:
+                    ev = get_event()
+                    if ev or time.time() >= end_time:
+                        return ev
+
+                    if end_time:
+                        client_data.cv.wait(timeout=end_time - time.time())
+                    else:
+                        client_data.cv.wait()
 
     def get_next_reported_patch_arrival(
         self, device_id=None, module_id=None, block=True, timeout=20

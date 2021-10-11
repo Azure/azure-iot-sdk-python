@@ -87,7 +87,6 @@ class TestConnectDisconnect(object):
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
     )
     @pytest.mark.slow
-    @pytest.mark.xfail(reason="bug in code")
     async def test_disconnect_in_the_middle_of_connect(
         self, brand_new_client, event_loop, service_helper, random_message, first_connect
     ):
@@ -139,6 +138,7 @@ class TestConnectDisconnect(object):
         assert not client.connected
 
         # finally, connect and make sure we can send a message
+        disconnect_on_next_connect_event = False
         await client.connect()
         assert client.connected
 

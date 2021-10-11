@@ -17,7 +17,7 @@ def _run_garbage_collection():
     """
     Collect everything until there's nothing more to collect
     """
-    sleep_time = 0.1
+    sleep_time = 0.5
     done = False
     while not done:
         collected = gc.collect(2)

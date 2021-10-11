@@ -5,10 +5,20 @@ import pytest
 import logging
 import json
 import time
+import uuid
 from azure.iot.device.exceptions import OperationCancelled
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
+
+
+@pytest.mark.describe("ServiceHelper object")
+class TestServiceHelper(object):
+    @pytest.mark.it("returns None when wait_for_event_arrival times out")
+    def test_send_message(self, client, random_message, service_helper):
+
+        event = service_helper.wait_for_eventhub_arrival(uuid.uuid4(), timeout=2)
+        assert event is None
 
 
 @pytest.mark.describe("Device Client send_message method")
