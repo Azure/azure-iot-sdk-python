@@ -5,7 +5,7 @@ jobs:
 
 - job: 'Static_Analysis'
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 20.04'
 
   steps:
   - task: UsePythonVersion@0
@@ -21,7 +21,7 @@ jobs:
 
 - job: 'Test'
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 20.04'
   strategy:
       matrix:
         Python27:
@@ -70,7 +70,7 @@ jobs:
   - 'Static_Analysis'
 
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 20.04'
 
   steps:
   - task: UsePythonVersion@0
