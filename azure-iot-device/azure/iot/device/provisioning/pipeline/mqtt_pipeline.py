@@ -180,6 +180,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionDroppedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("connect called")
@@ -246,10 +247,16 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.provisioning.pipeline.exceptions.UnauthorizedError``
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
 

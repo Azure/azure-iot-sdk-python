@@ -427,14 +427,44 @@ class SharedClientUpdateSasTokenTests(WaitsForEventCompletion):
         "pipeline_error,client_error",
         [
             pytest.param(
+                pipeline_exceptions.ConnectionDroppedError,
+                client_exceptions.ConnectionDroppedError,
+                id="ConnectionDroppedError->ConnectionDroppedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ConnectionFailedError,
+                client_exceptions.ConnectionFailedError,
+                id="ConnectionFailedError->ConnectionFailedError",
+            ),
+            pytest.param(
+                pipeline_exceptions.UnauthorizedError,
+                client_exceptions.CredentialError,
+                id="UnauthorizedError->CredentialError",
+            ),
+            pytest.param(
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
             pytest.param(
+                pipeline_exceptions.TlsExchangeAuthError,
+                client_exceptions.ClientError,
+                id="TlsExchangeAuthError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.ProtocolProxyError,
+                client_exceptions.ClientError,
+                id="ProtocolProxyError->ClientError",
+            ),
+            pytest.param(
                 pipeline_exceptions.OperationCancelled,
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout->OperationTimeout",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -583,6 +613,11 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
                 pipeline_exceptions.ProtocolClientError,
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
             ),
             pytest.param(
                 pipeline_exceptions.OperationCancelled,
@@ -968,6 +1003,11 @@ class SharedClientSendMethodResponseTests(WaitsForEventCompletion):
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
             ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
@@ -1069,6 +1109,11 @@ class SharedClientGetTwinTests(WaitsForEventCompletion):
                 pipeline_exceptions.OperationCancelled,
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -1182,6 +1227,11 @@ class SharedClientPatchTwinReportedPropertiesTests(WaitsForEventCompletion):
                 pipeline_exceptions.OperationCancelled,
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
@@ -2203,6 +2253,11 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
                 pipeline_exceptions.OperationCancelled,
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout -> OperationTimeout",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
