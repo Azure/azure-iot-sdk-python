@@ -88,7 +88,7 @@ class MQTTTransportStage(PipelineStage):
                     )
                     this.send_event_up(pipeline_events_base.DisconnectedEvent())
                 this._cancel_pending_connection_op(
-                    error=pipeline_exceptions.OperationCancelled(
+                    error=pipeline_exceptions.OperationTimeout(
                         "Transport timeout on connection operation"
                     )
                 )

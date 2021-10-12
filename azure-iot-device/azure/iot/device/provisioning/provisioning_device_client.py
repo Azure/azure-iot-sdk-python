@@ -35,6 +35,10 @@ def handle_result(callback):
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError(message="Error in the provisioning client", cause=e)
+    except pipeline_exceptions.OperationTimeout as e:
+        raise exceptions.OperationTimeout(
+            message="Could not complete operation before timeout", cause=e
+        )
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError(message="Client has already been shut down", cause=e)
     except Exception as e:
@@ -68,6 +72,7 @@ class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the connection times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """

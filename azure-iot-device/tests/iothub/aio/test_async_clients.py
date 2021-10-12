@@ -235,6 +235,11 @@ class SharedClientConnectTests(object):
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
             ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout->OperationTimeout",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )

@@ -4,7 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline.pipeline_exceptions import OperationCancelled
+from azure.iot.device.common.pipeline.pipeline_exceptions import (
+    OperationCancelled,
+    OperationTimeout,
+)
 from azure.iot.device.common.evented_callback import EventedCallback
 import pytest
 import logging
@@ -234,6 +237,11 @@ class SharedClientConnectTests(WaitsForEventCompletion):
                 pipeline_exceptions.OperationCancelled,
                 client_exceptions.OperationCancelled,
                 id="OperationCancelled -> OperationCancelled",
+            ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout->OperationTimeout",
             ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
