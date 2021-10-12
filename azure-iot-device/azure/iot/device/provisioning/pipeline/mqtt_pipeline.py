@@ -212,6 +212,7 @@ class MQTTPipeline(object):
 
         self._pipeline.run_op(pipeline_ops_base.DisconnectOperation(callback=pipeline_callback))
 
+    # NOTE: Currently, this operation will retry itself indefinitely in the case of timeout
     def enable_responses(self, callback=None):
         """
         Enable response from the DPS service by subscribing to the appropriate topics.
