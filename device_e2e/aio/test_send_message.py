@@ -14,16 +14,7 @@ logger.setLevel(level=logging.INFO)
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.mark.describe("ServiceHelper object")
-class TestServiceHelper(object):
-    @pytest.mark.it("returns None when wait_for_event_arrival times out")
-    async def test_send_message(self, client, random_message, service_helper):
-
-        event = await service_helper.wait_for_eventhub_arrival(uuid.uuid4(), timeout=2)
-        assert event is None
-
-
-@pytest.mark.describe("Device Client send_message method")
+@pytest.mark.describe("Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     async def test_send_message(self, client, random_message, service_helper):
@@ -48,7 +39,7 @@ class TestSendMessage(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Device Client send_message method with dropped connections")
+@pytest.mark.describe("Client send_message method with dropped connections")
 class TestSendMessageDroppedConnection(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
@@ -117,8 +108,8 @@ class TestSendMessageDroppedConnection(object):
         logger.info("Success")
 
 
-@pytest.mark.describe("Device Client send_message with reconnect disabled")
-@pytest.mark.not_default
+@pytest.mark.describe("Client send_message with reconnect disabled")
+@pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
 class TestSendMessageRetryDisabled(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):

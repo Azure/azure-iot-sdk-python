@@ -32,7 +32,7 @@ def extra_client_kwargs(pnp_model_id):
     "is_component_property",
     [pytest.param(True, id="component property"), pytest.param(False, id="root property")],
 )
-@pytest.mark.describe("Device Client PNP properties")
+@pytest.mark.describe("Client PNP properties")
 class TestPnpSetProperties(object):
     @pytest.mark.it(
         "Can set a reported property value and retrieve it via the service get_digital_twin function"

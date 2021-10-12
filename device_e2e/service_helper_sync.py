@@ -80,7 +80,7 @@ class PerClientData(object):
 
 class ClientList(object):
     """
-    Thread-safe object for holding a dictionary of PerDeviceData objects.
+    Thread-safe object for holding a dictionary of PerClientData objects.
     """
 
     def __init__(self):

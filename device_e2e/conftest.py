@@ -9,6 +9,7 @@ import device_identity_helper
 import const
 import sys
 import leak_tracker
+import drop
 from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo
@@ -37,7 +38,7 @@ from client_fixtures import (
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
-logging.getLogger("azure.iot").setLevel(level=logging.INFO)
+logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -150,6 +151,9 @@ def pytest_runtest_setup(item):
     snapshot.
     """
 
+    # reconnect in case a previously interrupted test run left our network disconnected
+    drop.reconnect_all(test_config.config.transport)
+
     # tests that use iptables need to be skipped on Windows or if we're trying to go fast
     if test_config.config.fast_iteration or is_windows():
         for x in item.iter_markers("uses_iptables"):
@@ -160,11 +164,8 @@ def pytest_runtest_setup(item):
             return
 
     if test_config.config.fast_iteration:
-        for x in item.iter_markers("slow"):
-            pytest.skip("test is slow and we're trying to iterate quickly")
-            return
-        for x in item.iter_markers("not_default"):
-            pytest.skip("test is for non-default and we're trying to iterate quickly")
+        for x in item.iter_markers("dont_run_this_if_you_want_your_tests_to_go_fast"):
+            pytest.skip("test is arbitrarily 'optional' and we're trying to iterate quickly")
             return
 
     if not test_config.config.fast_iteration:

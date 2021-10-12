@@ -18,7 +18,7 @@ pytestmark = pytest.mark.asyncio
     reason="{} auth does not support token renewal".format(test_config.config.auth),
 )
 @pytest.mark.describe("Client sas renewal code")
-@pytest.mark.slow
+@pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
 class TestSasRenewal(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):

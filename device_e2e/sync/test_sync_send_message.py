@@ -21,7 +21,7 @@ class TestServiceHelper(object):
         assert event is None
 
 
-@pytest.mark.describe("Device Client send_message method")
+@pytest.mark.describe("Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     def test_send_message(self, client, random_message, service_helper):
@@ -45,7 +45,7 @@ class TestSendMessage(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Device Client send_message method with dropped connections")
+@pytest.mark.describe("Client send_message method with dropped connections")
 class TestSendMessageDroppedConnection(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
@@ -102,8 +102,8 @@ class TestSendMessageDroppedConnection(object):
         assert json.dumps(event.message_body) == random_message.data
 
 
-@pytest.mark.describe("Device Client send_message with reconnect disabled")
-@pytest.mark.not_default
+@pytest.mark.describe("Client send_message with reconnect disabled")
+@pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
 class TestSendMessageRetryDisabled(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):

@@ -25,7 +25,7 @@ def extra_client_kwargs(pnp_model_id):
 
 
 @pytest.mark.pnp
-@pytest.mark.describe("Device Client PNP Connection")
+@pytest.mark.describe("Client PNP Connection")
 class TestPnpConnect(object):
     @pytest.mark.it("Can connect and disconnect with model_id set")
     async def test_connect(self, client, pnp_model_id):

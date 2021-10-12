@@ -12,7 +12,7 @@ logger.setLevel(level=logging.INFO)
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.mark.describe("Device Client")
+@pytest.mark.describe("Client object")
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
@@ -21,6 +21,7 @@ class TestConnectDisconnect(object):
         client = brand_new_client
 
         assert client
+        logger.info("connecting")
         await client.connect()
         assert client.connected
 
@@ -30,16 +31,70 @@ class TestConnectDisconnect(object):
         await client.connect()
         assert client.connected
 
-    @pytest.mark.it("Can reconnect inside on_disconnected")
+    @pytest.mark.it("calls `on_connection_state_change` when setting the handler (connected case)")
+    async def test_on_connection_state_change_gets_called_with_current_state_connected(
+        self, brand_new_client, event_loop
+    ):
+        client = brand_new_client
+
+        handler_called = asyncio.Event()
+
+        async def handle_on_connection_state_change():
+            nonlocal handler_called
+            if client.connected:
+                event_loop.call_soon_threadsafe(handler_called.set)
+
+        await client.connect()
+        assert client.connected
+        client.on_connection_state_change = handle_on_connection_state_change
+        await handler_called.wait()
+
+    @pytest.mark.parametrize(
+        "previously_connected",
+        [
+            pytest.param(True, id="previously connected"),
+            pytest.param(
+                False,
+                id="not previously connected",
+                marks=pytest.mark.skip(reason="inconssitent behavior"),
+            ),
+        ],
+    )
+    @pytest.mark.it(
+        "calls `on_connection_state_change` when setting the handler (disconnected case)"
+    )
+    async def test_on_connection_state_change_gets_called_with_current_state_disconnected(
+        self, brand_new_client, event_loop, previously_connected
+    ):
+        client = brand_new_client
+
+        handler_called = asyncio.Event()
+
+        async def handle_on_connection_state_change():
+            nonlocal handler_called
+            if not client.connected:
+                event_loop.call_soon_threadsafe(handler_called.set)
+
+        if previously_connected:
+            await client.connect()
+            await client.disconnect()
+            assert not client.connected
+
+        client.on_connection_state_change = handle_on_connection_state_change
+        await handler_called.wait()
+
+    @pytest.mark.it(
+        "Can do a manual connect in the `on_connection_state_change` call that if notifying the user about a disconnect."
+    )
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
-    @pytest.mark.slow
-    async def test_reconnect_in_the_middle_of_disconnect(
+    @pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
+    async def test_connect_in_the_middle_of_disconnect(
         self, brand_new_client, event_loop, service_helper, random_message
     ):
         """
-        Explanation: People will call connect() inside on_disconnected handlers.  We have
-        to make sure that we can handle this without getting stuck in a bad state
+        Explanation: People will call `connect` inside `on_connection_state_change` handlers.
+        We have to make sure that we can handle this without getting stuck in a bad state.
         """
         client = brand_new_client
         assert client
@@ -79,20 +134,23 @@ class TestConnectDisconnect(object):
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert event
 
-    @pytest.mark.it("Can disconnect inside on_connected")
+    @pytest.mark.it(
+        "Can do a manual disconnect in the `on_connection_state_change` call that if notifying the user about a connect."
+    )
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
     @pytest.mark.parametrize(
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
     )
-    @pytest.mark.slow
+    @pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
     async def test_disconnect_in_the_middle_of_connect(
         self, brand_new_client, event_loop, service_helper, random_message, first_connect
     ):
         """
-        Explanation: People will call connect() inside on_disconnected handlers.  We have
-        to make sure that we can handle this without getting stuck in a bad state
+        Explanation: This is the inverse of `test_connect_in_the_middle_of_disconnect`.  This is
+        less likely to be a user scenario, but it lets us test with unusual-but-specific timing
+        on the call to `disconnect`.
         """
         client = brand_new_client
         assert client
@@ -150,7 +208,7 @@ class TestConnectDisconnect(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Device Client with dropped connection")
+@pytest.mark.describe("Client with dropped connection")
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):

@@ -17,7 +17,7 @@ logger.setLevel(level=logging.INFO)
 reset_reported_props = {const.TEST_CONTENT: None}
 
 
-@pytest.mark.describe("Device Client Reported Properties")
+@pytest.mark.describe("Client Reported Properties")
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
     def test_simple_patch(self, client, random_reported_props, service_helper):
@@ -79,7 +79,7 @@ class TestReportedProperties(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Device Client Reported Properties with dropped connection")
+@pytest.mark.describe("Client Reported Properties with dropped connection")
 class TestReportedPropertiesDroppedConnection(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):
@@ -140,7 +140,7 @@ class TestReportedPropertiesDroppedConnection(object):
         )
 
 
-@pytest.mark.describe("Device Client Desired Properties")
+@pytest.mark.describe("Client Desired Properties")
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     def test_simple_patch(self, client, service_helper):
