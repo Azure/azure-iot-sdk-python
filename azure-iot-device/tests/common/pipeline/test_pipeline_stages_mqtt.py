@@ -590,7 +590,7 @@ class TestMQTTTransportStageRunOpCalledWithMQTTPublishOperation(
         )
 
     @pytest.mark.it(
-        "Sucessfully completes the operation, upon successful completion of the MQTT publish by the MQTTTransport"
+        "Successfully completes the operation, upon successful completion of the MQTT publish by the MQTTTransport"
     )
     def test_complete(self, mocker, stage, op):
         # Begin publish
@@ -1259,7 +1259,7 @@ class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex)
         assert stage.transport.disconnect.call_count == 0
 
     @pytest.mark.it(
-        "Completes the op that started the watchdog with an OperationCancelled error if that op is still pending"
+        "Completes the op that started the watchdog with an OperationTimeout exception if that op is still pending"
     )
     def test_completes_with_operation_cancelled(self, mocker, stage, pending_op, mock_timer):
         callback = pending_op.callback_stack[0]
@@ -1270,7 +1270,7 @@ class TestMQTTTransportStageWatchdogExpired(MQTTTransportStageTestConfigComplex)
         watchdog_expiration()
 
         assert callback.call_count == 1
-        assert isinstance(callback.call_args[1]["error"], pipeline_exceptions.OperationCancelled)
+        assert isinstance(callback.call_args[1]["error"], pipeline_exceptions.OperationTimeout)
 
     @pytest.mark.it(
         "Does not complete the op that started the watchdog with an OperationCancelled error if that op is no longer pending"

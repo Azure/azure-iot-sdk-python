@@ -60,7 +60,8 @@ class IoTHubHttpRuntimeManager(object):
         it is ready to call the member APIs to communicate with IoTHub.
 
         :param str url: The Azure service url (host name).
-        :param str token_credential: The Azure token credential object.
+        :param token_credential: The Azure token credential object
+        :type token_credential: :class:`azure.core.TokenCredential`
 
         :rtype: :class:`azure.iot.hub.IoTHubHttpRuntimeManager`
         """

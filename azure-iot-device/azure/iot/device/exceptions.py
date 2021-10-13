@@ -20,6 +20,12 @@ class OperationCancelled(ChainableException):
     pass
 
 
+class OperationTimeout(ChainableException):
+    """An operation timed out"""
+
+    pass
+
+
 # ~~~ CLIENT ERRORS ~~~
 
 

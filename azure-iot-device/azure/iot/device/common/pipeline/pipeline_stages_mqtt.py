@@ -43,8 +43,6 @@ class MQTTTransportStage(PipelineStage):
         self.transport = None
         # The current in-progress op that affects connection state (Connect, Disconnect, Reauthorize)
         self._pending_connection_op = None
-        # Waitable event indicating the disconnect portion of the reauthorization is complete
-        self._reauth_disconnection_complete = threading.Event()
 
     @pipeline_thread.runs_on_pipeline_thread
     def _cancel_pending_connection_op(self, error=None):
@@ -90,7 +88,7 @@ class MQTTTransportStage(PipelineStage):
                     )
                     this.send_event_up(pipeline_events_base.DisconnectedEvent())
                 this._cancel_pending_connection_op(
-                    error=pipeline_exceptions.OperationCancelled(
+                    error=pipeline_exceptions.OperationTimeout(
                         "Transport timeout on connection operation"
                     )
                 )
@@ -240,7 +238,8 @@ class MQTTTransportStage(PipelineStage):
                     )
                 connect_op = reauth_op.spawn_worker_op(pipeline_ops_base.ConnectOperation)
 
-                # the problem is this doens't unset the disconnect from being the pending op before continuing
+                # NOTE: this relies on the fact that before the disconnect is completed it is
+                # unset as the pending connection op. Otherwise there would be issues here.
                 this.run_op(connect_op)
 
             disconnect_op = pipeline_ops_base.DisconnectOperation(callback=on_disconnect_complete)
