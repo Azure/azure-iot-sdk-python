@@ -139,7 +139,6 @@ key file with the optional pass phrase if neccessary.
         print("custom properties are")
         print(message.custom_properties)
 
-
     # set the message handler on the client
     client.on_message_received = message_handler
 ```
