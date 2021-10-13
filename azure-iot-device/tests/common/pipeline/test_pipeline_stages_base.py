@@ -2467,7 +2467,7 @@ class TestOpTimeoutStageOpTimesOut(OpTimeoutStageTestConfig):
 
         # Op is now completed with error
         assert op.completed
-        assert isinstance(op.error, pipeline_exceptions.PipelineTimeoutError)
+        assert isinstance(op.error, pipeline_exceptions.OperationTimeout)
 
 
 @pytest.mark.describe(
@@ -2512,7 +2512,7 @@ retryable_ops = [
     ),
 ]
 
-retryable_exceptions = [pipeline_exceptions.PipelineTimeoutError]
+retryable_exceptions = [pipeline_exceptions.OperationTimeout]
 
 
 class RetryStageTestConfig(object):
@@ -2727,9 +2727,9 @@ class TestRetryStageRetryableOperationCompletedWithRetryableError(RetryStageTest
         assert not op2.completed
         assert not op3.completed
 
-        op1.complete(error=pipeline_exceptions.PipelineTimeoutError())
-        op2.complete(error=pipeline_exceptions.PipelineTimeoutError())
-        op3.complete(error=pipeline_exceptions.PipelineTimeoutError())
+        op1.complete(error=pipeline_exceptions.OperationTimeout())
+        op2.complete(error=pipeline_exceptions.OperationTimeout())
+        op3.complete(error=pipeline_exceptions.OperationTimeout())
 
         # Ops halted
         assert not op1.completed
@@ -4171,7 +4171,7 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         "error",
         [
             pytest.param(pipeline_exceptions.OperationCancelled(), id="OperationCancelled"),
-            pytest.param(pipeline_exceptions.PipelineTimeoutError(), id="PipelineTimeoutError"),
+            pytest.param(pipeline_exceptions.OperationTimeout(), id="OperationTimeout"),
             pytest.param(pipeline_exceptions.OperationError(), id="OperationError"),
             pytest.param(transport_exceptions.ConnectionFailedError(), id="ConnectionFailedError"),
             pytest.param(
