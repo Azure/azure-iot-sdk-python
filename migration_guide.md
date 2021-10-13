@@ -1,7 +1,7 @@
 # IoTHub Python SDK Migration Guide
 
 This guide details the migration plan to move from the IoTHub Python v1 code base to the new and improved v2 
-code base.  
+code base. Note that this guide assumes the use of asynchronous code.
 
 ## Installing the IoTHub Python SDK
 
@@ -104,7 +104,7 @@ key file with the optional pass phrase if neccessary.
     message.correlation_id = "correlation id"
 
     message.custom_properties["property"] = "property_value"
-    client.send_message(message)
+    await client.send_message(message)
 ```
 
 ## Receiving a Message from IoTHub
