@@ -807,7 +807,7 @@ class OpTimeoutStage(PipelineStage):
 
     For each operation that needs a timeout check, this stage will add a timer to
     the operation.  If the timer elapses, this stage will fail the operation with
-    a PipelineTimeoutError.  The intention is that a higher stage will know what to
+    a OperationTimeout.  The intention is that a higher stage will know what to
     do with that error and act accordingly (either return the error to the user or
     retry).
 
@@ -849,7 +849,7 @@ class OpTimeoutStage(PipelineStage):
                 this = self_weakref()
                 logger.info("{}({}): returning timeout error".format(this.name, op.name))
                 op.complete(
-                    error=pipeline_exceptions.PipelineTimeoutError(
+                    error=pipeline_exceptions.OperationTimeout(
                         "operation timed out before protocol client could respond"
                     )
                 )
@@ -923,7 +923,7 @@ class RetryStage(PipelineStage):
         """
         if error:
             if self._should_watch_for_retry(op):
-                if isinstance(error, pipeline_exceptions.PipelineTimeoutError):
+                if isinstance(error, pipeline_exceptions.OperationTimeout):
                     return True
         return False
 
@@ -994,7 +994,7 @@ class ReconnectStage(PipelineStage):
     ]
     transient_connect_errors = [
         pipeline_exceptions.OperationCancelled,
-        pipeline_exceptions.PipelineTimeoutError,
+        pipeline_exceptions.OperationTimeout,
         pipeline_exceptions.OperationError,
         transport_exceptions.ConnectionFailedError,
         transport_exceptions.ConnectionDroppedError,

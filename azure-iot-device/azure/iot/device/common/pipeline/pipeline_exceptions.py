@@ -20,6 +20,12 @@ class OperationCancelled(PipelineException):
     pass
 
 
+class OperationTimeout(PipelineException):
+    """Pipeline operation timed out"""
+
+    pass
+
+
 class OperationError(PipelineException):
     """Error while executing an Operation"""
 
@@ -28,12 +34,6 @@ class OperationError(PipelineException):
 
 class PipelineNotRunning(PipelineException):
     """Pipeline is not currently running"""
-
-    pass
-
-
-class PipelineTimeoutError(PipelineException):
-    """Pipeline operation timed out"""
 
     pass
 
