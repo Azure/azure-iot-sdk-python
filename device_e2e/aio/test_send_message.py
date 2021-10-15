@@ -17,6 +17,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("Client send_message method")
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
+    @pytest.mark.quicktest_suite
     async def test_send_message(self, client, random_message, service_helper):
 
         await client.send_message(random_message)
@@ -26,6 +27,7 @@ class TestSendMessage(object):
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Connects the transport if necessary")
+    @pytest.mark.quicktest_suite
     async def test_connect_if_necessary(self, client, random_message, service_helper):
 
         await client.disconnect()
@@ -109,7 +111,6 @@ class TestSendMessageDroppedConnection(object):
 
 
 @pytest.mark.describe("Client send_message with reconnect disabled")
-@pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
 class TestSendMessageRetryDisabled(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):

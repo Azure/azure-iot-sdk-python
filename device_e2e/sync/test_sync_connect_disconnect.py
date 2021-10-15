@@ -15,6 +15,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.quicktest_suite
     def test_connect_disconnect(self, brand_new_client):
         client = brand_new_client
 

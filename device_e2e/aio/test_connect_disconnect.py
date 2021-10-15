@@ -17,6 +17,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.quicktest_suite
     async def test_connect_disconnect(self, brand_new_client):
         client = brand_new_client
 
@@ -32,6 +33,7 @@ class TestConnectDisconnect(object):
         assert client.connected
 
     @pytest.mark.it("calls `on_connection_state_change` when setting the handler (connected case)")
+    @pytest.mark.quicktest_suite
     async def test_on_connection_state_change_gets_called_with_current_state_connected(
         self, brand_new_client, event_loop
     ):
@@ -63,6 +65,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.it(
         "calls `on_connection_state_change` when setting the handler (disconnected case)"
     )
+    @pytest.mark.quicktest_suite
     async def test_on_connection_state_change_gets_called_with_current_state_disconnected(
         self, brand_new_client, event_loop, previously_connected
     ):
@@ -88,7 +91,6 @@ class TestConnectDisconnect(object):
     )
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
-    @pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
     async def test_connect_in_the_middle_of_disconnect(
         self, brand_new_client, event_loop, service_helper, random_message
     ):
@@ -143,7 +145,6 @@ class TestConnectDisconnect(object):
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
     )
-    @pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast
     async def test_disconnect_in_the_middle_of_connect(
         self, brand_new_client, event_loop, service_helper, random_message, first_connect
     ):
