@@ -6,7 +6,7 @@ import pytest
 import logging
 import json
 import uuid
-from azure.iot.device.exceptions import OperationCancelled, OperationTimeout
+from azure.iot.device.exceptions import OperationCancelled
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -173,7 +173,7 @@ class TestSendMessageRetryDisabled(object):
         while client.connected:
             await asyncio.sleep(1)
 
-        with pytest.raises(OperationTimeout):
+        with pytest.raises(OperationCancelled):
             await send_task
 
     @pytest.mark.it("Fails if connection drops before sending")
@@ -183,7 +183,7 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
         dropper.drop_outgoing()
-        with pytest.raises(OperationTimeout):
+        with pytest.raises(OperationCancelled):
             await client.send_message(random_message)
 
         assert not client.connected
