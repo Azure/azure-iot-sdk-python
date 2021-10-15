@@ -84,7 +84,7 @@ class TestConnectDisconnect(object):
         await handler_called.wait()
 
     @pytest.mark.it(
-        "Can do a manual connect in the `on_connection_state_change` call that if notifying the user about a disconnect."
+        "Can do a manual connect in the `on_connection_state_change` call that is notifying the user about a disconnect."
     )
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
@@ -135,7 +135,7 @@ class TestConnectDisconnect(object):
         assert event
 
     @pytest.mark.it(
-        "Can do a manual disconnect in the `on_connection_state_change` call that if notifying the user about a connect."
+        "Can do a manual disconnect in the `on_connection_state_change` call that is notifying the user about a connect."
     )
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
