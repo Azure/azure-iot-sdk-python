@@ -24,7 +24,7 @@ jobs:
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_E2E_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
@@ -54,7 +54,7 @@ jobs:
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_E2E_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
@@ -84,7 +84,7 @@ jobs:
         pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_E2E_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
