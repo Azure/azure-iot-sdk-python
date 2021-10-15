@@ -85,7 +85,7 @@ jobs:
       displayName: 'E2E Device Client MQTT Connection String'
       env:
         IOTHUB_E2E_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
-        EVENTHUB_E2E_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
+        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
