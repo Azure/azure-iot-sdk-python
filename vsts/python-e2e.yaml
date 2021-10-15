@@ -21,7 +21,7 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name=$(Agent.JobName)
       displayName: 'E2E Device Client MQTT Connection String'
       env:
         IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
@@ -51,7 +51,7 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name=$(Agent.JobName)
       displayName: 'E2E Device Client MQTT Connection String'
       env:
         IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
@@ -81,7 +81,7 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name=$(Agent.JobName)
       displayName: 'E2E Device Client MQTT Connection String'
       env:
         IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
