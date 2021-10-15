@@ -5,6 +5,7 @@ import logging
 import threading
 from six.moves import queue
 import copy
+import time
 from concurrent.futures import ThreadPoolExecutor
 from azure.iot.hub import IoTHubRegistryManager, DigitalTwinClient
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
@@ -54,7 +55,7 @@ def get_message_source_from_event(event):
     return event.message.annotations["iothub-message-source".encode()].decode()
 
 
-class C2dMessage(object):
+class EventhubEvent(object):
     def __init__(self):
         self.device_id = None
         self.module_id = None
@@ -72,26 +73,19 @@ class PerClientData(object):
     def __init__(self, device_id, module_id):
         self.device_id = device_id
         self.module_id = module_id
-        self.incoming_event_queue = queue.Queue()
         self.incoming_patch_queue = queue.Queue()
+        self.cv = threading.Condition()
+        self.incoming_eventhub_events = {}
 
 
 class ClientList(object):
     """
-    Thread-safe object for holding a dictionary of PerDeviceData objects.
+    Thread-safe object for holding a dictionary of PerClientData objects.
     """
 
     def __init__(self):
         self.lock = threading.Lock()
         self.values = {}
-
-    def add(self, device_id, module_id, value):
-        """
-        Add a new object to the dict
-        """
-        key = self.get_key(device_id, module_id)
-        with self.lock:
-            self.values[key] = value
 
     def remove(self, device_id, module_id):
         """
@@ -123,23 +117,6 @@ class ClientList(object):
     def get_key(self, device_id, module_id):
         return "{}%{}".format(device_id, module_id)
 
-    def get_keys(self):
-        """
-        Get a list of keys for the objects in the dict
-        """
-        with self.lock:
-            return list(self.values.keys())
-
-    def get_incoming_event_queue(self, device_id, module_id):
-        client_data = self.try_get(device_id, module_id)
-        if client_data:
-            return client_data.incoming_event_queue
-
-    def get_incoming_patch_queue(self, device_id, module_id):
-        client_data = self.try_get(device_id, module_id)
-        if client_data:
-            return client_data.incoming_patch_queue
-
 
 class ServiceHelperSync(object):
     def __init__(self):
@@ -157,17 +134,24 @@ class ServiceHelperSync(object):
         )
 
         self._eventhub_future = self._executor.submit(self._eventhub_thread)
+        self.default_device_id = None
+        self.default_module_id = None
 
     def start_watching(self, device_id, module_id):
+        self.default_device_id = device_id
+        self.default_module_id = module_id
         self._client_list.get_or_create(device_id, module_id)
 
     def stop_watching(self, device_id, module_id):
+        if self.default_device_id == device_id and self.default_module_id == module_id:
+            self.default_device_id = None
+            self.default_module_id = None
         self._client_list.remove(device_id, module_id)
 
-    def get_next_incoming_event(self, device_id, module_id, block=True, timeout=None):
-        return self._client_list.get_incoming_event_queue.get(block=block, timeout=timeout)
+    def set_desired_properties(self, desired_props, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
 
-    def set_desired_properties(self, device_id, module_id, desired_props):
         if module_id:
             self._registry_manager.update_module_twin(
                 device_id, module_id, Twin(properties=TwinProperties(desired=desired_props)), "*"
@@ -179,13 +163,16 @@ class ServiceHelperSync(object):
 
     def invoke_method(
         self,
-        device_id,
-        module_id,
         method_name,
         payload,
+        device_id=None,
+        module_id=None,
         connect_timeout_in_seconds=None,
         response_timeout_in_seconds=None,
     ):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         request = CloudToDeviceMethod(
             method_name=method_name,
             payload=payload,
@@ -205,14 +192,17 @@ class ServiceHelperSync(object):
 
     def invoke_pnp_command(
         self,
-        device_id,
-        module_id,
         component_name,
         command_name,
         payload,
+        device_id=None,
+        module_id=None,
         connect_timeout_in_seconds=None,
         response_timeout_in_seconds=None,
     ):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         if component_name:
             return self._digital_twin_client.invoke_component_command(
@@ -232,27 +222,77 @@ class ServiceHelperSync(object):
                 response_timeout_in_seconds,
             )
 
-    def get_pnp_properties(self, device_id, module_id):
+    def get_pnp_properties(self, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         return self._digital_twin_client.get_digital_twin(device_id)
 
-    def update_pnp_properties(self, device_id, module_id, properties):
+    def update_pnp_properties(self, properties, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         return self._digital_twin_client.update_digital_twin(device_id, properties)
 
-    def send_c2d(self, device_id, module_id, payload, properties):
+    def send_c2d(self, payload, properties, device_id=None, module_id=None):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
         assert not module_id  # TODO
         self._registry_manager.send_c2d_message(device_id, payload, properties)
 
-    def get_next_eventhub_arrival(self, device_id, module_id, block=True, timeout=None):
-        return self._client_list.get_incoming_event_queue(device_id, module_id).get(
-            block=block, timeout=timeout
-        )
+    def wait_for_eventhub_arrival(self, message_id, device_id=None, module_id=None, timeout=20):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
 
-    def get_next_reported_patch_arrival(self, device_id, module_id, block=True, timeout=None):
-        return self._client_list.get_incoming_patch_queue(device_id, module_id).get(
-            block=block, timeout=timeout
-        )
+        client_data = self._client_list.try_get(device_id, module_id)
+
+        def get_event():
+            with client_data.cv:
+                arrivals = client_data.incoming_eventhub_events
+
+                # if message_id is not set, return any message
+                if not message_id and len(arrivals):
+                    id = list(arrivals.keys())[0]
+                else:
+                    id = message_id
+
+                if id and (id in arrivals):
+                    value = arrivals[id]
+                    del arrivals[id]
+                    return value
+                else:
+                    return None
+
+        if client_data:
+            # this should use return client_data.cv.wait_for(get_event, timeout=timeout)
+            # Replace this when we don't support py27 anymore
+            if timeout:
+                end_time = time.time() + timeout
+            else:
+                end_time = None
+            with client_data.cv:
+                while True:
+                    ev = get_event()
+                    if ev or time.time() >= end_time:
+                        return ev
+
+                    if end_time:
+                        client_data.cv.wait(timeout=end_time - time.time())
+                    else:
+                        client_data.cv.wait()
+
+    def get_next_reported_patch_arrival(
+        self, device_id=None, module_id=None, block=True, timeout=20
+    ):
+        device_id = device_id or self.default_device_id
+        module_id = module_id or self.default_module_id
+
+        client_data = self._client_list.try_get(device_id, module_id)
+        if client_data:
+            return client_data.incoming_patch_queue.get(block=block, timeout=timeout)
 
     def shutdown(self):
         if self._eventhub_consumer_client:
@@ -267,7 +307,7 @@ class ServiceHelperSync(object):
             return copy.deepcopy(event_body.get("properties", {}))
 
         else:
-            message = C2dMessage()
+            message = EventhubEvent()
             message.device_id = device_id
             message.module_id = module_id
             message.message_body = event_body
@@ -275,6 +315,18 @@ class ServiceHelperSync(object):
             message.system_properties = convert_binary_dict_to_string_dict(event.system_properties)
             message.properties = convert_binary_dict_to_string_dict(event.properties)
             return message
+
+    def _store_eventhub_arrival(self, client_data, converted_event):
+        message_id = converted_event.system_properties["message-id"]
+        if message_id:
+            with client_data.cv:
+                client_data.incoming_eventhub_events[
+                    converted_event.system_properties["message-id"]
+                ] = converted_event
+                client_data.cv.notify_all()
+
+    def _store_patch_arrival(self, client_data, converted_event):
+        client_data.incoming_patch_queue.put(converted_event)
 
     def _eventhub_thread(self):
         def on_error(partition_context, error):
@@ -292,17 +344,23 @@ class ServiceHelperSync(object):
             if event:
                 device_id = get_device_id_from_event(event)
                 module_id = None  # TODO: extract module_id
-                if get_message_source_from_event(event) == "twinChangeEvents":
-                    queue = self._client_list.get_incoming_patch_queue(device_id, module_id)
-                else:
-                    queue = self._client_list.get_incoming_event_queue(device_id, module_id)
-                if queue:
+
+                client_data = self._client_list.try_get(device_id, module_id)
+                if client_data:
                     logger.info(
                         "Received {} for device {}, module {}".format(
-                            get_message_source_from_event(event), device_id, module_id
+                            get_message_source_from_event(event),
+                            client_data.device_id,
+                            client_data.module_id,
                         )
                     )
-                    queue.put(self._convert_incoming_event(event))
+
+                    converted_event = self._convert_incoming_event(event)
+
+                    if isinstance(converted_event, EventhubEvent):
+                        self._store_eventhub_arrival(client_data, converted_event)
+                    else:
+                        self._store_patch_arrival(client_data, converted_event)
 
         try:
             with self._eventhub_consumer_client:

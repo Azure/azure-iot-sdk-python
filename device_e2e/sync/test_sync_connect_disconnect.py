@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 
-@pytest.mark.describe("Device Client")
+@pytest.mark.describe("Client object")
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
@@ -29,7 +29,7 @@ class TestConnectDisconnect(object):
 
 
 @pytest.mark.dropped_connection
-@pytest.mark.describe("Device Client with dropped connection")
+@pytest.mark.describe("Client object with dropped connection")
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.fixture(scope="class")
     def extra_client_kwargs(self):

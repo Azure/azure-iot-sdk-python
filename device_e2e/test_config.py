@@ -44,6 +44,7 @@ class Config(object):
         self.transport = TRANSPORT_MQTT
         self.identity = IDENTITY_DEVICE
         self.auth = AUTH_CONNECTION_STRING
+        self.fast_iteration = False
 
 
 config = Config()
@@ -52,7 +53,11 @@ connection_retry_disabled_and_enabled = [
     "connection_retry",
     [
         pytest.param(True, id="connection_retry enabled"),
-        pytest.param(False, id="connection_retry disabled"),
+        pytest.param(
+            False,
+            id="connection_retry disabled",
+            marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
+        ),
     ],
 ]
 
@@ -60,6 +65,10 @@ auto_connect_off_and_on = [
     "auto_connect",
     [
         pytest.param(True, id="auto_connect enabled"),
-        pytest.param(False, id="auto_connect disabled"),
+        pytest.param(
+            False,
+            id="auto_connect disabled",
+            marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
+        ),
     ],
 ]

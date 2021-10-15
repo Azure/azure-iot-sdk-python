@@ -31,14 +31,22 @@ class TestPnpCommands(object):
         "include_request_payload",
         [
             pytest.param(True, id="with request payload"),
-            pytest.param(False, id="without request payload"),
+            pytest.param(
+                False,
+                id="without request payload",
+                marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
+            ),
         ],
     )
     @pytest.mark.parametrize(
         "include_response_payload",
         [
             pytest.param(True, id="with response payload"),
-            pytest.param(False, id="without response payload"),
+            pytest.param(
+                False,
+                id="without response payload",
+                marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
+            ),
         ],
     )
     @pytest.mark.parametrize(
@@ -59,8 +67,6 @@ class TestPnpCommands(object):
         include_request_payload,
         include_response_payload,
         service_helper,
-        device_id,
-        module_id,
     ):
         actual_request = None
 
@@ -94,7 +100,7 @@ class TestPnpCommands(object):
 
         # invoke the command
         command_response = await service_helper.invoke_pnp_command(
-            device_id, module_id, pnp_component_name, pnp_command_name, request_payload
+            pnp_component_name, pnp_command_name, request_payload
         )
 
         # verify that the method request arrived correctly

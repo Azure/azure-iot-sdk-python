@@ -14,10 +14,10 @@ logger.setLevel(level=logging.INFO)
 # TODO: is there a way to call send_c2d so it arrives as an object rather than a JSON string?
 
 
-@pytest.mark.describe("Device Client C2d")
+@pytest.mark.describe("Client C2d")
 class TestSendMessage(object):
     @pytest.mark.it("Can receive C2D")
-    def test_send_message(self, client, service_helper, device_id, module_id):
+    def test_send_message(self, client, service_helper):
         message = json.dumps(get_random_dict())
 
         received = threading.Event()
@@ -32,7 +32,7 @@ class TestSendMessage(object):
 
         client.on_message_received = handle_on_message_received
 
-        service_helper.send_c2d(device_id, module_id, message, {})
+        service_helper.send_c2d(message, {})
 
         received.wait(timeout=10)
 

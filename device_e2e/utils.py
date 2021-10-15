@@ -33,6 +33,7 @@ def get_random_message():
     message = Message(json.dumps(get_random_dict()))
     message.content_type = const.JSON_CONTENT_TYPE
     message.content_encoding = const.JSON_CONTENT_ENCODING
+    message.message_id = str(uuid.uuid4())
     return message
 
 

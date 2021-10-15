@@ -21,29 +21,35 @@ def method_response_status():
     return 299
 
 
-@pytest.mark.describe("Device Client methods")
+@pytest.mark.describe("Client methods")
 class TestMethods(object):
     @pytest.mark.it("Can handle a simple direct method call")
     @pytest.mark.parametrize(
         "include_request_payload",
         [
             pytest.param(True, id="with request payload"),
-            pytest.param(False, id="without request payload"),
+            pytest.param(
+                False,
+                id="without request payload",
+                marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
+            ),
         ],
     )
     @pytest.mark.parametrize(
         "include_response_payload",
         [
             pytest.param(True, id="with response payload"),
-            pytest.param(False, id="without response payload"),
+            pytest.param(
+                False,
+                id="without response payload",
+                marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
+            ),
         ],
     )
     def test_handle_method_call(
         self,
         client,
         method_name,
-        device_id,
-        module_id,
         method_response_status,
         include_request_payload,
         include_response_payload,
@@ -77,9 +83,7 @@ class TestMethods(object):
         time.sleep(1)  # wait for subscribe, etc, to complete
 
         # invoke the method call
-        method_response = service_helper.invoke_method(
-            device_id, module_id, method_name, request_payload
-        )
+        method_response = service_helper.invoke_method(method_name, request_payload)
 
         # verify that the method request arrived correctly
         actual_request = nonlocal_py27_hack["actual_request"]
