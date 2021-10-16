@@ -21,6 +21,7 @@ reset_reported_props = {const.TEST_CONTENT: None}
 @pytest.mark.describe("Client Reported Properties")
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
+    @pytest.mark.quicktest_suite
     async def test_simple_patch(self, client, random_reported_props, service_helper):
 
         # patch properties
@@ -38,6 +39,7 @@ class TestReportedProperties(object):
         assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
 
     @pytest.mark.it("Can clear a reported property")
+    @pytest.mark.quicktest_suite
     async def test_clear_property(self, client, random_reported_props, service_helper):
 
         # patch properties and verify that the service received the patch
@@ -61,6 +63,7 @@ class TestReportedProperties(object):
         assert const.TEST_CONTENT not in twin[const.REPORTED]
 
     @pytest.mark.it("Connects the transport if necessary")
+    @pytest.mark.quicktest_suite
     async def test_connect_if_necessary(self, client, random_reported_props, service_helper):
 
         await client.disconnect()
@@ -148,6 +151,7 @@ class TestReportedPropertiesDroppedConnection(object):
 @pytest.mark.describe("Client Desired Properties")
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
+    @pytest.mark.quicktest_suite
     async def test_simple_patch(self, client, event_loop, service_helper):
 
         received_patch = None

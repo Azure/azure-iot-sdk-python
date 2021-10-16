@@ -118,12 +118,6 @@ def pytest_addoption(parser):
         choices=test_config.IDENTITY_CHOICES,
         default=test_config.IDENTITY_DEVICE,
     )
-    parser.addoption(
-        "--fast_iteration",
-        help="only run fast tests, useful for quick iteration",
-        action="store_true",
-        default=False,
-    )
 
 
 def pytest_configure(config):
@@ -136,7 +130,6 @@ def pytest_configure(config):
     test_config.config.transport = config.getoption("transport")
     test_config.config.auth = config.getoption("auth")
     test_config.config.identity = config.getoption("identity")
-    test_config.config.fast_iteration = config.getoption("fast_iteration")
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -154,8 +147,8 @@ def pytest_runtest_setup(item):
     # reconnect in case a previously interrupted test run left our network disconnected
     drop.reconnect_all(test_config.config.transport)
 
-    # tests that use iptables need to be skipped on Windows or if we're trying to go fast
-    if test_config.config.fast_iteration or is_windows():
+    # tests that use iptables need to be skipped on Windows
+    if is_windows():
         for x in item.iter_markers("uses_iptables"):
             pytest.skip("test uses iptables")
             return
@@ -163,16 +156,9 @@ def pytest_runtest_setup(item):
             pytest.skip("test uses iptables")
             return
 
-    if test_config.config.fast_iteration:
-        for x in item.iter_markers("dont_run_this_if_you_want_your_tests_to_go_fast"):
-            pytest.skip("test is arbitrarily 'optional' and we're trying to iterate quickly")
-            return
-
-    if not test_config.config.fast_iteration:
-        # Don't track leaks if we're trying to iterate quickly
-        item.leak_tracker = leak_tracker.LeakTracker()
-        item.leak_tracker.add_tracked_module("azure.iot.device")
-        item.leak_tracker.set_baseline()
+    item.leak_tracker = leak_tracker.LeakTracker()
+    item.leak_tracker.add_tracked_module("azure.iot.device")
+    item.leak_tracker.set_baseline()
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

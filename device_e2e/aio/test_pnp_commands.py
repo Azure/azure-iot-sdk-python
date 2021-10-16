@@ -4,6 +4,7 @@
 import pytest
 import logging
 import asyncio
+import test_config
 from utils import get_random_dict
 import azure.iot.device.iothub
 
@@ -27,28 +28,7 @@ def extra_client_kwargs(pnp_model_id):
 @pytest.mark.describe("Pnp Commands")
 class TestPnpCommands(object):
     @pytest.mark.it("Can handle a simple command")
-    @pytest.mark.parametrize(
-        "include_request_payload",
-        [
-            pytest.param(True, id="with request payload"),
-            pytest.param(
-                False,
-                id="without request payload",
-                marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
-            ),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "include_response_payload",
-        [
-            pytest.param(True, id="with response payload"),
-            pytest.param(
-                False,
-                id="without response payload",
-                marks=pytest.mark.dont_run_this_if_you_want_your_tests_to_go_fast,
-            ),
-        ],
-    )
+    @pytest.mark.parametrize(*test_config.all_method_payload_options)
     @pytest.mark.parametrize(
         "include_component_name",
         [
