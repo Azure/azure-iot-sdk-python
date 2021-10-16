@@ -21,11 +21,11 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-        EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -51,11 +51,11 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
-        EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -81,11 +81,11 @@ jobs:
 
     - script: |
         cd $(Build.SourcesDirectory)/device_e2e
-        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)"
       displayName: 'E2E Device Client MQTT Connection String'
       env:
-        IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
-        EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
