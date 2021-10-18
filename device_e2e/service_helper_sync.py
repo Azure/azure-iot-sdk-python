@@ -7,7 +7,7 @@ from six.moves import queue
 import copy
 import time
 from concurrent.futures import ThreadPoolExecutor
-from azure.iot.hub import IoTHubRegistryManager, DigitalTwinClient
+from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
 from azure.eventhub import EventHubConsumerClient
 import e2e_settings
@@ -81,10 +81,6 @@ class ServiceHelperSync(object):
 
         self._registry_manager = IoTHubRegistryManager(iothub_connection_string)
 
-        self._digital_twin_client = DigitalTwinClient.from_connection_string(
-            iothub_connection_string
-        )
-
         self._eventhub_consumer_client = EventHubConsumerClient.from_connection_string(
             eventhub_connection_string, consumer_group=eventhub_consumer_group
         )
@@ -139,47 +135,6 @@ class ServiceHelperSync(object):
             response = self._registry_manager.invoke_device_method(self.device_id, request)
 
         return response
-
-    def invoke_pnp_command(
-        self,
-        component_name,
-        command_name,
-        payload,
-        connect_timeout_in_seconds=None,
-        response_timeout_in_seconds=None,
-    ):
-        # digital twin client takes a "digital_twin_id" which is the same as device_id for devices.
-        # We need to figure out what it is for modules.
-        assert not self.module_id  # TODO
-        if component_name:
-            return self._digital_twin_client.invoke_component_command(
-                self.device_id,
-                component_name,
-                command_name,
-                payload,
-                connect_timeout_in_seconds,
-                response_timeout_in_seconds,
-            )
-        else:
-            return self._digital_twin_client.invoke_command(
-                self.device_id,
-                command_name,
-                payload,
-                connect_timeout_in_seconds,
-                response_timeout_in_seconds,
-            )
-
-    def get_pnp_properties(self):
-        # digital twin client takes a "digital_twin_id" which is the same as device_id for devices.
-        # We need to figure out what it is for modules.
-        assert not self.module_id  # TODO
-        return self._digital_twin_client.get_digital_twin(self.device_id)
-
-    def update_pnp_properties(self, properties):
-        # digital twin client takes a "digital_twin_id" which is the same as device_id for devices.
-        # We need to figure out what it is for modules.
-        assert not self.module_id  # TODO
-        return self._digital_twin_client.update_digital_twin(self.device_id, properties)
 
     def send_c2d(self, payload, properties):
         if self.module_id:

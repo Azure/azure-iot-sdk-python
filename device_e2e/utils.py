@@ -37,19 +37,6 @@ def get_random_message():
     return message
 
 
-def make_pnp_desired_property_patch(component_name, property_name, property_value):
-    if component_name:
-        return [
-            {
-                "op": "add",
-                "path": "/{}".format(component_name),
-                "value": {property_name: property_value, "$metadata": {}},
-            }
-        ]
-    else:
-        return [{"op": "add", "path": "/{}".format(property_name), "value": property_value}]
-
-
 def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClass):
 
     if test_config.config.identity in [
