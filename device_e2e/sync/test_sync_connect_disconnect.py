@@ -100,7 +100,8 @@ class TestConnectDisconnect(object):
         We have to make sure that we can handle this without getting stuck in a bad state.
         """
         if connection_retry:
-            pytest.xfail(reason="two stage disconect causes assertion")
+            # See "This assert fails if connection_retry is True" below
+            pytest.xfail(reason="two stage disconect causes assertion in test code")
 
         client = brand_new_client
         assert client
