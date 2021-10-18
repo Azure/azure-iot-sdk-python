@@ -15,16 +15,6 @@ from utils import get_random_message, get_random_dict, is_windows
 # noqa: F401 defined in .flake8 file in root of repo
 
 from drop_fixtures import dropper
-from pnp_fixtures import (
-    pnp_model_id,
-    pnp_command_name,
-    pnp_component_name,
-    pnp_command_response_status,
-    pnp_writable_property_name,
-    pnp_read_only_property_name,
-    pnp_ack_code,
-    pnp_ack_description,
-)
 from client_fixtures import (
     client_kwargs,
     extra_client_kwargs,
