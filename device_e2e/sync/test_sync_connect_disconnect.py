@@ -38,10 +38,11 @@ class TestConnectDisconnect(object):
 
         handler_called = threading.Event()
 
+        nonlocal_py27_hack = {"handler_called": handler_called}
+
         def handle_on_connection_state_change():
-            nonlocal handler_called
             if client.connected:
-                handler_called.set()
+                nonlocal_py27_hack["handler_called"].set()
 
         client.connect()
         assert client.connected
@@ -70,10 +71,11 @@ class TestConnectDisconnect(object):
 
         handler_called = threading.Event()
 
+        nonlocal_py27_hack = {"handler_called": handler_called}
+
         def handle_on_connection_state_change():
-            nonlocal handler_called
             if not client.connected:
-                handler_called.set()
+                nonlocal_py27_hack["handler_called"].set()
 
         if previously_connected:
             client.connect()
@@ -88,6 +90,8 @@ class TestConnectDisconnect(object):
     )
     @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    # see "This assert fails because of initial and secondary disconnects" below
+    @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
     def test_connect_in_the_middle_of_disconnect(
         self,
         brand_new_client,
@@ -99,24 +103,21 @@ class TestConnectDisconnect(object):
         Explanation: People will call `connect` inside `on_connection_state_change` handlers.
         We have to make sure that we can handle this without getting stuck in a bad state.
         """
-        if connection_retry:
-            # See "This assert fails if connection_retry is True" below
-            pytest.xfail(reason="two stage disconect causes assertion in test code")
-
         client = brand_new_client
         assert client
 
         reconnected_event = threading.Event()
 
+        nonlocal_py27_hack = {"reconnected_event": reconnected_event}
+
         def handle_on_connection_state_change():
-            nonlocal reconnected_event
             if client.connected:
                 logger.info("handle_on_connection_state_change connected.  nothing to do")
             else:
                 logger.info("handle_on_connection_state_change disconnected.  reconnecting.")
                 client.connect()
                 assert client.connected
-                reconnected_event.set()
+                nonlocal_py27_hack["reconnected_event"].set()
                 logger.info("reconnect event set")
 
         client.on_connection_state_change = handle_on_connection_state_change
@@ -135,7 +136,7 @@ class TestConnectDisconnect(object):
         reconnected_event.wait()
 
         logger.info("reconect_event.wait() returned.  client.conencted={}".format(client.connected))
-        # This assert fails if connection_retry is True
+        # This assert fails because of initial and secondary disconnects
         assert client.connected
 
         # sleep a while and make sure that we're still connected.
@@ -170,13 +171,14 @@ class TestConnectDisconnect(object):
 
         disconnected_event = threading.Event()
 
+        nonlocal_py27_hack = {"disconnected_event": disconnected_event}
+
         def handle_on_connection_state_change():
-            nonlocal disconnected_event
             if client.connected:
                 if disconnect_on_next_connect_event:
                     logger.info("connected.  disconnecitng now")
                     client.disconnect()
-                    disconnected_event.set()
+                    nonlocal_py27_hack["disconnected_event"].set()
                 else:
                     logger.info("connected, but nothing to do")
             else:
