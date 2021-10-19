@@ -38,17 +38,14 @@ def print_device_info(title, iothub_device):
     print("")
 
 
-# DefaultAzureCredential supports different authentication mechanisms and determines
-# the appropriate credential type based of the environment it is executing in.
-# It attempts to use multiple credential types in an order until it finds a working credential.
+# IOT_HUB_HOSTNAME: The hostname of the Azure IoT Hub
+url = os.getenv("IOT_HUB_HOSTNAME")
 
-# - AZURE_URL: The tenant ID in Azure Active Directory
-url = os.getenv("AZURE_AAD_HOST")
-
-# DefaultAzureCredential expects the following three environment variables:
-# - AZURE_TENANT_ID: The tenant ID in Azure Active Directory
-# - AZURE_CLIENT_ID: The application (client) ID registered in the AAD tenant
-# - AZURE_CLIENT_SECRET: The client secret for the registered application
+# DefaultAzureCredential is provided by azure-identity. It supports
+# different authentication mechanisms and determines the appropriate
+# credential type based of the environment it is executing in. See
+# https://pypi.org/project/azure-identity/ for more information on
+# authenticating with DefaultAzureCredential or other implementations of TokenCredential.
 credential = DefaultAzureCredential()
 
 # This sample creates and uses device with SAS authentication

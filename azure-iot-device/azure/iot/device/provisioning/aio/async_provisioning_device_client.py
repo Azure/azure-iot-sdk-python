@@ -35,6 +35,10 @@ async def handle_result(callback):
         raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
     except pipeline_exceptions.ProtocolClientError as e:
         raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+    except pipeline_exceptions.OperationTimeout as e:
+        raise exceptions.OperationTimeout(
+            message="Could not complete operation before timeout", cause=e
+        )
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError(message="Client has already been shut down", cause=e)
     except Exception as e:

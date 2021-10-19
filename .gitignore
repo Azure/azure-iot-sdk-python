@@ -122,3 +122,6 @@ coverage/
 *.pem
 demoCA/
 *.rnd
+
+# e2e
+**/_e2e_settings.json

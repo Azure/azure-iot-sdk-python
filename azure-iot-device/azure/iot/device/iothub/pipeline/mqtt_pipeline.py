@@ -236,7 +236,7 @@ class MQTTPipeline(object):
         """
         Connect to the service.
 
-        :param callback: callback which is called when the connection to the service is complete.
+        :param callback: callback which is called when the connection attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -248,6 +248,7 @@ class MQTTPipeline(object):
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting ConnectOperation on the pipeline")
@@ -261,7 +262,9 @@ class MQTTPipeline(object):
         """
         Disconnect from the service.
 
-        :param callback: callback which is called when the connection to the service has been disconnected
+        Note that even if this fails for some reason, the client will be in a disconnected state.
+
+        :param callback: callback which is called when the disconnection is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -281,13 +284,13 @@ class MQTTPipeline(object):
 
     def reauthorize_connection(self, callback):
         """
-        Reauthorize connection to the service.
+        Reauthorize connection to the service by disconnecting and then reconnecting using
+        fresh credentials.
 
-        Technically, this function will return upon disconnection. The disconnection will then
-        immediately trigger a reconnect, but this function will not wait for that to return.
-        This is (unfortunately) necessary while supporting MQTT3.
+        This can be called regardless of connection state. If successful, the client will be
+        connected. If unsuccessful, the client will be disconnected.
 
-        :param callback: callback which is called when the connection to the service has been disconnected
+        :param callback: callback which is called when the reauthorization attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -295,7 +298,11 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting ReauthorizeConnectionOperation on the pipeline")
@@ -312,7 +319,7 @@ class MQTTPipeline(object):
         Send a telemetry message to the service.
 
         :param message: message to send.
-        :param callback: callback which is called when the message publish has been acknowledged by the service.
+        :param callback: callback which is called when the message publish attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -320,11 +327,16 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting SendD2CMessageOperation on the pipeline")
@@ -341,7 +353,7 @@ class MQTTPipeline(object):
         Send an output message to the service.
 
         :param message: message to send.
-        :param callback: callback which is called when the message publish has been acknowledged by the service.
+        :param callback: callback which is called when the message publish attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -349,11 +361,16 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting SendOutputMessageOperation on the pipeline")
@@ -370,7 +387,7 @@ class MQTTPipeline(object):
         Send a method response to the service.
 
         :param method_response: the method response to send
-        :param callback: callback which is called when response has been acknowledged by the service
+        :param callback: callback which is called when response publish attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -378,11 +395,16 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting SendMethodResponseOperation on the pipeline")
@@ -400,7 +422,7 @@ class MQTTPipeline(object):
         """
         Send a request for a full twin to the service.
 
-        :param callback: callback which is called when request has been acknowledged by the service.
+        :param callback: callback which is called when request attempt is complete.
             This callback should have two parameters.  On success, this callback is called with the
             requested twin and error=None.  On failure, this callback is called with None for the
             requested win and error set to the cause of the failure.
@@ -411,11 +433,16 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting GetTwinOperation on the pipeline")
@@ -433,7 +460,7 @@ class MQTTPipeline(object):
         Send a patch for a twin's reported properties to the service.
 
         :param patch: the reported properties patch to send
-        :param callback: callback which is called when request has been acknowledged by the service.
+        :param callback: callback which is called when the request attempt is complete.
 
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.PipelineNotRunning` if the
             pipeline has previously been shut down
@@ -441,11 +468,16 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.OperationTimeout`
         """
         self._verify_running()
         logger.debug("Starting PatchTwinReportedPropertiesOperation on the pipeline")
@@ -459,6 +491,7 @@ class MQTTPipeline(object):
             )
         )
 
+    # NOTE: Currently, this operation will retry itself indefinitely in the case of timeout
     def enable_feature(self, feature_name, callback):
         """
         Enable the given feature by subscribing to the appropriate topics.
@@ -473,11 +506,15 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
         self._verify_running()
         logger.debug("enable_feature {} called".format(feature_name))
@@ -498,6 +535,7 @@ class MQTTPipeline(object):
             )
         )
 
+    # NOTE: Currently, this operation will retry itself indefinitely in the case of timeout
     def disable_feature(self, feature_name, callback):
         """
         Disable the given feature by subscribing to the appropriate topics.
@@ -512,11 +550,15 @@ class MQTTPipeline(object):
         The following exceptions are not "raised", but rather returned via the "error" parameter
         when invoking "callback":
 
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
+        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
+
+        The following exceptions can be returned via the "error" parameter only if auto-connect
+        is enabled in the pipeline configuration:
+
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionFailedError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ConnectionDroppedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.NoConnectionError`
         :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.UnauthorizedError`
-        :raises: :class:`azure.iot.device.iothub.pipeline.exceptions.ProtocolClientError`
         """
         self._verify_running()
         logger.debug("disable_feature {} called".format(feature_name))

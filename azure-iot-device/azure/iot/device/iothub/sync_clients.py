@@ -53,7 +53,13 @@ def handle_result(callback):
     except pipeline_exceptions.PipelineNotRunning as e:
         raise exceptions.ClientError(message="Client has already been shut down", cause=e)
     except pipeline_exceptions.OperationCancelled as e:
-        raise exceptions.OperationCancelled(message="Could not complete operation", cause=e)
+        raise exceptions.OperationCancelled(
+            message="Operation was cancelled before completion", cause=e
+        )
+    except pipeline_exceptions.OperationTimeout as e:
+        raise exceptions.OperationTimeout(
+            message="Could not complete operation before timeout", cause=e
+        )
     except Exception as e:
         raise exceptions.ClientError(message="Unexpected failure", cause=e)
 
@@ -221,6 +227,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the connection times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
         """
@@ -283,17 +290,22 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         Update the client's SAS Token used for authentication, then reauthorizes the connection.
 
         This API can only be used if the client was initially created with a SAS Token.
-        Note also that this API may return before the reauthorization/reconnection is completed.
-        This means that some errors that may occur as part of the reconnection could occur in the
-        background, and will not be raised by this method.
 
         :param str sastoken: The new SAS Token string for the client to use
 
+        :raises: ValueError if the sastoken parameter is invalid
+        :raises: :class:`azure.iot.device.exceptions.CredentialError` if credentials are invalid
+            and a connection cannot be re-established.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionFailedError` if a re-establishing
+            the connection results in failure.
+        :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
+            during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if the reauthorization
+            attempt times out.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if the client was not initially
             created with a SAS token.
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
             during execution.
-        :raises: ValueError if the sastoken parameter is invalid
         """
         self._replace_user_supplied_sastoken(sastoken)
 
@@ -328,6 +340,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -399,6 +413,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -428,6 +444,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -462,6 +480,8 @@ class GenericIoTHubClient(AbstractIoTHubClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure
@@ -653,6 +673,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
             connection results in failure.
         :raises: :class:`azure.iot.device.exceptions.ConnectionDroppedError` if connection is lost
             during execution.
+        :raises: :class:`azure.iot.device.exceptions.OperationTimeout` if connection attempt
+            times out
         :raises: :class:`azure.iot.device.exceptions.NoConnectionError` if the client is not
             connected (and there is no auto-connect enabled)
         :raises: :class:`azure.iot.device.exceptions.ClientError` if there is an unexpected failure

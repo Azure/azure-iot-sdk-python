@@ -258,6 +258,11 @@ class TestClientRegister(object):
                 client_exceptions.ClientError,
                 id="ProtocolClientError->ClientError",
             ),
+            pytest.param(
+                pipeline_exceptions.OperationTimeout,
+                client_exceptions.OperationTimeout,
+                id="OperationTimeout->OperationTimeout",
+            ),
             pytest.param(Exception, client_exceptions.ClientError, id="Exception->ClientError"),
         ],
     )
