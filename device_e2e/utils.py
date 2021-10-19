@@ -33,20 +33,8 @@ def get_random_message():
     message = Message(json.dumps(get_random_dict()))
     message.content_type = const.JSON_CONTENT_TYPE
     message.content_encoding = const.JSON_CONTENT_ENCODING
+    message.message_id = str(uuid.uuid4())
     return message
-
-
-def make_pnp_desired_property_patch(component_name, property_name, property_value):
-    if component_name:
-        return [
-            {
-                "op": "add",
-                "path": "/{}".format(component_name),
-                "value": {property_name: property_value, "$metadata": {}},
-            }
-        ]
-    else:
-        return [{"op": "add", "path": "/{}".format(property_name), "value": property_value}]
 
 
 def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClass):

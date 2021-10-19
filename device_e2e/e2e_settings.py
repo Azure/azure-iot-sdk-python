@@ -37,8 +37,8 @@ def get_secrets():
         IOTHUB_CONNECTION_STRING = secrets.get("iothubConnectionString", None)
         EVENTHUB_CONNECTION_STRING = secrets.get("eventhubConnectionString", None)
     else:
-        IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_CONNECTION_STRING"]
-        EVENTHUB_CONNECTION_STRING = os.environ["EVENTHUB_CONNECTION_STRING"]
+        IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_E2E_IOTHUB_CONNECTION_STRING"]
+        EVENTHUB_CONNECTION_STRING = os.environ["IOTHUB_E2E_EVENTHUB_CONNECTION_STRING"]
 
     parts = {}
     for key_and_value in IOTHUB_CONNECTION_STRING.split(";"):

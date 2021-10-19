@@ -12,21 +12,13 @@ import test_config
 
 
 @pytest.fixture(scope="function")
-def device_id(brand_new_client):
-    # TODO: suggest adding device_id and module_id to client object
-    return brand_new_client._mqtt_pipeline._pipeline.pipeline_configuration.device_id
+def device_id(device_identity):
+    return device_identity.device_id
 
 
 @pytest.fixture(scope="function")
-def module_id(brand_new_client):
-    return brand_new_client._mqtt_pipeline._pipeline.pipeline_configuration.module_id
-
-
-@pytest.fixture(scope="function")
-def watches_events(service_helper, device_id, module_id):
-    service_helper.start_watching(device_id, module_id)
-    yield
-    service_helper.stop_watching(device_id, module_id)
+def module_id(device_identity):
+    return None
 
 
 @pytest.fixture(scope="function")

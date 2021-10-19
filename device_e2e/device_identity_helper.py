@@ -29,7 +29,7 @@ def generate_sas_token(uri, key, policy_name, expiry):
     return "SharedAccessSignature " + parse.urlencode(rawtoken)
 
 
-class DeviceIdentityDescription(object):
+class IdentityDescription(object):
     def __init_(self):
         self.device_id = None
         self.authentication_description = None
@@ -41,14 +41,14 @@ class DeviceIdentityDescription(object):
 
 
 def create_device_with_x509_self_signed_cert():
-    desc = DeviceIdentityDescription()
+    desc = IdentityDescription()
     desc.authentication_description = "x509 certificate"
     desc.device_id = "00e2etest-delete-me-python-x509-" + str(uuid.uuid4())
     raise Exception("NOTIMPL")
 
 
 def create_device_with_symmetric_key():
-    desc = DeviceIdentityDescription()
+    desc = IdentityDescription()
     desc.authentication_description = "shared private key"
     desc.device_id = "00e2etest-delete-me-python-key-" + str(uuid.uuid4())
 
@@ -67,7 +67,7 @@ def create_device_with_symmetric_key():
 
 
 def create_device_with_sas():
-    desc = DeviceIdentityDescription()
+    desc = IdentityDescription()
     desc.authentication_description = "application supplied SAS"
     desc.device_id = "00e2etest-delete-me-python-sas-" + str(uuid.uuid4())
 
@@ -85,7 +85,7 @@ def create_device_with_sas():
 
 
 def create_device_with_x509_ca_signed_cert():
-    desc = DeviceIdentityDescription()
+    desc = IdentityDescription()
     desc.authentication_description = "CA signed certificate"
     desc.device_id = "e2e-del-me-python-CACert-" + str(uuid.uuid4())
     raise Exception("NOTIMPL")
