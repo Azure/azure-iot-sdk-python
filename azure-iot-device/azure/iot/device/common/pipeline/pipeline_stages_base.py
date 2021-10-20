@@ -311,7 +311,7 @@ class PipelineRootStage(PipelineStage):
             if self.on_background_exception_handler:
                 pipeline_thread.invoke_on_callback_thread_nowait(
                     self.on_background_exception_handler
-                )()
+                )(event.e)
 
         # Events that are domain-specific and unique to each pipeline are handled by the provided
         # domain-specific .on_pipeline_event_handler

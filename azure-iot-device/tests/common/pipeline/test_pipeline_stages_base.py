@@ -252,14 +252,16 @@ class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
     def event(self, arbitrary_exception):
         return pipeline_events_base.BackgroundExceptionEvent(arbitrary_exception)
 
-    @pytest.mark.it("Invokes the 'on_background_exception_handler' handler function, if set")
+    @pytest.mark.it(
+        "Invokes the 'on_background_exception_handler' handler function, passing the exception object, if set"
+    )
     def test_invoke_handler(self, mocker, stage, event):
         mock_handler = mocker.MagicMock()
         stage.on_background_exception_handler = mock_handler
         stage.handle_pipeline_event(event)
         time.sleep(0.1)  # Needs a brief sleep so thread can switch
         assert mock_handler.call_count == 1
-        assert mock_handler.call_args == mocker.call()
+        assert mock_handler.call_args == mocker.call(event.e)
 
 
 @pytest.mark.describe(
