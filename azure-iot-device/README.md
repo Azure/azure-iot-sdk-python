@@ -30,6 +30,8 @@ These clients are available with an asynchronous API, as well as a blocking sync
 | Python 3.5.3+  | **YES**          | **YES**         |
 | Python 2.7     | NO               | **YES**         |
 
+**DEPRECATION NOTICE: SUPPORT FOR PYTHON 2.7 WILL BE DROPPED AT THE BEGINNING OF 2022**
+
 ## Installation
 
 ```Shell

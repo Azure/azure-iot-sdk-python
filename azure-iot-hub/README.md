@@ -17,6 +17,8 @@ The SDK provides the following clients:
 pip install azure-iot-hub
 ```
 
+**DEPRECATION NOTICE: SUPPORT FOR PYTHON 2.7 WILL BE DROPPED AT THE BEGINNING OF 2022**
+
 ## IoTHub Samples
 
 Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub/samples) for more detailed samples
