@@ -108,7 +108,8 @@ class PipelineStage(object):
             # caller and rely on the caller to handle them, they're somewhat unexpected and might be
             # worthy of investigation.
 
-            # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            # Do not use exc_info parameter on logger.* calls. This causes pytest to save the
+            # traceback which saves stack frames which shows up as a leak
             logger.warning(msg="Unexpected error in {}._run_op() call".format(self))
             logger.warning(traceback.format_exc())
             op.complete(error=e)
@@ -139,9 +140,18 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            # Do not use exc_info parameter on logger.* calls.  This causes pytest to save the traceback which saves stack frames which shows up as a leak
-            logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
-            self.raise_background_exception(e)
+            # Do not use exc_info parameter on logger.* calls. This causes pytest to save the
+            # traceback which saves stack frames which shows up as a leak
+            logger.error(
+                msg="{}: Unexpected error in ._handle_pipeline_event() call: {}".format(self, e)
+            )
+            if self.previous:
+                logger.error("{}: Raising background exception")
+                self.raise_background_exception(e)
+            else:
+                logger.error(
+                    "{}: Cannot raise a background exception because there is no previous stage!"
+                )
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -164,18 +174,18 @@ class PipelineStage(object):
 
         :param PipelineOperation op: Operation which is being passed on
         """
-        if not self.next:
-            # even though we technically "handle" this by returning it to the caller, this is
-            # still serious enough that it warrants a logger.error call because it should never
-            # happen if our pipeline was created correctly and we're only sending expected
-            # operations.
-            logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
-            error = pipeline_exceptions.PipelineRuntimeError(
+        if self.next:
+            self.next.run_op(op)
+        else:
+            # This shouldn't happen if the pipeline was created correctly
+            logger.error(
+                "{}({}): no next stage.cannot send op down. completing with error".format(
+                    self.name, op.name
+                )
+            )
+            raise pipeline_exceptions.PipelineRuntimeError(
                 "{} not handled after {} stage with no next stage".format(op.name, self.name)
             )
-            op.complete(error=error)
-        else:
-            self.next.run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def send_event_up(self, event):
@@ -187,11 +197,16 @@ class PipelineStage(object):
         if self.previous:
             self.previous.handle_pipeline_event(event)
         else:
+            # This shouldn't happen if the pipeline was created correctly
             logger.critical(
-                "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
+                "{}({}): no previous stage. cannot send event up".format(event.name, self.name)
             )
-            # Can't raise the error because there is no previous stage to raise to. Nothing to do
-            # but log it. This should never happen anyway.
+            # NOTE: We can't raise a background exception here because that involves
+            # sending an event up, which is what got us into this problem in the first place.
+            # Instead, raise, and let the method invoking this method handle it
+            raise pipeline_exceptions.PipelineRuntimeError(
+                "{} not handled after {} stage with no previous stage".format(event.name, self.name)
+            )
 
     @pipeline_thread.runs_on_pipeline_thread
     def raise_background_exception(self, e):

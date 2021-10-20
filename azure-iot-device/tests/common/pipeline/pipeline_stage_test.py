@@ -78,24 +78,18 @@ def add_base_pipeline_stage_tests(
 
     @pytest.mark.describe("{} - .send_op_down()".format(stage_class_under_test.__name__))
     class StageSendOpDownTests(StageTestConfig):
-        @pytest.mark.it(
-            "Completes the op with failure (PipelineRuntimeError) if there is no next stage"
-        )
-        def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
-            stage.next = None
-
-            assert not arbitrary_op.completed
-
-            stage.send_op_down(arbitrary_op)
-
-            assert arbitrary_op.completed
-            assert type(arbitrary_op.error) is pipeline_exceptions.PipelineRuntimeError
-
         @pytest.mark.it("Passes the op to the next stage's .run_op() method")
         def test_passes_op_to_next_stage(self, mocker, stage, arbitrary_op):
             stage.send_op_down(arbitrary_op)
             assert stage.next.run_op.call_count == 1
             assert stage.next.run_op.call_args == mocker.call(arbitrary_op)
+
+        @pytest.mark.it("Raises a PipelineRuntimeError if there is no next stage")
+        def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
+            stage.next = None
+
+            with pytest.raises(pipeline_exceptions.PipelineRuntimeError):
+                stage.send_op_down(arbitrary_op)
 
     @pytest.mark.describe("{} - .send_event_up()".format(stage_class_under_test.__name__))
     class StageSendEventUpTests(StageTestConfig):
@@ -107,8 +101,11 @@ def add_base_pipeline_stage_tests(
             assert stage.previous.handle_pipeline_event.call_count == 1
             assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
-        # Note that if there is no previous stage, it logs the error, but there isn't much of a way
-        # to test that
+        @pytest.mark.it("Raises a PipelineRuntimeError if there is no previous stage")
+        def test_no_previous_stage(self, stage, arbitrary_event):
+            stage.previous = None
+            with pytest.raises(pipeline_exceptions.PipelineRuntimeError):
+                stage.send_event_up(arbitrary_event)
 
     setattr(
         test_module,
