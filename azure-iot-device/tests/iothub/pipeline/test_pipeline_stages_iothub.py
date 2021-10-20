@@ -8,7 +8,6 @@ import logging
 import pytest
 import sys
 from azure.iot.device.exceptions import ServiceError
-from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub.pipeline import (
     pipeline_events_iothub,
     pipeline_ops_iothub,

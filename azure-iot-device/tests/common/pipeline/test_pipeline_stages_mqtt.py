@@ -1047,19 +1047,18 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         else:
             return None
 
+    # NOTE: Reauthorize cannot be pending. Instead a reauth will spawn separate
+    # Connect and Disconnect ops that will themselves pend
     @pytest.fixture(
         params=[
             "No pending operation",
             "Pending ConnectOperation",
-            "Pending ReauthorizeConnectionOperation",
             "Pending DisconnectOperation",
         ]
     )
     def pending_connection_op(self, request):
         if request.param == "Pending ConnectOperation":
             return pipeline_ops_base.ConnectOperation(callback=fake_callback)
-        elif request.param == "Pending ReauthorizeConnectionOperation":
-            return pipeline_ops_base.ReauthorizeConnectionOperation(callback=fake_callback)
         elif request.param == "Pending DisconnectOperation":
             return pipeline_ops_base.DisconnectOperation(callback=fake_callback)
         else:
@@ -1178,21 +1177,7 @@ class TestMQTTTransportStageOnDisconnected(MQTTTransportStageTestConfigComplex):
         assert mock_timer.return_value.cancel.call_count == 0
 
     @pytest.mark.it("Clears any pending operation on the stage")
-    @pytest.mark.parametrize(
-        "pending_connection_op",
-        [
-            pytest.param(None, id="No pending operation"),
-            pytest.param(
-                pipeline_ops_base.ConnectOperation(callback=fake_callback),
-                id="Pending ConnectOperation",
-            ),
-            pytest.param(
-                pipeline_ops_base.DisconnectOperation(callback=fake_callback),
-                id="Pending DisconnectOperation",
-            ),
-        ],
-    )
-    def test_clears_pending(self, mocker, stage, pending_connection_op, cause):
+    def test_clears_pending(self, stage, pending_connection_op, cause):
         stage._pending_connection_op = pending_connection_op
 
         # Trigger disconnect

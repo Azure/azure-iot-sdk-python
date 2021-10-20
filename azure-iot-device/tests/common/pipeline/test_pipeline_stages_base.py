@@ -12,7 +12,7 @@ import threading
 import random
 import uuid
 from six.moves import queue
-from azure.iot.device.common import transport_exceptions, handle_exceptions, alarm
+from azure.iot.device.common import transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
@@ -864,9 +864,11 @@ class SasTokenStageOCCURRENCEReuathorizeConnectionOperationFailsTests(SasTokenSt
             pytest.param(False, id="Connection Retry Disabled"),
         ],
     )
-    def test_reauth_op_error_goes_to_bkg_handler(
+    def test_raises_background_exception(
         self, mocker, stage, reauth_op, arbitrary_exception, connected, connection_retry
     ):
+        assert stage.raise_background_exception.call_count == 0
+
         # Set the connection state and retry feature
         stage.pipeline_root.connected = connected
         stage.pipeline_root.connection_retry = connection_retry
@@ -882,7 +884,6 @@ class SasTokenStageOCCURRENCEReuathorizeConnectionOperationFailsTests(SasTokenSt
         "Starts a reauth retry timer for the connection retry interval if the pipeline is not connected and connection retry is enabled on the pipeline"
     )
     def test_starts_retry_timer(self, mocker, stage, reauth_op, arbitrary_exception, mock_timer):
-        mocker.spy(handle_exceptions, "handle_background_exception")
         stage.pipeline_root.connected = False
         stage.pipeline_root.pipeline_configuration.connection_retry = True
 
@@ -1062,6 +1063,7 @@ class TestSasTokenStageOCCURRENCEReauthorizeConnectionOperationFromTimerFails(
         assert mock_timer.call_count == 1
         assert stage._reauth_retry_timer is mock_timer.return_value
         assert stage.pipeline_root.connected is False
+        assert stage.raise_background_exception.call_count == 1
         on_timer_complete = mock_timer.call_args[0][1]
         on_timer_complete()
 
@@ -1073,6 +1075,7 @@ class TestSasTokenStageOCCURRENCEReauthorizeConnectionOperationFromTimerFails(
         # Reset mocks
         mock_timer.reset_mock()
         mock_alarm.reset_mock()
+        stage.raise_background_exception.reset_mock()
         return reauth_op
 
 

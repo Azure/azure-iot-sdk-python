@@ -18,7 +18,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
 from . import pipeline_exceptions
-from azure.iot.device.common import handle_exceptions, transport_exceptions, alarm
+from azure.iot.device.common import transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 
 logger = logging.getLogger(__name__)

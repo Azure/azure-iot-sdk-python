@@ -9,7 +9,6 @@ Device Provisioning Service.
 """
 
 import abc
-from azure.iot.device.common.handle_exceptions import handle_background_exception
 import six
 import logging
 from azure.iot.device.provisioning import pipeline

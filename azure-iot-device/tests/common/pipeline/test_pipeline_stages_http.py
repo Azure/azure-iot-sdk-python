@@ -7,7 +7,6 @@ import logging
 import pytest
 import sys
 import six
-from azure.iot.device.common import transport_exceptions, handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,

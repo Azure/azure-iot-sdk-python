@@ -156,7 +156,7 @@ class MQTTTransportStage(PipelineStage):
                 self, "_on_mqtt_message_received"
             )
 
-            # There can only be one pending connection operation (Connect, ReauthorizeConnection, Disconnect)
+            # There can only be one pending connection operation (Connect, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
 
             # Currently, this means that if, say, a connect operation is the pending op and is executed
@@ -166,6 +166,9 @@ class MQTTTransportStage(PipelineStage):
 
             # We are however, checking the type, so the CONNACK from a cancelled Connect, cannot successfully
             # complete a Disconnect operation.
+
+            # Note that a ReauthorizeConnectionOperation will never be pending because it will
+            # instead spawn separate Connect and Disconnect operations.
             self._pending_connection_op = None
 
             op.complete()
