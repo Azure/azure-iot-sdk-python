@@ -112,7 +112,17 @@ class PipelineStage(object):
             # traceback which saves stack frames which shows up as a leak
             logger.warning(msg="Unexpected error in {}._run_op() call".format(self))
             logger.warning(traceback.format_exc())
-            op.complete(error=e)
+
+            # Only complete the operation if it is not already completed.
+            # Attempting to complete a completed operation would raise an exception.
+            if not op.completed:
+                op.complete(error=e)
+            else:
+                # Note that this would be very unlikely to occur. It could only happen if a stage
+                # was doing something after completing an operation, and an exception was raised,
+                # which is unlikely because stages usually don't do anything after completing an
+                # operation.
+                raise e
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):

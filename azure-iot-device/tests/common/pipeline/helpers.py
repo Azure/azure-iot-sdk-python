@@ -28,7 +28,7 @@ class StageRunOpTestBase(object):
     """
 
     @pytest.mark.it(
-        "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
+        "Completes the operation with failure if an unexpected Exception is raised while executing the operation and the operation has not yet completed"
     )
     def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
         stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
@@ -37,6 +37,17 @@ class StageRunOpTestBase(object):
 
         assert op.completed
         assert op.error is arbitrary_exception
+
+    @pytest.mark.it(
+        "Allows an unexpected Exception to propagate if it is raised after the operation has already been completed"
+    )
+    def test_exception_after_op_completed(self, mocker, stage, op, arbitrary_exception):
+        stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+        op.completed = True
+
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
+            stage.run_op(op)
+        assert e_info.value is arbitrary_exception
 
     @pytest.mark.it(
         "Allows any BaseException that was raised during execution of the operation to propagate"
