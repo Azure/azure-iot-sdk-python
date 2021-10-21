@@ -82,8 +82,7 @@ setup(
         # Actual project dependencies
         "deprecation>=2.1.0,<3.0.0",
         "six>=1.12.0,<2.0.0",
-        "paho-mqtt>=1.4.0,<1.6.0;python_version == '2.7'",
-        "paho-mqtt>=1.4.0,<2.0.0;python_version > '2.7'",
+        "paho-mqtt>=1.4.0,<2.0.0",
         "requests>=2.20.0,<3.0.0",
         "requests-unixsocket>=0.1.5,<1.0.0",
         "janus==0.4.0;python_version>='3.5'",
