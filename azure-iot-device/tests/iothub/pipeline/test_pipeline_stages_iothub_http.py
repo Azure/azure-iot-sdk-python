@@ -77,6 +77,7 @@ class IoTHubHTTPTranslationStageTestConfig(object):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 

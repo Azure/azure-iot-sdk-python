@@ -26,6 +26,7 @@ def add_base_pipeline_stage_tests(
             stage.previous = mocker.MagicMock()
             mocker.spy(stage, "send_op_down")
             mocker.spy(stage, "send_event_up")
+            mocker.spy(stage, "raise_background_exception")
             return stage
 
     #######################

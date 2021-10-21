@@ -67,6 +67,7 @@ class EnsureDesiredPropertiesStageTestConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -163,6 +164,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
     @pytest.fixture
@@ -226,6 +228,7 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
     @pytest.fixture
@@ -264,6 +267,7 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
     @pytest.fixture
@@ -425,6 +429,7 @@ class TwinRequestResponseStageTestConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -530,6 +535,7 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
 
         # Run the GetTwinOperation
         stage.run_op(get_twin_op)
@@ -674,6 +680,7 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromPatchTwinRepo
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
 
         # Run the GetTwinOperation
         stage.run_op(patch_twin_reported_properties_op)

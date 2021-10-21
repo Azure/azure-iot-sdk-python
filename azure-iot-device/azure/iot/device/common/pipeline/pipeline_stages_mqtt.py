@@ -453,9 +453,5 @@ class MQTTTransportStage(PipelineStage):
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconencted and may reconnect as necessary.
-            e = transport_exceptions.ConnectionDroppedError(cause=cause)
-            handle_exceptions.swallow_unraised_exception(
-                e,
-                log_msg="Unexpected disconnection",
-                log_lvl="info",
-            )
+            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection", cause=cause)
+            self.raise_background_exception(e)

@@ -75,6 +75,7 @@ class PipelineRootStageTestConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -1110,6 +1111,7 @@ class AutoConnectStageTestConfig(object):
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -1341,6 +1343,8 @@ class ConnectionLockStageTestConfig(object):
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -1537,6 +1541,8 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         mocker.spy(stage, "run_op")
         assert not stage.blocked
 
@@ -1546,6 +1552,8 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
 
         # Reset the mock for ease of testing
         stage.send_op_down.reset_mock()
+        stage.send_event_up.reset_mock()
+        stage.raise_background_exception.reset_mock()
         stage.run_op.reset_mock()
         return stage
 
@@ -1863,6 +1871,7 @@ class CoordinateRequestAndResponseStageTestConfig(object):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -2047,6 +2056,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithResponseEvent(
         )
         stage.send_event_up = mocker.MagicMock()
         stage.send_op_down = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
 
         # Run the pending op
         stage.run_op(pending_op)
@@ -2130,6 +2140,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         )
         stage.send_event_up = mocker.MagicMock()
         stage.send_op_down = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
 
         return stage
 
@@ -2389,6 +2400,7 @@ class OpTimeoutStageTestConfig(object):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -2552,6 +2564,7 @@ class RetryStageTestConfig(object):
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -2951,6 +2964,7 @@ class ReconnectStageTestConfig(object):
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -3640,6 +3654,7 @@ class TestReconnectStageRunOpWhileConnectionRetryDisabled(
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
     @pytest.fixture(
@@ -3877,6 +3892,7 @@ class TestReconnectStageHandlePipelineEventConnectionRetryDisabled(
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
     @pytest.fixture(
@@ -4098,11 +4114,13 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
             timer_callback()
             # Fail the resulting reconnect op with a transient error
             assert stage.send_op_down.call_count == 1
+            assert stage.raise_background_exception.call_count == 0
             reconnect_op = stage.send_op_down.call_args[0][0]
             reconnect_op.complete(error=transport_exceptions.ConnectionFailedError())
             # New reconnect timer set
             assert mock_timer.call_count == 2
             assert stage.send_op_down.call_count == 1
+            assert stage.raise_background_exception.call_count == 1
             # Invoke the callback passed to the new reconnect timer to spawn op
             timer_callback = mock_timer.call_args[0][1]
             timer_callback()
@@ -4114,6 +4132,7 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         mock_timer.reset_mock()
         stage.send_op_down.reset_mock()
         stage.send_event_up.reset_mock()
+        stage.raise_background_exception.reset_mock()
         return reconnect_op
 
     @pytest.mark.it("Re-runs the first op in the `waiting_ops` queue (if any)")
@@ -4163,6 +4182,17 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         assert stage.waiting_ops.qsize() == len(queued_ops) - 1
         assert stage.run_op.call_count == 1
         assert stage.run_op.call_args == mocker.call(queued_ops[0])
+
+    @pytest.mark.it("Raises the error as a background exception if completed with error")
+    def test_failure_raise_background_exception(
+        self, mocker, stage, reconnect_op, arbitrary_exception
+    ):
+        assert stage.raise_background_exception.call_count == 0
+
+        reconnect_op.complete(error=arbitrary_exception)
+
+        assert stage.raise_background_exception.call_count == 1
+        assert stage.raise_background_exception.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it("Changes the state to DISCONNECTED if completed with error")
     def test_failure_state_change(self, stage, reconnect_op, arbitrary_exception):

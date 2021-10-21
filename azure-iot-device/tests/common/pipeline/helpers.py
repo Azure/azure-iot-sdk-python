@@ -66,7 +66,7 @@ class StageHandlePipelineEventTestBase(object):
     """
 
     @pytest.mark.it(
-        "Sends any unexpected Exceptions raised during handling of the event up the pipeline in a BackgroundExceptionEvent, if a previous stage exists"
+        "Raise any unexpected Exceptions raised during handling of the event as background exceptions, if a previous stage exists"
     )
     def test_uses_background_exception_handler(self, mocker, stage, event, arbitrary_exception):
         stage.previous = mocker.MagicMock()  # force previous stage
@@ -74,13 +74,11 @@ class StageHandlePipelineEventTestBase(object):
 
         stage.handle_pipeline_event(event)
 
-        assert stage.send_event_up.call_count == 1
-        bg_exc_event = stage.send_event_up.call_args[0][0]
-        assert isinstance(bg_exc_event, pipeline_events_base.BackgroundExceptionEvent)
-        assert bg_exc_event.e is arbitrary_exception
+        assert stage.raise_background_exception.call_count == 1
+        assert stage.raise_background_exception.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it(
-        "Drops any unexpected Exceptions raised during handling of the event if no previous stage exists to send a BackgroundExceptionEvent to"
+        "Drops any unexpected Exceptions raised during handling of the event if no previous stage exists"
     )
     def test_exception_with_no_previous_stage(self, mocker, stage, event, arbitrary_exception):
         stage.previous = None
@@ -88,8 +86,8 @@ class StageHandlePipelineEventTestBase(object):
 
         stage.handle_pipeline_event(event)
 
-        assert stage.send_event_up.call_count == 0
-        # Event was not sent up. No errors were raised.
+        assert stage.raise_background_exception.call_count == 0
+        # No background exception process. No errors were raised.
         # Logging did also occur here, but we don't test logs
 
     @pytest.mark.it("Allows any BaseException raised during handling of the event to propagate")

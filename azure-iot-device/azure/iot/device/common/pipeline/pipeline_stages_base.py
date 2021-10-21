@@ -159,6 +159,8 @@ class PipelineStage(object):
                 logger.error("{}: Raising background exception")
                 self.raise_background_exception(e)
             else:
+                # Nothing else we can do but log this. There exists no stage we can send the
+                # exception to, and raising would send the error back down the pipeline.
                 logger.error(
                     "{}: Cannot raise a background exception because there is no previous stage!"
                 )
@@ -221,10 +223,10 @@ class PipelineStage(object):
     @pipeline_thread.runs_on_pipeline_thread
     def raise_background_exception(self, e):
         """
-        Raise an exception up the pipeline that ocurred in a background thread.
-        These would typically be in response to unsolicited actions, such as receiving data, which
-        cannot be caught because they ocurred on a non-application thread (so there is nobody to
-        catch them).
+        Raise an exception up the pipeline that ocurred in the background.
+        These would typically be in response to unsolicited actions, such as receiving data or
+        timer-based operations, which cannot be raised to the user because they ocurred on a
+        non-application thread.
 
         Note that this function leverages pipeline event flow, which means that any background
         exceptions in the core event flow itself become problematic (it's a good thing it's well
@@ -1359,6 +1361,9 @@ class ReconnectStage(PipelineStage):
                         "{}: State change {} -> DISCONNECTED".format(this.name, this.state)
                     )
                     this.state = ReconnectState.DISCONNECTED
+
+                    # Raise background exception to indicate this failure ocurred
+                    this.raise_background_exception(error)
 
                     # Determine if should try reconnect again
                     if this._should_reconnect(error):

@@ -118,6 +118,7 @@ class RegistrationStageConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -185,7 +186,7 @@ class TestRegistrationStageWithArbitraryOperation(StageRunOpTestBase, Registrati
 
 
 @pytest.mark.describe(
-    "RegistrationStage - EVENT: RequestAndResponseOperation created from RegisterOperation is completed"
+    "RegistrationStage - OCCURRENCE: RequestAndResponseOperation created from RegisterOperation is completed"
 )
 class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfig):
     @pytest.fixture(params=[" ", fake_payload], ids=["empty payload", "some payload"])
@@ -212,6 +213,7 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         # Run the registration operation
         stage.run_op(send_registration_op)
         return stage
@@ -427,6 +429,7 @@ class RetryStageConfig(object):
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -604,6 +607,7 @@ class PollingStageConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         return stage
 
 
@@ -661,7 +665,7 @@ class TestPollingStatusStageWithArbitraryOperation(StageRunOpTestBase, PollingSt
 
 
 @pytest.mark.describe(
-    "PollingStatusStage - EVENT: RequestAndResponseOperation created from PollStatusOperation is completed"
+    "PollingStatusStage - OCCURRENCE: RequestAndResponseOperation created from PollStatusOperation is completed"
 )
 class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig):
     @pytest.fixture
@@ -684,6 +688,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.raise_background_exception = mocker.MagicMock()
         # Run the registration operation
         stage.run_op(send_query_op)
         return stage
