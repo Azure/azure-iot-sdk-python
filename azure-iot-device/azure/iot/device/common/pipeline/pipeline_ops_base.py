@@ -141,7 +141,9 @@ class PipelineOperation(object):
                         "Unhandled error while triggering callback for {}".format(self.name)
                     )
                     self.halt_completion()
-                    raise e
+                    raise pipeline_exceptions.OperationError(
+                        "Exception occurred while triggering completion callback", cause=e
+                    )
 
             if self.completing:
                 # Operation is now completed, no longer in the process of completing

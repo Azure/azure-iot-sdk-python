@@ -74,7 +74,7 @@ class ProvisioningMQTTTranslationStageTestConfig(object):
         stage.pipeline_root = pipeline_stages_base.PipelineRootStage(pipeline_config)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        stage.raise_background_exception = mocker.MagicMock()
+        mocker.spy(stage, "raise_background_exception")
         return stage
 
 

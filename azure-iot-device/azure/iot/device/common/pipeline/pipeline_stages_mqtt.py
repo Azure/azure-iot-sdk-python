@@ -61,8 +61,8 @@ class MQTTTransportStage(PipelineStage):
                     "Cancelling because new ConnectOperation or DisconnectOperationwas issued"
                 )
             self._cancel_connection_watchdog(op)
-            op.complete(error=error)
             self._pending_connection_op = None
+            op.complete(error=error)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_connection_watchdog(self, connection_op):
@@ -376,9 +376,11 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
             op.complete(error=cause)
         else:
-            logger.info("{}: Connection failure was unexpected".format(self.name))
+            logger.debug("{}: Connection failure was unexpected".format(self.name))
             handle_exceptions.swallow_unraised_exception(
-                cause, log_msg="Unexpected connection failure.  Safe to ignore.", log_lvl="info"
+                cause,
+                log_msg="Unexpected connection failure (no pending operation). Safe to ignore.",
+                log_lvl="info",
             )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait

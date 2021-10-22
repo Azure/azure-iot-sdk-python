@@ -18,7 +18,7 @@ from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
 from . import pipeline_exceptions
-from azure.iot.device.common import transport_exceptions, alarm
+from azure.iot.device.common import handle_exceptions, transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 
 logger = logging.getLogger(__name__)
@@ -701,13 +701,41 @@ class ConnectionLockStage(PipelineStage):
                         self.name, op.name, op_to_release.name
                     )
                 )
-                op_to_release.complete(error=error)
+                try:
+                    op_to_release.complete(error=error)
+                except pipeline_exceptions.OperationError as e:
+                    # Catch and raise in background so it don't interrupt the necessary process
+                    # of emptying and unblocking the queue.
+                    # This shouldn't happen, but is here for defensive coding purposes - we don't
+                    # want the queue to stay full because one op failed completion.
+                    logger.error(
+                        "{}({}): Attempt to complete blocked {} operation with failure failed. Raising background exception and continuing".format(
+                            self.name, op.name, op_to_release.name
+                        )
+                    )
+                    self.raise_background_exception(e)
             else:
                 logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
                 )
                 # call run_op directly here so operations go through this stage again (especially connect/disconnect ops)
-                self.run_op(op_to_release)
+                try:
+                    self.run_op(op_to_release)
+                except pipeline_exceptions.OperationError as e:
+                    # Catch and raise in background so it don't interrupt the necessary process
+                    # of emptying and unblocking the queue.
+                    # This shouldn't happen, but is here for defensive coding purposes - we don't
+                    # want the queue to stay full because one op failed completion.
+                    # Note that the only exception that can be raised here is OperationError
+                    # because of the error wrapping in the .run_op() implementation
+                    # (i.e. an OperationError was raised after failing to complete an op in
+                    # response to another exception being raised - so ~~super~~ unlikely)
+                    logger.error(
+                        "{}({}): Attempt to run blocked {} operation failed. Raising background exception and continuing".format(
+                            self.name, op.name, op_to_release.name
+                        )
+                    )
+                    self.raise_background_exception(e)
 
 
 class CoordinateRequestAndResponseStage(PipelineStage):
@@ -1180,7 +1208,18 @@ class ReconnectStage(PipelineStage):
                         cancel_error = pipeline_exceptions.OperationCancelled(
                             "Operation waiting in ReconnectStage cancelled by shutdown"
                         )
-                        waiting_op.complete(error=cancel_error)
+                        try:
+                            waiting_op.complete(error=cancel_error)
+                        except pipeline_exceptions.OperationError as e:
+                            # Raise background exception so that it doesn't interrupt the process
+                            # of emptying the queue.
+                            # This shouldn't be necessary - if this happened, something is wrong.
+                            logger.error(
+                                "{}({}): Error ({}) raised while trying to clear waiting ops. Continuing anyway.".format(
+                                    self.name, op.name, type(e)
+                                )
+                            )
+                            self.raise_background_exception(e)
 
                 # In all cases the op gets sent down
                 self.send_op_down(op)

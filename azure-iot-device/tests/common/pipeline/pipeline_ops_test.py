@@ -393,7 +393,9 @@ def add_operation_tests(
             assert not op.completing
             assert op.completed
 
-        @pytest.mark.it("Allows any Exceptions raised during execution of a callback to propagate")
+        @pytest.mark.it(
+            "Raises an OperationError if an exception is raised during execution of a callback to propagate"
+        )
         def test_callback_raises_exception(
             self, mocker, arbitrary_exception, cls_type, init_kwargs, error
         ):
@@ -409,10 +411,11 @@ def add_operation_tests(
             op.add_callback(cb3_mock)
             assert len(op.callback_stack) == 3
 
-            # Exception from callback is raised
-            with pytest.raises(arbitrary_exception.__class__) as e_info:
+            # OperationError is raised
+            with pytest.raises(pipeline_exceptions.OperationError) as e_info:
                 op.complete(error=error)
-            assert e_info.value is arbitrary_exception
+            # OperationError is derived from the original exception raised
+            assert e_info.value.__cause__ is arbitrary_exception
 
             # Due to the BaseException raised during CB2 propagating, CB1 is never triggered
             assert cb3_mock.call_count == 1
@@ -431,9 +434,9 @@ def add_operation_tests(
             op = cls_type(**init_kwargs)
 
             # Exception from callback is raised
-            with pytest.raises(arbitrary_exception.__class__) as e_info:
+            with pytest.raises(pipeline_exceptions.OperationError) as e_info:
                 op.complete(error=error)
-            assert e_info.value is arbitrary_exception
+            assert e_info.value.__cause__ is arbitrary_exception
 
             # Completion process has been suspended.
             assert not op.completed
