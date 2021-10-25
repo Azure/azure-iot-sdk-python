@@ -82,7 +82,7 @@ class ServiceHelperSync(object):
         self._registry_manager = IoTHubRegistryManager(iothub_connection_string)
 
         self._eventhub_consumer_client = EventHubConsumerClient.from_connection_string(
-            eventhub_connection_string, consumer_group=eventhub_consumer_group
+            eventhub_connection_string, consumer_group=eventhub_consumer_group, debug=True
         )
 
         self._eventhub_future = self._executor.submit(self._eventhub_thread)
@@ -223,22 +223,32 @@ class ServiceHelperSync(object):
             # logger.warning("EventHub on_partition_close: {}".format(reason))
             pass
 
-        def on_event(partition_context, event):
-            if event:
+        def on_event_batch(partition_context, events):
+            for event in events:
                 device_id = get_device_id_from_event(event)
                 module_id = get_module_id_from_event(event)
 
                 if device_id == self.device_id and module_id == self.module_id:
 
-                    logger.info(
-                        "Received {} for device {}, module {}".format(
-                            get_message_source_from_event(event),
-                            device_id,
-                            module_id,
-                        )
-                    )
-
                     converted_event = self._convert_incoming_event(event)
+                    if type(converted_event) == EventhubEvent:
+                        if "message-id" in converted_event.system_properties:
+                            logger.info(
+                                "Received event with msgid={}".format(
+                                    converted_event.system_properties["message-id"]
+                                )
+                            )
+                        else:
+                            logger.info("Received event with no message id")
+
+                    else:
+                        logger.info(
+                            "Received {} for device {}, module {}".format(
+                                get_message_source_from_event(event),
+                                device_id,
+                                module_id,
+                            )
+                        )
 
                     if isinstance(converted_event, EventhubEvent):
                         self._store_eventhub_arrival(converted_event)
@@ -248,12 +258,12 @@ class ServiceHelperSync(object):
         try:
             with self._eventhub_consumer_client:
                 logger.info("Starting EventHub receive")
-                self._eventhub_consumer_client.receive(
-                    on_event,
+                self._eventhub_consumer_client.receive_batch(
+                    max_wait_time=2,
+                    on_event_batch=on_event_batch,
                     on_error=on_error,
                     on_partition_initialize=on_partition_initialize,
                     on_partition_close=on_partition_close,
-                    max_wait_time=3600,
                 )
         except Exception:
             logger.error("_eventhub_thread exception", exc_info=True)
