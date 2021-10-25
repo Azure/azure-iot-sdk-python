@@ -82,7 +82,7 @@ class ServiceHelperSync(object):
         self._registry_manager = IoTHubRegistryManager(iothub_connection_string)
 
         self._eventhub_consumer_client = EventHubConsumerClient.from_connection_string(
-            eventhub_connection_string, consumer_group=eventhub_consumer_group, debug=True
+            eventhub_connection_string, consumer_group=eventhub_consumer_group
         )
 
         self._eventhub_future = self._executor.submit(self._eventhub_thread)
