@@ -157,12 +157,12 @@ class PipelineStage(object):
             )
             if self.previous:
                 logger.error("{}: Raising background exception")
-                self.raise_background_exception(e)
+                self.report_background_exception(e)
             else:
                 # Nothing else we can do but log this. There exists no stage we can send the
                 # exception to, and raising would send the error back down the pipeline.
                 logger.error(
-                    "{}: Cannot raise a background exception because there is no previous stage!"
+                    "{}: Cannot report a background exception because there is no previous stage!"
                 )
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -213,7 +213,7 @@ class PipelineStage(object):
             logger.critical(
                 "{}({}): no previous stage. cannot send event up".format(event.name, self.name)
             )
-            # NOTE: We can't raise a background exception here because that involves
+            # NOTE: We can't report a background exception here because that involves
             # sending an event up, which is what got us into this problem in the first place.
             # Instead, raise, and let the method invoking this method handle it
             raise pipeline_exceptions.PipelineRuntimeError(
@@ -221,7 +221,7 @@ class PipelineStage(object):
             )
 
     @pipeline_thread.runs_on_pipeline_thread
-    def raise_background_exception(self, e):
+    def report_background_exception(self, e):
         """
         Raise an exception up the pipeline that ocurred in the background.
         These would typically be in response to unsolicited actions, such as receiving data or
@@ -497,7 +497,7 @@ class SasTokenStage(PipelineStage):
                 logger.info(
                     "{}: Connection reauthorization failed.  Error={}".format(this.name, error)
                 )
-                self.raise_background_exception(error)
+                self.report_background_exception(error)
                 # If connection has not been somehow re-established, we need to keep trying
                 # because for the reauthorization to originally have been issued, we were in
                 # a connected state.
@@ -713,7 +713,7 @@ class ConnectionLockStage(PipelineStage):
                             self.name, op.name, op_to_release.name
                         )
                     )
-                    self.raise_background_exception(e)
+                    self.report_background_exception(e)
             else:
                 logger.debug(
                     "{}({}): releasing {} op.".format(self.name, op.name, op_to_release.name)
@@ -735,7 +735,7 @@ class ConnectionLockStage(PipelineStage):
                             self.name, op.name, op_to_release.name
                         )
                     )
-                    self.raise_background_exception(e)
+                    self.report_background_exception(e)
 
 
 class CoordinateRequestAndResponseStage(PipelineStage):
@@ -1211,7 +1211,7 @@ class ReconnectStage(PipelineStage):
                         try:
                             waiting_op.complete(error=cancel_error)
                         except pipeline_exceptions.OperationError as e:
-                            # Raise background exception so that it doesn't interrupt the process
+                            # report background exception so that it doesn't interrupt the process
                             # of emptying the queue.
                             # This shouldn't be necessary - if this happened, something is wrong.
                             logger.error(
@@ -1219,7 +1219,7 @@ class ReconnectStage(PipelineStage):
                                     self.name, op.name, type(e)
                                 )
                             )
-                            self.raise_background_exception(e)
+                            self.report_background_exception(e)
 
                 # In all cases the op gets sent down
                 self.send_op_down(op)
@@ -1401,8 +1401,8 @@ class ReconnectStage(PipelineStage):
                     )
                     this.state = ReconnectState.DISCONNECTED
 
-                    # Raise background exception to indicate this failure ocurred
-                    this.raise_background_exception(error)
+                    # report background exception to indicate this failure ocurred
+                    this.report_background_exception(error)
 
                     # Determine if should try reconnect again
                     if this._should_reconnect(error):

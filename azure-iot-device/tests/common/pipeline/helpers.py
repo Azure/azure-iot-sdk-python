@@ -74,8 +74,8 @@ class StageHandlePipelineEventTestBase(object):
 
         stage.handle_pipeline_event(event)
 
-        assert stage.raise_background_exception.call_count == 1
-        assert stage.raise_background_exception.call_args == mocker.call(arbitrary_exception)
+        assert stage.report_background_exception.call_count == 1
+        assert stage.report_background_exception.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it(
         "Drops any unexpected Exceptions raised during handling of the event if no previous stage exists"
@@ -86,7 +86,7 @@ class StageHandlePipelineEventTestBase(object):
 
         stage.handle_pipeline_event(event)
 
-        assert stage.raise_background_exception.call_count == 0
+        assert stage.report_background_exception.call_count == 0
         # No background exception process. No errors were raised.
         # Logging did also occur here, but we don't test logs
 

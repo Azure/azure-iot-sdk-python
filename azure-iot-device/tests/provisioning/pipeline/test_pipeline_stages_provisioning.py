@@ -118,7 +118,7 @@ class RegistrationStageConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -213,7 +213,7 @@ class TestRegistrationStageWithRegisterOperationCompleted(RegistrationStageConfi
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         # Run the registration operation
         stage.run_op(send_registration_op)
         return stage
@@ -429,7 +429,7 @@ class RetryStageConfig(object):
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -607,7 +607,7 @@ class PollingStageConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -688,7 +688,7 @@ class TestPollingStatusStageWithPollStatusOperationCompleted(PollingStageConfig)
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         # Run the registration operation
         stage.run_op(send_query_op)
         return stage

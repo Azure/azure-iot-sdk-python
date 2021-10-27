@@ -26,7 +26,7 @@ def add_base_pipeline_stage_tests(
             stage.previous = mocker.MagicMock()
             mocker.spy(stage, "send_op_down")
             mocker.spy(stage, "send_event_up")
-            mocker.spy(stage, "raise_background_exception")
+            mocker.spy(stage, "report_background_exception")
             return stage
 
     #######################
@@ -175,14 +175,14 @@ def add_base_pipeline_stage_tests(
     ###############
 
     @pytest.mark.describe(
-        "{} - .raise_background_exception()".format(stage_class_under_test.__name__)
+        "{} - .report_background_exception()".format(stage_class_under_test.__name__)
     )
     class StageRaiseBackgroundExceptionTests(StageTestConfig):
         @pytest.mark.it(
             "Sends a BackgroundExceptionEvent up the pipeline with the provided exception set on it"
         )
         def test_new_event_sent_up(self, mocker, stage, arbitrary_exception):
-            stage.raise_background_exception(arbitrary_exception)
+            stage.report_background_exception(arbitrary_exception)
 
             assert stage.send_event_up.call_count == 1
             event = stage.send_event_up.call_args[0][0]

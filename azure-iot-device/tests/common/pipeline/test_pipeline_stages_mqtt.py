@@ -70,7 +70,7 @@ class MQTTTransportStageTestConfig(object):
         stage.pipeline_root.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -237,7 +237,7 @@ class MQTTTransportStageTestConfigComplex(MQTTTransportStageTestConfig):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
 
         # Set up the Transport on the stage
         op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
@@ -1215,13 +1215,13 @@ class TestMQTTTransportStageOnDisconnectedUnexpectedNoPendingConnectionOp(
     @pytest.mark.it("Raises a ConnectionDroppedError as a background exception")
     def test_background_exception_raised(self, stage, cause):
         assert stage._pending_connection_op is None
-        assert stage.raise_background_exception.call_count == 0
+        assert stage.report_background_exception.call_count == 0
 
         # Trigger disconnect
         stage.transport.on_mqtt_disconnected_handler(cause)
 
-        assert stage.raise_background_exception.call_count == 1
-        background_exception = stage.raise_background_exception.call_args[0][0]
+        assert stage.report_background_exception.call_count == 1
+        background_exception = stage.report_background_exception.call_args[0][0]
         assert isinstance(background_exception, transport_exceptions.ConnectionDroppedError)
         assert background_exception.__cause__ is cause
 

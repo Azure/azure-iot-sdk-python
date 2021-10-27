@@ -63,7 +63,7 @@ class HTTPTransportStageTestConfig(object):
         stage.pipeline_root.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -162,7 +162,7 @@ class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
-        mocker.spy(stage, "raise_background_exception")
+        mocker.spy(stage, "report_background_exception")
 
         # Set up the Transport on the stage
         op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())
