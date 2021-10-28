@@ -132,6 +132,39 @@ Feature is Coming Soon
 | CRUD Operation with X.509 Group Enrollment          | :heavy_multiplication_x: | Manages device enrollment using X.509 group enrollment with the service SDK.         |
 | Query enrollments                                   | :heavy_multiplication_x: | Query registration states with the service SDK.                                      |
 
+# Releases
+
+The Pythond SDK offers releases for new features, critical bug fixes, and Long Term Support (LTS). General bug fixes will not receive a separate release, but are instead contained within the LTS release. Versioning follows [semantic versioning](https://semver.org/), `x.y.z.` or `major.minor.patch`. Any time the version is updated, it will be tagged `x.y.z`.
+
+## New Features and Critical Bug Fixes
+
+New features and critical bug fixes (including security updates) will be released on the main branch. These releases will be tagged using the date formatted `yyyy-mm-dd`. A feature release will bump the `minor` version and reset the `patch` version to 0. A critical bug fix will bump the `patch` version only.
+
+## Long Term Support (LTS)
+
+The project offers a Long Term Support (LTS) version to allow users that do not need the latest features to be shielded from unwanted changes.
+
+LTS branches receive all bug fixes that fall in one of these categories:
+
+- security bugfixes
+- critical bugfixes (crashes, memory leaks, etc.)
+
+No new features or improvements will be picked up in an LTS branch.
+
+LTS branches are named `lts_mm_yyyy`, where *mm* and *yyyy* are the month and year when the branch was created. An example of such a branch is `lts_07_2017`.
+
+### LTS Schedule<sup>1</sup>
+
+*The first LTS version of the Python SDK is scheduled to be available in early 2022*
+
+Below is a table showing the mapping of the LTS branches to the packages released.
+
+  | PIP Package | GitHub Branch | LTS Tag | LTS Start Date | Maintenance End Date |
+  | :-----: | :-----------: | :-----: | :------------: | :------------------: |
+  | N/A     |               |         |                |                      |  
+
+<sup>1</sup> All scheduled dates are subject to change by the Azure IoT SDK team.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
