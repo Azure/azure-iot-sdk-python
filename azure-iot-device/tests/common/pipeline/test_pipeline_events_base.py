@@ -48,3 +48,10 @@ pipeline_event_test.add_event_test(
     positional_arguments=[],
     keyword_arguments={},
 )
+
+pipeline_event_test.add_event_test(
+    cls=pipeline_events_base.BackgroundExceptionEvent,
+    module=this_module,
+    positional_arguments=["e"],
+    keyword_arguments={},
+)

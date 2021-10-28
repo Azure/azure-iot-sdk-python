@@ -108,10 +108,21 @@ class PipelineStage(object):
             # caller and rely on the caller to handle them, they're somewhat unexpected and might be
             # worthy of investigation.
 
-            # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
+            # Do not use exc_info parameter on logger.* calls. This causes pytest to save the
+            # traceback which saves stack frames which shows up as a leak
             logger.warning(msg="Unexpected error in {}._run_op() call".format(self))
             logger.warning(traceback.format_exc())
-            op.complete(error=e)
+
+            # Only complete the operation if it is not already completed.
+            # Attempting to complete a completed operation would raise an exception.
+            if not op.completed:
+                op.complete(error=e)
+            else:
+                # Note that this would be very unlikely to occur. It could only happen if a stage
+                # was doing something after completing an operation, and an exception was raised,
+                # which is unlikely because stages usually don't do anything after completing an
+                # operation.
+                raise e
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -139,9 +150,20 @@ class PipelineStage(object):
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
-            # Do not use exc_info parameter on logger.* calls.  This casuses pytest to save the traceback which saves stack frames which shows up as a leak
-            logger.error(msg="Unexpected error in {}._handle_pipeline_event() call".format(self))
-            handle_exceptions.handle_background_exception(e)
+            # Do not use exc_info parameter on logger.* calls. This causes pytest to save the
+            # traceback which saves stack frames which shows up as a leak
+            logger.error(
+                msg="{}: Unexpected error in ._handle_pipeline_event() call: {}".format(self, e)
+            )
+            if self.previous:
+                logger.error("{}: Raising background exception")
+                self.report_background_exception(e)
+            else:
+                # Nothing else we can do but log this. There exists no stage we can send the
+                # exception to, and raising would send the error back down the pipeline.
+                logger.error(
+                    "{}: Cannot report a background exception because there is no previous stage!"
+                )
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
@@ -164,18 +186,18 @@ class PipelineStage(object):
 
         :param PipelineOperation op: Operation which is being passed on
         """
-        if not self.next:
-            # even though we technically "handle" this by returning it to the caller, this is
-            # still serious enough that it warrants a logger.error call because it should never
-            # happen if our pipeline was created correctly and we're only sending expected
-            # operations.
-            logger.error("{}({}): no next stage.  completing with error".format(self.name, op.name))
-            error = pipeline_exceptions.PipelineRuntimeError(
+        if self.next:
+            self.next.run_op(op)
+        else:
+            # This shouldn't happen if the pipeline was created correctly
+            logger.error(
+                "{}({}): no next stage.cannot send op down. completing with error".format(
+                    self.name, op.name
+                )
+            )
+            raise pipeline_exceptions.PipelineRuntimeError(
                 "{} not handled after {} stage with no next stage".format(op.name, self.name)
             )
-            op.complete(error=error)
-        else:
-            self.next.run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def send_event_up(self, event):
@@ -187,10 +209,33 @@ class PipelineStage(object):
         if self.previous:
             self.previous.handle_pipeline_event(event)
         else:
-            error = pipeline_exceptions.PipelineRuntimeError(
-                "{} unhandled at {} stage with no previous stage".format(event.name, self.name)
+            # This shouldn't happen if the pipeline was created correctly
+            logger.critical(
+                "{}({}): no previous stage. cannot send event up".format(event.name, self.name)
             )
-            handle_exceptions.handle_background_exception(error)
+            # NOTE: We can't report a background exception here because that involves
+            # sending an event up, which is what got us into this problem in the first place.
+            # Instead, raise, and let the method invoking this method handle it
+            raise pipeline_exceptions.PipelineRuntimeError(
+                "{} not handled after {} stage with no previous stage".format(event.name, self.name)
+            )
+
+    @pipeline_thread.runs_on_pipeline_thread
+    def report_background_exception(self, e):
+        """
+        Send an exception up the pipeline that ocurred in the background.
+        These would typically be in response to unsolicited actions, such as receiving data or
+        timer-based operations, which cannot be raised to the user because they ocurred on a
+        non-application thread.
+
+        Note that this function leverages pipeline event flow, which means that any background
+        exceptions in the core event flow itself become problematic (it's a good thing it's well
+        tested then!)
+
+        :param Exception e: The exception that ocurred in the background
+        """
+        event = pipeline_events_base.BackgroundExceptionEvent(e)
+        self.send_event_up(event)
 
 
 class PipelineRootStage(PipelineStage):
@@ -218,6 +263,7 @@ class PipelineRootStage(PipelineStage):
         self.on_connected_handler = None
         self.on_disconnected_handler = None
         self.on_new_sastoken_required_handler = None
+        self.on_background_exception_handler = None
         self.connected = False
         self.pipeline_configuration = pipeline_configuration
 
@@ -282,6 +328,17 @@ class PipelineRootStage(PipelineStage):
                 pipeline_thread.invoke_on_callback_thread_nowait(
                     self.on_new_sastoken_required_handler
                 )()
+
+        elif isinstance(event, pipeline_events_base.BackgroundExceptionEvent):
+            logger.debug(
+                "{}: BackgroundExceptionEvent received. Calling on_background_exception_handler".format(
+                    self.name
+                )
+            )
+            if self.on_background_exception_handler:
+                pipeline_thread.invoke_on_callback_thread_nowait(
+                    self.on_background_exception_handler
+                )(event.e)
 
         # Events that are domain-specific and unique to each pipeline are handled by the provided
         # domain-specific .on_pipeline_event_handler
@@ -440,7 +497,7 @@ class SasTokenStage(PipelineStage):
                 logger.info(
                     "{}: Connection reauthorization failed.  Error={}".format(this.name, error)
                 )
-                handle_exceptions.handle_background_exception(error)
+                self.report_background_exception(error)
                 # If connection has not been somehow re-established, we need to keep trying
                 # because for the reauthorization to originally have been issued, we were in
                 # a connected state.
@@ -1304,6 +1361,9 @@ class ReconnectStage(PipelineStage):
                         "{}: State change {} -> DISCONNECTED".format(this.name, this.state)
                     )
                     this.state = ReconnectState.DISCONNECTED
+
+                    # report background exception to indicate this failure ocurred
+                    this.report_background_exception(error)
 
                     # Determine if should try reconnect again
                     if this._should_reconnect(error):

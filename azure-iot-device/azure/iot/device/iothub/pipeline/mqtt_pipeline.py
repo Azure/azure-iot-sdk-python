@@ -45,6 +45,7 @@ class MQTTPipeline(object):
         self.on_connected = None
         self.on_disconnected = None
         self.on_new_sastoken_required = None
+        self.on_background_exception = None
 
         self.on_c2d_message_received = None
         self.on_input_message_received = None
@@ -170,11 +171,20 @@ class MQTTPipeline(object):
             else:
                 logger.debug("IoTHub Pipeline requires new SASToken, but no handler was set")
 
+        def _on_background_exception(e):
+            if self.on_background_exception:
+                self.on_background_exception(e)
+            else:
+                logger.debug(
+                    "IoTHub Pipeline experienced background exception, but no handler was set"
+                )
+
         # Set internal event handlers
         self._pipeline.on_pipeline_event_handler = _on_pipeline_event
         self._pipeline.on_connected_handler = _on_connected
         self._pipeline.on_disconnected_handler = _on_disconnected
         self._pipeline.on_new_sastoken_required_handler = _on_new_sastoken_required
+        self._pipeline.on_background_exception_handler = _on_background_exception
 
         # Initialize the pipeline
         callback = EventedCallback()
