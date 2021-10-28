@@ -7,7 +7,6 @@ import logging
 import pytest
 import sys
 import six
-from azure.iot.device.common import transport_exceptions, handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_stages_base,
@@ -63,6 +62,8 @@ class HTTPTransportStageTestConfig(object):
         )
         stage.pipeline_root.hostname = "some.fake-host.name.com"
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -160,6 +161,8 @@ class HTTPTransportStageTestConfigComplex(HTTPTransportStageTestConfig):
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
 
         # Set up the Transport on the stage
         op = pipeline_ops_base.InitializePipelineOperation(callback=mocker.MagicMock())

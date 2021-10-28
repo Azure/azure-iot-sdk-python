@@ -16,7 +16,9 @@ logger.setLevel(level=logging.INFO)
 
 
 @pytest.fixture(scope="function")
-def brand_new_client(device_identity, client_kwargs):
+def brand_new_client(device_identity, client_kwargs, service_helper, device_id, module_id):
+    service_helper.set_identity(device_id, module_id)
+
     client = create_client_object(
         device_identity, client_kwargs, IoTHubDeviceClient, IoTHubModuleClient
     )
@@ -38,16 +40,6 @@ def client(brand_new_client):
 @pytest.fixture(scope="module")
 def service_helper():
     service_helper = ServiceHelperSync()
-    time.sleep(1)
+    time.sleep(3)
     yield service_helper
     service_helper.shutdown()
-
-
-@pytest.fixture(scope="function")
-def get_next_eventhub_arrival(service_helper, device_id, module_id, watches_events):
-    yield functools.partial(service_helper.get_next_eventhub_arrival, device_id, module_id)
-
-
-@pytest.fixture(scope="function")
-def get_next_reported_patch_arrival(executor, service_helper, device_id, module_id, watches_events):
-    yield functools.partial(service_helper.get_next_reported_patch_arrival, device_id, module_id)

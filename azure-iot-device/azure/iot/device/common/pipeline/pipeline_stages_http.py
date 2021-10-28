@@ -16,7 +16,6 @@ from . import (
     pipeline_exceptions,
 )
 from azure.iot.device.common.http_transport import HTTPTransport
-from azure.iot.device.common import handle_exceptions, transport_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)

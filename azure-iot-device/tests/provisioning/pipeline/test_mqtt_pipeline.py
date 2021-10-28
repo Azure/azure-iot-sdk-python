@@ -78,6 +78,7 @@ class TestMQTTPipelineInstantiation(object):
         pipeline = MQTTPipeline(pipeline_configuration)
         assert pipeline.on_connected is None
         assert pipeline.on_disconnected is None
+        assert pipeline.on_background_exception is None
         assert pipeline.on_message_received is None
 
     @pytest.mark.it("Configures the pipeline to trigger handlers in response to external events")
