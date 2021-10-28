@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft. All rights reserved.
+# ref.inCopyright (c) Microsoft. All rights reserved.
 # Licensed under the MIT license. See LICENSE file in the project root for
 # full license information.
 import gc
@@ -8,6 +8,8 @@ import weakref
 import time
 import logging
 import importlib
+import json
+import sys
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -30,11 +32,11 @@ def _run_garbage_collection():
 
 
 def _dump_referrers(obj):
-    referrers = gc.get_referrers(obj.weakref())
+    referrers = gc.get_leaks_with_referrers(obj.weakref())
     for referrer in referrers:
         if isinstance(referrer, dict):
             print("  dict: {}".format(referrer))
-            for sub_referrer in gc.get_referrers(referrer):
+            for sub_referrer in gc.get_leaks_with_referrers(referrer):
                 if sub_referrer != referrers:
                     if not inspect.ismodule(sub_referrer):
                         print("    used by: {}:{}".format(type(sub_referrer), sub_referrer))
@@ -84,10 +86,12 @@ class TrackedModule(object):
 class LeakTracker(object):
     def __init__(self):
         self.tracked_modules = []
-        self.previous_leaks = []
+        self.baseline_objects = []
 
     def add_tracked_module(self, module_name):
-        self.tracked_modules.append(TrackedModule(module_name))
+        module = TrackedModule(module_name)
+        logger.info("Tracking {} at path {}".format(module_name, module.path))
+        self.tracked_modules.append(module)
 
     def _get_all_tracked_objects(self):
         """
@@ -106,88 +110,103 @@ class LeakTracker(object):
                     )
         return all
 
-    def _prune_previous_leaks_list(self):
-        """
-        remove objects from our list of previous leaks if they've been collected
-        """
+    def set_baseline(self):
+        self.baseline_objects = self._get_all_tracked_objects()
 
-        new_previous_leaks = []
-        for obj in self.previous_leaks:
-            if obj.weakref():
-                new_previous_leaks.append(obj)
-            else:
-                logger.info(
-                    "Object {} collected since last test.  Removing from previous_leaks list.".format(
-                        obj
-                    )
-                )
-        logger.info(
-            "previous leaks pruned from {} items to {} items".format(
-                len(self.previous_leaks), len(new_previous_leaks)
-            )
-        )
-        self.previous_leaks = new_previous_leaks
-
-    def _filter_previous_leaks(self, all):
+    def _remove_baseline_objects(self, all):
         """
-        Return a filtered leak list where all previously reported leaks have been removed.
+        Return a filtered leak list with baseline objects are removed
         """
-
-        self._prune_previous_leaks_list()
 
         new_list = []
         for obj in all:
-            if obj not in self.previous_leaks:
+            if obj not in self.baseline_objects:
                 new_list.append(obj)
-            else:
-                logger.info("Object {} previously reported".format(obj))
-
-        logger.info("active list pruned from {} items to {} items".format(len(all), len(new_list)))
 
         return new_list
 
-    def set_baseline(self):
-        self.previous_leaks = self._get_all_tracked_objects()
+    def get_leaks(self):
+        """
+        Return a list of objects that are not part of the baseline
+        """
+        _run_garbage_collection()
+
+        remaining_objects = self._get_all_tracked_objects()
+        remaining_objects = self._remove_baseline_objects(remaining_objects)
+
+        return remaining_objects
 
     def check_for_new_leaks(self):
         """
         Get all tracked objects from the garbage collector.  If any objects remain, list
         them and assert so the test fails.
         """
-        _run_garbage_collection()
-
-        all_tracked_objects = self._get_all_tracked_objects()
-        all_tracked_objects = self._filter_previous_leaks(all_tracked_objects)
-        if len(all_tracked_objects):
-            logger.error("Test failure.  {} objects have leaked:".format(len(all_tracked_objects)))
-            count = 0
-            for obj in all_tracked_objects:
-                count += 1
-                if count <= 100:
-                    logger.error("LEAK: {}".format(obj))
-                    _dump_referrers(obj)
-                self.previous_leaks.append(obj)
-            if count < len(all_tracked_objects):
-                logger.errer("and {} more objects".format(len(all_tracked_objects) - count))
-            referrers = self.get_referrers(all_tracked_objects)  # noqa: F841
+        remaining_objects = self.get_leaks()
+        if len(remaining_objects):
+            logger.error("Test failure.  {} objects have leaked:".format(len(remaining_objects)))
+            leaks_with_referrers = self.get_leaks_with_referrers(remaining_objects)  # noqa: F841
+            self.dump_leak_report(leaks_with_referrers)
             assert False
         else:
             logger.info("No leaks")
 
-    def get_referrers(self, objects):
+    def dump_leak_report(self, leaks_with_referrers):
+
+        id_to_name_map = {}
+        index = 0
+
+        for leak in leaks_with_referrers:
+            index = leak["index"]
+            object_type = str(type(leak["obj"].weakref()))
+            object_id = id(leak["obj"].weakref())
+            id_to_name_map[object_id] = "Tracked object: {} (index={})".format(object_type, index)
+            if hasattr(leak["obj"].weakref(), "__dict__"):
+                dict_id = id(leak["obj"].weakref().__dict__)
+                id_to_name_map[dict_id] = "Tracked object __dict__: {} (index={})".format(
+                    object_type, index
+                )
+
+        for module_name, module in dict(sys.modules).items():
+            object_id = id(sys.modules[module_name])
+            dict_id = id(module.__dict__)
+            id_to_name_map[object_id] = "Module: {}".format(module_name)
+            id_to_name_map[dict_id] = "Module __dict__: {}".format(module_name)
+
+        for obj in gc.get_objects():
+            if hasattr(obj, "__dict__"):
+                dict_id = id(obj.__dict__)
+                if dict_id not in id_to_name_map:
+                    id_to_name_map[dict_id] = "Untracked_object: {}.__dict__".format(type(obj))
+
+        for leak in leaks_with_referrers:
+            logger.info("object: {}".format(leak["obj"]))
+            for referrer in leak["referrers"]:
+                if isinstance(referrer, RefObject):
+                    object_id = id(referrer.weakref())
+                else:
+                    object_id = id(referrer)
+                if object_id in id_to_name_map:
+                    logger.info("    {}".format(id_to_name_map[object_id]))
+                else:
+                    logger.info("    Non-object: {}".format(referrer))
+
+    def get_leaks_with_referrers(self, objects):
         """
         Get all referrers for all objects as a way to see why objects are leaking.
         Meant to be run inside a debugger, probably using pprint on the output
         """
-        all_referrers = []
+        leaks = []
         index = 0
         for obj in objects:
             referrers = []
             for ref in gc.get_referrers(obj.weakref()):
-                if type(ref) in [dict] or str(type(ref)) in ["<class 'cell'>"]:
+                if type(ref) in [dict]:
                     referrers.append(ref)
                 else:
-                    referrers.append(RefObject(ref))
-            all_referrers.append({"index": index, "obj": obj, "referrers": referrers})
+                    try:
+                        referrers.append(RefObject(ref))
+                    except TypeError:
+                        referrers.append(str(ref))
+            leaks.append({"index": index, "obj": obj, "referrers": referrers})
             index += 1
-        return all_referrers
+        return leaks
