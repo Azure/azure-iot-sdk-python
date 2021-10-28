@@ -1783,27 +1783,6 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
         assert stage.send_op_down.call_args_list[4] == mocker.call(op5)
         assert stage.queue.qsize() == 0
 
-    @pytest.mark.it(
-        "Reports any OperationErrors that occur while running pending operations as background exceptions, and does not prevent the blocking op from completing"
-    )
-    def test_run_op_exception_raised(self, mocker, blocked_stage, blocking_op, pending_ops):
-        stage = blocked_stage
-        assert stage.blocked
-        assert stage.report_background_exception.call_count == 0
-
-        # Make stage run_op raise an OperationError
-        stage.run_op.side_effect = pipeline_exceptions.OperationError
-
-        blocking_op.complete()
-
-        # Blocking op was still able to complete despite pending ops raising exceptions
-        assert blocking_op.completed
-
-        # All exceptions raised from running pending ops were reported as background exceptions
-        assert stage.report_background_exception.call_count == len(pending_ops)
-        for call in stage.report_background_exception.call_args_list:
-            assert isinstance(call[0][0], pipeline_exceptions.OperationError)
-
 
 @pytest.mark.describe(
     "ConnectionLockStage - OCCURRENCE: Operation blocking ConnectionLockStage is completed with error"
@@ -1862,31 +1841,6 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
         # Verify that the mock completion was called for the pending ops
         for op in pending_ops:
             assert op.complete.call_count == 1
-
-    @pytest.mark.it(
-        "Reports any OperationErrors that occur while completing pending operations as background exceptions, and does not prevent the blocking op from completing"
-    )
-    def test_completion_exception_raised(
-        self, mocker, blocked_stage, pending_ops, blocking_op, arbitrary_exception
-    ):
-        stage = blocked_stage
-        assert stage.blocked
-        assert stage.report_background_exception.call_count == 0
-
-        # Set pending ops to raise OperationErrors on completion attempt
-        for op in pending_ops:
-            op.complete = mocker.MagicMock(side_effect=pipeline_exceptions.OperationError)
-
-        # Complete the blocking op with error
-        blocking_op.complete(error=arbitrary_exception)
-
-        # Blocking op was still able to complete despite pending ops raising exceptions
-        assert blocking_op.completed
-
-        # All exceptions raised from pending ops were reported as background exceptions
-        assert stage.report_background_exception.call_count == len(pending_ops)
-        for call in stage.report_background_exception.call_args_list:
-            assert isinstance(call[0][0], pipeline_exceptions.OperationError)
 
 
 #########################################
@@ -3636,48 +3590,6 @@ class TestReconnectStageRunOpWithShutdownPipelineOperation(
         assert isinstance(waiting_op2.error, pipeline_exceptions.OperationCancelled)
         assert waiting_op3.completed
         assert isinstance(waiting_op3.error, pipeline_exceptions.OperationCancelled)
-
-    @pytest.mark.it(
-        "Reports any OperationErrors raised while cancelling operations as background exceptions and does not interrupt the process of emptying the queue"
-    )
-    @pytest.mark.parametrize(
-        "state",
-        [
-            ReconnectState.CONNECTING,
-            ReconnectState.CONNECTED,
-            ReconnectState.DISCONNECTING,
-            ReconnectState.DISCONNECTED,
-            ReconnectState.REAUTHORIZING,
-        ],
-    )
-    def test_waiting_ops_cancellation_error(self, mocker, op, stage, state):
-        stage.state = state
-        waiting_op1 = pipeline_ops_base.ConnectOperation(
-            callback=mocker.MagicMock(side_effect=pipeline_exceptions.OperationError)
-        )
-        waiting_op2 = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
-        waiting_op3 = pipeline_ops_base.ReauthorizeConnectionOperation(
-            callback=mocker.MagicMock(side_effect=pipeline_exceptions.OperationError)
-        )
-        stage.waiting_ops.put_nowait(waiting_op1)
-        stage.waiting_ops.put_nowait(waiting_op2)
-        stage.waiting_ops.put_nowait(waiting_op3)
-        assert stage.report_background_exception.call_count == 0
-
-        stage.run_op(op)
-
-        assert stage.waiting_ops.empty()
-        # Op1 NOT cancelled (because it raised an error while doing so)
-        assert not waiting_op1.completed
-        assert waiting_op1.error is None
-        # Op2 was cancelled despite Op1 raising
-        assert waiting_op2.completed
-        assert isinstance(waiting_op2.error, pipeline_exceptions.OperationCancelled)
-        # Op3 NOT cancelled (because it raised an error while doing so)
-        assert not waiting_op3.completed
-        assert waiting_op3.error is None
-
-        assert stage.report_background_exception.call_count == 2
 
     @pytest.mark.it("Sends the operation down the pipeline without changing the state")
     @pytest.mark.parametrize(
