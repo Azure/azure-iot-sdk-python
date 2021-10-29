@@ -18,12 +18,13 @@ from utils import get_random_message, get_random_dict, is_windows
 from drop_fixtures import dropper
 from client_fixtures import (
     client_kwargs,
-    extra_client_kwargs,
     auto_connect,
     connection_retry,
     websockets,
     device_id,
     module_id,
+    sastoken_ttl,
+    keep_alive,
 )
 
 logging.basicConfig(level=logging.WARNING)
