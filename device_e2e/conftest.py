@@ -149,8 +149,8 @@ def pytest_runtest_setup(item):
             return
 
     item.leak_tracker = leak_tracker.LeakTracker()
-    item.leak_tracker.add_tracked_module("azure.iot.device")
-    item.leak_tracker.set_baseline()
+    item.leak_tracker.track_module("azure.iot.device")
+    item.leak_tracker.set_initial_object_list()
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -202,10 +202,10 @@ def pytest_runtest_teardown(item, nextitem):
         item._request = False
         item.funcargs = None
 
-        # now that fixtures are gone, we can check for leaks.  `check_for_new_leaks` will
+        # now that fixtures are gone, we can check for leaks.  `check_for_leaks` will
         # call into the garbage collector to make sure everything is cleaned up before
         # we check.
-        item.leak_tracker.check_for_new_leaks()
+        item.leak_tracker.check_for_leaks()
         del item.leak_tracker
         logger.info("DONE CHECKING FOR LEAKS")
 
