@@ -5,7 +5,6 @@ import pytest
 import functools
 import time
 import e2e_settings
-import test_config
 import logging
 from utils import create_client_object
 from service_helper_sync import ServiceHelperSync

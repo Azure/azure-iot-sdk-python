@@ -5,7 +5,7 @@ import pytest
 import logging
 import time
 from utils import get_random_dict
-import test_config
+import parametrize
 from azure.iot.device.iothub import MethodResponse
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def method_response_status():
 @pytest.mark.describe("Client methods")
 class TestMethods(object):
     @pytest.mark.it("Can handle a simple direct method call")
-    @pytest.mark.parametrize(*test_config.all_method_payload_options)
+    @pytest.mark.parametrize(*parametrize.all_method_payload_options)
     def test_handle_method_call(
         self,
         client,
