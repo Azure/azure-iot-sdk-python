@@ -134,7 +134,7 @@ Feature is Coming Soon
 
 # Releases
 
-The Pythond SDK offers releases for new features, critical bug fixes, and Long Term Support (LTS). General bug fixes will not receive a separate release, but are instead contained within the LTS release. Versioning follows [semantic versioning](https://semver.org/), `x.y.z.` or `major.minor.patch`. Any time the version is updated, it will be tagged `x.y.z`.
+The Pythond SDK offers releases for new features, critical bug fixes, and Long Term Support (LTS). Versioning follows [semantic versioning](https://semver.org/), `x.y.z.` or `major.minor.patch`. Any time the version is updated, it will be tagged `x.y.z`.
 
 ## New Features and Critical Bug Fixes
 
