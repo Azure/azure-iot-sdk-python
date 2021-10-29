@@ -61,8 +61,8 @@ class MQTTTransportStage(PipelineStage):
                     "Cancelling because new ConnectOperation or DisconnectOperationwas issued"
                 )
             self._cancel_connection_watchdog(op)
-            op.complete(error=error)
             self._pending_connection_op = None
+            op.complete(error=error)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _start_connection_watchdog(self, connection_op):
@@ -156,7 +156,7 @@ class MQTTTransportStage(PipelineStage):
                 self, "_on_mqtt_message_received"
             )
 
-            # There can only be one pending connection operation (Connect, ReauthorizeConnection, Disconnect)
+            # There can only be one pending connection operation (Connect, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
 
             # Currently, this means that if, say, a connect operation is the pending op and is executed
@@ -166,6 +166,9 @@ class MQTTTransportStage(PipelineStage):
 
             # We are however, checking the type, so the CONNACK from a cancelled Connect, cannot successfully
             # complete a Disconnect operation.
+
+            # Note that a ReauthorizeConnectionOperation will never be pending because it will
+            # instead spawn separate Connect and Disconnect operations.
             self._pending_connection_op = None
 
             op.complete()
@@ -373,9 +376,11 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
             op.complete(error=cause)
         else:
-            logger.info("{}: Connection failure was unexpected".format(self.name))
+            logger.debug("{}: Connection failure was unexpected".format(self.name))
             handle_exceptions.swallow_unraised_exception(
-                cause, log_msg="Unexpected connection failure.  Safe to ignore.", log_lvl="info"
+                cause,
+                log_msg="Unexpected connection failure (no pending operation). Safe to ignore.",
+                log_lvl="info",
             )
 
     @pipeline_thread.invoke_on_pipeline_thread_nowait
@@ -450,9 +455,5 @@ class MQTTTransportStage(PipelineStage):
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconencted and may reconnect as necessary.
-            e = transport_exceptions.ConnectionDroppedError(cause=cause)
-            handle_exceptions.swallow_unraised_exception(
-                e,
-                log_msg="Unexpected disconnection",
-                log_lvl="info",
-            )
+            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection", cause=cause)
+            self.report_background_exception(e)

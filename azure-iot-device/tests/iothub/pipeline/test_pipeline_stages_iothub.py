@@ -8,7 +8,6 @@ import logging
 import pytest
 import sys
 from azure.iot.device.exceptions import ServiceError
-from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub.pipeline import (
     pipeline_events_iothub,
     pipeline_ops_iothub,
@@ -49,12 +48,6 @@ def op_error(request, arbitrary_exception):
         return None
 
 
-@pytest.fixture
-def mock_handle_background_exception(mocker):
-    mock_handler = mocker.patch.object(handle_exceptions, "handle_background_exception")
-    return mock_handler
-
-
 #########################################
 # ENSURE DESIRED PROPERTIES STAGE STAGE #
 #########################################
@@ -74,6 +67,7 @@ class EnsureDesiredPropertiesStageTestConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -170,6 +164,7 @@ class TestEnsureDesiredPropertiesStageWhenConnectedEventReceived(
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
     @pytest.fixture
@@ -233,6 +228,7 @@ class TestEnsureDesiredPropertiesStageWhenTwinDesiredPropertiesPatchEventReceive
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
     @pytest.fixture
@@ -271,6 +267,7 @@ class TestEnsureDesiredPropertiesStageWhenGetTwinOperationCompletes(
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
     @pytest.fixture
@@ -432,6 +429,7 @@ class TwinRequestResponseStageTestConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -537,6 +535,7 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromGetTwinOperat
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
 
         # Run the GetTwinOperation
         stage.run_op(get_twin_op)
@@ -681,6 +680,7 @@ class TestTwinRequestResponseStageWhenRequestAndResponseCreatedFromPatchTwinRepo
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
 
         # Run the GetTwinOperation
         stage.run_op(patch_twin_reported_properties_op)

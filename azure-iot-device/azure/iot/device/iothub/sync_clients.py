@@ -94,6 +94,9 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
             self, "_on_new_sastoken_required"
         )
+        self._mqtt_pipeline.on_background_exception = CallableWeakMethod(
+            self, "_on_background_exception"
+        )
 
         # Set pipeline handlers for data receives
         self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(

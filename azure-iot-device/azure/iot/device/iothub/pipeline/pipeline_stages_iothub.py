@@ -13,7 +13,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device import exceptions
-from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 from . import pipeline_events_iothub, pipeline_ops_iothub
 from . import constant

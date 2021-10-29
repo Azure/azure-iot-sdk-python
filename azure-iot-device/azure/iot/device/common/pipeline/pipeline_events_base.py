@@ -87,3 +87,13 @@ class NewSasTokenRequiredEvent(PipelineEvent):
     """
 
     pass
+
+
+class BackgroundExceptionEvent(PipelineEvent):
+    """
+    An exception was raised in a background thread
+    """
+
+    def __init__(self, e):
+        super(BackgroundExceptionEvent, self).__init__()
+        self.e = e
