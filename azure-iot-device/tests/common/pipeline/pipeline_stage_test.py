@@ -7,8 +7,7 @@ import logging
 import pytest
 from tests.common.pipeline.helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage, PipelineRootStage
-from azure.iot.device.common.pipeline import pipeline_exceptions
-from azure.iot.device.common import handle_exceptions
+from azure.iot.device.common.pipeline import pipeline_exceptions, pipeline_events_base
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -27,6 +26,7 @@ def add_base_pipeline_stage_tests(
             stage.previous = mocker.MagicMock()
             mocker.spy(stage, "send_op_down")
             mocker.spy(stage, "send_event_up")
+            mocker.spy(stage, "report_background_exception")
             return stage
 
     #######################
@@ -79,24 +79,18 @@ def add_base_pipeline_stage_tests(
 
     @pytest.mark.describe("{} - .send_op_down()".format(stage_class_under_test.__name__))
     class StageSendOpDownTests(StageTestConfig):
-        @pytest.mark.it(
-            "Completes the op with failure (PipelineRuntimeError) if there is no next stage"
-        )
-        def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
-            stage.next = None
-
-            assert not arbitrary_op.completed
-
-            stage.send_op_down(arbitrary_op)
-
-            assert arbitrary_op.completed
-            assert type(arbitrary_op.error) is pipeline_exceptions.PipelineRuntimeError
-
         @pytest.mark.it("Passes the op to the next stage's .run_op() method")
         def test_passes_op_to_next_stage(self, mocker, stage, arbitrary_op):
             stage.send_op_down(arbitrary_op)
             assert stage.next.run_op.call_count == 1
             assert stage.next.run_op.call_args == mocker.call(arbitrary_op)
+
+        @pytest.mark.it("Raises a PipelineRuntimeError if there is no next stage")
+        def test_fails_op_when_no_next_stage(self, mocker, stage, arbitrary_op):
+            stage.next = None
+
+            with pytest.raises(pipeline_exceptions.PipelineRuntimeError):
+                stage.send_op_down(arbitrary_op)
 
     @pytest.mark.describe("{} - .send_event_up()".format(stage_class_under_test.__name__))
     class StageSendEventUpTests(StageTestConfig):
@@ -108,20 +102,11 @@ def add_base_pipeline_stage_tests(
             assert stage.previous.handle_pipeline_event.call_count == 1
             assert stage.previous.handle_pipeline_event.call_args == mocker.call(arbitrary_event)
 
-        @pytest.mark.it(
-            "Sends a PipelineRuntimeError to the background exception handler instead of sending the event up the pipeline, if there is no previous pipeline stage"
-        )
-        def test_no_previous_stage(self, stage, arbitrary_event, mocker):
+        @pytest.mark.it("Raises a PipelineRuntimeError if there is no previous stage")
+        def test_no_previous_stage(self, stage, arbitrary_event):
             stage.previous = None
-            mocker.spy(handle_exceptions, "handle_background_exception")
-
-            stage.send_event_up(arbitrary_event)
-
-            assert handle_exceptions.handle_background_exception.call_count == 1
-            assert (
-                type(handle_exceptions.handle_background_exception.call_args[0][0])
-                == pipeline_exceptions.PipelineRuntimeError
-            )
+            with pytest.raises(pipeline_exceptions.PipelineRuntimeError):
+                stage.send_event_up(arbitrary_event)
 
     setattr(
         test_module,
@@ -184,3 +169,28 @@ def add_base_pipeline_stage_tests(
             "Test{}HandlePipelineEventUnhandledEvent".format(stage_class_under_test.__name__),
             StageHandlePipelineEventUnhandledEvent,
         )
+
+    ###############
+    # OTHER TESTS #
+    ###############
+
+    @pytest.mark.describe(
+        "{} - .report_background_exception()".format(stage_class_under_test.__name__)
+    )
+    class StageRaiseBackgroundExceptionTests(StageTestConfig):
+        @pytest.mark.it(
+            "Sends a BackgroundExceptionEvent up the pipeline with the provided exception set on it"
+        )
+        def test_new_event_sent_up(self, mocker, stage, arbitrary_exception):
+            stage.report_background_exception(arbitrary_exception)
+
+            assert stage.send_event_up.call_count == 1
+            event = stage.send_event_up.call_args[0][0]
+            assert isinstance(event, pipeline_events_base.BackgroundExceptionEvent)
+            assert event.e is arbitrary_exception
+
+    setattr(
+        test_module,
+        "Test{}RaiseBackgroundException".format(stage_class_under_test.__name__),
+        StageRaiseBackgroundExceptionTests,
+    )

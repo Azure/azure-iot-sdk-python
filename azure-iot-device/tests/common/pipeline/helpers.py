@@ -7,7 +7,6 @@ import inspect
 import pytest
 import functools
 from threading import Event
-from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -29,7 +28,7 @@ class StageRunOpTestBase(object):
     """
 
     @pytest.mark.it(
-        "Completes the operation with failure if an unexpected Exception is raised while executing the operation"
+        "Completes the operation with failure if an unexpected Exception is raised while executing the operation and the operation has not yet completed"
     )
     def test_completes_operation_with_error(self, mocker, stage, op, arbitrary_exception):
         stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
@@ -40,9 +39,20 @@ class StageRunOpTestBase(object):
         assert op.error is arbitrary_exception
 
     @pytest.mark.it(
-        "Allows any BaseException that was raised during execution of the operation to propogate"
+        "Allows an unexpected Exception to propagate if it is raised after the operation has already been completed"
     )
-    def test_base_exception_propogates(self, mocker, stage, op, arbitrary_base_exception):
+    def test_exception_after_op_completed(self, mocker, stage, op, arbitrary_exception):
+        stage._run_op = mocker.MagicMock(side_effect=arbitrary_exception)
+        op.completed = True
+
+        with pytest.raises(arbitrary_exception.__class__) as e_info:
+            stage.run_op(op)
+        assert e_info.value is arbitrary_exception
+
+    @pytest.mark.it(
+        "Allows any BaseException that was raised during execution of the operation to propagate"
+    )
+    def test_base_exception_propagates(self, mocker, stage, op, arbitrary_base_exception):
         stage._run_op = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:
@@ -56,21 +66,32 @@ class StageHandlePipelineEventTestBase(object):
     """
 
     @pytest.mark.it(
-        "Sends any unexpected Exceptions raised during handling of the event to the background exception handler"
+        "Raise any unexpected Exceptions raised during handling of the event as background exceptions, if a previous stage exists"
     )
     def test_uses_background_exception_handler(self, mocker, stage, event, arbitrary_exception):
+        stage.previous = mocker.MagicMock()  # force previous stage
         stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
-        mocker.spy(handle_exceptions, "handle_background_exception")
 
         stage.handle_pipeline_event(event)
 
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
-            arbitrary_exception
-        )
+        assert stage.report_background_exception.call_count == 1
+        assert stage.report_background_exception.call_args == mocker.call(arbitrary_exception)
 
-    @pytest.mark.it("Allows any BaseException raised during handling of the event to propogate")
-    def test_base_exception_propogates(self, mocker, stage, event, arbitrary_base_exception):
+    @pytest.mark.it(
+        "Drops any unexpected Exceptions raised during handling of the event if no previous stage exists"
+    )
+    def test_exception_with_no_previous_stage(self, mocker, stage, event, arbitrary_exception):
+        stage.previous = None
+        stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_exception)
+
+        stage.handle_pipeline_event(event)
+
+        assert stage.report_background_exception.call_count == 0
+        # No background exception process. No errors were raised.
+        # Logging did also occur here, but we don't test logs
+
+    @pytest.mark.it("Allows any BaseException raised during handling of the event to propagate")
+    def test_base_exception_propagates(self, mocker, stage, event, arbitrary_base_exception):
         stage._handle_pipeline_event = mocker.MagicMock(side_effect=arbitrary_base_exception)
 
         with pytest.raises(arbitrary_base_exception.__class__) as e_info:

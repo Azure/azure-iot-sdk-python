@@ -10,7 +10,7 @@ import pytest
 import logging
 import socks
 
-from azure.iot.device.common import auth
+from azure.iot.device.common import auth, handle_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.provisioning.pipeline import ProvisioningPipelineConfig
 from azure.iot.device import ProxyOptions
@@ -33,6 +33,16 @@ class SharedProvisioningClientInstantiationTests(object):
         client = client_class(provisioning_pipeline)
 
         assert client._pipeline is provisioning_pipeline
+
+    @pytest.mark.it(
+        "Sets the pipeline's `on_background_exception` handler to the `handle_background_exception` function from the `handle_exceptions` module"
+    )
+    def test_pipeline_on_background_exception(self, client_class, provisioning_pipeline):
+        client = client_class(provisioning_pipeline)
+        assert (
+            client._pipeline.on_background_exception
+            is handle_exceptions.handle_background_exception
+        )
 
     @pytest.mark.it(
         "Instantiates with the initial value of the '_provisioning_payload' attribute set to None"

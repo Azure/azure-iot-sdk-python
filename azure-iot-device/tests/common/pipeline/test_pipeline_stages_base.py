@@ -12,7 +12,7 @@ import threading
 import random
 import uuid
 from six.moves import queue
-from azure.iot.device.common import transport_exceptions, handle_exceptions, alarm
+from azure.iot.device.common import transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
@@ -75,6 +75,7 @@ class PipelineRootStageTestConfig(object):
         stage = cls_type(**init_kwargs)
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -98,6 +99,11 @@ class PipelineRootStageInstantiationTests(PipelineRootStageTestConfig):
     def test_on_new_sastoken_required_handler(self, init_kwargs):
         stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
         assert stage.on_new_sastoken_required_handler is None
+
+    @pytest.mark.it("Initializes 'on_background_exception_handler' as None")
+    def test_on_background_exception_handler(self, init_kwargs):
+        stage = pipeline_stages_base.PipelineRootStage(**init_kwargs)
+        assert stage.on_background_exception_handler is None
 
     @pytest.mark.it("Initializes 'connected' as False")
     def test_connected(self, init_kwargs):
@@ -218,7 +224,7 @@ class TestPipelineRootStageHandlePipelineEventWithDisconnectedEvent(
 
 
 @pytest.mark.describe(
-    "PipelinerootStage - .handle_pipeline_event() -- Called with NewSasTokenRequiredEvent"
+    "PipelineRootStage - .handle_pipeline_event() -- Called with NewSasTokenRequiredEvent"
 )
 class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
     PipelineRootStageTestConfig, StageHandlePipelineEventTestBase
@@ -235,6 +241,28 @@ class TestPipelineRootStageHandlePipelineEventWithNewSasTokenRequiredEvent(
         time.sleep(0.1)  # Needs a brief sleep so thread can switch
         assert mock_handler.call_count == 1
         assert mock_handler.call_args == mocker.call()
+
+
+@pytest.mark.describe(
+    "PipelineRootStage - .handle_pipeline_event() -- Called with BackgroundExceptionEvent"
+)
+class TestPipelineRootStageHandlePipelineEventWithBackgroundExceptionEvent(
+    PipelineRootStageTestConfig, StageHandlePipelineEventTestBase
+):
+    @pytest.fixture
+    def event(self, arbitrary_exception):
+        return pipeline_events_base.BackgroundExceptionEvent(arbitrary_exception)
+
+    @pytest.mark.it(
+        "Invokes the 'on_background_exception_handler' handler function, passing the exception object, if set"
+    )
+    def test_invoke_handler(self, mocker, stage, event):
+        mock_handler = mocker.MagicMock()
+        stage.on_background_exception_handler = mock_handler
+        stage.handle_pipeline_event(event)
+        time.sleep(0.1)  # Needs a brief sleep so thread can switch
+        assert mock_handler.call_count == 1
+        assert mock_handler.call_args == mocker.call(event.e)
 
 
 @pytest.mark.describe(
@@ -282,6 +310,7 @@ class SasTokenStageTestConfig(object):
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -823,7 +852,7 @@ class SasTokenStageOCCURRENCEReuathorizeConnectionOperationFailsTests(SasTokenSt
 
     # NOTE: you must implement a "reauth_op" fixture in subclass for these tests to run
 
-    @pytest.mark.it("Send the error to the background exception handler")
+    @pytest.mark.it("Reports a background exception")
     @pytest.mark.parametrize(
         "connected",
         [
@@ -838,10 +867,10 @@ class SasTokenStageOCCURRENCEReuathorizeConnectionOperationFailsTests(SasTokenSt
             pytest.param(False, id="Connection Retry Disabled"),
         ],
     )
-    def test_reauth_op_error_goes_to_bkg_handler(
+    def test_reports_background_exception(
         self, mocker, stage, reauth_op, arbitrary_exception, connected, connection_retry
     ):
-        mocker.spy(handle_exceptions, "handle_background_exception")
+        assert stage.report_background_exception.call_count == 0
 
         # Set the connection state and retry feature
         stage.pipeline_root.connected = connected
@@ -851,16 +880,13 @@ class SasTokenStageOCCURRENCEReuathorizeConnectionOperationFailsTests(SasTokenSt
         reauth_op.complete(error=arbitrary_exception)
 
         # Error was sent to background handler
-        assert handle_exceptions.handle_background_exception.call_count == 1
-        assert handle_exceptions.handle_background_exception.call_args == mocker.call(
-            arbitrary_exception
-        )
+        assert stage.report_background_exception.call_count == 1
+        assert stage.report_background_exception.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it(
         "Starts a reauth retry timer for the connection retry interval if the pipeline is not connected and connection retry is enabled on the pipeline"
     )
     def test_starts_retry_timer(self, mocker, stage, reauth_op, arbitrary_exception, mock_timer):
-        mocker.spy(handle_exceptions, "handle_background_exception")
         stage.pipeline_root.connected = False
         stage.pipeline_root.pipeline_configuration.connection_retry = True
 
@@ -1040,6 +1066,7 @@ class TestSasTokenStageOCCURRENCEReauthorizeConnectionOperationFromTimerFails(
         assert mock_timer.call_count == 1
         assert stage._reauth_retry_timer is mock_timer.return_value
         assert stage.pipeline_root.connected is False
+        assert stage.report_background_exception.call_count == 1
         on_timer_complete = mock_timer.call_args[0][1]
         on_timer_complete()
 
@@ -1051,6 +1078,7 @@ class TestSasTokenStageOCCURRENCEReauthorizeConnectionOperationFromTimerFails(
         # Reset mocks
         mock_timer.reset_mock()
         mock_alarm.reset_mock()
+        stage.report_background_exception.reset_mock()
         return reauth_op
 
 
@@ -1083,6 +1111,7 @@ class AutoConnectStageTestConfig(object):
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -1314,6 +1343,8 @@ class ConnectionLockStageTestConfig(object):
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -1510,6 +1541,8 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         mocker.spy(stage, "run_op")
         assert not stage.blocked
 
@@ -1519,6 +1552,8 @@ class TestConnectionLockStageRunOpWhileBlocked(ConnectionLockStageTestConfig, St
 
         # Reset the mock for ease of testing
         stage.send_op_down.reset_mock()
+        stage.send_event_up.reset_mock()
+        stage.report_background_exception.reset_mock()
         stage.run_op.reset_mock()
         return stage
 
@@ -1608,9 +1643,9 @@ class ConnectionLockStageBlockingOpCompletedTestConfig(ConnectionLockStageTestCo
 
     @pytest.fixture
     def pending_ops(self, mocker):
-        op1 = ArbitraryOperation(callback=mocker.MagicMock)
-        op2 = ArbitraryOperation(callback=mocker.MagicMock)
-        op3 = ArbitraryOperation(callback=mocker.MagicMock)
+        op1 = ArbitraryOperation(callback=mocker.MagicMock())
+        op2 = ArbitraryOperation(callback=mocker.MagicMock())
+        op3 = ArbitraryOperation(callback=mocker.MagicMock())
         pending_ops = [op1, op2, op3]
         return pending_ops
 
@@ -1621,6 +1656,8 @@ class ConnectionLockStageBlockingOpCompletedTestConfig(ConnectionLockStageTestCo
             pipeline_configuration=mocker.MagicMock()
         )
         stage.send_op_down = mocker.MagicMock()
+        stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         mocker.spy(stage, "run_op")
         assert not stage.blocked
 
@@ -1678,7 +1715,6 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
     @pytest.mark.it("Unblocks the ConnectionLockStage prior to re-running any pending operations")
     def test_unblocks_before_rerun(self, mocker, blocked_stage, blocking_op, pending_ops):
         stage = blocked_stage
-        mocker.spy(handle_exceptions, "handle_background_exception")
         assert stage.blocked
 
         def run_op_override(op):
@@ -1698,11 +1734,8 @@ class TestConnectionLockStageBlockingOpCompletedNoError(
         # Verify that the mock .run_op() was indeed called
         assert stage.run_op.call_count == len(pending_ops)
 
-        # Verify that no assertions from the mock .run_op() turned up False
-        assert handle_exceptions.handle_background_exception.call_count == 0
-
     @pytest.mark.it(
-        "Requeues subsequent operations, retaining their original order, if one of the re-run operations returns the ConnectionLockStage to a blocking state"
+        "Re-queues subsequent operations, retaining their original order, if one of the re-run operations returns the ConnectionLockStage to a blocking state"
     )
     def test_unblocked_op_changes_block_state(self, mocker, stage):
         op1 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
@@ -1787,7 +1820,6 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
         self, mocker, blocked_stage, pending_ops, blocking_op, arbitrary_exception
     ):
         stage = blocked_stage
-        mocker.spy(handle_exceptions, "handle_background_exception")
         assert stage.blocked
 
         def complete_override(error=None):
@@ -1809,9 +1841,6 @@ class TestConnectionLockStageBlockingOpCompletedWithError(
         # Verify that the mock completion was called for the pending ops
         for op in pending_ops:
             assert op.complete.call_count == 1
-
-        # Verify that no assertions from the mock .complete() calls turned up False
-        assert handle_exceptions.handle_background_exception.call_count == 0
 
 
 #########################################
@@ -1844,6 +1873,7 @@ class CoordinateRequestAndResponseStageTestConfig(object):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -2028,6 +2058,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithResponseEvent(
         )
         stage.send_event_up = mocker.MagicMock()
         stage.send_op_down = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
 
         # Run the pending op
         stage.run_op(pending_op)
@@ -2111,6 +2142,7 @@ class TestCoordinateRequestAndResponseStageHandlePipelineEventWithConnectedEvent
         )
         stage.send_event_up = mocker.MagicMock()
         stage.send_op_down = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
 
         return stage
 
@@ -2370,6 +2402,7 @@ class OpTimeoutStageTestConfig(object):
         )
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -2533,6 +2566,7 @@ class RetryStageTestConfig(object):
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -2932,6 +2966,7 @@ class ReconnectStageTestConfig(object):
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
 
@@ -3537,7 +3572,7 @@ class TestReconnectStageRunOpWithShutdownPipelineOperation(
             ReconnectState.REAUTHORIZING,
         ],
     )
-    def test_waiting_ops(self, mocker, op, stage, state):
+    def test_waiting_ops_cancellation(self, mocker, op, stage, state):
         stage.state = state
         waiting_op1 = pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
         waiting_op2 = pipeline_ops_base.DisconnectOperation(callback=mocker.MagicMock())
@@ -3621,6 +3656,7 @@ class TestReconnectStageRunOpWhileConnectionRetryDisabled(
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
     @pytest.fixture(
@@ -3858,6 +3894,7 @@ class TestReconnectStageHandlePipelineEventConnectionRetryDisabled(
         mocker.spy(stage, "run_op")
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        mocker.spy(stage, "report_background_exception")
         return stage
 
     @pytest.fixture(
@@ -4079,11 +4116,13 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
             timer_callback()
             # Fail the resulting reconnect op with a transient error
             assert stage.send_op_down.call_count == 1
+            assert stage.report_background_exception.call_count == 0
             reconnect_op = stage.send_op_down.call_args[0][0]
             reconnect_op.complete(error=transport_exceptions.ConnectionFailedError())
             # New reconnect timer set
             assert mock_timer.call_count == 2
             assert stage.send_op_down.call_count == 1
+            assert stage.report_background_exception.call_count == 1
             # Invoke the callback passed to the new reconnect timer to spawn op
             timer_callback = mock_timer.call_args[0][1]
             timer_callback()
@@ -4095,6 +4134,7 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         mock_timer.reset_mock()
         stage.send_op_down.reset_mock()
         stage.send_event_up.reset_mock()
+        stage.report_background_exception.reset_mock()
         return reconnect_op
 
     @pytest.mark.it("Re-runs the first op in the `waiting_ops` queue (if any)")
@@ -4144,6 +4184,17 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         assert stage.waiting_ops.qsize() == len(queued_ops) - 1
         assert stage.run_op.call_count == 1
         assert stage.run_op.call_args == mocker.call(queued_ops[0])
+
+    @pytest.mark.it("Reports the error as a background exception if completed with error")
+    def test_failure_report_background_exception(
+        self, mocker, stage, reconnect_op, arbitrary_exception
+    ):
+        assert stage.report_background_exception.call_count == 0
+
+        reconnect_op.complete(error=arbitrary_exception)
+
+        assert stage.report_background_exception.call_count == 1
+        assert stage.report_background_exception.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it("Changes the state to DISCONNECTED if completed with error")
     def test_failure_state_change(self, stage, reconnect_op, arbitrary_exception):
