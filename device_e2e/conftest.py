@@ -9,7 +9,8 @@ import device_identity_helper
 import const
 import sys
 import leak_tracker
-import drop
+import iptables
+import e2e_settings
 from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo
@@ -135,7 +136,7 @@ def pytest_runtest_setup(item):
     """
 
     # reconnect in case a previously interrupted test run left our network disconnected
-    drop.reconnect_all(test_config.config.transport)
+    iptables.reconnect_all(test_config.config.transport, e2e_settings.IOTHUB_HOSTNAME)
 
     # tests that use iptables need to be skipped on Windows
     if is_windows():
