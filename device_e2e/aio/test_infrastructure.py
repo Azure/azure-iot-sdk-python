@@ -19,3 +19,5 @@ class TestServiceHelper(object):
         # for that here.
         event = await service_helper.wait_for_eventhub_arrival(uuid.uuid4(), timeout=2)
         assert event is None
+
+        assert False
