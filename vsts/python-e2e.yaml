@@ -26,7 +26,7 @@ jobs:
       env:
         IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-E2E-CONNECTION-STRING)
         IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-E2E-EVENTHUB-CONNECTION-STRING)
-        IOTHUB_E2E_EVENTHUB_CONSUMER_GRPOUP: $(consumer_group)
+        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: $(consumer_group)
 
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
