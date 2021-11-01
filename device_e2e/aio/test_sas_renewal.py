@@ -6,6 +6,7 @@ import pytest
 import json
 import logging
 import test_config
+import parametrize
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -18,15 +19,11 @@ pytestmark = pytest.mark.asyncio
     reason="{} auth does not support token renewal".format(test_config.config.auth),
 )
 @pytest.mark.describe("Client sas renewal code")
+@pytest.mark.sastoken_ttl(130)  # renew token after 10 seconds
 class TestSasRenewal(object):
-    @pytest.fixture(scope="class")
-    def extra_client_kwargs(self):
-        # should renew after 10 seconds
-        return {"sastoken_ttl": 130}
-
     @pytest.mark.it("Renews and reconnects before expiry")
-    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
     async def test_sas_renews(self, client, event_loop, service_helper, random_message):
 
         connected_event = asyncio.Event()
