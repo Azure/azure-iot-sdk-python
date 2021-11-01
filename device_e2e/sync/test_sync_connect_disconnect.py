@@ -5,7 +5,7 @@ import pytest
 import logging
 import time
 import threading
-import test_config
+import parametrize
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -14,8 +14,8 @@ logger.setLevel(level=logging.INFO)
 @pytest.mark.describe("Client object")
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
-    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
     @pytest.mark.quicktest_suite
     def test_connect_disconnect(self, brand_new_client):
         client = brand_new_client
@@ -88,8 +88,8 @@ class TestConnectDisconnect(object):
     @pytest.mark.it(
         "Can do a manual connect in the `on_connection_state_change` call that is notifying the user about a disconnect."
     )
-    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
     # see "This assert fails because of initial and secondary disconnects" below
     @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
     def test_connect_in_the_middle_of_disconnect(
@@ -151,8 +151,8 @@ class TestConnectDisconnect(object):
     @pytest.mark.it(
         "Can do a manual disconnect in the `on_connection_state_change` call that is notifying the user about a connect."
     )
-    @pytest.mark.parametrize(*test_config.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*test_config.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
+    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
     @pytest.mark.parametrize(
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
@@ -221,11 +221,8 @@ class TestConnectDisconnect(object):
 
 @pytest.mark.dropped_connection
 @pytest.mark.describe("Client object with dropped connection")
+@pytest.mark.keep_alive(5)
 class TestConnectDisconnectDroppedConnection(object):
-    @pytest.fixture(scope="class")
-    def extra_client_kwargs(self):
-        return {"keep_alive": 5}
-
     @pytest.mark.it("disconnects when network drops all outgoing packets")
     def test_disconnect_on_drop_outgoing(self, client, dropper):
 

@@ -5,7 +5,6 @@ import pytest
 import asyncio
 import functools
 import e2e_settings
-import test_config
 import logging
 from utils import create_client_object
 from service_helper import ServiceHelper

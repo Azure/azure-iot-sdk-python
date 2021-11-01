@@ -9,7 +9,8 @@ import device_identity_helper
 import const
 import sys
 import leak_tracker
-import drop
+import iptables
+import e2e_settings
 from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo
@@ -17,12 +18,13 @@ from utils import get_random_message, get_random_dict, is_windows
 from drop_fixtures import dropper
 from client_fixtures import (
     client_kwargs,
-    extra_client_kwargs,
     auto_connect,
     connection_retry,
     websockets,
     device_id,
     module_id,
+    sastoken_ttl,
+    keep_alive,
 )
 
 logging.basicConfig(level=logging.WARNING)
@@ -135,7 +137,7 @@ def pytest_runtest_setup(item):
     """
 
     # reconnect in case a previously interrupted test run left our network disconnected
-    drop.reconnect_all(test_config.config.transport)
+    iptables.reconnect_all(test_config.config.transport, e2e_settings.IOTHUB_HOSTNAME)
 
     # tests that use iptables need to be skipped on Windows
     if is_windows():
@@ -147,8 +149,8 @@ def pytest_runtest_setup(item):
             return
 
     item.leak_tracker = leak_tracker.LeakTracker()
-    item.leak_tracker.add_tracked_module("azure.iot.device")
-    item.leak_tracker.set_baseline()
+    item.leak_tracker.track_module("azure.iot.device")
+    item.leak_tracker.set_initial_object_list()
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -200,10 +202,10 @@ def pytest_runtest_teardown(item, nextitem):
         item._request = False
         item.funcargs = None
 
-        # now that fixtures are gone, we can check for leaks.  `check_for_new_leaks` will
+        # now that fixtures are gone, we can check for leaks.  `check_for_leaks` will
         # call into the garbage collector to make sure everything is cleaned up before
         # we check.
-        item.leak_tracker.check_for_new_leaks()
+        item.leak_tracker.check_for_leaks()
         del item.leak_tracker
         logger.info("DONE CHECKING FOR LEAKS")
 
