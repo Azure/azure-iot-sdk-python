@@ -269,9 +269,8 @@ class MQTTTransportStage(PipelineStage):
 
             try:
                 self.transport.publish(topic=op.topic, payload=op.payload, callback=on_complete)
-            except transport_exceptions.ConnectionDroppedError:
-                self.send_event_up(pipeline_events_base.DisconnectedEvent())
-                raise
+            except Exception as e:
+                op.complete(error=e)
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTSubscribeOperation):
             logger.debug("{}({}): subscribing to {}".format(self.name, op.name, op.topic))
@@ -292,9 +291,8 @@ class MQTTTransportStage(PipelineStage):
 
             try:
                 self.transport.subscribe(topic=op.topic, callback=on_complete)
-            except transport_exceptions.ConnectionDroppedError:
-                self.send_event_up(pipeline_events_base.DisconnectedEvent())
-                raise
+            except Exception as e:
+                op.complete(error=e)
 
         elif isinstance(op, pipeline_ops_mqtt.MQTTUnsubscribeOperation):
             logger.debug("{}({}): unsubscribing from {}".format(self.name, op.name, op.topic))
@@ -315,9 +313,8 @@ class MQTTTransportStage(PipelineStage):
 
             try:
                 self.transport.unsubscribe(topic=op.topic, callback=on_complete)
-            except transport_exceptions.ConnectionDroppedError:
-                self.send_event_up(pipeline_events_base.DisconnectedEvent())
-                raise
+            except Exception as e:
+                op.complete(error=e)
 
         else:
             # This code block should not be reached in correct program flow.
