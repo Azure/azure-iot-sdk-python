@@ -4,7 +4,7 @@
 import pytest
 import logging
 import asyncio
-import test_config
+import parametrize
 from utils import get_random_dict
 from azure.iot.device.iothub import MethodResponse
 
@@ -27,7 +27,7 @@ def method_response_status():
 @pytest.mark.describe("Client methods")
 class TestMethods(object):
     @pytest.mark.it("Can handle a simple direct method call")
-    @pytest.mark.parametrize(*test_config.all_method_payload_options)
+    @pytest.mark.parametrize(*parametrize.all_method_payload_options)
     async def test_handle_method_call(
         self,
         client,

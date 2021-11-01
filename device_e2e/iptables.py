@@ -3,6 +3,7 @@
 # full license information.
 import logging
 import subprocess
+import socket
 from utils import is_windows
 
 logger = logging.getLogger("e2e.{}".format(__name__))
@@ -63,26 +64,28 @@ def transport_to_port(transport):
         )
 
 
-def disconnect_port(disconnect_type, transport):
+def disconnect_output_port(disconnect_type, transport, host):
     """
     Disconnect the port for a given transport.  disconnect_type can either be "DROP" to drop
     packets sent to that port, or it can be "REJECT" to reject packets sent to that port.
     """
-    # sudo -n iptables -A OUTPUT -p tcp --dport 8883 -j DROP
+    # sudo -n iptables -A OUTPUT -p tcp --dport 8883 --destination 20.21.22.23 -j DROP
+    ip = get_ip(host)
     port = transport_to_port(transport)
     run_shell_command(
-        "{}iptables -A OUTPUT -p tcp --dport {} -j {}".format(
-            get_sudo_prefix(), port, disconnect_type
+        "{}iptables -A OUTPUT -p tcp --dport {} --destination {} -j {}".format(
+            get_sudo_prefix(), port, ip, disconnect_type
         )
     )
 
 
-def reconnect_all(transport):
+def reconnect_all(transport, host):
     """
-    Reconnect all disconnects for all ports used by all transports.  Effectively, clean up
+    Reconnect all disconnects for this host and transport.  Effectively, clean up
     anyting that this module may have done.
     """
     if not is_windows():
+        ip = get_ip(host)
         port = transport_to_port(transport)
         for disconnect_type in all_disconnect_types:
             # sudo -n iptables -L OUTPUT -n -v --line-numbers
@@ -92,10 +95,17 @@ def reconnect_all(transport):
             # do the lines in reverse because deleting an entry changes the line numbers of all entries after that.
             lines.reverse()
             for line in lines:
-                if disconnect_type in line and str(port) in line:
+                if disconnect_type in line and "dpt:{}".format(port) in line and ip in line:
                     line_number = line.split(" ")[0]
                     logger.info("Removing {} from [{}]".format(line_number, line))
                     # sudo -n iptables -D OUTPUT 1
                     run_shell_command(
                         "{}iptables -D OUTPUT {}".format(get_sudo_prefix(), line_number)
                     )
+
+
+def get_ip(host):
+    """
+    Given a hostname, return the ip address
+    """
+    return socket.getaddrinfo(host, mqtt_port)[0][4][0]

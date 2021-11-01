@@ -42,11 +42,8 @@ class TestSendMessage(object):
 
 @pytest.mark.dropped_connection
 @pytest.mark.describe("Client send_message method with dropped connections")
+@pytest.mark.keep_alive(5)
 class TestSendMessageDroppedConnection(object):
-    @pytest.fixture(scope="class")
-    def extra_client_kwargs(self):
-        return {"keep_alive": 5}
-
     @pytest.mark.it("Sends if connection drops before sending")
     @pytest.mark.uses_iptables
     async def test_sends_if_drop_before_sending(
@@ -111,11 +108,9 @@ class TestSendMessageDroppedConnection(object):
 
 
 @pytest.mark.describe("Client send_message with reconnect disabled")
+@pytest.mark.keep_alive(5)
+@pytest.mark.connection_retry(False)
 class TestSendMessageRetryDisabled(object):
-    @pytest.fixture(scope="class")
-    def extra_client_kwargs(self):
-        return {"keep_alive": 5, "connection_retry": False}
-
     @pytest.fixture(scope="function", autouse=True)
     async def reconnect_after_test(self, dropper, client):
         yield
