@@ -34,6 +34,10 @@ class TestConnectDisconnect(object):
     def test_on_connection_state_change_gets_called_with_current_state_connected(
         self, brand_new_client
     ):
+        """
+        This test verifies that the `on_connection_state_change` handler gets called if
+        the client is connected when the handler is set.
+        """
         client = brand_new_client
 
         handler_called = threading.Event()
@@ -67,6 +71,13 @@ class TestConnectDisconnect(object):
     def test_on_connection_state_change_gets_called_with_current_state_disconnected(
         self, brand_new_client, previously_connected
     ):
+        """
+        This test verifies that the `on_connection_state_change` handler gets called if
+        the client is not connected when the handler is set.
+
+        The "not previously connected" case is marked as skip because this inconsistent
+        behavior appears to be a bug.
+        """
         client = brand_new_client
 
         handler_called = threading.Event()
@@ -97,7 +108,6 @@ class TestConnectDisconnect(object):
         brand_new_client,
         service_helper,
         random_message,
-        connection_retry,
     ):
         """
         Explanation: People will call `connect` inside `on_connection_state_change` handlers.
@@ -225,6 +235,10 @@ class TestConnectDisconnect(object):
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.mark.it("disconnects when network drops all outgoing packets")
     def test_disconnect_on_drop_outgoing(self, client, dropper):
+        """
+        This test verifies that the client will disconnect (eventually) if the network starts
+        dropping packets
+        """
 
         client.connect()
         assert client.connected
@@ -235,6 +249,10 @@ class TestConnectDisconnectDroppedConnection(object):
 
     @pytest.mark.it("disconnects when network rejects all outgoing packets")
     def test_disconnect_on_reject_outgoing(self, client, dropper):
+        """
+        This test verifies that the client will disconnect (eventually) if the network starts
+        rejecting packets
+        """
 
         client.connect()
         assert client.connected
