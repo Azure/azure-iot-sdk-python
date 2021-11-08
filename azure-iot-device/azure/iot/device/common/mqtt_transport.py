@@ -480,8 +480,6 @@ class MQTTTransport(object):
         :param int qos: the desired quality of service level for the subscription. Defaults to 1.
         :param callback: A callback to be triggered upon completion (Optional).
 
-        :return: message ID for the subscribe request.
-
         :raises: ValueError if qos is not 0, 1 or 2.
         :raises: ValueError if topic is None or has zero string length.
         :raises: ConnectionDroppedError if connection is dropped during execution.

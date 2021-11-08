@@ -11,7 +11,9 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.describe("ServiceHelper object")
 class TestServiceHelper(object):
     @pytest.mark.it("returns None when wait_for_event_arrival times out")
-    async def test_send_message(self, client, random_message, service_helper):
+    async def test_validate_wait_for_eventhub_arrival_timeout(
+        self, client, random_message, service_helper
+    ):
         # Because we have to support py27, we can't use `threading.Condition.wait_for`.
         # make sure our stand-in functionality behaves the same way when dealing with
         # timeouts.  The 'non-timeout' case is exercised in every test that uses
