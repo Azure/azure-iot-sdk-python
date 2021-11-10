@@ -6,6 +6,8 @@ import math
 
 
 class Measurements(object):
+    """Object which defines the measurements we take durring a stress test"""
+
     def __init__(self):
         self.lock = threading.Lock()
         self.peak_reconnect_time = 0

@@ -27,31 +27,47 @@ logger.setLevel(level=logging.INFO)
 
 pytestmark = pytest.mark.asyncio
 
-##################################
-# Settings that apply to all tests
-##################################
+"""
 
-# Size of telemetry messages
+We will eventually have three different kinds of stress tests:
+    1. Tests which are run frequently (every night).  These are used to provide assurance that
+       we do not have any regressions.  They The run relatively quickly and rarely fail. They
+       exist to produce statistics which we can compare between libraries and from run to run.
+    2. Tests which run less frequently that are used to find bugs.  These stress the library
+       much more than the first set of tests.  They run longer than the first set of tests.
+       They are expected to fail and/or produce actionable bug reports..  If they don't,
+       we're not pushing limits hard enough.
+    3. Long haul tests.  These are designed to run for a long time under more realistic
+       scenarios.  Their purpose is to behave in a more realistic manner and find bugs that
+       might not come up in the artificial conditions we use for the first to sets of tests.
+
+This file contains tests from the first set.
+
+"""
+
+
+# Settings that apply to all tests
 TELEMETRY_PAYLOAD_SIZE = 16 * 1024
-# Maximum amount of resident memory allowed before one of these tests fails
 PEAK_RESIDENT_MEMORY_MB_FAILURE_TRIGGER = 512
-# Maximum arrival time for a telemetry message to arrive before one of these tests fails.
 PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER = 180
-# Maximum time-to-reconnet before one of these tests fails
 PEAK_RECONNECT_TIME_FAILURE_TRIGGER = 30
 
+# Settings that apply to continuous telemetry test
 CONTINUOUS_TELEMETRY_TEST_DURATION = 120
 CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND = 30
 
+# Settings that apply to all-at-once telemetry test
 ALL_AT_ONCE_MESSAGE_COUNT = 3000
 ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER = 5 * 60
 
+# Settings that apply to flaky network telemetry test
 SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION = 5 * 60
 SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND = 20
 SEND_TELEMETRY_FLAKY_NETWORK_KEEPALIVE_INTERVAL = 10
 SEND_TELEMETRY_FLAKY_NETWORK_CONNECTED_INTERVAL = 15
 SEND_TELEMETRY_FLAKY_NETWORK_DISCONNECTED_INTERVAL = 15
 
+# Settings that apply to fault injection telemetry test
 SEND_TELEMETRY_FAULT_INJECTION_TEST_DURATION = 5 * 60
 SEND_TELEMETRY_FAULT_INJECTION_MESSAGES_PER_SECOND = 20
 SEND_TELEMETRY_FAULT_INJECTION_FAULT_INTERVAL = 10
