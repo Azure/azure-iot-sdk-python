@@ -200,7 +200,7 @@ class TestSendMessageStress(object):
                 done_sending = True
                 sleep_interval = 5
 
-            # if the test is still running, send another burst of messages
+            # if the test is still running, send another message
             if not done_sending:
                 futures.append(
                     asyncio.ensure_future(
