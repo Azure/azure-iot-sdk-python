@@ -27,7 +27,7 @@ In order to use these samples, you **must** set your Device Connection String in
     az iot hub monitor-events --hub-name <your IoT Hub name> --output table
     ```
     
- * [recurring_telemetry.py](recurring_telemetry.py) - Send a telemetry message every two seconds from a device to the Azure IoT Hub.
+ * [recurring_telemetry.py](recurring_telemetry.py) - Send telemetry message every two seconds from a device to the Azure IoT Hub.
    * You can monitor the Azure IoT Hub for messages received by using the following Azure CLI command:
 
     ```bash
