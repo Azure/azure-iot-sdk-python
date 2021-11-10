@@ -13,23 +13,9 @@ class Measurements(object):
         self.peak_reconnect_time = 0
         self.peak_resident_memory_mb = 0
         self.peak_telemetry_arrival_time = 0
-        self.queued_telemetry_messages = 0
-        self.peak_queued_telemetry_messages = 0
+        self.telemetry_messages_in_queue = 0
+        self.peak_telemetry_messages_in_queue = 0
         self.total_elapsed_time = 0
-
-
-def round(x):
-    """
-    round up if the decimal part of x is >= .5, otherwise round down
-    """
-    return math.floor(x + 0.5)
-
-
-def two_decimal_places(x):
-    """
-    round x to two decimal places
-    """
-    return round(x * 100) / 100
 
 
 def print_measurements(measurements, name):
@@ -41,28 +27,28 @@ def print_measurements(measurements, name):
         print("results for: {}".format(name))
         print(
             "    Peak telemetry arrival time:      {} seconds".format(
-                two_decimal_places(measurements.peak_telemetry_arrival_time)
+                round(measurements.peak_telemetry_arrival_time, 2)
             )
         )
         print(
-            "    Peak queued telemetry message:    {} messages".format(
-                measurements.peak_queued_telemetry_messages
+            "    Peak telemetry messages in queue: {} messages".format(
+                measurements.peak_telemetry_messages_in_queue
             )
         )
         print(
             "    Peak reconnect time:              {} seconds".format(
-                two_decimal_places(measurements.peak_reconnect_time)
+                round(measurements.peak_reconnect_time, 2)
             )
         )
         if measurements.total_elapsed_time:
             print(
                 "    Total elapsed time:               {} seconds".format(
-                    two_decimal_places(measurements.total_elapsed_time)
+                    round(measurements.total_elapsed_time, 2)
                 )
             )
         print(
             "    Peak resident memory:             {} MB".format(
-                two_decimal_places(measurements.peak_resident_memory_mb)
+                round(measurements.peak_resident_memory_mb, 2)
             )
         )
     else:

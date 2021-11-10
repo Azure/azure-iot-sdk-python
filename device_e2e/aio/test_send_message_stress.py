@@ -94,10 +94,10 @@ class TestSendMessageStress(object):
         start_time = time.time()
 
         with stress_measurements.lock:
-            stress_measurements.queued_telemetry_messages += 1
-            stress_measurements.peak_queued_telemetry_messages = max(
-                stress_measurements.peak_queued_telemetry_messages,
-                stress_measurements.queued_telemetry_messages,
+            stress_measurements.telemetry_messages_in_queue += 1
+            stress_measurements.peak_telemetry_messages_in_queue = max(
+                stress_measurements.peak_telemetry_messages_in_queue,
+                stress_measurements.telemetry_messages_in_queue,
             )
 
         # "Poor-man's" retry policy.  retry 5 times with linear backoff
@@ -142,7 +142,7 @@ class TestSendMessageStress(object):
                 raise
 
         with stress_measurements.lock:
-            stress_measurements.queued_telemetry_messages -= 1
+            stress_measurements.telemetry_messages_in_queue -= 1
 
         # Wait for the arrival of the message.  We have a relatively short timeout here
         # (set as a default parameter to wait_for_eventhub_arrival), but that's OK because
