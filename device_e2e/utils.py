@@ -38,6 +38,8 @@ def get_random_dict(total_payload_length=0):
 
         assert len(json.dumps(obj)) == total_payload_length
 
+    return obj
+
 
 def get_random_message(total_payload_length=0):
     message = Message(json.dumps(get_random_dict(total_payload_length)))
