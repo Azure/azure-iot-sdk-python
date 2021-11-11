@@ -15,14 +15,6 @@ logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture
-def dummy_coroutine():
-    async def coro():
-        return
-
-    return coro
-
-
 @pytest.mark.describe("get_running_loop()")
 class TestGetRunningLoop(object):
     @pytest.mark.it("Returns the currently running Event Loop in Python 3.7 or higher")
@@ -64,6 +56,13 @@ class TestGetRunningLoop(object):
 
 @pytest.mark.describe("create_task()")
 class TestCreateTask(object):
+    @pytest.fixture
+    def dummy_coroutine(self):
+        async def coro():
+            return
+
+        return coro
+
     @pytest.mark.it(
         "Returns a Task that wraps a given coroutine, and schedules its execution, in Python 3.7 or higher"
     )
@@ -124,23 +123,23 @@ class TestCreateFuture(object):
 class TestRun(object):
     @pytest.mark.it("Runs the given coroutine on a new event loop in Python 3.7 or higher")
     @pytest.mark.skipif(sys.version_info < (3, 7), reason="Requires Python 3.7+")
-    def test_run_37_or_greater(self, mocker, dummy_coroutine):
+    def test_run_37_or_greater(self, mocker):
         mock_asyncio_run = mocker.patch.object(asyncio, "run")
-        coro = dummy_coroutine()
-        result = asyncio_compat.run(coro)
+        mock_coro = mocker.MagicMock()
+        result = asyncio_compat.run(mock_coro)
         assert mock_asyncio_run.call_count == 1
-        assert mock_asyncio_run.call_args == mocker.call(coro)
+        assert mock_asyncio_run.call_args == mocker.call(mock_coro)
         assert result == mock_asyncio_run.return_value
 
     @pytest.mark.it("Runs the given coroutine on a new event loop in Python 3.6 or below")
     @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
-    def test_run_36orless_compat(self, mocker, dummy_coroutine):
+    def test_run_36orless_compat(self, mocker):
         mock_new_event_loop = mocker.patch.object(asyncio, "new_event_loop")
         mock_set_event_loop = mocker.patch.object(asyncio, "set_event_loop")
         mock_loop = mock_new_event_loop.return_value
 
-        coro = dummy_coroutine()
-        result = asyncio_compat.run(coro)
+        mock_coro = mocker.MagicMock()
+        result = asyncio_compat.run(mock_coro)
 
         # New event loop was created and set
         assert mock_new_event_loop.call_count == 1
@@ -149,7 +148,7 @@ class TestRun(object):
         assert mock_set_event_loop.call_args_list[0] == mocker.call(mock_loop)
         # Coroutine was run on the event loop, with the result returned
         assert mock_loop.run_until_complete.call_count == 1
-        assert mock_loop.run_until_complete.call_args == mocker.call(coro)
+        assert mock_loop.run_until_complete.call_args == mocker.call(mock_coro)
         assert result == mock_loop.run_until_complete.return_value
         # Loop was closed after completion
         assert mock_loop.close.call_count == 1
@@ -161,16 +160,16 @@ class TestRun(object):
         "Closes the event loop and resets to None, even if an error occurs running the coroutine, in Python 3.6 or below"
     )
     @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
-    def test_error_running_36orless_compat(self, mocker, dummy_coroutine, arbitrary_exception):
+    def test_error_running_36orless_compat(self, mocker, arbitrary_exception):
         # NOTE: This test is not necessary for 3.7 because asyncio.run() does this for us
         mock_new_event_loop = mocker.patch.object(asyncio, "new_event_loop")
         mock_set_event_loop = mocker.patch.object(asyncio, "set_event_loop")
         mock_loop = mock_new_event_loop.return_value
         mock_loop.run_until_complete.side_effect = arbitrary_exception
 
-        coro = dummy_coroutine()
+        mock_coro = mocker.MagicMock()
         with pytest.raises(type(arbitrary_exception)):
-            asyncio_compat.run(coro)
+            asyncio_compat.run(mock_coro)
 
         assert mock_loop.close.call_count == 1
         assert mock_set_event_loop.call_count == 2  # Once set, once to unset

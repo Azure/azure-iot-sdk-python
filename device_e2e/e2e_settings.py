@@ -12,10 +12,11 @@ IOTHUB_CONNECTION_STRING = None
 EVENTHUB_CONNECTION_STRING = None
 IOTHUB_HOSTNAME = None
 IOTHUB_NAME = None
+EVENTHUB_CONSUMER_GROUP = None
 
 
 def get_secrets():
-    global IOTHUB_CONNECTION_STRING, EVENTHUB_CONNECTION_STRING, IOTHUB_HOSTNAME, IOTHUB_NAME
+    global IOTHUB_CONNECTION_STRING, EVENTHUB_CONNECTION_STRING, IOTHUB_HOSTNAME, IOTHUB_NAME, EVENTHUB_CONSUMER_GROUP
 
     secrets = None
 
@@ -36,9 +37,11 @@ def get_secrets():
     if secrets:
         IOTHUB_CONNECTION_STRING = secrets.get("iothubConnectionString", None)
         EVENTHUB_CONNECTION_STRING = secrets.get("eventhubConnectionString", None)
+        EVENTHUB_CONSUMER_GROUP = secrets.get("eventhubConsumerGroup", None)
     else:
         IOTHUB_CONNECTION_STRING = os.environ["IOTHUB_E2E_IOTHUB_CONNECTION_STRING"]
         EVENTHUB_CONNECTION_STRING = os.environ["IOTHUB_E2E_EVENTHUB_CONNECTION_STRING"]
+        EVENTHUB_CONSUMER_GROUP = os.getenv("IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP", None)
 
     parts = {}
     for key_and_value in IOTHUB_CONNECTION_STRING.split(";"):
@@ -50,4 +53,6 @@ def get_secrets():
 
 
 get_secrets()
-EVENTHUB_CONSUMER_GROUP = "$default"
+
+if not EVENTHUB_CONSUMER_GROUP:
+    EVENTHUB_CONSUMER_GROUP = "$default"
