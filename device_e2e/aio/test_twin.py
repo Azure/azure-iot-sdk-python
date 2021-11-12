@@ -168,8 +168,8 @@ class TestDesiredProperties(object):
             {const.TEST_CONTENT: random_dict},
         )
 
-        await asyncio.wait_for(received.wait(), 10)
-        logger.info("got it")
+        await asyncio.wait_for(received.wait(), 60)
+        assert received.is_set()
 
         assert received_patch[const.TEST_CONTENT] == random_dict
 

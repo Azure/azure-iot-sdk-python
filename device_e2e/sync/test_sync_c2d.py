@@ -35,6 +35,7 @@ class TestSendMessage(object):
 
         service_helper.send_c2d(message, {})
 
-        received.wait(timeout=10)
+        received.wait(timeout=60)
+        assert received.is_set()
 
         assert nonlocal_py27_hack["received_message"].data.decode("utf-8") == message
