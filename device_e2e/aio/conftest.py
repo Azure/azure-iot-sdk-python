@@ -6,6 +6,8 @@ import asyncio
 import functools
 import e2e_settings
 import logging
+import stress_results
+import time
 from utils import create_client_object
 from service_helper import ServiceHelper
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
@@ -31,6 +33,10 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
 
     yield client
 
+    logger.info("---------------------------------------")
+    logger.info("test is complete.  Shutting down client")
+    logger.info("---------------------------------------")
+
     await client.shutdown()
 
 
@@ -50,3 +56,37 @@ async def service_helper(event_loop, executor):
     yield service_helper
     print("shutting down")
     await service_helper.shutdown()
+
+
+@pytest.fixture(scope="function")
+def stress_measurements(request):
+    """
+    Fixture to create an object to store our stress measurements.  This fixture also tracks
+    the length of a test and stores the results into the pytest function object so we can
+    log them at the end of the test (inside `pytest_sessionfinish`.
+    """
+    start_time = time.time()
+    measurements = stress_results.Measurements()
+
+    yield measurements
+
+    measurements.total_elapsed_time = time.time() - start_time
+
+    # Temporarily store results so we can print them at the end of the run.
+    # Later, we will push these results to some analytics store.
+    request.node.stress_measurements = measurements
+
+
+@pytest.hookimpl
+def pytest_sessionfinish(session, exitstatus):
+    """
+    Log stress results to stdout at the end of a test run.
+    """
+    for item in session.items:
+        if getattr(item, "stress_measurements", None):
+            it = item.get_closest_marker("it")
+            if it:
+                name = it.args[0]
+            else:
+                name = item.name
+            stress_results.print_measurements(item.stress_measurements, name)

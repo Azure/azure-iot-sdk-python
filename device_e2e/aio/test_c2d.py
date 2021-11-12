@@ -36,6 +36,7 @@ class TestSendMessage(object):
 
         await service_helper.send_c2d(message, {})
 
-        await asyncio.wait_for(received.wait(), 10)
+        await asyncio.wait_for(received.wait(), 60)
+        assert received.is_set()
 
         assert received_message.data.decode("utf-8") == message

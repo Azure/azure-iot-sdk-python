@@ -164,8 +164,8 @@ class TestDesiredProperties(object):
             {const.TEST_CONTENT: random_dict},
         )
 
-        received.wait(timeout=10)
-        logger.info("got it")
+        received.wait(timeout=60)
+        assert received.is_set()
 
         assert nonlocal_py27_hack["received_patch"][const.TEST_CONTENT] == random_dict
 

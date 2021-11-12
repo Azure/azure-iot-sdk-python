@@ -176,6 +176,14 @@ def pytest_pyfunc_call(pyfuncitem):
         raise
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_exception_interact(node, call, report):
+    logger.error("------------------------------------------------------")
+    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, type(call.excinfo.value)))
+    logger.error("------------------------------------------------------")
+    yield
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_runtest_teardown(item, nextitem):
     """

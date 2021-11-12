@@ -45,7 +45,7 @@ class ServiceHelper:
             self.executor, self.inner_object.send_c2d, payload, properties
         )
 
-    async def wait_for_eventhub_arrival(self, message_id, timeout=20):
+    async def wait_for_eventhub_arrival(self, message_id, timeout=60):
         return await self.event_loop.run_in_executor(
             self.executor,
             self.inner_object.wait_for_eventhub_arrival,
