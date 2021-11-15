@@ -3,23 +3,20 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import os
 import asyncio
-from six.moves import input
+import signal
 import threading
 from azure.iot.device.aio import IoTHubModuleClient
 from azure.iot.device import MethodResponse
 
 
-async def main():
+# Event indicating client stop
+stop_event = threading.Event()
+
+
+def create_client():
     # The client object is used to interact with your Azure IoT hub.
-    module_client = IoTHubModuleClient.create_from_edge_environment()
-
-    # connect the client.
-    await module_client.connect()
-
-    # event indicating when user is finished
-    finished = threading.Event()
+    client = IoTHubModuleClient.create_from_edge_environment()
 
     # Define behavior for receiving an input message on input1 and input2
     # NOTE: this could be a coroutine or a function
@@ -51,36 +48,52 @@ async def main():
             method_response = MethodResponse.create_from_method_request(
                 method_request, 200, "some data"
             )
-            await module_client.send_method_response(method_response)
-        elif method_request.name == "shutdown":
-            print("Received request to shut down")
-            method_response = MethodResponse.create_from_method_request(method_request, 200, None)
-            await module_client.send_method_response(method_response)
-            # Setting this event will cause client shutdown
-            finished.set()
+            await client.send_method_response(method_response)
         else:
             print("Unknown method request received: {}".format(method_request.name))
             method_response = MethodResponse.create_from_method_request(method_request, 400, None)
-            await module_client.send_method_response(method_response)
+            await client.send_method_response(method_response)
 
     # set the received data handlers on the client
-    module_client.on_message_received = message_handler
-    module_client.on_twin_desired_properties_patch_received = twin_patch_handler
-    module_client.on_method_request_received = method_handler
+    client.on_message_received = message_handler
+    client.on_twin_desired_properties_patch_received = twin_patch_handler
+    client.on_method_request_received = method_handler
 
-    # This will trigger when a Direct Method Request for "shutdown" is sent.
-    # NOTE: This sample will NOT exit until a Direct Method Request is sent.
-    # Send one using the Azure IoT Explorer or the Azure IoT CLI
-    # (https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-direct-methods)
-    finished.wait()
-    # Once it is received, shut down the client
-    await module_client.shutdown()
+    return client
+
+
+async def run_sample(client):
+    # Customize this coroutine to do whatever tasks the module initiates
+    # e.g. sending messages
+    await client.connect()
+    while not stop_event.is_set():
+        await asyncio.sleep(1000)
+
+
+def main():
+    # NOTE: Client is implicitly connected due to the handler being set on it
+    client = create_client()
+
+    # Define a handler to cleanup when module is is terminated by Edge
+    def module_termination_handler(signal, frame):
+        print("IoTHubClient sample stopped by Edge")
+        stop_event.set()
+
+    # Set the Edge termination handler
+    signal.signal(signal.SIGTERM, module_termination_handler)
+
+    # Run the sample
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(run_sample(client))
+    except Exception as e:
+        print("Unexpected error %s " % e)
+        raise
+    finally:
+        print("Shutting down IoT Hub Client...")
+        loop.run_until_complete(client.shutdown())
+        loop.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
-    # If using Python 3.6 or below, use the following code instead of asyncio.run(main()):
-    # loop = asyncio.get_event_loop()
-    # loop.run_until_complete(main())
-    # loop.close()
+    main()
