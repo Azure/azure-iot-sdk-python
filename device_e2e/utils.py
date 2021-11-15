@@ -16,25 +16,53 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 
-def get_random_dict():
-    return {
+def get_random_string(length):
+    return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
+
+
+def get_random_dict(total_payload_length=0):
+    obj = {
         "random_guid": str(uuid.uuid4()),
         "sub_object": {
-            "string_value": "".join(
-                random.choice(string.ascii_uppercase + string.digits) for _ in range(10)
-            ),
+            "string_value": get_random_string(10),
             "bool_value": random.random() > 0.5,
             "int_value": random.randint(-65535, 65535),
         },
     }
 
+    if total_payload_length:
+        length = len(json.dumps(obj))
+        extra_characters = total_payload_length - length - len(', "extra": ""')
+        if extra_characters > 0:
+            obj["extra"] = get_random_string(extra_characters)
 
-def get_random_message():
-    message = Message(json.dumps(get_random_dict()))
+        assert len(json.dumps(obj)) == total_payload_length
+
+    return obj
+
+
+def get_random_message(total_payload_length=0):
+    message = Message(json.dumps(get_random_dict(total_payload_length)))
     message.content_type = const.JSON_CONTENT_TYPE
     message.content_encoding = const.JSON_CONTENT_ENCODING
     message.message_id = str(uuid.uuid4())
     return message
+
+
+fault_injection_types = {
+    "KillTcp": " severs the TCP connection ",
+    "ShutDownMqtt": " cleanly shutdowns the MQTT connection ",
+}
+
+
+def get_fault_injection_message(fault_injection_type):
+    fault_message = Message(" ")
+    fault_message.custom_properties["AzIoTHub_FaultOperationType"] = fault_injection_type
+    fault_message.custom_properties["AzIoTHub_FaultOperationCloseReason"] = fault_injection_types[
+        fault_injection_type
+    ]
+    fault_message.custom_properties["AzIoTHub_FaultOperationDelayInSecs"] = 5
+    return fault_message
 
 
 def create_client_object(device_identity, client_kwargs, DeviceClass, ModuleClass):
