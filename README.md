@@ -15,10 +15,10 @@ connect to the Azure IoT Hub ecosystem.
 
 This repository contains the following libraries:
 
-* [Azure IoT Device library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-device/README.md). 
+* [Azure IoT Device library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-device/README.md). 
     * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-device)
 
-* [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md)
+* [Azure IoT Hub Service library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md)
      * [API Reference](https://docs.microsoft.com/en-us/python/api/azure-iot-hub)
 
 * Coming Soon: Azure IoT Device Provisioning Service Library
@@ -48,16 +48,16 @@ While existing releases will continue to function with Python 2.7 as normal, fut
 
 Pip installs are provided for all of the SDK libraries in this repo:
 
-[Device libraries](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device#installation)
+[Device libraries](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device#installation)
 
-[IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/README.md#installation)
+[IoTHub library](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/README.md#installation)
 
 ## Using the libraries
 Want to start off on the right foot? Be sure to learn about [**common pitfalls**](https://github.com/Azure/azure-iot-sdk-python/wiki/pitfalls) of using this Python SDK before starting a project.  
 
 You can also view samples in each library:
-- [Device Samples](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device/samples) cover device and Edge module scenarios.
-- [IoT Hub Samples](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub/samples) cover IoT Hub service side scenarios.
+- [Device Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device/samples) cover device and Edge module scenarios.
+- [IoT Hub Samples](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-hub/samples) cover IoT Hub service side scenarios.
 
 
 ## Features
@@ -68,7 +68,7 @@ You can also view samples in each library:
 
 This SDK only supports the **MQTT protocol**.
 
-### Device Client Library ([azure-iot-device](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-device))
+### Device Client Library ([azure-iot-device](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-device))
 
 #### IoTHub Device Client
 
@@ -107,7 +107,7 @@ This SDK only supports the **MQTT protocol**.
 | X.509 Enrollment Group      | :heavy_check_mark: | Provisioning via [X.509 leaf certificate](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-security#leaf-certificate)).  Please review the [samples](azure-iot-device/samples/async-hub-scenarios/provision_x509.py) folder on how to create a device client.                                                                                                                  |
 | Symmetric Key Enrollment    | :heavy_check_mark: | Provisioning via [Symmetric key attestation](https://docs.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)).  Please review the [samples](azure-iot-device/samples/async-hub-scenarios/provision_symmetric_key.py) folder on how to create a device client.                                                                                                               |
 
-### IoTHub Service Library ([azure-iot-hub](https://github.com/Azure/azure-iot-sdk-python/blob/master/azure-iot-hub/azure/iot/hub/iothub_registry_manager.py))
+### IoTHub Service Library ([azure-iot-hub](https://github.com/Azure/azure-iot-sdk-python/blob/main/azure-iot-hub/azure/iot/hub/iothub_registry_manager.py))
 
 #### Registry Manager
 
