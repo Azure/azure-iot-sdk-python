@@ -225,9 +225,7 @@ class ServiceHelperSync(object):
             logger.warning("EventHub on_partition_initialize")
 
         def on_partition_close(partition_context, reason):
-            # commented out because it causes ugly warning spew on shutdown
-            # logger.warning("EventHub on_partition_close: {}".format(reason))
-            pass
+            logger.warning("EventHub on_partition_close: {}".format(reason))
 
         def on_event_batch(partition_context, events):
             for event in events:

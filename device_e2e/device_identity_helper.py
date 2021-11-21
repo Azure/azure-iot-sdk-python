@@ -11,11 +11,6 @@ from six.moves.urllib import parse
 from hmac import HMAC
 
 
-registry_manager = IoTHubRegistryManager.from_connection_string(
-    e2e_settings.IOTHUB_CONNECTION_STRING
-)
-
-
 def generate_sas_token(uri, key, policy_name, expiry):
     sign_data = "%s\n%d" % ((parse.quote_plus(uri)), int(expiry))
 
@@ -40,6 +35,12 @@ class IdentityDescription(object):
         self.sas_token = None
 
 
+# NOTE: This code should probably be wrapped in an object with a shutdown method.  This way
+# we could create the IoTHubRegistryManager once and clean it up when we're done.  Making
+# the IoTHubRegistryManager object a global is ugly because that would cause us to get warnings
+# from uamqp as it cleans up.
+
+
 def create_device_with_x509_self_signed_cert():
     desc = IdentityDescription()
     desc.authentication_description = "x509 certificate"
@@ -52,6 +53,9 @@ def create_device_with_symmetric_key():
     desc.authentication_description = "shared private key"
     desc.device_id = "00e2etest-delete-me-python-key-" + str(uuid.uuid4())
 
+    registry_manager = IoTHubRegistryManager.from_connection_string(
+        e2e_settings.IOTHUB_CONNECTION_STRING
+    )
     dev = registry_manager.create_device_with_sas(desc.device_id, None, None, "enabled")
 
     desc.primary_key = dev.authentication.symmetric_key.primary_key
@@ -71,6 +75,9 @@ def create_device_with_sas():
     desc.authentication_description = "application supplied SAS"
     desc.device_id = "00e2etest-delete-me-python-sas-" + str(uuid.uuid4())
 
+    registry_manager = IoTHubRegistryManager.from_connection_string(
+        e2e_settings.IOTHUB_CONNECTION_STRING
+    )
     dev = registry_manager.create_device_with_sas(desc.device_id, None, None, "enabled")
 
     desc.primary_key = dev.authentication.symmetric_key.primary_key
@@ -92,4 +99,7 @@ def create_device_with_x509_ca_signed_cert():
 
 
 def delete_device(device_id):
+    registry_manager = IoTHubRegistryManager.from_connection_string(
+        e2e_settings.IOTHUB_CONNECTION_STRING
+    )
     registry_manager.delete_device(device_id)
