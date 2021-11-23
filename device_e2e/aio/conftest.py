@@ -8,6 +8,7 @@ import e2e_settings
 import logging
 import stress_results
 import time
+import datetime
 from utils import create_client_object
 from service_helper import ServiceHelper
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
@@ -29,8 +30,8 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
 
     # Keep this here.  It is useful to see this info inside the inside devops pipeline test failures.
     logger.info(
-        "Connecting device_id={}, module_id={}, to hub={}".format(
-            device_id, module_id, e2e_settings.IOTHUB_HOSTNAME
+        "Connecting device_id={}, module_id={}, to hub={} at {} (UTC)".format(
+            device_id, module_id, e2e_settings.IOTHUB_HOSTNAME, datetime.datetime.utcnow()
         )
     )
 
