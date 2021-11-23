@@ -122,7 +122,7 @@ class ServiceHelperSync(object):
         self,
         method_name,
         payload,
-        connect_timeout_in_seconds=None,
+        connect_timeout_in_seconds=30,
         response_timeout_in_seconds=None,
     ):
         request = CloudToDeviceMethod(
