@@ -97,7 +97,7 @@ class TestReportedPropertiesDroppedConnection(object):
         assert client.connected
         dropper.drop_outgoing()
 
-        send_task = asyncio.create_task(
+        send_task = asyncio.ensure_future(
             client.patch_twin_reported_properties(random_reported_props)
         )
         while client.connected:
@@ -125,7 +125,7 @@ class TestReportedPropertiesDroppedConnection(object):
         assert client.connected
         dropper.reject_outgoing()
 
-        send_task = asyncio.create_task(
+        send_task = asyncio.ensure_future(
             client.patch_twin_reported_properties(random_reported_props)
         )
         while client.connected:

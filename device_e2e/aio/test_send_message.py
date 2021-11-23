@@ -53,7 +53,7 @@ class TestSendMessageDroppedConnection(object):
         assert client.connected
 
         dropper.drop_outgoing()
-        send_task = asyncio.create_task(client.send_message(random_message))
+        send_task = asyncio.ensure_future(client.send_message(random_message))
 
         while client.connected:
             await asyncio.sleep(1)
@@ -84,7 +84,7 @@ class TestSendMessageDroppedConnection(object):
         assert client.connected
 
         dropper.reject_outgoing()
-        send_task = asyncio.create_task(client.send_message(random_message))
+        send_task = asyncio.ensure_future(client.send_message(random_message))
 
         while client.connected:
             await asyncio.sleep(1)
@@ -164,7 +164,7 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
         dropper.drop_outgoing()
-        send_task = asyncio.create_task(client.send_message(random_message))
+        send_task = asyncio.ensure_future(client.send_message(random_message))
 
         while client.connected:
             await asyncio.sleep(1)
