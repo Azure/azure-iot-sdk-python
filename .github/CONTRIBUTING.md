@@ -50,7 +50,7 @@ The commit should contains one of the following structural elements as the \<typ
 
 - `fix:` a commit of the type fix patches a bug in your codebase (this correlates with PATCH in semantic versioning).
 - `feat:` a commit of the type feat introduces a new feature to the codebase (this correlates with MINOR in semantic versioning).
-- Others: commit types other than `fix:` and `feat:` are allowed such as `chore:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, and others. Refer to [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint/tree/master/%40commitlint/config-conventional) for a full list.
+- Others: commit types other than `fix:` and `feat:` are allowed such as `chore:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, and others. Refer to [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint/tree/main/%40commitlint/config-conventional) for a full list.
 
 If you are new to this convention you can use `npm run commit` instead of `git commit` and follow the guided instructions.
 

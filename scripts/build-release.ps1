@@ -34,11 +34,6 @@ function Build {
         Version = $env:device_version_part
     }
 
-    $packages["azure-iot-nspkg"] = [PSCustomObject]@{
-        File = "setup.py"
-        Version = $env:nspkg_version_part
-    }
-
     $packages["azure-iot-hub"] = [PSCustomObject]@{
         File = "azure\iot\hub\constant.py"
         Version = $env:hub_version_part
