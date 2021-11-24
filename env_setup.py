@@ -35,22 +35,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    ns_packages = [os.path.dirname(p) for p in glob.glob("azure*nspkg/setup.py")]
-    packages = [
-        os.path.dirname(p)
-        for p in glob.glob("azure*/setup.py")
-        if os.path.dirname(p) not in ns_packages
-    ]
+    packages = [os.path.dirname(p) for p in glob.glob("azure*/setup.py")]
 
     # Make sure pip is on the latest version
     pip_command("install --upgrade pip")
-
-    # Install nspkgs first (2.7 only)
-    if sys.version_info < (3, 0, 0):
-        for package_name in ns_packages:
-            # Use an eager upgrade strategy to make sure we have all the latest dependencies.
-            # This way we will be running into any dependency-related bugs before customers do.
-            pip_command("install -U --upgrade-strategy eager -e {}".format(package_name))
 
     # Install packages
     for package_name in packages:

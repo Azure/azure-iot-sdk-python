@@ -32,7 +32,6 @@ steps:
     dist: $(System.ArtifactsDirectory)\dist
     sources: $(Build.SourcesDirectory)
     device_version_part: $(azure-iot-device-version-part)
-    nspkg_version_part: $(azure-iot-nspkg-version-part)
     hub_version_part: $(azure-iot-hub-version-part)
   displayName: 'build release artifacts'
 
@@ -41,28 +40,6 @@ steps:
     versionSpec: '2.7'
     addToPath: true
     architecture: 'x64'
-
-- task: CmdLine@2
-  inputs:
-    script: |
-      IF [%VERSION%] EQU [] ( 
-          echo Skipping azure-iot-nskpg Python2 build
-          GOTO EOF
-      )
-
-      pushd %LOCATION%
-      pip install wheel
-      python --version
-      python.exe setup.py bdist_wheel
-      robocopy /V %LOCATION%\dist %DIST%\azure-iot-nspkg
-      popd
-      IF %ERRORLEVEL% == 1 exit /b 0
-      :EOF
-  env:
-    dist: $(System.ArtifactsDirectory)\dist
-    location: $(Build.SourcesDirectory)\azure-iot-nspkg
-    version: $(azure-iot-nspkg-version-part)
-  displayName: 'build nspkg for python2'
 
 - task: PowerShell@2
   inputs:
