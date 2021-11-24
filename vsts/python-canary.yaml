@@ -1,0 +1,67 @@
+name: $(BuildID)_$(BuildDefinitionName)_$(SourceBranchName) 
+
+jobs:
+- job: 'Test'
+
+  strategy:
+    maxParallel: 4
+    matrix:
+      py27_windows_mqtt:
+        pv: '2.7'
+        transport: 'mqtt'
+        imageName: 'windows-latest'
+      py27_windows_mqttws:
+        pv: '2.7'
+        transport: 'mqttws'
+        imageName: 'windows-latest'
+      py39_windows_mqtt:
+        pv: '3.9'
+        transport: 'mqtt'
+        imageName: 'windows-latest'
+      py39_windows_mqttws:
+        pv: '3.9'
+        transport: 'mqttws'
+        imageName: 'windows-latest'
+
+      py36_linux_mqtt:
+        pv: '3.6'
+        transport: 'mqtt'
+        imageName: 'Ubuntu 20.04'
+      py37_linux_mqttws:
+        pv: '3.7'
+        transport: 'mqttws'
+        imageName: 'Ubuntu 20.04'
+      py38_linux_mqtt:
+        pv: '3.8'
+        transport: 'mqtt'
+        imageName: 'Ubuntu 20.04'
+      py310_linux_mqtt:
+        pv: '3.10'
+        transport: 'mqtt'
+        imageName: 'Ubuntu 20.04'
+
+  pool:
+    vmImage: $(imageName)
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: $(pv)
+        architecture: 'x64'
+
+    - script: 'python env_setup.py --no_dev'
+      displayName: 'Prepare environment (install packages + dev dependencies + test dependencies + tools)'
+
+    - script: |
+        cd $(Build.SourcesDirectory)/device_e2e
+        pytest --transport=$(transport) --junitxml=junit/TEST-python-e2e.xml -o junit_suite_name="$(Agent.JobName)" 
+      displayName: 'E2E Device Client MQTT Connection String'
+      env:
+        IOTHUB_E2E_IOTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-CONNECTION-STRING)
+        IOTHUB_E2E_EVENTHUB_CONNECTION_STRING: $(IOTHUB-CANARY-E2E-EVENTHUB-CONNECTION-STRING)
+        IOTHUB_E2E_EVENTHUB_CONSUMER_GROUP: e2e-nightly-stress-consumer-group
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+

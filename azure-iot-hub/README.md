@@ -21,7 +21,7 @@ pip install azure-iot-hub
 
 ## IoTHub Samples
 
-Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python/tree/master/azure-iot-hub/samples) for more detailed samples
+Check out the [samples repository](https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-hub/samples) for more detailed samples
 
 ## Getting help and finding API docs
 

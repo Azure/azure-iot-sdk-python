@@ -27,9 +27,9 @@ any relevant issue number in the pull request description.
 
 ## Contribute code and/or documentation
 
-We look at all pull requests submitted against the `master` branch carefully. We also actively use the [Wiki](https://github.com/Azure/azure-iot-sdk-node/wiki) for longer-form documents. The wiki can be cloned and used as a regular Git repository so feel free to contribute there too!
+We look at all pull requests submitted against the `main` branch carefully. We also actively use the [Wiki](https://github.com/Azure/azure-iot-sdk-node/wiki) for longer-form documents. The wiki can be cloned and used as a regular Git repository so feel free to contribute there too!
 
-As far as code is concerned the code associated with the PR will be pulled and run through the gated build before it makes it to the master branch. As much as possible, we insist on having tests associated with the code, and if necessary, additions/modifications to the requirement documents. As a matter of fact, the build will fail if code coverage goes down.
+As far as code is concerned the code associated with the PR will be pulled and run through the gated build before it makes it to the `main` branch. As much as possible, we insist on having tests associated with the code, and if necessary, additions/modifications to the requirement documents. As a matter of fact, the build will fail if code coverage goes down.
 
 Also, have you signed the [Contribution License Agreement](https://cla.microsoft.com/) ([CLA](https://cla.microsoft.com/))? A friendly bot will remind you about it when you submit your pull-request.
 

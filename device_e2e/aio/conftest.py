@@ -54,7 +54,7 @@ async def service_helper(event_loop, executor):
     service_helper = ServiceHelper(event_loop, executor)
     await asyncio.sleep(3)
     yield service_helper
-    print("shutting down")
+    logger.info("shutting down service_helper")
     await service_helper.shutdown()
 
 

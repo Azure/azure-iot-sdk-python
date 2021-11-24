@@ -485,6 +485,7 @@ class TestSendMessageStress(object):
     )
     @pytest.mark.keep_alive(SEND_TELEMETRY_FLAKY_NETWORK_KEEPALIVE_INTERVAL)
     @pytest.mark.timeout(SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION * 2)
+    @pytest.mark.dropped_connection
     async def test_stress_send_message_with_flaky_network(
         self,
         client,
