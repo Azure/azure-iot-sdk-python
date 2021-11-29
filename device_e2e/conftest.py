@@ -153,34 +153,18 @@ def pytest_runtest_setup(item):
     item.leak_tracker.set_initial_object_list()
 
 
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_pyfunc_call(pyfuncitem):
-    """
-    This hook is where the actual test runs.  We use hookwrapper=true because we
-    want this hook to be a wrapper around other hooks.
-
-    We use this to check the result of the test and "turn off" leak checking if the
-    test fails.
-    """
-
-    # this yield runs the actual test.
-    outcome = yield
-
-    try:
-        # this will raise if the outcome was an exception
-        outcome.get_result()
-    except Exception as e:
-        if hasattr(pyfuncitem, "leak_tracker"):
-            logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
-            del pyfuncitem.leak_tracker
-        raise
-
-
 @pytest.hookimpl(hookwrapper=True)
 def pytest_exception_interact(node, call, report):
     logger.error("------------------------------------------------------")
     logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, type(call.excinfo.value)))
     logger.error("------------------------------------------------------")
+
+    if hasattr(node, "leak_tracker"):
+        logger.info(
+            "Skipping leak tracking because of Exception {}".format(type(call.excinfo.value))
+        )
+        del node.leak_tracker
+
     yield
 
 
