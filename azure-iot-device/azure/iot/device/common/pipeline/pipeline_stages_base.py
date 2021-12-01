@@ -23,6 +23,10 @@ from azure.iot.device.common.auth import sastoken as st
 
 logger = logging.getLogger(__name__)
 
+# Python 2 doesn't define this constant, so manually do it
+if sys.version_info <= (2, 7):
+    threading.TIMEOUT_MAX = 4294967.0
+
 
 @six.add_metaclass(abc.ABCMeta)
 class PipelineStage(object):
@@ -436,6 +440,20 @@ class SasTokenStage(PipelineStage):
             self.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - self.DEFAULT_TOKEN_UPDATE_MARGIN
         )
+        # Python threading events (which power Timers and Alarms) cannot wait for more than
+        # approximately 49.7 days. This means we need to update the token at least this often.
+        # If we really need to adjust this in the future so that we use the entire SAS lifespan
+        # we could implement Alarms that trigger other Alarms, but for now just capping renewal
+        # at once every 49.7 days is good enough.
+        if (update_time - time.time()) > threading.TIMEOUT_MAX:
+            update_time = time.time() + threading.TIMEOUT_MAX
+            logger.warning(
+                "SAS Token expiration ({expiry} seconds) exceeds max scheduled renewal time ({max} seconds). Will be renewing after {max} seconds instead".format(
+                    expiry=self.pipeline_root.pipeline_configuration.sastoken.expiry_time,
+                    max=threading.TIMEOUT_MAX,
+                )
+            )
+
         self_weakref = weakref.ref(self)
 
         # For renewable SasTokens, create an alarm that will automatically renew the token,
