@@ -127,6 +127,7 @@ class BasePipelineConfig(object):
             raise TypeError("Invalid type for 'connection_retry_interval'. Must be a numeric value")
 
         if connection_retry_interval > threading.TIMEOUT_MAX:
+            # Python timers have a (platform dependent) max timeout.
             raise ValueError(
                 "'connection_retry_interval' cannot exceed {} seconds".format(threading.TIMEOUT_MAX)
             )

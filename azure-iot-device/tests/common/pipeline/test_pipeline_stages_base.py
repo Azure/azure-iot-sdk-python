@@ -30,7 +30,8 @@ from tests.common.pipeline import pipeline_stage_test
 
 # Python 2 doesn't define this constant, so manually do it
 if sys.version_info <= (2, 7):
-    threading.TIMEOUT_MAX = 4294967.0
+    if not hasattr(threading, "TIMEOUT_MAX"):
+        threading.TIMEOUT_MAX = 4294967.0
 
 this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)

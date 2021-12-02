@@ -433,8 +433,9 @@ class AbstractIoTHubClient(object):
     @property
     def on_new_sastoken_required(self):
         """The handler function or coroutine that will be called when the client requires a new
-        SAS token. This will happen approximately 2 minutes before the SAS Token expires, or after
-        49 days, whichever comes first.
+        SAS token. This will happen approximately 2 minutes before the SAS Token expires.
+        On Windows platforms, if the lifespan exceeds approximately 49 days, a new token will
+        be required after those 49 days regardless of how long the SAS lifespan is.
 
         Note that this handler is ONLY necessary when using a client created via the
         .create_from_sastoken() method.
