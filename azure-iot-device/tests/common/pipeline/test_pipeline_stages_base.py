@@ -29,7 +29,7 @@ from .fixtures import ArbitraryOperation, ArbitraryEvent
 from tests.common.pipeline import pipeline_stage_test
 
 # Python 2 doesn't define this constant, so manually do it
-if sys.version_info < (3):
+if sys.version_info < (3,):
     if not hasattr(threading, "TIMEOUT_MAX"):
         threading.TIMEOUT_MAX = 4294967.0
 
