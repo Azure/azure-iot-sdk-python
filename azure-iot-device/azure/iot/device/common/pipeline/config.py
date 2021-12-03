@@ -12,7 +12,7 @@ import abc
 from azure.iot.device import constant
 
 # Python 2 doesn't define this constant, so manually do it
-if sys.version_info <= (2, 7):
+if sys.version_info < (3,):
     threading.TIMEOUT_MAX = 4294967.0
 
 logger = logging.getLogger(__name__)
