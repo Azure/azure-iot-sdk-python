@@ -246,7 +246,7 @@ class AbstractIoTHubClient(object):
         :param proxy_options: Options for sending traffic through proxy servers.
         :type proxy_options: :class:`azure.iot.device.ProxyOptions`
         :param int sastoken_ttl: The time to live (in seconds) for the created SasToken used for
-            authentication. Default is 3600 seconds (1 hour)
+            authentication. Default is 3600 seconds (1 hour).
         :param int keep_alive: Maximum period in seconds between communications with the
             broker. If no other messages are being exchanged, this controls the
             rate at which the client will send ping messages to the broker.
@@ -432,8 +432,13 @@ class AbstractIoTHubClient(object):
 
     @property
     def on_new_sastoken_required(self):
-        """The handler function or coroutine that will be called when a user-provided SAS token is
-        about to expire, and a new one is required.
+        """The handler function or coroutine that will be called when the client requires a new
+        SAS token. This will happen approximately 2 minutes before the SAS Token expires.
+        On Windows platforms, if the lifespan exceeds approximately 49 days, a new token will
+        be required after those 49 days regardless of how long the SAS lifespan is.
+
+        Note that this handler is ONLY necessary when using a client created via the
+        .create_from_sastoken() method.
 
         The new token can be provided in your function or coroutine via use of the client's
         .update_sastoken() method.
