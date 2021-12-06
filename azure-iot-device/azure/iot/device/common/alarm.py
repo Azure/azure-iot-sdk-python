@@ -34,10 +34,8 @@ class Alarm(Thread):
         Overrides the method inherited from Thread.
         Will invoke the Alarm's given function at the given alarm time (accurate within 1 second)
         """
-        curr_time = time.time()
-        while not self.finished.is_set() and curr_time < self.alarm_time:
+        while not self.finished.is_set() and time.time() < self.alarm_time:
             self.finished.wait(1)
-            curr_time = time.time()
 
         if not self.finished.is_set():
             self.function(*self.args, **self.kwargs)
