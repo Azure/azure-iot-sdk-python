@@ -28,6 +28,11 @@ from .helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from .fixtures import ArbitraryOperation, ArbitraryEvent
 from tests.common.pipeline import pipeline_stage_test
 
+# Python 2 doesn't define this constant, so manually do it
+if sys.version_info < (3,):
+    if not hasattr(threading, "TIMEOUT_MAX"):
+        threading.TIMEOUT_MAX = 4294967.0
+
 this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
@@ -35,7 +40,8 @@ pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")
 
 fake_signed_data = "ajsc8nLKacIjGsYyB4iYDFCZaRMmmDrUuY5lncYDYPI="
 fake_uri = "some/resource/location"
-fake_expiry = 12321312
+fake_current_time = 10000000000
+fake_expiry = 10000003600
 
 
 ###################
@@ -49,6 +55,13 @@ def mock_timer(mocker):
 @pytest.fixture
 def mock_alarm(mocker):
     return mocker.patch.object(alarm, "Alarm")
+
+
+@pytest.fixture(autouse=True)
+def mock_time(mocker):
+    # Need to ALWAYS mock current time
+    time_mock = mocker.patch.object(time, "time")
+    time_mock.return_value = fake_current_time
 
 
 # Not a fixture, but useful for sharing
@@ -411,6 +424,28 @@ class TestSasTokenStageRunOpWithInitializePipelineOpSasTokenConfig(
         assert mock_alarm.return_value.start.call_count == 1
         assert mock_alarm.return_value.start.call_args == mocker.call()
 
+    @pytest.mark.it(
+        "Starts a background update alarm that will instead trigger after MAX_TIMEOUT seconds if the SasToken expiration time (less the Update Margin) is more than MAX_TIMEOUT seconds in the future"
+    )
+    def test_sets_alarm_long_expiration(self, mocker, stage, op, mock_alarm):
+        token = stage.pipeline_root.pipeline_configuration.sastoken
+        new_expiry = token.expiry_time + threading.TIMEOUT_MAX
+        if isinstance(token, st.RenewableSasToken):
+            token._expiry_time = new_expiry
+        else:
+            token._token_info["se"] = new_expiry
+        # NOTE: time.time is implicitly mocked to return a constant test value here
+        expected_alarm_time = time.time() + threading.TIMEOUT_MAX
+        assert expected_alarm_time < token.expiry_time
+
+        stage.run_op(op)
+
+        assert mock_alarm.call_count == 1
+        assert mock_alarm.call_args[0][0] == expected_alarm_time
+        assert mock_alarm.return_value.daemon is True
+        assert mock_alarm.return_value.start.call_count == 1
+        assert mock_alarm.return_value.start.call_args == mocker.call()
+
 
 @pytest.mark.describe(
     "SasTokenStage - .run_op() -- Called with InitializePipelineOperation (Pipeline not configured for SAS authentication)"
@@ -500,6 +535,28 @@ class TestSasTokenStageRunOpWithReauthorizeConnectionOperationPipelineOpSasToken
             stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - pipeline_stages_base.SasTokenStage.DEFAULT_TOKEN_UPDATE_MARGIN
         )
+
+        stage.run_op(op)
+
+        assert mock_alarm.call_count == 1
+        assert mock_alarm.call_args[0][0] == expected_alarm_time
+        assert mock_alarm.return_value.daemon is True
+        assert mock_alarm.return_value.start.call_count == 1
+        assert mock_alarm.return_value.start.call_args == mocker.call()
+
+    @pytest.mark.it(
+        "Starts a background update alarm that will instead trigger after MAX_TIMEOUT seconds if the SasToken expiration time (less the Update Margin) is more than MAX_TIMEOUT seconds in the future"
+    )
+    def test_sets_alarm_long_expiration(self, mocker, stage, op, mock_alarm):
+        token = stage.pipeline_root.pipeline_configuration.sastoken
+        new_expiry = token.expiry_time + threading.TIMEOUT_MAX
+        if isinstance(token, st.RenewableSasToken):
+            token._expiry_time = new_expiry
+        else:
+            token._token_info["se"] = new_expiry
+        # NOTE: time.time is implicitly mocked to return a constant test value here
+        expected_alarm_time = time.time() + threading.TIMEOUT_MAX
+        assert expected_alarm_time < token.expiry_time
 
         stage.run_op(op)
 
@@ -715,7 +772,9 @@ class TestSasTokenStageOCCURRENCEUpdateAlarmExpiresRenewToken(SasTokenStageTestC
         # No further ops have been sent down
         assert stage.send_op_down.call_count == 1
 
-    @pytest.mark.it("Begins a new SasToken update alarm")
+    @pytest.mark.it(
+        "Begins a new SasToken update alarm that will trigger 'Update Margin' number of seconds prior to the refreshed SasToken expiration"
+    )
     @pytest.mark.parametrize(
         "connected",
         [
@@ -768,6 +827,86 @@ class TestSasTokenStageOCCURRENCEUpdateAlarmExpiresRenewToken(SasTokenStageTestC
             stage.pipeline_root.pipeline_configuration.sastoken.expiry_time
             - pipeline_stages_base.SasTokenStage.DEFAULT_TOKEN_UPDATE_MARGIN
         )
+        assert mock_alarm.call_args[0][0] == expected_alarm_time
+        assert stage._token_update_alarm is mock_alarm.return_value
+        assert stage._token_update_alarm.daemon is True
+        assert stage._token_update_alarm.start.call_count == 2
+        assert stage._token_update_alarm.start.call_args == mocker.call()
+
+        # When THAT alarm expires, the token is refreshed, and the reauth is sent, etc. etc. etc.
+        # ... recursion :)
+        new_on_alarm_complete = mock_alarm.call_args[0][1]
+        new_on_alarm_complete()
+
+        assert token.refresh.call_count == 2
+        if connected:
+            assert stage.send_op_down.call_count == 3
+            assert isinstance(
+                stage.send_op_down.call_args[0][0], pipeline_ops_base.ReauthorizeConnectionOperation
+            )
+        else:
+            assert stage.send_op_down.call_count == 1
+
+        assert mock_alarm.call_count == 3
+        # .... and on and on for infinity
+
+    @pytest.mark.it(
+        "Begins a new SasToken update alarm that will instead trigger after MAX_TIMEOUT seconds if the refreshed SasToken expiration time (less the Update Margin) is more than MAX_TIMEOUT seconds in the future"
+    )
+    @pytest.mark.parametrize(
+        "connected",
+        [
+            pytest.param(True, id="Pipeline connected"),
+            pytest.param(False, id="Pipeline not connected"),
+        ],
+    )
+    # I am sorry for this test length, but IDK how else to test this...
+    # ... other than throwing everything at it at once
+    def test_new_alarm_long_expiry(self, mocker, stage, init_op, mock_alarm, connected):
+        token = stage.pipeline_root.pipeline_configuration.sastoken
+        # Manually change the token TTL and expiry time to exceed max timeout
+        # Note that time.time() is implicitly mocked to return a constant value
+        token.ttl = threading.TIMEOUT_MAX + 3600
+        token._expiry_time = int(time.time() + token.ttl)
+
+        # Set connected state
+        stage.pipeline_root.connected = connected
+
+        # Apply the alarm
+        stage.run_op(init_op)
+
+        # init_op was passed down
+        assert stage.send_op_down.call_count == 1
+        assert stage.send_op_down.call_args == mocker.call(init_op)
+
+        # Only one alarm has been created and started. No cancellation.
+        assert mock_alarm.call_count == 1
+        assert mock_alarm.return_value.start.call_count == 1
+        assert mock_alarm.return_value.cancel.call_count == 0
+
+        # Call alarm complete callback (as if alarm expired)
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
+
+        # Existing alarm was cancelled
+        assert mock_alarm.return_value.cancel.call_count == 1
+
+        # Token was refreshed
+        assert token.refresh.call_count == 1
+
+        # Reauthorize was sent down (if the connection state was right)
+        if connected:
+            assert stage.send_op_down.call_count == 2
+            assert isinstance(
+                stage.send_op_down.call_args[0][0], pipeline_ops_base.ReauthorizeConnectionOperation
+            )
+        else:
+            assert stage.send_op_down.call_count == 1
+
+        # Another alarm was created and started for the expected time
+        assert mock_alarm.call_count == 2
+        # NOTE: time.time() is implicitly mocked to return a constant test value here
+        expected_alarm_time = time.time() + threading.TIMEOUT_MAX
         assert mock_alarm.call_args[0][0] == expected_alarm_time
         assert stage._token_update_alarm is mock_alarm.return_value
         assert stage._token_update_alarm.daemon is True
