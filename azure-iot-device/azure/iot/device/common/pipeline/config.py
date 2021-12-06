@@ -5,9 +5,15 @@
 # --------------------------------------------------------------------------
 
 import logging
+import threading
 import six
+import sys
 import abc
 from azure.iot.device import constant
+
+# Python 2 doesn't define this constant, so manually do it
+if sys.version_info < (3,):
+    threading.TIMEOUT_MAX = 4294967.0
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +70,7 @@ class BasePipelineConfig(object):
         # Network
         self.hostname = hostname
         self.gateway_hostname = gateway_hostname
-        self.keep_alive = self._validate_keep_alive(keep_alive)
+        self.keep_alive = self._sanitize_keep_alive(keep_alive)
 
         # Auth
         self.sastoken = sastoken
@@ -79,7 +85,9 @@ class BasePipelineConfig(object):
         # Pipeline
         self.auto_connect = auto_connect
         self.connection_retry = connection_retry
-        self.connection_retry_interval = connection_retry_interval
+        self.connection_retry_interval = self._sanitize_connection_retry_interval(
+            connection_retry_interval
+        )
 
     @staticmethod
     def _sanitize_cipher(cipher):
@@ -96,17 +104,35 @@ class BasePipelineConfig(object):
         return cipher
 
     @staticmethod
-    def _validate_keep_alive(keep_alive):
+    def _sanitize_keep_alive(keep_alive):
         try:
             keep_alive = int(keep_alive)
         except (ValueError, TypeError):
-            raise ValueError("Invalid type for 'keep alive'. Permissible types are integer.")
+            raise TypeError("Invalid type for 'keep alive'. Must be a numeric value.")
 
-        if keep_alive <= 0 or keep_alive > constant.MAX_KEEP_ALIVE_SECS:
+        if keep_alive <= 0:
             # Not allowing a keep alive of 0 as this would mean frequent ping exchanges.
-            raise ValueError(
-                "'keep alive' can not be zero OR negative AND can not be more than 29 minutes. "
-                "It is recommended to choose 'keep alive' around 60 secs."
-            )
+            raise ValueError("'keep alive' must be greater than 0")
+
+        if keep_alive > constant.MAX_KEEP_ALIVE_SECS:
+            raise ValueError("'keep_alive' cannot exceed 1740 seconds (29 minutes)")
 
         return keep_alive
+
+    @staticmethod
+    def _sanitize_connection_retry_interval(connection_retry_interval):
+        try:
+            connection_retry_interval = int(connection_retry_interval)
+        except (ValueError, TypeError):
+            raise TypeError("Invalid type for 'connection_retry_interval'. Must be a numeric value")
+
+        if connection_retry_interval > threading.TIMEOUT_MAX:
+            # Python timers have a (platform dependent) max timeout.
+            raise ValueError(
+                "'connection_retry_interval' cannot exceed {} seconds".format(threading.TIMEOUT_MAX)
+            )
+
+        if connection_retry_interval <= 0:
+            raise ValueError("'connection_retry_interval' must be greater than 0")
+
+        return connection_retry_interval
