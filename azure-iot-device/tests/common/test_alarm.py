@@ -11,6 +11,12 @@ from azure.iot.device.common.alarm import Alarm
 
 logging.basicConfig(level=logging.DEBUG)
 
+# NOTE: A fundamental aspect of the Alarm class that makes it different from Timer (beyond the
+# input format) is that sleeping the system will not throw off the timekeeping. However, there
+# isn't a great way to test that in unittests, because to do so would involve a system sleep.
+# So note well that these tests would pass the same if using a Timer implementation, because the
+# thing that makes Alarms unique isn't tested here.
+
 
 @pytest.mark.describe("Alarm")
 class TestAlarm(object):
