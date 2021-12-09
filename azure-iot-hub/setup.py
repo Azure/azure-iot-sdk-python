@@ -52,6 +52,7 @@ setup(
     version=version,
     description="Microsoft Azure IoTHub Service Library",
     license="MIT License",
+    license_files=("LICENSE.txt",),
     url="https://github.com/Azure/azure-iot-sdk-python/tree/main/azure-iot-hub",
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
