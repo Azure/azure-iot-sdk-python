@@ -12,7 +12,12 @@ jobs:
     inputs:
       versionSpec: '3.x'
       architecture: 'x64'
-
+  - task: ComponentGovernanceComponentDetection@0
+    inputs:
+      scanType: 'Register'
+      verbosity: 'Verbose'
+      alertWarningLevel: 'High'
+  
   - script: 'python env_setup.py --no_dev'
     displayName: 'Prepare environment (install packages + dependencies + tools)'
 
