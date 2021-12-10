@@ -27,7 +27,7 @@ setup(
     author="Microsoft Corporation",
     author_email="opensource@microsoft.com",
     license="MIT License",
-    license_files=("LICENSE.txt",),
+    license_files=("LICENSE",),
     classifiers=["Development Status :: 7 - Inactive"],
     install_requires=["azure-iot-device"],
 )
