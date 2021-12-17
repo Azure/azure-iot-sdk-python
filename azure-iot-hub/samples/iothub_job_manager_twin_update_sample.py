@@ -7,6 +7,7 @@
 import os
 import datetime
 import time
+import uuid
 from azure.iot.hub import IoTHubJobManager
 from azure.iot.hub.models import JobRequest, Twin, TwinProperties
 
@@ -16,7 +17,7 @@ iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 
 def create_twin_update_job_request():
     job = JobRequest()
-    job.job_id = "twinJob4"
+    job.job_id = "twinjob" + str(uuid.uuid4())[:7]
     job.type = "scheduleUpdateTwin"
     job.start_time = datetime.datetime.utcnow().isoformat()
     job.update_twin = Twin(etag="*", properties=TwinProperties(desired={"temperature": 98.6}))
