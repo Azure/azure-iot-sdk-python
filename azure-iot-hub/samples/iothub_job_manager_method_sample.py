@@ -12,7 +12,7 @@ import datetime
 import msrest
 import pprint
 from azure.iot.hub import IoTHubJobManager
-from azure.iot.hub.models import JobProperties, JobRequest, CloudToDeviceMethod
+from azure.iot.hub.models import JobRequest, CloudToDeviceMethod
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")

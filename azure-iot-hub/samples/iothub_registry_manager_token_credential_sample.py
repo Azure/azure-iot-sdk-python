@@ -7,6 +7,7 @@
 import sys
 import os
 import msrest
+import uuid
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 from azure.identity import DefaultAzureCredential
@@ -62,8 +63,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_token_credential(url, credential)
 
     # Create a device
-    primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key = "111222333444555666777888999000aaabbbcccdddee"
+    primary_key = str(uuid.uuid4())
+    secondary_key = str(uuid.uuid4())
     device_state = "enabled"
     new_device = iothub_registry_manager.create_device_with_sas(
         device_id, primary_key, secondary_key, device_state

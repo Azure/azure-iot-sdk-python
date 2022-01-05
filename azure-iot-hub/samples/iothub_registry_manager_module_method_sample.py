@@ -7,6 +7,7 @@
 import sys
 import os
 import msrest
+import uuid
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import CloudToDeviceMethod
 
@@ -21,8 +22,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create Module
-    primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key = "111222333444555666777888999000aaabbbcccdddee"
+    primary_key = str(uuid.uuid4())
+    secondary_key = str(uuid.uuid4())
     managed_by = ""
     new_module = iothub_registry_manager.create_module_with_sas(
         device_id, module_id, managed_by, primary_key, secondary_key
