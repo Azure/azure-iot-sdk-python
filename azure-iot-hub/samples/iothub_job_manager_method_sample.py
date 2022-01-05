@@ -4,25 +4,32 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import sys
 import os
-import datetime
-import time
 import uuid
+import time
+import datetime
 import msrest
 import pprint
 from azure.iot.hub import IoTHubJobManager
-from azure.iot.hub.models import JobRequest, Twin, TwinProperties
+from azure.iot.hub.models import JobProperties, JobRequest, CloudToDeviceMethod
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
 
 
-def create_twin_update_job_request():
+def create_method_job_request():
     job = JobRequest()
-    job.job_id = "twinjob-" + str(uuid.uuid4())
-    job.type = "scheduleUpdateTwin"
+    job.job_id = "methodJob-" + str(uuid.uuid4())
+    job.type = "scheduleDeviceMethod"
+    job.cloud_to_device_method = CloudToDeviceMethod(
+        method_name="test_method",
+        payload={"key": "value"},
+        response_timeout_in_seconds=30,
+        connect_timeout_in_seconds=15,
+    )
     job.start_time = datetime.datetime.utcnow().isoformat()
-    job.update_twin = Twin(etag="*", properties=TwinProperties(desired={"temperature": 98.6}))
+    job.max_execution_time_in_seconds = 60
     job.query_condition = "*"
     return job
 
@@ -38,7 +45,7 @@ try:
     iothub_job_manager = IoTHubJobManager.from_connection_string(iothub_connection_str)
 
     # Create  job
-    job_request = create_twin_update_job_request()
+    job_request = create_method_job_request()
     new_job_response = iothub_job_manager.create_scheduled_job(job_request.job_id, job_request)
     print_job_response("Create job response: ", new_job_response)
 

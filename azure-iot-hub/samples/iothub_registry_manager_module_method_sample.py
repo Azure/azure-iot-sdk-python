@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import CloudToDeviceMethod
 
@@ -34,7 +35,11 @@ try:
     iothub_registry_manager.delete_module(device_id, module_id)
     print("Deleted Module {0}".format(module_id))
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("IoTHubRegistryManager sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

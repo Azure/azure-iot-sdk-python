@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubRegistryManager
 
 connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -45,7 +46,11 @@ try:
     )
     print("")
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_statistics stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

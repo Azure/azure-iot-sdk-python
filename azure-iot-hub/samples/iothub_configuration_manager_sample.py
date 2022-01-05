@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubConfigurationManager
 from azure.iot.hub.models import Configuration, ConfigurationContent, ConfigurationMetrics
 
@@ -69,7 +70,11 @@ try:
     else:
         print("No configuration found")
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

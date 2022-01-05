@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import ExportImportDevice, AuthenticationMechanism, SymmetricKey
 
@@ -78,7 +79,11 @@ try:
 
     iothub_registry_manager.bulk_create_or_update_devices(device_list)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

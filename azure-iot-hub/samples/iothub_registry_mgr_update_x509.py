@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
@@ -118,7 +119,11 @@ try:
     registry_statistics = iothub_registry_manager.get_device_registry_statistics()
     print(registry_statistics)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

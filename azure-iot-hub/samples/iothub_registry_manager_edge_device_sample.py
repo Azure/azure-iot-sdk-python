@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties, DeviceCapabilities
 
@@ -67,7 +68,11 @@ try:
     # Delete the device
     iothub_registry_manager.delete_device(device_id)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))
