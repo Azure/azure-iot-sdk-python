@@ -63,6 +63,7 @@ class HTTPTransportStage(PipelineStage):
                 server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
                 x509_cert=self.pipeline_root.pipeline_configuration.x509,
                 cipher=self.pipeline_root.pipeline_configuration.cipher,
+                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
             )
 
             self.pipeline_root.transport = self.transport

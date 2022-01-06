@@ -21,7 +21,7 @@ class HTTPTransport(object):
     A wrapper class that provides an implementation-agnostic HTTP interface.
     """
 
-    def __init__(self, hostname, server_verification_cert=None, x509_cert=None, cipher=None):
+    def __init__(self, hostname, server_verification_cert=None, x509_cert=None, cipher=None, proxy_options=None):
         """
         Constructor to instantiate an HTTP protocol wrapper.
 
@@ -29,11 +29,13 @@ class HTTPTransport(object):
         :param str server_verification_cert: Certificate which can be used to validate a server-side TLS connection (optional).
         :param str cipher: Cipher string in OpenSSL cipher list format (optional)
         :param x509_cert: Certificate which can be used to authenticate connection to a server in lieu of a password (optional).
+        :param proxy_options: Options for sending traffic through proxy servers.
         """
         self._hostname = hostname
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._cipher = cipher
+        self._proxy_options = proxy_options
         self._ssl_context = self._create_ssl_context()
 
     def _create_ssl_context(self):
@@ -84,7 +86,11 @@ class HTTPTransport(object):
         logger.info("sending https {} request to {} .".format(method, path))
         try:
             logger.debug("creating an https connection")
-            connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
+            if not self._proxy_options:
+                connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
+            else:
+                connection = http_client.HTTPSConnection(self._proxy_options.proxy_address, self._proxy_options.proxy_port, context=self._ssl_context)
+                connection.set_tunnel(self._hostname)
             logger.debug("connecting to host tcp socket")
             connection.connect()
             logger.debug("connection succeeded")
