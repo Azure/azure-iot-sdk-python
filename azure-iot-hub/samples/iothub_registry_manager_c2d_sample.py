@@ -6,6 +6,7 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubRegistryManager
 
 connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -32,7 +33,11 @@ try:
         device_id, send_message, properties={"prop1": "value1", "correlationId": "1234"}
     )
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_c2d stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

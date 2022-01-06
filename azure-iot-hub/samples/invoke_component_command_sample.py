@@ -44,4 +44,6 @@ except msrest.exceptions.HttpOperationError as ex:
 except Exception as exc:
     print("Unexpected error {0}".format(exc))
 except KeyboardInterrupt:
-    print("Sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

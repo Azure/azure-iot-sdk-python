@@ -6,6 +6,9 @@
 
 import sys
 import os
+import msrest
+import uuid
+import base64
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
@@ -51,8 +54,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create a device
-    primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key = "111222333444555666777888999000aaabbbcccdddee"
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     device_state = "enabled"
     new_device = iothub_registry_manager.create_device_with_sas(
         device_id, primary_key, secondary_key, device_state
@@ -64,8 +67,8 @@ try:
     print_device_info("get_device", device)
 
     # Update device information
-    primary_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    secondary_key = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     device_state = "disabled"
     device_updated = iothub_registry_manager.update_device_with_sas(
         device_id, device.etag, primary_key, secondary_key, device_state
@@ -122,7 +125,11 @@ try:
     registry_statistics = iothub_registry_manager.get_device_registry_statistics()
     print(registry_statistics)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

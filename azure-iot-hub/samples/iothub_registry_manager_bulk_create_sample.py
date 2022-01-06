@@ -6,6 +6,9 @@
 
 import sys
 import os
+import msrest
+import uuid
+import base64
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import ExportImportDevice, AuthenticationMechanism, SymmetricKey
 
@@ -41,14 +44,14 @@ try:
     # Create IoTHubRegistryManager
     iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
-    primary_key1 = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key1 = "111222333444555666777888999000aaabbbcccdddee"
+    primary_key1 = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key1 = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     symmetric_key1 = SymmetricKey(primary_key=primary_key1, secondary_key=secondary_key1)
     authentication1 = AuthenticationMechanism(type="sas", symmetric_key=symmetric_key1)
     device1 = ExportImportDevice(id="BulkDevice1", status="enabled", authentication=authentication1)
 
-    primary_key2 = "cccbbbaaadddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key2 = "333222111444555666777888999000aaabbbcccdddee"
+    primary_key2 = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key2 = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     symmetric_key2 = SymmetricKey(primary_key=primary_key2, secondary_key=secondary_key2)
     authentication2 = AuthenticationMechanism(type="sas", symmetric_key=symmetric_key2)
     device2 = ExportImportDevice(id="BulkDevice2", status="enabled", authentication=authentication2)
@@ -78,7 +81,11 @@ try:
 
     iothub_registry_manager.bulk_create_or_update_devices(device_list)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

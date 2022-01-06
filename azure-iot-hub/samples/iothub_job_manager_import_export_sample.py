@@ -6,8 +6,9 @@
 
 import sys
 import os
+import msrest
 from azure.iot.hub import IoTHubJobManager
-from azure.iot.hub.models import JobProperties, JobRequest, ManagedIdentity
+from azure.iot.hub.models import JobProperties, ManagedIdentity
 
 
 iothub_connection_str = os.getenv("IOTHUB_CONNECTION_STRING")
@@ -58,28 +59,6 @@ def print_export_import_jobs(title, export_import_jobs):
         print("No item found")
 
 
-def create_job_request():
-    job = JobRequest()
-    job.job_id = "sample_cloud_to_device_method"
-    job.type = "cloudToDeviceMethod"
-    job.start_time = ""
-    job.max_execution_time_in_seconds = 60
-    job.update_twin = ""
-    job.query_condition = ""
-    return job
-
-
-def print_job_response(title, job):
-    print()
-    print(title)
-    print("    job_id: {}".format(job.job_id))
-    print("    type: {}".format(job.type))
-    print("    start_time: {}".format(job.start_time))
-    print("    max_execution_time_in_seconds: {}".format(job.max_execution_time_in_seconds))
-    print("    update_twin: {}".format(job.update_twin))
-    print("    query_condition: {}".format(job.query_condition))
-
-
 try:
     # Create IoTHubJobManager
     iothub_job_manager = IoTHubJobManager.from_connection_string(iothub_connection_str)
@@ -107,20 +86,11 @@ try:
     )
     print(cancel_export_import_job)
 
-    # Create  job
-    job_request = create_job_request()
-    new_job_response = iothub_job_manager.create_scheduled_job(job_request.job_id, job_request)
-    print_job_response("Create job response: ", new_job_response)
-
-    # Get job
-    get_job_response = iothub_job_manager.get_scheduled_job(new_job_response.job_id)
-    print_job_response("Get job response: ", get_job_response)
-
-    # Cancel job
-    cancel_job_response = iothub_job_manager.cancel_scheduled_job(get_job_response.job_id)
-    print_job_response("Cancel job response: ", cancel_job_response)
-
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

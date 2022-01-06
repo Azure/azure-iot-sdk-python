@@ -6,6 +6,9 @@
 
 import sys
 import os
+import msrest
+import uuid
+import base64
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties, DeviceCapabilities
 
@@ -49,8 +52,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create a device
-    primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key = "111222333444555666777888999000aaabbbcccdddee"
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     device_state = "enabled"
     iot_edge = True
     new_device = iothub_registry_manager.create_device_with_sas(
@@ -67,7 +70,11 @@ try:
     # Delete the device
     iothub_registry_manager.delete_device(device_id)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))

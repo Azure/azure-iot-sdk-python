@@ -6,6 +6,9 @@
 
 import sys
 import os
+import msrest
+import uuid
+import base64
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 from azure.identity import DefaultAzureCredential
@@ -61,8 +64,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_token_credential(url, credential)
 
     # Create a device
-    primary_key = "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnoo"
-    secondary_key = "111222333444555666777888999000aaabbbcccdddee"
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     device_state = "enabled"
     new_device = iothub_registry_manager.create_device_with_sas(
         device_id, primary_key, secondary_key, device_state
@@ -84,7 +87,11 @@ try:
     registry_statistics = iothub_registry_manager.get_device_registry_statistics()
     print(registry_statistics)
 
+except msrest.exceptions.HttpOperationError as ex:
+    print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
     print("Unexpected error {0}".format(ex))
 except KeyboardInterrupt:
-    print("iothub_registry_manager_sample stopped")
+    print("{} stopped".format(__file__))
+finally:
+    print("{} finished".format(__file__))
