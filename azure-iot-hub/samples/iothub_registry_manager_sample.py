@@ -8,6 +8,7 @@ import sys
 import os
 import msrest
 import uuid
+import base64
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
@@ -53,8 +54,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create a device
-    primary_key = str(uuid.uuid4())
-    secondary_key = str(uuid.uuid4())
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     device_state = "enabled"
     new_device = iothub_registry_manager.create_device_with_sas(
         device_id, primary_key, secondary_key, device_state
@@ -66,8 +67,8 @@ try:
     print_device_info("get_device", device)
 
     # Update device information
-    primary_key = str(uuid.uuid4())
-    secondary_key = str(uuid.uuid4())
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     device_state = "disabled"
     device_updated = iothub_registry_manager.update_device_with_sas(
         device_id, device.etag, primary_key, secondary_key, device_state

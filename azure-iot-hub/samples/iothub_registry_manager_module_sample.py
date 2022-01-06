@@ -8,6 +8,7 @@ import sys
 import os
 import msrest
 import uuid
+import base64
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
@@ -48,8 +49,8 @@ try:
     iothub_registry_manager = IoTHubRegistryManager.from_connection_string(iothub_connection_str)
 
     # Create Module
-    primary_key = str(uuid.uuid4())
-    secondary_key = str(uuid.uuid4())
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     managed_by = ""
     new_module = iothub_registry_manager.create_module_with_sas(
         device_id, module_id, managed_by, primary_key, secondary_key
@@ -61,8 +62,8 @@ try:
     print_module_info("Get Module", iothub_module)
 
     # Update Module
-    primary_key = str(uuid.uuid4())
-    secondary_key = str(uuid.uuid4())
+    primary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
+    secondary_key = base64.b64encode(str(uuid.uuid4()).encode()).decode()
     managed_by = "testManagedBy"
     updated_module = iothub_registry_manager.update_module_with_sas(
         device_id, module_id, managed_by, iothub_module.etag, primary_key, secondary_key
