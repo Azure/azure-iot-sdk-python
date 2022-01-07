@@ -22,7 +22,7 @@ class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
-    def test_sas_renews(self, client, service_helper, random_message):
+    def test_sync_sas_renews(self, client, service_helper, random_message):
 
         connected_event = threading.Event()
         disconnected_event = threading.Event()

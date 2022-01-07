@@ -26,7 +26,7 @@ def method_response_status():
 class TestMethods(object):
     @pytest.mark.it("Can handle a simple direct method call")
     @pytest.mark.parametrize(*parametrize.all_method_payload_options)
-    def test_handle_method_call(
+    def test_sync_handle_method_call(
         self,
         client,
         method_name,

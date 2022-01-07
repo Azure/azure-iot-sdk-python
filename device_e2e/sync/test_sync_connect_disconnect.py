@@ -17,7 +17,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
     @pytest.mark.quicktest_suite
-    def test_connect_disconnect(self, brand_new_client):
+    def test_sync_connect_disconnect(self, brand_new_client):
         client = brand_new_client
 
         client.connect()
@@ -31,7 +31,7 @@ class TestConnectDisconnect(object):
 
     @pytest.mark.it("calls `on_connection_state_change` when setting the handler (connected case)")
     @pytest.mark.quicktest_suite
-    def test_on_connection_state_change_gets_called_with_current_state_connected(
+    def test_sync_on_connection_state_change_gets_called_with_current_state_connected(
         self, brand_new_client
     ):
         """
@@ -68,7 +68,7 @@ class TestConnectDisconnect(object):
         "calls `on_connection_state_change` when setting the handler (disconnected case)"
     )
     @pytest.mark.quicktest_suite
-    def test_on_connection_state_change_gets_called_with_current_state_disconnected(
+    def test_sync_on_connection_state_change_gets_called_with_current_state_disconnected(
         self, brand_new_client, previously_connected
     ):
         """
@@ -103,7 +103,7 @@ class TestConnectDisconnect(object):
     @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
     # see "This assert fails because of initial and secondary disconnects" below
     @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
-    def test_connect_in_the_middle_of_disconnect(
+    def test_sync_connect_in_the_middle_of_disconnect(
         self,
         brand_new_client,
         service_helper,
@@ -167,7 +167,7 @@ class TestConnectDisconnect(object):
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
     )
-    def test_disconnect_in_the_middle_of_connect(
+    def test_sync_disconnect_in_the_middle_of_connect(
         self, brand_new_client, service_helper, random_message, first_connect
     ):
         """
@@ -234,7 +234,7 @@ class TestConnectDisconnect(object):
 @pytest.mark.keep_alive(5)
 class TestConnectDisconnectDroppedConnection(object):
     @pytest.mark.it("disconnects when network drops all outgoing packets")
-    def test_disconnect_on_drop_outgoing(self, client, dropper):
+    def test_sync_disconnect_on_drop_outgoing(self, client, dropper):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         dropping packets
@@ -248,7 +248,7 @@ class TestConnectDisconnectDroppedConnection(object):
             time.sleep(1)
 
     @pytest.mark.it("disconnects when network rejects all outgoing packets")
-    def test_disconnect_on_reject_outgoing(self, client, dropper):
+    def test_sync_disconnect_on_reject_outgoing(self, client, dropper):
         """
         This test verifies that the client will disconnect (eventually) if the network starts
         rejecting packets
