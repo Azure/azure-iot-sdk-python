@@ -15,10 +15,10 @@ logger.setLevel(level=logging.INFO)
 
 
 @pytest.mark.describe("Client C2d")
-class TestSendMessage(object):
+class TestReceiveC2d(object):
     @pytest.mark.it("Can receive C2D")
     @pytest.mark.quicktest_suite
-    def test_send_message(self, client, service_helper):
+    def test_sync_receive_c2d(self, client, service_helper):
         message = json.dumps(get_random_dict())
 
         received = threading.Event()

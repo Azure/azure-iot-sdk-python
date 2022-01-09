@@ -18,7 +18,7 @@ pytestmark = pytest.mark.asyncio
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
-    async def test_send_message(self, client, random_message, service_helper):
+    async def test_send_simple_message(self, client, random_message, service_helper):
 
         await client.send_message(random_message)
 
@@ -119,14 +119,16 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
     @pytest.mark.it("Can send a simple message")
-    async def test_send_message(self, client, random_message, service_helper):
+    async def test_send_message_retry_disabled(self, client, random_message, service_helper):
         await client.send_message(random_message)
 
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
-    async def test_connect_if_necessary(self, client, random_message, service_helper):
+    async def test_connect_if_necessary_retry_disabled(
+        self, client, random_message, service_helper
+    ):
 
         await client.disconnect()
         assert not client.connected
@@ -139,7 +141,7 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
     @pytest.mark.uses_iptables
-    async def test_connects_after_automatic_disconnect(
+    async def test_connects_after_automatic_disconnect_retry_disabled(
         self, client, random_message, dropper, service_helper
     ):
 
@@ -174,7 +176,9 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection drops before sending")
     @pytest.mark.uses_iptables
-    async def test_fails_if_drop_before_sending(self, client, random_message, dropper):
+    async def test_fails_if_drop_before_sending_retry_disabled(
+        self, client, random_message, dropper
+    ):
 
         assert client.connected
 

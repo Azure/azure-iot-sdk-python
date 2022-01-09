@@ -15,7 +15,7 @@ logger.setLevel(level=logging.INFO)
 class TestSendMessage(object):
     @pytest.mark.it("Can send a simple message")
     @pytest.mark.quicktest_suite
-    def test_send_message(self, client, random_message, service_helper):
+    def test_sync_send_message_simple(self, client, random_message, service_helper):
 
         client.send_message(random_message)
 
@@ -24,7 +24,7 @@ class TestSendMessage(object):
 
     @pytest.mark.it("Connects the transport if necessary")
     @pytest.mark.quicktest_suite
-    def test_connect_if_necessary(self, client, random_message, service_helper):
+    def test_sync_connect_if_necessary(self, client, random_message, service_helper):
 
         client.disconnect()
         assert not client.connected
@@ -42,7 +42,7 @@ class TestSendMessage(object):
 class TestSendMessageDroppedConnection(object):
     @pytest.mark.it("Sends if connection drops before sending")
     @pytest.mark.uses_iptables
-    def test_sends_if_drop_before_sending(
+    def test_sync_sends_if_drop_before_sending(
         self, client, random_message, dropper, service_helper, executor
     ):
 
@@ -67,7 +67,7 @@ class TestSendMessageDroppedConnection(object):
 
     @pytest.mark.it("Sends if connection rejects send")
     @pytest.mark.uses_iptables
-    def test_sends_if_reject_before_sending(
+    def test_sync_sends_if_reject_before_sending(
         self, client, random_message, dropper, service_helper, executor
     ):
 
@@ -103,14 +103,18 @@ class TestSendMessageRetryDisabled(object):
         assert client.connected
 
     @pytest.mark.it("Can send a simple message")
-    def test_send_message(self, client, random_message, service_helper):
+    def test_sync_send_message_simple_with_retry_disabled(
+        self, client, random_message, service_helper
+    ):
         client.send_message(random_message)
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
 
     @pytest.mark.it("Automatically connects if transport manually disconnected before sending")
-    def test_connect_if_necessary(self, client, random_message, service_helper):
+    def test_sync_connect_if_necessary_with_retry_disabled(
+        self, client, random_message, service_helper
+    ):
 
         client.disconnect()
         assert not client.connected
@@ -123,7 +127,7 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Automatically connects if transport automatically disconnected before sending")
     @pytest.mark.uses_iptables
-    def test_connects_after_automatic_disconnect(
+    def test_sync_connects_after_automatic_disconnect_with_retry_disabled(
         self, client, random_message, dropper, service_helper
     ):
 
@@ -143,7 +147,9 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection disconnects before sending")
     @pytest.mark.uses_iptables
-    def test_fails_if_disconnect_before_sending(self, client, random_message, dropper, executor):
+    def test_sync_fails_if_disconnect_before_sending_with_retry_disabled(
+        self, client, random_message, dropper, executor
+    ):
 
         assert client.connected
 
@@ -158,7 +164,9 @@ class TestSendMessageRetryDisabled(object):
 
     @pytest.mark.it("Fails if connection drops before sending")
     @pytest.mark.uses_iptables
-    def test_fails_if_drop_before_sending(self, client, random_message, dropper):
+    def test_sync_fails_if_drop_before_sending_with_retry_disabled(
+        self, client, random_message, dropper
+    ):
 
         assert client.connected
 

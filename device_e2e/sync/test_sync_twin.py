@@ -21,7 +21,7 @@ reset_reported_props = {const.TEST_CONTENT: None}
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
     @pytest.mark.quicktest_suite
-    def test_simple_patch(self, client, random_reported_props, service_helper):
+    def test_sync_simple_patch(self, client, random_reported_props, service_helper):
 
         # patch properties
         client.patch_twin_reported_properties(random_reported_props)
@@ -39,7 +39,7 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite
-    def test_clear_property(self, client, random_reported_props, service_helper):
+    def test_sync_clear_property(self, client, random_reported_props, service_helper):
 
         # patch properties and verify that the service received the patch
         client.patch_twin_reported_properties(random_reported_props)
@@ -63,7 +63,7 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Connects the transport if necessary")
     @pytest.mark.quicktest_suite
-    def test_connect_if_necessary(self, client, random_reported_props, service_helper):
+    def test_sync_connect_if_necessary(self, client, random_reported_props, service_helper):
 
         client.disconnect()
 
@@ -89,7 +89,7 @@ class TestReportedPropertiesDroppedConnection(object):
     # TODO: split drop tests between first and second patches
 
     @pytest.mark.it("Sends if connection drops before sending")
-    def test_sends_if_drop_before_sending(
+    def test_sync_sends_if_drop_before_sending(
         self, client, random_reported_props, dropper, service_helper, executor
     ):
 
@@ -115,7 +115,7 @@ class TestReportedPropertiesDroppedConnection(object):
         )
 
     @pytest.mark.it("Sends if connection rejects send")
-    def test_sends_if_reject_before_sending(
+    def test_sync_sends_if_reject_before_sending(
         self, client, random_reported_props, dropper, service_helper, executor
     ):
 
@@ -145,7 +145,7 @@ class TestReportedPropertiesDroppedConnection(object):
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
-    def test_simple_patch(self, client, service_helper):
+    def test_sync_simple_patch(self, client, service_helper):
 
         received = threading.Event()
 

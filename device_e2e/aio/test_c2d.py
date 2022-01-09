@@ -17,10 +17,10 @@ pytestmark = pytest.mark.asyncio
 
 
 @pytest.mark.describe("Client C2d")
-class TestSendMessage(object):
+class TestReceiveC2d(object):
     @pytest.mark.it("Can receive C2D")
     @pytest.mark.quicktest_suite
-    async def test_send_message(self, client, service_helper, event_loop):
+    async def test_receive_c2d(self, client, service_helper, event_loop):
         message = json.dumps(get_random_dict())
 
         received_message = None
