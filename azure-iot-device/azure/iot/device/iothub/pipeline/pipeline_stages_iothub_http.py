@@ -79,9 +79,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.method_response = json.loads(
-                        op.response_body.decode("utf-8")
-                    )
+                    op_waiting_for_response.method_response = json.loads(op.response_body)
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -126,9 +124,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.storage_info = json.loads(
-                        op.response_body.decode("utf-8")
-                    )
+                    op_waiting_for_response.storage_info = json.loads(op.response_body)
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(

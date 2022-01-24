@@ -91,7 +91,7 @@ class HTTPTransportStage(PipelineStage):
                         "{}({}): Request completed. Completing op.".format(self.name, op.name)
                     )
                     logger.debug("HTTP Response Status: {}".format(response["status_code"]))
-                    logger.debug("HTTP Response: {}".format(response["resp"].decode("utf-8")))
+                    logger.debug("HTTP Response: {}".format(response["resp"]))
                     op.response_body = response["resp"]
                     op.status_code = response["status_code"]
                     op.reason = response["reason"]
