@@ -41,7 +41,7 @@ class HTTPTransport(object):
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._cipher = cipher
-        self._proxy_options = proxy_options
+        self._proxies = self._format_proxies(proxy_options)
         self._http_adapter = self._create_http_adapter()
 
     def _create_http_adapter(self):
@@ -54,11 +54,11 @@ class HTTPTransport(object):
         class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
             def init_poolmanager(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super().init_poolmanager(*args, **kwargs)
+                return super(CustomSSLContextHTTPAdapter, self).init_poolmanager(*args, **kwargs)
 
             def proxy_manager_for(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super().proxy_manager_for(*args, **kwargs)
+                return super(CustomSSLContextHTTPAdapter, self).proxy_manager_for(*args, **kwargs)
 
         return CustomSSLContextHTTPAdapter()
 
@@ -94,6 +94,37 @@ class HTTPTransport(object):
 
         return ssl_context
 
+    def _format_proxies(self, proxy_options):
+        """
+        Format the data from the proxy_options object into a format for use with the requests library
+        """
+        proxies = {}
+        if proxy_options:
+            # Basic address/port formatting
+            proxy = "{address}:{port}".format(
+                address=proxy_options.proxy_address, port=proxy_options.proxy_port
+            )
+            # Add credentials if necessary
+            if proxy_options.proxy_username and proxy_options.proxy_password:
+                auth = "{username}:{password}".format(
+                    username=proxy_options.proxy_username, password=proxy_options.proxy_password
+                )
+                proxy = auth + "@" + proxy
+            # Set proxy for use on HTTP or HTTPS connections
+            if proxy_options.proxy_type == socks.HTTP:
+                proxies["http"] = "http://" + proxy
+                proxies["https"] = "http://" + proxy
+            elif self._proxy_options.proxy_type == socks.SOCKS4:
+                proxies["http"] = "socks4://" + proxy
+                proxies["https"] = "socks4://" + proxy
+            elif self._proxy_options.proxy_type == socks.SOCKS5:
+                proxies["http"] = "socks5://" + proxy
+                proxies["https"] = "socks5://" + proxy
+            else:
+                raise ValueError("Invalid proxy type: {}".format(proxy_options.proxy_type))
+
+        return proxies
+
     @pipeline_thread.invoke_on_http_thread_nowait
     def request(self, method, path, callback, body="", headers={}, query_params=""):
         """
@@ -113,25 +144,6 @@ class HTTPTransport(object):
         session = requests.Session()
         session.mount("https://{hostname}", self._http_adapter)
 
-        # Create proxy dictionary
-        proxies = {}
-        if self._proxy_options:
-            proxy = "{address}:{port}".format(
-                address=self._proxy_options.proxy_address, port=self._proxy_options.proxy_port
-            )
-            # TODO: credentials
-            if self._proxy_options.proxy_type == socks.HTTP:
-                proxies["http"] = "http://" + proxy
-                proxies["https"] = "http://" + proxy
-            elif self._proxy_options.proxy_type == socks.SOCKS4:
-                proxies["http"] = "socks4://" + proxy
-                proxies["https"] = "socks4://" + proxy
-            elif self._proxy_options.proxy_type == socks.SOCKS5:
-                proxies["http"] = "socks5://" + proxy
-                proxies["https"] = "socks5://" + proxy
-            else:
-                raise ValueError("Invalid proxy type: {}".format(self._proxy_options))
-
         # Format request URL
         # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
         # depending on the operation this could have a different hostname, due to different
@@ -146,15 +158,15 @@ class HTTPTransport(object):
 
         try:
             if method == "GET":
-                response = session.get(url, data=body, headers=headers, proxies=proxies)
+                response = session.get(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "POST":
-                response = session.post(url, data=body, headers=headers, proxies=proxies)
+                response = session.post(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "PUT":
-                response = session.put(url, data=body, headers=headers, proxies=proxies)
+                response = session.put(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "PATCH":
-                response = session.patch(url, data=body, headers=headers, proxies=proxies)
+                response = session.patch(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "DELETE":
-                response = session.delete(url, data=body, headers=headers, proxies=proxies)
+                response = session.delete(url, data=body, headers=headers, proxies=self._proxies)
             else:
                 raise ValueError("Invalid method type: {}".format(method))
         except Exception as e:
