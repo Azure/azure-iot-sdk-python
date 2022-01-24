@@ -5,10 +5,9 @@
 # --------------------------------------------------------------------------
 
 import logging
-import uuid
-import threading
-import json
+import socks
 import ssl
+import requests
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 from six.moves import http_client
@@ -21,7 +20,14 @@ class HTTPTransport(object):
     A wrapper class that provides an implementation-agnostic HTTP interface.
     """
 
-    def __init__(self, hostname, server_verification_cert=None, x509_cert=None, cipher=None, proxy_options=None):
+    def __init__(
+        self,
+        hostname,
+        server_verification_cert=None,
+        x509_cert=None,
+        cipher=None,
+        proxy_options=None,
+    ):
         """
         Constructor to instantiate an HTTP protocol wrapper.
 
@@ -36,7 +42,25 @@ class HTTPTransport(object):
         self._x509_cert = x509_cert
         self._cipher = cipher
         self._proxy_options = proxy_options
-        self._ssl_context = self._create_ssl_context()
+        self._http_adapter = self._create_http_adapter()
+
+    def _create_http_adapter(self):
+        """
+        This method creates a custom HTTPAdapter for use with a requests library session.
+        It will allow for use of a custom configured SSL context.
+        """
+        ssl_context = self._create_ssl_context()
+
+        class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
+            def init_poolmanager(self, *args, **kwargs):
+                kwargs["ssl_context"] = ssl_context
+                return super().init_poolmanager(*args, **kwargs)
+
+            def proxy_manager_for(self, *args, **kwargs):
+                kwargs["ssl_context"] = ssl_context
+                return super().proxy_manager_for(*args, **kwargs)
+
+        return CustomSSLContextHTTPAdapter()
 
     def _create_ssl_context(self):
         """
@@ -84,50 +108,136 @@ class HTTPTransport(object):
         """
         # Sends a complete request to the server
         logger.info("sending https {} request to {} .".format(method, path))
-        try:
-            logger.debug("creating an https connection")
-            if not self._proxy_options:
-                connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
-            else:
-                connection = http_client.HTTPSConnection(self._proxy_options.proxy_address, self._proxy_options.proxy_port, context=self._ssl_context)
-                connection.set_tunnel(self._hostname)
-            logger.debug("connecting to host tcp socket")
-            connection.connect()
-            logger.debug("connection succeeded")
-            # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
-            # depending on the operation this could have a different hostname, due to different
-            # destinations. For now this isn't a problem yet, because no possible client can
-            # support more than one HTTP operation
-            # (Device can do File Upload but NOT Method Invoke, Module can do Method Inovke and NOT file upload)
-            url = "https://{hostname}/{path}{query_params}".format(
-                hostname=self._hostname,
-                path=path,
-                query_params="?" + query_params if query_params else "",
-            )
-            logger.debug("Sending Request to HTTP URL: {}".format(url))
-            logger.debug("HTTP Headers: {}".format(headers))
-            logger.debug("HTTP Body: {}".format(body))
-            connection.request(method, url, body=body, headers=headers)
-            response = connection.getresponse()
-            status_code = response.status
-            reason = response.reason
-            response_string = response.read()
 
-            logger.debug("response received")
-            logger.debug("closing connection to https host")
-            connection.close()
-            logger.debug("connection closed")
-            logger.info(
-                "https {} request sent to {}, and {} response received.".format(
-                    method, path, status_code
-                )
+        # Mount the transport adapter to a requests session
+        session = requests.Session()
+        session.mount("https://{hostname}", self._http_adapter)
+
+        # Create proxy dictionary
+        proxies = {}
+        if self._proxy_options:
+            proxy = "{address}:{port}".format(
+                address=self._proxy_options.proxy_address, port=self._proxy_options.proxy_port
             )
-            response_obj = {"status_code": status_code, "reason": reason, "resp": response_string}
-            callback(response=response_obj)
+            # TODO: credentials
+            if self._proxy_options.proxy_type == socks.HTTP:
+                proxies["http"] = "http://" + proxy
+                proxies["https"] = "http://" + proxy
+            elif self._proxy_options.proxy_type == socks.SOCKS4:
+                proxies["http"] = "socks4://" + proxy
+                proxies["https"] = "socks4://" + proxy
+            elif self._proxy_options.proxy_type == socks.SOCKS5:
+                proxies["http"] = "socks5://" + proxy
+                proxies["https"] = "socks5://" + proxy
+            else:
+                raise ValueError("Invalid proxy type: {}".format(self._proxy_options))
+
+        # Format request URL
+        # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
+        # depending on the operation this could have a different hostname, due to different
+        # destinations. For now this isn't a problem yet, because no possible client can
+        # support more than one HTTP operation
+        # (Device can do File Upload but NOT Method Invoke, Module can do Method Invoke and NOT file upload)
+        url = "https://{hostname}/{path}{query_params}".format(
+            hostname=self._hostname,
+            path=path,
+            query_params="?" + query_params if query_params else "",
+        )
+
+        try:
+            if method == "GET":
+                response = session.get(url, data=body, headers=headers, proxies=proxies)
+            elif method == "POST":
+                response = session.post(url, data=body, headers=headers, proxies=proxies)
+            elif method == "PUT":
+                response = session.put(url, data=body, headers=headers, proxies=proxies)
+            elif method == "PATCH":
+                response = session.patch(url, data=body, headers=headers, proxies=proxies)
+            elif method == "DELETE":
+                response = session.delete(url, data=body, headers=headers, proxies=proxies)
+            else:
+                raise ValueError("Invalid method type: {}".format(method))
         except Exception as e:
-            logger.info("Error in HTTP Transport: {}".format(e))
+            # Raise error via the callback
             callback(
                 error=exceptions.ProtocolClientError(
                     message="Unexpected HTTPS failure during connect", cause=e
                 )
             )
+        else:
+            # Return the data from the response via the callback
+            response_obj = {
+                "status_code": response.status_code,
+                "reason": response.reason,
+                "resp": response.text,
+            }
+            callback(response=response_obj)
+
+    # @pipeline_thread.invoke_on_http_thread_nowait
+    # def request(self, method, path, callback, body="", headers={}, query_params=""):
+    #     """
+    #     This method creates a connection to a remote host, sends a request to that host, and then waits for and reads the response from that request.
+
+    #     :param str method: The request method (e.g. "POST")
+    #     :param str path: The path for the URL
+    #     :param Function callback: The function that gets called when this operation is complete or has failed. The callback function must accept an error and a response dictionary, where the response dictionary contains a status code, a reason, and a response string.
+    #     :param str body: The body of the HTTP request to be sent following the headers.
+    #     :param dict headers: A dictionary that provides extra HTTP headers to be sent with the request.
+    #     :param str query_params: The optional query parameters to be appended at the end of the URL.
+    #     """
+    #     # Sends a complete request to the server
+    #     logger.info("sending https {} request to {} .".format(method, path))
+    #     try:
+    #         logger.debug("creating an https connection")
+    #         if not self._proxy_options:
+    #             connection = http_client.HTTPSConnection(self._hostname, context=self._ssl_context)
+    #         else:
+    #             connection = http_client.HTTPSConnection(self._proxy_options.proxy_address, self._proxy_options.proxy_port, context=self._ssl_context)
+    #             # Add proxy auth
+    #             # auth = "{username}:{password}".format(
+    #             #     username=self._proxy_options.proxy_username,
+    #             #     password=self._proxy_options.proxy_password
+    #             # )
+    #             # tunnel_headers = {}
+    #             # tunnel_headers["Proxy-Authorization"] = 'Basic' + base64.b64encode(auth)
+    #             connection.set_tunnel(self._hostname)
+    #         logger.debug("connecting to host tcp socket")
+    #         connection.connect()
+    #         logger.debug("connection succeeded")
+    #         # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
+    #         # depending on the operation this could have a different hostname, due to different
+    #         # destinations. For now this isn't a problem yet, because no possible client can
+    #         # support more than one HTTP operation
+    #         # (Device can do File Upload but NOT Method Invoke, Module can do Method Inovke and NOT file upload)
+    #         url = "https://{hostname}/{path}{query_params}".format(
+    #             hostname=self._hostname,
+    #             path=path,
+    #             query_params="?" + query_params if query_params else "",
+    #         )
+    #         logger.debug("Sending Request to HTTP URL: {}".format(url))
+    #         logger.debug("HTTP Headers: {}".format(headers))
+    #         logger.debug("HTTP Body: {}".format(body))
+    #         connection.request(method, url, body=body, headers=headers)
+    #         response = connection.getresponse()
+    #         status_code = response.status
+    #         reason = response.reason
+    #         response_string = response.read()
+
+    #         logger.debug("response received")
+    #         logger.debug("closing connection to https host")
+    #         connection.close()
+    #         logger.debug("connection closed")
+    #         logger.info(
+    #             "https {} request sent to {}, and {} response received.".format(
+    #                 method, path, status_code
+    #             )
+    #         )
+    #         response_obj = {"status_code": status_code, "reason": reason, "resp": response_string}
+    #         callback(response=response_obj)
+    #     except Exception as e:
+    #         logger.info("Error in HTTP Transport: {}".format(e))
+    #         callback(
+    #             error=exceptions.ProtocolClientError(
+    #                 message="Unexpected HTTPS failure during connect", cause=e
+    #             )
+    #         )
