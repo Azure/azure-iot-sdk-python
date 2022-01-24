@@ -67,7 +67,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             headers = {
                 "Host": self.pipeline_root.pipeline_configuration.gateway_hostname,
                 "Content-Type": "application/json",
-                "Content-Length": len(str(body)),
+                "Content-Length": str(len(str(body))),
                 "x-ms-edge-moduleId": x_ms_edge_string,
                 "User-Agent": user_agent_string,
             }
@@ -114,7 +114,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Accept": "application/json",
                 "Content-Type": "application/json",
-                "Content-Length": len(str(body)),
+                "Content-Length": str(len(str(body))),
                 "User-Agent": user_agent_string,
             }
 
@@ -170,7 +170,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             headers = {
                 "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Content-Type": "application/json; charset=utf-8",
-                "Content-Length": len(str(body)),
+                "Content-Length": str(len(str(body))),
                 "User-Agent": user_agent_string,
             }
             op_waiting_for_response = op

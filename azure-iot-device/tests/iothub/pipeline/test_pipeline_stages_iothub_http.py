@@ -187,7 +187,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithMethodInvokeOperation(
 
         assert new_op.headers["Host"] == pipeline_config.gateway_hostname
         assert new_op.headers["Content-Type"] == "application/json"
-        assert new_op.headers["Content-Length"] == len(new_op.body)
+        assert new_op.headers["Content-Length"] == str(len(new_op.body))
         assert new_op.headers["x-ms-edge-moduleId"] == expected_edge_string
         assert new_op.headers["User-Agent"] == expected_user_agent
 
@@ -417,7 +417,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithGetStorageInfoOperation(
         assert new_op.headers["Host"] == pipeline_config.hostname
         assert new_op.headers["Accept"] == "application/json"
         assert new_op.headers["Content-Type"] == "application/json"
-        assert new_op.headers["Content-Length"] == len(new_op.body)
+        assert new_op.headers["Content-Length"] == str(len(new_op.body))
         assert new_op.headers["User-Agent"] == expected_user_agent
 
     @pytest.mark.it(
@@ -646,7 +646,7 @@ class TestIoTHubHTTPTranslationStageRunOpCalledWithNotifyBlobUploadStatusOperati
 
         assert new_op.headers["Host"] == pipeline_config.hostname
         assert new_op.headers["Content-Type"] == "application/json; charset=utf-8"
-        assert new_op.headers["Content-Length"] == len(new_op.body)
+        assert new_op.headers["Content-Length"] == str(len(new_op.body))
         assert new_op.headers["User-Agent"] == expected_user_agent
 
     @pytest.mark.it(

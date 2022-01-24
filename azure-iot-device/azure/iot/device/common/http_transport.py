@@ -100,6 +100,7 @@ class HTTPTransport(object):
         """
         proxies = {}
         if proxy_options:
+            # TODO: do we need to make sure address doesn't already start with https://??
             # Basic address/port formatting
             proxy = "{address}:{port}".format(
                 address=proxy_options.proxy_address, port=proxy_options.proxy_port
