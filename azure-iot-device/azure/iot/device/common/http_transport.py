@@ -159,15 +159,25 @@ class HTTPTransport(object):
 
         try:
             if method == "GET":
-                response = session.get(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.get(
+                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                )
             elif method == "POST":
-                response = session.post(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.post(
+                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                )
             elif method == "PUT":
-                response = session.put(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.put(
+                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                )
             elif method == "PATCH":
-                response = session.patch(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.patch(
+                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                )
             elif method == "DELETE":
-                response = session.delete(url, data=body, headers=headers, proxies=self._proxies)
+                response = session.delete(
+                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                )
             else:
                 raise ValueError("Invalid method type: {}".format(method))
         except Exception as e:
