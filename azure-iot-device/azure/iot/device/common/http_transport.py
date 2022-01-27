@@ -143,7 +143,7 @@ class HTTPTransport(object):
 
         # Mount the transport adapter to a requests session
         session = requests.Session()
-        session.mount("https://{hostname}", self._http_adapter)
+        #session.mount("https://{hostname}", self._http_adapter)
 
         # Format request URL
         # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
