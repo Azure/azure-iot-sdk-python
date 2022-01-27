@@ -1,5 +1,5 @@
 {
-    "codebaseName": "Azure-Iot-SDK-Python-Main",
+    "codebaseName": "azure-iot-sdk-python-main",
     "notificationAliases": [
         "iotclientpyjs@microsoft.com"
     ],
