@@ -1,18 +1,18 @@
 {
-    "codebaseName": "azure iot sdk python",
+    "codebaseName": "azure-iot-sdk-python",
     "notificationAliases": [
-        "iotclientpyjs@microsoft.com"
+        "iotclientpyjs@microsoft.com",
     ],
     "codebaseAdmins": [
         "REDMOND\\olkar",
-        "REDMOND\\toercola"
+        "REDMOND\\toercola",
     ],
     "instanceUrl": "https://azure-iot-sdks.visualstudio.com",
-    "projectName": "PythonDeviceSDK",
-    "areaPath": "One\\IoT\\Platform and Devices\\IoT Devices\\SDKs\Scripting\\Python",
+    "projectName": "PythonDeviceSdk",
+    "areaPath": "One\\IoT\\Platform and Devices\\IoT Devices\\SDKs\\Scripting\\Python",
     "iterationPath": "One\\IoT-Developers-Devices-Scripting\\Backlog",
     "tools": [
         "BinSkim",
-        "CredScan"
+        "CredScan",
     ]
 }
