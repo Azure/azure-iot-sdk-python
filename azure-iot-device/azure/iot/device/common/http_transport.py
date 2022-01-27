@@ -116,10 +116,10 @@ class HTTPTransport(object):
             if proxy_options.proxy_type == socks.HTTP:
                 proxies["http"] = "http://" + proxy
                 proxies["https"] = "http://" + proxy
-            elif self._proxy_options.proxy_type == socks.SOCKS4:
+            elif proxy_options.proxy_type == socks.SOCKS4:
                 proxies["http"] = "socks4://" + proxy
                 proxies["https"] = "socks4://" + proxy
-            elif self._proxy_options.proxy_type == socks.SOCKS5:
+            elif proxy_options.proxy_type == socks.SOCKS5:
                 proxies["http"] = "socks5://" + proxy
                 proxies["https"] = "socks5://" + proxy
             else:
@@ -162,25 +162,15 @@ class HTTPTransport(object):
             # Note that various configuration options are not set here due to them being set
             # via the HTTPAdapter that was mounted at session level.
             if method == "GET":
-                response = session.get(
-                    url, data=body, headers=headers, proxies=self._proxies
-                )
+                response = session.get(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "POST":
-                response = session.post(
-                    url, data=body, headers=headers, proxies=self._proxies
-                )
+                response = session.post(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "PUT":
-                response = session.put(
-                    url, data=body, headers=headers, proxies=self._proxies
-                )
+                response = session.put(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "PATCH":
-                response = session.patch(
-                    url, data=body, headers=headers, proxies=self._proxies
-                )
+                response = session.patch(url, data=body, headers=headers, proxies=self._proxies)
             elif method == "DELETE":
-                response = session.delete(
-                    url, data=body, headers=headers, proxies=self._proxies
-                )
+                response = session.delete(url, data=body, headers=headers, proxies=self._proxies)
             else:
                 raise ValueError("Invalid method type: {}".format(method))
         except Exception as e:
