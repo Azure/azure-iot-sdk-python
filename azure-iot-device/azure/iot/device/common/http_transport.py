@@ -11,6 +11,7 @@ import requests
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
 from six.moves import http_client
+from urllib3 import poolmanager
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class HTTPTransport(object):
 
         # Mount the transport adapter to a requests session
         session = requests.Session()
-        #session.mount("https://{hostname}", self._http_adapter)
+        session.mount("https://", self._http_adapter)
 
         # Format request URL
         # TODO: URL formation should be moved to pipeline_stages_iothub_http, I believe, as
@@ -158,25 +159,27 @@ class HTTPTransport(object):
         )
 
         try:
+            # Note that various configuration options are not set here due to them being set
+            # via the HTTPAdapter that was mounted at session level.
             if method == "GET":
                 response = session.get(
-                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                    url, data=body, headers=headers, proxies=self._proxies
                 )
             elif method == "POST":
                 response = session.post(
-                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                    url, data=body, headers=headers, proxies=self._proxies
                 )
             elif method == "PUT":
                 response = session.put(
-                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                    url, data=body, headers=headers, proxies=self._proxies
                 )
             elif method == "PATCH":
                 response = session.patch(
-                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                    url, data=body, headers=headers, proxies=self._proxies
                 )
             elif method == "DELETE":
                 response = session.delete(
-                    url, data=body, headers=headers, proxies=self._proxies, verify=True
+                    url, data=body, headers=headers, proxies=self._proxies
                 )
             else:
                 raise ValueError("Invalid method type: {}".format(method))
