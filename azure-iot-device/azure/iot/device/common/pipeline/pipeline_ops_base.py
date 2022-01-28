@@ -84,7 +84,6 @@ class PipelineOperation(object):
         else:
             self.callback_stack.append(callback)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def complete(self, error=None):
         """Complete the operation, and trigger all callbacks in LIFO order.
 
@@ -105,6 +104,8 @@ class PipelineOperation(object):
         :raises: OperationError if the operation cannot properly reach a completed state
         :raises: OperationError if an error occurs in resolving any callbacks
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if error:
             logger.debug("{}: completing with error {}".format(self.name, error))
         else:
@@ -150,7 +151,6 @@ class PipelineOperation(object):
                 self.completing = False
                 self.completed = True
 
-    @pipeline_thread.runs_on_pipeline_thread
     def halt_completion(self):
         """Halt the completion of an operation that is currently undergoing a completion process
         as a result of a call to .complete().
@@ -165,6 +165,8 @@ class PipelineOperation(object):
         This method will clear any error associated with the currently ongoing completion process
         from the Operation.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if not self.completing:
             raise pipeline_exceptions.OperationError(
                 "Attempting to halt completion of an operation not in the process of completion: {}".format(
@@ -176,7 +178,6 @@ class PipelineOperation(object):
             self.error = None
             logger.debug("{}: Operation completion halted".format(self.name))
 
-    @pipeline_thread.runs_on_pipeline_thread
     def spawn_worker_op(self, worker_op_type, **kwargs):
         """Create and return a new operation, which, when completed, will complete the operation
         it was spawned from.
@@ -188,10 +189,13 @@ class PipelineOperation(object):
 
         :returns: A new worker operation of the type specified in the worker_op_type parameter.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         logger.debug("{}: creating worker op of type {}".format(self.name, worker_op_type.__name__))
 
-        @pipeline_thread.runs_on_pipeline_thread
         def on_worker_op_complete(op, error):
+            pipeline_thread.assert_pipeline_thread()
+
             logger.debug("{}: Worker op ({}) has been completed".format(self.name, op.name))
             self.complete(error=error)
 

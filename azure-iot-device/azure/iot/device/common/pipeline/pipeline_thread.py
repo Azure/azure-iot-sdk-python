@@ -180,40 +180,8 @@ def invoke_on_http_thread_nowait(func):
     return _invoke_on_executor_thread(func=func, thread_name="azure_iot_http", block=False)
 
 
-def _assert_executor_thread(func, thread_name):
-    """
-    Decorator which asserts that the given function only gets called inside the given
-    thread.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-
-        assert (
-            threading.current_thread().name == thread_name
-        ), """
-            Function {function_name} is not running inside {thread_name} thread.
-            It should be. You should use invoke_on_{thread_name}_thread(_nowait) to enter the
-            {thread_name} thread before calling this function.  If you're hitting this from
-            inside a test function, you may need to add the fake_pipeline_thread fixture to
-            your test.  (generally applied on the global pytestmark in a module) """.format(
-            function_name=func.__name__, thread_name=thread_name
-        )
-
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-def runs_on_pipeline_thread(func):
+def assert_pipeline_thread():
     """
     Decorator which marks a function as only running inside the pipeline thread.
     """
-    return _assert_executor_thread(func=func, thread_name="pipeline")
-
-
-def runs_on_http_thread(func):
-    """
-    Decorator which marks a function as only running inside the http thread.
-    """
-    return _assert_executor_thread(func=func, thread_name="azure_iot_http")
+    assert threading.current_thread().name == "pipeline"

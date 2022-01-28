@@ -88,7 +88,6 @@ class PipelineStage(object):
         self.previous = None
         self.pipeline_root = None
 
-    @pipeline_thread.runs_on_pipeline_thread
     def run_op(self, op):
         """
         Run the given operation.  This is the public function that outside callers would call to run an
@@ -103,6 +102,8 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         try:
             self._run_op(op)
         except Exception as e:
@@ -129,7 +130,6 @@ class PipelineStage(object):
                 # operation.
                 raise e
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         """
         Implementation of the stage-specific function of .run_op(). Override this method instead of
@@ -140,9 +140,10 @@ class PipelineStage(object):
 
         :param PipelineOperation op: The operation to run.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def handle_pipeline_event(self, event):
         """
         Handle a pipeline event that arrives from the stage below this stage.  Derived
@@ -152,6 +153,8 @@ class PipelineStage(object):
 
         :param PipelineEvent event: The event that is being passed back up the pipeline
         """
+        pipeline_thread.assert_pipeline_thread()
+
         try:
             self._handle_pipeline_event(event)
         except Exception as e:
@@ -170,7 +173,6 @@ class PipelineStage(object):
                     "{}: Cannot report a background exception because there is no previous stage!"
                 )
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         """
         Handle a pipeline event that arrives from the stage below this stage.  This
@@ -179,9 +181,10 @@ class PipelineStage(object):
 
         :param PipelineEvent event: The event that is being passed back up the pipeline
         """
+        pipeline_thread.assert_pipeline_thread()
+
         self.send_event_up(event)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def send_op_down(self, op):
         """
         Helper function to continue a given operation by passing it to the next stage
@@ -191,6 +194,8 @@ class PipelineStage(object):
 
         :param PipelineOperation op: Operation which is being passed on
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if self.next:
             self.next.run_op(op)
         else:
@@ -204,13 +209,14 @@ class PipelineStage(object):
                 "{} not handled after {} stage with no next stage".format(op.name, self.name)
             )
 
-    @pipeline_thread.runs_on_pipeline_thread
     def send_event_up(self, event):
         """
         Helper function to pass an event to the previous stage of the pipeline.  This is the default
         behavior of events while traveling through the pipeline. They start somewhere (maybe the
         bottom) and move up the pipeline until they're handled or until they error out.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if self.previous:
             self.previous.handle_pipeline_event(event)
         else:
@@ -225,7 +231,6 @@ class PipelineStage(object):
                 "{} not handled after {} stage with no previous stage".format(event.name, self.name)
             )
 
-    @pipeline_thread.runs_on_pipeline_thread
     def report_background_exception(self, e):
         """
         Send an exception up the pipeline that ocurred in the background.
@@ -239,6 +244,8 @@ class PipelineStage(object):
 
         :param Exception e: The exception that ocurred in the background
         """
+        pipeline_thread.assert_pipeline_thread()
+
         event = pipeline_events_base.BackgroundExceptionEvent(e)
         self.send_event_up(event)
 
@@ -296,7 +303,6 @@ class PipelineRootStage(PipelineStage):
         new_stage.pipeline_root = self
         return self
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         """
         Override of the PipelineEvent handler.  Because this is the root of the pipeline,
@@ -306,6 +312,8 @@ class PipelineRootStage(PipelineStage):
         :param PipelineEvent event: Event to be handled, i.e. returned to the caller
           through the handle_pipeline_event (if provided).
         """
+        pipeline_thread.assert_pipeline_thread()
+
         # Base events that are common to all pipelines are handled here
         if isinstance(event, pipeline_events_base.ConnectedEvent):
             logger.debug(
@@ -373,8 +381,9 @@ class SasTokenStage(PipelineStage):
         # (only used with renewable SAS auth)
         self._reauth_retry_timer = None
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         if (
             isinstance(op, pipeline_ops_base.InitializePipelineOperation)
             and self.pipeline_root.pipeline_configuration.sastoken is not None
@@ -406,9 +415,10 @@ class SasTokenStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _cancel_token_update_alarm(self):
         """Cancel and delete any pending update alarm"""
+        pipeline_thread.assert_pipeline_thread()
+
         old_alarm = self._token_update_alarm
         self._token_update_alarm = None
         if old_alarm:
@@ -416,9 +426,10 @@ class SasTokenStage(PipelineStage):
             old_alarm.cancel()
             old_alarm = None
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _cancel_reauth_retry_timer(self):
         """Cancel and delete any pending reauth retry timer"""
+        pipeline_thread.assert_pipeline_thread()
+
         old_reauth_retry_timer = self._reauth_retry_timer
         self._reauth_retry_timer = None
         if old_reauth_retry_timer:
@@ -426,7 +437,6 @@ class SasTokenStage(PipelineStage):
             old_reauth_retry_timer.cancel()
             old_reauth_retry_timer = None
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _start_token_update_alarm(self):
         """Begin an update alarm.
         If using a RenewableSasToken, when the alarm expires the token will be automatically
@@ -435,6 +445,8 @@ class SasTokenStage(PipelineStage):
         If using a NonRenewableSasToken, when the alarm expires, it will trigger a
         NewSasTokenRequiredEvent to signal that a new SasToken must be manually provided.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         self._cancel_token_update_alarm()
 
         update_time = (
@@ -508,12 +520,14 @@ class SasTokenStage(PipelineStage):
         self._token_update_alarm.daemon = True
         self._token_update_alarm.start()
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _reauthorize(self):
+        pipeline_thread.assert_pipeline_thread()
+
         self_weakref = weakref.ref(self)
 
-        @pipeline_thread.runs_on_pipeline_thread
         def on_reauthorize_complete(op, error):
+            pipeline_thread.assert_pipeline_thread()
+
             this = self_weakref()
             if error:
                 logger.info(
@@ -566,8 +580,9 @@ class AutoConnectStage(PipelineStage):
     it needs to be connected.
     """
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         # Any operation that requires a connection can trigger a connection if
         # we're not connected and the auto-connect feature is enabled.
         if (
@@ -585,18 +600,20 @@ class AutoConnectStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _do_connect(self, op):
         """
         Start connecting the transport in response to some operation
         """
+        pipeline_thread.assert_pipeline_thread()
+
         # Alias to avoid overload within the callback below
         # CT-TODO: remove the need for this with better callback semantics
         op_needs_connect = op
 
         # function that gets called after we're connected.
-        @pipeline_thread.runs_on_pipeline_thread
         def on_connect_op_complete(op, error):
+            pipeline_thread.assert_pipeline_thread()
+
             if error:
                 logger.debug(
                     "{}({}): Connection failed.  Completing with failure because of connection failure: {}".format(
@@ -631,8 +648,8 @@ class ConnectionLockStage(PipelineStage):
         self.queue = queue.Queue()
         self.blocked = False
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
 
         # If this stage is currently blocked (because we're waiting for a connection, etc,
         # to complete), we queue up all operations until after the connect completes.
@@ -666,8 +683,9 @@ class ConnectionLockStage(PipelineStage):
         ):
             self._block(op)
 
-            @pipeline_thread.runs_on_pipeline_thread
             def on_operation_complete(op, error):
+                pipeline_thread.assert_pipeline_thread()
+
                 if error:
                     logger.debug(
                         "{}({}): op failed.  Unblocking queue with error: {}".format(
@@ -687,20 +705,22 @@ class ConnectionLockStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _block(self, op):
         """
         block this stage while we're waiting for the connect/disconnect/reauthorize operation to complete.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         logger.debug("{}({}): blocking".format(self.name, op.name))
         self.blocked = True
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _unblock(self, op, error):
         """
         Unblock this stage after the connect/disconnect/reauthorize operation is complete.  This also means
         releasing all the operations that were queued up.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         logger.debug("{}({}): unblocking and releasing queued ops.".format(self.name, op.name))
         self.blocked = False
         logger.debug(
@@ -743,8 +763,9 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         super(CoordinateRequestAndResponseStage, self).__init__()
         self.pending_responses = {}
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         if isinstance(op, pipeline_ops_base.RequestAndResponseOperation):
             # Convert RequestAndResponseOperation operation into a RequestOperation operation
             # and send it down.  A lower level will convert the RequestOperation into an
@@ -763,13 +784,13 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _send_request_down(self, request_id, op):
+        pipeline_thread.assert_pipeline_thread()
+
         # Alias to avoid overload within the callback below
         # CT-TODO: remove the need for this with better callback semantics
         op_waiting_for_response = op
 
-        @pipeline_thread.runs_on_pipeline_thread
         def on_send_request_done(op, error):
             logger.debug(
                 "{}({}): Finished sending {} request to {} resource {}".format(
@@ -809,8 +830,9 @@ class CoordinateRequestAndResponseStage(PipelineStage):
         )
         self.send_op_down(new_op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
+        pipeline_thread.assert_pipeline_thread()
+
         if isinstance(event, pipeline_events_base.ResponseEvent):
             # match ResponseEvent events to the saved dictionary of RequestAndResponseOperation
             # operations which have not received responses yet.  If the operation is found,
@@ -916,8 +938,9 @@ class OpTimeoutStage(PipelineStage):
             # Only Sub and Unsub are here because MQTT auto retries pub
         }
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         if type(op) in self.timeout_intervals:
             # Create a timer to watch for operation timeout on this op and attach it
             # to the op.
@@ -945,8 +968,9 @@ class OpTimeoutStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _clear_timer(self, op, error):
+        pipeline_thread.assert_pipeline_thread()
+
         # When an op comes back, delete the timer and pass it right up.
         if op.timeout_timer:
             logger.debug("{}({}): Cancelling timer".format(self.name, op.name))
@@ -975,8 +999,9 @@ class RetryStage(PipelineStage):
         }
         self.ops_waiting_to_retry = []
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         """
         Send all ops down and intercept their return to "watch for retry"
         """
@@ -986,33 +1011,36 @@ class RetryStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _should_watch_for_retry(self, op):
         """
         Return True if this op needs to be watched for retry.  This can be
         called before the op runs.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         return type(op) in self.retry_intervals
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _should_retry(self, op, error):
         """
         Return True if this op needs to be retried.  This must be called after
         the op completes.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if error:
             if self._should_watch_for_retry(op):
                 if isinstance(error, pipeline_exceptions.OperationTimeout):
                     return True
         return False
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _do_retry_if_necessary(self, op, error):
         """
         Handler which gets called when operations are complete.  This function
         is where we check to see if a retry is necessary and set a "retry timer"
         which can be used to send the op down again.
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if self._should_retry(op, error):
             self_weakref = weakref.ref(self)
 
@@ -1091,8 +1119,9 @@ class ReconnectStage(PipelineStage):
         # everything that runs here, and it can only be doing one thing at a time. Thus we don't
         # need to have a threading lock on our state, or be concerned with how atomic things are.
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         # NOTE: Connection Retry == Reconnect. These terms are used interchangably. 'reconnect' is a
         # more accurate term for the process happening internally here, but the feature is called
         # 'connection retry' when facing the end user.
@@ -1211,8 +1240,9 @@ class ReconnectStage(PipelineStage):
         else:
             self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
+        pipeline_thread.assert_pipeline_thread()
+
         # Connection Retry Enabled
         if self.pipeline_root.pipeline_configuration.connection_retry:
             if isinstance(event, pipeline_events_base.ConnectedEvent):
@@ -1319,8 +1349,9 @@ class ReconnectStage(PipelineStage):
         else:
             self.send_event_up(event)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _add_connection_op_callback(self, op):
+        pipeline_thread.assert_pipeline_thread()
+
         """Adds callback to a connection op passing through to do necessary stage upkeep"""
         self_weakref = weakref.ref(self)
 
@@ -1328,8 +1359,9 @@ class ReconnectStage(PipelineStage):
         # by the ConnectionLockStage. If the ConnectionLockStage changes functionality,
         # we may need some logic changes to address an op that can fail while leaving us CONNECTED
 
-        @pipeline_thread.runs_on_pipeline_thread
         def on_complete(op, error):
+            pipeline_thread.assert_pipeline_thread()
+
             this = self_weakref()
             # If error, set us back to a DISCONNECTED state. It doesn't matter what kind of
             # connection op this was, any failure should result in a disconnected state.
@@ -1348,23 +1380,26 @@ class ReconnectStage(PipelineStage):
                 this.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            this._run_next_waiting_op()
+            return this._run_next_waiting_op()
 
         op.add_callback(on_complete)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_next_waiting_op(self):
+        pipeline_thread.assert_pipeline_thread()
+
         if not self.waiting_ops.empty():
             next_op = self.waiting_ops.get_nowait()
             logger.debug("{}: Resolving next waiting op: {}".format(self.name, next_op.name))
-            self.run_op(next_op)
+            return self.run_op(next_op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _reconnect(self):
+        pipeline_thread.assert_pipeline_thread()
+
         self_weakref = weakref.ref(self)
 
-        @pipeline_thread.runs_on_pipeline_thread
         def on_reconnect_complete(op, error):
+            pipeline_thread.assert_pipeline_thread()
+
             this = self_weakref()
             if this:
                 logger.debug(
@@ -1403,7 +1438,7 @@ class ReconnectStage(PipelineStage):
                         )
 
                 # Now see if there's anything that may have blocked waiting for us to finish
-                this._run_next_waiting_op()
+                return this._run_next_waiting_op()
 
         # NOTE: I had considered leveraging the run_op infrastructure instead of sending this
         # directly down. Ultimately however, I think it's best to keep reconnects completely
@@ -1413,19 +1448,21 @@ class ReconnectStage(PipelineStage):
         op = pipeline_ops_base.ConnectOperation(callback=on_reconnect_complete)
         self.send_op_down(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _should_reconnect(self, error):
+        pipeline_thread.assert_pipeline_thread()
+
         """Returns True if a reconnect should occur in response to an error, False otherwise"""
         if self.pipeline_root.pipeline_configuration.connection_retry:
             if type(error) in self.transient_connect_errors:
                 return True
         return False
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _start_reconnect_timer(self, delay):
         """
         Set a timer to reconnect after some period of time
         """
+        pipeline_thread.assert_pipeline_thread()
+
         self._clear_reconnect_timer()
 
         self_weakref = weakref.ref(self)
@@ -1478,11 +1515,12 @@ class ReconnectStage(PipelineStage):
         self.reconnect_timer = threading.Timer(delay, on_reconnect_timer_expired)
         self.reconnect_timer.start()
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _clear_reconnect_timer(self):
         """
         Clear any previous reconnect timer
         """
+        pipeline_thread.assert_pipeline_thread()
+
         if self.reconnect_timer:
             logger.debug("{}: clearing reconnect timer".format(self.name))
             self.reconnect_timer.cancel()

@@ -32,8 +32,8 @@ class IoTHubMQTTTranslationStage(PipelineStage):
     converts mqtt pipeline events into Iot and IoTHub pipeline events.
     """
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
+        pipeline_thread.assert_pipeline_thread()
 
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
@@ -153,8 +153,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             # All other operations get passed down
             super(IoTHubMQTTTranslationStage, self)._run_op(op)
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _get_feature_subscription_topic(self, feature):
+        pipeline_thread.assert_pipeline_thread()
+
         if feature == pipeline_constant.C2D_MSG:
             return mqtt_topic_iothub.get_c2d_topic_for_subscribe(
                 self.pipeline_root.pipeline_configuration.device_id
@@ -176,12 +177,13 @@ class IoTHubMQTTTranslationStage(PipelineStage):
                 "Trying to enable/disable invalid feature - {}".format(feature)
             )
 
-    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         """
         Pipeline Event handler function to convert incoming MQTT messages into the appropriate IoTHub
         events, based on the topic of the message
         """
+        pipeline_thread.assert_pipeline_thread()
+
         # TODO: should we always be decoding the payload? Seems strange to only sometimes do it.
         # Is there value to the user getting the original bytestring from the wire?
         if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
