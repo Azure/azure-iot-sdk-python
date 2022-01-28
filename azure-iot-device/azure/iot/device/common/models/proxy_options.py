@@ -28,7 +28,7 @@ class ProxyOptions(object):
         """
         self._proxy_type = proxy_type
         self._proxy_addr = proxy_addr
-        self._proxy_port = proxy_port
+        self._proxy_port = int(proxy_port)
         self._proxy_username = proxy_username
         self._proxy_password = proxy_password
 

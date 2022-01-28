@@ -157,7 +157,7 @@ class MQTTTransport(object):
             mqtt_client.proxy_set(
                 proxy_type=self._proxy_options.proxy_type,
                 proxy_addr=self._proxy_options.proxy_address,
-                proxy_port=int(self._proxy_options.proxy_port),
+                proxy_port=self._proxy_options.proxy_port,
                 proxy_username=self._proxy_options.proxy_username,
                 proxy_password=self._proxy_options.proxy_password,
             )

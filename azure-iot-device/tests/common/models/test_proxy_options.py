@@ -60,6 +60,17 @@ class TestProxyOptions(object):
 
         assert proxy_options.proxy_port == proxy_port
 
+    @pytest.mark.it(
+        "Converts the 'proxy_port' property to an integer if the 'proxy_port' parameter is provided as a string"
+    )
+    def test_proxy_port_conversion(self, mocker):
+        proxy_port = "8888"
+        proxy_options = ProxyOptions(
+            proxy_type=mocker.MagicMock(), proxy_addr="127.0.0.1", proxy_port=proxy_port
+        )
+
+        assert proxy_options.proxy_port == int(proxy_port)
+
     @pytest.mark.it("Maintains 'proxy_port' as a read-only property")
     def test_proxy_port_read_only(self, mocker):
         proxy_options = ProxyOptions(
