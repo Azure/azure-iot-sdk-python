@@ -20,7 +20,6 @@ from . import (
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -68,26 +67,24 @@ class MQTTTransportStage(PipelineStage):
     def _start_connection_watchdog(self, connection_op):
         logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
 
-        self_weakref = weakref.ref(self)
         op_weakref = weakref.ref(connection_op)
 
         @pipeline_thread.invoke_on_pipeline_thread
         def watchdog_function():
-            this = self_weakref()
             op = op_weakref()
-            if this and op and this._pending_connection_op is op:
+            if self and op and self._pending_connection_op is op:
                 logger.info(
-                    "{}({}): Connection watchdog expired.  Cancelling op".format(this.name, op.name)
+                    "{}({}): Connection watchdog expired.  Cancelling op".format(self.name, op.name)
                 )
-                this.transport.disconnect()
-                if this.pipeline_root.connected:
+                self.transport.disconnect()
+                if self.pipeline_root.connected:
                     logger.info(
                         "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
-                            this.name, op.name
+                            self.name, op.name
                         )
                     )
-                    this.send_event_up(pipeline_events_base.DisconnectedEvent())
-                this._cancel_pending_connection_op(
+                    self.send_event_up(pipeline_events_base.DisconnectedEvent())
+                self._cancel_pending_connection_op(
                     error=pipeline_exceptions.OperationTimeout(
                         "Transport timeout on connection operation"
                     )
@@ -143,18 +140,10 @@ class MQTTTransportStage(PipelineStage):
                 proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
                 keep_alive=self.pipeline_root.pipeline_configuration.keep_alive,
             )
-            self.transport.on_mqtt_connected_handler = CallableWeakMethod(
-                self, "_on_mqtt_connected"
-            )
-            self.transport.on_mqtt_connection_failure_handler = CallableWeakMethod(
-                self, "_on_mqtt_connection_failure"
-            )
-            self.transport.on_mqtt_disconnected_handler = CallableWeakMethod(
-                self, "_on_mqtt_disconnected"
-            )
-            self.transport.on_mqtt_message_received_handler = CallableWeakMethod(
-                self, "_on_mqtt_message_received"
-            )
+            self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
+            self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
+            self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
+            self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
 
             # There can only be one pending connection operation (Connect, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
@@ -229,11 +218,9 @@ class MQTTTransportStage(PipelineStage):
                     self.name, op.name
                 )
             )
-            self_weakref = weakref.ref(self)
             reauth_op = op  # rename for clarity
 
             def on_disconnect_complete(op, error):
-                this = self_weakref()
                 if error:
                     # Failing a disconnect should still get us disconnected, so can proceed anyway
                     logger.debug(
@@ -243,7 +230,7 @@ class MQTTTransportStage(PipelineStage):
 
                 # NOTE: this relies on the fact that before the disconnect is completed it is
                 # unset as the pending connection op. Otherwise there would be issues here.
-                this.run_op(connect_op)
+                self.run_op(connect_op)
 
             disconnect_op = pipeline_ops_base.DisconnectOperation(callback=on_disconnect_complete)
             disconnect_op.hard = False

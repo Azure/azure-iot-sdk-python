@@ -22,7 +22,6 @@ from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.common.evented_callback import EventedCallback
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 from azure.iot.device import constant as device_constant
 
 
@@ -89,22 +88,14 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         self._handler_manager = sync_handler_manager.SyncHandlerManager(self._inbox_manager)
 
         # Set pipeline handlers for client events
-        self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
-        self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
-        self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
-            self, "_on_new_sastoken_required"
-        )
-        self._mqtt_pipeline.on_background_exception = CallableWeakMethod(
-            self, "_on_background_exception"
-        )
+        self._mqtt_pipeline.on_connected = self._on_connected
+        self._mqtt_pipeline.on_disconnected = self._on_disconnected
+        self._mqtt_pipeline.on_new_sastoken_required = self._on_new_sastoken_required
+        self._mqtt_pipeline.on_background_exception = self._on_background_exception
 
         # Set pipeline handlers for data receives
-        self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(
-            self._inbox_manager, "route_method_request"
-        )
-        self._mqtt_pipeline.on_twin_patch_received = CallableWeakMethod(
-            self._inbox_manager, "route_twin_patch"
-        )
+        self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
+        self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
     def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature.
@@ -558,9 +549,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         super(IoTHubDeviceClient, self).__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
         )
-        self._mqtt_pipeline.on_c2d_message_received = CallableWeakMethod(
-            self._inbox_manager, "route_c2d_message"
-        )
+        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     @deprecation.deprecated(
         deprecated_in="2.3.0",
@@ -647,9 +636,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         super(IoTHubModuleClient, self).__init__(
             mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
         )
-        self._mqtt_pipeline.on_input_message_received = CallableWeakMethod(
-            self._inbox_manager, "route_input_message"
-        )
+        self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.

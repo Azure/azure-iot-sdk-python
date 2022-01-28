@@ -14,7 +14,6 @@ from azure.iot.device.provisioning.models.registration_result import (
     RegistrationState,
 )
 import logging
-import weakref
 import json
 from threading import Timer
 import time
@@ -100,20 +99,17 @@ class CommonProvisioningStage(PipelineStage):
             else constant.DEFAULT_POLLING_INTERVAL
         )
 
-        self_weakref = weakref.ref(self)
-
         @pipeline_thread.invoke_on_pipeline_thread_nowait
         def do_retry_after():
-            this = self_weakref()
             logger.info(
                 "{stage_name}({op_name}): retrying".format(
-                    stage_name=this.name, op_name=request_response_op.name
+                    stage_name=self.name, op_name=request_response_op.name
                 )
             )
             original_provisioning_op.retry_after_timer.cancel()
             original_provisioning_op.retry_after_timer = None
             original_provisioning_op.completed = False
-            this.run_op(original_provisioning_op)
+            self.run_op(original_provisioning_op)
 
         logger.info(
             "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
@@ -173,14 +169,12 @@ class PollingStatusStage(CommonProvisioningStage):
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.PollStatusOperation):
             query_status_op = op
-            self_weakref = weakref.ref(self)
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def query_timeout():
-                this = self_weakref()
                 logger.info(
                     "{stage_name}({op_name}): returning timeout error".format(
-                        stage_name=this.name, op_name=op.name
+                        stage_name=self.name, op_name=op.name
                     )
                 )
                 query_status_op.complete(
@@ -235,20 +229,18 @@ class PollingStatusStage(CommonProvisioningStage):
                                 if op.retry_after is not None
                                 else constant.DEFAULT_POLLING_INTERVAL
                             )
-                            self_weakref = weakref.ref(self)
 
                             @pipeline_thread.invoke_on_pipeline_thread_nowait
                             def do_polling():
-                                this = self_weakref()
                                 logger.info(
                                     "{stage_name}({op_name}): retrying".format(
-                                        stage_name=this.name, op_name=op.name
+                                        stage_name=self.name, op_name=op.name
                                     )
                                 )
                                 query_status_op.polling_timer.cancel()
                                 query_status_op.polling_timer = None
                                 query_status_op.completed = False
-                                this.run_op(query_status_op)
+                                self.run_op(query_status_op)
 
                             logger.debug(
                                 "{stage_name}({op_name}): Op needs retry with interval {interval} because of {error}. Setting timer.".format(
@@ -311,14 +303,12 @@ class RegistrationStage(CommonProvisioningStage):
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_provisioning.RegisterOperation):
             initial_register_op = op
-            self_weakref = weakref.ref(self)
 
             @pipeline_thread.invoke_on_pipeline_thread_nowait
             def register_timeout():
-                this = self_weakref()
                 logger.info(
                     "{stage_name}({op_name}): returning timeout error".format(
-                        stage_name=this.name, op_name=op.name
+                        stage_name=self.name, op_name=op.name
                     )
                 )
                 initial_register_op.complete(
@@ -366,7 +356,6 @@ class RegistrationStage(CommonProvisioningStage):
                         registration_status = decoded_response.get("status", None)
 
                         if registration_status == "assigning":
-                            self_weakref = weakref.ref(self)
 
                             def copy_result_to_original_op(op, error):
                                 logger.debug(
@@ -377,13 +366,12 @@ class RegistrationStage(CommonProvisioningStage):
 
                             @pipeline_thread.invoke_on_pipeline_thread_nowait
                             def do_query_after_interval():
-                                this = self_weakref()
                                 initial_register_op.polling_timer.cancel()
                                 initial_register_op.polling_timer = None
 
                                 logger.info(
                                     "{stage_name}({op_name}): polling".format(
-                                        stage_name=this.name, op_name=op.name
+                                        stage_name=self.name, op_name=op.name
                                     )
                                 )
 

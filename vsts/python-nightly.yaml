@@ -4,31 +4,13 @@ jobs:
 - job: 'Test'
 
   strategy:
-    maxParallel: 4
     matrix:
-      py27_windows_mqtt:
+      py27_linux_mqtt:
         pv: '2.7'
-        transport: 'mqtt'
-        imageName: 'windows-latest'
-      py27_windows_mqttws:
-        pv: '2.7'
-        transport: 'mqttws'
-        imageName: 'windows-latest'
-      py39_windows_mqtt:
-        pv: '3.9'
-        transport: 'mqtt'
-        imageName: 'windows-latest'
-      py39_windows_mqttws:
-        pv: '3.9'
-        transport: 'mqttws'
-        imageName: 'windows-latest'
-
-      py36_linux_mqtt:
-        pv: '3.6'
         transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
-      py37_linux_mqttws:
-        pv: '3.7'
+      py27_linux_mqttws:
+        pv: '2.7'
         transport: 'mqttws'
         imageName: 'Ubuntu 20.04'
       py38_linux_mqtt:
@@ -38,10 +20,6 @@ jobs:
       py39_linux_mqttws:
         pv: '3.9'
         transport: 'mqttws'
-        imageName: 'Ubuntu 20.04'
-      py310_linux_mqtt:
-        pv: '3.10'
-        transport: 'mqtt'
         imageName: 'Ubuntu 20.04'
 
   pool:
