@@ -1380,7 +1380,7 @@ class ReconnectStage(PipelineStage):
                 this.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            return this._run_next_waiting_op()
+            return this._run_all_waiting_ops()
 
         op.add_callback(on_complete)
 
@@ -1391,6 +1391,21 @@ class ReconnectStage(PipelineStage):
             next_op = self.waiting_ops.get_nowait()
             logger.debug("{}: Resolving next waiting op: {}".format(self.name, next_op.name))
             return self.run_op(next_op)
+
+    def _run_all_waiting_ops(self):
+        pipeline_thread.assert_pipeline_thread()
+
+        if not self.waiting_ops.empty():
+            queuecopy = self.waiting_ops
+            self.waiting_ops = queue.Queue()
+
+            while not queuecopy.empty():
+                next_op = queuecopy.get_nowait()
+                if not next_op.completed:
+                    logger.debug(
+                        "{}: Resolving next waiting op: {}".format(self.name, next_op.name)
+                    )
+                    return self.run_op(next_op)
 
     def _reconnect(self):
         pipeline_thread.assert_pipeline_thread()
