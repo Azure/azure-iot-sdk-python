@@ -1405,7 +1405,7 @@ class ReconnectStage(PipelineStage):
                     logger.debug(
                         "{}: Resolving next waiting op: {}".format(self.name, next_op.name)
                     )
-                    return self.run_op(next_op)
+                    self.run_op(next_op)
 
     def _reconnect(self):
         pipeline_thread.assert_pipeline_thread()
