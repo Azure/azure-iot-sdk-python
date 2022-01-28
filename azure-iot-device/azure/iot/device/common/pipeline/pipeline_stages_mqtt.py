@@ -67,24 +67,26 @@ class MQTTTransportStage(PipelineStage):
     def _start_connection_watchdog(self, connection_op):
         logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
 
+        self_weakref = weakref.ref(self)
         op_weakref = weakref.ref(connection_op)
 
         @pipeline_thread.invoke_on_pipeline_thread
         def watchdog_function():
+            this = self_weakref()
             op = op_weakref()
-            if self and op and self._pending_connection_op is op:
+            if this and op and this._pending_connection_op is op:
                 logger.info(
-                    "{}({}): Connection watchdog expired.  Cancelling op".format(self.name, op.name)
+                    "{}({}): Connection watchdog expired.  Cancelling op".format(this.name, op.name)
                 )
-                self.transport.disconnect()
-                if self.pipeline_root.connected:
+                this.transport.disconnect()
+                if this.pipeline_root.connected:
                     logger.info(
                         "{}({}): Pipeline is still connected on watchdog expiration.  Sending DisconnectedEvent".format(
-                            self.name, op.name
+                            this.name, op.name
                         )
                     )
-                    self.send_event_up(pipeline_events_base.DisconnectedEvent())
-                self._cancel_pending_connection_op(
+                    this.send_event_up(pipeline_events_base.DisconnectedEvent())
+                this._cancel_pending_connection_op(
                     error=pipeline_exceptions.OperationTimeout(
                         "Transport timeout on connection operation"
                     )

@@ -18,7 +18,6 @@ import socks
 import threading
 import gc
 import weakref
-import time
 import azure.iot.device.common.pipeline.config as pipeline_config
 
 logging.basicConfig(level=logging.DEBUG)
@@ -919,8 +918,8 @@ class TestEventDisconnectCompleted(object):
         )
         transport_weakref = weakref.ref(transport)
         transport = None
-        mock_mqtt_client = None  # noqa: F841
         gc.collect(2)  # 2 == collect as much as possible
+        assert transport_weakref() is None
         return transport_weakref
 
     @pytest.fixture(
@@ -1127,7 +1126,7 @@ class TestEventDisconnectCompleted(object):
     @pytest.mark.it(
         "Calls Paho's loop_stop() if the MQTTTransport object was garbage collected before the disconnect completed"
     )
-    def _test_calls_loop_stop_after_gc(
+    def test_calls_loop_stop_after_gc(
         self, collected_transport_weakref, mock_mqtt_client, rc_success_or_failure, mocker
     ):
         assert mock_mqtt_client.loop_stop.call_count == 0
@@ -1138,7 +1137,7 @@ class TestEventDisconnectCompleted(object):
     @pytest.mark.it(
         "Allows any Exception raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconnect completed"
     )
-    def _test_raises_exception_after_gc(
+    def test_raises_exception_after_gc(
         self,
         collected_transport_weakref,
         mock_mqtt_client,
@@ -1152,7 +1151,7 @@ class TestEventDisconnectCompleted(object):
     @pytest.mark.it(
         "Allows any BaseException raised by Paho's loop_stop() to propagate if the MQTTTransport object was garbage collected before the disconnect completed"
     )
-    def _ttest_raises_base_exception_after_gc(
+    def test_raises_base_exception_after_gc(
         self,
         collected_transport_weakref,
         mock_mqtt_client,

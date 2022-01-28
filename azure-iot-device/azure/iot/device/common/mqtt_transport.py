@@ -10,6 +10,7 @@ import ssl
 import sys
 import threading
 import traceback
+import weakref
 import socket
 from . import transport_exceptions as exceptions
 import socks
@@ -167,13 +168,16 @@ class MQTTTransport(object):
         ssl_context = self._create_ssl_context()
         mqtt_client.tls_set_context(context=ssl_context)
 
+        self_weakref = weakref.ref(self)
+
         def on_connect(client, userdata, flags, rc):
+            this = self_weakref()
             logger.info("connected with result code: {}".format(rc))
 
             if rc:  # i.e. if there is an error
-                if self.on_mqtt_connection_failure_handler:
+                if this.on_mqtt_connection_failure_handler:
                     try:
-                        self.on_mqtt_connection_failure_handler(
+                        this.on_mqtt_connection_failure_handler(
                             _create_error_from_connack_rc_code(rc)
                         )
                     except Exception:
@@ -183,9 +187,9 @@ class MQTTTransport(object):
                     logger.error(
                         "connection failed, but no on_mqtt_connection_failure_handler handler callback provided"
                     )
-            elif self.on_mqtt_connected_handler:
+            elif this.on_mqtt_connected_handler:
                 try:
-                    self.on_mqtt_connected_handler()
+                    this.on_mqtt_connected_handler()
                 except Exception:
                     logger.error("Unexpected error calling on_mqtt_connected_handler")
                     logger.error(traceback.format_exc())
@@ -193,15 +197,17 @@ class MQTTTransport(object):
                 logger.error("No event handler callback set for on_mqtt_connected_handler")
 
         def on_disconnect(client, userdata, rc):
+            this = self_weakref()
             logger.info("disconnected with result code: {}".format(rc))
 
             cause = None
             if rc:  # i.e. if there is an error
                 logger.debug("".join(traceback.format_stack()))
                 cause = _create_error_from_rc_code(rc)
-                self._force_transport_disconnect_and_cleanup()
+                if this:
+                    this._force_transport_disconnect_and_cleanup()
 
-            if not self:
+            if not this:
                 # Paho will sometimes call this after we've been garbage collected,  If so, we have to
                 # stop the loop to make sure the Paho thread shuts down.
                 logger.info(
@@ -209,9 +215,9 @@ class MQTTTransport(object):
                 )
                 client.loop_stop()
             else:
-                if self.on_mqtt_disconnected_handler:
+                if this.on_mqtt_disconnected_handler:
                     try:
-                        self.on_mqtt_disconnected_handler(cause)
+                        this.on_mqtt_disconnected_handler(cause)
                     except Exception:
                         logger.error("Unexpected error calling on_mqtt_disconnected_handler")
                         logger.error(traceback.format_exc())
@@ -219,29 +225,33 @@ class MQTTTransport(object):
                     logger.error("No event handler callback set for on_mqtt_disconnected_handler")
 
         def on_subscribe(client, userdata, mid, granted_qos):
+            this = self_weakref()
             logger.info("suback received for {}".format(mid))
             # subscribe failures are returned from the subscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
-            self._op_manager.complete_operation(mid)
+            this._op_manager.complete_operation(mid)
 
         def on_unsubscribe(client, userdata, mid):
+            this = self_weakref()
             logger.info("UNSUBACK received for {}".format(mid))
             # unsubscribe failures are returned from the unsubscribe() call.  This is just
             # a notification that a SUBACK was received, so there is no failure case here
-            self._op_manager.complete_operation(mid)
+            this._op_manager.complete_operation(mid)
 
         def on_publish(client, userdata, mid):
+            this = self_weakref()
             logger.info("payload published for {}".format(mid))
             # publish failures are returned from the publish() call.  This is just
             # a notification that a PUBACK was received, so there is no failure case here
-            self._op_manager.complete_operation(mid)
+            this._op_manager.complete_operation(mid)
 
         def on_message(client, userdata, mqtt_message):
+            this = self_weakref()
             logger.info("message received on {}".format(mqtt_message.topic))
 
-            if self.on_mqtt_message_received_handler:
+            if this.on_mqtt_message_received_handler:
                 try:
-                    self.on_mqtt_message_received_handler(mqtt_message.topic, mqtt_message.payload)
+                    this.on_mqtt_message_received_handler(mqtt_message.topic, mqtt_message.payload)
                 except Exception:
                     logger.error("Unexpected error calling on_mqtt_message_received_handler")
                     logger.error(traceback.format_exc())
