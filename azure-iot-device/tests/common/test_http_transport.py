@@ -6,20 +6,21 @@
 
 import azure.iot.device.common.http_transport as http_transport
 from azure.iot.device.common.http_transport import HTTPTransport
-from azure.iot.device.common.models.x509 import X509
-from six.moves import http_client
+from azure.iot.device.common.models import X509, ProxyOptions
 from azure.iot.device.common import transport_exceptions as errors
 import pytest
 import logging
 import ssl
-import threading
+import urllib3
+import requests
+import time
+import socks
 
 
 logging.basicConfig(level=logging.DEBUG)
 
-fake_hostname = "__fake_hostname__"
-fake_method = "__fake_method__"
-fake_path = "__fake_path__"
+fake_hostname = "fake.hostname"
+fake_path = "path/to/resource"
 
 
 fake_server_verification_cert = "__fake_server_verification_cert__"
@@ -29,7 +30,30 @@ fake_cipher = "DHE-RSA-AES128-SHA"
 
 @pytest.mark.describe("HTTPTransport - Instantiation")
 class TestInstantiation(object):
-    @pytest.mark.it("Sets the proper required instance parameters")
+    @pytest.fixture(
+        params=["HTTP - No Auth", "HTTP - Auth", "SOCKS4", "SOCKS5 - No Auth", "SOCKS5 - Auth"]
+    )
+    def proxy_options(self, request):
+        if "HTTP" in request.param:
+            proxy_type = socks.HTTP
+        elif "SOCKS4" in request.param:
+            proxy_type = socks.SOCKS4
+        else:
+            proxy_type = socks.SOCKS5
+
+        if "No Auth" in request.param:
+            proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=1080)
+        else:
+            proxy = ProxyOptions(
+                proxy_type=proxy_type,
+                proxy_addr="127.0.0.1",
+                proxy_port=1080,
+                proxy_username="fake_username",
+                proxy_password="fake_password",
+            )
+        return proxy
+
+    @pytest.mark.it("Stores the hostname for later use")
     def test_sets_required_parameters(self, mocker):
 
         mocker.patch.object(ssl, "SSLContext").return_value
@@ -39,11 +63,39 @@ class TestInstantiation(object):
             hostname=fake_hostname,
             server_verification_cert=fake_server_verification_cert,
             x509_cert=fake_x509_cert,
+            cipher=fake_cipher,
         )
 
         assert http_transport_object._hostname == fake_hostname
-        assert http_transport_object._server_verification_cert == fake_server_verification_cert
-        assert http_transport_object._x509_cert == fake_x509_cert
+
+    @pytest.mark.it(
+        "Creates a dictionary of proxies from the 'proxy_options' parameter, if the parameter is provided"
+    )
+    def test_proxy_format(self, mocker, proxy_options):
+        http_transport_object = HTTPTransport(hostname=fake_hostname, proxy_options=proxy_options)
+
+        if proxy_options.proxy_username and proxy_options.proxy_password:
+            expected_proxy_string = "{username}:{password}@{address}:{port}".format(
+                username=proxy_options.proxy_username,
+                password=proxy_options.proxy_password,
+                address=proxy_options.proxy_address,
+                port=proxy_options.proxy_port,
+            )
+        else:
+            expected_proxy_string = "{address}:{port}".format(
+                address=proxy_options.proxy_address, port=proxy_options.proxy_port
+            )
+
+        if proxy_options.proxy_type == socks.HTTP:
+            expected_proxy_string = "http://" + expected_proxy_string
+        elif proxy_options.proxy_type == socks.SOCKS4:
+            expected_proxy_string = "socks4://" + expected_proxy_string
+        else:
+            expected_proxy_string = "socks5://" + expected_proxy_string
+
+        assert isinstance(http_transport_object._proxies, dict)
+        assert http_transport_object._proxies["http"] == expected_proxy_string
+        assert http_transport_object._proxies["https"] == expected_proxy_string
 
     @pytest.mark.it(
         "Configures TLS/SSL context to use TLS 1.2, require certificates and check hostname"
@@ -112,185 +164,218 @@ class TestInstantiation(object):
             fake_client_cert.pass_phrase,
         )
 
+    @pytest.mark.it(
+        "Creates a custom requests HTTP Adapter that uses the configured SSL context when creating PoolManagers"
+    )
+    def test_http_adapter_pool_manager(self, mocker):
+        # NOTE: This test involves mocking and testing deeper parts of the requests library stack
+        # in order to show that the HTTPAdapter is functioning as intended. This naturally gets a
+        # little messy from a unittesting perspective
+        poolmanager_init_mock = mocker.patch.object(requests.adapters, "PoolManager")
+        proxymanager_init_mock = mocker.patch.object(urllib3.poolmanager, "ProxyManager")
+        socksproxymanager_init_mock = mocker.patch.object(requests.adapters, "SOCKSProxyManager")
+        ssl_context_init_mock = mocker.patch.object(ssl, "SSLContext")
+        mock_ssl_context = ssl_context_init_mock.return_value
 
-class HTTPTransportTestConfig(object):
-    @pytest.fixture
-    def mock_http_client_constructor(self, mocker):
-        mocker.patch.object(ssl, "SSLContext").return_value
-        mocker.patch.object(HTTPTransport, "_create_ssl_context").return_value
-        mock_client_constructor = mocker.patch.object(http_client, "HTTPSConnection", autospec=True)
-        mock_client = mock_client_constructor.return_value
-        response_value = mock_client.getresponse.return_value
-        response_value.status = 1234
-        response_value.reason = "__fake_reason__"
-        response_value.read.return_value = "__fake_response_read_value__"
-        return mock_client_constructor
+        http_transport_object = HTTPTransport(hostname=fake_hostname)
+        # SSL Context was only created once
+        assert ssl_context_init_mock.call_count == 1
+        # HTTP Adapter was set on the transport
+        assert isinstance(http_transport_object._http_adapter, requests.adapters.HTTPAdapter)
+
+        # Reset the poolmanager mock because it's already been called upon instantiation of the adapter
+        # (We will manually test scenarios in which a PoolManager is instantiated)
+        poolmanager_init_mock.reset_mock()
+
+        # Basic PoolManager init scenario
+        http_transport_object._http_adapter.init_poolmanager(
+            connections=requests.adapters.DEFAULT_POOLSIZE,
+            maxsize=requests.adapters.DEFAULT_POOLSIZE,
+        )
+        assert poolmanager_init_mock.call_count == 1
+        assert poolmanager_init_mock.call_args[1]["ssl_context"] == mock_ssl_context
+
+        # ProxyManager init scenario
+        http_transport_object._http_adapter.proxy_manager_for(proxy="http://127.0.0.1")
+        assert proxymanager_init_mock.call_count == 1
+        assert proxymanager_init_mock.call_args[1]["ssl_context"] == mock_ssl_context
+
+        # SOCKSProxyManager init scenario
+        http_transport_object._http_adapter.proxy_manager_for(proxy="socks5://127.0.0.1")
+        assert socksproxymanager_init_mock.call_count == 1
+        assert socksproxymanager_init_mock.call_args[1]["ssl_context"] == mock_ssl_context
+
+        # SSL Context was still only ever created once. This proves that the SSL context being
+        # used above is the same one that was configured in a custom way
+        assert ssl_context_init_mock.call_count == 1
 
 
 @pytest.mark.describe("HTTPTransport - .request()")
-class TestRequest(HTTPTransportTestConfig):
-    @pytest.mark.it("Generates a unique HTTP Client connection for each request")
-    def test_creates_http_connection_object(self, mocker, mock_http_client_constructor):
-        transport = HTTPTransport(hostname=fake_hostname)
-        # We call .result because we need to block for the Future to complete before moving on.
-        transport.request(fake_method, fake_path, mocker.MagicMock()).result()
-        assert mock_http_client_constructor.call_count == 1
+class TestRequest(object):
+    @pytest.fixture(autouse=True)
+    def mock_requests_session(self, mocker):
+        return mocker.patch.object(requests, "Session")
 
-        transport.request(fake_method, fake_path, mocker.MagicMock()).result()
-        assert mock_http_client_constructor.call_count == 2
+    @pytest.fixture
+    def session(self, mock_requests_session):
+        return mock_requests_session.return_value
 
-    @pytest.mark.it("Uses the HTTP Transport SSL Context.")
-    def test_uses_ssl_context(self, mocker, mock_http_client_constructor):
-        transport = HTTPTransport(hostname=fake_hostname)
-        done = transport.request(fake_method, fake_path, mocker.MagicMock())
-        done.result()
+    @pytest.fixture
+    def transport(self, request):
+        return HTTPTransport(hostname=fake_hostname)
 
-        assert mock_http_client_constructor.call_count == 1
-        assert mock_http_client_constructor.call_args[1]["context"] == transport._ssl_context
-
-    @pytest.mark.it("Formats the request URL from the stage's hostname, given a path.")
-    def test_formats_http_client_request_with_only_method_and_path(
-        self, mocker, mock_http_client_constructor
-    ):
-        transport = HTTPTransport(hostname=fake_hostname)
-        mock_http_client_request = mock_http_client_constructor.return_value.request
-        fake_method = "__fake_method__"
-        fake_path = "__fake_path__"
-        expected_url = "https://{}/{}".format(fake_hostname, fake_path)
-        done = transport.request(fake_method, fake_path, mocker.MagicMock())
-        done.result()
-
-        assert mock_http_client_constructor.call_count == 1
-        assert mock_http_client_request.call_count == 1
-        assert mock_http_client_request.call_args == mocker.call(
-            fake_method, expected_url, body="", headers={}
-        )
+    @pytest.fixture(params=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    def request_method(self, request):
+        return request.param
 
     @pytest.mark.it(
-        "Formats the request URL from the stage's hostname, given a path and query parameters."
+        "Mounts the custom HTTP Adapter on a new requests Session before making a request"
     )
-    def test_formats_http_client_request_with_method_path_and_query_params(
-        self, mocker, mock_http_client_constructor
-    ):
-        transport = HTTPTransport(hostname=fake_hostname)
-        mock_http_client_request = mock_http_client_constructor.return_value.request
-        fake_method = "__fake_method__"
-        fake_path = "__fake_path__"
-        fake_query_params = "__fake_query_params__"
-        expected_url = "https://{}/{}?{}".format(fake_hostname, fake_path, fake_query_params)
+    def test_mount_adapter(self, mocker, transport, mock_requests_session, request_method):
+        session = mock_requests_session.return_value
+        session_method = getattr(session, request_method.lower())
 
-        done = transport.request(
-            fake_method, fake_path, mocker.MagicMock(), query_params=fake_query_params
-        )
-        done.result()
-        assert mock_http_client_constructor.call_count == 1
-        assert mock_http_client_request.call_count == 1
-        assert mock_http_client_request.call_args == mocker.call(
-            fake_method, expected_url, body="", headers={}
-        )
+        # Check that the request has not yet been made when mounted
+        def check_request_not_made(*args):
+            assert session_method.call_count == 0
 
-    @pytest.mark.it("Sends HTTP request via HTTP Client.")
+        session.mount.side_effect = check_request_not_made
+
+        # Session has not yet been created
+        assert mock_requests_session.call_count == 0
+
+        # Request
+        transport.request(request_method, fake_path, mocker.MagicMock())
+
+        # TODO: fix this timing issue
+        time.sleep(0.01)
+
+        # Session has been created
+        assert mock_requests_session.call_count == 1
+        assert mock_requests_session.call_args == mocker.call()
+        assert session is mock_requests_session.return_value
+        # Adapter has been mounted
+        assert session.mount.call_count == 1
+        assert session.mount.call_args == mocker.call("https://", transport._http_adapter)
+        # Request was made after (see above side effect for proof that this happens after mount)
+        assert session_method.call_count == 1
+
+    @pytest.mark.it(
+        "Makes a HTTP request with the new Session using the given parameters, stored hostname and stored proxy"
+    )
     @pytest.mark.parametrize(
-        "method, path, query_params, body, headers",
+        "hostname, path, query_params, expected_url",
         [
             pytest.param(
-                "__fake_method__",
-                "__fake_path__",
-                None,
-                None,
-                None,
-                id="Method and path (optional params set to None)",
-            ),
-            pytest.param(
-                "__fake_method__",
-                "__fake_path__",
+                "fake.hostname",
+                "path/to/resource",
                 "",
-                "",
-                "",
-                id="Method and path (optional params set to empty string)",
+                "https://fake.hostname/path/to/resource",
+                id="No query parameters",
             ),
             pytest.param(
-                "__fake_method__",
-                "__fake_path__",
-                "__fake_query_params__",
-                None,
-                None,
-                id="Method, path, and query params (body and headers set to None)",
-            ),
-            pytest.param(
-                "__fake_method__",
-                "__fake_path__",
-                "__fake_query_params__",
-                "__fake_body__",
-                None,
-                id="Method, path, query_params, and body (headers set to None)",
-            ),
-            pytest.param(
-                "__fake_method__",
-                "__fake_path__",
-                "__fake_query_params__",
-                "__fake_body__",
-                "__fake_headers__",
-                id="All parameters provided",
+                "fake.hostname",
+                "path/to/resource",
+                "arg1=val1;arg2=val2",
+                "https://fake.hostname/path/to/resource?arg1=val1;arg2=val2",
+                id="With query parameters",
             ),
         ],
     )
-    def test_calls_http_client_request_with_given_parameters(
-        self, mocker, mock_http_client_constructor, method, path, query_params, body, headers
+    @pytest.mark.parametrize(
+        "body", [pytest.param("", id="No body"), pytest.param("fake body", id="With body")]
+    )
+    @pytest.mark.parametrize(
+        "headers",
+        [pytest.param({}, id="No headers"), pytest.param({"Key": "Value"}, id="With headers")],
+    )
+    def test_request(
+        self,
+        mocker,
+        transport,
+        mock_requests_session,
+        request_method,
+        hostname,
+        path,
+        query_params,
+        expected_url,
+        body,
+        headers,
     ):
-        transport = HTTPTransport(hostname=fake_hostname)
-        mock_http_client_request = mock_http_client_constructor.return_value.request
-        if query_params:
-            expected_url = "https://{}/{}?{}".format(fake_hostname, path, query_params)
-        else:
-            expected_url = "https://{}/{}".format(fake_hostname, path)
-
-        cb = mocker.MagicMock()
-        done = transport.request(
-            method, path, cb, body=body, headers=headers, query_params=query_params
+        transport._hostname = hostname
+        transport.request(
+            method=request_method,
+            path=path,
+            callback=mocker.MagicMock(),
+            body=body,
+            headers=headers,
+            query_params=query_params,
         )
-        done.result()
-        assert mock_http_client_constructor.call_count == 1
-        assert mock_http_client_request.call_count == 1
-        assert mock_http_client_request.call_args[0][0] == method
-        assert mock_http_client_request.call_args[0][1] == expected_url
 
-        actual_body = mock_http_client_request.call_args[1]["body"]
-        actual_headers = mock_http_client_request.call_args[1]["headers"]
+        # TODO: fix this timing issue
+        time.sleep(0.01)
 
-        if body:
-            assert actual_body == body
-        else:
-            assert not bool(actual_body)
-        if headers:
-            assert actual_headers == headers
-        else:
-            assert not bool(actual_headers)
+        # New session was created
+        assert mock_requests_session.call_count == 1
+        assert mock_requests_session.call_args == mocker.call()
+        session = mock_requests_session.return_value
+        assert session.mount.call_count == 1
+        assert session.mount.call_args == mocker.call("https://", transport._http_adapter)
+
+        # The relevant method was called on the session
+        session_method = getattr(session, request_method.lower())
+        assert session_method.call_count == 1
+        assert session_method.call_args == mocker.call(
+            expected_url, data=body, headers=headers, proxies=transport._proxies
+        )
 
     @pytest.mark.it(
-        "Creates a response object with a status code, reason, and unformatted HTTP response and returns it via the callback."
+        "Creates a response object containing the status code, reason and text from the HTTP response and returns it via the callback"
     )
-    def test_returns_response_on_success(self, mocker, mock_http_client_constructor):
-        transport = HTTPTransport(hostname=fake_hostname)
-        cb = mocker.MagicMock()
-        done = transport.request(fake_method, fake_path, cb)
-        done.result()
+    def test_returns_response(self, mocker, transport, session, request_method):
+        session_method = getattr(session, request_method.lower())
+        response = session_method.return_value
+        cb_mock = mocker.MagicMock()
 
-        assert mock_http_client_constructor.call_count == 1
-        assert cb.call_count == 1
-        assert cb.call_args[1]["response"]["status_code"] == 1234
-        assert cb.call_args[1]["response"]["reason"] == "__fake_reason__"
-        assert cb.call_args[1]["response"]["resp"] == "__fake_response_read_value__"
+        transport.request(method=request_method, path=fake_path, callback=cb_mock)
 
-    @pytest.mark.it("Raises a ProtocolClientError if request raises an unexpected Exception")
+        # TODO: fix this timing issue
+        time.sleep(0.01)
+
+        assert cb_mock.call_count == 1
+        assert cb_mock.call_args == mocker.call(response=mocker.ANY)
+        response_obj = cb_mock.call_args[1]["response"]
+        assert response_obj["status_code"] == response.status_code
+        assert response_obj["reason"] == response.reason
+        assert response_obj["resp"] == response.text
+
+    @pytest.mark.it(
+        "Returns a ProtocolClientError via the callback if making the HTTP request raises an unexpected Exception"
+    )
     def test_client_raises_unexpected_error(
-        self, mocker, mock_http_client_constructor, arbitrary_exception
+        self, mocker, transport, session, request_method, arbitrary_exception
     ):
-        transport = HTTPTransport(hostname=fake_hostname)
-        mock_http_client_constructor.return_value.connect.side_effect = arbitrary_exception
-        cb = mocker.MagicMock()
-        done = transport.request(fake_method, fake_path, cb)
-        done.result()
-        error = cb.call_args[1]["error"]
+        session_method = getattr(session, request_method.lower())
+        session_method.side_effect = arbitrary_exception
+        cb_mock = mocker.MagicMock()
+
+        transport.request(method=request_method, path=fake_path, callback=cb_mock)
+
+        # TODO: fix this timing issue
+        time.sleep(0.01)
+
+        assert cb_mock.call_count == 1
+        error = cb_mock.call_args[1]["error"]
         assert isinstance(error, errors.ProtocolClientError)
         assert error.__cause__ is arbitrary_exception
+
+    @pytest.mark.it(
+        "Returns a ValueError via the callback if the request method provided is not valid"
+    )
+    def test_invalid_method(self, mocker, transport):
+        cb_mock = mocker.MagicMock()
+        transport.request(method="NOT A REAL METHOD", path=fake_path, callback=cb_mock)
+
+        assert cb_mock.call_count == 1
+        error = cb_mock.call_args[1]["error"]
+        assert isinstance(error, ValueError)

@@ -10,8 +10,6 @@ import ssl
 import requests
 from . import transport_exceptions as exceptions
 from .pipeline import pipeline_thread
-from six.moves import http_client
-from urllib3 import poolmanager
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +40,7 @@ class HTTPTransport(object):
         self._server_verification_cert = server_verification_cert
         self._x509_cert = x509_cert
         self._cipher = cipher
-        self._proxies = self._format_proxies(proxy_options)
+        self._proxies = format_proxies(proxy_options)
         self._http_adapter = self._create_http_adapter()
 
     def _create_http_adapter(self):
@@ -94,37 +92,6 @@ class HTTPTransport(object):
         ssl_context.check_hostname = True
 
         return ssl_context
-
-    def _format_proxies(self, proxy_options):
-        """
-        Format the data from the proxy_options object into a format for use with the requests library
-        """
-        proxies = {}
-        if proxy_options:
-            # Basic address/port formatting
-            proxy = "{address}:{port}".format(
-                address=proxy_options.proxy_address, port=proxy_options.proxy_port
-            )
-            # Add credentials if necessary
-            if proxy_options.proxy_username and proxy_options.proxy_password:
-                auth = "{username}:{password}".format(
-                    username=proxy_options.proxy_username, password=proxy_options.proxy_password
-                )
-                proxy = auth + "@" + proxy
-            # Set proxy for use on HTTP or HTTPS connections
-            if proxy_options.proxy_type == socks.HTTP:
-                proxies["http"] = "http://" + proxy
-                proxies["https"] = "http://" + proxy
-            elif proxy_options.proxy_type == socks.SOCKS4:
-                proxies["http"] = "socks4://" + proxy
-                proxies["https"] = "socks4://" + proxy
-            elif proxy_options.proxy_type == socks.SOCKS5:
-                proxies["http"] = "socks5://" + proxy
-                proxies["https"] = "socks5://" + proxy
-            else:
-                raise ValueError("Invalid proxy type: {}".format(proxy_options.proxy_type))
-
-        return proxies
 
     @pipeline_thread.invoke_on_http_thread_nowait
     def request(self, method, path, callback, body="", headers={}, query_params=""):
@@ -187,3 +154,35 @@ class HTTPTransport(object):
                 "resp": response.text,
             }
             callback(response=response_obj)
+
+
+def format_proxies(proxy_options):
+    """
+    Format the data from the proxy_options object into a format for use with the requests library
+    """
+    proxies = {}
+    if proxy_options:
+        # Basic address/port formatting
+        proxy = "{address}:{port}".format(
+            address=proxy_options.proxy_address, port=proxy_options.proxy_port
+        )
+        # Add credentials if necessary
+        if proxy_options.proxy_username and proxy_options.proxy_password:
+            auth = "{username}:{password}".format(
+                username=proxy_options.proxy_username, password=proxy_options.proxy_password
+            )
+            proxy = auth + "@" + proxy
+        # Set proxy for use on HTTP or HTTPS connections
+        if proxy_options.proxy_type == socks.HTTP:
+            proxies["http"] = "http://" + proxy
+            proxies["https"] = "http://" + proxy
+        elif proxy_options.proxy_type == socks.SOCKS4:
+            proxies["http"] = "socks4://" + proxy
+            proxies["https"] = "socks4://" + proxy
+        elif proxy_options.proxy_type == socks.SOCKS5:
+            proxies["http"] = "socks5://" + proxy
+            proxies["https"] = "socks5://" + proxy
+        else:
+            raise ValueError("Invalid proxy type: {}".format(proxy_options.proxy_type))
+
+    return proxies
