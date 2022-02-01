@@ -183,6 +183,7 @@ def format_proxies(proxy_options):
             proxies["http"] = "socks5://" + proxy
             proxies["https"] = "socks5://" + proxy
         else:
+            # This should be unreachable due to validation on the ProxyOptions object
             raise ValueError("Invalid proxy type: {}".format(proxy_options.proxy_type))
 
     return proxies

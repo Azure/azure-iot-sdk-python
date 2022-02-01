@@ -6,6 +6,7 @@
 """
 This module represents proxy options to enable sending traffic through proxy servers.
 """
+import socks
 
 
 class ProxyOptions(object):
@@ -26,6 +27,8 @@ class ProxyOptions(object):
          If it is not provided, authentication will not be used (servers may accept unauthenticated requests).
         :param proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
         """
+        if proxy_type not in [socks.HTTP, socks.SOCKS4, socks.SOCKS5]:
+            raise ValueError
         self._proxy_type = proxy_type
         self._proxy_addr = proxy_addr
         self._proxy_port = int(proxy_port)
