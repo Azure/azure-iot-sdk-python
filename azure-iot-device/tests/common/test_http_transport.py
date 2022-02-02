@@ -3,8 +3,6 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-
-import azure.iot.device.common.http_transport as http_transport
 from azure.iot.device.common.http_transport import HTTPTransport
 from azure.iot.device.common.models import X509, ProxyOptions
 from azure.iot.device.common import transport_exceptions as errors
@@ -13,11 +11,12 @@ import logging
 import ssl
 import urllib3
 import requests
-import time
 import socks
 
-
 logging.basicConfig(level=logging.DEBUG)
+
+# Monkeypatch to bypass the decorator that runs on a separate thread
+HTTPTransport.request = HTTPTransport.request.__wrapped__
 
 fake_hostname = "fake.hostname"
 fake_path = "path/to/resource"
@@ -71,7 +70,7 @@ class TestInstantiation(object):
     @pytest.mark.it(
         "Creates a dictionary of proxies from the 'proxy_options' parameter, if the parameter is provided"
     )
-    def test_proxy_format(self, mocker, proxy_options):
+    def test_proxy_format(self, proxy_options):
         http_transport_object = HTTPTransport(hostname=fake_hostname, proxy_options=proxy_options)
 
         if proxy_options.proxy_username and proxy_options.proxy_password:
@@ -221,7 +220,7 @@ class TestRequest(object):
         return mock_requests_session.return_value
 
     @pytest.fixture
-    def transport(self, request):
+    def transport(self):
         return HTTPTransport(hostname=fake_hostname)
 
     @pytest.fixture(params=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -246,9 +245,6 @@ class TestRequest(object):
 
         # Request
         transport.request(request_method, fake_path, mocker.MagicMock())
-
-        # TODO: fix this timing issue
-        time.sleep(0.01)
 
         # Session has been created
         assert mock_requests_session.call_count == 1
@@ -312,9 +308,6 @@ class TestRequest(object):
             query_params=query_params,
         )
 
-        # TODO: fix this timing issue
-        time.sleep(0.01)
-
         # New session was created
         assert mock_requests_session.call_count == 1
         assert mock_requests_session.call_args == mocker.call()
@@ -339,9 +332,6 @@ class TestRequest(object):
 
         transport.request(method=request_method, path=fake_path, callback=cb_mock)
 
-        # TODO: fix this timing issue
-        time.sleep(0.01)
-
         assert cb_mock.call_count == 1
         assert cb_mock.call_args == mocker.call(response=mocker.ANY)
         response_obj = cb_mock.call_args[1]["response"]
@@ -360,9 +350,6 @@ class TestRequest(object):
         cb_mock = mocker.MagicMock()
 
         transport.request(method=request_method, path=fake_path, callback=cb_mock)
-
-        # TODO: fix this timing issue
-        time.sleep(0.01)
 
         assert cb_mock.call_count == 1
         error = cb_mock.call_args[1]["error"]

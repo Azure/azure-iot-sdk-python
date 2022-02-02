@@ -139,6 +139,9 @@ class HTTPTransport(object):
                 response = session.delete(url, data=body, headers=headers, proxies=self._proxies)
             else:
                 raise ValueError("Invalid method type: {}".format(method))
+        except ValueError as e:
+            # Allow ValueError to propagate
+            callback(error=e)
         except Exception as e:
             # Raise error via the callback
             callback(
