@@ -47,6 +47,10 @@ async def brand_new_client(device_identity, client_kwargs, service_helper, devic
 
     await client.shutdown()
 
+    logger.info("-------------------------------------------")
+    logger.info("test is complete.  client shutdown complete")
+    logger.info("-------------------------------------------")
+
 
 @pytest.fixture(scope="function")
 async def client(brand_new_client):
@@ -62,8 +66,16 @@ async def service_helper(event_loop, executor):
     service_helper = ServiceHelper(event_loop, executor)
     await asyncio.sleep(3)
     yield service_helper
+
+    logger.info("----------------------------")
     logger.info("shutting down service_helper")
+    logger.info("----------------------------")
+
     await service_helper.shutdown()
+
+    logger.info("---------------------------------")
+    logger.info("service helper shut down complete")
+    logger.info("---------------------------------")
 
 
 @pytest.fixture(scope="function")

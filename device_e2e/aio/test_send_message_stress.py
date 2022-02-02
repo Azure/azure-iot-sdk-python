@@ -151,9 +151,13 @@ class TestSendMessageStress(object):
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 
         # verify the mesage
-        assert event
-        assert event.system_properties["message-id"] == random_message.message_id
-        assert json.dumps(event.message_body) == random_message.data
+        assert event, "service helper returned falsy event"
+        assert (
+            event.system_properties["message-id"] == random_message.message_id
+        ), "service helper returned event with mismatched message_id"
+        assert (
+            json.dumps(event.message_body) == random_message.data
+        ), "service helper returned event with mismatched body"
         logger.info("Message {} received".format(random_message.message_id))
 
         self.outstanding_message_ids.remove(random_message.message_id)
@@ -372,7 +376,7 @@ class TestSendMessageStress(object):
                     disconnect_time = time.time()
             was_connected = client.connected
 
-        assert not client.on_connection_state_change
+        assert not client.on_connection_state_change, "on_connection_state_change already set"
         client.on_connection_state_change = handle_on_connection_state_change
 
         while not stop_event.is_set():
@@ -429,14 +433,16 @@ class TestSendMessageStress(object):
             stop_recorder_event.set()
             await recorder
 
-        assert stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        assert (
+            stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        ), "Reconnect took too long"
         assert (
             stress_measurements.peak_resident_memory_mb <= PEAK_RESIDENT_MEMORY_MB_FAILURE_TRIGGER
-        )
+        ), "Resident memory overflow"
         assert (
             stress_measurements.peak_telemetry_arrival_time
             <= PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER
-        )
+        ), "Telemetry message took too long to arrive"
 
     @pytest.mark.it("send {} messages all at once".format(ALL_AT_ONCE_MESSAGE_COUNT))
     @pytest.mark.timeout(ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER)
@@ -468,14 +474,16 @@ class TestSendMessageStress(object):
             stop_recorder_event.set()
             await recorder
 
-        assert stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        assert (
+            stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        ), "Reconnect took too long"
         assert (
             stress_measurements.peak_resident_memory_mb <= PEAK_RESIDENT_MEMORY_MB_FAILURE_TRIGGER
-        )
+        ), "Resident memory overflow"
         assert (
             stress_measurements.peak_telemetry_arrival_time
             <= PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER
-        )
+        ), "Telemetry message took too long to arrive"
 
     @pytest.mark.it(
         "regular message delivery with flaky network {} messages per second for {} seconds".format(
@@ -528,14 +536,16 @@ class TestSendMessageStress(object):
             stop_recorder_event.set()
             await recorder
 
-        assert stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        assert (
+            stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        ), "Reconnect took too long"
         assert (
             stress_measurements.peak_resident_memory_mb <= PEAK_RESIDENT_MEMORY_MB_FAILURE_TRIGGER
-        )
+        ), "Resident memory overflow"
         assert (
             stress_measurements.peak_telemetry_arrival_time
             <= PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER
-        )
+        ), "Telemetry message took too long to arrive"
 
     # skipping becuase:
     # 1. IoTHub appears to ignore AzIoTHub_FaultOperationDelayInSecs and instead fault immediately.
@@ -588,11 +598,13 @@ class TestSendMessageStress(object):
             stop_recorder_event.set()
             await recorder
 
-        assert stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        assert (
+            stress_measurements.peak_reconnect_time <= PEAK_RECONNECT_TIME_FAILURE_TRIGGER
+        ), "Reconnect took too long"
         assert (
             stress_measurements.peak_resident_memory_mb <= PEAK_RESIDENT_MEMORY_MB_FAILURE_TRIGGER
-        )
+        ), "Resident memory overflow"
         assert (
             stress_measurements.peak_telemetry_arrival_time
             <= PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER
-        )
+        ), "Telemetry message took too long to arrive"
