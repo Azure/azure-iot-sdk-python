@@ -280,9 +280,7 @@ class PipelineConfigInstantiationTestBase(object):
         "Instantiates with the 'proxy_options' attribute set to the ProxyOptions object provided in the 'proxy_options' parameter"
     )
     def test_proxy_options(self, mocker, required_kwargs, config_cls, sastoken):
-        proxy_options = ProxyOptions(
-            proxy_type=mocker.MagicMock(), proxy_addr="127.0.0.1", proxy_port=8888
-        )
+        proxy_options = ProxyOptions(proxy_type=1, proxy_addr="127.0.0.1", proxy_port=8888)
         config = config_cls(sastoken=sastoken, proxy_options=proxy_options, **required_kwargs)
         assert config.proxy_options is proxy_options
 
