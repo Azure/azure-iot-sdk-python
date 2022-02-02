@@ -92,6 +92,9 @@ def stress_measurements(request):
 
     measurements.total_elapsed_time = time.time() - start_time
 
+    if hasattr(request.node, "test_exception"):
+        measurements.test_exception = request.node.test_exception
+
     # Temporarily store results so we can print them at the end of the run.
     # Later, we will push these results to some analytics store.
     request.node.stress_measurements = measurements
@@ -109,4 +112,5 @@ def pytest_sessionfinish(session, exitstatus):
                 name = it.args[0]
             else:
                 name = item.name
+
             stress_results.print_measurements(item.stress_measurements, name)

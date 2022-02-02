@@ -16,6 +16,7 @@ class Measurements(object):
         self.telemetry_messages_in_queue = 0
         self.peak_telemetry_messages_in_queue = 0
         self.total_elapsed_time = 0
+        self.test_exception = None
 
 
 def print_measurements(measurements, name):
@@ -25,6 +26,14 @@ def print_measurements(measurements, name):
     print()
     if measurements:
         print("results for: {}".format(name))
+        if measurements.test_exception:
+            print(
+                "    RESULT:                           FAILED ({})".format(
+                    measurements.test_exception
+                )
+            )
+        else:
+            print("    RESULT:                           PASSED")
         print(
             "    Peak telemetry arrival time:      {} seconds".format(
                 round(measurements.peak_telemetry_arrival_time, 2)
