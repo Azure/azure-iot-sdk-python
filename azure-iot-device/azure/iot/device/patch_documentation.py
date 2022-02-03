@@ -121,6 +121,11 @@ def execute_patch_for_sync():
     setattr(IoTHubDeviceClient, "connected", IoTHubDeviceClient.connected)
     setattr(
         IoTHubDeviceClient,
+        "on_message_received",
+        IoTHubDeviceClient.on_message_received,
+    )
+    setattr(
+        IoTHubDeviceClient,
         "on_method_request_received",
         IoTHubDeviceClient.on_method_request_received,
     )
@@ -243,6 +248,11 @@ def execute_patch_for_sync():
     )
 
     setattr(IoTHubModuleClient, "connected", IoTHubModuleClient.connected)
+    setattr(
+        IoTHubModuleClient,
+        "on_message_received",
+        IoTHubModuleClient.on_message_received,
+    )    
     setattr(
         IoTHubModuleClient,
         "on_method_request_received",

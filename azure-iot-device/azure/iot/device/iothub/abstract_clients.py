@@ -469,6 +469,18 @@ class AbstractIoTHubClient(object):
         pass
 
     @property
+    def on_message_received(self):
+        """The handler function or coroutine that will be called when a message is received.
+
+        The function or coroutine definition should take one positional argument (the
+        :class:`azure.iot.device.Message` object)"""
+        return self._handler_manager.on_message_received
+
+    @on_message_received.setter
+    def on_message_received(self, value):
+        self._generic_receive_handler_setter(
+            "on_message_received", pipeline_constant.METHODS, value
+        )
     def on_method_request_received(self):
         """The handler function or coroutine that will be called when a method request is received.
 

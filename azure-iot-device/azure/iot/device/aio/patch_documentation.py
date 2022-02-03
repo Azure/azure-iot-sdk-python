@@ -125,6 +125,11 @@ def execute_patch_for_async():
     setattr(IoTHubDeviceClient_, "connected", IoTHubDeviceClient_.connected)
     setattr(
         IoTHubDeviceClient_,
+        "on_message_received",
+        IoTHubDeviceClient_.on_message_received,
+    )
+    setattr(
+        IoTHubDeviceClient_,
         "on_method_request_received",
         IoTHubDeviceClient_.on_method_request_received,
     )
@@ -249,6 +254,11 @@ def execute_patch_for_async():
     )
 
     setattr(IoTHubModuleClient_, "connected", IoTHubModuleClient_.connected)
+    setattr(
+        IoTHubModuleClient_,
+        "on_message_received",
+        IoTHubModuleClient_.on_message_received,
+    )
     setattr(
         IoTHubModuleClient_,
         "on_method_request_received",
