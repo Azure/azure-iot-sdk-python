@@ -180,6 +180,7 @@ class TestSendMessageStress(object):
         messages_per_second,
         test_length_in_seconds,
         stress_measurements,
+        task_cleanup_list,
     ):
         """
         Send continuous telemetry.  This coroutine will queue telemetry at a regular rate
@@ -206,15 +207,15 @@ class TestSendMessageStress(object):
 
             # if the test is still running, send another message
             if not done_sending:
-                futures.append(
-                    asyncio.ensure_future(
-                        self.send_and_verify_single_telemetry_message(
-                            client=client,
-                            service_helper=service_helper,
-                            stress_measurements=stress_measurements,
-                        )
+                task = asyncio.ensure_future(
+                    self.send_and_verify_single_telemetry_message(
+                        client=client,
+                        service_helper=service_helper,
+                        stress_measurements=stress_measurements,
                     )
                 )
+                futures.append(task)
+                task_cleanup_list.append(task)
 
             # see which tasks are done.
             done, pending = await asyncio.wait(
@@ -239,7 +240,7 @@ class TestSendMessageStress(object):
             futures = list(pending)
 
     async def send_and_verify_many_telemetry_messages(
-        self, client, service_helper, message_count, stress_measurements
+        self, client, service_helper, message_count, stress_measurements, task_cleanup_list
     ):
         """
         Send a whole bunch of messages all at once and verify that they arrive at eventhub
@@ -256,6 +257,7 @@ class TestSendMessageStress(object):
             )
             for _ in range(message_count)
         ]
+        task_cleanup_list.extend(futures)
 
         while len(futures):
             # see which tasks are done.
@@ -407,6 +409,7 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         stress_measurements,
+        task_cleanup_list,
         messages_per_second=CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND,
         test_length_in_seconds=CONTINUOUS_TELEMETRY_TEST_DURATION,
     ):
@@ -428,6 +431,7 @@ class TestSendMessageStress(object):
                 messages_per_second=messages_per_second,
                 test_length_in_seconds=test_length_in_seconds,
                 stress_measurements=stress_measurements,
+                task_cleanup_list=task_cleanup_list,
             )
         finally:
             stop_recorder_event.set()
@@ -451,6 +455,7 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         stress_measurements,
+        task_cleanup_list,
         message_count=ALL_AT_ONCE_MESSAGE_COUNT,
     ):
         """
@@ -469,6 +474,7 @@ class TestSendMessageStress(object):
                 service_helper=service_helper,
                 message_count=message_count,
                 stress_measurements=stress_measurements,
+                task_cleanup_list=task_cleanup_list,
             )
         finally:
             stop_recorder_event.set()
@@ -500,6 +506,7 @@ class TestSendMessageStress(object):
         service_helper,
         dropper,
         stress_measurements,
+        task_cleanup_list,
         messages_per_second=SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION,
     ):
@@ -530,6 +537,7 @@ class TestSendMessageStress(object):
                     messages_per_second=messages_per_second,
                     test_length_in_seconds=test_length_in_seconds,
                     stress_measurements=stress_measurements,
+                    task_cleanup_list=task_cleanup_list,
                 ),
             )
         finally:
@@ -563,6 +571,7 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         stress_measurements,
+        task_cleanup_list,
         messages_per_second=SEND_TELEMETRY_FAULT_INJECTION_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FAULT_INJECTION_TEST_DURATION,
     ):
@@ -591,6 +600,7 @@ class TestSendMessageStress(object):
                     messages_per_second=messages_per_second,
                     test_length_in_seconds=test_length_in_seconds,
                     stress_measurements=stress_measurements,
+                    tsak_cleanup_list=task_cleanup_list,
                 ),
             )
 
