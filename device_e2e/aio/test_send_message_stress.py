@@ -403,7 +403,7 @@ class TestSendMessageStress(object):
             CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND, CONTINUOUS_TELEMETRY_TEST_DURATION
         )
     )
-    @pytest.mark.timeout(CONTINUOUS_TELEMETRY_TEST_DURATION * 2)
+    @pytest.mark.timeout(CONTINUOUS_TELEMETRY_TEST_DURATION * 5)
     async def test_stress_send_continuous_telemetry(
         self,
         client,

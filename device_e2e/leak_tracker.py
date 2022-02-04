@@ -22,12 +22,11 @@ def _run_garbage_collection():
     sleep_time = 0.5
     done = False
     while not done:
+        logger.info("Sleeping for {} seconds".format(sleep_time))
+        time.sleep(sleep_time)
         collected = gc.collect(2)
         logger.info("{} objects collected".format(collected))
-        if collected:
-            logger.info("Sleeping for {} seconds".format(sleep_time))
-            time.sleep(sleep_time)
-        else:
+        if not collected:
             done = True
 
 
