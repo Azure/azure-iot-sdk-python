@@ -13,6 +13,7 @@ import contextlib
 import psutil
 import threading
 import os
+import task_cleanup
 from iptables import all_disconnect_types
 from utils import get_random_message, fault_injection_types, get_fault_injection_message
 from azure.iot.device.exceptions import (
@@ -180,7 +181,6 @@ class TestSendMessageStress(object):
         messages_per_second,
         test_length_in_seconds,
         stress_measurements,
-        task_cleanup_list,
     ):
         """
         Send continuous telemetry.  This coroutine will queue telemetry at a regular rate
@@ -196,51 +196,56 @@ class TestSendMessageStress(object):
         done_sending = False
         sleep_interval = 1 / messages_per_second
 
-        # go until time runs out and our list of futures is empty.
-        while not done_sending or len(futures) > 0:
+        try:
+            # go until time runs out and our list of futures is empty.
+            while not done_sending or len(futures) > 0:
 
-            # When time runs out, stop sending, and slow down out loop so we call
-            # asyncio.gather much less often.
-            if time.time() >= test_end:
-                done_sending = True
-                sleep_interval = 5
+                # When time runs out, stop sending, and slow down out loop so we call
+                # asyncio.gather much less often.
+                if time.time() >= test_end:
+                    done_sending = True
+                    sleep_interval = 5
 
-            # if the test is still running, send another message
-            if not done_sending:
-                task = asyncio.ensure_future(
-                    self.send_and_verify_single_telemetry_message(
-                        client=client,
-                        service_helper=service_helper,
-                        stress_measurements=stress_measurements,
+                # if the test is still running, send another message
+                if not done_sending:
+                    task = asyncio.ensure_future(
+                        self.send_and_verify_single_telemetry_message(
+                            client=client,
+                            service_helper=service_helper,
+                            stress_measurements=stress_measurements,
+                        )
+                    )
+                    futures.append(task)
+
+                # see which tasks are done.
+                done, pending = await asyncio.wait(
+                    futures, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
+                )
+                logger.info(
+                    "From {} futures, {} are done and {} are pending".format(
+                        len(futures), len(done), len(pending)
                     )
                 )
-                futures.append(task)
-                task_cleanup_list.append(task)
 
-            # see which tasks are done.
-            done, pending = await asyncio.wait(
-                futures, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
-            )
-            logger.info(
-                "From {} futures, {} are done and {} are pending".format(
-                    len(futures), len(done), len(pending)
-                )
-            )
+                # If we're done sending, and nothing finished in this last interval, log which
+                # message_ids are outstanding. This can be used to grep logs for outstanding messages.
+                if done_sending and len(done) == 0:
+                    logger.warning("Not received: {}".format(self.outstanding_message_ids))
 
-            # If we're done sending, and nothing finished in this last interval, log which
-            # message_ids are outstanding. This can be used to grep logs for outstanding messages.
-            if done_sending and len(done) == 0:
-                logger.warning("Not received: {}".format(self.outstanding_message_ids))
+                # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
+                # futures.
+                await asyncio.gather(*done)
 
-            # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
-            # futures.
-            await asyncio.gather(*done)
+                # And loop again, but we only need to worry about incomplete futures.
+                futures = list(pending)
 
-            # And loop again, but we only need to worry about incomplete futures.
-            futures = list(pending)
+        finally:
+            # Clean up any (possily) running tasks to avoid "Task exception was never retrieved" errors
+            if len(futures):
+                task_cleanup.cleanup_tasks(futures)
 
     async def send_and_verify_many_telemetry_messages(
-        self, client, service_helper, message_count, stress_measurements, task_cleanup_list
+        self, client, service_helper, message_count, stress_measurements
     ):
         """
         Send a whole bunch of messages all at once and verify that they arrive at eventhub
@@ -257,30 +262,35 @@ class TestSendMessageStress(object):
             )
             for _ in range(message_count)
         ]
-        task_cleanup_list.extend(futures)
 
-        while len(futures):
-            # see which tasks are done.
-            done, pending = await asyncio.wait(
-                futures, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
-            )
-            logger.info(
-                "From {} futures, {} are done and {} are pending".format(
-                    len(futures), len(done), len(pending)
+        try:
+            while len(futures):
+                # see which tasks are done.
+                done, pending = await asyncio.wait(
+                    futures, timeout=sleep_interval, return_when=asyncio.ALL_COMPLETED
                 )
-            )
+                logger.info(
+                    "From {} futures, {} are done and {} are pending".format(
+                        len(futures), len(done), len(pending)
+                    )
+                )
 
-            # If nothing finished in this last interval, log which
-            # message_ids are outstanding. This can be used to grep logs for outstanding messages.
-            if len(done) == 0:
-                logger.warning("Not received: {}".format(self.outstanding_message_ids))
+                # If nothing finished in this last interval, log which
+                # message_ids are outstanding. This can be used to grep logs for outstanding messages.
+                if len(done) == 0:
+                    logger.warning("Not received: {}".format(self.outstanding_message_ids))
 
-            # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
-            # futures.
-            await asyncio.gather(*done)
+                # Use `asyncio.gather` to reraise any exceptions that might have been raised inside our
+                # futures.
+                await asyncio.gather(*done)
 
-            # And loop again, but we only need to worry about incomplete futures.
-            futures = list(pending)
+                # And loop again, but we only need to worry about incomplete futures.
+                futures = list(pending)
+
+        finally:
+            # Clean up any (possily) running tasks to avoid "Task exception was never retrieved" errors
+            if len(futures):
+                task_cleanup.cleanup_tasks(futures)
 
     async def do_periodic_network_disconnects(
         self,
@@ -409,7 +419,6 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         stress_measurements,
-        task_cleanup_list,
         messages_per_second=CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND,
         test_length_in_seconds=CONTINUOUS_TELEMETRY_TEST_DURATION,
     ):
@@ -431,7 +440,6 @@ class TestSendMessageStress(object):
                 messages_per_second=messages_per_second,
                 test_length_in_seconds=test_length_in_seconds,
                 stress_measurements=stress_measurements,
-                task_cleanup_list=task_cleanup_list,
             )
         finally:
             stop_recorder_event.set()
@@ -455,7 +463,6 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         stress_measurements,
-        task_cleanup_list,
         message_count=ALL_AT_ONCE_MESSAGE_COUNT,
     ):
         """
@@ -474,7 +481,6 @@ class TestSendMessageStress(object):
                 service_helper=service_helper,
                 message_count=message_count,
                 stress_measurements=stress_measurements,
-                task_cleanup_list=task_cleanup_list,
             )
         finally:
             stop_recorder_event.set()
@@ -506,7 +512,6 @@ class TestSendMessageStress(object):
         service_helper,
         dropper,
         stress_measurements,
-        task_cleanup_list,
         messages_per_second=SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION,
     ):
@@ -537,7 +542,6 @@ class TestSendMessageStress(object):
                     messages_per_second=messages_per_second,
                     test_length_in_seconds=test_length_in_seconds,
                     stress_measurements=stress_measurements,
-                    task_cleanup_list=task_cleanup_list,
                 ),
             )
         finally:
@@ -571,7 +575,6 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         stress_measurements,
-        task_cleanup_list,
         messages_per_second=SEND_TELEMETRY_FAULT_INJECTION_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FAULT_INJECTION_TEST_DURATION,
     ):
@@ -600,7 +603,6 @@ class TestSendMessageStress(object):
                     messages_per_second=messages_per_second,
                     test_length_in_seconds=test_length_in_seconds,
                     stress_measurements=stress_measurements,
-                    tsak_cleanup_list=task_cleanup_list,
                 ),
             )
 

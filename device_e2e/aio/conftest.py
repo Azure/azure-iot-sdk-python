@@ -114,32 +114,3 @@ def pytest_sessionfinish(session, exitstatus):
                 name = item.name
 
             stress_results.print_measurements(item.stress_measurements, name)
-
-
-@pytest.fixture(scope="function")
-async def task_cleanup_list():
-    task_cleanup_list = []
-
-    yield task_cleanup_list
-
-    tasks_left = len(task_cleanup_list)
-    logger.info("-------------------------")
-    logger.info("Cleaning up {} tasks".format(tasks_left))
-    logger.info("-------------------------")
-
-    for task_result in asyncio.as_completed(task_cleanup_list, timeout=60):
-        try:
-            await task_result
-            tasks_left -= 1
-        except asyncio.TimeoutError:
-            logger.error(
-                "Task cleanup timeout with {} tasks remaining incomplete".format(tasks_left)
-            )
-            raise
-        except Exception as e:
-            logger.error("Cleaning up task that failed with [{}]".format(str(e) or type(e)))
-            tasks_left -= 1
-
-    logger.info("-------------------------")
-    logger.info("Done cleaning up tasks")
-    logger.info("-------------------------")

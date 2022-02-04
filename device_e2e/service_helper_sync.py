@@ -147,7 +147,7 @@ class ServiceHelperSync(object):
             raise TypeError("sending C2D to modules is not supported")
         self._registry_manager.send_c2d_message(self.device_id, payload, properties)
 
-    def wait_for_eventhub_arrival(self, message_id, timeout=60):
+    def wait_for_eventhub_arrival(self, message_id, timeout=300):
         def get_event():
             with self.cv:
                 arrivals = self.incoming_eventhub_events
