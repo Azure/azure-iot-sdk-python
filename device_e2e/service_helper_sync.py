@@ -172,10 +172,12 @@ class ServiceHelperSync(object):
         with self.cv:
             while True:
                 ev = get_event()
-                if ev or time.time() >= end_time:
+                if ev:
                     return ev
-
-                if end_time:
+                elif time.time() >= end_time:
+                    logger.warning("timeout waiting for message [{}]".format(message_id))
+                    return None
+                elif end_time:
                     self.cv.wait(timeout=end_time - time.time())
                 else:
                     self.cv.wait()

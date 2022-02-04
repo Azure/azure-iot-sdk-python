@@ -11,6 +11,7 @@ import sys
 import leak_tracker
 import iptables
 import e2e_settings
+import traceback
 from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo
@@ -155,14 +156,13 @@ def pytest_runtest_setup(item):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_exception_interact(node, call, report):
+    e = call.excinfo.value
     logger.error("------------------------------------------------------")
-    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, type(call.excinfo.value)))
+    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e)))
     logger.error("------------------------------------------------------")
 
     if hasattr(node, "leak_tracker"):
-        logger.info(
-            "Skipping leak tracking because of Exception {}".format(type(call.excinfo.value))
-        )
+        logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
         del node.leak_tracker
 
     node.test_exception = call.excinfo.value

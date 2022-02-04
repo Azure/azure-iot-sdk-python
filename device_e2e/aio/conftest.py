@@ -137,7 +137,7 @@ async def task_cleanup_list():
             )
             raise
         except Exception as e:
-            logger.error("Cleaning up failed task: {}".format(str(e) or type(e)))
+            logger.error("Cleaning up task that failed with [{}]".format(str(e) or type(e)))
             tasks_left -= 1
 
     logger.info("-------------------------")
