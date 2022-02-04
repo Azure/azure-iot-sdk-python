@@ -103,7 +103,14 @@ class ServiceHelperSync(object):
             self.device_id = device_id
             self.module_id = module_id
             self.incoming_patch_queue = queue.Queue()
-            self.incoming_eventhub_events = {}
+            with self.cv:
+                if self.incoming_eventhub_events:
+                    logger.warning(
+                        "Abandoning incoming events with IDs {}".format(
+                            str(list(self.incoming_eventhub_events.keys()))
+                        )
+                    )
+                self.incoming_eventhub_events = {}
 
     def set_desired_properties(self, desired_props):
         if self.module_id:
@@ -148,15 +155,16 @@ class ServiceHelperSync(object):
         self._registry_manager.send_c2d_message(self.device_id, payload, properties)
 
     def wait_for_eventhub_arrival(self, message_id, timeout=300):
-        def get_event():
+        def get_event(inner_message_id):
             with self.cv:
                 arrivals = self.incoming_eventhub_events
 
                 # if message_id is not set, return any message
-                if not message_id and len(arrivals):
+                if not inner_message_id and len(arrivals):
                     id = list(arrivals.keys())[0]
+                    logger.info("wait_for_eventhub_arrival(None) returning msgid={}".format(id))
                 else:
-                    id = message_id
+                    id = inner_message_id
 
                 if id and (id in arrivals):
                     value = arrivals[id]
@@ -171,11 +179,11 @@ class ServiceHelperSync(object):
             end_time = None
         with self.cv:
             while True:
-                ev = get_event()
+                ev = get_event(message_id)
                 if ev:
                     return ev
                 elif time.time() >= end_time:
-                    logger.warning("timeout waiting for message [{}]".format(message_id))
+                    logger.warning("timeout waiting for message with msgid={}".format(message_id))
                     return None
                 elif end_time:
                     self.cv.wait(timeout=end_time - time.time())
