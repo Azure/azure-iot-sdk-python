@@ -165,8 +165,6 @@ def pytest_exception_interact(node, call, report):
         )
         del node.leak_tracker
 
-    node.test_exception = call.excinfo.value
-
     yield
 
 
