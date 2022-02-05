@@ -50,7 +50,7 @@ This file contains tests from the first set.
 # Settings that apply to all tests in this module
 TELEMETRY_PAYLOAD_SIZE = 16 * 1024
 PEAK_RESIDENT_MEMORY_MB_FAILURE_TRIGGER = 512
-PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER = 180
+PEAK_TELEMETRY_ARRIVAL_TIME_FAILURE_TRIGGER = 300
 PEAK_RECONNECT_TIME_FAILURE_TRIGGER = 30
 
 # Settings that apply to continuous telemetry test
