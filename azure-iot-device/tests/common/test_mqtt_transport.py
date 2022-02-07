@@ -173,11 +173,11 @@ class TestInstantiation(object):
     )
     def proxy_options(self, request):
         if "HTTP" in request.param:
-            proxy_type = socks.HTTP
+            proxy_type = "HTTP"
         elif "SOCKS4" in request.param:
-            proxy_type = socks.SOCKS4
+            proxy_type = "SOCKS4"
         else:
-            proxy_type = socks.SOCKS5
+            proxy_type = "SOCKS5"
 
         if "No Auth" in request.param:
             proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="fake.address", proxy_port=1080)
@@ -245,7 +245,7 @@ class TestInstantiation(object):
         # Verify proxy has been set
         assert mock_mqtt_client.proxy_set.call_count == 1
         assert mock_mqtt_client.proxy_set.call_args == mocker.call(
-            proxy_type=proxy_options.proxy_type,
+            proxy_type=proxy_options.proxy_type_socks,
             proxy_addr=proxy_options.proxy_address,
             proxy_port=proxy_options.proxy_port,
             proxy_username=proxy_options.proxy_username,

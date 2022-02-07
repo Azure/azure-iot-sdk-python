@@ -8,6 +8,10 @@ This module represents proxy options to enable sending traffic through proxy ser
 """
 import socks
 
+string_to_socks_constant_map = {"HTTP": socks.HTTP, "SOCKS4": socks.SOCKS4, "SOCKS5": socks.SOCKS5}
+
+socks_constant_to_string_map = {socks.HTTP: "HTTP", socks.SOCKS4: "SOCKS4", socks.SOCKS5: "SOCKS5"}
+
 
 class ProxyOptions(object):
     """
@@ -27,7 +31,7 @@ class ProxyOptions(object):
          If it is not provided, authentication will not be used (servers may accept unauthenticated requests).
         :param str proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
         """
-        self._proxy_type = sanitize_proxy_type(proxy_type)
+        (self._proxy_type, self._proxy_type_socks) = format_proxy_type(proxy_type)
         self._proxy_addr = proxy_addr
         self._proxy_port = int(proxy_port)
         self._proxy_username = proxy_username
@@ -36,6 +40,10 @@ class ProxyOptions(object):
     @property
     def proxy_type(self):
         return self._proxy_type
+
+    @property
+    def proxy_type_socks(self):
+        return self._proxy_type_socks
 
     @property
     def proxy_address(self):
@@ -54,12 +62,13 @@ class ProxyOptions(object):
         return self._proxy_password
 
 
-def sanitize_proxy_type(proxy_type):
-    # String constants defined by our library
-    if proxy_type in ["HTTP", "SOCKS4", "SOCKS5"]:
-        return proxy_type
-    # Backwards compatibility for when we used the socks library constants
-    elif proxy_type == socks.HTTP:
-        return "HTTP"
-    else:
-        raise ValueError
+def format_proxy_type(proxy_type):
+    """Returns a tuple of formats for proxy type (string, socks library constant)"""
+    try:
+        return (proxy_type, string_to_socks_constant_map[proxy_type])
+    except KeyError:
+        # Backwards compatibility for when we used the socks library constants in the API
+        try:
+            return (socks_constant_to_string_map[proxy_type], proxy_type)
+        except KeyError:
+            raise ValueError("Invalid Proxy Type")

@@ -8,7 +8,6 @@ i.e. tests for things defined in abstract clients"""
 
 import pytest
 import logging
-import socks
 
 from azure.iot.device.common import auth, handle_exceptions
 from azure.iot.device.common.auth import sastoken as st
@@ -87,7 +86,7 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
 
     @pytest.mark.it("Sets the 'proxy_options' user option parameter on the PipelineConfig")
     def test_proxy_options(self, client_create_method, create_method_args, mock_pipeline_init):
-        proxy_options = ProxyOptions(proxy_type=socks.HTTP, proxy_addr="127.0.0.1", proxy_port=8888)
+        proxy_options = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)
         client_create_method(*create_method_args, proxy_options=proxy_options)
 
         # Get configuration object

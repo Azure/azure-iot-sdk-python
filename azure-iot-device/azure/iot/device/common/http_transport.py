@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import socks
 import ssl
 import requests
 from . import transport_exceptions as exceptions
@@ -176,13 +175,13 @@ def format_proxies(proxy_options):
             )
             proxy = auth + "@" + proxy
         # Set proxy for use on HTTP or HTTPS connections
-        if proxy_options.proxy_type == socks.HTTP:
+        if proxy_options.proxy_type == "HTTP":
             proxies["http"] = "http://" + proxy
             proxies["https"] = "http://" + proxy
-        elif proxy_options.proxy_type == socks.SOCKS4:
+        elif proxy_options.proxy_type == "SOCKS4":
             proxies["http"] = "socks4://" + proxy
             proxies["https"] = "socks4://" + proxy
-        elif proxy_options.proxy_type == socks.SOCKS5:
+        elif proxy_options.proxy_type == "SOCKS5":
             proxies["http"] = "socks5://" + proxy
             proxies["https"] = "socks5://" + proxy
         else:
