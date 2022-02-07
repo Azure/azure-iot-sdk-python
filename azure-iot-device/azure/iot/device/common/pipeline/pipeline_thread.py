@@ -144,7 +144,11 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
     # attribute(like MagicMock object), so we only do it when we have a name.  functools.update_wrapper
     # below is the same as using the @functools.wraps(func) decorator on the wrapper function above.
     if function_has_name:
-        return functools.update_wrapper(wrapped=func, wrapper=wrapper)
+        updated_wrapper = functools.update_wrapper(wrapped=func, wrapper=wrapper)
+        # In Python 2.7 this doesn't add the __wrapped__ attribute (sometimes?)
+        if not hasattr(updated_wrapper, "__wrapped__"):
+            updated_wrapper.__wrapped__ = func
+        return updated_wrapper
     else:
         wrapper.__wrapped__ = func  # needed by tests
         return wrapper

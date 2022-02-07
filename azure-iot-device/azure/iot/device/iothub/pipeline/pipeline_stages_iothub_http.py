@@ -67,7 +67,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             headers = {
                 "Host": self.pipeline_root.pipeline_configuration.gateway_hostname,
                 "Content-Type": "application/json",
-                "Content-Length": len(str(body)),
+                "Content-Length": str(len(str(body))),
                 "x-ms-edge-moduleId": x_ms_edge_string,
                 "User-Agent": user_agent_string,
             }
@@ -79,9 +79,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.method_response = json.loads(
-                        op.response_body.decode("utf-8")
-                    )
+                    op_waiting_for_response.method_response = json.loads(op.response_body)
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -114,7 +112,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Accept": "application/json",
                 "Content-Type": "application/json",
-                "Content-Length": len(str(body)),
+                "Content-Length": str(len(str(body))),
                 "User-Agent": user_agent_string,
             }
 
@@ -126,9 +124,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
                 )
                 error = map_http_error(error=error, http_op=op)
                 if not error:
-                    op_waiting_for_response.storage_info = json.loads(
-                        op.response_body.decode("utf-8")
-                    )
+                    op_waiting_for_response.storage_info = json.loads(op.response_body)
                 op_waiting_for_response.complete(error=error)
 
             self.send_op_down(
@@ -170,7 +166,7 @@ class IoTHubHTTPTranslationStage(PipelineStage):
             headers = {
                 "Host": self.pipeline_root.pipeline_configuration.hostname,
                 "Content-Type": "application/json; charset=utf-8",
-                "Content-Length": len(str(body)),
+                "Content-Length": str(len(str(body))),
                 "User-Agent": user_agent_string,
             }
             op_waiting_for_response = op
