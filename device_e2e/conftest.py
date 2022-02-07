@@ -27,7 +27,11 @@ from client_fixtures import (
     keep_alive,
 )
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.WARNING,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
 logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)

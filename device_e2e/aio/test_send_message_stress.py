@@ -208,7 +208,7 @@ class TestSendMessageStress(object):
         finally:
             # Clean up any (possily) running tasks to avoid "Task exception was never retrieved" errors
             if len(futures):
-                task_cleanup.cleanup_tasks(futures)
+                await task_cleanup.cleanup_tasks(futures)
 
     async def send_and_verify_many_telemetry_messages(self, client, service_helper, message_count):
         """
@@ -253,7 +253,7 @@ class TestSendMessageStress(object):
         finally:
             # Clean up any (possily) running tasks to avoid "Task exception was never retrieved" errors
             if len(futures):
-                task_cleanup.cleanup_tasks(futures)
+                await task_cleanup.cleanup_tasks(futures)
 
     async def do_periodic_network_disconnects(
         self,
