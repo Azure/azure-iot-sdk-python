@@ -55,6 +55,22 @@ class SharedProvisioningClientInstantiationTests(object):
 
 class SharedProvisioningClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(
+        "Sets the 'server_verification_cert' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_server_verification_cert_option(
+        self, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        server_verification_cert = "fake_server_verification_cert"
+        client_create_method(*create_method_args, server_verification_cert=server_verification_cert)
+
+        # Get configuration object
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][0]
+        assert isinstance(config, ProvisioningPipelineConfig)
+
+        assert config.server_verification_cert == server_verification_cert
+
+    @pytest.mark.it(
         "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
     )
     def test_websockets_option(
