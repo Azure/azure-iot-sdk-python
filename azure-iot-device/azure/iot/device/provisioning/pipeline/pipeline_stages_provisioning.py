@@ -30,13 +30,12 @@ class CommonProvisioningStage(PipelineStage):
     and forming a complete result.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _clear_timeout_timer(self, op, error):
         """
         Clearing timer for provisioning operations (Register and PollStatus)
         when they respond back from service.
         """
-        pipeline_thread.assert_pipeline_thread()
-
         if op.provisioning_timeout_timer:
             logger.debug("{}({}): Cancelling provisioning timeout timer".format(self.name, op.name))
             op.provisioning_timeout_timer.cancel()
@@ -170,9 +169,8 @@ class PollingStatusStage(CommonProvisioningStage):
     to send another query request or complete the procedure.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(op, pipeline_ops_provisioning.PollStatusOperation):
             query_status_op = op
             self_weakref = weakref.ref(self)
@@ -309,9 +307,8 @@ class RegistrationStage(CommonProvisioningStage):
     this stage may also complete the registration process.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(op, pipeline_ops_provisioning.RegisterOperation):
             initial_register_op = op
             self_weakref = weakref.ref(self)

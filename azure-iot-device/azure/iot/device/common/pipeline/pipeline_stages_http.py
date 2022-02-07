@@ -35,9 +35,8 @@ class HTTPTransportStage(PipelineStage):
         # The transport will be instantiated when Connection Args are received
         self.transport = None
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
             # If there is a gateway hostname, use that as the hostname for connection,

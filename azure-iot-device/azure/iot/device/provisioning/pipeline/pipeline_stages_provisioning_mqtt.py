@@ -35,8 +35,8 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
         super(ProvisioningMQTTTranslationStage, self).__init__()
         self.action_to_topic = {}
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
 
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
@@ -116,13 +116,12 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
             # All other operations get passed down
             super(ProvisioningMQTTTranslationStage, self)._run_op(op)
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         """
         Pipeline Event handler function to convert incoming MQTT messages into the appropriate DPS
         events, based on the topic of the message
         """
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
             topic = event.topic
 

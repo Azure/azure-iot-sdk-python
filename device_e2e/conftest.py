@@ -11,7 +11,6 @@ import sys
 import leak_tracker
 import iptables
 import e2e_settings
-import traceback
 from utils import get_random_message, get_random_dict, is_windows
 
 # noqa: F401 defined in .flake8 file in root of repo

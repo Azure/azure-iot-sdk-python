@@ -23,9 +23,8 @@ from azure.iot.device import user_agent
 logger = logging.getLogger(__name__)
 
 
+@pipeline_thread.runs_on_pipeline_thread
 def map_http_error(error, http_op):
-    pipeline_thread.assert_pipeline_thread()
-
     if error:
         return error
     elif http_op.status_code >= 300:
@@ -41,9 +40,8 @@ class IoTHubHTTPTranslationStage(PipelineStage):
     converts http pipeline events into Iot and EdgeHub pipeline events.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(op, pipeline_ops_iothub_http.MethodInvokeOperation):
             logger.debug(
                 "{}({}): Translating Method Invoke Operation for HTTP.".format(self.name, op.name)

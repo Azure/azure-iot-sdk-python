@@ -44,12 +44,12 @@ class MQTTTransportStage(PipelineStage):
         # The current in-progress op that affects connection state (Connect, Disconnect, Reauthorize)
         self._pending_connection_op = None
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _cancel_pending_connection_op(self, error=None):
         """
         Cancel any running connect, disconnect or reauthorize connection op. Since our ability to "cancel" is fairly limited,
         all this does (for now) is to fail the operation
         """
-        pipeline_thread.assert_pipeline_thread()
 
         op = self._pending_connection_op
         if op:
@@ -64,9 +64,8 @@ class MQTTTransportStage(PipelineStage):
             self._pending_connection_op = None
             op.complete(error=error)
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _start_connection_watchdog(self, connection_op):
-        pipeline_thread.assert_pipeline_thread()
-
         logger.debug("{}({}): Starting watchdog".format(self.name, connection_op.name))
 
         self_weakref = weakref.ref(self)
@@ -100,9 +99,8 @@ class MQTTTransportStage(PipelineStage):
         connection_op.watchdog_timer.daemon = True
         connection_op.watchdog_timer.start()
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _cancel_connection_watchdog(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         try:
             if op.watchdog_timer:
                 logger.debug("{}({}): cancelling watchdog".format(self.name, op.name))
@@ -111,9 +109,8 @@ class MQTTTransportStage(PipelineStage):
         except AttributeError:
             pass
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(op, pipeline_ops_base.InitializePipelineOperation):
 
             # If there is a gateway hostname, use that as the hostname for connection,

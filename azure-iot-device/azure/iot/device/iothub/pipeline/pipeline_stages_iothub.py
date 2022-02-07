@@ -33,9 +33,8 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         self.pending_get_request = None
         super(EnsureDesiredPropertiesStage, self).__init__()
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # If we're enabling twin patches, we set last_version_seen to -1
             # as a way of enabling this functionality.  If the ConnectedEvent handler
@@ -48,6 +47,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
                 self.last_version_seen = -1
         self.send_op_down(op)
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _ensure_get_op(self):
         """
         Function which makes sure we have a GetTwin operation in progress.  If we've
@@ -56,8 +56,6 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         will do everything they can to ensure we get a response on the already-pending
         GetTwinOperation.
         """
-        pipeline_thread.assert_pipeline_thread()
-
         if not self.pending_get_request:
             logger.info("{}: sending twin GET to ensure freshness".format(self.name))
             self.pending_get_request = pipeline_ops_iothub.GetTwinOperation(
@@ -69,13 +67,13 @@ class EnsureDesiredPropertiesStage(PipelineStage):
                 "{}: Outstanding twin GET already exists.  Not sending anything".format(self.name)
             )
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _on_get_twin_complete(self, op, error):
         """
         Function that gets called when a GetTwinOperation _that_we_initiated_ is complete.
         This is where we compare $version values and decide if we want to create an artificial
         TwinDesiredPropertiesPatchEvent or not.
         """
-        pipeline_thread.assert_pipeline_thread()
 
         self.pending_get_request = None
         if error:
@@ -103,9 +101,8 @@ class EnsureDesiredPropertiesStage(PipelineStage):
                     pipeline_events_iothub.TwinDesiredPropertiesPatchEvent(op.twin["desired"])
                 )
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
-        pipeline_thread.assert_pipeline_thread()
-
         if isinstance(event, pipeline_events_iothub.TwinDesiredPropertiesPatchEvent):
             # remember the $version when we get a patch.
             version = event.patch["$version"]
@@ -133,9 +130,8 @@ class TwinRequestResponseStage(PipelineStage):
     protocol-specific receive event into an ResponseEvent event.
     """
 
+    @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
-        pipeline_thread.assert_pipeline_thread()
-
         def map_twin_error(error, twin_op):
             if error:
                 return error
