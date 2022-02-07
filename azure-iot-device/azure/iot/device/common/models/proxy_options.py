@@ -20,16 +20,14 @@ class ProxyOptions(object):
     ):
         """
         Initializer for proxy options.
-        :param proxy_type: The type of the proxy server. This can be one of three possible choices:socks.HTTP, socks.SOCKS4, or socks.SOCKS5
-        :param proxy_addr: IP address or DNS name of proxy server
-        :param proxy_port: The port of the proxy server. Defaults to 1080 for socks and 8080 for http.
-        :param proxy_username: (optional) username for SOCKS5 proxy, or userid for SOCKS4 proxy.This parameter is ignored if an HTTP server is being used.
+        :param str proxy_type: The type of the proxy server. This can be one of three possible choices: "HTTP", "SOCKS4", or "SOCKS5"
+        :param str proxy_addr: IP address or DNS name of proxy server
+        :param int proxy_port: The port of the proxy server. Defaults to 1080 for socks and 8080 for http.
+        :param str proxy_username: (optional) username for SOCKS5 proxy, or userid for SOCKS4 proxy.This parameter is ignored if an HTTP server is being used.
          If it is not provided, authentication will not be used (servers may accept unauthenticated requests).
-        :param proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
+        :param str proxy_password: (optional) This parameter is valid only for SOCKS5 servers and specifies the respective password for the username provided.
         """
-        if proxy_type not in [socks.HTTP, socks.SOCKS4, socks.SOCKS5]:
-            raise ValueError
-        self._proxy_type = proxy_type
+        self._proxy_type = sanitize_proxy_type(proxy_type)
         self._proxy_addr = proxy_addr
         self._proxy_port = int(proxy_port)
         self._proxy_username = proxy_username
@@ -54,3 +52,14 @@ class ProxyOptions(object):
     @property
     def proxy_password(self):
         return self._proxy_password
+
+
+def sanitize_proxy_type(proxy_type):
+    # String constants defined by our library
+    if proxy_type in ["HTTP", "SOCKS4", "SOCKS5"]:
+        return proxy_type
+    # Backwards compatibility for when we used the socks library constants
+    elif proxy_type == socks.HTTP:
+        return "HTTP"
+    else:
+        raise ValueError
