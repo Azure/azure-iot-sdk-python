@@ -164,8 +164,6 @@ def pytest_exception_interact(node, call, report):
         logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
         del node.leak_tracker
 
-    node.test_exception = call.excinfo.value
-
     yield
 
 
