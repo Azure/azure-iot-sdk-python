@@ -12,7 +12,6 @@ import logging
 import os
 import io
 import six
-import socks
 import time
 import six.moves.urllib as urllib
 from azure.iot.device.common import auth, handle_exceptions
@@ -243,7 +242,7 @@ class SharedIoTHubClientCreateMethodUserOptionTests(object):
         mock_mqtt_pipeline_init,
         mock_http_pipeline_init,
     ):
-        proxy_options = ProxyOptions(proxy_type=socks.HTTP, proxy_addr="127.0.0.1", proxy_port=8888)
+        proxy_options = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)
         client_create_method(*create_method_args, proxy_options=proxy_options)
 
         # Get configuration object, and ensure it was used for both protocol pipelines

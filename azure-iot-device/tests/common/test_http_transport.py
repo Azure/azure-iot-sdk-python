@@ -11,7 +11,6 @@ import logging
 import ssl
 import urllib3
 import requests
-import socks
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -34,11 +33,11 @@ class TestInstantiation(object):
     )
     def proxy_options(self, request):
         if "HTTP" in request.param:
-            proxy_type = socks.HTTP
+            proxy_type = "HTTP"
         elif "SOCKS4" in request.param:
-            proxy_type = socks.SOCKS4
+            proxy_type = "SOCKS4"
         else:
-            proxy_type = socks.SOCKS5
+            proxy_type = "SOCKS5"
 
         if "No Auth" in request.param:
             proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=1080)
@@ -85,9 +84,9 @@ class TestInstantiation(object):
                 address=proxy_options.proxy_address, port=proxy_options.proxy_port
             )
 
-        if proxy_options.proxy_type == socks.HTTP:
+        if proxy_options.proxy_type == "HTTP":
             expected_proxy_string = "http://" + expected_proxy_string
-        elif proxy_options.proxy_type == socks.SOCKS4:
+        elif proxy_options.proxy_type == "SOCKS4":
             expected_proxy_string = "socks4://" + expected_proxy_string
         else:
             expected_proxy_string = "socks5://" + expected_proxy_string
