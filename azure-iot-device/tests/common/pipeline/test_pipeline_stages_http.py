@@ -95,26 +95,14 @@ class TestHTTPTransportStageRunOpCalledWithInitializePipelineOperation(
         "Creates an HTTPTransport object and sets it as the 'transport' attribute of the stage (and on the pipeline root)"
     )
     @pytest.mark.parametrize(
-        "cipher",
-        [
-            pytest.param("DHE-RSA-AES128-SHA", id="Pipeline configured for custom cipher"),
-            pytest.param(
-                "DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-GCM-SHA256",
-                id="Pipeline configured for multiple custom ciphers",
-            ),
-            pytest.param("", id="Pipeline NOT configured for custom cipher(s)"),
-        ],
-    )
-    @pytest.mark.parametrize(
         "gateway_hostname",
         [
             pytest.param("fake.gateway.hostname.com", id="Using Gateway Hostname"),
             pytest.param(None, id="Not using Gateway Hostname"),
         ],
     )
-    def test_creates_transport(self, mocker, stage, op, mock_transport, cipher, gateway_hostname):
+    def test_creates_transport(self, mocker, stage, op, mock_transport, gateway_hostname):
         # Setup pipeline config
-        stage.pipeline_root.pipeline_configuration.cipher = cipher
         stage.pipeline_root.pipeline_configuration.gateway_hostname = gateway_hostname
 
         # NOTE: if more of this type of logic crops up, consider splitting this test up
@@ -132,7 +120,8 @@ class TestHTTPTransportStageRunOpCalledWithInitializePipelineOperation(
             hostname=expected_hostname,
             server_verification_cert=stage.pipeline_root.pipeline_configuration.server_verification_cert,
             x509_cert=stage.pipeline_root.pipeline_configuration.x509,
-            cipher=cipher,
+            cipher=stage.pipeline_root.pipeline_configuration.cipher,
+            proxy_options=stage.pipeline_root.pipeline_configuration.proxy_options,
         )
         assert stage.transport is mock_transport.return_value
 
@@ -250,7 +239,7 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
     def test_completes_callback(self, mocker, stage, op):
         def mock_request_callback(method, path, headers, query_params, body, callback):
             fake_response = {
-                "resp": "__fake_response__".encode("utf-8"),
+                "resp": "__fake_response__",
                 "status_code": "__fake_status_code__",
                 "reason": "__fake_reason__",
             }
@@ -267,7 +256,7 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
     def test_formats_op_on_complete(self, mocker, stage, op):
         def mock_request_callback(method, path, headers, query_params, body, callback):
             fake_response = {
-                "resp": "__fake_response__".encode("utf-8"),
+                "resp": "__fake_response__",
                 "status_code": "__fake_status_code__",
                 "reason": "__fake_reason__",
             }
@@ -277,7 +266,7 @@ class TestHTTPTransportStageRunOpCalledWithHTTPRequestAndResponseOperation(
         stage.transport.request.side_effect = mock_request_callback
         stage.run_op(op)
         assert op.reason == "__fake_reason__"
-        assert op.response_body == "__fake_response__".encode("utf-8")
+        assert op.response_body == "__fake_response__"
         assert op.status_code == "__fake_status_code__"
 
     @pytest.mark.it(

@@ -537,6 +537,7 @@ class SasTokenStage(PipelineStage):
                     logger.info("{}: Retrying connection reauthorization".format(this.name))
                     # No need to cancel the timer, because if this is running, it has already ended
 
+                    @pipeline_thread.invoke_on_pipeline_thread_nowait
                     def retry_reauthorize():
                         # We need to check this when the timer expires as well as before creating
                         # the timer in case connection has been re-established while timer was
@@ -1348,7 +1349,7 @@ class ReconnectStage(PipelineStage):
                 this.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            return this._run_all_waiting_ops()
+            this._run_all_waiting_ops()
 
         op.add_callback(on_complete)
 

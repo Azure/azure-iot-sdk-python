@@ -5,18 +5,14 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six
-import traceback
 import copy
 from . import (
     pipeline_ops_base,
     PipelineStage,
     pipeline_ops_http,
     pipeline_thread,
-    pipeline_exceptions,
 )
 from azure.iot.device.common.http_transport import HTTPTransport
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +59,7 @@ class HTTPTransportStage(PipelineStage):
                 server_verification_cert=self.pipeline_root.pipeline_configuration.server_verification_cert,
                 x509_cert=self.pipeline_root.pipeline_configuration.x509,
                 cipher=self.pipeline_root.pipeline_configuration.cipher,
+                proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
             )
 
             self.pipeline_root.transport = self.transport
@@ -90,7 +87,7 @@ class HTTPTransportStage(PipelineStage):
                         "{}({}): Request completed. Completing op.".format(self.name, op.name)
                     )
                     logger.debug("HTTP Response Status: {}".format(response["status_code"]))
-                    logger.debug("HTTP Response: {}".format(response["resp"].decode("utf-8")))
+                    logger.debug("HTTP Response: {}".format(response["resp"]))
                     op.response_body = response["resp"]
                     op.status_code = response["status_code"]
                     op.reason = response["reason"]
