@@ -3247,7 +3247,7 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
         assert stage.state == modified_state
 
     @pytest.mark.it(
-        "Re-runs the first op in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
+        "Re-runs all of the ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
     )
     @pytest.mark.parametrize(
         "queued_ops",
@@ -3297,10 +3297,11 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
         else:
             op.complete(arbitrary_exception)
 
-        # First item was removed from the waiting queue and run on the stage
-        assert stage.waiting_ops.qsize() == len(queued_ops) - 1
-        assert stage.run_op.call_count == 1
-        assert stage.run_op.call_args == mocker.call(queued_ops[0])
+        # All items were removed from the waiting queue and run on the stage
+        assert stage.waiting_ops.qsize() == 0
+        assert stage.run_op.call_count == len(queued_ops)
+        for i in range(len(queued_ops)):
+            assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
 @pytest.mark.describe(
@@ -3439,7 +3440,7 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
         assert stage.state == modified_state
 
     @pytest.mark.it(
-        "Re-runs the first op in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
+        "Re-runs all the waiting ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
     )
     @pytest.mark.parametrize(
         "queued_ops",
@@ -3489,10 +3490,11 @@ class TestReconnectStageRunOpWithDisconnectOperation(ReconnectStageTestConfig, S
         else:
             op.complete(arbitrary_exception)
 
-        # First item was removed from the waiting queue and run on the stage
-        assert stage.waiting_ops.qsize() == len(queued_ops) - 1
-        assert stage.run_op.call_count == 1
-        assert stage.run_op.call_args == mocker.call(queued_ops[0])
+        # All items were removed from the waiting queue and run on the stage
+        assert stage.waiting_ops.qsize() == 0
+        assert stage.run_op.call_count == len(queued_ops)
+        for i in range(len(queued_ops)):
+            assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
 @pytest.mark.describe(
@@ -3613,7 +3615,7 @@ class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
         assert stage.state == modified_state
 
     @pytest.mark.it(
-        "Re-runs the first op in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
+        "Re-runs all of the ops in the `waiting_ops` queue (if any) upon completion of the op after it is sent down"
     )
     @pytest.mark.parametrize(
         "queued_ops",
@@ -3663,10 +3665,11 @@ class TestReconnectStageRunOpWithReauthorizeConnectionOperation(
         else:
             op.complete(arbitrary_exception)
 
-        # First item was removed from the waiting queue and run on the stage
-        assert stage.waiting_ops.qsize() == len(queued_ops) - 1
-        assert stage.run_op.call_count == 1
-        assert stage.run_op.call_args == mocker.call(queued_ops[0])
+        # All items were removed from the waiting queue and run on the stage
+        assert stage.waiting_ops.qsize() == 0
+        assert stage.run_op.call_count == len(queued_ops)
+        for i in range(len(queued_ops)):
+            assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
 
 @pytest.mark.describe(
@@ -4276,7 +4279,7 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         stage.report_background_exception.reset_mock()
         return reconnect_op
 
-    @pytest.mark.it("Re-runs the first op in the `waiting_ops` queue (if any)")
+    @pytest.mark.it("Re-runs all of the ops in the `waiting_ops` queue (if any)")
     @pytest.mark.parametrize(
         "queued_ops",
         [
@@ -4319,10 +4322,11 @@ class TestReconnectStageOCCURRENCEReconnectionCompletes(ReconnectStageTestConfig
         else:
             reconnect_op.complete(arbitrary_exception)
 
-        # First item was removed from the waiting queue and run on the stage
-        assert stage.waiting_ops.qsize() == len(queued_ops) - 1
-        assert stage.run_op.call_count == 1
-        assert stage.run_op.call_args == mocker.call(queued_ops[0])
+        # All items were removed from the waiting queue and run on the stage
+        assert stage.waiting_ops.qsize() == 0
+        assert stage.run_op.call_count == len(queued_ops)
+        for i in range(len(queued_ops)):
+            assert stage.run_op.call_args_list[i] == mocker.call(queued_ops[i])
 
     @pytest.mark.it("Reports the error as a background exception if completed with error")
     def test_failure_report_background_exception(
