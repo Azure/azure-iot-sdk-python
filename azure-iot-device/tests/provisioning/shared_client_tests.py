@@ -54,6 +54,22 @@ class SharedProvisioningClientInstantiationTests(object):
 
 class SharedProvisioningClientCreateMethodUserOptionTests(object):
     @pytest.mark.it(
+        "Sets the 'server_verification_cert' user option parameter on the PipelineConfig, if provided"
+    )
+    def test_server_verification_cert_option(
+        self, client_create_method, create_method_args, mock_pipeline_init
+    ):
+        server_verification_cert = "fake_server_verification_cert"
+        client_create_method(*create_method_args, server_verification_cert=server_verification_cert)
+
+        # Get configuration object
+        assert mock_pipeline_init.call_count == 1
+        config = mock_pipeline_init.call_args[0][0]
+        assert isinstance(config, ProvisioningPipelineConfig)
+
+        assert config.server_verification_cert == server_verification_cert
+
+    @pytest.mark.it(
         "Sets the 'websockets' user option parameter on the PipelineConfig, if provided"
     )
     def test_websockets_option(
@@ -129,24 +145,11 @@ class SharedProvisioningClientCreateMethodUserOptionTests(object):
         assert isinstance(config, ProvisioningPipelineConfig)
 
         # ProvisioningPipelineConfig has default options set that were not user-specified
+        assert config.server_verification_cert is None
         assert config.websockets is False
         assert config.cipher == ""
         assert config.proxy_options is None
         assert config.keep_alive == DEFAULT_KEEPALIVE
-
-    @pytest.mark.parametrize(
-        "registration_id",
-        [
-            pytest.param(None, id="No Registration Id provided"),
-            pytest.param(" ", id="Blank Registration Id provided"),
-            pytest.param("", id="Empty Registration Id provided"),
-        ],
-    )
-    def test_invalid_registration_id(self, client_create_method, registration_id):
-        with pytest.raises(ValueError):
-            client_create_method(
-                fake_provisioning_host, registration_id, fake_id_scope, fake_symmetric_key
-            )
 
 
 @pytest.mark.usefixtures("mock_pipeline_init")
@@ -270,6 +273,24 @@ class SharedProvisioningClientCreateFromSymmetricKeyTests(
             )
         assert e_info.value.__cause__ is token_err
 
+    @pytest.mark.parametrize(
+        "registration_id",
+        [
+            pytest.param(None, id="No Registration Id provided"),
+            pytest.param(" ", id="Blank Registration Id provided"),
+            pytest.param("", id="Empty Registration Id provided"),
+        ],
+    )
+    @pytest.mark.it("Raises a ValueError if an invalid 'registration_id' parameter is provided")
+    def test_invalid_registration_id(self, client_class, registration_id):
+        with pytest.raises(ValueError):
+            client_class.create_from_symmetric_key(
+                provisioning_host=fake_provisioning_host,
+                registration_id=registration_id,
+                id_scope=fake_id_scope,
+                symmetric_key=fake_symmetric_key,
+            )
+
 
 @pytest.mark.usefixtures("mock_pipeline_init")
 class SharedProvisioningClientCreateFromX509CertificateTests(
@@ -329,4 +350,22 @@ class SharedProvisioningClientCreateFromX509CertificateTests(
                 id_scope=fake_id_scope,
                 x509=x509,
                 sastoken_ttl=1000,
+            )
+
+    @pytest.mark.parametrize(
+        "registration_id",
+        [
+            pytest.param(None, id="No Registration Id provided"),
+            pytest.param(" ", id="Blank Registration Id provided"),
+            pytest.param("", id="Empty Registration Id provided"),
+        ],
+    )
+    @pytest.mark.it("Raises a ValueError if an invalid 'registration_id' parameter is provided")
+    def test_invalid_registration_id(self, client_class, registration_id, x509):
+        with pytest.raises(ValueError):
+            client_class.create_from_x509_certificate(
+                provisioning_host=fake_provisioning_host,
+                registration_id=registration_id,
+                id_scope=fake_id_scope,
+                x509=x509,
             )

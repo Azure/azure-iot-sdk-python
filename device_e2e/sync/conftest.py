@@ -32,7 +32,15 @@ def brand_new_client(device_identity, client_kwargs, service_helper, device_id, 
 
     yield client
 
+    logger.info("---------------------------------------")
+    logger.info("test is complete.  Shutting down client")
+    logger.info("---------------------------------------")
+
     client.shutdown()
+
+    logger.info("-------------------------------------------")
+    logger.info("test is complete.  client shutdown complete")
+    logger.info("-------------------------------------------")
 
 
 @pytest.fixture(scope="function")
@@ -49,4 +57,13 @@ def service_helper():
     service_helper = ServiceHelperSync()
     time.sleep(3)
     yield service_helper
+
+    logger.info("----------------------------")
+    logger.info("shutting down service_helper")
+    logger.info("----------------------------")
+
     service_helper.shutdown()
+
+    logger.info("---------------------------------")
+    logger.info("service helper shut down complete")
+    logger.info("---------------------------------")

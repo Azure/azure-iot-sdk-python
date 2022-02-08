@@ -27,7 +27,11 @@ from client_fixtures import (
     keep_alive,
 )
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.WARNING,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logging.getLogger("e2e").setLevel(level=logging.DEBUG)
 logging.getLogger("paho").setLevel(level=logging.DEBUG)
 logging.getLogger("azure.iot").setLevel(level=logging.DEBUG)
@@ -155,14 +159,13 @@ def pytest_runtest_setup(item):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_exception_interact(node, call, report):
+    e = call.excinfo.value
     logger.error("------------------------------------------------------")
-    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, type(call.excinfo.value)))
+    logger.error("EXCEPTION RAISED in {} phase: {}".format(report.when, str(e) or type(e)))
     logger.error("------------------------------------------------------")
 
     if hasattr(node, "leak_tracker"):
-        logger.info(
-            "Skipping leak tracking because of Exception {}".format(type(call.excinfo.value))
-        )
+        logger.info("Skipping leak tracking because of Exception {}".format(str(e) or type(e)))
         del node.leak_tracker
 
     yield
