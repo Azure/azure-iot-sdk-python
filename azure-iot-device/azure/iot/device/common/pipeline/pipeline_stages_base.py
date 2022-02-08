@@ -1349,7 +1349,7 @@ class ReconnectStage(PipelineStage):
                 this.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            return this._run_all_waiting_ops()
+            this._run_all_waiting_ops()
 
         op.add_callback(on_complete)
 
