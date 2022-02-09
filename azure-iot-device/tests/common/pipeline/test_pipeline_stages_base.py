@@ -323,6 +323,7 @@ class SasTokenStageTestConfig(object):
         # Mock flow methods
         stage.send_op_down = mocker.MagicMock()
         stage.send_event_up = mocker.MagicMock()
+        stage.report_background_exception = mocker.MagicMock()
         mocker.spy(stage, "report_background_exception")
         return stage
 
@@ -697,6 +698,38 @@ class TestSasTokenStageOCCURRENCEUpdateAlarmExpiresRenewToken(SasTokenStageTestC
 
         # Token has now been refreshed
         assert token.refresh.call_count == 1
+
+    @pytest.mark.it(
+        "Reports any SasTokenError that occurs while refreshing the SasToken as a background exception"
+    )
+    @pytest.mark.parametrize(
+        "connected",
+        [
+            pytest.param(True, id="Pipeline connected"),
+            pytest.param(False, id="Pipeline not connected"),
+        ],
+    )
+    def test_refresh_token_fail(self, mocker, stage, init_op, mock_alarm, connected):
+        # Apply the alarm
+        stage.run_op(init_op)
+
+        # Set connected state
+        stage.pipeline_root.connected = connected
+
+        # Mock refresh
+        token = stage.pipeline_root.pipeline_configuration.sastoken
+        refresh_failure = st.SasTokenError()
+        token.refresh = mocker.MagicMock(side_effect=refresh_failure)
+        assert token.refresh.call_count == 0
+        assert stage.report_background_exception.call_count == 0
+
+        # Call alarm complete callback (as if alarm expired)
+        on_alarm_complete = mock_alarm.call_args[0][1]
+        on_alarm_complete()
+
+        assert token.refresh.call_count == 1
+        assert stage.report_background_exception.call_count == 1
+        assert stage.report_background_exception.call_args == mocker.call(refresh_failure)
 
     @pytest.mark.it("Cancels any reauth retry timer that may exist")
     @pytest.mark.parametrize(

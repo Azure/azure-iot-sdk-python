@@ -479,9 +479,11 @@ class SasTokenStage(PipelineStage):
                 sastoken = this.pipeline_root.pipeline_configuration.sastoken
                 try:
                     sastoken.refresh()
-                except st.SasTokenError:
+                except st.SasTokenError as e:
                     logger.error("{}: SAS Token renewal failed".format(self.name))
-                    # TODO: then what? How do we respond to this?
+                    this.report_background_exception(e)
+                    # TODO: then what? How do we respond to this? Retry?
+                    # What if it never works and the token expires?
                 else:
                     # If the pipeline is already connected, send order to reauthorize the connection
                     # now that token has been renewed. If the pipeline is not currently connected,
