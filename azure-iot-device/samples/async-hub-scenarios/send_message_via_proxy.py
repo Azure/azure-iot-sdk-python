@@ -9,7 +9,6 @@ import asyncio
 import uuid
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import Message, ProxyOptions
-import socks
 
 messages_to_send = 10
 
@@ -19,7 +18,7 @@ async def main():
     conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
 
     proxy_opts = ProxyOptions(
-        proxy_type=socks.HTTP, proxy_addr="127.0.0.1", proxy_port=8888  # localhost
+        proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888  # localhost
     )
 
     # The client object is used to interact with your Azure IoT hub.

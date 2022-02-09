@@ -1356,16 +1356,24 @@ class ReconnectStage(PipelineStage):
                 this.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            this._run_next_waiting_op()
+            this._run_all_waiting_ops()
 
         op.add_callback(on_complete)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_next_waiting_op(self):
+    def _run_all_waiting_ops(self):
+
         if not self.waiting_ops.empty():
-            next_op = self.waiting_ops.get_nowait()
-            logger.debug("{}: Resolving next waiting op: {}".format(self.name, next_op.name))
-            self.run_op(next_op)
+            queuecopy = self.waiting_ops
+            self.waiting_ops = queue.Queue()
+
+            while not queuecopy.empty():
+                next_op = queuecopy.get_nowait()
+                if not next_op.completed:
+                    logger.debug(
+                        "{}: Resolving next waiting op: {}".format(self.name, next_op.name)
+                    )
+                    self.run_op(next_op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _reconnect(self):
@@ -1411,7 +1419,7 @@ class ReconnectStage(PipelineStage):
                         )
 
                 # Now see if there's anything that may have blocked waiting for us to finish
-                this._run_next_waiting_op()
+                this._run_all_waiting_ops()
 
         # NOTE: I had considered leveraging the run_op infrastructure instead of sending this
         # directly down. Ultimately however, I think it's best to keep reconnects completely
