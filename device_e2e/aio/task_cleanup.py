@@ -20,7 +20,7 @@ async def cleanup_tasks(task_list):
     logger.info("Cleaning up {} tasks".format(tasks_left))
     logger.info("-------------------------")
 
-    for task_result in asyncio.as_completed(task_list, timeout=60):
+    for task_result in asyncio.as_completed(task_list, timeout=600):
         try:
             await task_result
             tasks_left -= 1
