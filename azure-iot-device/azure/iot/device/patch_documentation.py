@@ -10,12 +10,6 @@ Currently we have to do like this so that we don't use exec anywhere"""
 def execute_patch_for_sync():
     from azure.iot.device.iothub.sync_clients import IoTHubDeviceClient as IoTHubDeviceClient
 
-    def shutdown(self):
-        return super(IoTHubDeviceClient, self).shutdown()
-
-    shutdown.__doc__ = IoTHubDeviceClient.shutdown.__doc__
-    setattr(IoTHubDeviceClient, "shutdown", shutdown)
-
     def connect(self):
         return super(IoTHubDeviceClient, self).connect()
 
@@ -74,6 +68,12 @@ def execute_patch_for_sync():
     send_method_response.__doc__ = IoTHubDeviceClient.send_method_response.__doc__
     setattr(IoTHubDeviceClient, "send_method_response", send_method_response)
 
+    def shutdown(self):
+        return super(IoTHubDeviceClient, self).shutdown()
+
+    shutdown.__doc__ = IoTHubDeviceClient.shutdown.__doc__
+    setattr(IoTHubDeviceClient, "shutdown", shutdown)
+
     def update_sastoken(self, sastoken):
         return super(IoTHubDeviceClient, self).update_sastoken(sastoken)
 
@@ -117,26 +117,30 @@ def execute_patch_for_sync():
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
-
     setattr(IoTHubDeviceClient, "connected", IoTHubDeviceClient.connected)
+    setattr(
+        IoTHubDeviceClient, "on_background_exception", IoTHubDeviceClient.on_background_exception
+    )
+    setattr(
+        IoTHubDeviceClient,
+        "on_connection_state_change",
+        IoTHubDeviceClient.on_connection_state_change,
+    )
+    setattr(IoTHubDeviceClient, "on_message_received", IoTHubDeviceClient.on_message_received)
     setattr(
         IoTHubDeviceClient,
         "on_method_request_received",
         IoTHubDeviceClient.on_method_request_received,
     )
     setattr(
+        IoTHubDeviceClient, "on_new_sastoken_required", IoTHubDeviceClient.on_new_sastoken_required
+    )
+    setattr(
         IoTHubDeviceClient,
         "on_twin_desired_properties_patch_received",
         IoTHubDeviceClient.on_twin_desired_properties_patch_received,
     )
-
     from azure.iot.device.iothub.sync_clients import IoTHubModuleClient as IoTHubModuleClient
-
-    def shutdown(self):
-        return super(IoTHubModuleClient, self).shutdown()
-
-    shutdown.__doc__ = IoTHubModuleClient.shutdown.__doc__
-    setattr(IoTHubModuleClient, "shutdown", shutdown)
 
     def connect(self):
         return super(IoTHubModuleClient, self).connect()
@@ -196,6 +200,12 @@ def execute_patch_for_sync():
     send_method_response.__doc__ = IoTHubModuleClient.send_method_response.__doc__
     setattr(IoTHubModuleClient, "send_method_response", send_method_response)
 
+    def shutdown(self):
+        return super(IoTHubModuleClient, self).shutdown()
+
+    shutdown.__doc__ = IoTHubModuleClient.shutdown.__doc__
+    setattr(IoTHubModuleClient, "shutdown", shutdown)
+
     def update_sastoken(self, sastoken):
         return super(IoTHubModuleClient, self).update_sastoken(sastoken)
 
@@ -241,19 +251,29 @@ def execute_patch_for_sync():
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
-
     setattr(IoTHubModuleClient, "connected", IoTHubModuleClient.connected)
+    setattr(
+        IoTHubModuleClient, "on_background_exception", IoTHubModuleClient.on_background_exception
+    )
+    setattr(
+        IoTHubModuleClient,
+        "on_connection_state_change",
+        IoTHubModuleClient.on_connection_state_change,
+    )
+    setattr(IoTHubModuleClient, "on_message_received", IoTHubModuleClient.on_message_received)
     setattr(
         IoTHubModuleClient,
         "on_method_request_received",
         IoTHubModuleClient.on_method_request_received,
     )
     setattr(
+        IoTHubModuleClient, "on_new_sastoken_required", IoTHubModuleClient.on_new_sastoken_required
+    )
+    setattr(
         IoTHubModuleClient,
         "on_twin_desired_properties_patch_received",
         IoTHubModuleClient.on_twin_desired_properties_patch_received,
     )
-
     from azure.iot.device.provisioning.provisioning_device_client import (
         ProvisioningDeviceClient as ProvisioningDeviceClient,
     )
@@ -286,4 +306,9 @@ def execute_patch_for_sync():
         ProvisioningDeviceClient,
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
+    )
+    setattr(
+        ProvisioningDeviceClient,
+        "provisioning_payload",
+        ProvisioningDeviceClient.provisioning_payload,
     )

@@ -18,6 +18,14 @@
       "_justification": "Test containing fake signed data"
     },
     {
+      "file": "\\azure-iot-device\\tests\\common\\test_mqtt_transport.py",
+      "_justification": "Test containing fake passwords"
+    },
+    {
+      "file": "\\azure-iot-device\\tests\\common\\test_http_transport.py",
+      "_justification": "Test containing fake passwords"
+    },
+    {
       "file": "\\azure-iot-device\\tests\\iothub\\shared_client_tests.py",
       "_justification": "Test containing fake signed data"
     },

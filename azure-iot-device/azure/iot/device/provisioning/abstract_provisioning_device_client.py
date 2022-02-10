@@ -23,7 +23,14 @@ def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     # TODO: add support for server_verification_cert
-    valid_kwargs = ["websockets", "cipher", "proxy_options", "sastoken_ttl", "keep_alive"]
+    valid_kwargs = [
+        "server_verification_cert",
+        "websockets",
+        "cipher",
+        "proxy_options",
+        "sastoken_ttl",
+        "keep_alive",
+    ]
 
     for kwarg in kwargs:
         if (kwarg not in valid_kwargs) or (kwarg in exclude):
@@ -37,7 +44,13 @@ def validate_registration_id(reg_id):
 
 def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
-    valid_config_kwargs = ["websockets", "cipher", "proxy_options", "keep_alive"]
+    valid_config_kwargs = [
+        "server_verification_cert",
+        "websockets",
+        "cipher",
+        "proxy_options",
+        "keep_alive",
+    ]
 
     config_kwargs = {}
     for kwarg in kwargs:
@@ -98,6 +111,9 @@ class AbstractProvisioningDeviceClient(object):
             Users can provide their own symmetric keys for enrollments by disabling this option
             within 16 bytes and 64 bytes and in valid Base64 format.
 
+        :param str server_verification_cert: Configuration Option. The trusted certificate chain.
+            Necessary when using connecting to an endpoint which has a non-standard root of trust,
+            such as a protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in
@@ -165,6 +181,9 @@ class AbstractProvisioningDeviceClient(object):
             If the cert comes from a CER file, it needs to be base64 encoded.
         :type x509: :class:`azure.iot.device.X509`
 
+        :param str server_verification_cert: Configuration Option. The trusted certificate chain.
+            Necessary when using connecting to an endpoint which has a non-standard root of trust,
+            such as a protocol gateway.
         :param bool websockets: Configuration Option. Default is False. Set to true if using MQTT
             over websockets.
         :param cipher: Configuration Option. Cipher suite(s) for TLS/SSL, as a string in

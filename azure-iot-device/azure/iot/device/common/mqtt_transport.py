@@ -7,7 +7,6 @@
 import paho.mqtt.client as mqtt
 import logging
 import ssl
-import sys
 import threading
 import traceback
 import weakref
@@ -155,7 +154,7 @@ class MQTTTransport(object):
         if self._proxy_options:
             logger.info("Setting custom proxy options on mqtt client")
             mqtt_client.proxy_set(
-                proxy_type=self._proxy_options.proxy_type,
+                proxy_type=self._proxy_options.proxy_type_socks,
                 proxy_addr=self._proxy_options.proxy_address,
                 proxy_port=self._proxy_options.proxy_port,
                 proxy_username=self._proxy_options.proxy_username,

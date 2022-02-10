@@ -474,19 +474,26 @@ class SasTokenStage(PipelineStage):
                 this = self_weakref()
                 # Cancel any token reauth retry timer in progress (from a previous renewal)
                 this._cancel_reauth_retry_timer()
-                logger.info("Renewing SAS Token...")
+                logger.info("{}: Renewing SAS Token...".format(self.name))
                 # Renew the token
                 sastoken = this.pipeline_root.pipeline_configuration.sastoken
-                sastoken.refresh()
-                # If the pipeline is already connected, send order to reauthorize the connection
-                # now that token has been renewed. If the pipeline is not currently connected,
-                # there is no need to do this, as the next connection will be using the new
-                # credentials.
-                if this.pipeline_root.connected:
-                    this._reauthorize()
+                try:
+                    sastoken.refresh()
+                except st.SasTokenError as e:
+                    logger.error("{}: SAS Token renewal failed".format(self.name))
+                    this.report_background_exception(e)
+                    # TODO: then what? How do we respond to this? Retry?
+                    # What if it never works and the token expires?
+                else:
+                    # If the pipeline is already connected, send order to reauthorize the connection
+                    # now that token has been renewed. If the pipeline is not currently connected,
+                    # there is no need to do this, as the next connection will be using the new
+                    # credentials.
+                    if this.pipeline_root.connected:
+                        this._reauthorize()
 
-                # Once again, start a renewal alarm
-                this._start_token_update_alarm()
+                    # Once again, start a renewal alarm
+                    this._start_token_update_alarm()
 
             self._token_update_alarm = alarm.Alarm(update_time, renew_token)
 
@@ -537,6 +544,7 @@ class SasTokenStage(PipelineStage):
                     logger.info("{}: Retrying connection reauthorization".format(this.name))
                     # No need to cancel the timer, because if this is running, it has already ended
 
+                    @pipeline_thread.invoke_on_pipeline_thread_nowait
                     def retry_reauthorize():
                         # We need to check this when the timer expires as well as before creating
                         # the timer in case connection has been re-established while timer was
@@ -1348,16 +1356,24 @@ class ReconnectStage(PipelineStage):
                 this.state = ReconnectState.DISCONNECTED
 
             # Allow the next waiting op to proceed (if any)
-            this._run_next_waiting_op()
+            this._run_all_waiting_ops()
 
         op.add_callback(on_complete)
 
     @pipeline_thread.runs_on_pipeline_thread
-    def _run_next_waiting_op(self):
+    def _run_all_waiting_ops(self):
+
         if not self.waiting_ops.empty():
-            next_op = self.waiting_ops.get_nowait()
-            logger.debug("{}: Resolving next waiting op: {}".format(self.name, next_op.name))
-            self.run_op(next_op)
+            queuecopy = self.waiting_ops
+            self.waiting_ops = queue.Queue()
+
+            while not queuecopy.empty():
+                next_op = queuecopy.get_nowait()
+                if not next_op.completed:
+                    logger.debug(
+                        "{}: Resolving next waiting op: {}".format(self.name, next_op.name)
+                    )
+                    self.run_op(next_op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _reconnect(self):
@@ -1403,7 +1419,7 @@ class ReconnectStage(PipelineStage):
                         )
 
                 # Now see if there's anything that may have blocked waiting for us to finish
-                this._run_next_waiting_op()
+                this._run_all_waiting_ops()
 
         # NOTE: I had considered leveraging the run_op infrastructure instead of sending this
         # directly down. Ultimately however, I think it's best to keep reconnects completely

@@ -8,6 +8,7 @@ import azure.iot.device.common.mqtt_transport as mqtt_transport
 from azure.iot.device.common.mqtt_transport import MQTTTransport, OperationManager
 from azure.iot.device.common.models.x509 import X509
 from azure.iot.device.common import transport_exceptions as errors
+from azure.iot.device.common import ProxyOptions
 import paho.mqtt.client as mqtt
 import ssl
 import copy
@@ -167,6 +168,29 @@ def mock_non_paho_thread_current(mocker, fake_non_paho_thread):
 
 @pytest.mark.describe("MQTTTransport - Instantiation")
 class TestInstantiation(object):
+    @pytest.fixture(
+        params=["HTTP - No Auth", "HTTP - Auth", "SOCKS4", "SOCKS5 - No Auth", "SOCKS5 - Auth"]
+    )
+    def proxy_options(self, request):
+        if "HTTP" in request.param:
+            proxy_type = "HTTP"
+        elif "SOCKS4" in request.param:
+            proxy_type = "SOCKS4"
+        else:
+            proxy_type = "SOCKS5"
+
+        if "No Auth" in request.param:
+            proxy = ProxyOptions(proxy_type=proxy_type, proxy_addr="fake.address", proxy_port=1080)
+        else:
+            proxy = ProxyOptions(
+                proxy_type=proxy_type,
+                proxy_addr="fake.address",
+                proxy_port=1080,
+                proxy_username="fake_username",
+                proxy_password="fake_password",
+            )
+        return proxy
+
     @pytest.mark.it("Creates an instance of the Paho MQTT Client")
     def test_instantiates_mqtt_client(self, mocker):
         mock_mqtt_client_constructor = mocker.patch.object(mqtt, "Client")
@@ -203,6 +227,30 @@ class TestInstantiation(object):
         # Verify websockets options have been set
         assert mock_mqtt_client.ws_set_options.call_count == 1
         assert mock_mqtt_client.ws_set_options.call_args == mocker.call(path="/$iothub/websocket")
+
+    @pytest.mark.it(
+        "Sets the proxy information on the client when the `proxy_options` parameter is provided"
+    )
+    def test_proxy_config(self, mocker, proxy_options):
+        mock_mqtt_client_constructor = mocker.patch.object(mqtt, "Client")
+        mock_mqtt_client = mock_mqtt_client_constructor.return_value
+
+        MQTTTransport(
+            client_id=fake_device_id,
+            hostname=fake_hostname,
+            username=fake_username,
+            proxy_options=proxy_options,
+        )
+
+        # Verify proxy has been set
+        assert mock_mqtt_client.proxy_set.call_count == 1
+        assert mock_mqtt_client.proxy_set.call_args == mocker.call(
+            proxy_type=proxy_options.proxy_type_socks,
+            proxy_addr=proxy_options.proxy_address,
+            proxy_port=proxy_options.proxy_port,
+            proxy_username=proxy_options.proxy_username,
+            proxy_password=proxy_options.proxy_password,
+        )
 
     @pytest.mark.it(
         "Configures TLS/SSL context to use TLS 1.2, require certificates and check hostname"
