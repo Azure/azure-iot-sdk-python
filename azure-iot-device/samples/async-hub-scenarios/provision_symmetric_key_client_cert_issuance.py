@@ -37,7 +37,7 @@ async def main():
     print(registration_result.registration_state)
 
     print("the issued certificate")
-    # include new field called "issued_client_certificate"
+    # include new field called "issued_client_certificate" in the model of registration result.
     print(registration_result.registration_state.issued_client_certificate)
 
     with open("device_cert.pem", "w") as out_ca_pem:
@@ -48,11 +48,6 @@ async def main():
 
     if registration_result.status == "assigned":
         print("Will send telemetry from the provisioned device")
-        # device_client = IoTHubDeviceClient.create_from_symmetric_key(
-        #     symmetric_key=symmetric_key,
-        #     hostname=registration_result.registration_state.assigned_hub,
-        #     device_id=registration_result.registration_state.device_id,
-        # )
 
         x509 = X509(
             cert_file=os.getenv("X509_CERT_FILE"),
