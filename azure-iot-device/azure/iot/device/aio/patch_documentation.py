@@ -8,272 +8,286 @@ Currently we have to do like this so that we don't use exec anywhere"""
 
 
 def execute_patch_for_async():
-    from azure.iot.device.iothub.aio.async_clients import IoTHubDeviceClient as IoTHubDeviceClient_
-
-    async def shutdown(self):
-        return await super(IoTHubDeviceClient_, self).shutdown()
-
-    shutdown.__doc__ = IoTHubDeviceClient_.shutdown.__doc__
-    setattr(IoTHubDeviceClient_, "shutdown", shutdown)
+    from azure.iot.device.iothub.aio.async_clients import IoTHubDeviceClient as IoTHubDeviceClient
 
     async def connect(self):
-        return await super(IoTHubDeviceClient_, self).connect()
+        return await super(IoTHubDeviceClient, self).connect()
 
-    connect.__doc__ = IoTHubDeviceClient_.connect.__doc__
-    setattr(IoTHubDeviceClient_, "connect", connect)
+    connect.__doc__ = IoTHubDeviceClient.connect.__doc__
+    setattr(IoTHubDeviceClient, "connect", connect)
 
     async def disconnect(self):
-        return await super(IoTHubDeviceClient_, self).disconnect()
+        return await super(IoTHubDeviceClient, self).disconnect()
 
-    disconnect.__doc__ = IoTHubDeviceClient_.disconnect.__doc__
-    setattr(IoTHubDeviceClient_, "disconnect", disconnect)
+    disconnect.__doc__ = IoTHubDeviceClient.disconnect.__doc__
+    setattr(IoTHubDeviceClient, "disconnect", disconnect)
 
     async def get_twin(self):
-        return await super(IoTHubDeviceClient_, self).get_twin()
+        return await super(IoTHubDeviceClient, self).get_twin()
 
-    get_twin.__doc__ = IoTHubDeviceClient_.get_twin.__doc__
-    setattr(IoTHubDeviceClient_, "get_twin", get_twin)
+    get_twin.__doc__ = IoTHubDeviceClient.get_twin.__doc__
+    setattr(IoTHubDeviceClient, "get_twin", get_twin)
 
     async def patch_twin_reported_properties(self, reported_properties_patch):
-        return await super(IoTHubDeviceClient_, self).patch_twin_reported_properties(
+        return await super(IoTHubDeviceClient, self).patch_twin_reported_properties(
             reported_properties_patch
         )
 
     patch_twin_reported_properties.__doc__ = (
-        IoTHubDeviceClient_.patch_twin_reported_properties.__doc__
+        IoTHubDeviceClient.patch_twin_reported_properties.__doc__
     )
-    setattr(IoTHubDeviceClient_, "patch_twin_reported_properties", patch_twin_reported_properties)
+    setattr(IoTHubDeviceClient, "patch_twin_reported_properties", patch_twin_reported_properties)
 
-    async def receive_method_request(self, method_name=None):
-        return await super(IoTHubDeviceClient_, self).receive_method_request(method_name)
+    def receive_method_request(self, method_name=None):
+        return super(IoTHubDeviceClient, self).receive_method_request(method_name)
 
-    receive_method_request.__doc__ = IoTHubDeviceClient_.receive_method_request.__doc__
-    setattr(IoTHubDeviceClient_, "receive_method_request", receive_method_request)
+    receive_method_request.__doc__ = IoTHubDeviceClient.receive_method_request.__doc__
+    setattr(IoTHubDeviceClient, "receive_method_request", receive_method_request)
 
-    async def receive_twin_desired_properties_patch(self):
-        return await super(IoTHubDeviceClient_, self).receive_twin_desired_properties_patch()
+    def receive_twin_desired_properties_patch(self):
+        return super(IoTHubDeviceClient, self).receive_twin_desired_properties_patch()
 
     receive_twin_desired_properties_patch.__doc__ = (
-        IoTHubDeviceClient_.receive_twin_desired_properties_patch.__doc__
+        IoTHubDeviceClient.receive_twin_desired_properties_patch.__doc__
     )
     setattr(
-        IoTHubDeviceClient_,
+        IoTHubDeviceClient,
         "receive_twin_desired_properties_patch",
         receive_twin_desired_properties_patch,
     )
 
     async def send_message(self, message):
-        return await super(IoTHubDeviceClient_, self).send_message(message)
+        return await super(IoTHubDeviceClient, self).send_message(message)
 
-    send_message.__doc__ = IoTHubDeviceClient_.send_message.__doc__
-    setattr(IoTHubDeviceClient_, "send_message", send_message)
+    send_message.__doc__ = IoTHubDeviceClient.send_message.__doc__
+    setattr(IoTHubDeviceClient, "send_message", send_message)
 
     async def send_method_response(self, method_response):
-        return await super(IoTHubDeviceClient_, self).send_method_response(method_response)
+        return await super(IoTHubDeviceClient, self).send_method_response(method_response)
 
-    send_method_response.__doc__ = IoTHubDeviceClient_.send_method_response.__doc__
-    setattr(IoTHubDeviceClient_, "send_method_response", send_method_response)
+    send_method_response.__doc__ = IoTHubDeviceClient.send_method_response.__doc__
+    setattr(IoTHubDeviceClient, "send_method_response", send_method_response)
 
-    def update_sastoken(self, sastoken):
-        return super(IoTHubDeviceClient_, self).update_sastoken(sastoken)
+    async def shutdown(self):
+        return await super(IoTHubDeviceClient, self).shutdown()
 
-    update_sastoken.__doc__ = IoTHubDeviceClient_.update_sastoken.__doc__
-    setattr(IoTHubDeviceClient_, "update_sastoken", update_sastoken)
+    shutdown.__doc__ = IoTHubDeviceClient.shutdown.__doc__
+    setattr(IoTHubDeviceClient, "shutdown", shutdown)
+
+    async def update_sastoken(self, sastoken):
+        return await super(IoTHubDeviceClient, self).update_sastoken(sastoken)
+
+    update_sastoken.__doc__ = IoTHubDeviceClient.update_sastoken.__doc__
+    setattr(IoTHubDeviceClient, "update_sastoken", update_sastoken)
 
     def create_from_connection_string(cls, connection_string, **kwargs):
-        return super(IoTHubDeviceClient_, cls).create_from_connection_string(
+        return super(IoTHubDeviceClient, cls).create_from_connection_string(
             connection_string, **kwargs
         )
 
-    create_from_connection_string.__doc__ = (
-        IoTHubDeviceClient_.create_from_connection_string.__doc__
-    )
+    create_from_connection_string.__doc__ = IoTHubDeviceClient.create_from_connection_string.__doc__
     setattr(
-        IoTHubDeviceClient_,
+        IoTHubDeviceClient,
         "create_from_connection_string",
         classmethod(create_from_connection_string),
     )
 
     def create_from_sastoken(cls, sastoken, **kwargs):
-        return super(IoTHubDeviceClient_, cls).create_from_sastoken(sastoken, **kwargs)
+        return super(IoTHubDeviceClient, cls).create_from_sastoken(sastoken, **kwargs)
 
-    create_from_sastoken.__doc__ = IoTHubDeviceClient_.create_from_sastoken.__doc__
-    setattr(IoTHubDeviceClient_, "create_from_sastoken", classmethod(create_from_sastoken))
+    create_from_sastoken.__doc__ = IoTHubDeviceClient.create_from_sastoken.__doc__
+    setattr(IoTHubDeviceClient, "create_from_sastoken", classmethod(create_from_sastoken))
 
     def create_from_symmetric_key(cls, symmetric_key, hostname, device_id, **kwargs):
-        return super(IoTHubDeviceClient_, cls).create_from_symmetric_key(
+        return super(IoTHubDeviceClient, cls).create_from_symmetric_key(
             symmetric_key, hostname, device_id, **kwargs
         )
 
-    create_from_symmetric_key.__doc__ = IoTHubDeviceClient_.create_from_symmetric_key.__doc__
-    setattr(
-        IoTHubDeviceClient_, "create_from_symmetric_key", classmethod(create_from_symmetric_key)
-    )
+    create_from_symmetric_key.__doc__ = IoTHubDeviceClient.create_from_symmetric_key.__doc__
+    setattr(IoTHubDeviceClient, "create_from_symmetric_key", classmethod(create_from_symmetric_key))
 
     def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
-        return super(IoTHubDeviceClient_, cls).create_from_x509_certificate(
+        return super(IoTHubDeviceClient, cls).create_from_x509_certificate(
             x509, hostname, device_id, **kwargs
         )
 
-    create_from_x509_certificate.__doc__ = IoTHubDeviceClient_.create_from_x509_certificate.__doc__
+    create_from_x509_certificate.__doc__ = IoTHubDeviceClient.create_from_x509_certificate.__doc__
     setattr(
-        IoTHubDeviceClient_,
+        IoTHubDeviceClient,
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
-
-    setattr(IoTHubDeviceClient_, "connected", IoTHubDeviceClient_.connected)
+    setattr(IoTHubDeviceClient, "connected", IoTHubDeviceClient.connected)
     setattr(
-        IoTHubDeviceClient_,
+        IoTHubDeviceClient, "on_background_exception", IoTHubDeviceClient.on_background_exception
+    )
+    setattr(
+        IoTHubDeviceClient,
+        "on_connection_state_change",
+        IoTHubDeviceClient.on_connection_state_change,
+    )
+    setattr(IoTHubDeviceClient, "on_message_received", IoTHubDeviceClient.on_message_received)
+    setattr(
+        IoTHubDeviceClient,
         "on_method_request_received",
-        IoTHubDeviceClient_.on_method_request_received,
+        IoTHubDeviceClient.on_method_request_received,
     )
     setattr(
-        IoTHubDeviceClient_,
-        "on_twin_desired_properties_patch_received",
-        IoTHubDeviceClient_.on_twin_desired_properties_patch_received,
+        IoTHubDeviceClient, "on_new_sastoken_required", IoTHubDeviceClient.on_new_sastoken_required
     )
-
-    from azure.iot.device.iothub.aio.async_clients import IoTHubModuleClient as IoTHubModuleClient_
-
-    async def shutdown(self):
-        return await super(IoTHubModuleClient_, self).shutdown()
-
-    shutdown.__doc__ = IoTHubModuleClient_.shutdown.__doc__
-    setattr(IoTHubModuleClient_, "shutdown", shutdown)
+    setattr(
+        IoTHubDeviceClient,
+        "on_twin_desired_properties_patch_received",
+        IoTHubDeviceClient.on_twin_desired_properties_patch_received,
+    )
+    from azure.iot.device.iothub.aio.async_clients import IoTHubModuleClient as IoTHubModuleClient
 
     async def connect(self):
-        return await super(IoTHubModuleClient_, self).connect()
+        return await super(IoTHubModuleClient, self).connect()
 
-    connect.__doc__ = IoTHubModuleClient_.connect.__doc__
-    setattr(IoTHubModuleClient_, "connect", connect)
+    connect.__doc__ = IoTHubModuleClient.connect.__doc__
+    setattr(IoTHubModuleClient, "connect", connect)
 
     async def disconnect(self):
-        return await super(IoTHubModuleClient_, self).disconnect()
+        return await super(IoTHubModuleClient, self).disconnect()
 
-    disconnect.__doc__ = IoTHubModuleClient_.disconnect.__doc__
-    setattr(IoTHubModuleClient_, "disconnect", disconnect)
+    disconnect.__doc__ = IoTHubModuleClient.disconnect.__doc__
+    setattr(IoTHubModuleClient, "disconnect", disconnect)
 
     async def get_twin(self):
-        return await super(IoTHubModuleClient_, self).get_twin()
+        return await super(IoTHubModuleClient, self).get_twin()
 
-    get_twin.__doc__ = IoTHubModuleClient_.get_twin.__doc__
-    setattr(IoTHubModuleClient_, "get_twin", get_twin)
+    get_twin.__doc__ = IoTHubModuleClient.get_twin.__doc__
+    setattr(IoTHubModuleClient, "get_twin", get_twin)
 
     async def patch_twin_reported_properties(self, reported_properties_patch):
-        return await super(IoTHubModuleClient_, self).patch_twin_reported_properties(
+        return await super(IoTHubModuleClient, self).patch_twin_reported_properties(
             reported_properties_patch
         )
 
     patch_twin_reported_properties.__doc__ = (
-        IoTHubModuleClient_.patch_twin_reported_properties.__doc__
+        IoTHubModuleClient.patch_twin_reported_properties.__doc__
     )
-    setattr(IoTHubModuleClient_, "patch_twin_reported_properties", patch_twin_reported_properties)
+    setattr(IoTHubModuleClient, "patch_twin_reported_properties", patch_twin_reported_properties)
 
-    async def receive_method_request(self, method_name=None):
-        return await super(IoTHubModuleClient_, self).receive_method_request(method_name)
+    def receive_method_request(self, method_name=None):
+        return super(IoTHubModuleClient, self).receive_method_request(method_name)
 
-    receive_method_request.__doc__ = IoTHubModuleClient_.receive_method_request.__doc__
-    setattr(IoTHubModuleClient_, "receive_method_request", receive_method_request)
+    receive_method_request.__doc__ = IoTHubModuleClient.receive_method_request.__doc__
+    setattr(IoTHubModuleClient, "receive_method_request", receive_method_request)
 
-    async def receive_twin_desired_properties_patch(self):
-        return await super(IoTHubModuleClient_, self).receive_twin_desired_properties_patch()
+    def receive_twin_desired_properties_patch(self):
+        return super(IoTHubModuleClient, self).receive_twin_desired_properties_patch()
 
     receive_twin_desired_properties_patch.__doc__ = (
-        IoTHubModuleClient_.receive_twin_desired_properties_patch.__doc__
+        IoTHubModuleClient.receive_twin_desired_properties_patch.__doc__
     )
     setattr(
-        IoTHubModuleClient_,
+        IoTHubModuleClient,
         "receive_twin_desired_properties_patch",
         receive_twin_desired_properties_patch,
     )
 
     async def send_message(self, message):
-        return await super(IoTHubModuleClient_, self).send_message(message)
+        return await super(IoTHubModuleClient, self).send_message(message)
 
-    send_message.__doc__ = IoTHubModuleClient_.send_message.__doc__
-    setattr(IoTHubModuleClient_, "send_message", send_message)
+    send_message.__doc__ = IoTHubModuleClient.send_message.__doc__
+    setattr(IoTHubModuleClient, "send_message", send_message)
 
     async def send_method_response(self, method_response):
-        return await super(IoTHubModuleClient_, self).send_method_response(method_response)
+        return await super(IoTHubModuleClient, self).send_method_response(method_response)
 
-    send_method_response.__doc__ = IoTHubModuleClient_.send_method_response.__doc__
-    setattr(IoTHubModuleClient_, "send_method_response", send_method_response)
+    send_method_response.__doc__ = IoTHubModuleClient.send_method_response.__doc__
+    setattr(IoTHubModuleClient, "send_method_response", send_method_response)
 
-    def update_sastoken(self, sastoken):
-        return super(IoTHubModuleClient_, self).update_sastoken(sastoken)
+    async def shutdown(self):
+        return await super(IoTHubModuleClient, self).shutdown()
 
-    update_sastoken.__doc__ = IoTHubModuleClient_.update_sastoken.__doc__
-    setattr(IoTHubModuleClient_, "update_sastoken", update_sastoken)
+    shutdown.__doc__ = IoTHubModuleClient.shutdown.__doc__
+    setattr(IoTHubModuleClient, "shutdown", shutdown)
+
+    async def update_sastoken(self, sastoken):
+        return await super(IoTHubModuleClient, self).update_sastoken(sastoken)
+
+    update_sastoken.__doc__ = IoTHubModuleClient.update_sastoken.__doc__
+    setattr(IoTHubModuleClient, "update_sastoken", update_sastoken)
 
     def create_from_connection_string(cls, connection_string, **kwargs):
-        return super(IoTHubModuleClient_, cls).create_from_connection_string(
+        return super(IoTHubModuleClient, cls).create_from_connection_string(
             connection_string, **kwargs
         )
 
-    create_from_connection_string.__doc__ = (
-        IoTHubModuleClient_.create_from_connection_string.__doc__
-    )
+    create_from_connection_string.__doc__ = IoTHubModuleClient.create_from_connection_string.__doc__
     setattr(
-        IoTHubModuleClient_,
+        IoTHubModuleClient,
         "create_from_connection_string",
         classmethod(create_from_connection_string),
     )
 
     def create_from_edge_environment(cls, **kwargs):
-        return super(IoTHubModuleClient_, cls).create_from_edge_environment(**kwargs)
+        return super(IoTHubModuleClient, cls).create_from_edge_environment(**kwargs)
 
-    create_from_edge_environment.__doc__ = IoTHubModuleClient_.create_from_edge_environment.__doc__
+    create_from_edge_environment.__doc__ = IoTHubModuleClient.create_from_edge_environment.__doc__
     setattr(
-        IoTHubModuleClient_,
+        IoTHubModuleClient,
         "create_from_edge_environment",
         classmethod(create_from_edge_environment),
     )
 
     def create_from_sastoken(cls, sastoken, **kwargs):
-        return super(IoTHubModuleClient_, cls).create_from_sastoken(sastoken, **kwargs)
+        return super(IoTHubModuleClient, cls).create_from_sastoken(sastoken, **kwargs)
 
-    create_from_sastoken.__doc__ = IoTHubModuleClient_.create_from_sastoken.__doc__
-    setattr(IoTHubModuleClient_, "create_from_sastoken", classmethod(create_from_sastoken))
+    create_from_sastoken.__doc__ = IoTHubModuleClient.create_from_sastoken.__doc__
+    setattr(IoTHubModuleClient, "create_from_sastoken", classmethod(create_from_sastoken))
 
     def create_from_x509_certificate(cls, x509, hostname, device_id, module_id, **kwargs):
-        return super(IoTHubModuleClient_, cls).create_from_x509_certificate(
+        return super(IoTHubModuleClient, cls).create_from_x509_certificate(
             x509, hostname, device_id, module_id, **kwargs
         )
 
-    create_from_x509_certificate.__doc__ = IoTHubModuleClient_.create_from_x509_certificate.__doc__
+    create_from_x509_certificate.__doc__ = IoTHubModuleClient.create_from_x509_certificate.__doc__
     setattr(
-        IoTHubModuleClient_,
+        IoTHubModuleClient,
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
     )
-
-    setattr(IoTHubModuleClient_, "connected", IoTHubModuleClient_.connected)
+    setattr(IoTHubModuleClient, "connected", IoTHubModuleClient.connected)
     setattr(
-        IoTHubModuleClient_,
+        IoTHubModuleClient, "on_background_exception", IoTHubModuleClient.on_background_exception
+    )
+    setattr(
+        IoTHubModuleClient,
+        "on_connection_state_change",
+        IoTHubModuleClient.on_connection_state_change,
+    )
+    setattr(IoTHubModuleClient, "on_message_received", IoTHubModuleClient.on_message_received)
+    setattr(
+        IoTHubModuleClient,
         "on_method_request_received",
-        IoTHubModuleClient_.on_method_request_received,
+        IoTHubModuleClient.on_method_request_received,
     )
     setattr(
-        IoTHubModuleClient_,
-        "on_twin_desired_properties_patch_received",
-        IoTHubModuleClient_.on_twin_desired_properties_patch_received,
+        IoTHubModuleClient, "on_new_sastoken_required", IoTHubModuleClient.on_new_sastoken_required
     )
-
+    setattr(
+        IoTHubModuleClient,
+        "on_twin_desired_properties_patch_received",
+        IoTHubModuleClient.on_twin_desired_properties_patch_received,
+    )
     from azure.iot.device.provisioning.aio.async_provisioning_device_client import (
-        ProvisioningDeviceClient as ProvisioningDeviceClient_,
+        ProvisioningDeviceClient as ProvisioningDeviceClient,
     )
 
     def create_from_symmetric_key(
         cls, provisioning_host, registration_id, id_scope, symmetric_key, **kwargs
     ):
-        return super(ProvisioningDeviceClient_, cls).create_from_symmetric_key(
+        return super(ProvisioningDeviceClient, cls).create_from_symmetric_key(
             provisioning_host, registration_id, id_scope, symmetric_key, **kwargs
         )
 
-    create_from_symmetric_key.__doc__ = ProvisioningDeviceClient_.create_from_symmetric_key.__doc__
+    create_from_symmetric_key.__doc__ = ProvisioningDeviceClient.create_from_symmetric_key.__doc__
     setattr(
-        ProvisioningDeviceClient_,
+        ProvisioningDeviceClient,
         "create_from_symmetric_key",
         classmethod(create_from_symmetric_key),
     )
@@ -281,15 +295,20 @@ def execute_patch_for_async():
     def create_from_x509_certificate(
         cls, provisioning_host, registration_id, id_scope, x509, **kwargs
     ):
-        return super(ProvisioningDeviceClient_, cls).create_from_x509_certificate(
+        return super(ProvisioningDeviceClient, cls).create_from_x509_certificate(
             provisioning_host, registration_id, id_scope, x509, **kwargs
         )
 
     create_from_x509_certificate.__doc__ = (
-        ProvisioningDeviceClient_.create_from_x509_certificate.__doc__
+        ProvisioningDeviceClient.create_from_x509_certificate.__doc__
     )
     setattr(
-        ProvisioningDeviceClient_,
+        ProvisioningDeviceClient,
         "create_from_x509_certificate",
         classmethod(create_from_x509_certificate),
+    )
+    setattr(
+        ProvisioningDeviceClient,
+        "provisioning_payload",
+        ProvisioningDeviceClient.provisioning_payload,
     )
