@@ -31,13 +31,12 @@ from . import patch_documentation
 # the function "execute_patch_for_sync" in "patch_documentation.py".
 # Once done please again comment out the "patch.add_shims" lines below.
 
-from azure.iot.device import patch
+# from azure.iot.device import patch
+# patch.add_shims_for_inherited_methods(IoTHubDeviceClient)  # noqa: F405
+# patch.add_shims_for_inherited_methods(IoTHubModuleClient)  # noqa: F405
+# patch.add_shims_for_inherited_methods(ProvisioningDeviceClient)  # noqa: F405
 
-patch.add_shims_for_inherited_methods(IoTHubDeviceClient)  # noqa: F405
-patch.add_shims_for_inherited_methods(IoTHubModuleClient)  # noqa: F405
-patch.add_shims_for_inherited_methods(ProvisioningDeviceClient)  # noqa: F405
 
-
-# patch_documentation.execute_patch_for_async()
+patch_documentation.execute_patch_for_async()
 
 __all__ = azure.iot.device.iothub.aio.__all__ + azure.iot.device.provisioning.aio.__all__
