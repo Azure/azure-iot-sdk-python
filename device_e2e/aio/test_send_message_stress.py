@@ -1,5 +1,4 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 import asyncio
@@ -28,25 +27,6 @@ logger.setLevel(level=logging.INFO)
 
 pytestmark = pytest.mark.asyncio
 
-"""
-
-We will eventually have three different kinds of stress tests:
-    1. Tests which are run frequently (every night).  These are used to provide assurance that
-       we do not have any regressions.  They The run relatively quickly and rarely fail. They
-       exist to produce statistics which we can compare between libraries and from run to run.
-    2. Tests which run less frequently that are used to find bugs.  These stress the library
-       much more than the first set of tests.  They run longer than the first set of tests.
-       They are expected to fail and/or produce actionable bug reports..  If they don't,
-       we're not pushing limits hard enough.
-    3. Long haul tests.  These are designed to run for a long time under more realistic
-       scenarios.  Their purpose is to behave in a more realistic manner and find bugs that
-       might not come up in the artificial conditions we use for the first to sets of tests.
-
-This file contains tests from the first set.
-
-"""
-
-
 # Settings that apply to all tests in this module
 TELEMETRY_PAYLOAD_SIZE = 16 * 1024
 
@@ -56,7 +36,7 @@ CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND = 30
 
 # Settings that apply to all-at-once telemetry test
 ALL_AT_ONCE_MESSAGE_COUNT = 3000
-ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER = 5 * 60
+ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER = 10 * 60
 
 # Settings that apply to flaky network telemetry test
 SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION = 5 * 60
@@ -124,9 +104,7 @@ class TestSendMessageStress(object):
                 logger.info("send_message raised {}".format(type(e)))
                 raise
 
-        # Wait for the arrival of the message.  We have a relatively short timeout here
-        # (set as a default parameter to wait_for_eventhub_arrival), but that's OK because
-        # the message has already been sent at this point.
+        # Wait for the arrival of the message.
         logger.info("Waiting for arrival of message {}".format(random_message.message_id))
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
 

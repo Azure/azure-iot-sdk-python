@@ -474,19 +474,26 @@ class SasTokenStage(PipelineStage):
                 this = self_weakref()
                 # Cancel any token reauth retry timer in progress (from a previous renewal)
                 this._cancel_reauth_retry_timer()
-                logger.info("Renewing SAS Token...")
+                logger.info("{}: Renewing SAS Token...".format(self.name))
                 # Renew the token
                 sastoken = this.pipeline_root.pipeline_configuration.sastoken
-                sastoken.refresh()
-                # If the pipeline is already connected, send order to reauthorize the connection
-                # now that token has been renewed. If the pipeline is not currently connected,
-                # there is no need to do this, as the next connection will be using the new
-                # credentials.
-                if this.pipeline_root.connected:
-                    this._reauthorize()
+                try:
+                    sastoken.refresh()
+                except st.SasTokenError as e:
+                    logger.error("{}: SAS Token renewal failed".format(self.name))
+                    this.report_background_exception(e)
+                    # TODO: then what? How do we respond to this? Retry?
+                    # What if it never works and the token expires?
+                else:
+                    # If the pipeline is already connected, send order to reauthorize the connection
+                    # now that token has been renewed. If the pipeline is not currently connected,
+                    # there is no need to do this, as the next connection will be using the new
+                    # credentials.
+                    if this.pipeline_root.connected:
+                        this._reauthorize()
 
-                # Once again, start a renewal alarm
-                this._start_token_update_alarm()
+                    # Once again, start a renewal alarm
+                    this._start_token_update_alarm()
 
             self._token_update_alarm = alarm.Alarm(update_time, renew_token)
 
