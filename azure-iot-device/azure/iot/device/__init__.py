@@ -32,8 +32,9 @@ from . import patch_documentation
 # "import azure.iot.device". The delta between the newly generated output
 # and the existing content of "patch_documentation.py" should be appended to
 # the function "execute_patch_for_sync" in "patch_documentation.py".
-# Once done please again omment out the "patch.add_shims" lines below.
+# Once done please again comment out the "patch.add_shims" lines below.
 
+# from . import patch
 # patch.add_shims_for_inherited_methods(IoTHubDeviceClient)  # noqa: F405
 # patch.add_shims_for_inherited_methods(IoTHubModuleClient)  # noqa: F405
 # patch.add_shims_for_inherited_methods(ProvisioningDeviceClient)  # noqa: F405
