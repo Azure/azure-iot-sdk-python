@@ -29,10 +29,10 @@ def _validate_kwargs(exclude=[], **kwargs):
     """Helper function to validate user provided kwargs.
     Raises TypeError if an invalid option has been provided"""
     valid_kwargs = [
-        "product_info",
+        "server_verification_cert",
         "websockets",
         "cipher",
-        "server_verification_cert",
+        "product_info",
         "proxy_options",
         "sastoken_ttl",
         "keep_alive",
@@ -49,10 +49,10 @@ def _validate_kwargs(exclude=[], **kwargs):
 def _get_config_kwargs(**kwargs):
     """Get the subset of kwargs which pertain the config object"""
     valid_config_kwargs = [
-        "product_info",
+        "server_verification_cert",
         "websockets",
         "cipher",
-        "server_verification_cert",
+        "product_info",
         "proxy_options",
         "keep_alive",
         "auto_connect",

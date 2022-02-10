@@ -15,34 +15,39 @@ logging.basicConfig(level=logging.DEBUG)
 @pytest.mark.describe("ProxyOptions")
 class TestProxyOptions(object):
     @pytest.mark.it(
-        "Instantiates with the 'proxy_type' property set to the value of the 'proxy_type' parameter"
+        "Instantiates with the 'proxy_type' and 'proxy_type_socks' properties set based on the value of the 'proxy_type' parameter"
     )
     @pytest.mark.parametrize(
-        "proxy_type",
+        "proxy_type_input, expected_proxy_type, expected_proxy_type_socks",
         [
-            pytest.param(socks.HTTP, id="HTTP"),
-            pytest.param(socks.SOCKS4, id="SOCKS4"),
-            pytest.param(socks.SOCKS5, id="SOCKS5"),
+            pytest.param("HTTP", "HTTP", socks.HTTP, id="HTTP (string)"),
+            pytest.param("SOCKS4", "SOCKS4", socks.SOCKS4, id="SOCKS4 (string)"),
+            pytest.param("SOCKS5", "SOCKS5", socks.SOCKS5, id="SOCKS5 (string)"),
+            # Backwards compatibility
+            pytest.param(socks.HTTP, "HTTP", socks.HTTP, id="HTTP (socks constant)"),
+            pytest.param(socks.SOCKS4, "SOCKS4", socks.SOCKS4, id="SOCKS4 (socks constant)"),
+            pytest.param(socks.SOCKS5, "SOCKS5", socks.SOCKS5, id="SOCKS5 (socks constant)"),
         ],
     )
-    def test_proxy_type(self, proxy_type):
-        proxy_options = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=8888)
+    def test_proxy_type(self, proxy_type_input, expected_proxy_type, expected_proxy_type_socks):
+        proxy_options = ProxyOptions(
+            proxy_type=proxy_type_input, proxy_addr="127.0.0.1", proxy_port=8888
+        )
 
-        assert proxy_options.proxy_type == proxy_type
+        assert proxy_options.proxy_type == expected_proxy_type
+        assert proxy_options.proxy_type_socks == expected_proxy_type_socks
 
     @pytest.mark.it("Maintains 'proxy_type' as a read-only property")
-    @pytest.mark.parametrize(
-        "proxy_type",
-        [
-            pytest.param(socks.HTTP, id="HTTP"),
-            pytest.param(socks.SOCKS4, id="SOCKS4"),
-            pytest.param(socks.SOCKS5, id="SOCKS5"),
-        ],
-    )
-    def test_proxy_type_read_only(self, proxy_type):
-        proxy_options = ProxyOptions(proxy_type=proxy_type, proxy_addr="127.0.0.1", proxy_port=8888)
+    def test_proxy_type_read_only(self):
+        proxy_options = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)
         with pytest.raises(AttributeError):
             proxy_options.proxy_type = "new value"
+
+    @pytest.mark.it("Maintains 'proxy_type_socks' as a read-only property")
+    def test_proxy_type_socks_read_only(self):
+        proxy_options = ProxyOptions(proxy_type="HTTP", proxy_addr="127.0.0.1", proxy_port=8888)
+        with pytest.raises(AttributeError):
+            proxy_options.proxy_type_socks = "new value"
 
     @pytest.mark.it("Raises a ValueError if proxy_type is invalid")
     def test_invalid_proxy_type(self):
