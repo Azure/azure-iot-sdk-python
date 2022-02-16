@@ -7,7 +7,6 @@ import functools
 import logging
 import threading
 import traceback
-from multiprocessing.pool import ThreadPool
 from concurrent.futures import ThreadPoolExecutor
 from azure.iot.device.common import handle_exceptions
 
@@ -102,6 +101,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
     except AttributeError:
         function_name = str(func)
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if threading.current_thread().name is not thread_name:
             logger.debug("Starting {} in {} thread".format(function_name, thread_name))
@@ -139,9 +139,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
             logger.debug("Already in {} thread for {}".format(thread_name, function_name))
             return func(*args, **kwargs)
 
-    # This is like using the @functools.wraps(func) decorator on the wrapper function above
-    updated_wrapper = functools.update_wrapper(wrapped=func, wrapper=wrapper)
-    return updated_wrapper
+    return wrapper
 
 
 def invoke_on_pipeline_thread(func):
