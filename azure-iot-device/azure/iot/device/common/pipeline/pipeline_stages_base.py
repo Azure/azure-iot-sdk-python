@@ -255,7 +255,7 @@ class PipelineRootStage(PipelineStage):
     """
 
     def __init__(self, pipeline_configuration):
-        super(PipelineRootStage, self).__init__()
+        super().__init__()
         self.on_pipeline_event_handler = None
         self.on_connected_handler = None
         self.on_disconnected_handler = None
@@ -269,7 +269,7 @@ class PipelineRootStage(PipelineStage):
         op.callback_stack[0] = pipeline_thread.invoke_on_callback_thread_nowait(
             op.callback_stack[0]
         )
-        pipeline_thread.invoke_on_pipeline_thread(super(PipelineRootStage, self).run_op)(op)
+        pipeline_thread.invoke_on_pipeline_thread(super().run_op)(op)
 
     def append_stage(self, new_stage):
         """
@@ -358,7 +358,7 @@ class SasTokenStage(PipelineStage):
     DEFAULT_TOKEN_UPDATE_MARGIN = 120
 
     def __init__(self):
-        super(SasTokenStage, self).__init__()
+        super().__init__()
         # Indicates when token needs to be updated
         self._token_update_alarm = None
         # Indicates when to retry a failed reauthorization attempt
@@ -627,7 +627,7 @@ class ConnectionLockStage(PipelineStage):
     """
 
     def __init__(self):
-        super(ConnectionLockStage, self).__init__()
+        super().__init__()
         self.queue = queue.Queue()
         self.blocked = False
 
@@ -740,7 +740,7 @@ class CoordinateRequestAndResponseStage(PipelineStage):
     """
 
     def __init__(self):
-        super(CoordinateRequestAndResponseStage, self).__init__()
+        super().__init__()
         self.pending_responses = {}
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -907,7 +907,7 @@ class OpTimeoutStage(PipelineStage):
     """
 
     def __init__(self):
-        super(OpTimeoutStage, self).__init__()
+        super().__init__()
         # use a fixed list and fixed intervals for now.  Later, this info will come in
         # as an init param or a retry poicy
         self.timeout_intervals = {
@@ -965,7 +965,7 @@ class RetryStage(PipelineStage):
     """
 
     def __init__(self):
-        super(RetryStage, self).__init__()
+        super().__init__()
         # Retry intervals are hardcoded for now. Later, they come in as an
         # init param, probably via retry policy.
         self.retry_intervals = {
@@ -1080,7 +1080,7 @@ class ReconnectStage(PipelineStage):
     ]
 
     def __init__(self):
-        super(ReconnectStage, self).__init__()
+        super().__init__()
         self.reconnect_timer = None
         self.state = ReconnectState.DISCONNECTED
         self.waiting_ops = queue.Queue()

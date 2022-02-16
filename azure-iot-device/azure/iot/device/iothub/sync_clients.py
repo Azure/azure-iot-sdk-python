@@ -78,7 +78,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # and the super() call could call a different class, due to the different MROs
         # in the class hierarchies of different clients. Thus, args here must be passed along as
         # **kwargs.
-        super(GenericIoTHubClient, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
         self._handler_manager = sync_handler_manager.SyncHandlerManager(self._inbox_manager)
 
@@ -546,9 +546,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
-        super(IoTHubDeviceClient, self).__init__(
-            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
-        )
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_c2d_message_received = CallableWeakMethod(
             self._inbox_manager, "route_c2d_message"
         )
@@ -632,9 +630,7 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
-        super(IoTHubModuleClient, self).__init__(
-            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
-        )
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
         self._mqtt_pipeline.on_input_message_received = CallableWeakMethod(
             self._inbox_manager, "route_input_message"
         )

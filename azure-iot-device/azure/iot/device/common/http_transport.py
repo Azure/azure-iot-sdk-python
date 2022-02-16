@@ -52,11 +52,11 @@ class HTTPTransport(object):
         class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
             def init_poolmanager(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super(CustomSSLContextHTTPAdapter, self).init_poolmanager(*args, **kwargs)
+                return super().init_poolmanager(*args, **kwargs)
 
             def proxy_manager_for(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super(CustomSSLContextHTTPAdapter, self).proxy_manager_for(*args, **kwargs)
+                return super().proxy_manager_for(*args, **kwargs)
 
         return CustomSSLContextHTTPAdapter()
 

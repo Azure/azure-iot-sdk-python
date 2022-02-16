@@ -148,7 +148,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            super(IoTHubMQTTTranslationStage, self)._run_op(op)
+            super()._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _get_feature_subscription_topic(self, feature):

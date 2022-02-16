@@ -31,7 +31,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
     """
 
     def __init__(self):
-        super(ProvisioningMQTTTranslationStage, self).__init__()
+        super().__init__()
         self.action_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -111,7 +111,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            super(ProvisioningMQTTTranslationStage, self)._run_op(op)
+            super()._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):

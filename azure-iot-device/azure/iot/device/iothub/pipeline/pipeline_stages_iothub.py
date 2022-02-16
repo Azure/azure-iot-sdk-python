@@ -31,7 +31,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
     def __init__(self):
         self.last_version_seen = None
         self.pending_get_request = None
-        super(EnsureDesiredPropertiesStage, self).__init__()
+        super().__init__()
 
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
@@ -196,4 +196,4 @@ class TwinRequestResponseStage(PipelineStage):
             )
 
         else:
-            super(TwinRequestResponseStage, self)._run_op(op)
+            super()._run_op(op)

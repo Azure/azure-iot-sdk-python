@@ -25,7 +25,7 @@ class HTTPRequestAndResponseOperation(PipelineOperation):
             The callback function must accept A PipelineOperation object which indicates the specific operation which
             has completed or failed.
         """
-        super(HTTPRequestAndResponseOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.method = method
         self.path = path
         self.headers = headers

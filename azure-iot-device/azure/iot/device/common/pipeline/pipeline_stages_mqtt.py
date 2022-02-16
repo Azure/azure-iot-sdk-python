@@ -36,7 +36,7 @@ class MQTTTransportStage(PipelineStage):
     """
 
     def __init__(self):
-        super(MQTTTransportStage, self).__init__()
+        super().__init__()
 
         # The transport will be instantiated upon receiving the InitializePipelineOperation
         self.transport = None

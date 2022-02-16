@@ -237,7 +237,7 @@ class ConnectOperation(PipelineOperation):
 
     def __init__(self, callback):
         self.watchdog_timer = None
-        super(ConnectOperation, self).__init__(callback)
+        super().__init__(callback)
 
 
 class ReauthorizeConnectionOperation(PipelineOperation):
@@ -266,7 +266,7 @@ class DisconnectOperation(PipelineOperation):
 
     def __init__(self, callback):
         self.hard = True  # Indicates if this is a "hard" disconnect that kills in-flight ops
-        super(DisconnectOperation, self).__init__(callback)
+        super().__init__(callback)
 
 
 class EnableFeatureOperation(PipelineOperation):
@@ -293,7 +293,7 @@ class EnableFeatureOperation(PipelineOperation):
             failed.  The callback function must accept A PipelineOperation object which indicates
             the specific operation which has completed or failed.
         """
-        super(EnableFeatureOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.feature_name = feature_name
 
 
@@ -321,7 +321,7 @@ class DisableFeatureOperation(PipelineOperation):
             failed.  The callback function must accept A PipelineOperation object which indicates
             the specific operation which has completed or failed.
         """
-        super(DisableFeatureOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.feature_name = feature_name
 
 
@@ -365,7 +365,7 @@ class RequestAndResponseOperation(PipelineOperation):
             failed.  The callback function must accept A PipelineOperation object which indicates
             the specific operation which has completed or failed.
         """
-        super(RequestAndResponseOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.request_type = request_type
         self.method = method
         self.resource_location = resource_location
@@ -412,7 +412,7 @@ class RequestOperation(PipelineOperation):
         :type query_params: Any query parameters that need to be sent with the request.
         Example is the id of the operation as returned by the initial provisioning request.
         """
-        super(RequestOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.method = method
         self.resource_location = resource_location
         self.request_type = request_type
