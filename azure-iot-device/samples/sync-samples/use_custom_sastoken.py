@@ -4,10 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import os
-from six.moves import input
-import threading
-import time
 from azure.iot.device import IoTHubDeviceClient
 
 

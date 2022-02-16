@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import asyncio
-from six.moves import input
 from azure.iot.device.aio import IoTHubDeviceClient
 
 

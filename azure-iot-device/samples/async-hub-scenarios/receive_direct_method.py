@@ -6,8 +6,6 @@
 
 import os
 import asyncio
-import threading
-from six.moves import input
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import MethodResponse
 

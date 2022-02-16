@@ -9,7 +9,6 @@ Device Provisioning Service.
 """
 
 import abc
-import six
 import logging
 from azure.iot.device.provisioning import pipeline
 
@@ -65,8 +64,7 @@ def _form_sas_uri(id_scope, registration_id):
     )
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractProvisioningDeviceClient(object):
+class AbstractProvisioningDeviceClient(abc.ABC):
     """
     Super class for any client that can be used to register devices to Device Provisioning Service.
     """

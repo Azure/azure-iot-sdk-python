@@ -6,14 +6,12 @@
 
 import logging
 import abc
-import six
-import sys
 import time
 import traceback
 import uuid
 import weakref
 import threading
-from six.moves import queue
+import queue
 from . import pipeline_events_base
 from . import pipeline_ops_base, pipeline_ops_mqtt
 from . import pipeline_thread
@@ -23,14 +21,8 @@ from azure.iot.device.common.auth import sastoken as st
 
 logger = logging.getLogger(__name__)
 
-# Python 2 doesn't define this constant, so manually do it
-if sys.version_info < (3,):
-    if not hasattr(threading, "TIMEOUT_MAX"):
-        threading.TIMEOUT_MAX = 4294967.0
 
-
-@six.add_metaclass(abc.ABCMeta)
-class PipelineStage(object):
+class PipelineStage(abc.ABC):
     """
     Base class representing a stage in the processing pipeline.  Each stage is responsible for receiving
     PipelineOperation objects from the top, possibly processing them, and possibly passing them down.  It

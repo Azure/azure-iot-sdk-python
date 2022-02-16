@@ -5,17 +5,13 @@
 # --------------------------------------------------------------------------
 """This module defines an abstract SigningMechanism, as well as common child implementations of it
 """
-
-import six
 import abc
 import hmac
 import hashlib
 import base64
-from six.moves import urllib
 
 
-@six.add_metaclass(abc.ABCMeta)
-class SigningMechanism(object):
+class SigningMechanism(abc.ABC):
     @abc.abstractmethod
     def sign(self, data_str):
         pass
@@ -40,8 +36,7 @@ class SymmetricKeySigningMechanism(SigningMechanism):
         # CT-TODO: is "signing key" the right term?
         try:
             self._signing_key = base64.b64decode(key)
-        except (base64.binascii.Error, TypeError):
-            # NOTE: TypeError can only be raised in Python 2.7
+        except (base64.binascii.Error):
             raise ValueError("Invalid Symmetric Key")
 
     def sign(self, data_str):

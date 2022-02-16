@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six
 import traceback
 import threading
 import weakref

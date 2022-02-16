@@ -90,35 +90,6 @@ class TestCreateTask(object):
         assert spy_ensure_future.call_args == mocker.call(coro_obj)
 
 
-@pytest.mark.describe("create_future()")
-class TestCreateFuture(object):
-    @pytest.mark.it(
-        "Returns a new Future object attached to the given Event Loop, in Python 3.5.2 or higher"
-    )
-    @pytest.mark.skipif(sys.version_info < (3, 5, 2), reason="Requires Python 3.5.2+")
-    async def test_create_future_for_given_loop(self, mocker, event_loop):
-        spy_create_future = mocker.spy(event_loop, "create_future")
-        result = asyncio_compat.create_future(event_loop)
-        assert isinstance(result, asyncio.Future)
-        assert result._loop == event_loop  # Future.get_loop() only works in Python 3.7+
-        assert spy_create_future.call_count == 1
-        assert spy_create_future.call_args == mocker.call()
-
-    @pytest.mark.it(
-        "Returns a new Future object attached to the given Event Loop, in Python 3.5.1 or below"
-    )
-    @pytest.mark.skipif(sys.version_info >= (3, 5, 1), reason="Requires Python 3.5.1 or below")
-    async def test_create_future_for_given_loop_py351orless_compat(self, mocker, event_loop):
-        spy_future = mocker.spy(asyncio, "Future")
-        result = asyncio_compat.create_future(event_loop)
-        assert isinstance(
-            result, spy_future.side_effect
-        )  # spy_future.side_effect == asyncio.Future
-        assert result._loop == event_loop  # Future.get_loop() only works in Python 3.7+
-        assert spy_future.call_count == 1
-        assert spy_future.call_args == mocker.call(loop=event_loop)
-
-
 @pytest.mark.describe("run()")
 class TestRun(object):
     @pytest.mark.it("Runs the given coroutine on a new event loop in Python 3.7 or higher")

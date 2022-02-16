@@ -5,11 +5,8 @@
 # --------------------------------------------------------------------------
 """This module contains tools for working with Shared Access Signature (SAS) Tokens"""
 
-import base64
-import hmac
-import hashlib
 import time
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.common.chainable_exception import ChainableException
 
 

@@ -9,7 +9,7 @@ import pytest
 import time
 import re
 import logging
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.common.auth.sastoken import (
     RenewableSasToken,
     NonRenewableSasToken,

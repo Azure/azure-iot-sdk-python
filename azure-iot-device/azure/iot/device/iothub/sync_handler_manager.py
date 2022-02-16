@@ -7,7 +7,6 @@
 import logging
 import threading
 import abc
-import six
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.common.chainable_exception import ChainableException
 from azure.iot.device.iothub.client_event import (
@@ -45,8 +44,7 @@ class HandlerRunnerKillerSentinel(object):
     pass
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractHandlerManager(object):
+class AbstractHandlerManager(abc.ABC):
     """Partial class that defines handler manager functionality shared between sync/async"""
 
     def __init__(self, inbox_manager):

@@ -9,7 +9,7 @@ import json
 import base64
 import requests
 import requests_unixsocket
-from six.moves import urllib, http_client
+import urllib
 from azure.iot.device.common.chainable_exception import ChainableException
 from azure.iot.device.common.auth.signing_mechanism import SigningMechanism
 from azure.iot.device import user_agent

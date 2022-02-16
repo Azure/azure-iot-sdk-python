@@ -541,10 +541,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
-    """A synchronous device client that connects to an Azure IoT Hub instance.
-
-    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
-    """
+    """A synchronous device client that connects to an Azure IoT Hub instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
@@ -628,10 +625,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
-    """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
-
-    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
-    """
+    """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.

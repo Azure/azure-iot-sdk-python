@@ -7,12 +7,8 @@
 import logging
 import pytest
 import asyncio
-import threading
 import time
-import os
-import io
-import sys
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient

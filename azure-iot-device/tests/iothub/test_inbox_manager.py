@@ -6,9 +6,6 @@
 
 import pytest
 import logging
-import sys
-import six
-import abc
 from azure.iot.device.iothub.inbox_manager import InboxManager
 from azure.iot.device.iothub.models import Message, MethodRequest
 

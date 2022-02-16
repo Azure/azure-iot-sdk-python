@@ -95,13 +95,12 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
     If block==True, the call waits for the decorated function to complete before returning.
     """
 
-    # Mocks on py27 don't have a __name__ attribute.  Use str() if you can't use __name__
+    # Mocks and other callable objects don't have a __name__ attribute.
+    # Use str() if you can't use __name__
     try:
         function_name = func.__name__
-        function_has_name = True
     except AttributeError:
         function_name = str(func)
-        function_has_name = False
 
     def wrapper(*args, **kwargs):
         if threading.current_thread().name is not thread_name:
@@ -118,7 +117,7 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
                         raise
                 except BaseException:
                     if not block:
-                        # This is truely a logger.critical condition.  Most exceptions in background threads should
+                        # This is truly a logger.critical condition.  Most exceptions in background threads should
                         # be handled inside the thread and should result in call to handle_background_exception
                         # if this code is hit, that means something happened which wasn't handled, therefore
                         # handle_background_exception wasn't called, therefore we need to log this at the highest
@@ -140,18 +139,9 @@ def _invoke_on_executor_thread(func, thread_name, block=True):
             logger.debug("Already in {} thread for {}".format(thread_name, function_name))
             return func(*args, **kwargs)
 
-    # Silly hack:  On 2.7, we can't use @functools.wraps on callables don't have a __name__ attribute
-    # attribute(like MagicMock object), so we only do it when we have a name.  functools.update_wrapper
-    # below is the same as using the @functools.wraps(func) decorator on the wrapper function above.
-    if function_has_name:
-        updated_wrapper = functools.update_wrapper(wrapped=func, wrapper=wrapper)
-        # In Python 2.7 this doesn't add the __wrapped__ attribute (sometimes?)
-        if not hasattr(updated_wrapper, "__wrapped__"):
-            updated_wrapper.__wrapped__ = func
-        return updated_wrapper
-    else:
-        wrapper.__wrapped__ = func  # needed by tests
-        return wrapper
+    # This is like using the @functools.wraps(func) decorator on the wrapper function above
+    updated_wrapper = functools.update_wrapper(wrapped=func, wrapper=wrapper)
+    return updated_wrapper
 
 
 def invoke_on_pipeline_thread(func):

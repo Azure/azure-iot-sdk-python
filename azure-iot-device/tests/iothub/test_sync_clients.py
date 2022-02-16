@@ -4,19 +4,11 @@
 # license information.
 # --------------------------------------------------------------------------
 
-from azure.iot.device.common.pipeline.pipeline_exceptions import (
-    OperationCancelled,
-    OperationTimeout,
-)
-from azure.iot.device.common.evented_callback import EventedCallback
 import pytest
 import logging
 import threading
 import time
-import os
-import io
-import six
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.iothub import IoTHubDeviceClient, IoTHubModuleClient
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st

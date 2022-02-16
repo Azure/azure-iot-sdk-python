@@ -6,7 +6,6 @@
 """This module contains abstract classes for the various clients of the Azure IoT Hub Device SDK
 """
 
-import six
 import abc
 import logging
 import threading
@@ -100,8 +99,7 @@ RECEIVE_TYPE_HANDLER = "handler"  # Only use handlers for receive
 RECEIVE_TYPE_API = "api"  # Only use APIs for receive
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractIoTHubClient(object):
+class AbstractIoTHubClient(abc.ABC):
     """A superclass representing a generic IoTHub client.
     This class needs to be extended for specific clients.
     """
@@ -501,7 +499,6 @@ class AbstractIoTHubClient(object):
         )
 
 
-@six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
     @classmethod
     def create_from_x509_certificate(cls, x509, hostname, device_id, **kwargs):
@@ -655,7 +652,6 @@ class AbstractIoTHubDeviceClient(AbstractIoTHubClient):
         )
 
 
-@six.add_metaclass(abc.ABCMeta)
 class AbstractIoTHubModuleClient(AbstractIoTHubClient):
     @classmethod
     def create_from_edge_environment(cls, **kwargs):
@@ -723,8 +719,7 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
                     server_verification_cert = ca_cert_file.read()
-            except (OSError, IOError) as e:
-                # In Python 2, a non-existent file raises IOError, and an invalid file raises an IOError.
+            except (FileNotFoundError, OSError) as e:
                 # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
                 # However, FileNotFoundError inherits from OSError, and IOError has been turned into an alias for OSError,
                 # thus we can catch the errors for both versions in this block.
