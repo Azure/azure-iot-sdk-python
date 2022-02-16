@@ -143,11 +143,9 @@ class HTTPTransport(object):
             callback(error=e)
         except Exception as e:
             # Raise error via the callback
-            callback(
-                error=exceptions.ProtocolClientError(
-                    message="Unexpected HTTPS failure during connect", cause=e
-                )
-            )
+            new_err = exceptions.ProtocolClientError("Unexpected HTTPS failure during connect")
+            new_err.__cause__ = e
+            callback(error=new_err)
         else:
             # Return the data from the response via the callback
             response_obj = {

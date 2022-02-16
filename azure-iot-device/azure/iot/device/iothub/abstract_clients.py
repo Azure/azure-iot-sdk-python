@@ -719,16 +719,10 @@ class AbstractIoTHubModuleClient(AbstractIoTHubClient):
             try:
                 with io.open(ca_cert_filepath, mode="r") as ca_cert_file:
                     server_verification_cert = ca_cert_file.read()
-            except (FileNotFoundError, OSError) as e:
-                # In Python 3, a non-existent file raises FileNotFoundError, and an invalid file raises an OSError.
-                # However, FileNotFoundError inherits from OSError, and IOError has been turned into an alias for OSError,
-                # thus we can catch the errors for both versions in this block.
-                # Unfortunately, we can't distinguish cause of error from error type, so the raised ValueError has a generic
-                # message. If, in the future, we want to add detail, this could be accomplished by inspecting the e.errno
-                # attribute
-                new_err = ValueError("Invalid CA certificate file")
-                new_err.__cause__ = e
-                raise new_err
+            except FileNotFoundError:
+                raise
+            except OSError as e:
+                raise ValueError("Invalid CA certificate file") from e
 
             # Extract config values from connection string
             connection_string = cs.ConnectionString(connection_string)

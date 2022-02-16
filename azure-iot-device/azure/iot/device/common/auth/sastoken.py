@@ -7,10 +7,9 @@
 
 import time
 import urllib
-from azure.iot.device.common.chainable_exception import ChainableException
 
 
-class SasTokenError(ChainableException):
+class SasTokenError(Exception):
     """Error in SasToken"""
 
     pass
@@ -73,7 +72,7 @@ class RenewableSasToken(object):
         except Exception as e:
             # Because of variant signing mechanisms, we don't know what error might be raised.
             # So we catch all of them.
-            raise SasTokenError("Unable to build SasToken from given values", e)
+            raise SasTokenError("Unable to build SasToken from given values") from e
         url_encoded_signature = urllib.parse.quote(signature, safe="")
         if self._key_name:
             token = self._auth_rule_token_format.format(
@@ -142,7 +141,7 @@ def get_sastoken_info_from_string(sastoken_string):
     try:
         sastoken_info = dict(map(str.strip, sub.split("=", 1)) for sub in pieces[1].split("&"))
     except Exception as e:
-        raise SasTokenError("Invalid SasToken string: Incorrectly formatted", e)
+        raise SasTokenError("Invalid SasToken string: Incorrectly formatted") from e
 
     # Validate that all required fields are present
     if not all(key in sastoken_info for key in REQUIRED_SASTOKEN_FIELDS):

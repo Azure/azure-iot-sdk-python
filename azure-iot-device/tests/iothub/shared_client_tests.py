@@ -1787,15 +1787,15 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
             client_class.create_from_edge_environment()
 
     @pytest.mark.it(
-        "Raises ValueError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
+        "Raises FileNotFoundError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
     )
     def test_bad_filepath(self, mocker, client_class, edge_local_debug_environment, mock_open):
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         my_fnf_error = FileNotFoundError()
         mock_open.side_effect = my_fnf_error
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(FileNotFoundError) as e_info:
             client_class.create_from_edge_environment()
-        assert e_info.value.__cause__ is my_fnf_error
+        assert e_info.value is my_fnf_error
 
     @pytest.mark.it(
         "Raises ValueError if the file referenced by the filepath in the EdgeModuleCACertificateFile environment variable cannot be opened"

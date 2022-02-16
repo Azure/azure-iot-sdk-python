@@ -10,7 +10,6 @@ import base64
 import requests
 import requests_unixsocket
 import urllib
-from azure.iot.device.common.chainable_exception import ChainableException
 from azure.iot.device.common.auth.signing_mechanism import SigningMechanism
 from azure.iot.device import user_agent
 
@@ -18,7 +17,7 @@ requests_unixsocket.monkeypatch()
 logger = logging.getLogger(__name__)
 
 
-class IoTEdgeError(ChainableException):
+class IoTEdgeError(Exception):
     pass
 
 
@@ -68,17 +67,17 @@ class IoTEdgeHsm(SigningMechanism):
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            raise IoTEdgeError(message="Unable to get trust bundle from Edge", cause=e)
+            raise IoTEdgeError("Unable to get trust bundle from Edge") from e
         # Decode the trust bundle
         try:
             bundle = r.json()
         except ValueError as e:
-            raise IoTEdgeError(message="Unable to decode trust bundle", cause=e)
+            raise IoTEdgeError("Unable to decode trust bundle") from e
         # Retrieve the certificate
         try:
             cert = bundle["certificate"]
         except KeyError as e:
-            raise IoTEdgeError(message="No certificate in trust bundle", cause=e)
+            raise IoTEdgeError("No certificate in trust bundle") from e
         return cert
 
     def sign(self, data_str):
@@ -109,15 +108,15 @@ class IoTEdgeHsm(SigningMechanism):
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            raise IoTEdgeError(message="Unable to sign data", cause=e)
+            raise IoTEdgeError("Unable to sign data") from e
         try:
             sign_response = r.json()
         except ValueError as e:
-            raise IoTEdgeError(message="Unable to decode signed data", cause=e)
+            raise IoTEdgeError("Unable to decode signed data") from e
         try:
             signed_data_str = sign_response["digest"]
         except KeyError as e:
-            raise IoTEdgeError(message="No signed data received", cause=e)
+            raise IoTEdgeError("No signed data received") from e
 
         return signed_data_str  # what format is this? string? bytes?
 

@@ -142,8 +142,8 @@ class PipelineOperation(object):
                     )
                     self.halt_completion()
                     raise pipeline_exceptions.OperationError(
-                        "Exception occurred while triggering completion callback", cause=e
-                    )
+                        "Exception occurred while triggering completion callback"
+                    ) from e
 
             if self.completing:
                 # Operation is now completed, no longer in the process of completing
