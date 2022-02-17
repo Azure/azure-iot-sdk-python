@@ -74,6 +74,9 @@ try:
         )
         print_query_result("Query all device twins - continued", query_result2)
 
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
+
 
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))

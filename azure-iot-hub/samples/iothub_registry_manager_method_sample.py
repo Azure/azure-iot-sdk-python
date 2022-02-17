@@ -24,6 +24,9 @@ try:
     deviceMethod = CloudToDeviceMethod(method_name=method_name, payload=method_payload)
     registry_manager.invoke_device_method(device_id, deviceMethod)
 
+    # Set registry manager object to `None` so all open files get closed
+    iothub_registry_manager = None
+
 except msrest.exceptions.HttpOperationError as ex:
     print("HttpOperationError error {0}".format(ex.response.text))
 except Exception as ex:
