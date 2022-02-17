@@ -2,7 +2,7 @@
 
 This directory contains samples showing how to use the various features of Azure IoT Hub Device SDK with the Azure IoT Hub.
 
-**These samples are written to run in Python 3.7+**, but can be made to work with Python 3.5 and 3.6 with a slight modification as noted in each sample:
+**These samples are written to run in Python 3.7+**, but can be made to work with Python 3.6 with a slight modification as noted in each sample:
 
 ```python
 if __name__ == "__main__":
