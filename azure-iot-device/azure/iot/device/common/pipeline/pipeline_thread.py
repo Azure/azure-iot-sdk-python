@@ -66,9 +66,6 @@ These decorators use concurrent.futures.Future and the ThreadPoolExecutor becaus
   BaseException errors, re-raising them when the Future.result method is called.
   threading.Thread.get() was not an option because it doesn't re-raise
   BaseException errors when Thread.get is called.
-
-3. concurrent.futures is available as a backport to 2.7.
-
 """
 
 _executors = {}
