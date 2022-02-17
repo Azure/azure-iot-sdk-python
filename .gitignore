@@ -46,6 +46,9 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+# Need to change timeout on this locally in order to debug tests
+# but we don't want to commit those changes ever.
+pytest.ini 
 
 # Translations
 *.mo
