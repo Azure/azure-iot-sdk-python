@@ -14,16 +14,10 @@ from azure.iot.device.iothub.sync_inbox import SyncClientInbox
 logging.basicConfig(level=logging.DEBUG)
 
 
-# Create a list of Inbox types to test with the manager
-inbox_type_list = []
-inbox_type_ids = []
-inbox_type_list.append(AsyncClientInbox)
-inbox_type_ids.append("Configured with AsyncClientInboxes")
-inbox_type_list.append(SyncClientInbox)
-inbox_type_ids.append("Configured with SyncClientInboxes")
-
-
-@pytest.fixture(params=inbox_type_list, ids=inbox_type_ids)
+@pytest.fixture(
+    params=[AsyncClientInbox, SyncClientInbox],
+    ids=["Configured with AsyncClientInboxes", "Configured with SyncClientInboxes"],
+)
 def inbox_type(request):
     return request.param
 
