@@ -168,10 +168,7 @@ class MQTTTransport(object):
         mqtt_client.tls_set_context(context=ssl_context)
 
         # Set event handlers.  Use weak references back into this object to prevent
-        # leaks on Python 2.7.  See callable_weak_method.py and PEP 442 for explanation.
-        #
-        # We don't use the CallableWeakMethod object here because these handlers
-        # are not methods.
+        # leaks on Python 2.7.  See PEP 442 for explanation.
         self_weakref = weakref.ref(self)
 
         def on_connect(client, userdata, flags, rc):

@@ -13,7 +13,6 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device import exceptions
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 from . import pipeline_events_iothub, pipeline_ops_iothub
 from . import constant
 
@@ -59,7 +58,7 @@ class EnsureDesiredPropertiesStage(PipelineStage):
         if not self.pending_get_request:
             logger.info("{}: sending twin GET to ensure freshness".format(self.name))
             self.pending_get_request = pipeline_ops_iothub.GetTwinOperation(
-                callback=CallableWeakMethod(self, "_on_get_twin_complete")
+                callback=self._on_get_twin_complete
             )
             self.send_op_down(self.pending_get_request)
         else:

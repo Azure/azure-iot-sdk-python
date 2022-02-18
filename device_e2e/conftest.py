@@ -206,7 +206,3 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 collect_ignore = ["test_settings.py"]
-
-# Ignore Async tests if below Python 3.5
-if sys.version_info < (3, 5):
-    collect_ignore.append("aio")

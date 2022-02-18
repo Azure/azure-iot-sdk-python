@@ -13,7 +13,7 @@ def get_running_loop():
     """Gets the currently running event loop
 
     Uses asyncio.get_running_loop() if available (Python 3.7+) or a backported
-    version of the same function in 3.5/3.6.
+    version of the same function in 3.6.
     """
     try:
         loop = asyncio.get_running_loop()
