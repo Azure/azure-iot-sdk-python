@@ -170,7 +170,8 @@ class MQTTTransport(object):
         # Set event handlers.  Use weak references back into this object to prevent
         # leaks on Python 2.7.  See PEP 442 for explanation.
         # self_weakref = weakref.ref(self)
-        self_weakref = self
+        def self_weakref():
+            return self
 
         def on_connect(client, userdata, flags, rc):
             this = self_weakref()
