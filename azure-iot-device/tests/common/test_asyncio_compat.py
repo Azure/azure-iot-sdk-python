@@ -35,8 +35,8 @@ class TestGetRunningLoop(object):
         with pytest.raises(RuntimeError):
             asyncio_compat.get_running_loop()
 
-    @pytest.mark.it("Returns the currently running Event Loop in Python 3.6 or below")
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
+    @pytest.mark.it("Returns the currently running Event Loop in Python 3.6")
+    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6")
     async def test_returns_currently_running_event_loop_py36orless_compat(self, mocker, event_loop):
         spy_get_event_loop = mocker.spy(asyncio, "_get_running_loop")
         result = asyncio_compat.get_running_loop()
@@ -44,10 +44,8 @@ class TestGetRunningLoop(object):
         assert spy_get_event_loop.call_count == 1
         assert spy_get_event_loop.call_args == mocker.call()
 
-    @pytest.mark.it(
-        "Raises a RuntimeError if there is no running Event Loop in Python 3.6 or below"
-    )
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
+    @pytest.mark.it("Raises a RuntimeError if there is no running Event Loop in Python 3.6")
+    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6")
     async def test_raises_runtime_error_if_no_running_event_loop_py36orless_compat(self, mocker):
         mocker.patch.object(asyncio, "_get_running_loop", return_value=None)
         with pytest.raises(RuntimeError):
@@ -76,9 +74,9 @@ class TestCreateTask(object):
         assert spy_create_task.call_args == mocker.call(coro_obj)
 
     @pytest.mark.it(
-        "Returns a Task that wraps a given coroutine, and schedules its execution, in Python 3.6 or below"
+        "Returns a Task that wraps a given coroutine, and schedules its execution, in Python 3.6"
     )
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
+    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6")
     async def test_returns_task_wrapping_given_coroutine_py36orless_compat(
         self, mocker, dummy_coroutine
     ):
@@ -102,8 +100,8 @@ class TestRun(object):
         assert mock_asyncio_run.call_args == mocker.call(mock_coro)
         assert result == mock_asyncio_run.return_value
 
-    @pytest.mark.it("Runs the given coroutine on a new event loop in Python 3.6 or below")
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
+    @pytest.mark.it("Runs the given coroutine on a new event loop in Python 3.6")
+    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6")
     def test_run_36orless_compat(self, mocker):
         mock_new_event_loop = mocker.patch.object(asyncio, "new_event_loop")
         mock_set_event_loop = mocker.patch.object(asyncio, "set_event_loop")
@@ -128,9 +126,9 @@ class TestRun(object):
         assert mock_set_event_loop.call_args_list[1] == mocker.call(None)
 
     @pytest.mark.it(
-        "Closes the event loop and resets to None, even if an error occurs running the coroutine, in Python 3.6 or below"
+        "Closes the event loop and resets to None, even if an error occurs running the coroutine, in Python 3.6"
     )
-    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6 or below")
+    @pytest.mark.skipif(sys.version_info >= (3, 7), reason="Requires Python 3.6")
     def test_error_running_36orless_compat(self, mocker, arbitrary_exception):
         # NOTE: This test is not necessary for 3.7 because asyncio.run() does this for us
         mock_new_event_loop = mocker.patch.object(asyncio, "new_event_loop")
