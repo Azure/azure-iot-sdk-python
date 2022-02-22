@@ -6,7 +6,6 @@
 
 import pytest
 import logging
-import six.moves.urllib as urllib
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_mqtt,
@@ -20,8 +19,7 @@ from azure.iot.device.iothub.pipeline import (
     pipeline_ops_iothub,
     pipeline_events_iothub,
 )
-from azure.iot.device.iothub import Message
-from azure.iot.device.iothub.pipeline import MQTTPipeline, constant
+from azure.iot.device.iothub.pipeline import MQTTPipeline
 from .conftest import all_features
 
 logging.basicConfig(level=logging.DEBUG)

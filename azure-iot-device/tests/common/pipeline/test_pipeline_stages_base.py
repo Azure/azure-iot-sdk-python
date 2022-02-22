@@ -11,7 +11,7 @@ import sys
 import threading
 import random
 import uuid
-from six.moves import queue
+import queue
 from azure.iot.device.common import transport_exceptions, alarm
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.pipeline import (
@@ -28,10 +28,6 @@ from .helpers import StageRunOpTestBase, StageHandlePipelineEventTestBase
 from .fixtures import ArbitraryOperation, ArbitraryEvent
 from tests.common.pipeline import pipeline_stage_test
 
-# Python 2 doesn't define this constant, so manually do it
-if sys.version_info < (3,):
-    if not hasattr(threading, "TIMEOUT_MAX"):
-        threading.TIMEOUT_MAX = 4294967.0
 
 this_module = sys.modules[__name__]
 logging.basicConfig(level=logging.DEBUG)

@@ -23,7 +23,7 @@ class IoTHubPipelineConfig(BasePipelineConfig):
         :param str module_id: The module identity being used with the IoTHub
         :param str product_info: A custom identification string for the type of device connecting to Azure IoT Hub.
         """
-        super(IoTHubPipelineConfig, self).__init__(hostname=hostname, **kwargs)
+        super().__init__(hostname=hostname, **kwargs)
 
         # IoTHub Connection Details
         self.device_id = device_id

@@ -34,7 +34,6 @@ def _parse_connection_string(connection_string):
     try:
         cs_args = connection_string.split(CS_DELIMITER)
     except (AttributeError, TypeError):
-        # NOTE: in Python 2.7, bytes will not raise an error here as they do in all other versions
         raise TypeError("Connection String must be of type str")
     try:
         d = dict(arg.split(CS_VAL_SEPARATOR, 1) for arg in cs_args)

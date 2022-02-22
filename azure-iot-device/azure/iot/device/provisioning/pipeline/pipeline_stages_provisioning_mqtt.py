@@ -5,8 +5,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six.moves.urllib as urllib
-from azure.iot.device.common import version_compat
+import urllib
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
     pipeline_ops_mqtt,
@@ -32,7 +31,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
     """
 
     def __init__(self):
-        super(ProvisioningMQTTTranslationStage, self).__init__()
+        super().__init__()
         self.action_to_topic = {}
 
     @pipeline_thread.runs_on_pipeline_thread
@@ -48,9 +47,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
             username = "{id_scope}/registrations/{registration_id}/{query_params}".format(
                 id_scope=self.pipeline_root.pipeline_configuration.id_scope,
                 registration_id=self.pipeline_root.pipeline_configuration.registration_id,
-                query_params=version_compat.urlencode(
-                    query_param_seq, quote_via=urllib.parse.quote
-                ),
+                query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
             )
 
             # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
@@ -114,7 +111,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            super(ProvisioningMQTTTranslationStage, self)._run_op(op)
+            super()._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):

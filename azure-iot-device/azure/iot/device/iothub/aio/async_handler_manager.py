@@ -201,11 +201,11 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 # This shouldn't happen because cancellation or timeout shouldn't occur...
                 # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER RUNNER ({}): Unable to retrieve exception data from incomplete task".format(
+                    "HANDLER RUNNER ({}): Unable to retrieve exception data from incomplete task".format(
                         handler_name
-                    ),
-                    cause=raised_e,
+                    )
                 )
+                new_err.__cause__ = raised_e
                 handle_exceptions.handle_background_exception(new_err)
             else:
                 if e:
@@ -213,11 +213,9 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     # We must log the error, and then restart the runner so that the program
                     # does not enter an invalid state
                     new_err = HandlerManagerException(
-                        message="HANDLER RUNNER ({}): Unexpected error during task".format(
-                            handler_name
-                        ),
-                        cause=e,
+                        "HANDLER RUNNER ({}): Unexpected error during task".format(handler_name),
                     )
+                    new_err.__cause__ = e
                     handle_exceptions.handle_background_exception(new_err)
                     # Clear the tracked runner, and start a new one
                     logger.debug("HANDLER RUNNER ({}): Restarting handler runner")

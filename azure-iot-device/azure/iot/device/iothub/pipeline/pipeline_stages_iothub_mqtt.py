@@ -6,8 +6,7 @@
 
 import logging
 import json
-from six.moves import urllib
-from azure.iot.device.common import version_compat
+import urllib
 from azure.iot.device.common.pipeline import (
     pipeline_events_base,
     pipeline_ops_base,
@@ -74,9 +73,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             username = "{hostname}/{client_id}/?{query_params}".format(
                 hostname=self.pipeline_root.pipeline_configuration.hostname,
                 client_id=client_id,
-                query_params=version_compat.urlencode(
-                    query_param_seq, quote_via=urllib.parse.quote
-                ),
+                query_params=urllib.parse.urlencode(query_param_seq, quote_via=urllib.parse.quote),
             )
 
             # Dynamically attach the derived MQTT values to the InitalizePipelineOperation
@@ -151,7 +148,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
         else:
             # All other operations get passed down
-            super(IoTHubMQTTTranslationStage, self)._run_op(op)
+            super()._run_op(op)
 
     @pipeline_thread.runs_on_pipeline_thread
     def _get_feature_subscription_topic(self, feature):

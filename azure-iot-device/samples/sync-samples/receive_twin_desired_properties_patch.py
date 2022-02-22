@@ -5,8 +5,6 @@
 # --------------------------------------------------------------------------
 
 import os
-import threading
-from six.moves import input
 from azure.iot.device import IoTHubDeviceClient
 
 conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")

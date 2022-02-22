@@ -24,7 +24,7 @@ class RegisterOperation(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(RegisterOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.request_payload = request_payload
         self.registration_id = registration_id
         self.registration_result = registration_result
@@ -51,7 +51,7 @@ class PollStatusOperation(PipelineOperation):
          The callback function must accept A PipelineOperation object which indicates the specific operation which
          has completed or failed.
         """
-        super(PollStatusOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.operation_id = operation_id
         self.request_payload = request_payload
         self.registration_result = registration_result

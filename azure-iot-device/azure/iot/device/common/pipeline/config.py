@@ -6,22 +6,16 @@
 
 import logging
 import threading
-import six
-import sys
 import abc
 from azure.iot.device import constant
 
-# Python 2 doesn't define this constant, so manually do it
-if sys.version_info < (3,):
-    threading.TIMEOUT_MAX = 4294967.0
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_KEEPALIVE = 60
 
 
-@six.add_metaclass(abc.ABCMeta)
-class BasePipelineConfig(object):
+class BasePipelineConfig(abc.ABC):
     """A base class for storing all configurations/options shared across the Azure IoT Python Device Client Library.
     More specific configurations such as those that only apply to the IoT Hub Client will be found in the respective
     config files.

@@ -4,9 +4,6 @@
 # license information.
 # --------------------------------------------------------------------------
 
-import sys
-import pytest
-
 # These fixtures are shared between sync and async clients
 from .client_fixtures import (
     message,
@@ -30,9 +27,3 @@ from .client_fixtures import (
     x509,
     mock_edge_hsm,
 )
-
-collect_ignore = []
-
-# Ignore Async tests if below Python 3.5
-if sys.version_info < (3, 5):
-    collect_ignore.append("aio")

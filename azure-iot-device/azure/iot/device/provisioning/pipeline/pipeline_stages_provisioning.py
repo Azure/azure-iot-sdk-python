@@ -294,7 +294,7 @@ class PollingStatusStage(CommonProvisioningStage):
             )
 
         else:
-            super(PollingStatusStage, self)._run_op(op)
+            super()._run_op(op)
 
 
 class RegistrationStage(CommonProvisioningStage):
@@ -444,7 +444,7 @@ class RegistrationStage(CommonProvisioningStage):
             )
 
         else:
-            super(RegistrationStage, self)._run_op(op)
+            super()._run_op(op)
 
 
 class DeviceRegistrationPayload(object):

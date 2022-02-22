@@ -32,35 +32,29 @@ async def handle_result(callback):
     try:
         return await callback.completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
-        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+        raise exceptions.ConnectionDroppedError("Lost connection to IoTHub") from e
     except pipeline_exceptions.ConnectionFailedError as e:
-        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+        raise exceptions.ConnectionFailedError("Could not connect to IoTHub") from e
     except pipeline_exceptions.NoConnectionError as e:
-        raise exceptions.NoConnectionError(message="Client is not connected to IoTHub", cause=e)
+        raise exceptions.NoConnectionError("Client is not connected to IoTHub") from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
     except pipeline_exceptions.ProtocolClientError as e:
-        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+        raise exceptions.ClientError("Error in the IoTHub client") from e
     except pipeline_exceptions.TlsExchangeAuthError as e:
-        raise exceptions.ClientError(
-            message="Error in the IoTHub client due to TLS exchanges.", cause=e
-        )
+        raise exceptions.ClientError("Error in the IoTHub client due to TLS exchanges.") from e
     except pipeline_exceptions.ProtocolProxyError as e:
         raise exceptions.ClientError(
-            message="Error in the IoTHub client raised due to proxy connections.", cause=e
-        )
+            "Error in the IoTHub client raised due to proxy connections."
+        ) from e
     except pipeline_exceptions.PipelineNotRunning as e:
-        raise exceptions.ClientError(message="Client has already been shut down", cause=e)
+        raise exceptions.ClientError("Client has already been shut down") from e
     except pipeline_exceptions.OperationCancelled as e:
-        raise exceptions.OperationCancelled(
-            message="Operation was cancelled before completion", cause=e
-        )
+        raise exceptions.OperationCancelled("Operation was cancelled before completion") from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout(
-            message="Could not complete operation before timeout", cause=e
-        )
+        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
     except Exception as e:
-        raise exceptions.ClientError(message="Unexpected failure", cause=e)
+        raise exceptions.ClientError("Unexpected failure") from e
 
 
 class GenericIoTHubClient(AbstractIoTHubClient):
@@ -523,10 +517,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
-    """An asynchronous device client that connects to an Azure IoT Hub instance.
-
-    Intended for usage with Python 3.5.3+
-    """
+    """An asynchronous device client that connects to an Azure IoT Hub instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
@@ -608,10 +599,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
-    """An asynchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
-
-    Intended for usage with Python 3.5.3+
-    """
+    """An asynchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.

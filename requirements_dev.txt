@@ -1,6 +1,6 @@
 py
 wheel>=0.32.1
-black; python_version >= '3.6'
+black
 pre-commit
 twine
 pylint
