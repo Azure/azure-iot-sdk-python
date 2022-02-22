@@ -7,6 +7,7 @@ import time
 import threading
 import const
 from utils import get_random_dict
+from azure.iot.device.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -36,6 +37,19 @@ class TestReportedProperties(object):
         # get twin from the service and verify content
         twin = client.get_twin()
         assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
+    @pytest.mark.it("Raises correct exception for un-serializable patch")
+    def test_sync_bad_reported_patch_raises(self, client):
+        # There's no way to serialize a function.
+        def thing_that_cant_serialize():
+            pass
+
+        try:
+            client.patch_twin_reported_properties(thing_that_cant_serialize)
+        except ClientError as e:
+            assert type(e.__cause__) == TypeError
+        else:
+            assert False
 
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite

@@ -5,7 +5,8 @@ import pytest
 import logging
 import json
 import time
-from azure.iot.device.exceptions import OperationCancelled
+import utils
+from azure.iot.device.exceptions import OperationCancelled, ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -34,6 +35,37 @@ class TestSendMessage(object):
 
         event = service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
+
+    @pytest.mark.it("Raises correct exception for un-serializable payload")
+    def test_sync_bad_payload_raises(self, client):
+        # There's no way to serialize a function.
+        def thing_that_cant_serialize():
+            pass
+
+        try:
+            client.send_message(thing_that_cant_serialize)
+        except ClientError as e:
+            assert type(e.__cause__) == TypeError
+        else:
+            assert False
+
+    @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
+    def test_sync_sends_json_string(self, client, service_helper):
+        message = json.dumps(utils.get_random_dict())
+
+        client.send_message(message)
+
+        event = service_helper.wait_for_eventhub_arrival(None)
+        assert json.dumps(event.message_body) == message
+
+    @pytest.mark.it("Can send a random string that isn't wrapped in a Message object")
+    def test_sync_sends_random_string(self, client, service_helper):
+        message = utils.get_random_string(16)
+
+        client.send_message(message)
+
+        event = service_helper.wait_for_eventhub_arrival(None)
+        assert event.message_body == message
 
 
 @pytest.mark.dropped_connection
