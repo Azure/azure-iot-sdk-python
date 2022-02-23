@@ -17,7 +17,7 @@ class C2DMessageEvent(PipelineEvent):
 
         :param Message message: The Message object for the message that was received.
         """
-        super(C2DMessageEvent, self).__init__()
+        super().__init__()
         self.message = message
 
 
@@ -34,7 +34,7 @@ class InputMessageEvent(PipelineEvent):
         :param Message message: The Message object for the message that was received. This message
             is expected to have had the .input_name attribute set
         """
-        super(InputMessageEvent, self).__init__()
+        super().__init__()
         self.message = message
 
 
@@ -45,7 +45,7 @@ class MethodRequestEvent(PipelineEvent):
     """
 
     def __init__(self, method_request):
-        super(MethodRequestEvent, self).__init__()
+        super().__init__()
         self.method_request = method_request
 
 
@@ -56,5 +56,5 @@ class TwinDesiredPropertiesPatchEvent(PipelineEvent):
     """
 
     def __init__(self, patch):
-        super(TwinDesiredPropertiesPatchEvent, self).__init__()
+        super().__init__()
         self.patch = patch

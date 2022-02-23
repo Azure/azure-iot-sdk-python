@@ -6,7 +6,7 @@
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 
-export RUNTIMES_TO_INSTALL="2.7.15 3.4.9 3.5.6 3.6.6 3.7.1"
+export RUNTIMES_TO_INSTALL="3.6.6 3.7.1 3.8.10 3.9.9 3.10.2"
 
 echo "This script will do the following:"
 echo "1. Use apt to install pre-requisites for pyenv"

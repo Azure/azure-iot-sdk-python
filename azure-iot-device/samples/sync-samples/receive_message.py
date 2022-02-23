@@ -5,8 +5,6 @@
 # --------------------------------------------------------------------------
 
 import os
-from six.moves import input
-import threading
 from azure.iot.device import IoTHubDeviceClient
 
 # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.

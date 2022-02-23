@@ -18,6 +18,6 @@ class IncomingMQTTMessageEvent(PipelineEvent):
         :param str topic: The name of the topic that the incoming message arrived on.
         :param str payload: The payload of the message
         """
-        super(IncomingMQTTMessageEvent, self).__init__()
+        super().__init__()
         self.topic = topic
         self.payload = payload

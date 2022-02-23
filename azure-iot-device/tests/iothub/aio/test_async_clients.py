@@ -7,12 +7,8 @@
 import logging
 import pytest
 import asyncio
-import threading
 import time
-import os
-import io
-import sys
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device import exceptions as client_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.iothub.aio import IoTHubDeviceClient, IoTHubModuleClient
@@ -1248,27 +1244,22 @@ class SharedClientReceiveTwinDesiredPropertiesPatchTests(object):
         assert inbox_get_mock.call_count == 0
 
 
-################
-# DEVICE TESTS #
-################
+# ################
+# # DEVICE TESTS #
+# ################
 class IoTHubDeviceClientTestsConfig(object):
     @pytest.fixture
     def client_class(self):
         return IoTHubDeviceClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    async def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
         client = IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
         yield client
-        # We can't await a disconnect here because this is a function, not a coroutine, so some
-        # kind of messy loop stuff has to happen.
-        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
-        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(client.disconnect())
+        await client.shutdown()
 
     @pytest.fixture
     def connection_string(self, device_connection_string):
@@ -1328,7 +1319,13 @@ class TestIoTHubDeviceClientCreateFromX509Certificate(
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .shutdown()")
 class TestIoTHubDeviceClientShutdown(IoTHubDeviceClientTestsConfig, SharedClientShutdownTests):
-    pass
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """Override the client so that it doesn't shutdown during cleanup.
+        Shutdown can only be done once, and it is under test, so shutting down again during cleanup
+        will fail.
+        """
+        return IoTHubDeviceClient(mqtt_pipeline, http_pipeline)
 
 
 @pytest.mark.describe("IoTHubDeviceClient (Asynchronous) - .update_sastoken()")
@@ -1778,18 +1775,13 @@ class IoTHubModuleClientTestsConfig(object):
         return IoTHubModuleClient
 
     @pytest.fixture
-    def client(self, mqtt_pipeline, http_pipeline):
+    async def client(self, mqtt_pipeline, http_pipeline):
         """This client automatically resolves callbacks sent to the pipeline.
         It should be used for the majority of tests.
         """
         client = IoTHubModuleClient(mqtt_pipeline, http_pipeline)
         yield client
-        # We can't await a disconnect here because this is a function, not a coroutine, so some
-        # kind of messy loop stuff has to happen.
-        # You may ask, why not just make this fixture a coroutine? But alas, you cannot yield from
-        # a coroutine in Python 3.5 (3.6 and above is fine). And we have to yield.
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(client.disconnect())
+        await client.shutdown()
 
     @pytest.fixture
     def connection_string(self, module_connection_string):
@@ -1863,7 +1855,13 @@ class TestIoTHubModuleClientCreateFromX509Certificate(
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .shutdown()")
 class TestIoTHubModuleClientShutdown(IoTHubModuleClientTestsConfig, SharedClientShutdownTests):
-    pass
+    @pytest.fixture
+    def client(self, mqtt_pipeline, http_pipeline):
+        """Override the client so that it doesn't shutdown during cleanup.
+        Shutdown can only be done once, and it is under test, so shutting down again during cleanup
+        will fail.
+        """
+        return IoTHubModuleClient(mqtt_pipeline, http_pipeline)
 
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - .update_sastoken()")
@@ -2385,7 +2383,7 @@ class TestIoTHubModuleClientPROPERTYOnNewSastokenRequiredHandler(
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - PROPERTY .on_background_exception")
 class TestIoTHubModuleClientPROPERTYOnBackgroundExceptionHandler(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientPROPERTYHandlerTests
 ):
     @pytest.fixture
     def handler_name(self):
@@ -2422,6 +2420,6 @@ class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
 
 @pytest.mark.describe("IoTHubModuleClient (Asynchronous) - OCCURRENCE: Background Exception")
 class TestIoTHubModuleClientOCCURRENCEBackgroundException(
-    IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
+    IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):
     pass

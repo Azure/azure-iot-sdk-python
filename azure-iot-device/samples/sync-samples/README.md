@@ -1,8 +1,6 @@
-# Legacy Scenario Samples for the Azure IoT Hub Device SDK
+# Synchronous API Scenario Samples for the Azure IoT Hub Device SDK
 
 This directory contains samples showing how to use the various features of Azure IoT Hub Device SDK with the Azure IoT Hub and Azure IoT Edge.
-
-**These samples are legacy samples**, they use the synchronous API intended for use with Python 2.7, or in  compatibility scenarios with later versions. We recommend you use the [asynchronous API instead](../samples/async-hub-scenarios).
 
 ## IoTHub Device Samples
 
