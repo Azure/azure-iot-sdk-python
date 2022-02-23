@@ -167,11 +167,7 @@ class MQTTTransport(object):
         ssl_context = self._create_ssl_context()
         mqtt_client.tls_set_context(context=ssl_context)
 
-        # Set event handlers.  Use weak references back into this object to prevent
-        # leaks on Python 2.7.  See callable_weak_method.py and PEP 442 for explanation.
-        #
-        # We don't use the CallableWeakMethod object here because these handlers
-        # are not methods.
+        # Set event handlers.  Use weak references back into this object to prevent leaks
         self_weakref = weakref.ref(self)
 
         def on_connect(client, userdata, flags, rc):
@@ -404,32 +400,22 @@ class MQTTTransport(object):
                 and e.strerror is not None
                 and "CERTIFICATE_VERIFY_FAILED" in e.strerror
             ):
-                raise exceptions.TlsExchangeAuthError(cause=e)
+                raise exceptions.TlsExchangeAuthError() from e
             elif isinstance(e, socks.ProxyError):
                 if isinstance(e, socks.SOCKS5AuthError):
                     # TODO This is the only I felt like specializing
-                    raise exceptions.UnauthorizedError(cause=e)
+                    raise exceptions.UnauthorizedError() from e
                 else:
-                    raise exceptions.ProtocolProxyError(cause=e)
+                    raise exceptions.ProtocolProxyError() from e
             else:
                 # If the socket can't open (e.g. using iptables REJECT), we get a
                 # socket.error.  Convert this into ConnectionFailedError so we can retry
-                raise exceptions.ConnectionFailedError(cause=e)
-
-        except socks.ProxyError as pe:
-            self._force_transport_disconnect_and_cleanup()
-
-            if isinstance(pe, socks.SOCKS5AuthError):
-                raise exceptions.UnauthorizedError(cause=pe)
-            else:
-                raise exceptions.ProtocolProxyError(cause=pe)
+                raise exceptions.ConnectionFailedError() from e
 
         except Exception as e:
             self._force_transport_disconnect_and_cleanup()
 
-            raise exceptions.ProtocolClientError(
-                message="Unexpected Paho failure during connect", cause=e
-            )
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during connect") from e
 
         logger.debug("_mqtt_client.connect returned rc={}".format(rc))
         if rc:
@@ -446,9 +432,7 @@ class MQTTTransport(object):
         try:
             rc = self._mqtt_client.disconnect()
         except Exception as e:
-            raise exceptions.ProtocolClientError(
-                message="Unexpected Paho failure during disconnect", cause=e
-            )
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during disconnect") from e
         finally:
             self._mqtt_client.loop_stop()
 
@@ -490,9 +474,7 @@ class MQTTTransport(object):
         except ValueError:
             raise
         except Exception as e:
-            raise exceptions.ProtocolClientError(
-                message="Unexpected Paho failure during subscribe", cause=e
-            )
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during subscribe") from e
         logger.debug("_mqtt_client.subscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -517,8 +499,8 @@ class MQTTTransport(object):
             raise
         except Exception as e:
             raise exceptions.ProtocolClientError(
-                message="Unexpected Paho failure during unsubscribe", cause=e
-            )
+                "Unexpected Paho failure during unsubscribe"
+            ) from e
         logger.debug("_mqtt_client.unsubscribe returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -551,9 +533,7 @@ class MQTTTransport(object):
         except TypeError:
             raise
         except Exception as e:
-            raise exceptions.ProtocolClientError(
-                message="Unexpected Paho failure during publish", cause=e
-            )
+            raise exceptions.ProtocolClientError("Unexpected Paho failure during publish") from e
         logger.debug("_mqtt_client.publish returned rc={}".format(rc))
         if rc:
             # This could result in ConnectionDroppedError or ProtocolClientError
@@ -566,7 +546,7 @@ class OperationManager(object):
 
     def __init__(self):
         # Maps mid->callback for operations where a request has been sent
-        # but the reponse has not yet been received
+        # but the response has not yet been received
         self._pending_operation_callbacks = {}
 
         # Maps mid->mid for responses received that are NOT established in the _pending_operation_callbacks dict.

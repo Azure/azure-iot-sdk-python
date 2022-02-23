@@ -5,8 +5,6 @@
 # --------------------------------------------------------------------------
 
 import os
-from six.moves import input
-import threading
 from azure.iot.device import IoTHubDeviceClient, X509
 
 hostname = os.getenv("HOSTNAME")

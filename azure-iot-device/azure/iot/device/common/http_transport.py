@@ -52,11 +52,11 @@ class HTTPTransport(object):
         class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
             def init_poolmanager(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super(CustomSSLContextHTTPAdapter, self).init_poolmanager(*args, **kwargs)
+                return super().init_poolmanager(*args, **kwargs)
 
             def proxy_manager_for(self, *args, **kwargs):
                 kwargs["ssl_context"] = ssl_context
-                return super(CustomSSLContextHTTPAdapter, self).proxy_manager_for(*args, **kwargs)
+                return super().proxy_manager_for(*args, **kwargs)
 
         return CustomSSLContextHTTPAdapter()
 
@@ -143,11 +143,9 @@ class HTTPTransport(object):
             callback(error=e)
         except Exception as e:
             # Raise error via the callback
-            callback(
-                error=exceptions.ProtocolClientError(
-                    message="Unexpected HTTPS failure during connect", cause=e
-                )
-            )
+            new_err = exceptions.ProtocolClientError("Unexpected HTTPS failure during connect")
+            new_err.__cause__ = e
+            callback(error=new_err)
         else:
             # Return the data from the response via the callback
             response_obj = {

@@ -23,7 +23,7 @@ class MQTTPublishOperation(PipelineOperation):
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
-        super(MQTTPublishOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.topic = topic
         self.payload = payload
         self.needs_connection = True
@@ -46,7 +46,7 @@ class MQTTSubscribeOperation(PipelineOperation):
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
-        super(MQTTSubscribeOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.topic = topic
         self.needs_connection = True
         self.timeout_timer = None
@@ -69,7 +69,7 @@ class MQTTUnsubscribeOperation(PipelineOperation):
           The callback function must accept A PipelineOperation object which indicates the specific operation which
           has completed or failed.
         """
-        super(MQTTUnsubscribeOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.topic = topic
         self.needs_connection = True
         self.timeout_timer = None

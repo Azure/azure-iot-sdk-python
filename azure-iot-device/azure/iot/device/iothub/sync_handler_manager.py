@@ -7,9 +7,7 @@
 import logging
 import threading
 import abc
-import six
 from azure.iot.device.common import handle_exceptions
-from azure.iot.device.common.chainable_exception import ChainableException
 from azure.iot.device.iothub.client_event import (
     CONNECTION_STATE_CHANGE,
     NEW_SASTOKEN_REQUIRED,
@@ -30,7 +28,7 @@ CLIENT_EVENT = "client_event"
 client_events = [CONNECTION_STATE_CHANGE, NEW_SASTOKEN_REQUIRED, BACKGROUND_EXCEPTION]
 
 
-class HandlerManagerException(ChainableException):
+class HandlerManagerException(Exception):
     """An exception raised by a HandlerManager"""
 
     pass
@@ -45,8 +43,7 @@ class HandlerRunnerKillerSentinel(object):
     pass
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AbstractHandlerManager(object):
+class AbstractHandlerManager(abc.ABC):
     """Partial class that defines handler manager functionality shared between sync/async"""
 
     def __init__(self, inbox_manager):
@@ -174,18 +171,18 @@ class AbstractHandlerManager(object):
                 # This shouldn't happen because cancellation or timeout shouldn't occur...
                 # But just in case...
                 new_err = HandlerManagerException(
-                    message="HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
+                    "HANDLER ({}): Unable to retrieve exception data from incomplete invocation".format(
                         handler_name
-                    ),
-                    cause=raised_e,
+                    )
                 )
+                new_err.__cause__ = raised_e
                 handle_exceptions.handle_background_exception(new_err)
             else:
                 if e:
                     new_err = HandlerManagerException(
-                        message="HANDLER ({}): Error during invocation".format(handler_name),
-                        cause=e,
+                        "HANDLER ({}): Error during invocation".format(handler_name),
                     )
+                    new_err.__cause__ = e
                     handle_exceptions.handle_background_exception(new_err)
                 else:
                     logger.debug(

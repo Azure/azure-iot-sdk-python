@@ -5,10 +5,8 @@
 # --------------------------------------------------------------------------
 """This module defines exceptions that may be raised from a pipeline"""
 
-from azure.iot.device.common.chainable_exception import ChainableException
 
-
-class PipelineException(ChainableException):
+class PipelineException(Exception):
     """Generic pipeline exception"""
 
     pass

@@ -152,7 +152,7 @@ def add_operation_tests(
         def worker_op_type(self):
             class SomeOperationType(PipelineOperation):
                 def __init__(self, arg1, arg2, arg3, callback):
-                    super(SomeOperationType, self).__init__(callback=callback)
+                    super().__init__(callback=callback)
 
             return SomeOperationType
 

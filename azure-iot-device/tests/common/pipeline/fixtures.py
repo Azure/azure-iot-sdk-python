@@ -15,7 +15,7 @@ from azure.iot.device.common.pipeline import (
 
 class ArbitraryEvent(pipeline_events_base.PipelineEvent):
     def __init__(self):
-        super(ArbitraryEvent, self).__init__()
+        super().__init__()
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def arbitrary_event():
 
 class ArbitraryOperation(pipeline_ops_base.PipelineOperation):
     def __init__(self, callback=None):
-        super(ArbitraryOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
 
 
 @pytest.fixture

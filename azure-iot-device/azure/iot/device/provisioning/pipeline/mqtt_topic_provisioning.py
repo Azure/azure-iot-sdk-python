@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six.moves.urllib as urllib
+import urllib
 
 logger = logging.getLogger(__name__)
 
