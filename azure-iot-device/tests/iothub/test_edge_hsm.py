@@ -9,7 +9,7 @@ import logging
 import requests
 import json
 import base64
-from six.moves import urllib
+import urllib
 from azure.iot.device.iothub.edge_hsm import IoTEdgeHsm, IoTEdgeError
 from azure.iot.device import user_agent
 

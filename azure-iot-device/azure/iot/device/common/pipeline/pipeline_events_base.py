@@ -58,7 +58,7 @@ class ResponseEvent(PipelineEvent):
     """
 
     def __init__(self, request_id, status_code, response_body, retry_after=None):
-        super(ResponseEvent, self).__init__()
+        super().__init__()
         self.request_id = request_id
         self.status_code = status_code
         self.response_body = response_body
@@ -95,5 +95,5 @@ class BackgroundExceptionEvent(PipelineEvent):
     """
 
     def __init__(self, e):
-        super(BackgroundExceptionEvent, self).__init__()
+        super().__init__()
         self.e = e

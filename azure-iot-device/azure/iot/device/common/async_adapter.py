@@ -45,7 +45,7 @@ class AwaitableCallback(object):
             raise TypeError("internal error: return_arg_name must be a string")
 
         loop = asyncio_compat.get_running_loop()
-        self.future = asyncio_compat.create_future(loop)
+        self.future = loop.create_future()
 
         def wrapping_callback(*args, **kwargs):
             # Use event loop from outer scope, since the threads it will be used in will not have

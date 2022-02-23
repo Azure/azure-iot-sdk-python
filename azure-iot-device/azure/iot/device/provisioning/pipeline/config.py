@@ -22,7 +22,7 @@ class ProvisioningPipelineConfig(BasePipelineConfig):
         :param str registration_id: The device registration identity being provisioned
         :param str id_scope: The identity of the provisoning service being used
         """
-        super(ProvisioningPipelineConfig, self).__init__(hostname=hostname, **kwargs)
+        super().__init__(hostname=hostname, **kwargs)
 
         # Provisioning Connection Details
         self.registration_id = registration_id

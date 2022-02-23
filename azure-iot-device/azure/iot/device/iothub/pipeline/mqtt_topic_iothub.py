@@ -6,8 +6,7 @@
 
 import logging
 from datetime import date
-import six.moves.urllib as urllib
-from azure.iot.device.common import version_compat
+import urllib
 
 logger = logging.getLogger(__name__)
 
@@ -375,7 +374,7 @@ def encode_message_properties_in_topic(message_to_send, topic):
             )
         )
 
-    system_properties_encoded = version_compat.urlencode(
+    system_properties_encoded = urllib.parse.urlencode(
         system_properties, quote_via=urllib.parse.quote
     )
     topic += system_properties_encoded
@@ -397,7 +396,7 @@ def encode_message_properties_in_topic(message_to_send, topic):
         if len(keys) != len(set(keys)):
             raise ValueError("Duplicate keys in custom properties!")
 
-        user_properties_encoded = version_compat.urlencode(
+        user_properties_encoded = urllib.parse.urlencode(
             custom_prop_seq, quote_via=urllib.parse.quote
         )
         topic += user_properties_encoded

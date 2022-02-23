@@ -5,8 +5,6 @@
 # --------------------------------------------------------------------------
 """This module defines an exception surface, exposed as part of the azure.iot.device library API"""
 
-from azure.iot.device.common.chainable_exception import ChainableException
-
 # Currently, we are redefining many lower level exceptions in this file, in order to present an API
 # surface that will be consistent and unchanging (even though lower level exceptions may change).
 # Potentially, this could be somewhat relaxed in the future as the design solidifies.
@@ -14,13 +12,13 @@ from azure.iot.device.common.chainable_exception import ChainableException
 # ~~~ EXCEPTIONS ~~~
 
 
-class OperationCancelled(ChainableException):
+class OperationCancelled(Exception):
     """An operation was cancelled"""
 
     pass
 
 
-class OperationTimeout(ChainableException):
+class OperationTimeout(Exception):
     """An operation timed out"""
 
     pass
@@ -29,7 +27,7 @@ class OperationTimeout(ChainableException):
 # ~~~ CLIENT ERRORS ~~~
 
 
-class ClientError(ChainableException):
+class ClientError(Exception):
     """Generic error for a client"""
 
     pass
@@ -62,7 +60,7 @@ class CredentialError(ClientError):
 # ~~~ SERVICE ERRORS ~~~
 
 
-class ServiceError(ChainableException):
+class ServiceError(Exception):
     """Error received from an Azure IoT service"""
 
     pass

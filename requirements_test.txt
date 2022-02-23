@@ -1,10 +1,9 @@
 pytest
-pytest-mock==1.10.4  # breaking change (for us at least) in 1.11.0 renders our tests unpassable under 2.7
-pytest-asyncio; python_version >= '3.5'
+pytest-mock
+pytest-asyncio
 pytest-testdox>=1.1.1
 pytest-cov
-pytest-timeout==1.4.2  # Can go to 2.0 once py27 support is removed
-mock #remove this as soon as no references to it remain in the code
+pytest-timeout
 flake8
 azure-iothub-provisioningserviceclient >= 1.2.0  # Only needed for end to end tests for DPS
 azure-eventhub # for device_e2e
