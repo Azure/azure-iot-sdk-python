@@ -44,12 +44,9 @@ class TestReportedProperties(object):
         def thing_that_cant_serialize():
             pass
 
-        try:
+        with pytest.raises(ClientError) as e_info:
             client.patch_twin_reported_properties(thing_that_cant_serialize)
-        except ClientError as e:
-            assert type(e.__cause__) == TypeError
-        else:
-            assert False
+        assert isinstance(e_info.value.__cause__, TypeError)
 
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite

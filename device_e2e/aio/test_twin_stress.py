@@ -112,7 +112,7 @@ class TestTwinStress(object):
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
     )
-    @pytest.mark.it("Can send continuous repoted property updates, one-at-a-time")
+    @pytest.mark.it("Can send continuous reported property updates, one-at-a-time")
     async def test_stress_serial_reported_property_updates(
         self, client, service_helper, toxic, iteration_count
     ):
@@ -151,7 +151,7 @@ class TestTwinStress(object):
             pytest.param(250, 25, id="250 updates, 25 at a time"),
         ],
     )
-    @pytest.mark.it("Can send continuous overlapped repoted property updates")
+    @pytest.mark.it("Can send continuous overlapped reported property updates")
     async def test_stress_parallel_reported_property_updates(
         self, client, service_helper, toxic, iteration_count, batch_size
     ):
@@ -332,7 +332,7 @@ class TestTwinStress(object):
                 )
 
             # Call get_twin to verify that this property arrived.
-            # repoted properties aren't immediately reflected in `get_twin` calls,
+            # reported properties aren't immediately reflected in `get_twin` calls,
             # so we have to account for retrieving old property values.
             twin = await call_with_connection_retry(client, client.get_twin)
             logger.info("Got {}".format(twin[const.REPORTED][const.TEST_CONTENT]))

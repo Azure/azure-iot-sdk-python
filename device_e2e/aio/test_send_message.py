@@ -46,12 +46,9 @@ class TestSendMessage(object):
         def thing_that_cant_serialize():
             pass
 
-        try:
+        with pytest.raises(ClientError) as e_info:
             await client.send_message(thing_that_cant_serialize)
-        except ClientError as e:
-            assert type(e.__cause__) == TypeError
-        else:
-            assert False
+        assert isinstance(e_info.value.__cause__, TypeError)
 
     @pytest.mark.it("Can send a JSON-formatted string that isn't wrapped in a Message object")
     async def test_sends_json_string(self, client, service_helper):
