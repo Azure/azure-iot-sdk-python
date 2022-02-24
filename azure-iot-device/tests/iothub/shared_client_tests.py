@@ -11,9 +11,8 @@ import pytest
 import logging
 import os
 import io
-import six
 import time
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.common import auth, handle_exceptions
 from azure.iot.device.common.auth import sastoken as st
 from azure.iot.device.common.auth import connection_string as cs
@@ -1899,36 +1898,26 @@ class SharedIoTHubModuleClientCreateFromEdgeEnvironmentWithDebugEnvTests(
             client_class.create_from_edge_environment()
 
     @pytest.mark.it(
-        "Raises ValueError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
+        "Raises FileNotFoundError if the filepath in the EdgeModuleCACertificateFile environment variable is invalid"
     )
     def test_bad_filepath(self, mocker, client_class, edge_local_debug_environment, mock_open):
-        # To make tests compatible with Python 2 & 3, redfine errors
-        try:
-            FileNotFoundError  # noqa: F823
-        except NameError:
-            FileNotFoundError = IOError
-
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
         my_fnf_error = FileNotFoundError()
         mock_open.side_effect = my_fnf_error
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(FileNotFoundError) as e_info:
             client_class.create_from_edge_environment()
-        assert e_info.value.__cause__ is my_fnf_error
+        assert e_info.value is my_fnf_error
 
     @pytest.mark.it(
         "Raises ValueError if the file referenced by the filepath in the EdgeModuleCACertificateFile environment variable cannot be opened"
     )
     def test_bad_file_io(self, mocker, client_class, edge_local_debug_environment, mock_open):
-        # Raise a different error in Python 2 vs 3
-        if six.PY2:
-            error = IOError()
-        else:
-            error = OSError()
         mocker.patch.dict(os.environ, edge_local_debug_environment, clear=True)
-        mock_open.side_effect = error
+        my_os_error = OSError()
+        mock_open.side_effect = my_os_error
         with pytest.raises(ValueError) as e_info:
             client_class.create_from_edge_environment()
-        assert e_info.value.__cause__ is error
+        assert e_info.value.__cause__ is my_os_error
 
     @pytest.mark.it("Raises ValueError if a SasToken creation results in failure")
     def test_raises_value_error_on_sastoken_failure(

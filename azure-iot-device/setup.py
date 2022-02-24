@@ -6,7 +6,6 @@
 
 from setuptools import setup, find_packages
 import re
-from io import open  # io.open needed for Python 2 compat
 
 # azure v0.x is not compatible with this package
 # azure v0.x used to have a __version__ attribute (newer versions don't)
@@ -65,10 +64,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
@@ -84,25 +80,20 @@ setup(
         "urllib3>=1.26.5,<1.27",
         # Actual project dependencies
         "deprecation>=2.1.0,<3.0.0",
-        "six>=1.12.0,<2.0.0",
-        "paho-mqtt>=1.4.0,<1.6.0;python_version == '2.7'",
-        "paho-mqtt>=1.4.0,<2.0.0;python_version > '2.7'",
+        "paho-mqtt>=1.4.0,<2.0.0",
         "requests>=2.20.0,<3.0.0",
         "requests-unixsocket>=0.1.5,<1.0.0",
-        "janus;python_version>='3.5'",
-        "futures;python_version == '2.7'",
+        "janus",
         "PySocks",
-        "win-inet-pton;python_version == '2.7'",
     ],
-    extras_require={":python_version<'3.0'": ["azure-iot-nspkg>=1.0.1"]},
-    python_requires=">=2.7.9, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.0, !=3.5.1, !=3.5.2, <4",
+    python_requires="!=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5, <4",
     packages=find_packages(
         exclude=[
             "tests",
             "tests.*",
             "samples",
             "samples.*",
-            # Exclude packages that will be covered by PEP420 or nspkg
+            # Exclude packages that will be covered by PEP420
             "azure",
             "azure.iot",
         ]

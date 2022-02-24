@@ -3,12 +3,10 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from functools import wraps
 import logging
 import pytest
 import threading
 import time
-import sys
 from azure.iot.device.common import handle_exceptions
 from azure.iot.device.iothub import client_event
 from azure.iot.device.iothub.sync_handler_manager import SyncHandlerManager, HandlerManagerException

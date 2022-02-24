@@ -5,21 +5,12 @@
 # --------------------------------------------------------------------------
 import pytest
 import abc
-import six
 import threading
-import sys
 from azure.iot.device import ProxyOptions
-from azure.iot.device import constant
 from azure.iot.device.common.pipeline.config import DEFAULT_KEEPALIVE
 
-# Python 2 doesn't define this constant, so manually do it
-if sys.version_info < (3,):
-    if not hasattr(threading, "TIMEOUT_MAX"):
-        threading.TIMEOUT_MAX = 4294967.0
 
-
-@six.add_metaclass(abc.ABCMeta)
-class PipelineConfigInstantiationTestBase(object):
+class PipelineConfigInstantiationTestBase(abc.ABC):
     """All PipelineConfig instantiation tests should inherit from this  base class.
     It provides tests for shared functionality among all PipelineConfigs, derived from
     the BasePipelineConfig class.

@@ -6,8 +6,7 @@
 import logging
 import pytest
 import sys
-import json
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device import constant as pkg_constant
 from azure.iot.device.common.pipeline import (
     pipeline_ops_base,
@@ -19,7 +18,6 @@ from azure.iot.device.common.pipeline import (
 )
 from azure.iot.device.provisioning.pipeline import (
     config,
-    pipeline_ops_provisioning,
     pipeline_stages_provisioning_mqtt,
 )
 from azure.iot.device.provisioning.pipeline import constant as pipeline_constant

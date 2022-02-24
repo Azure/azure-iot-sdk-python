@@ -6,19 +6,16 @@
 
 import pytest
 import logging
-import six.moves.urllib as urllib
 from azure.iot.device.common.pipeline import (
     pipeline_stages_base,
     pipeline_stages_http,
     pipeline_ops_base,
 )
 from azure.iot.device.iothub.pipeline import (
-    pipeline_stages_iothub,
     pipeline_stages_iothub_http,
-    pipeline_ops_iothub,
     pipeline_ops_iothub_http,
 )
-from azure.iot.device.iothub.pipeline import HTTPPipeline, constant
+from azure.iot.device.iothub.pipeline import HTTPPipeline
 
 logging.basicConfig(level=logging.DEBUG)
 pytestmark = pytest.mark.usefixtures("fake_pipeline_thread")

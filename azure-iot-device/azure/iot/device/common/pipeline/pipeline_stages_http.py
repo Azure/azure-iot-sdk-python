@@ -24,7 +24,7 @@ class HTTPTransportStage(PipelineStage):
     """
 
     def __init__(self):
-        super(HTTPTransportStage, self).__init__()
+        super().__init__()
         # The sas_token will be set when Connetion Args are received
         self.sas_token = None
 

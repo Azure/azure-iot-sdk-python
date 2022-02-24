@@ -6,7 +6,6 @@
 
 import pytest
 import logging
-import six
 from azure.iot.device.common.auth.connection_string import ConnectionString
 
 logging.basicConfig(level=logging.DEBUG)
@@ -71,11 +70,7 @@ class TestConnectionString(object):
         [
             pytest.param(2123, id="Integer"),
             pytest.param(23.098, id="Float"),
-            pytest.param(
-                b"bytes",
-                id="Bytes",
-                marks=pytest.mark.xfail(six.PY2, reason="Bytes are valid in Python 2.7"),
-            ),
+            pytest.param(b"bytes", id="Bytes"),
             pytest.param(object(), id="Complex object"),
             pytest.param(["a", "b"], id="List"),
             pytest.param({"a": "b"}, id="Dictionary"),

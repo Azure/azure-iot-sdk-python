@@ -20,7 +20,6 @@ from . import patch_documentation
 
 # TODO: remove this chunk of commented code if we truly no longer want to take this approach
 
-# if sys.version_info > (3, 5):  # This only works for python 3.5+ at present
 # Dynamically patch the clients to add shim implementations for all the inherited methods.
 # This is necessary to generate accurate online docs.
 # It SHOULD not impact the functionality of the methods themselves in any way.

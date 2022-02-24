@@ -24,25 +24,21 @@ def handle_result(callback):
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
-        raise exceptions.ConnectionDroppedError(
-            message="Lost connection to the provisioning server", cause=e
-        )
+        raise exceptions.ConnectionDroppedError("Lost connection to the provisioning server") from e
     except pipeline_exceptions.ConnectionFailedError as e:
         raise exceptions.ConnectionFailedError(
-            message="Could not connect to the provisioning server", cause=e
-        )
+            "Could not connect to the provisioning server"
+        ) from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
     except pipeline_exceptions.ProtocolClientError as e:
-        raise exceptions.ClientError(message="Error in the provisioning client", cause=e)
+        raise exceptions.ClientError("Error in the provisioning client") from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout(
-            message="Could not complete operation before timeout", cause=e
-        )
+        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
     except pipeline_exceptions.PipelineNotRunning as e:
-        raise exceptions.ClientError(message="Client has already been shut down", cause=e)
+        raise exceptions.ClientError("Client has already been shut down") from e
     except Exception as e:
-        raise exceptions.ClientError(message="Unexpected failure", cause=e)
+        raise exceptions.ClientError("Unexpected failure") from e
 
 
 class ProvisioningDeviceClient(AbstractProvisioningDeviceClient):

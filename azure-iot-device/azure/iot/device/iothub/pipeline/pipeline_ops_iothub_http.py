@@ -25,7 +25,7 @@ class MethodInvokeOperation(PipelineOperation):
             has completed or failed.
         :type callback: Function/callable
         """
-        super(MethodInvokeOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.target_device_id = target_device_id
         self.target_module_id = target_module_id
         self.method_params = method_params
@@ -49,7 +49,7 @@ class GetStorageInfoOperation(PipelineOperation):
 
         :ivar dict storage_info: Upon completion, this contains the storage information which was retrieved from the service.
         """
-        super(GetStorageInfoOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.blob_name = blob_name
         self.storage_info = None
 
@@ -72,7 +72,7 @@ class NotifyBlobUploadStatusOperation(PipelineOperation):
             has completed or failed.
         :type callback: Function/callable
         """
-        super(NotifyBlobUploadStatusOperation, self).__init__(callback=callback)
+        super().__init__(callback=callback)
         self.correlation_id = correlation_id
         self.is_success = is_success
         self.request_status_code = status_code
