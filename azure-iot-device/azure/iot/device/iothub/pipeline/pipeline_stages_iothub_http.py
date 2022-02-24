@@ -6,15 +6,13 @@
 
 import logging
 import json
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.common.pipeline import (
-    pipeline_events_base,
-    pipeline_ops_base,
     pipeline_ops_http,
     PipelineStage,
     pipeline_thread,
 )
-from . import pipeline_ops_iothub, pipeline_ops_iothub_http, http_path_iothub, http_map_error
+from . import pipeline_ops_iothub_http, http_path_iothub, http_map_error
 from azure.iot.device import exceptions
 from azure.iot.device import constant as pkg_constant
 from azure.iot.device import user_agent

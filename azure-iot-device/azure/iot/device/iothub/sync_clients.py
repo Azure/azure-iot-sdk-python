@@ -22,7 +22,6 @@ from .pipeline import constant as pipeline_constant
 from .pipeline import exceptions as pipeline_exceptions
 from azure.iot.device import exceptions
 from azure.iot.device.common.evented_callback import EventedCallback
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 from azure.iot.device import constant as device_constant
 
 
@@ -33,35 +32,29 @@ def handle_result(callback):
     try:
         return callback.wait_for_completion()
     except pipeline_exceptions.ConnectionDroppedError as e:
-        raise exceptions.ConnectionDroppedError(message="Lost connection to IoTHub", cause=e)
+        raise exceptions.ConnectionDroppedError("Lost connection to IoTHub") from e
     except pipeline_exceptions.ConnectionFailedError as e:
-        raise exceptions.ConnectionFailedError(message="Could not connect to IoTHub", cause=e)
+        raise exceptions.ConnectionFailedError("Could not connect to IoTHub") from e
     except pipeline_exceptions.NoConnectionError as e:
-        raise exceptions.NoConnectionError(message="Client is not connected to IoTHub", cause=e)
+        raise exceptions.NoConnectionError("Client is not connected to IoTHub") from e
     except pipeline_exceptions.UnauthorizedError as e:
-        raise exceptions.CredentialError(message="Credentials invalid, could not connect", cause=e)
+        raise exceptions.CredentialError("Credentials invalid, could not connect") from e
     except pipeline_exceptions.ProtocolClientError as e:
-        raise exceptions.ClientError(message="Error in the IoTHub client", cause=e)
+        raise exceptions.ClientError("Error in the IoTHub client") from e
     except pipeline_exceptions.TlsExchangeAuthError as e:
-        raise exceptions.ClientError(
-            message="Error in the IoTHub client due to TLS exchanges.", cause=e
-        )
+        raise exceptions.ClientError("Error in the IoTHub client due to TLS exchanges.") from e
     except pipeline_exceptions.ProtocolProxyError as e:
         raise exceptions.ClientError(
-            message="Error in the IoTHub client raised due to proxy connections.", cause=e
-        )
+            "Error in the IoTHub client raised due to proxy connections."
+        ) from e
     except pipeline_exceptions.PipelineNotRunning as e:
-        raise exceptions.ClientError(message="Client has already been shut down", cause=e)
+        raise exceptions.ClientError("Client has already been shut down") from e
     except pipeline_exceptions.OperationCancelled as e:
-        raise exceptions.OperationCancelled(
-            message="Operation was cancelled before completion", cause=e
-        )
+        raise exceptions.OperationCancelled("Operation was cancelled before completion") from e
     except pipeline_exceptions.OperationTimeout as e:
-        raise exceptions.OperationTimeout(
-            message="Could not complete operation before timeout", cause=e
-        )
+        raise exceptions.OperationTimeout("Could not complete operation before timeout") from e
     except Exception as e:
-        raise exceptions.ClientError(message="Unexpected failure", cause=e)
+        raise exceptions.ClientError("Unexpected failure") from e
 
 
 class GenericIoTHubClient(AbstractIoTHubClient):
@@ -84,27 +77,19 @@ class GenericIoTHubClient(AbstractIoTHubClient):
         # and the super() call could call a different class, due to the different MROs
         # in the class hierarchies of different clients. Thus, args here must be passed along as
         # **kwargs.
-        super(GenericIoTHubClient, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
         self._handler_manager = sync_handler_manager.SyncHandlerManager(self._inbox_manager)
 
         # Set pipeline handlers for client events
-        self._mqtt_pipeline.on_connected = CallableWeakMethod(self, "_on_connected")
-        self._mqtt_pipeline.on_disconnected = CallableWeakMethod(self, "_on_disconnected")
-        self._mqtt_pipeline.on_new_sastoken_required = CallableWeakMethod(
-            self, "_on_new_sastoken_required"
-        )
-        self._mqtt_pipeline.on_background_exception = CallableWeakMethod(
-            self, "_on_background_exception"
-        )
+        self._mqtt_pipeline.on_connected = self._on_connected
+        self._mqtt_pipeline.on_disconnected = self._on_disconnected
+        self._mqtt_pipeline.on_new_sastoken_required = self._on_new_sastoken_required
+        self._mqtt_pipeline.on_background_exception = self._on_background_exception
 
         # Set pipeline handlers for data receives
-        self._mqtt_pipeline.on_method_request_received = CallableWeakMethod(
-            self._inbox_manager, "route_method_request"
-        )
-        self._mqtt_pipeline.on_twin_patch_received = CallableWeakMethod(
-            self._inbox_manager, "route_twin_patch"
-        )
+        self._mqtt_pipeline.on_method_request_received = self._inbox_manager.route_method_request
+        self._mqtt_pipeline.on_twin_patch_received = self._inbox_manager.route_twin_patch
 
     def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature.
@@ -541,10 +526,7 @@ class GenericIoTHubClient(AbstractIoTHubClient):
 
 
 class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
-    """A synchronous device client that connects to an Azure IoT Hub instance.
-
-    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
-    """
+    """A synchronous device client that connects to an Azure IoT Hub instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
         """Initializer for a IoTHubDeviceClient.
@@ -555,12 +537,8 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
         :param mqtt_pipeline: The pipeline used to connect to the IoTHub endpoint.
         :type mqtt_pipeline: :class:`azure.iot.device.iothub.pipeline.MQTTPipeline`
         """
-        super(IoTHubDeviceClient, self).__init__(
-            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
-        )
-        self._mqtt_pipeline.on_c2d_message_received = CallableWeakMethod(
-            self._inbox_manager, "route_c2d_message"
-        )
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
+        self._mqtt_pipeline.on_c2d_message_received = self._inbox_manager.route_c2d_message
 
     @deprecation.deprecated(
         deprecated_in="2.3.0",
@@ -628,10 +606,7 @@ class IoTHubDeviceClient(GenericIoTHubClient, AbstractIoTHubDeviceClient):
 
 
 class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
-    """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance.
-
-    Intended for usage with Python 2.7 or compatibility scenarios for Python 3.5.3+.
-    """
+    """A synchronous module client that connects to an Azure IoT Hub or Azure IoT Edge instance."""
 
     def __init__(self, mqtt_pipeline, http_pipeline):
         """Intializer for a IoTHubModuleClient.
@@ -644,12 +619,8 @@ class IoTHubModuleClient(GenericIoTHubClient, AbstractIoTHubModuleClient):
         :param http_pipeline: The pipeline used to connect to the IoTHub endpoint via HTTP.
         :type http_pipeline: :class:`azure.iot.device.iothub.pipeline.HTTPPipeline`
         """
-        super(IoTHubModuleClient, self).__init__(
-            mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline
-        )
-        self._mqtt_pipeline.on_input_message_received = CallableWeakMethod(
-            self._inbox_manager, "route_input_message"
-        )
+        super().__init__(mqtt_pipeline=mqtt_pipeline, http_pipeline=http_pipeline)
+        self._mqtt_pipeline.on_input_message_received = self._inbox_manager.route_input_message
 
     def send_message_to_output(self, message, output_name):
         """Sends an event/message to the given module output.

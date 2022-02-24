@@ -5,7 +5,6 @@
 # --------------------------------------------------------------------------
 
 import logging
-import six
 import traceback
 import threading
 import weakref
@@ -20,7 +19,6 @@ from . import (
 )
 from azure.iot.device.common.mqtt_transport import MQTTTransport
 from azure.iot.device.common import handle_exceptions, transport_exceptions
-from azure.iot.device.common.callable_weak_method import CallableWeakMethod
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,7 @@ class MQTTTransportStage(PipelineStage):
     """
 
     def __init__(self):
-        super(MQTTTransportStage, self).__init__()
+        super().__init__()
 
         # The transport will be instantiated upon receiving the InitializePipelineOperation
         self.transport = None
@@ -143,18 +141,10 @@ class MQTTTransportStage(PipelineStage):
                 proxy_options=self.pipeline_root.pipeline_configuration.proxy_options,
                 keep_alive=self.pipeline_root.pipeline_configuration.keep_alive,
             )
-            self.transport.on_mqtt_connected_handler = CallableWeakMethod(
-                self, "_on_mqtt_connected"
-            )
-            self.transport.on_mqtt_connection_failure_handler = CallableWeakMethod(
-                self, "_on_mqtt_connection_failure"
-            )
-            self.transport.on_mqtt_disconnected_handler = CallableWeakMethod(
-                self, "_on_mqtt_disconnected"
-            )
-            self.transport.on_mqtt_message_received_handler = CallableWeakMethod(
-                self, "_on_mqtt_message_received"
-            )
+            self.transport.on_mqtt_connected_handler = self._on_mqtt_connected
+            self.transport.on_mqtt_connection_failure_handler = self._on_mqtt_connection_failure
+            self.transport.on_mqtt_disconnected_handler = self._on_mqtt_disconnected
+            self.transport.on_mqtt_message_received_handler = self._on_mqtt_message_received
 
             # There can only be one pending connection operation (Connect, Disconnect)
             # at a time. The existing one must be completed or canceled before a new one is set.
@@ -452,5 +442,6 @@ class MQTTTransportStage(PipelineStage):
 
             # Regardless of cause, it is now a ConnectionDroppedError. Log it and swallow it.
             # Higher layers will see that we're disconencted and may reconnect as necessary.
-            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection", cause=cause)
+            e = transport_exceptions.ConnectionDroppedError("Unexpected disconnection")
+            e.__cause__ = cause
             self.report_background_exception(e)

@@ -5,10 +5,8 @@
 # --------------------------------------------------------------------------
 """This module defines errors that may be raised from a transport"""
 
-from .chainable_exception import ChainableException
 
-
-class ConnectionFailedError(ChainableException):
+class ConnectionFailedError(Exception):
     """
     Connection failed to be established
     """
@@ -16,7 +14,7 @@ class ConnectionFailedError(ChainableException):
     pass
 
 
-class ConnectionDroppedError(ChainableException):
+class ConnectionDroppedError(Exception):
     """
     Previously established connection was dropped
     """
@@ -24,13 +22,13 @@ class ConnectionDroppedError(ChainableException):
     pass
 
 
-class NoConnectionError(ChainableException):
+class NoConnectionError(Exception):
     """
     There is no connection
     """
 
 
-class UnauthorizedError(ChainableException):
+class UnauthorizedError(Exception):
     """
     Authorization was rejected
     """
@@ -38,7 +36,7 @@ class UnauthorizedError(ChainableException):
     pass
 
 
-class ProtocolClientError(ChainableException):
+class ProtocolClientError(Exception):
     """
     Error returned from protocol client library
     """
@@ -46,7 +44,7 @@ class ProtocolClientError(ChainableException):
     pass
 
 
-class TlsExchangeAuthError(ChainableException):
+class TlsExchangeAuthError(Exception):
     """
     Error returned when transport layer exchanges
     result in a SSLCertVerification error.
@@ -55,7 +53,7 @@ class TlsExchangeAuthError(ChainableException):
     pass
 
 
-class ProtocolProxyError(ChainableException):
+class ProtocolProxyError(Exception):
     """
     All proxy-related errors.
     TODO : Not sure what to name it here. There is a class called Proxy Error already in Pysocks

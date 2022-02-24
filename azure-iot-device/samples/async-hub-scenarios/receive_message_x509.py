@@ -6,7 +6,6 @@
 
 import os
 import asyncio
-from six.moves import input
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device import X509
 
@@ -62,7 +61,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
-    # If using Python 3.6 or below, use the following code instead of asyncio.run(main()):
+    # If using Python 3.6 use the following code instead of asyncio.run(main()):
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(main())
     # loop.close()

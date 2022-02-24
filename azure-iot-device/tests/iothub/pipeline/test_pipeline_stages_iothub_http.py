@@ -7,10 +7,9 @@ import logging
 import pytest
 import json
 import sys
-import six.moves.urllib as urllib
+import urllib
 from azure.iot.device.common.pipeline import pipeline_stages_base, pipeline_ops_http
 from azure.iot.device.iothub.pipeline import (
-    pipeline_ops_iothub,
     pipeline_ops_iothub_http,
     pipeline_stages_iothub_http,
     config,

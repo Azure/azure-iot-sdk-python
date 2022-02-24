@@ -6,6 +6,7 @@ import pytest
 import logging
 import const
 from utils import get_random_dict
+from azure.iot.device.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -22,7 +23,7 @@ reset_reported_props = {const.TEST_CONTENT: None}
 class TestReportedProperties(object):
     @pytest.mark.it("Can set a simple reported property")
     @pytest.mark.quicktest_suite
-    async def test_simple_patch(self, client, random_reported_props, service_helper):
+    async def test_sends_simple_reported_patch(self, client, random_reported_props, service_helper):
 
         # patch properties
         await client.patch_twin_reported_properties(random_reported_props)
@@ -37,6 +38,16 @@ class TestReportedProperties(object):
         # get twin from the service and verify content
         twin = await client.get_twin()
         assert twin[const.REPORTED][const.TEST_CONTENT] == random_reported_props[const.TEST_CONTENT]
+
+    @pytest.mark.it("Raises correct exception for un-serializable patch")
+    async def test_bad_reported_patch_raises(self, client):
+        # There's no way to serialize a function.
+        def thing_that_cant_serialize():
+            pass
+
+        with pytest.raises(ClientError) as e_info:
+            await client.patch_twin_reported_properties(thing_that_cant_serialize)
+        assert isinstance(e_info.value.__cause__, TypeError)
 
     @pytest.mark.it("Can clear a reported property")
     @pytest.mark.quicktest_suite
@@ -64,7 +75,9 @@ class TestReportedProperties(object):
 
     @pytest.mark.it("Connects the transport if necessary")
     @pytest.mark.quicktest_suite
-    async def test_connect_if_necessary(self, client, random_reported_props, service_helper):
+    async def test_patch_reported_connect_if_necessary(
+        self, client, random_reported_props, service_helper
+    ):
 
         await client.disconnect()
 
@@ -89,8 +102,8 @@ class TestReportedPropertiesDroppedConnection(object):
 
     # TODO: split drop tests between first and second patches
 
-    @pytest.mark.it("Sends if connection drops before sending")
-    async def test_sends_if_drop_before_sending(
+    @pytest.mark.it("Updates reported properties if connection drops before sending")
+    async def test_updates_reported_if_drop_before_sending(
         self, client, random_reported_props, dropper, service_helper
     ):
 
@@ -117,8 +130,8 @@ class TestReportedPropertiesDroppedConnection(object):
             == random_reported_props[const.TEST_CONTENT]
         )
 
-    @pytest.mark.it("Sends if connection rejects send")
-    async def test_sends_if_reject_before_sending(
+    @pytest.mark.it("Updates reported properties if connection rejects send")
+    async def test_udpates_reported_if_reject_before_sending(
         self, client, random_reported_props, dropper, service_helper
     ):
 
@@ -150,7 +163,7 @@ class TestReportedPropertiesDroppedConnection(object):
 class TestDesiredProperties(object):
     @pytest.mark.it("Receives a patch for a simple desired property")
     @pytest.mark.quicktest_suite
-    async def test_simple_patch(self, client, event_loop, service_helper):
+    async def test_receives_simple_desired_patch(self, client, event_loop, service_helper):
 
         received_patch = None
         received = asyncio.Event()

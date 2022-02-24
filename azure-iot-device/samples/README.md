@@ -153,6 +153,6 @@ Further samples with more complex IoT Edge scenarios involving IoT Edge modules 
 * Send messages to a Module Output
 * Send messages to IoT Edge from a downstream or 'leaf' device
 
-Samples for the synchronous clients, intended for use with Python 2.7 or compatibility scenarios for Python 3.5+ are contained in the [sync-samples](sync-samples) directory.
+Samples for the synchronous clients are contained in the [sync-samples](sync-samples) directory.
 
 Samples for use of Azure IoT Plug and Play are contained in the [pnp](pnp) directory.

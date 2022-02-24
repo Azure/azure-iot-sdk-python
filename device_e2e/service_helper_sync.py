@@ -6,6 +6,7 @@ import threading
 from six.moves import queue
 import copy
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.protocol.models import Twin, TwinProperties, CloudToDeviceMethod
@@ -191,14 +192,20 @@ class ServiceHelperSync(object):
                     self.cv.wait()
 
     def get_next_reported_patch_arrival(self, block=True, timeout=20):
-        return self.incoming_patch_queue.get(block=block, timeout=timeout)
+        try:
+            return self.incoming_patch_queue.get(block=block, timeout=timeout)
+        except queue.Empty:
+            raise Exception("reported patch did not arrive within {} seconds".format(timeout))
 
     def shutdown(self):
         if self._eventhub_consumer_client:
             self._eventhub_consumer_client.close()
 
     def _convert_incoming_event(self, event):
-        event_body = event.body_as_json()
+        try:
+            event_body = event.body_as_json()
+        except TypeError:
+            event_body = event.body_as_str()
         device_id = get_device_id_from_event(event)
         module_id = get_module_id_from_event(event)
 
@@ -210,18 +217,19 @@ class ServiceHelperSync(object):
             message.device_id = device_id
             message.module_id = module_id
             message.message_body = event_body
-            message.content_type = event.message.properties.content_type.decode("utf-8")
+            if event.message.properties:
+                message.properties = convert_binary_dict_to_string_dict(event.properties)
+                message.content_type = event.message.properties.content_type.decode("utf-8")
             message.system_properties = convert_binary_dict_to_string_dict(event.system_properties)
-            message.properties = convert_binary_dict_to_string_dict(event.properties)
             return message
 
     def _store_eventhub_arrival(self, converted_event):
-        message_id = converted_event.system_properties["message-id"]
+        message_id = converted_event.system_properties.get(
+            "message-id", "no-message-id-{}".format(uuid.uuid4())
+        )
         if message_id:
             with self.cv:
-                self.incoming_eventhub_events[
-                    converted_event.system_properties["message-id"]
-                ] = converted_event
+                self.incoming_eventhub_events[message_id] = converted_event
                 self.cv.notify_all()
 
     def _store_patch_arrival(self, converted_event):
@@ -238,36 +246,40 @@ class ServiceHelperSync(object):
             logger.warning("EventHub on_partition_close: {}".format(reason))
 
         def on_event_batch(partition_context, events):
-            for event in events:
-                device_id = get_device_id_from_event(event)
-                module_id = get_module_id_from_event(event)
+            try:
+                for event in events:
+                    device_id = get_device_id_from_event(event)
+                    module_id = get_module_id_from_event(event)
 
-                if device_id == self.device_id and module_id == self.module_id:
+                    if device_id == self.device_id and module_id == self.module_id:
 
-                    converted_event = self._convert_incoming_event(event)
-                    if type(converted_event) == EventhubEvent:
-                        if "message-id" in converted_event.system_properties:
+                        converted_event = self._convert_incoming_event(event)
+                        if type(converted_event) == EventhubEvent:
+                            if "message-id" in converted_event.system_properties:
+                                logger.info(
+                                    "Received event with msgid={}".format(
+                                        converted_event.system_properties["message-id"]
+                                    )
+                                )
+                            else:
+                                logger.info("Received event with no message id")
+
+                        else:
                             logger.info(
-                                "Received event with msgid={}".format(
-                                    converted_event.system_properties["message-id"]
+                                "Received {} for device {}, module {}".format(
+                                    get_message_source_from_event(event),
+                                    device_id,
+                                    module_id,
                                 )
                             )
+
+                        if isinstance(converted_event, EventhubEvent):
+                            self._store_eventhub_arrival(converted_event)
                         else:
-                            logger.info("Received event with no message id")
-
-                    else:
-                        logger.info(
-                            "Received {} for device {}, module {}".format(
-                                get_message_source_from_event(event),
-                                device_id,
-                                module_id,
-                            )
-                        )
-
-                    if isinstance(converted_event, EventhubEvent):
-                        self._store_eventhub_arrival(converted_event)
-                    else:
-                        self._store_patch_arrival(converted_event)
+                            self._store_patch_arrival(converted_event)
+            except Exception:
+                logger.error("Error on on_event_batch", exc_info=True)
+                raise
 
         try:
             with self._eventhub_consumer_client:

@@ -23,14 +23,10 @@ The SDK provides the following clients:
   * Receive Input messages from a Hub or other Modules
   * Receive and respond to direct method invocations from a Hub or other Modules
 
-These clients are available with an asynchronous API, as well as a blocking synchronous API for compatibility scenarios. **We recommend you use Python 3.7+ and the asynchronous API.**
+These clients are available with an asynchronous API, as well as a blocking synchronous API.
 
-| Python Version | Asynchronous API | Synchronous API |
-| -------------- | ---------------- | --------------- |
-| Python 3.5.3+  | **YES**          | **YES**         |
-| Python 2.7     | NO               | **YES**         |
-
-**NOTICE: THIS IS THE FINAL RELEASE WITH SUPPORT FOR PYTHON 2.7 and PYTHON 3.5**
+## Requirements
+The Azure IoT Device SDK for Python requires Python 3.6+
 
 ## Installation
 

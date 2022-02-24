@@ -6,35 +6,18 @@
 
 import pytest
 import logging
-import sys
-import six
-import abc
 from azure.iot.device.iothub.inbox_manager import InboxManager
-from azure.iot.device.iothub.models import Message, MethodRequest
+from azure.iot.device.iothub.models import MethodRequest
+from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
+from azure.iot.device.iothub.sync_inbox import SyncClientInbox
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-inbox_type_list = []
-inbox_type_ids = []
-
-# Create a list of Inbox types to test with the manager
-try:
-    from azure.iot.device.iothub.aio.async_inbox import AsyncClientInbox
-
-    inbox_type_list.append(AsyncClientInbox)
-    inbox_type_ids.append("Configured with AsyncClientInboxes")
-except SyntaxError:
-    # AsyncClientInbox not available if Python < 3.5
-    pass
-finally:
-    from azure.iot.device.iothub.sync_inbox import SyncClientInbox
-
-    inbox_type_list.append(SyncClientInbox)
-    inbox_type_ids.append("Configured with SyncClientInboxes")
-
-
-@pytest.fixture(params=inbox_type_list, ids=inbox_type_ids)
+@pytest.fixture(
+    params=[AsyncClientInbox, SyncClientInbox],
+    ids=["Configured with AsyncClientInboxes", "Configured with SyncClientInboxes"],
+)
 def inbox_type(request):
     return request.param
 
