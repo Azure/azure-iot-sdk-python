@@ -777,7 +777,7 @@ class TestAsyncHandlerManagerPropertyOnTwinDesiredPropertiesPatchReceived(
         return inbox_manager.get_twin_patch_inbox()
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_connection_state_change")
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_connection_state_change")
 class TestAsyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
@@ -788,7 +788,7 @@ class TestAsyncHandlerManagerPropertyOnConnectionStateChange(SharedClientEventHa
         return client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_new_sastoken_required")
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_new_sastoken_required")
 class TestAsyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
@@ -799,7 +799,7 @@ class TestAsyncHandlerManagerPropertyOnNewSastokenRequired(SharedClientEventHand
         return client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .on_background_exception")
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .on_background_exception")
 class TestAsyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHandlerPropertyTests):
     @pytest.fixture
     def handler_name(self):
@@ -810,7 +810,7 @@ class TestAsyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHand
         return client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, arbitrary_exception)
 
 
-@pytest.mark.describe("SyncHandlerManager - PROPERTY: .handling_client_events")
+@pytest.mark.describe("AsyncHandlerManager - PROPERTY: .handling_client_events")
 class TestAsyncHandlerManagerPropertyHandlingClientEvents(object):
     @pytest.fixture
     def handler_manager(self, inbox_manager):
@@ -819,16 +819,18 @@ class TestAsyncHandlerManagerPropertyHandlingClientEvents(object):
         hm.stop()
 
     @pytest.mark.it("Is True if the Client Event Handler Runner is running")
-    def test_client_event_runner_running(self, handler_manager):
+    async def test_client_event_runner_running(self, handler_manager):
         # Add a fake client event runner thread
-        fake_runner_thread = threading.Thread()
-        fake_runner_thread.daemon = True
-        fake_runner_thread.start()
-        handler_manager._client_event_runner = fake_runner_thread
+        fake_runner_future = concurrent.futures.Future()
+        handler_manager._client_event_runner = fake_runner_future
 
         assert handler_manager.handling_client_events is True
 
+        # Clean up the future so tests don't hang
+        fake_runner_future.cancel()
+        handler_manager._client_event_runner = None
+
     @pytest.mark.it("Is False if the Client Event Handler Runner is not running")
-    def test_client_event_runner_not_running(self, handler_manager):
+    async def test_client_event_runner_not_running(self, handler_manager):
         assert handler_manager._client_event_runner is None
         assert handler_manager.handling_client_events is False
