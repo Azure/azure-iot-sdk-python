@@ -700,3 +700,27 @@ class TestSyncHandlerManagerPropertyOnBackgroundException(SharedClientEventHandl
     @pytest.fixture
     def event(self, arbitrary_exception):
         return client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, arbitrary_exception)
+
+
+@pytest.mark.describe("SyncHandlerManager - PROPERTY: .handling_client_events")
+class TestSyncHandlerManagerPropertyHandlingClientEvents(object):
+    @pytest.fixture
+    def handler_manager(self, inbox_manager):
+        hm = SyncHandlerManager(inbox_manager)
+        yield hm
+        hm.stop()
+
+    @pytest.mark.it("Is True if the Client Event Handler Runner is running")
+    def test_client_event_runner_running(self, handler_manager):
+        # Add a fake client event runner thread
+        fake_runner_thread = threading.Thread()
+        fake_runner_thread.daemon = True
+        fake_runner_thread.start()
+        handler_manager._client_event_runner = fake_runner_thread
+
+        assert handler_manager.handling_client_events is True
+
+    @pytest.mark.it("Is False if the Client Event Handler Runner is not running")
+    def test_client_event_runner_not_running(self, handler_manager):
+        assert handler_manager._client_event_runner is None
+        assert handler_manager.handling_client_events is False
