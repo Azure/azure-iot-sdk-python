@@ -104,11 +104,6 @@ class MQTTPipeline(object):
             #
             .append_stage(pipeline_stages_base.ReconnectStage())
             #
-            # ConnectionLockStage needs to be after ReconnectStage because we want any ops that
-            # ReconnectStage creates to go through the ConnectionLockStage gate
-            #
-            .append_stage(pipeline_stages_base.ConnectionLockStage())
-            #
             # RetryStage needs to be near the end because it's retrying low-level MQTT operations.
             #
             .append_stage(pipeline_stages_base.RetryStage())

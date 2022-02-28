@@ -108,7 +108,6 @@ class TestMQTTPipelineInstantiation(object):
             pipeline_stages_iothub_mqtt.IoTHubMQTTTranslationStage,
             pipeline_stages_base.AutoConnectStage,
             pipeline_stages_base.ReconnectStage,
-            pipeline_stages_base.ConnectionLockStage,
             pipeline_stages_base.RetryStage,
             pipeline_stages_base.OpTimeoutStage,
             pipeline_stages_mqtt.MQTTTransportStage,
