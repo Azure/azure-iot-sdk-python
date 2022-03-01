@@ -279,6 +279,7 @@ class TestSendMessageStress(object):
         self,
         client,
         service_helper,
+        leak_tracker,
         messages_per_second=CONTINUOUS_TELEMETRY_MESSAGES_PER_SECOND,
         test_length_in_seconds=CONTINUOUS_TELEMETRY_TEST_DURATION,
     ):
@@ -288,6 +289,8 @@ class TestSendMessageStress(object):
         limits of the code
         """
 
+        leak_tracker.set_initial_object_list()
+
         await self.send_and_verify_continous_telemetry(
             client=client,
             service_helper=service_helper,
@@ -295,12 +298,15 @@ class TestSendMessageStress(object):
             test_length_in_seconds=test_length_in_seconds,
         )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.it("send {} messages all at once".format(ALL_AT_ONCE_MESSAGE_COUNT))
     @pytest.mark.timeout(ALL_AT_ONCE_TOTAL_ELAPSED_TIME_FAILURE_TRIGGER)
     async def test_stress_send_message_all_at_once(
         self,
         client,
         service_helper,
+        leak_tracker,
         message_count=ALL_AT_ONCE_MESSAGE_COUNT,
     ):
         """
@@ -309,11 +315,15 @@ class TestSendMessageStress(object):
         handle large volumes of outstanding messages.
         """
 
+        leak_tracker.set_initial_object_list()
+
         await self.send_and_verify_many_telemetry_messages(
             client=client,
             service_helper=service_helper,
             message_count=message_count,
         )
+
+        leak_tracker.check_for_leaks()
 
     @pytest.mark.it(
         "regular message delivery with flaky network {} messages per second for {} seconds".format(
@@ -329,6 +339,7 @@ class TestSendMessageStress(object):
         client,
         service_helper,
         dropper,
+        leak_tracker,
         messages_per_second=SEND_TELEMETRY_FLAKY_NETWORK_MESSAGES_PER_SECOND,
         test_length_in_seconds=SEND_TELEMETRY_FLAKY_NETWORK_TEST_DURATION,
     ):
@@ -338,6 +349,8 @@ class TestSendMessageStress(object):
         current connection state, and the code will queue the messages as necessary and verify
         that they always arrive.
         """
+
+        leak_tracker.set_initial_object_list()
 
         await asyncio.gather(
             self.do_periodic_network_disconnects(
@@ -354,3 +367,5 @@ class TestSendMessageStress(object):
                 test_length_in_seconds=test_length_in_seconds,
             ),
         )
+
+        leak_tracker.check_for_leaks()

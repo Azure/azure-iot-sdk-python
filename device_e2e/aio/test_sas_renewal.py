@@ -7,6 +7,7 @@ import json
 import logging
 import test_config
 import parametrize
+from azure.iot.device.common.alarm import Alarm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -24,7 +25,10 @@ class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
     @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
-    async def test_sas_renews(self, client, event_loop, service_helper, random_message):
+    async def test_sas_renews(
+        self, client, event_loop, service_helper, random_message, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
 
         connected_event = asyncio.Event()
         disconnected_event = asyncio.Event()
@@ -79,3 +83,6 @@ class TestSasRenewal(object):
         # TODO incoming_event_queue.get should check thread future
         event = await service_helper.wait_for_eventhub_arrival(random_message.message_id)
         assert json.dumps(event.message_body) == random_message.data
+
+        random_message = None  # so this isn't flagged as a leak
+        leak_tracker.check_for_leaks()
