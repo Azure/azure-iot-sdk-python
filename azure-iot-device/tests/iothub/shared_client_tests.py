@@ -669,14 +669,21 @@ class SharedIoTHubClientPROPERTYConnectedTests(object):
 
 
 class SharedIoTHubClientOCCURRENCEConnectTests(object):
-    @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
-    def test_add_client_event(self, client, mocker):
+    @pytest.mark.it(
+        "Adds a CONNECTION_STATE_CHANGE ClientEvent to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
+    )
+    def test_handler_manager_handling_events(self, client, mocker):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
 
         client._on_connected()
 
+        # ClientEvent was added
         assert not client_event_inbox.empty()
         assert inbox_put_spy.call_count == 1
         event = inbox_put_spy.call_args[0][0]
@@ -684,16 +691,47 @@ class SharedIoTHubClientOCCURRENCEConnectTests(object):
         assert event.name == client_event.CONNECTION_STATE_CHANGE
         assert event.args_for_user == ()
 
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_connected()
+
+        # Inbox is still empty
+        assert client_event_inbox.empty()
+
     @pytest.mark.it("Ensures that the HandlerManager is running")
-    def test_ensure_handler_manager_running_on_connect(self, client, mocker):
+    @pytest.mark.parametrize(
+        "handling_client_events",
+        [True, False],
+        ids=["Manager Handling ClientEvents", "Manager Not Handling ClientEvents"],
+    )
+    def test_ensure_handler_manager_running_on_connect(
+        self, client, mocker, handling_client_events
+    ):
+        if handling_client_events:
+            # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+            # the rule about black-boxing other modules to simulate what we want. Sorry.
+            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is handling_client_events
         ensure_running_spy = mocker.spy(client._handler_manager, "ensure_running")
         client._on_connected()
         assert ensure_running_spy.call_count == 1
 
 
 class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
-    @pytest.mark.it("Adds a CONNECTION_STATE_CHANGE ClientEvent to the Client Event Inbox")
-    def test_add_client_event(self, client, mocker):
+    @pytest.mark.it(
+        "Adds a CONNECTION_STATE_CHANGE ClientEvent to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
+    )
+    def test_handler_manager_handling_event(self, client, mocker):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
@@ -707,16 +745,47 @@ class SharedIoTHubClientOCCURRENCEDisconnectTests(object):
         assert event.name == client_event.CONNECTION_STATE_CHANGE
         assert event.args_for_user == ()
 
-    @pytest.mark.it("Clears all pending MethodRequests upon disconnect")
-    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(self, client, mocker):
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_disconnected()
+
+        # Inbox is still empty
+        assert client_event_inbox.empty()
+
+    @pytest.mark.it("Clears all pending MethodRequests")
+    @pytest.mark.parametrize(
+        "handling_client_events",
+        [True, False],
+        ids=["Manager Handling ClientEvents", "Manager Not Handling ClientEvents"],
+    )
+    def test_state_change_handler_clears_method_request_inboxes_on_disconnect(
+        self, client, mocker, handling_client_events
+    ):
+        if handling_client_events:
+            # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+            # the rule about black-boxing other modules to simulate what we want. Sorry.
+            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is handling_client_events
         clear_method_request_spy = mocker.spy(client._inbox_manager, "clear_all_method_requests")
         client._on_disconnected()
         assert clear_method_request_spy.call_count == 1
 
 
 class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
-    @pytest.mark.it("Adds a NEW_SASTOKEN_REQUIRED ClientEvent to the Client Event Inbox")
-    def test_add_client_event(self, client, mocker):
+    @pytest.mark.it(
+        "Adds a NEW_SASTOKEN_REQUIRED ClientEvent to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
+    )
+    def test_handler_manager_handling_events(self, client, mocker):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
@@ -730,10 +799,35 @@ class SharedIoTHubClientOCCURRENCENewSastokenRequired(object):
         assert event.name == client_event.NEW_SASTOKEN_REQUIRED
         assert event.args_for_user == ()
 
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_new_sastoken_required()
+
+        # Inbox still empty
+        assert client_event_inbox.empty()
+
 
 class SharedIoTHubClientOCCURRENCEBackgroundException(object):
     @pytest.mark.it("Sends the exception to the handle_exceptions module")
-    def test_handle_exceptions_module(self, client, mocker, arbitrary_exception):
+    @pytest.mark.parametrize(
+        "handling_client_events",
+        [True, False],
+        ids=["Manager Handling ClientEvents", "Manager Not Handling ClientEvents"],
+    )
+    def test_handle_exceptions_module(
+        self, client, mocker, arbitrary_exception, handling_client_events
+    ):
+        if handling_client_events:
+            # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+            # the rule about black-boxing other modules to simulate what we want. Sorry.
+            client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is handling_client_events
         background_exc_spy = mocker.spy(handle_exceptions, "handle_background_exception")
 
         client._on_background_exception(arbitrary_exception)
@@ -742,9 +836,13 @@ class SharedIoTHubClientOCCURRENCEBackgroundException(object):
         assert background_exc_spy.call_args == mocker.call(arbitrary_exception)
 
     @pytest.mark.it(
-        "Adds a BACKGROUND_EXCEPTION ClientEvent (containing the exception) to the ClientEvent Inbox"
+        "Adds a BACKGROUND_EXCEPTION ClientEvent (containing the exception) to the ClientEvent Inbox if the HandlerManager is currently handling ClientEvents"
     )
-    def test_add_client_event(self, client, mocker, arbitrary_exception):
+    def test_handler_manager_handling_events(self, client, mocker, arbitrary_exception):
+        # NOTE: It's hard to mock a read-only property (.handling_client_events), so we're breaking
+        # the rule about black-boxing other modules to simulate what we want. Sorry.
+        client._handler_manager._client_event_runner = mocker.MagicMock()  # fake thread
+        assert client._handler_manager.handling_client_events is True
         client_event_inbox = client._inbox_manager.get_client_event_inbox()
         inbox_put_spy = mocker.spy(client_event_inbox, "put")
         assert client_event_inbox.empty()
@@ -757,6 +855,19 @@ class SharedIoTHubClientOCCURRENCEBackgroundException(object):
         assert isinstance(event, client_event.ClientEvent)
         assert event.name == client_event.BACKGROUND_EXCEPTION
         assert event.args_for_user == (arbitrary_exception,)
+
+    @pytest.mark.it(
+        "Does not add any ClientEvents to the ClientEvent Inbox if the HandlerManager is not currently handling ClientEvents"
+    )
+    def test_handler_manager_not_handling_events(self, client, arbitrary_exception):
+        assert client._handler_manager.handling_client_events is False
+        client_event_inbox = client._inbox_manager.get_client_event_inbox()
+        assert client_event_inbox.empty()
+
+        client._on_background_exception(arbitrary_exception)
+
+        # Inbox is still empty
+        assert client_event_inbox.empty()
 
 
 ##############################

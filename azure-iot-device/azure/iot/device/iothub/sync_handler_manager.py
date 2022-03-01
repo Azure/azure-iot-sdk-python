@@ -284,6 +284,26 @@ class AbstractHandlerManager(abc.ABC):
         if self._client_event_runner is None:
             self._start_handler_runner(CLIENT_EVENT)
 
+    # ~~~Other Properties~~~
+    @property
+    def handling_client_events(self):
+        """Indicates if the HandlerManager is currently capable of resolving ClientEvents"""
+        # This client event runner is only running if at least one handler for client events has
+        # been set. If none have been set, it is dangerous to add items to the client event inbox
+        # as none will ever be retrieved due to no runner process occurring, thus the need for this
+        # check.
+        #
+        # The ideal solution would be to always keep the client event runner running, but this
+        # could break older customer code due to older APIs on the customer-facing clients. It is
+        # unfortunate that something related to an API has seeped into this internal and ideally
+        # isolated module, but the needs of the client design have influenced the design of this
+        # manager (by only starting the runner when a handler is set), so the mitigation must also
+        # be located in this module.
+        if self._client_event_runner is None:
+            return False
+        else:
+            return True
+
 
 class SyncHandlerManager(AbstractHandlerManager):
     """Handler manager for use with synchronous clients"""

@@ -122,8 +122,10 @@ class AbstractIoTHubClient(abc.ABC):
         """Helper handler that is called upon an iothub pipeline connect"""
         logger.info("Connection State - Connected")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
         # Ensure that all handlers are running now that connection is re-established.
         self._handler_manager.ensure_running()
 
@@ -131,8 +133,10 @@ class AbstractIoTHubClient(abc.ABC):
         """Helper handler that is called upon an iothub pipeline disconnect"""
         logger.info("Connection State - Disconnected")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.CONNECTION_STATE_CHANGE)
+            client_event_inbox.put(event)
         # Locally stored method requests on client are cleared.
         # They will be resent by IoTHub on reconnect.
         self._inbox_manager.clear_all_method_requests()
@@ -142,15 +146,19 @@ class AbstractIoTHubClient(abc.ABC):
         """Helper handler that is called upon the iothub pipeline needing new SAS token"""
         logger.info("New SasToken required from user")
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.NEW_SASTOKEN_REQUIRED)
+            client_event_inbox.put(event)
 
     def _on_background_exception(self, e):
         """Helper handler that is called upon an iothub pipeline background exception"""
         handle_exceptions.handle_background_exception(e)
         client_event_inbox = self._inbox_manager.get_client_event_inbox()
-        event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
-        client_event_inbox.put(event)
+        # Only add a ClientEvent to the inbox if the Handler Manager is capable of dealing with it
+        if self._handler_manager.handling_client_events:
+            event = client_event.ClientEvent(client_event.BACKGROUND_EXCEPTION, e)
+            client_event_inbox.put(event)
 
     def _check_receive_mode_is_api(self):
         """Call this function first in EVERY receive API"""

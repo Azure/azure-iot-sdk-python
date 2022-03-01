@@ -2730,14 +2730,14 @@ class TestIoTHubModuleClientOCCURRENCEDisconnect(
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: New Sastoken Required")
-class TestIoTHubModuleClientOCURRENCENewSastokenRequired(
+class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
     IoTHubModuleClientTestsConfig, SharedIoTHubClientOCCURRENCENewSastokenRequired
 ):
     pass
 
 
 @pytest.mark.describe("IoTHubModuleClient (Synchronous) - OCCURRENCE: Background Exception")
-class TestIoTHubModuleClientOCCURRENCENewSastokenRequired(
+class TestIoTHubModuleClientOCCURRENCEBackgroundException(
     IoTHubDeviceClientTestsConfig, SharedIoTHubClientOCCURRENCEBackgroundException
 ):
     pass
