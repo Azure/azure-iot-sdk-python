@@ -337,6 +337,10 @@ class SyncHandlerManager(AbstractHandlerManager):
             logger.debug("HANDLER RUNNER ({}): Invoking handler".format(handler_name))
             fut = tpe.submit(handler, handler_arg)
             fut.add_done_callback(_handler_callback)
+            # Free up this object so the garbage collector can free it if necessary. If we don't
+            # do this, we end up keeping this object alive until the next event arrives, which
+            # might be a long time. Tests would flag this as a memory leak if that happened.
+            del handler_arg
 
     def _client_event_handler_runner(self):
         """Run infinite loop that waits for the client event inbox to receive an event from it,
@@ -365,6 +369,10 @@ class SyncHandlerManager(AbstractHandlerManager):
                 )
                 fut = tpe.submit(handler, *event.args_for_user)
                 fut.add_done_callback(_handler_callback)
+                # Free up this object so the garbage collector can free it if necessary. If we don't
+                # do this, we end up keeping this object alive until the next event arrives, which
+                # might be a long time. Tests would flag this as a memory leak if that happened.
+                del event
             else:
                 logger.debug(
                     "No handler for event {} set. Skipping handler invocation".format(event)

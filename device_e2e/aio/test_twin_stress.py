@@ -114,12 +114,14 @@ class TestTwinStress(object):
     )
     @pytest.mark.it("Can send continuous reported property updates, one-at-a-time")
     async def test_stress_serial_reported_property_updates(
-        self, client, service_helper, toxic, iteration_count
+        self, client, service_helper, toxic, iteration_count, leak_tracker
     ):
         """
         Send reported property updates, one at a time, and verify that each one
         has been received at the service. Do not overlap these calls.
         """
+        leak_tracker.set_initial_object_list()
+
         await call_with_connection_retry(
             client, client.patch_twin_reported_properties, reset_reported_props
         )
@@ -144,6 +146,8 @@ class TestTwinStress(object):
                         )
                     )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count, batch_size",
         [
@@ -153,13 +157,15 @@ class TestTwinStress(object):
     )
     @pytest.mark.it("Can send continuous overlapped reported property updates")
     async def test_stress_parallel_reported_property_updates(
-        self, client, service_helper, toxic, iteration_count, batch_size
+        self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
         """
         Update reported properties with many overlapped calls. Work in batches
         with `batch_size` overlapped calls in a batch. Verify that the updates arrive
         at the service.
         """
+        leak_tracker.set_initial_object_list()
+
         await call_with_connection_retry(
             client, client.patch_twin_reported_properties, reset_reported_props
         )
@@ -205,17 +211,21 @@ class TestTwinStress(object):
                                 )
                             )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
     )
     @pytest.mark.it("Can receive continuous desired property updates that were sent one-at-a-time")
     async def test_stress_serial_desired_property_updates(
-        self, client, service_helper, toxic, iteration_count, event_loop
+        self, client, service_helper, toxic, iteration_count, event_loop, leak_tracker
     ):
         """
         Update desired properties, one at a time, and verify that the desired property arrives
         at the client before the next update.
         """
+        leak_tracker.set_initial_object_list()
+
         patches = asyncio.Queue()
 
         async def handle_on_patch_received(patch):
@@ -238,6 +248,8 @@ class TestTwinStress(object):
             received_patch = await asyncio.wait_for(patches.get(), 60)
             assert received_patch[const.TEST_CONTENT] == property_value
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count, batch_size",
         [
@@ -248,13 +260,15 @@ class TestTwinStress(object):
     @pytest.mark.it(
         "Can receive continuous desired property updates that may have been sent in parallel"
     )
-    async def test_stress_parallel_desired_property_udpates(
-        self, client, service_helper, toxic, iteration_count, batch_size, event_loop
+    async def test_stress_parallel_desired_property_updates(
+        self, client, service_helper, toxic, iteration_count, batch_size, event_loop, leak_tracker
     ):
         """
-        Update desired properties in batches. Each batch udpates `batch_size` properties,
+        Update desired properties in batches. Each batch updates `batch_size` properties,
         with each property being updated in it's own `PATCH`.
         """
+        leak_tracker.set_initial_object_list()
+
         patches = asyncio.Queue()
 
         async def handle_on_patch_received(patch):
@@ -303,18 +317,22 @@ class TestTwinStress(object):
                                 )
                             )
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count", [pytest.param(10, id="10 updates"), pytest.param(50, id="50 updates")]
     )
     @pytest.mark.it("Can continuously call get_twin and get valid property values")
     async def test_stress_serial_get_twin_calls(
-        self, client, service_helper, toxic, iteration_count
+        self, client, service_helper, toxic, iteration_count, leak_tracker
     ):
         """
         Call `get_twin` once-at-a-time to verify that updated properites show up. This test
         calls `get_twin()` `iteration_count` times. Once a reported property shows up in the
         twin, that property is updated to be verified in future `get_twin` calls.
         """
+        leak_tracker.set_initial_object_list()
+
         last_property_value = None
         current_property_value = None
 
@@ -347,6 +365,8 @@ class TestTwinStress(object):
 
         assert last_property_value, "No patches with updated properties were received"
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize(
         "iteration_count, batch_size",
         [
@@ -357,13 +377,15 @@ class TestTwinStress(object):
     )
     @pytest.mark.it("Can continuously make overlapped get_twin calls and get valid property values")
     async def test_stress_parallel_get_twin_calls(
-        self, client, service_helper, toxic, iteration_count, batch_size
+        self, client, service_helper, toxic, iteration_count, batch_size, leak_tracker
     ):
         """
         Call `get_twin` many times, overlapped, to verify that updated properites show up. This test
         calls `get_twin()` `iteration_count` times. Once a reported property shows up in the
         twin, that property is updated to be verified in future `get_twin` calls.
         """
+        leak_tracker.set_initial_object_list()
+
         last_property_value = None
         current_property_value = get_random_property_value()
 
@@ -420,3 +442,5 @@ class TestTwinStress(object):
             if got_a_match:
                 last_property_value = current_property_value
                 current_property_value = None
+
+        leak_tracker.check_for_leaks()

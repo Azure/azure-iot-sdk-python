@@ -10,6 +10,7 @@ import logging
 import importlib
 import json
 import sys
+from functools import reduce
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -31,6 +32,23 @@ def _run_garbage_collection():
             done = True
 
 
+def get_printable_object_name(obj):
+    """
+    Get a human-readable object name for our reports. This function tries to balance useful
+    information (such as the `__repr__` of an object) with the shortest display (to make reports
+    visually understandable). Since this text is only read by humans, it can be any for whatsoever.
+    """
+    try:
+        if isinstance(obj, dict):
+            return "Dict ID={}: first-5-keys={}".format(id(obj), list(obj.keys())[:10])
+        else:
+            return "{}: {}".format(type(obj), str(obj))
+    except TypeError:
+        return "Foreign object (raised TypeError): {}, ID={}".format(type(obj), id(obj))
+    except ModuleNotFoundError:
+        return "Foreign object (raised ModuleNotFoundError): {}, ID={}".format(type(obj), id(obj))
+
+
 class TrackedObject(object):
     """
     Object holding details on the leak of some tracked object.
@@ -39,13 +57,21 @@ class TrackedObject(object):
     """
 
     def __init__(self, obj):
-        self.object_name = str(obj)
+        self.object_id = id(obj)
+        self.object_name = get_printable_object_name(obj)
+        self.object_type = type(obj)
+
         try:
             self.weakref = weakref.ref(obj)
-        except ValueError:
+        except (ValueError, TypeError):
             # Some objects (like frame and dict) can't have weak references.
             # Keep track of it, but don't keep a weak reference.
             self.weakref = None
+
+        if isinstance(obj, dict):
+            self.dict = obj
+        else:
+            self.dict = None
 
     def __repr__(self):
         return self.object_name
@@ -54,10 +80,19 @@ class TrackedObject(object):
         if self.weakref or obj.weakref:
             return self.weakref == obj.weakref
         else:
-            return self.object_name == obj.object_name
+            return self.object_id == obj.object_id
+
+    def __hash__(self):
+        return self.object_id
 
     def __ne__(self, obj):
         return not self == obj
+
+    def get_object(self):
+        if self.weakref:
+            return self.weakref()
+        else:
+            return self.dict
 
 
 class TrackedModule(object):
@@ -96,6 +131,7 @@ class LeakTracker(object):
     def __init__(self):
         self.tracked_modules = []
         self.initial_set_of_objects = []
+        self.filter_callback = None
 
     def track_module(self, module_name):
         """
@@ -150,10 +186,12 @@ class LeakTracker(object):
         them and assert so the test fails.
         """
         remaining_objects = self.get_leaks()
+
+        if self.filter_callback:
+            remaining_objects = self.filter_callback(remaining_objects)
+
         if len(remaining_objects):
-            logger.error("Test failure.  {} objects have leaked:".format(len(remaining_objects)))
             self.dump_leak_report(remaining_objects)
-            assert False
         else:
             logger.info("No leaks")
 
@@ -239,42 +277,114 @@ class LeakTracker(object):
         Phew.
         """
 
+        logger.info("-----------------------------------------------")
+        logger.error("Test failure.  {} objects have leaked:".format(len(leaked_objects)))
+        logger.info("(Default text format is <type(obj): str(obj)>")
+
         id_to_name_map = {}
-        index = 0
 
         # first, map IDs for leaked objects.  We display these slightly differently because it
         # makes tracking inter-leak references a little easier.
         for leak in leaked_objects:
-            object_name = leak.object_name
+            id_to_name_map[leak.object_id] = leak
 
-            object_id = id(leak.weakref())
-            id_to_name_map[object_id] = "Tracked object: {} (index={})".format(object_name, index)
+            # if the object has a `__dict__` attribute, then map the ID of that dictionary
+            # back to the object also.
+            if leak.get_object() and hasattr(leak.get_object(), "__dict__"):
+                dict_id = id(leak.get_object().__dict__)
+                id_to_name_map[dict_id] = leak
 
-            if hasattr(leak.weakref(), "__dict__"):
-                dict_id = id(leak.weakref().__dict__)
-                id_to_name_map[dict_id] = "Tracked object __dict__: {} (index={})".format(
-                    object_name, index
-                )
-
-            index += 1
-
-        # Second, map IDs for all other objects (unless we've mapped them already).  This might
-        # be overkill, but it gives us the most information.
+        # Second, go through all objects and map IDs for those (unless we've done them already).
+        # In this step, we add mappings for objects and their `__dict__` attributes, but we
+        # don't add `dict` objects yet. This is because we don't know if any `dict` is a user-
+        # created dictionary or if it's a `__dict__`.  If it's a `__dict__`, we add it here and
+        # point it to the owning object.  If it's just a `dict`, we add it in the last loop
+        # through
         for obj in gc.get_objects():
             object_id = id(obj)
-            if object_id not in id_to_name_map:
-                id_to_name_map[object_id] = "Untracked_object: {}".format(type(obj))
 
-            if hasattr(obj, "__dict__"):
-                dict_id = id(obj.__dict__)
-                if dict_id not in id_to_name_map:
-                    id_to_name_map[dict_id] = "Untracked_object: {}.__dict__".format(type(obj))
+            if not isinstance(obj, dict):
+                if object_id not in id_to_name_map:
+                    id_to_name_map[object_id] = TrackedObject(obj)
 
-        for leak in leaked_objects:
-            logger.info("object: {}".format(leak.object_name))
-            for referrer in gc.get_referrers(leak):
-                object_id = id(referrer)
-                if object_id in id_to_name_map:
-                    logger.info("    referred by: {}".format(id_to_name_map[object_id]))
-                else:
-                    logger.info("    referred by Non-object: {}".format(referrer))
+                if hasattr(obj, "__dict__"):
+                    dict_id = id(obj.__dict__)
+                    if dict_id not in id_to_name_map:
+                        id_to_name_map[dict_id] = id_to_name_map[object_id]
+
+        # Third, map IDs for all dicts that we haven't done yet.
+        for obj in gc.get_objects():
+            object_id = id(obj)
+
+            if isinstance(obj, dict):
+                if object_id not in id_to_name_map:
+                    id_to_name_map[object_id] = TrackedObject(obj)
+
+        already_reported = set()
+        objects_to_report = leaked_objects.copy()
+
+        # keep track of all 3 generations in handy local variables.  These are here
+        # for developers who might be looking at leaks inside of pdb.
+        gen0 = []
+        gen1 = []
+        gen2 = []
+
+        for generation_storage, generation_name in [
+            (gen0, "generation 0: objects that leaked"),
+            (gen1, "generation 1: objects that refer to leaked objects"),
+            (gen2, "generation 2: objects that refer to generation 1"),
+        ]:
+            next_set_of_objects_to_report = set()
+            if len(objects_to_report):
+                logger.info("-----------------------------------------------")
+                logger.info(generation_name)
+
+                # Add our objects to our generation-specific list. This helps
+                # developers looking at bugs inside pdb because they can just look
+                # at `gen0[0].get_object()` to see the first leaked object, etc.
+                generation_storage.extend(objects_to_report)
+
+                for obj in objects_to_report:
+                    if obj in already_reported:
+                        logger.info("already reported: {}".format(obj.object_name))
+                    else:
+                        logger.info("object: {}".format(obj.object_name))
+                        if not obj.get_object():
+                            logger.info("    not recursing")
+                        else:
+                            for referrer in gc.get_referrers(obj.get_object()):
+                                if (
+                                    isinstance(referrer, dict)
+                                    and referrer.get("dict", None) == obj.get_object()
+                                ):
+                                    # This is the dict from a TrackedObject object.  Skip it.
+                                    pass
+                                else:
+                                    object_id = id(referrer)
+                                    if object_id in id_to_name_map:
+                                        logger.info(
+                                            "    referred by: {}".format(id_to_name_map[object_id])
+                                        )
+                                        next_set_of_objects_to_report.add(id_to_name_map[object_id])
+                                    else:
+                                        logger.info(
+                                            "    referred by Non-object: {}".format(
+                                                get_printable_object_name(referrer)
+                                            )
+                                        )
+                        already_reported.add(obj)
+
+                logger.info(
+                    "Total: {} objects, referred to by {} objects".format(
+                        len(objects_to_report), len(next_set_of_objects_to_report)
+                    )
+                )
+                objects_to_report = next_set_of_objects_to_report
+
+        logger.info("-----------------------------------------------")
+        logger.info("Leaked objects are available in local variables: gen0, gen1, and gen2")
+        logger.info("for the 3 generations of leaks. Use the get_object method to retrieve")
+        logger.info("the actual objects")
+        logger.info("eg: us gen0[0].get_object() to get the first leaked object")
+        logger.info("-----------------------------------------------")
+        assert False, "Test failure.  {} objects have leaked:".format(len(leaked_objects))
