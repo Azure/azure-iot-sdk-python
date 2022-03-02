@@ -257,7 +257,7 @@ class MQTTTransport(object):
                     logger.error(traceback.format_exc())
             else:
                 logger.error(
-                    "No event handler callback set for on_mqtt_message_received_handler - DROPPING MESSAGE"
+                    "No event handlerr callback set for on_mqtt_message_received_handler - DROPPING MESSAGE"
                 )
 
         mqtt_client.on_connect = on_connect
