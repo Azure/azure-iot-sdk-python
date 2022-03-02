@@ -18,15 +18,24 @@ pytestmark = pytest.mark.asyncio
 class TestConnectDisconnectStress(object):
     @pytest.mark.parametrize("iteration_count", [10, 50])
     @pytest.mark.it("Can do many non-overlapped connects and disconnects")
-    async def test_non_overlapped_connect_disconnect_stress(self, client, iteration_count):
+    async def test_non_overlapped_connect_disconnect_stress(
+        self, client, iteration_count, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
+
         for _ in range(iteration_count):
             await client.connect()
             await client.disconnect()
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize("iteration_count", [20, 250])
     @pytest.mark.it("Can do many overlapped connects and disconnects")
     @pytest.mark.timeout(600)
-    async def test_overlapped_connect_disconnect_stress(self, client, iteration_count):
+    async def test_overlapped_connect_disconnect_stress(
+        self, client, iteration_count, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
 
         futures = []
         for _ in range(iteration_count):
@@ -38,10 +47,15 @@ class TestConnectDisconnectStress(object):
         finally:
             await task_cleanup.cleanup_tasks(futures)
 
+        leak_tracker.check_for_leaks()
+
     @pytest.mark.parametrize("iteration_count", [20, 500])
     @pytest.mark.it("Can do many overlapped random connects and disconnects")
     @pytest.mark.timeout(600)
-    async def test_overlapped_random_connect_disconnect_stress(self, client, iteration_count):
+    async def test_overlapped_random_connect_disconnect_stress(
+        self, client, iteration_count, leak_tracker
+    ):
+        leak_tracker.set_initial_object_list()
 
         futures = []
         for _ in range(iteration_count):
@@ -54,3 +68,5 @@ class TestConnectDisconnectStress(object):
             await asyncio.gather(*futures)
         finally:
             await task_cleanup.cleanup_tasks(futures)
+
+        leak_tracker.check_for_leaks()

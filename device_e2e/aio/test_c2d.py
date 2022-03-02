@@ -20,7 +20,9 @@ pytestmark = pytest.mark.asyncio
 class TestReceiveC2d(object):
     @pytest.mark.it("Can receive C2D")
     @pytest.mark.quicktest_suite
-    async def test_receive_c2d(self, client, service_helper, event_loop):
+    async def test_receive_c2d(self, client, service_helper, event_loop, leak_tracker):
+        leak_tracker.set_initial_object_list()
+
         message = json.dumps(get_random_dict())
 
         received_message = None
@@ -40,3 +42,6 @@ class TestReceiveC2d(object):
         assert received.is_set()
 
         assert received_message.data.decode("utf-8") == message
+
+        received_message = None  # so this isn't tagged as a leak
+        leak_tracker.check_for_leaks()
