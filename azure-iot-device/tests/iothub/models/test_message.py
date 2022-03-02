@@ -14,18 +14,26 @@ logging.basicConfig(level=logging.DEBUG)
 
 @pytest.mark.describe("Message")
 class TestMessage(object):
-
-    data_str = "After all this time? Always"
-    data_int = 987
-    data_obj = Message(data_str)
-
-    @pytest.mark.it("Instantiates from data type")
-    @pytest.mark.parametrize(
-        "data", [data_str, data_int, data_obj], ids=["String", "Integer", "Message"]
+    @pytest.fixture(
+        params=["String Data", "Integer Data", "List Data", "Dictionary Data (JSON)", "Object Data"]
     )
+    def data(self, request):
+        if request.param == "String Data":
+            return "Some String Data"
+        elif request.param == "Integer Data":
+            return 987
+        elif request.param == "List Data":
+            return [1, 2, 3]
+        elif request.param == "Dictionary Data (JSON)":
+            return {"json_key": "json_val"}
+        elif request.param == "Object Data":
+            return object()
+
+    @pytest.mark.it("Instantiates with a string-conversion of the data")
     def test_instantiates_from_data(self, data):
         msg = Message(data)
-        assert msg.data == data
+        assert isinstance(msg.data, str)
+        assert msg.data == str(data)
 
     @pytest.mark.it("Instantiates with optional provided message id")
     def test_instantiates_with_optional_message_id(self):
@@ -92,9 +100,6 @@ class TestMessage(object):
 
     @pytest.mark.it(
         "Uses string representation of data/payload attribute as string representation of Message"
-    )
-    @pytest.mark.parametrize(
-        "data", [data_str, data_int, data_obj], ids=["String", "Integer", "Message"]
     )
     def test_str_rep(self, data):
         msg = Message(data)

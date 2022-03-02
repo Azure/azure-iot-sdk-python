@@ -30,13 +30,13 @@ class Message(object):
         """
         Initializer for Message
 
-        :param data: The  data that constitutes the payload
+        :param data: The  data that constitutes the payload. Must be string-convertable.
         :param str message_id: A user-settable identifier for the message used for request-reply patterns. Format: A case-sensitive string (up to 128 characters long) of ASCII 7-bit alphanumeric characters + {'-', ':', '.', '+', '%', '_', '#', '*', '?', '!', '(', ')', ',', '=', '@', ';', '$', '''}
         :param str content_encoding: Content encoding of the message data. Other values can be utf-16' or 'utf-32'
         :param str content_type: Content type property used to routes with the message body.
         :param str output_name: Name of the output that the is being sent to.
         """
-        self.data = data
+        self.data = str(data)
         self.custom_properties = {}
         self.message_id = message_id
         self.expiry_time_utc = None
@@ -62,7 +62,7 @@ class Message(object):
         self._iothub_interface_id = constant.SECURITY_MESSAGE_INTERFACE_ID
 
     def __str__(self):
-        return str(self.data)
+        return self.data
 
     def get_size(self):
         total = 0
