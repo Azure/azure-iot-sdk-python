@@ -660,7 +660,7 @@ class SharedClientSendD2CMessageTests(WaitsForEventCompletion):
         assert mqtt_pipeline.send_message.call_count == 1
         sent_message = mqtt_pipeline.send_message.call_args[0][0]
         assert isinstance(sent_message, Message)
-        assert sent_message.data == message_input
+        assert sent_message.data == str(message_input)
 
     @pytest.mark.it("Raises error when message data size is greater than 256 KB")
     def test_raises_error_when_message_data_greater_than_256(self, client, mqtt_pipeline):
@@ -2312,7 +2312,7 @@ class TestIoTHubModuleClientSendToOutput(IoTHubModuleClientTestsConfig, WaitsFor
         assert mqtt_pipeline.send_output_message.call_count == 1
         sent_message = mqtt_pipeline.send_output_message.call_args[0][0]
         assert isinstance(sent_message, Message)
-        assert sent_message.data == message_input
+        assert sent_message.data == str(message_input)
 
     @pytest.mark.it("Raises error when message data size is greater than 256 KB")
     def test_raises_error_when_message_to_output_data_greater_than_256(self, client, mqtt_pipeline):
