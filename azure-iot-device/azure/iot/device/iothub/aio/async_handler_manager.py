@@ -60,10 +60,18 @@ class AsyncHandlerManager(AbstractHandlerManager):
                 # TODO: Can we call this on the user loop instead?
                 handler_loop = loop_management.get_client_handler_loop()
                 fut = asyncio.run_coroutine_threadsafe(handler(handler_arg), handler_loop)
+                # Free up this object so the garbage collector can free it if necessary. If we don't
+                # do this, we end up keeping this object alive until the next event arrives, which
+                # might be a long time. Tests would flag this as a memory leak if that happened.
+                del handler_arg
                 fut.add_done_callback(_handler_callback)
             else:
                 # Run function directly in ThreadPool
                 fut = tpe.submit(handler, handler_arg)
+                # Free up this object so the garbage collector can free it if necessary. If we don't
+                # do this, we end up keeping this object alive until the next event arrives, which
+                # might be a long time. Tests would flag this as a memory leak if that happened.
+                del handler_arg
                 fut.add_done_callback(_handler_callback)
 
     async def _client_event_handler_runner(self):
@@ -102,10 +110,18 @@ class AsyncHandlerManager(AbstractHandlerManager):
                     fut = asyncio.run_coroutine_threadsafe(
                         handler(*event.args_for_user), handler_loop
                     )
+                    # Free up this object so the garbage collector can free it if necessary. If we don't
+                    # do this, we end up keeping this object alive until the next event arrives, which
+                    # might be a long time. Tests would flag this as a memory leak if that happened.
+                    del event
                     fut.add_done_callback(_handler_callback)
                 else:
                     # Run a function directly in ThreadPool
                     fut = tpe.submit(handler, *event.args_for_user)
+                    # Free up this object so the garbage collector can free it if necessary. If we don't
+                    # do this, we end up keeping this object alive until the next event arrives, which
+                    # might be a long time. Tests would flag this as a memory leak if that happened.
+                    del event
                     fut.add_done_callback(_handler_callback)
             else:
                 logger.debug(

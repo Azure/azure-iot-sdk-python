@@ -36,7 +36,10 @@ class TestMethods(object):
         include_request_payload,
         include_response_payload,
         service_helper,
+        leak_tracker,
     ):
+        leak_tracker.set_initial_object_list()
+
         actual_request = None
 
         if include_request_payload:
@@ -76,3 +79,6 @@ class TestMethods(object):
         # and make sure the response came back successfully
         assert method_response.status == method_response_status
         assert method_response.payload == response_payload
+
+        actual_request = None  # so this isn't tagged as a leak
+        leak_tracker.check_for_leaks()
