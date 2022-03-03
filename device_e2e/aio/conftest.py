@@ -20,32 +20,42 @@ logger.setLevel(level=logging.INFO)
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_pyfunc_call(pyfuncitem):
-    retry_async.reset_stats()
+    """
+    pytest hook that gets called for running an individual test. We use this to store
+    retry statistics for this test in the `pyfuncitem` for the test.
+    """
+
+    # Reset tests before running the test
+    retry_async.reset_retry_stats()
 
     try:
+        # Run the test. We can do this because hookwrapper=True
         yield
     finally:
-        if retry_async.stats:
-            pyfuncitem.retry_stats = retry_async.stats
+        # If we actualy collected any stats, store them.
+        if retry_async.retry_stats:
+            pyfuncitem.retry_stats = retry_async.retry_stats
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
     """
-    Log stress results to stdout at the end of a test run.
+    pytest hook that gets called at the end of a test session. We use this to
+    log stress results to stdout.
     """
-    # Loop through all of our tests
+
+    # Loop through all of our tests and print contents of `retry_stats` if it exists.
     printed_header = False
     for item in session.items:
-        stats = getattr(item, "retry_stats", None)
-        if stats:
+        retry_stats = getattr(item, "retry_stats", None)
+        if retry_stats:
             if not printed_header:
                 print(
                     "================================ retry summary ================================="
                 )
                 printed_header = True
             print("Retry stats for {}".format(item.name))
-            print(json.dumps(stats, indent=2))
+            print(json.dumps(retry_stats, indent=2))
             print("-----------------------------------")
 
 
