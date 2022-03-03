@@ -24,7 +24,7 @@ pytestmark = pytest.mark.asyncio
 class TestSasRenewal(object):
     @pytest.mark.it("Renews and reconnects before expiry")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     async def test_sas_renews(
         self, client, event_loop, service_helper, random_message, leak_tracker
     ):

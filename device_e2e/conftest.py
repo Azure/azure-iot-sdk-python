@@ -28,7 +28,7 @@ from client_fixtures import (
 )
 
 logging.basicConfig(
-    format="%(asctime)s %(levelname)-8s %(message)s",
+    format="%(asctime)s %(levelname)-8s %(module)s:%(funcName)s:%(message)s",
     level=logging.WARNING,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
