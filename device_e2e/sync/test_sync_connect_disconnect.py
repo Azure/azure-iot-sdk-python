@@ -15,7 +15,7 @@ logger.setLevel(level=logging.INFO)
 class TestConnectDisconnect(object):
     @pytest.mark.it("Can disconnect and reconnect")
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.quicktest_suite
     def test_sync_connect_disconnect(self, brand_new_client, leak_tracker):
         leak_tracker.set_initial_object_list()
@@ -37,7 +37,7 @@ class TestConnectDisconnect(object):
         "Can do a manual connect in the `on_connection_state_change` call that is notifying the user about a disconnect."
     )
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     # see "This assert fails because of initial and secondary disconnects" below
     @pytest.mark.skip(reason="two stage disconect causes assertion in test code")
     def test_sync_connect_in_the_middle_of_disconnect(
@@ -100,7 +100,7 @@ class TestConnectDisconnect(object):
         "Can do a manual disconnect in the `on_connection_state_change` call that is notifying the user about a connect."
     )
     @pytest.mark.parametrize(*parametrize.connection_retry_disabled_and_enabled)
-    @pytest.mark.parametrize(*parametrize.auto_connect_off_and_on)
+    @pytest.mark.parametrize(*parametrize.auto_connect_disabled_and_enabled)
     @pytest.mark.parametrize(
         "first_connect",
         [pytest.param(True, id="First connection"), pytest.param(False, id="Second connection")],
